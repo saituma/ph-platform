@@ -4,6 +4,7 @@ import { requireAuth } from "../middlewares/auth";
 import {
   submitOnboarding,
   submitYouthBasic,
+  submitAdultBasic,
   getOnboardingStatus,
   getOnboardingConfig,
   getPhpPlusTabs,
@@ -18,6 +19,7 @@ const router = Router();
 
 router.post("/onboarding", requireAuth, submitOnboarding);
 router.post("/onboarding/youth-basic", requireAuth, submitYouthBasic);
+router.post("/onboarding/adult-basic", requireAuth, submitAdultBasic);
 router.get("/onboarding", requireAuth, getOnboardingStatus);
 router.get("/onboarding/athletes", requireAuth, listGuardianAthletes);
 router.get("/onboarding/athletes/:athleteId", requireAuth, getGuardianAthlete);
