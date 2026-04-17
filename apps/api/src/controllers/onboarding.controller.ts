@@ -7,6 +7,8 @@ import {
   startYouthOnboarding,
   startAdultOnboarding,
   startTeamOnboarding,
+  startPerformanceOnboarding,
+  saveOnboardingGoals,
   getPublicOnboardingConfig,
   getPhpPlusProgramTabs,
   updateAthleteProfilePicture,
@@ -61,6 +63,19 @@ const teamBasicSchema = z.object({
   minAge: z.number().int().min(1),
   maxAge: z.number().int().min(1),
   maxAthletes: z.number().int().min(1),
+});
+
+const onboardingGoalsSchema = z.object({
+  trainingPerWeek: z.number().int().min(0).max(7),
+  performanceGoals: z.string().min(1),
+  injuries: z.any().optional(),
+  equipmentAccess: z.string().optional(),
+});
+
+const performanceSchema = z.object({
+  trainingPerWeek: z.number().int().min(0).max(7),
+  performanceGoals: z.string().min(1),
+  equipmentAccess: z.string().min(1),
 });
 
 const athletePhotoSchema = z.object({
@@ -150,6 +165,24 @@ export async function submitAdultBasic(req: Request, res: Response) {
 export async function submitTeamBasic(req: Request, res: Response) {
   const parsed = teamBasicSchema.parse(req.body);
   const result = await startTeamOnboarding({
+    userId: req.user!.id,
+    ...parsed,
+  });
+  return res.status(200).json(result);
+}
+
+export async function submitGoals(req: Request, res: Response) {
+  const parsed = onboardingGoalsSchema.parse(req.body);
+  const result = await saveOnboardingGoals({
+    userId: req.user!.id,
+    ...parsed,
+  });
+  return res.status(200).json(result);
+}
+
+export async function submitPerformanceBasic(req: Request, res: Response) {
+  const parsed = performanceSchema.parse(req.body);
+  const result = await startPerformanceOnboarding({
     userId: req.user!.id,
     ...parsed,
   });
