@@ -7,13 +7,16 @@ import {
     CardHeader,
     CardTitle,
 } from "#/components/ui/card";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
     ArrowLeftIcon,
     ClockIcon,
     EnvelopeSimpleIcon,
+    CircleNotch,
 } from "@phosphor-icons/react";
 import { useState, useRef, useEffect } from "react";
+import { toast } from "sonner";
+import { env } from "#/env";
 
 export const Route = createFileRoute("/verification")({
     component: VerificationComponent,
@@ -21,7 +24,10 @@ export const Route = createFileRoute("/verification")({
 
 function VerificationComponent() {
     const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [isResending, setIsResending] = useState(false);
     const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+    const navigate = useNavigate();
 
     useEffect(() => {
         inputsRef.current[0]?.focus();
@@ -60,6 +66,75 @@ function VerificationComponent() {
             setOtp(newOtp);
             const nextIndex = Math.min(data.length, 5);
             inputsRef.current[nextIndex]?.focus();
+        }
+    };
+
+    const handleVerify = async () => {
+        const code = otp.join("");
+        const email = sessionStorage.getItem("pending_email");
+
+        if (!email) {
+            toast.error("Session expired", {
+                description: "Please go back and enter your email again.",
+            });
+            return;
+        }
+
+        setIsVerifying(true);
+        try {
+            const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+            const response = await fetch(`${baseUrl}/api/auth/confirm`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email, code }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Invalid verification code");
+            }
+
+            toast.success("Account verified!");
+            navigate({ to: "/onboarding/step-1" });
+        } catch (error: any) {
+            toast.error("Verification failed", {
+                description: error.message || "Please check your code and try again.",
+            });
+        } finally {
+            setIsVerifying(false);
+        }
+    };
+
+    const handleResend = async () => {
+        const email = sessionStorage.getItem("pending_email");
+        if (!email) return;
+
+        setIsResending(true);
+        try {
+            const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+            const response = await fetch(`${baseUrl}/api/auth/resend`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || "Failed to resend code");
+            }
+
+            toast.success("New code sent!");
+        } catch (error: any) {
+            toast.error("Could not resend code", {
+                description: error.message,
+            });
+        } finally {
+            setIsResending(false);
         }
     };
 
@@ -117,10 +192,15 @@ function VerificationComponent() {
                         </div>
 
                         <Button
-                            disabled={!isComplete}
+                            disabled={!isComplete || isVerifying}
+                            onClick={handleVerify}
                             className="w-full h-14 rounded-2xl text-lg font-bold transition-all hover:scale-[1.01] active:scale-[0.99] shadow-xl shadow-primary/20"
                         >
-                            Verify Account
+                            {isVerifying ? (
+                                <CircleNotch className="w-6 h-6 animate-spin text-primary-foreground" />
+                            ) : (
+                                "Verify Account"
+                            )}
                         </Button>
                     </CardContent>
 
@@ -131,9 +211,11 @@ function VerificationComponent() {
                         </div>
                         <Button
                             variant="ghost"
+                            disabled={isResending || isVerifying}
+                            onClick={handleResend}
                             className="text-primary hover:text-primary hover:bg-primary/10 font-bold h-auto py-1.5 px-4 rounded-lg"
                         >
-                            Resend Code
+                            {isResending ? "Sending..." : "Resend Code"}
                         </Button>
                     </CardFooter>
                 </Card>
