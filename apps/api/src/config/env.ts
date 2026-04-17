@@ -135,6 +135,6 @@ export const env = {
     raw.BOOKING_ACTION_SECRET ?? (phApiScript ? (raw.JWT_SECRET ?? scriptPlaceholder) : raw.JWT_SECRET!),
   openaiApiKey: phApiScript ? (raw.OPEN_AI_API_KEY ?? scriptPlaceholder) : raw.OPEN_AI_API_KEY!,
   expoAccessToken: raw.EXPO_ACCESS_TOKEN ?? "",
-  corsOrigins: raw.CORS_ORIGINS ?? "",
+  corsOrigins: raw.CORS_ORIGINS ?? "http://localhost:3000",
   requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
 };
