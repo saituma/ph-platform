@@ -21,6 +21,13 @@ export const Route = createFileRoute("/onboarding/step-5")({
 	component: OnboardingStep5,
 });
 
+const TIER_METADATA: Record<string, { label: string; icon: any; order: number }> = {
+	"PHP": { label: "Foundation", icon: TrendUp, order: 1 },
+	"PHP_Pro": { label: "Pro", icon: Star, order: 2 },
+	"PHP_Premium": { label: "Elite", icon: Trophy, order: 3 },
+	"PHP_Premium_Plus": { label: "Grandmaster", icon: Crown, order: 4 },
+};
+
 function OnboardingStep5() {
 	const [plans, setPlans] = useState<any[]>([]);
 	const [selectedPlan, setSelectedPlan] = useState<string>("");
@@ -35,10 +42,18 @@ function OnboardingStep5() {
 				const response = await fetch(`${baseUrl}/api/billing/plans`);
 				if (response.ok) {
 					const data = await response.json();
-					setPlans(data.plans || []);
-					if (data.plans?.length > 0) {
-						// Default to the second plan (usually Pro) or the first
-						setSelectedPlan(data.plans[1]?.tier || data.plans[0].tier);
+					// Filter to only active plans and ensure unique tiers
+					const activePlans = (data.plans || [])
+						.filter((p: any) => p.isActive)
+						.sort((a: any, b: any) => {
+							const orderA = TIER_METADATA[a.tier]?.order || 99;
+							const orderB = TIER_METADATA[b.tier]?.order || 99;
+							return orderA - orderB;
+						});
+					
+					setPlans(activePlans);
+					if (activePlans.length > 0) {
+						setSelectedPlan(activePlans[1]?.tier || activePlans[0].tier);
 					}
 				}
 			} catch (error) {
@@ -58,6 +73,7 @@ function OnboardingStep5() {
 		try {
 			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
 			const token = sessionStorage.getItem("auth_token");
+			const selectedPlanData = plans.find(p => p.tier === selectedPlan);
 			
 			const response = await fetch(`${baseUrl}/api/billing/create-checkout`, {
 				method: "POST",
@@ -66,15 +82,14 @@ function OnboardingStep5() {
 					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({
-					tier: selectedPlan,
-					successUrl: `${window.location.origin}/onboarding/success`,
-					cancelUrl: window.location.href,
+					planId: selectedPlanData.id,
+					interval: "monthly",
 				}),
 			});
 
 			const data = await response.json();
-			if (data.url) {
-				window.location.href = data.url;
+			if (data.checkoutUrl) {
+				window.location.href = data.checkoutUrl;
 			} else {
 				throw new Error(data.error || "Failed to create checkout session");
 			}
@@ -115,10 +130,8 @@ function OnboardingStep5() {
 					{plans.map((plan) => {
 						const isSelected = selectedPlan === plan.tier;
 						const displayPrice = plan.pricing?.monthly?.discounted || plan.displayPrice;
-						
-						const isPlus = plan.tier.includes("Plus");
-						const isPremium = plan.tier.includes("Premium") && !isPlus;
-						const isPro = plan.tier.includes("Pro");
+						const meta = TIER_METADATA[plan.tier] || { label: plan.name, icon: TrendUp };
+						const Icon = meta.icon;
 
 						return (
 							<Card 
@@ -137,10 +150,7 @@ function OnboardingStep5() {
 											"p-3 rounded-2xl",
 											isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
 										)}>
-											{isPlus ? <Crown size={28} weight="bold" /> : 
-											 isPremium ? <Trophy size={28} weight="bold" /> : 
-											 isPro ? <Star size={28} weight="bold" /> : 
-											 <TrendUp size={28} weight="bold" />}
+											<Icon size={28} weight="bold" />
 										</div>
 										{isSelected && (
 											<Check size={20} weight="bold" className="text-primary" />
@@ -148,7 +158,7 @@ function OnboardingStep5() {
 									</div>
 
 									<div className="space-y-1">
-										<h3 className="text-2xl font-black uppercase tracking-tight leading-none">{plan.name}</h3>
+										<h3 className="text-2xl font-black uppercase tracking-tight leading-none">{meta.label}</h3>
 										<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
 											{plan.tier.replace(/_/g, ' ')}
 										</p>
