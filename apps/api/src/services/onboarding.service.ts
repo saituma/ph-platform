@@ -171,6 +171,58 @@ export async function startYouthOnboarding(input: {
 	return { ok: true };
 }
 
+export async function startAdultOnboarding(input: {
+	userId: number;
+	name: string;
+	birthDate: string;
+}) {
+	// Update user name
+	await db
+		.update(userTable)
+		.set({
+			name: input.name,
+			updatedAt: new Date(),
+		})
+		.where(eq(userTable.id, input.userId));
+
+	// Create or update athlete record
+	const athletes = await db
+		.select()
+		.from(athleteTable)
+		.where(eq(athleteTable.userId, input.userId))
+		.limit(1);
+
+	const parsedBirthDate = parseISODate(input.birthDate);
+	if (!parsedBirthDate) {
+		throw new Error("Invalid birth date format.");
+	}
+	const age = calculateAge(parsedBirthDate, new Date());
+
+	if (athletes[0]) {
+		await db
+			.update(athleteTable)
+			.set({
+				name: input.name,
+				birthDate: input.birthDate,
+				age: age,
+				athleteType: "adult",
+				updatedAt: new Date(),
+			})
+			.where(eq(athleteTable.id, athletes[0].id));
+	} else {
+		await db.insert(athleteTable).values({
+			userId: input.userId,
+			guardianId: null,
+			name: input.name,
+			birthDate: input.birthDate,
+			age: age,
+			athleteType: "adult",
+		});
+	}
+
+	return { ok: true };
+}
+
 export async function getOnboardingByUser(userId: number) {
   const user = await getUserById(userId);
   if (!user) return null;
