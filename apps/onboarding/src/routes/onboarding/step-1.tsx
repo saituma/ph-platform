@@ -37,7 +37,22 @@ const USER_TYPES = [
 function OnboardingStep1() {
 	const [selected, setSelected] = useState<UserType>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isValidating, setIsValidating] = useState(true);
 	const navigate = useNavigate();
+
+	useEffect(() => {
+		const email = sessionStorage.getItem("pending_email");
+		const token = sessionStorage.getItem("auth_token");
+
+		if (!email || !token) {
+			toast.error("Session expired", {
+				description: "Please enter your email to continue onboarding.",
+			});
+			navigate({ to: "/" });
+			return;
+		}
+		setIsValidating(false);
+	}, [navigate]);
 
 	const handleContinue = async () => {
 		if (!selected || isSubmitting) return;
@@ -84,6 +99,8 @@ function OnboardingStep1() {
 			setIsSubmitting(false);
 		}
 	};
+
+	if (isValidating) return null;
 
 	return (
 		<main className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">

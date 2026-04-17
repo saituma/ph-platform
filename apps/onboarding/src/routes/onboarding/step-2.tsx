@@ -40,12 +40,25 @@ function OnboardingStep2() {
 	});
 	const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isValidating, setIsValidating] = useState(true);
 	const navigate = useNavigate();
 
 	useEffect(() => {
+		const email = sessionStorage.getItem("pending_email");
+		const token = sessionStorage.getItem("auth_token");
 		const type = sessionStorage.getItem("user_type");
+
+		if (!email || !token || !type) {
+			toast.error("Session expired", {
+				description: "Please enter your email to continue onboarding.",
+			});
+			navigate({ to: "/" });
+			return;
+		}
+
 		setUserType(type);
-	}, []);
+		setIsValidating(false);
+	}, [navigate]);
 
 	const handleInputChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
@@ -155,7 +168,7 @@ function OnboardingStep2() {
 		}
 	};
 
-	if (!userType) return null;
+	if (isValidating || !userType) return null;
 
 	return (
 		<main className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
