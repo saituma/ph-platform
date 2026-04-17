@@ -94,10 +94,12 @@ function VerificationComponent() {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || "Invalid verification code");
+                throw new Error(data.error || "The code you entered is incorrect or has expired.");
             }
 
-            toast.success("Account verified!");
+            toast.success("Account verified!", {
+                description: "Welcome to PH Platform. Let's finish your profile.",
+            });
             navigate({ to: "/onboarding/step-1" });
         } catch (error: any) {
             toast.error("Verification failed", {
