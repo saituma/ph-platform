@@ -13,7 +13,7 @@ export type ManagedAthlete = {
   userId?: number | null;
   name?: string | null;
   age?: number | null;
-  athleteType?: \"youth\" | \"adult\" | null;
+  athleteType?: "youth" | "adult" | null;
   team?: string | null;
   level?: string | null;
   trainingPerWeek?: number | null;
@@ -38,6 +38,14 @@ interface UserState {
   hydrated: boolean;
   managedAthletes: ManagedAthlete[];
   appRole: AppRole | null;
+  /** Normalized program tier label from API (e.g. PHP_Premium). */
+  programTier: string | null;
+  /** Tiers allowed for coach messaging; empty means “use defaults”. */
+  messagingAccessTiers: string[];
+  /** When acting as a youth athlete account (guardian), target user id. */
+  athleteUserId: number | null;
+  /** Onboarding questionnaire completion for the active athlete context. */
+  onboardingCompleted: boolean | null;
 }
 
 const initialState: UserState = {
@@ -55,6 +63,10 @@ const initialState: UserState = {
   hydrated: false,
   managedAthletes: [],
   appRole: null,
+  programTier: null,
+  messagingAccessTiers: [],
+  athleteUserId: null,
+  onboardingCompleted: null,
 };
 
 const userSlice = createSlice({
@@ -91,6 +103,18 @@ const userSlice = createSlice({
     setHydrated: (state, action: PayloadAction<boolean>) => {
       state.hydrated = action.payload;
     },
+    setProgramTier: (state, action: PayloadAction<string | null>) => {
+      state.programTier = action.payload;
+    },
+    setMessagingAccessTiers: (state, action: PayloadAction<string[]>) => {
+      state.messagingAccessTiers = action.payload;
+    },
+    setAthleteUserId: (state, action: PayloadAction<number | null>) => {
+      state.athleteUserId = action.payload;
+    },
+    setOnboardingCompleted: (state, action: PayloadAction<boolean | null>) => {
+      state.onboardingCompleted = action.payload;
+    },
     logout: (state) => {
       state.isAuthenticated = false;
       state.token = null;
@@ -99,6 +123,10 @@ const userSlice = createSlice({
       state.apiUserRole = null;
       state.managedAthletes = [];
       state.appRole = null;
+      state.programTier = null;
+      state.messagingAccessTiers = [];
+      state.athleteUserId = null;
+      state.onboardingCompleted = null;
     },
   },
 });
@@ -111,6 +139,10 @@ export const {
   setAppRole,
   setLoading,
   setHydrated,
+  setProgramTier,
+  setMessagingAccessTiers,
+  setAthleteUserId,
+  setOnboardingCompleted,
   logout,
 } =
   userSlice.actions;

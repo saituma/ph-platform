@@ -138,7 +138,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     newSocket.on("physio:referral:updated", onReferralUpdated);
-    new_socket.on("physio:referral:deleted", onReferralDeleted);
+    newSocket.on("physio:referral:deleted", onReferralDeleted);
 
     const onProgramChanged = (payload: any) => {
       void scheduleLocalNotification({
@@ -158,22 +158,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     };
 
-    new_socket.on("program:changed", onProgramChanged);
-    new_socket.on("schedule:changed", onScheduleChanged);
+    newSocket.on("program:changed", onProgramChanged);
+    newSocket.on("schedule:changed", onScheduleChanged);
 
     // Message and group chat alerts are delivered via server-side Expo push so they appear
     // in the system tray when the app is backgrounded or killed. Foreground handling uses
     // addNotificationReceivedListener in InAppNotificationsContext (no duplicate local socket notifications).
 
-    socketRef.current = new_socket;
-    setSocket(new_socket);
+    socketRef.current = newSocket;
+    setSocket(newSocket);
 
     return () => {
-      new_socket.off("physio:referral:updated", onReferralUpdated);
-      new_socket.off("physio:referral:deleted", onReferralDeleted);
-      new_socket.off("program:changed", onProgramChanged);
-      new_socket.off("schedule:changed", onScheduleChanged);
-      new_socket.disconnect();
+      newSocket.off("physio:referral:updated", onReferralUpdated);
+      newSocket.off("physio:referral:deleted", onReferralDeleted);
+      newSocket.off("program:changed", onProgramChanged);
+      newSocket.off("schedule:changed", onScheduleChanged);
+      newSocket.disconnect();
       socketRef.current = null;
       setSocket(null);
       setIsConnected(false);

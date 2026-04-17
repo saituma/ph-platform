@@ -19,12 +19,14 @@ const NORMALIZED_TIER_MAP: Record<string, ProgramTierName> = {
 };
 
 export function normalizeProgramTier(tier?: string | null): ProgramTierName | null {
-  if (!tier) return "PHP";
-  if (PROGRAM_TIER_ORDER.includes(tier as ProgramTierName)) {
-    return tier as ProgramTierName;
+  if (tier == null) return null;
+  const trimmed = tier.trim();
+  if (!trimmed) return null;
+  if (PROGRAM_TIER_ORDER.includes(trimmed as ProgramTierName)) {
+    return trimmed as ProgramTierName;
   }
-  const key = tier.trim().toLowerCase().replace(/\s+/g, " ");
-  return NORMALIZED_TIER_MAP[key] ?? "PHP";
+  const key = trimmed.toLowerCase().replace(/\s+/g, " ");
+  return NORMALIZED_TIER_MAP[key] ?? null;
 }
 
 export function programIdToTier(id: "php" | "plus" | "premium" | "pro"): ProgramTierName {
@@ -35,18 +37,30 @@ export function programIdToTier(id: "php" | "plus" | "premium" | "pro"): Program
 }
 
 export function tierRank(tier?: string | null): number {
-  return 0; // Everything is same rank
+  if (tier == null || tier === "") return -1;
+  const n = normalizeProgramTier(tier);
+  if (!n) return -1;
+  const idx = PROGRAM_TIER_ORDER.indexOf(n);
+  return idx >= 0 ? idx : -1;
 }
 
 export function canAccessTier(userTier: string | null, requiredTier?: string | null): boolean {
-  return true; // Always true
+  if (requiredTier == null || requiredTier === "") return true;
+  const required = normalizeProgramTier(requiredTier);
+  if (!required) return true;
+  const user = normalizeProgramTier(userTier);
+  if (!user) return false;
+  return tierRank(user) >= tierRank(required);
 }
 
+/** Product “Premium” tier only (not Plus / Pro). */
 export function isPremium(userTier?: string | null): boolean {
-  return true; // Everything is premium now
+  return normalizeProgramTier(userTier ?? null) === "PHP_Premium";
 }
 
-/** Any coach-approved paid plan (PHP / Plus / Premium). Until then the user is on the free path. */
+/** Coach-approved paid plan: Premium tier or higher (Plus / Pro). */
 export function hasPaidProgramTier(tier?: string | null): boolean {
-  return true; // Always true
+  const n = normalizeProgramTier(tier ?? null);
+  if (!n) return false;
+  return tierRank(n) >= tierRank("PHP_Premium");
 }

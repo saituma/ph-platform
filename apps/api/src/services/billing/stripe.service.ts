@@ -125,6 +125,75 @@ export function ensureStripePriceId(
   return normalized;
 }
 
+/** Same resolution as `ensureStripePriceId(..., "monthly")` but returns null instead of throwing. */
+export function tryResolveMonthlyStripePriceId(plan: {
+  stripePriceId?: string | null;
+  stripePriceIdMonthly?: string | null;
+  stripePriceIdYearly?: string | null;
+  tier?: (typeof ProgramType.enumValues)[number];
+}): string | null {
+  try {
+    return ensureStripePriceId(plan, "monthly");
+  } catch {
+    return null;
+  }
+}
+
+export const ATHLETE_BILLING_CYCLES = ["monthly", "six_months", "yearly"] as const;
+export type AthleteBillingCycle = (typeof ATHLETE_BILLING_CYCLES)[number];
+
+export function lookupKeyForAthleteBilling(
+  tier: (typeof ProgramType.enumValues)[number],
+  billingCycle: AthleteBillingCycle
+) {
+  const suffix =
+    billingCycle === "monthly" ? "monthly" : billingCycle === "six_months" ? "six_months" : "yearly";
+  return `${tier.toLowerCase()}_${suffix}`;
+}
+
+export async function resolvePriceIdByTierLookup(
+  tier: (typeof ProgramType.enumValues)[number],
+  billingCycle: AthleteBillingCycle
+): Promise<string | null> {
+  if (!stripe) return null;
+  const lookupKey = lookupKeyForAthleteBilling(tier, billingCycle);
+  try {
+    const prices = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
+    return prices.data[0]?.id ?? null;
+  } catch (err) {
+    console.warn(`[Stripe] Lookup failed for ${lookupKey}`, err);
+    return null;
+  }
+}
+
+/** Checkout line item: lookup key first, then DB/env (monthly/yearly only for fallback). */
+export async function ensureAthleteCheckoutPriceId(
+  plan: {
+    stripePriceId?: string | null;
+    stripePriceIdMonthly?: string | null;
+    stripePriceIdYearly?: string | null;
+    tier: (typeof ProgramType.enumValues)[number];
+  },
+  billingCycle: AthleteBillingCycle
+): Promise<string> {
+  const fromLookup = await resolvePriceIdByTierLookup(plan.tier, billingCycle);
+  if (fromLookup) return fromLookup;
+  if (billingCycle === "monthly") {
+    return ensureStripePriceId(plan, "monthly");
+  }
+  if (billingCycle === "yearly") {
+    return ensureStripePriceId(plan, "yearly");
+  }
+  const lk = lookupKeyForAthleteBilling(plan.tier, billingCycle);
+  throw new Error(
+    `No Stripe price for ${plan.tier} / ${billingCycle}. Create a Price with lookup key "${lk}" in Stripe.`
+  );
+}
+
+export function checkoutModeForBillingCycle(cycle: AthleteBillingCycle): "subscription" | "payment" {
+  return cycle === "monthly" ? "subscription" : "payment";
+}
+
 export async function createStripePriceForPlan(input: {
   name: string;
   tier: (typeof ProgramType.enumValues)[number];

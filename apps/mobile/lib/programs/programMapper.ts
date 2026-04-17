@@ -1,5 +1,22 @@
 import { ProgramSectionContent, TrainingContentV2Workspace } from "@/types/programs";
 import { normalizeProgramTabLabel } from "@/constants/program-details";
+import { buildPlanPricing } from "@/lib/billing";
+
+export function mapPublicPlans(plans: Array<{ id: number; tier: string; monthlyPrice?: string }>): {
+  plansByTier: Record<string, number>;
+  planDetailsByTier: Record<string, { id: number; tier: string; monthlyPrice?: string }>;
+  pricingByTier: Record<string, ReturnType<typeof buildPlanPricing>>;
+} {
+  const plansByTier: Record<string, number> = {};
+  const planDetailsByTier: Record<string, { id: number; tier: string; monthlyPrice?: string }> = {};
+  const pricingByTier: Record<string, ReturnType<typeof buildPlanPricing>> = {};
+  for (const p of plans) {
+    plansByTier[p.tier] = p.id;
+    planDetailsByTier[p.tier] = p;
+    pricingByTier[p.tier] = buildPlanPricing(p);
+  }
+  return { plansByTier, planDetailsByTier, pricingByTier };
+}
 
 export function mapTeamWorkspace(response: TrainingContentV2Workspace): TrainingContentV2Workspace {
   const tabs =

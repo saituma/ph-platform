@@ -17,6 +17,7 @@ import {
   createSubscriptionPlan,
   confirmPaymentSheetIntent,
   getLatestSubscriptionRequest,
+  enrichPlansWithBillingQuotes,
   listSubscriptionPlans,
   listSubscriptionRequests,
   updateSubscriptionRequestStatus,
@@ -26,8 +27,13 @@ import {
 import { updateAthleteProgramTier } from "../services/admin/user.service";
 
 const checkoutSchema = z.object({
-  planId: z.number().int().min(1),
+  planId: z.coerce.number().int().min(1),
+  billingCycle: z.enum(["monthly", "six_months", "yearly"]).optional(),
   interval: z.literal("monthly").optional(),
+});
+
+const listPlansQuerySchema = z.object({
+  billingCycle: z.enum(["monthly", "six_months", "yearly"]).optional(),
 });
 
 const confirmSchema = z.object({
@@ -56,8 +62,12 @@ const downgradeSchema = z.object({
   tier: z.enum(ProgramType.enumValues),
 });
 
-export async function listPlans(_req: Request, res: Response) {
-  const plans = await listSubscriptionPlans({ includeInactive: true });
+export async function listPlans(req: Request, res: Response) {
+  const parsed = listPlansQuerySchema.safeParse(req.query);
+  let plans = await listSubscriptionPlans({ includeInactive: true });
+  if (parsed.success && parsed.data.billingCycle) {
+    plans = await enrichPlansWithBillingQuotes(plans, parsed.data.billingCycle);
+  }
   return res.status(200).json({ plans });
 }
 
@@ -154,7 +164,7 @@ export async function createCheckout(req: Request, res: Response) {
       userEmail: req.user!.email,
       athleteId: athlete.id,
       planId: parsed.data.planId,
-      interval: "monthly",
+      billingCycle: parsed.data.billingCycle,
     });
     return res.status(200).json({
       checkoutUrl: session.url,

@@ -27,6 +27,7 @@ export type AdminBooking = {
   startsAt?: string | null;
   endTime?: string | null;
   type?: string | null;
+  serviceType?: string | null;
   status?: "pending" | "confirmed" | "declined" | "cancelled" | string | null;
   location?: string | null;
   meetingLink?: string | null;
@@ -75,6 +76,7 @@ export type ServiceType = {
   id: number;
   name?: string | null;
   type?: string | null;
+  description?: string | null;
   durationMinutes?: number | null;
   capacity?: number | null;
   isActive?: boolean | null;
@@ -82,6 +84,7 @@ export type ServiceType = {
   defaultMeetingLink?: string | null;
   programTier?: string | null;
   eligiblePlans?: string[] | null;
+  eligibleTargets?: string[] | null;
   schedulePattern?: string | null;
   schedulePatternOptions?: any | null;
 };

@@ -1,7 +1,30 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { subscriptionPlanTable, ProgramType } from "../../db/schema";
-import { stripe, createStripePriceForPlan } from "./stripe.service";
+import {
+  stripe,
+  createStripePriceForPlan,
+  tryResolveMonthlyStripePriceId,
+  ensureAthleteCheckoutPriceId,
+  checkoutModeForBillingCycle,
+  lookupKeyForAthleteBilling,
+  type AthleteBillingCycle,
+} from "./stripe.service";
+
+/** Access window end for athlete checkout by billing choice (approval / period start). */
+export function computeAthleteAccessEnd(billingCycle: AthleteBillingCycle, from: Date): Date {
+  const d = new Date(from.getTime());
+  if (billingCycle === "monthly") {
+    d.setMonth(d.getMonth() + 1);
+    return d;
+  }
+  if (billingCycle === "six_months") {
+    d.setMonth(d.getMonth() + 6);
+    return d;
+  }
+  d.setFullYear(d.getFullYear() + 1);
+  return d;
+}
 
 /** Next period end from plan billing interval (coach approval time). One-time plans → no auto-expiry. */
 export function computePlanPeriodEnd(billingInterval: string | null | undefined, from: Date): Date | null {
@@ -38,6 +61,21 @@ function formatPriceFromCents(cents: number, symbol = "£") {
   const amount = cents / 100;
   const fixed = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
   return `${symbol}${fixed}`;
+}
+
+/** Format Stripe minor units using the price's ISO currency (source of truth for checkout). */
+function formatMoneyFromStripeCents(cents: number, currencyCode: string) {
+  const code = (currencyCode || "gbp").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(cents / 100);
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${code}`;
+  }
 }
 
 function parseDiscountConfig(input: {
@@ -175,6 +213,77 @@ function buildPublicPlanPricing(plan: {
   };
 }
 
+type PlanRowForPricing = Parameters<typeof buildPublicPlanPricing>[0] & {
+  stripePriceId?: string | null;
+  stripePriceIdMonthly?: string | null;
+  stripePriceIdYearly?: string | null;
+  tier?: (typeof ProgramType.enumValues)[number];
+};
+
+async function fetchStripeMonthlyUnit(plan: PlanRowForPricing): Promise<{ unitAmount: number; currency: string } | null> {
+  if (!stripe) return null;
+  const priceId = tryResolveMonthlyStripePriceId(plan);
+  if (!priceId) return null;
+  try {
+    const price = await stripe.prices.retrieve(priceId);
+    if (price.unit_amount == null) return null;
+    return { unitAmount: price.unit_amount, currency: price.currency ?? "gbp" };
+  } catch (err) {
+    console.warn("[Billing] Could not load Stripe price for display", priceId, err);
+    return null;
+  }
+}
+
+/**
+ * When Stripe is configured, replace DB string prices with amounts from the linked Stripe Price
+ * so public plan lists match what Checkout charges.
+ */
+function mergeStripeMonthlyPricing(
+  plan: PlanRowForPricing,
+  base: ReturnType<typeof buildPublicPlanPricing>,
+  stripeMonthly: { unitAmount: number; currency: string }
+) {
+  const originalCents = stripeMonthly.unitAmount;
+  const discountedCents = applyDiscountToAmount({
+    originalCents,
+    discountType: plan.discountType,
+    discountValue: plan.discountValue,
+    discountAppliesTo: plan.discountAppliesTo,
+    interval: "monthly",
+  });
+  const hasDiscount = discountedCents < originalCents;
+  const intervalDiscountValue = parseDiscountConfig(plan).monthly;
+  const discountLabel =
+    hasDiscount && plan.discountType === "percent" && intervalDiscountValue
+      ? `${String(intervalDiscountValue).trim()}% off`
+      : hasDiscount && plan.discountType === "amount"
+      ? "Discount applied"
+      : null;
+
+  const monthly = {
+    label: "Monthly" as const,
+    interval: "monthly" as const,
+    original: formatMoneyFromStripeCents(originalCents, stripeMonthly.currency),
+    discounted: formatMoneyFromStripeCents(discountedCents, stripeMonthly.currency),
+    hasDiscount,
+    discountLabel,
+    originalCents,
+    discountedCents,
+  };
+
+  const yearly = base.yearly;
+  const featured = monthly ?? yearly;
+  return {
+    monthly,
+    yearly,
+    badge: featured
+      ? featured.hasDiscount
+        ? `${featured.label} ${featured.discounted}`
+        : featured.original
+      : plan.displayPrice ?? null,
+  };
+}
+
 export async function listActiveSubscriptionPlans() {
   return db
     .select()
@@ -193,10 +302,68 @@ export async function listSubscriptionPlans(options?: { includeInactive?: boolea
         .where(eq(subscriptionPlanTable.isActive, true))
         .orderBy(subscriptionPlanTable.id);
 
-  return rows.map((plan) => ({
-    ...plan,
-    pricing: buildPublicPlanPricing(plan),
-  }));
+  const withStripe = await Promise.all(
+    rows.map(async (plan) => {
+      const base = buildPublicPlanPricing(plan);
+      const stripeMonthly = await fetchStripeMonthlyUnit(plan as PlanRowForPricing);
+      const pricing = stripeMonthly ? mergeStripeMonthlyPricing(plan as PlanRowForPricing, base, stripeMonthly) : base;
+      return {
+        ...plan,
+        pricing,
+      };
+    })
+  );
+
+  return withStripe;
+}
+
+/** Adds `billingQuote` for onboarding plan picker (Stripe lookup + same resolution as checkout). */
+export async function enrichPlansWithBillingQuotes(
+  plans: Awaited<ReturnType<typeof listSubscriptionPlans>>,
+  billingCycle: AthleteBillingCycle
+) {
+  if (!stripe) {
+    return plans.map((p) => ({ ...p, billingQuote: null }));
+  }
+  const stripeClient = stripe;
+  return Promise.all(
+    plans.map(async (plan) => {
+      try {
+        const priceId = await ensureAthleteCheckoutPriceId(
+          {
+            stripePriceId: plan.stripePriceId,
+            stripePriceIdMonthly: plan.stripePriceIdMonthly,
+            stripePriceIdYearly: plan.stripePriceIdYearly,
+            tier: plan.tier,
+          },
+          billingCycle
+        );
+        const price = await stripeClient.prices.retrieve(priceId);
+        const cents = price.unit_amount;
+        const cur = price.currency ?? "gbp";
+        const amount =
+          cents != null
+            ? new Intl.NumberFormat("en-GB", {
+                style: "currency",
+                currency: cur.toUpperCase(),
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              }).format(cents / 100)
+            : "—";
+        return {
+          ...plan,
+          billingQuote: {
+            billingCycle,
+            lookupKey: lookupKeyForAthleteBilling(plan.tier, billingCycle),
+            amount,
+            mode: checkoutModeForBillingCycle(billingCycle),
+          },
+        };
+      } catch {
+        return { ...plan, billingQuote: null };
+      }
+    })
+  );
 }
 
 export async function getActiveSubscriptionPlanByTier(tier: (typeof ProgramType.enumValues)[number]) {

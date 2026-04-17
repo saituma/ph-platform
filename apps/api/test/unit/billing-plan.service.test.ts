@@ -21,6 +21,7 @@ jest.mock("../../src/db", () => ({
 jest.mock("../../src/services/billing/stripe.service", () => ({
   stripe: {},
   createStripePriceForPlan: jest.fn(),
+  tryResolveMonthlyStripePriceId: jest.fn(() => null),
 }));
 
 describe("billing/plan.service", () => {
