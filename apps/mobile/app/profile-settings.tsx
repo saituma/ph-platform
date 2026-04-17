@@ -15,7 +15,6 @@ import { AgeGate } from "@/components/AgeGate";
 import { useProfileSettings } from "@/components/more/profile/hooks/useProfileSettings";
 import { AvatarSection } from "@/components/more/profile/AvatarSection";
 import { ManagedAthletesSection } from "@/components/more/profile/ManagedAthletesSection";
-import { AthleteOnboardingSection } from "@/components/more/profile/AthleteOnboardingSection";
 
 export default function ProfileSettingsScreen() {
   const { isSectionHidden } = useAgeExperience();
@@ -113,35 +112,6 @@ export default function ProfileSettingsScreen() {
               managedAthletes={managedAthletes}
               managedAthleteCount={managedAthleteCount}
             />
-
-            {activeAthleteId && hasLoadedAthleteDetails ? (
-              <AthleteOnboardingSection
-                athleteName={athleteName}
-                setAthleteName={setAthleteName}
-                athleteBirthDate={athleteBirthDate}
-                setAthleteBirthDate={setAthleteBirthDate}
-                athleteTeam={athleteTeam}
-                setAthleteTeam={setAthleteTeam}
-                athleteTrainingPerWeek={athleteTrainingPerWeek}
-                setAthleteTrainingPerWeek={setAthleteTrainingPerWeek}
-                athleteInjuries={athleteInjuries}
-                setAthleteInjuries={setAthleteInjuries}
-                athleteGrowthNotes={athleteGrowthNotes}
-                setAthleteGrowthNotes={setAthleteGrowthNotes}
-                athletePerformanceGoals={athletePerformanceGoals}
-                setAthletePerformanceGoals={setAthletePerformanceGoals}
-                athleteEquipmentAccess={athleteEquipmentAccess}
-                setAthleteEquipmentAccess={setAthleteEquipmentAccess}
-                height={height}
-                setHeight={setHeight}
-                weight={weight}
-                setWeight={setWeight}
-                position={position}
-                setPosition={setPosition}
-                athleteExtraResponses={athleteExtraResponses}
-                setExtraResponseField={setExtraResponseField}
-              />
-            ) : null}
 
             <ActionButton
               label={isSaving ? "Saving..." : "Save Changes"}

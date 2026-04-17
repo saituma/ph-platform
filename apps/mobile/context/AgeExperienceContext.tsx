@@ -32,8 +32,6 @@ const AgeExperienceContext = createContext<AgeExperienceContextValue | null>(nul
 
 export function AgeExperienceProvider({ children }: { children: React.ReactNode }) {
   const token = useAppSelector((state) => state.user.token);
-  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
-  const onboardingCompleted = useAppSelector((state) => state.user.onboardingCompleted);
   const { setFontSizeOption } = useFontScale();
   const [config, setConfig] = useState<AgeExperienceConfig>(defaultConfig);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,7 +44,7 @@ export function AgeExperienceProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     let mounted = true;
     const loadConfig = async () => {
-      if (!token || onboardingCompleted === false) {
+      if (!token) {
         setConfig(defaultConfig);
         return;
       }
@@ -79,7 +77,7 @@ export function AgeExperienceProvider({ children }: { children: React.ReactNode 
     return () => {
       mounted = false;
     };
-  }, [token, athleteUserId, onboardingCompleted, refreshNonce]);
+  }, [token, refreshNonce]);
 
   useEffect(() => {
     if (config.fontSizeOption) {

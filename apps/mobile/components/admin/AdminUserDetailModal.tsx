@@ -34,8 +34,8 @@ export function AdminUserDetailModal({
   const [tierPickerOpen, setTierPickerOpen] = useState(false);
   const [passwordDraft, setPasswordDraft] = useState("");
   
-  const [onboarding, setOnboarding] = useState<any>(null);
-  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [athlete, setAthlete] = useState<any>(null);
+  const [athleteLoading, setAthleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,21 +43,21 @@ export function AdminUserDetailModal({
       setTierDraft(user.programTier ?? "");
       setTierPickerOpen(false);
       setPasswordDraft("");
-      loadOnboarding();
+      loadAthleteData();
     }
   }, [user?.id, visible]);
 
-  const loadOnboarding = async () => {
+  const loadAthleteData = async () => {
     if (!token || !user?.id) return;
-    setOnboardingLoading(true);
+    setAthleteLoading(true);
     setError(null);
     try {
       const res = await apiRequest<UserOnboardingPayload>(`/admin/users/${user.id}/onboarding`, { token, skipCache: true });
-      setOnboarding(res);
+      setAthlete(res?.athlete ?? null);
     } catch (e) {
-      setError("Failed to load onboarding athlete context.");
+      setError("Failed to load athlete context.");
     } finally {
-      setOnboardingLoading(false);
+      setAthleteLoading(false);
     }
   };
 
@@ -90,7 +90,6 @@ export function AdminUserDetailModal({
     borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
   };
 
-  const athlete = onboarding?.athlete;
   const tierOptions = useMemo(
     () => ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const,
     [],
@@ -143,7 +142,7 @@ export function AdminUserDetailModal({
             )}
           </View>
           <View className="rounded-[28px] border p-5 mb-6" style={CardStyle}>
-            {onboardingLoading ? (
+            {athleteLoading ? (
               <View className="gap-3"><Skeleton width="100%" height={20} /><Skeleton width="100%" height={20} /><Skeleton width="100%" height={20} /></View>
             ) : athlete ? (
               <>
@@ -151,11 +150,7 @@ export function AdminUserDetailModal({
                 <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Birth Date</Text><Text className="text-sm font-outfit text-app">{athlete.birthDate ?? "—"}</Text></View>
                 <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Team</Text><Text className="text-sm font-clash-medium text-app">{athlete.team ?? "None"}</Text></View>
                 <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Training / Week</Text><Text className="text-sm font-outfit text-app">{athlete.trainingPerWeek ?? "—"} days</Text></View>
-                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Onboarding Done</Text><Text className="text-sm font-outfit text-app">{athlete.onboardingCompletedAt ? new Date(athlete.onboardingCompletedAt).toLocaleDateString() : (athlete.onboardingCompleted ? "Yes" : "No")}</Text></View>
                 <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Created At</Text><Text className="text-sm font-outfit text-app">{athlete.createdAt ? new Date(athlete.createdAt).toLocaleDateString() : "—"}</Text></View>
-                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Payment Term</Text><Text className="text-sm font-clash-medium text-app capitalize">{athlete.planPaymentType ?? "—"}</Text></View>
-                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Commitment</Text><Text className="text-sm font-outfit text-app">{athlete.planCommitmentMonths ? `${athlete.planCommitmentMonths} Months` : "—"}</Text></View>
-                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Expiry</Text><Text className="text-sm font-outfit text-app">{athlete.planExpiresAt ? new Date(athlete.planExpiresAt).toLocaleDateString() : "—"}</Text></View>
                 {!!athlete.injuries && athlete.injuries !== "None" && athlete.injuries !== "" && (
                    <View className="mt-2 bg-red-500/10 rounded-xl p-3 border border-red-500/20">
                      <Text className="text-[11px] font-outfit-bold text-red-500 uppercase tracking-widest mb-1">Reported Injuries</Text>
@@ -216,8 +211,8 @@ export function AdminUserDetailModal({
                   <SmallAction
                     label="Refresh"
                     tone="neutral"
-                    onPress={loadOnboarding}
-                    disabled={isBusy || onboardingLoading}
+                    onPress={loadAthleteData}
+                    disabled={isBusy || athleteLoading}
                   />
                 </View>
              </View>

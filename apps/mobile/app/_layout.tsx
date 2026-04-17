@@ -22,7 +22,6 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { Compose } from "@/lib/compose";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import Purchases from "react-native-purchases";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { AndroidBackToTabs } from "@/components/navigation/AndroidBackToTabs";
@@ -37,35 +36,6 @@ const QueryWrapper = ({ children }: { children: ReactElement }) => (
 );
 
 export default function RootLayout() {
-  useEffect(() => {
-    if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
-      console.log("Running in Expo Go. Skipping RevenueCat configuration to prevent native errors.");
-      return;
-    }
-
-    const iosKey = process.env.EXPO_PUBLIC_RC_IOS_KEY?.trim();
-    const androidKey = process.env.EXPO_PUBLIC_RC_ANDROID_KEY?.trim();
-    const key = Platform.OS === "ios" ? iosKey : Platform.OS === "android" ? androidKey : undefined;
-    if (!key) {
-      console.warn(
-        "RevenueCat API key missing; skipping Purchases.configure. Set EXPO_PUBLIC_RC_IOS_KEY / EXPO_PUBLIC_RC_ANDROID_KEY for IAP builds.",
-      );
-      return;
-    }
-    // Test Store keys (test_…) are blocked by the SDK in release/preview APKs — only use them in dev/debug (e.g. EAS development client).
-    if (key.startsWith("test_") && !__DEV__) {
-      console.warn(
-        "RevenueCat Test Store API key skipped in release build. Use Google Play / App Store public keys (goog_… / appl_…) for preview or production APKs, or test IAP from a development client build.",
-      );
-      return;
-    }
-    try {
-      Purchases.configure({ apiKey: key });
-    } catch (e) {
-      console.warn("Failed to configure Purchases:", e);
-    }
-  }, []);
-
   useEffect(() => {
     void runStartupSelfTest();
   }, []);

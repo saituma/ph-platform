@@ -4,7 +4,6 @@ export type NotificationCategory =
   | "message"
   | "schedule"
   | "account"
-  | "payment"
   | "progress"
   | "system"
   | "general";
@@ -12,16 +11,16 @@ export type NotificationCategory =
 export type NotificationMeta = {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
+  colorType: "accent" | "warning" | "danger" | "success" | "tint" | "system";
 };
 
 const CATEGORY_META: Record<NotificationCategory, NotificationMeta> = {
-  message: { label: "Messages", icon: "chatbubble-ellipses" },
-  schedule: { label: "Schedule", icon: "calendar" },
-  account: { label: "Account", icon: "person-circle" },
-  payment: { label: "Billing", icon: "card" },
-  progress: { label: "Progress", icon: "trophy" },
-  system: { label: "System", icon: "alert-circle" },
-  general: { label: "Updates", icon: "notifications" },
+  message: { label: "Messages", icon: "chatbubble-ellipses", colorType: "accent" },
+  schedule: { label: "Schedule", icon: "calendar", colorType: "warning" },
+  account: { label: "Account", icon: "person-circle", colorType: "tint" },
+  progress: { label: "Progress", icon: "trending-up", colorType: "success" },
+  system: { label: "System", icon: "alert-circle", colorType: "system" },
+  general: { label: "Updates", icon: "notifications", colorType: "accent" },
 };
 
 const TITLE_CASE_BREAK = /[_-]+/g;
@@ -44,15 +43,28 @@ export function inferNotificationCategory(
   const haystack = `${type ?? ""} ${content ?? ""}`.toLowerCase();
   if (/(message|chat|dm|inbox)/.test(haystack)) return "message";
   if (/(schedule|booking|session|calendar|reschedule)/.test(haystack)) return "schedule";
-  if (/(invoice|payment|billing|card|receipt|stripe)/.test(haystack)) return "payment";
-  if (/(account|profile|password|login|security)/.test(haystack)) return "account";
+  if (/(account|profile|password|login|security|invoice|payment|billing|card|receipt|stripe)/.test(haystack)) return "account";
   if (/(progress|goal|workout|program|plan|assessment|video_reviewed|feedback)/.test(haystack)) return "progress";
   if (/(alert|warning|system|maintenance|update)/.test(haystack)) return "system";
   return "general";
 }
 
-export function getNotificationMeta(category: NotificationCategory) {
-  return CATEGORY_META[category] ?? CATEGORY_META.general;
+const TYPE_SPECIFIC_META: Record<string, Partial<NotificationMeta>> = {
+  message: { icon: "chatbubble-ellipses" },
+  "group-message": { icon: "people" },
+  booking_requested: { icon: "time", colorType: "warning" },
+  booking_confirmed: { icon: "checkmark-circle", colorType: "success" },
+  booking_declined: { icon: "close-circle", colorType: "danger" },
+  program: { icon: "fitness", colorType: "accent" },
+  video_reviewed: { icon: "videocam", colorType: "success" },
+  "physio-referral": { icon: "medical", colorType: "tint" },
+  security_alert: { icon: "shield-half", colorType: "danger" },
+};
+
+export function getNotificationMeta(category: NotificationCategory, type?: string | null) {
+  const base = CATEGORY_META[category] ?? CATEGORY_META.general;
+  const specific = type ? TYPE_SPECIFIC_META[type] : null;
+  return { ...base, ...specific };
 }
 
 export function getNotificationTitle(

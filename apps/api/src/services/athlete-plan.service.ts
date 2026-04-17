@@ -1,6 +1,8 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "../db";
+import { getSocketServer } from "../socket-hub";
+import { sendPushNotification } from "./push.service";
 import {
   athletePlanExerciseCompletionTable,
   athletePlanExerciseTable,
@@ -12,7 +14,31 @@ import {
   ProgramType,
   sessionExerciseTable,
   sessionTable,
+  athleteTable,
 } from "../db/schema";
+
+async function notifyProgramChanged(athleteId: number) {
+  const [athlete] = await db
+    .select({ userId: athleteTable.userId })
+    .from(athleteTable)
+    .where(eq(athleteTable.id, athleteId))
+    .limit(1);
+
+  if (!athlete?.userId) return;
+
+  const io = getSocketServer();
+  if (io) {
+    const payload = { message: "Your training program has been updated by your coach." };
+    io.to(`user:${athlete.userId}`).emit("program:changed", payload);
+  }
+
+  void sendPushNotification(
+    athlete.userId,
+    "Program Update",
+    "Your training program has been updated by your coach.",
+    { type: "program", url: "/(tabs)/programs" }
+  );
+}
 
 const normalizeLookupValue = (value: string | null | undefined) =>
   value
@@ -284,6 +310,7 @@ export async function clonePremiumPlanFromAssignedTemplate(input: {
       }
     }
 
+    void notifyProgramChanged(input.athleteId);
     return { ok: true, templateProgramId };
   });
 }
@@ -308,6 +335,11 @@ export async function createPlanSession(input: {
       updatedAt: new Date(),
     })
     .returning();
+    
+  if (row?.athleteId) {
+    void notifyProgramChanged(row.athleteId);
+  }
+  
   return row ?? null;
 }
 
@@ -329,6 +361,11 @@ export async function updatePlanSession(input: {
     })
     .where(eq(athletePlanSessionTable.id, input.id))
     .returning();
+    
+  if (updated?.athleteId) {
+    void notifyProgramChanged(updated.athleteId);
+  }
+  
   return updated ?? null;
 }
 
@@ -336,6 +373,11 @@ export async function deletePlanSession(sessionId: number) {
   return db.transaction(async (tx) => {
     await tx.delete(athletePlanExerciseTable).where(eq(athletePlanExerciseTable.planSessionId, sessionId));
     const [deleted] = await tx.delete(athletePlanSessionTable).where(eq(athletePlanSessionTable.id, sessionId)).returning();
+    
+    if (deleted?.athleteId) {
+      void notifyProgramChanged(deleted.athleteId);
+    }
+    
     return deleted ?? null;
   });
 }
@@ -368,6 +410,14 @@ export async function addExerciseToPlanSession(input: {
       updatedAt: new Date(),
     })
     .returning();
+    
+  if (row) {
+    const session = await db.select({ athleteId: athletePlanSessionTable.athleteId }).from(athletePlanSessionTable).where(eq(athletePlanSessionTable.id, input.planSessionId)).limit(1);
+    if (session[0]?.athleteId) {
+      void notifyProgramChanged(session[0].athleteId);
+    }
+  }
+  
   return row ?? null;
 }
 
@@ -397,6 +447,14 @@ export async function updatePlanExercise(input: {
     })
     .where(eq(athletePlanExerciseTable.id, input.id))
     .returning();
+    
+  if (row) {
+    const session = await db.select({ athleteId: athletePlanSessionTable.athleteId }).from(athletePlanSessionTable).where(eq(athletePlanSessionTable.id, row.planSessionId)).limit(1);
+    if (session[0]?.athleteId) {
+      void notifyProgramChanged(session[0].athleteId);
+    }
+  }
+  
   return row ?? null;
 }
 
@@ -406,6 +464,14 @@ export async function deletePlanExercise(planExerciseId: number) {
       .delete(athletePlanExerciseCompletionTable)
       .where(eq(athletePlanExerciseCompletionTable.planExerciseId, planExerciseId));
     const [deleted] = await tx.delete(athletePlanExerciseTable).where(eq(athletePlanExerciseTable.id, planExerciseId)).returning();
+    
+    if (deleted) {
+      const session = await tx.select({ athleteId: athletePlanSessionTable.athleteId }).from(athletePlanSessionTable).where(eq(athletePlanSessionTable.id, deleted.planSessionId)).limit(1);
+      if (session[0]?.athleteId) {
+        void notifyProgramChanged(session[0].athleteId);
+      }
+    }
+    
     return deleted ?? null;
   });
 }

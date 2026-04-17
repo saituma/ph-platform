@@ -24,16 +24,8 @@ import {
 import {
   setCredentials,
   setApiUserRole,
-  setOnboardingCompleted,
-  setAthleteUserId,
-  setProgramTier,
   setAppRole,
-  setLatestSubscriptionRequest,
 } from "../../store/slices/userSlice";
-import {
-  reduxStateFromOnboardingAthlete,
-  shouldOpenTabsAfterAuth,
-} from "@/lib/onboardingFromApi";
 import { resolveAppRole } from "@/lib/appRole";
 import { isAdminRole } from "@/lib/isAdminRole";
 
@@ -113,77 +105,14 @@ export default function LoginScreen() {
 
       dispatch(setApiUserRole(apiRole));
 
-      let onboardingAthlete: {
-        onboardingCompleted?: boolean;
-        userId?: number;
-        athleteType?: "youth" | "adult" | null;
-        team?: string | null;
-      } | null = null;
-
-      if (admin) {
-        // Admin accounts do not need athlete onboarding/registration.
-        dispatch(setOnboardingCompleted(true));
-        dispatch(setAthleteUserId(null));
-      } else {
-        const onboarding = await apiRequest<{
-          athlete: {
-            onboardingCompleted?: boolean;
-            userId?: number;
-            athleteType?: "youth" | "adult" | null;
-            team?: string | null;
-          } | null;
-        }>("/onboarding", {
-          token,
-          suppressStatusCodes: [401],
-          skipCache: true,
-          forceRefresh: true,
-        });
-        onboardingAthlete = onboarding.athlete ?? null;
-        const next = reduxStateFromOnboardingAthlete(onboardingAthlete);
-        dispatch(setOnboardingCompleted(next.onboardingCompleted));
-        dispatch(setAthleteUserId(next.athleteUserId));
-      }
-
       dispatch(
         setAppRole(
-          resolveAppRole({ userRole: apiRole, athlete: onboardingAthlete }),
+          resolveAppRole({ userRole: apiRole, athlete: null }),
         ),
       );
-      try {
-        const status = await apiRequest<{
-          currentProgramTier?: string | null;
-          latestRequest?: {
-            status?: string | null;
-            paymentStatus?: string | null;
-            planTier?: string | null;
-            createdAt?: string | null;
-          } | null;
-        }>("/billing/status", {
-          token,
-          suppressStatusCodes: [401, 403, 404],
-          skipCache: true,
-        });
-        dispatch(setProgramTier(status?.currentProgramTier ?? null));
-        dispatch(setLatestSubscriptionRequest(status?.latestRequest ?? null));
-      } catch {
-        dispatch(setProgramTier(null));
-        dispatch(setLatestSubscriptionRequest(null));
-      }
 
-      router.replace(
-        admin || shouldOpenTabsAfterAuth(onboardingAthlete)
-          ? "/(tabs)"
-          : "/(tabs)/onboarding",
-      );
+      router.replace("/(tabs)");
     } catch (err: any) {
-      const message = extractAuthErrorMessage(err);
-      if (message.toLowerCase().includes("not confirmed")) {
-        router.replace({
-          pathname: "/(auth)/verify",
-          params: { email: data.email, password: data.password },
-        });
-        return;
-      }
       setFormError(getFriendlyAuthErrorMessage(err, "login"));
     } finally {
       setIsSubmitting(false);
@@ -304,15 +233,14 @@ export default function LoginScreen() {
             {formError}
           </Text>
         ) : null}
-        <View className="flex-row justify-center items-center">
-          <Text className="text-secondary text-base font-outfit">
-            {"Don't"} have an account?{" "}
-          </Text>
-          <Pressable onPress={() => router.push("/(auth)/register")}>
-            <Text className="text-accent text-base font-outfit-semibold">
-              Sign Up
+
+        <View className="flex-row justify-center items-center mt-4">
+          <Text className="text-secondary text-base font-outfit text-center">
+            New to PH Performance?{"\n"}
+            <Text className="text-accent font-outfit-semibold">
+              Please register on our website.
             </Text>
-          </Pressable>
+          </Text>
         </View>
       </KeyboardAwareScrollView>
     </SafeAreaView>

@@ -8,22 +8,19 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api",
-        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51SrcfQRt6s4ZTtfZUJ0QA0DlGOL00vzuNZcjHSvI3Nhu5LpcP5thz6XTh7bPSEo4G0W6haIlhSTJ55gn2sGQeW3e00EJ1PHrZX"
+        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api",
-        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51SrcfQRt6s4ZTtfZUJ0QA0DlGOL00vzuNZcjHSvI3Nhu5LpcP5thz6XTh7bPSEo4G0W6haIlhSTJ55gn2sGQeW3e00EJ1PHrZX"
+        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api",
-        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51SrcfQRt6s4ZTtfZUJ0QA0DlGOL00vzuNZcjHSvI3Nhu5LpcP5thz6XTh7bPSEo4G0W6haIlhSTJ55gn2sGQeW3e00EJ1PHrZX"
+        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api"
       }
     }
   },

@@ -16,7 +16,7 @@ export function AthleteDashboard() {
     if (!token) return;
     setIsLoading(true);
     try {
-      const data = await apiRequest<{ athlete: any | null }>("/onboarding", {
+      const data = await apiRequest<{ athlete: any | null }>("/onboarding/athletes/me", {
         token,
         suppressStatusCodes: [401],
         skipCache: true,

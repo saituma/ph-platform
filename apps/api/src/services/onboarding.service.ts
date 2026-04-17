@@ -11,6 +11,7 @@ import {
   onboardingConfigTable,
   ProgramType,
   userTable,
+  teamTable,
 } from "../db/schema";
 import { getUserById } from "./user.service";
 import { calculateAge, clampYouthAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
@@ -524,7 +525,8 @@ export async function getGuardianAthleteOnboardingData(input: {
       name: athleteTable.name,
       age: athleteTable.age,
       birthDate: athleteTable.birthDate,
-      team: athleteTable.team,
+      teamId: athleteTable.teamId,
+      team: teamTable.name,
       trainingPerWeek: athleteTable.trainingPerWeek,
       injuries: athleteTable.injuries,
       growthNotes: athleteTable.growthNotes,
@@ -533,6 +535,7 @@ export async function getGuardianAthleteOnboardingData(input: {
       extraResponses: athleteTable.extraResponses,
     })
     .from(athleteTable)
+    .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
     .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
     .limit(1);
 

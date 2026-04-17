@@ -1,5 +1,6 @@
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
+import { getSocketServer } from "../../socket-hub";
 import {
   athleteTable,
   bookingTable,
@@ -201,6 +202,13 @@ export async function updateBookingStatusAdmin(input: {
         }
       }
 
+      const io = getSocketServer();
+      if (io) {
+        const payload = { message: `Your booking for ${detail.serviceName ?? "Session"} is confirmed!` };
+        io.to(`user:${detail.guardianUserId}`).emit("schedule:changed", payload);
+        io.to("admin:all").emit("schedule:changed", payload);
+      }
+
       if (env.pushWebhookUrl) {
         try {
           await fetch(env.pushWebhookUrl, {
@@ -266,6 +274,13 @@ export async function updateBookingStatusAdmin(input: {
         } catch (error) {
           console.error("Failed to send booking decline email", error);
         }
+      }
+
+      const io = getSocketServer();
+      if (io) {
+        const payload = { message: `Your booking for ${detail.serviceName ?? "Session"} was declined.` };
+        io.to(`user:${detail.guardianUserId}`).emit("schedule:changed", payload);
+        io.to("admin:all").emit("schedule:changed", payload);
       }
 
       if (env.pushWebhookUrl) {

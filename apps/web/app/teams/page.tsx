@@ -10,6 +10,9 @@ import { SectionHeader } from "../../components/admin/section-header";
 
 type TeamSummary = {
   team: string;
+  athleteType: "youth" | "adult";
+  minAge: number | null;
+  maxAge: number | null;
   memberCount: number;
   youthCount: number;
   adultCount: number;
@@ -99,15 +102,17 @@ export default function TeamsPage() {
                           {team.team}
                         </p>
                         <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <span className={`rounded-full border px-2 py-1 ${team.athleteType === 'adult' ? 'border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'}`}>
+                            {team.athleteType === 'adult' ? 'Adult Team' : 'Youth Team'}
+                          </span>
+                          {(team.minAge != null || team.maxAge != null) ? (
+                            <span className="rounded-full border border-border px-2 py-1">
+                              Ages {team.minAge ?? '?'}-{team.maxAge ?? '?'}
+                            </span>
+                          ) : null}
                           <span className="rounded-full border border-border px-2 py-1">
                             {team.memberCount} athlete
                             {team.memberCount === 1 ? "" : "s"}
-                          </span>
-                          <span className="rounded-full border border-border px-2 py-1">
-                            {team.youthCount} youth
-                          </span>
-                          <span className="rounded-full border border-border px-2 py-1">
-                            {team.adultCount} adult
                           </span>
                         </div>
                       </div>

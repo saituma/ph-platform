@@ -21,7 +21,6 @@ import { AgeGate } from "@/components/AgeGate";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useRouter } from "expo-router";
-import { hasPaidProgramTier } from "@/lib/planAccess";
 import Animated, {
   Easing,
   FadeInDown,
@@ -85,7 +84,7 @@ export default function HomeScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, token, programTier, athleteUserId, managedAthletes, appRole } =
+  const { profile, token, athleteUserId, managedAthletes, appRole } =
     useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const { isSectionHidden } = useAgeExperience();
@@ -380,23 +379,7 @@ export default function HomeScreen() {
               icon="users"
               label="Parent Platform"
               sublabel="Family support"
-              onPress={() => {
-                if (!hasPaidProgramTier(programTier)) {
-                  Alert.alert(
-                    "Choose a plan",
-                    "Pick a training plan in the Programs tab to unlock parent education content.",
-                    [
-                      { text: "Not now", style: "cancel" },
-                      {
-                        text: "Programs",
-                        onPress: () => router.push("/(tabs)/programs"),
-                      },
-                    ],
-                  );
-                  return;
-                }
-                router.push("/parent-platform");
-              }}
+              onPress={() => router.push("/parent-platform")}
               colors={colors}
               isDark={isDark}
             />

@@ -23,7 +23,9 @@ export type ServiceType = {
   type: string;
   durationMinutes: number;
   capacity?: number | null;
+  remainingCapacity?: number | null;
   eligiblePlans?: string[] | null;
+  eligibleTargets?: string[] | null;
   isLocked?: boolean;
   lockReason?: string | null;
   oneTimeDate?: string | null;

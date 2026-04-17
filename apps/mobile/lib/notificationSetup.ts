@@ -8,7 +8,6 @@ export const NOTIFICATION_CHANNELS: Record<NotificationCategory, string> = {
   message: "messages",
   schedule: "schedule",
   account: "account",
-  payment: "payment",
   progress: "progress",
   system: "system",
   general: "default",
@@ -19,7 +18,6 @@ const CHANNEL_NAMES: Record<string, string> = {
   messages: "Messages",
   schedule: "Schedule & bookings",
   account: "Account",
-  payment: "Billing & payments",
   progress: "Progress & programs",
   system: "System",
 };

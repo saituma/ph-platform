@@ -436,6 +436,50 @@ export async function resendLocal(input: { email: string }) {
   return { ok: true };
 }
 
+export async function startEmailRegistration(input: { email: string }) {
+  const active = await db
+    .select()
+    .from(userTable)
+    .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .orderBy(desc(userTable.id))
+    .limit(1);
+
+  const otp = generateOtp();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  if (active[0]) {
+    if (active[0].emailVerified) {
+      throw { status: 409, message: "An account with this email already exists." };
+    }
+    await db
+      .update(userTable)
+      .set({
+        verificationCode: otp,
+        verificationExpiresAt: expiresAt,
+        verificationAttempts: 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTable.id, active[0].id));
+    await sendOtpEmail({ to: input.email, code: otp });
+    return { ok: true };
+  }
+
+  // Create placeholder user for first-time email registration
+  await db.insert(userTable).values({
+    cognitoSub: `local:${uuidv4()}`,
+    name: "User", // Placeholder, will be updated later in onboarding
+    email: input.email,
+    role: "guardian",
+    emailVerified: false,
+    verificationCode: otp,
+    verificationExpiresAt: expiresAt,
+    verificationAttempts: 0,
+  });
+
+  await sendOtpEmail({ to: input.email, code: otp });
+  return { ok: true };
+}
+
 export async function loginLocal(input: { email: string; password: string }) {
   const users = await db
     .select()

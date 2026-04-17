@@ -75,14 +75,14 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
   );
 
   const updateBookingStatus = useCallback(
-    async (bookingId: number, status: string, onComplete?: () => Promise<void>) => {
+    async (bookingId: number, status: string, onComplete?: () => Promise<void>, updates?: Record<string, any>) => {
       if (!canLoad || !token) return;
       setBookingMutatingId(bookingId);
       try {
         await apiRequest(`/admin/bookings/${bookingId}`, {
           method: "PATCH",
           token,
-          body: { status },
+          body: { status, ...updates },
           suppressStatusCodes: [403],
           skipCache: true,
           forceRefresh: true,

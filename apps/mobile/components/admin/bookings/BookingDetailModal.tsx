@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Modal, Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Modal, Platform, TextInput } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { SmallAction } from "../AdminShared";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
@@ -13,7 +13,7 @@ interface BookingDetailModalProps {
   booking: any;
   detail: any;
   isLoading: boolean;
-  onUpdateStatus: (id: number, status: any) => void;
+  onUpdateStatus: (id: number, status: any, updates?: any) => void;
   isMutating: boolean;
   colors: any;
   isDark: boolean;
@@ -32,10 +32,19 @@ export function BookingDetailModal({
   isDark,
   insetsTop,
 }: BookingDetailModalProps) {
+  const [confirmLocation, setConfirmLocation] = useState("");
   const cardBg = isDark ? colors.cardElevated : "#FFFFFF";
   const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const mutedBg = isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)";
   const mutedBorder = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
+
+  useEffect(() => {
+    if (isVisible) {
+      setConfirmLocation(detail?.location || booking?.location || "");
+    }
+  }, [isVisible, detail, booking]);
+
+  const needsLocation = !detail?.location && !booking?.location;
 
   return (
     <Modal
@@ -97,32 +106,57 @@ export function BookingDetailModal({
                 </Text>
               </View>
 
-              <View className="flex-row gap-2 mt-3">
-                <SmallAction
-                  label="Confirm"
-                  tone="success"
-                  onPress={() =>
-                    booking && onUpdateStatus(booking.id, "confirmed")
-                  }
-                  disabled={isMutating}
-                />
-                <SmallAction
-                  label="Decline"
-                  tone="danger"
-                  onPress={() =>
-                    booking && onUpdateStatus(booking.id, "declined")
-                  }
-                  disabled={isMutating}
-                />
-                <SmallAction
-                  label="Cancel"
-                  tone="neutral"
-                  onPress={() =>
-                    booking && onUpdateStatus(booking.id, "cancelled")
-                  }
-                  disabled={isMutating}
-                />
-              </View>
+              {detail?.status === "pending" || booking?.status === "pending" ? (
+                <View className="mt-4 gap-3">
+                  {needsLocation && (
+                    <View className="gap-1.5">
+                      <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-wider ml-1">
+                        Set Location (Required to confirm)
+                      </Text>
+                      <TextInput
+                        value={confirmLocation}
+                        onChangeText={setConfirmLocation}
+                        placeholder="e.g. Virtual / Studio A"
+                        placeholderTextColor={colors.placeholder}
+                        className="h-11 px-4 rounded-xl border font-outfit text-app text-[14px]"
+                        style={{
+                          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+                          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.1)",
+                        }}
+                      />
+                    </View>
+                  )}
+                  <View className="flex-row gap-2">
+                    <SmallAction
+                      label="Confirm"
+                      tone="success"
+                      onPress={() =>
+                        booking && onUpdateStatus(booking.id, "confirmed", needsLocation ? { location: confirmLocation } : undefined)
+                      }
+                      disabled={isMutating || (needsLocation && !confirmLocation.trim())}
+                    />
+                    <SmallAction
+                      label="Decline"
+                      tone="danger"
+                      onPress={() =>
+                        booking && onUpdateStatus(booking.id, "declined")
+                      }
+                      disabled={isMutating}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <View className="flex-row gap-2 mt-3">
+                  <SmallAction
+                    label="Cancel"
+                    tone="neutral"
+                    onPress={() =>
+                      booking && onUpdateStatus(booking.id, "cancelled")
+                    }
+                    disabled={isMutating}
+                  />
+                </View>
+              )}
             </View>
 
             <View
@@ -175,10 +209,31 @@ export function BookingDetailModal({
                       Meeting: {detail.meetingLink}
                     </Text>
                   )}
+                  
+                  {/* Location input below Meeting link if requested (if not already set in detail and we are in edit mode) */}
+                  {!needsLocation && (detail?.status === "pending" || booking?.status === "pending") && (
+                    <View className="mt-2 gap-1.5">
+                      <Text className="text-[10px] font-outfit-bold text-secondary uppercase tracking-wider">
+                        Update Location
+                      </Text>
+                      <TextInput
+                        value={confirmLocation}
+                        onChangeText={setConfirmLocation}
+                        placeholder="Update location..."
+                        placeholderTextColor={colors.placeholder}
+                        className="h-10 px-3 rounded-lg border font-outfit text-app text-[13px]"
+                        style={{
+                          backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)",
+                          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+                        }}
+                      />
+                    </View>
+                  )}
+
                   {detail.notes && (
                     <Text
                       selectable
-                      className="text-[12px] font-outfit text-secondary"
+                      className="text-[12px] font-outfit text-secondary mt-1"
                     >
                       Notes: {detail.notes}
                     </Text>
@@ -186,7 +241,7 @@ export function BookingDetailModal({
                   {detail.createdAt && (
                     <Text
                       selectable
-                      className="text-[11px] font-outfit text-secondary"
+                      className="text-[11px] font-outfit text-secondary mt-2"
                     >
                       Created {formatIsoShort(detail.createdAt)}
                     </Text>

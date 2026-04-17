@@ -13,6 +13,7 @@ import {
   athleteTable,
   guardianTable,
   userTable,
+  teamTable,
   ProgramType,
   AthleteType,
   PlanPaymentType,
@@ -83,7 +84,7 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
         ilike(userTable.email, pattern),
         sql`${userTable.role}::text ILIKE ${pattern}`,
         ilike(athleteTable.name, pattern),
-        ilike(athleteTable.team, pattern),
+        ilike(teamTable.name, pattern),
       )!,
     );
   }
@@ -101,7 +102,7 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
       updatedAt: userTable.updatedAt,
       athleteId: athleteTable.id,
       athleteName: athleteTable.name,
-      athleteTeam: athleteTable.team,
+      athleteTeam: teamTable.name,
       athleteAge: athleteTable.age,
       athleteType: athleteTable.athleteType,
       programTier: athleteTable.currentProgramTier,
@@ -123,6 +124,7 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
     .from(userTable)
     .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
     .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
+    .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
     .where(and(...filterConditions))
     .orderBy(desc(userTable.updatedAt));
 

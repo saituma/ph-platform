@@ -22,7 +22,6 @@ function shouldAlertOnFailure(): boolean {
 
 /**
  * Lightweight checks after launch: config + API reachability.
- * Does not call RevenueCat native APIs (those stay in _layout).
  *
  * - In __DEV__: logs results to console.
  * - Set EXPO_PUBLIC_STARTUP_SELF_TEST=true in EAS env for QA builds to log + optional alert on failure.
@@ -58,16 +57,6 @@ export async function runStartupSelfTest(): Promise<StartupSelfTestResult> {
       });
     }
   }
-
-  const iosKey = process.env.EXPO_PUBLIC_RC_IOS_KEY?.trim() ?? "";
-  const androidKey = process.env.EXPO_PUBLIC_RC_ANDROID_KEY?.trim() ?? "";
-  const rcKey = Platform.OS === "ios" ? iosKey : Platform.OS === "android" ? androidKey : "";
-  const rcDetail = !rcKey
-    ? "not set (store IAP disabled until goog_/appl_ keys in EAS)"
-    : rcKey.startsWith("test_") && !__DEV__
-      ? "test_ key — native RC disabled in release (safe)"
-      : `${rcKey.slice(0, 6)}… configured`;
-  checks.push({ name: "RevenueCat config (info)", ok: true, detail: rcDetail });
 
   const allOk = checks.every((c) => c.ok);
 

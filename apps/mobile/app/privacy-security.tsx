@@ -30,35 +30,9 @@ export default function PrivacySecurityScreen() {
   const { colors, isDark } = useAppTheme();
   const token = useAppSelector((s) => s.user.token);
 
-  const [planExpiryLabel, setPlanExpiryLabel] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
-
-  useEffect(() => {
-    if (!token) {
-      setPlanExpiryLabel(null);
-      return;
-    }
-    let cancelled = false;
-    apiRequest<{ athlete?: { planExpiresAt?: string | null } }>("/billing/status", { token, skipCache: true })
-      .then((data) => {
-        if (cancelled) return;
-        const raw = data.athlete?.planExpiresAt;
-        if (!raw) {
-          setPlanExpiryLabel(null);
-          return;
-        }
-        const d = new Date(raw);
-        setPlanExpiryLabel(Number.isNaN(d.getTime()) ? null : d.toLocaleDateString());
-      })
-      .catch(() => {
-        if (!cancelled) setPlanExpiryLabel(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
 
   const cardStyle = {
     backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
@@ -111,7 +85,7 @@ export default function PrivacySecurityScreen() {
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }} edges={["top"]}>
       <MoreStackHeader
         title="Privacy & Security"
-        subtitle="Password, plan access dates, and account deletion."
+        subtitle="Password and account deletion."
         badge="Security"
       />
 
@@ -137,20 +111,6 @@ export default function PrivacySecurityScreen() {
           </Text>
         </View>
 
-        {planExpiryLabel ? (
-          <View className="rounded-[22px] border px-4 py-3 mb-5" style={cardStyle}>
-            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]" style={{ color: colors.textSecondary }}>
-              Paid plan access ends
-            </Text>
-            <Text className="text-lg font-clash mt-1" style={{ color: colors.text }}>
-              {planExpiryLabel}
-            </Text>
-            <Text className="text-xs font-outfit mt-2 leading-5" style={{ color: colors.textSecondary }}>
-              We&apos;ll remind you in the app and by email before this date. If the plan isn&apos;t renewed, your account moves to free access.
-            </Text>
-          </View>
-        ) : null}
-
         <View className="rounded-[28px] border overflow-hidden mb-6" style={cardStyle}>
           <SecurityLink
             label="Change password"
@@ -172,7 +132,14 @@ export default function PrivacySecurityScreen() {
             </Text>
             <Text className="text-sm font-outfit mt-2 leading-5" style={{ color: colors.textSecondary }}>
               Permanently close your account. You must enter your current password. Staff accounts cannot use this from the app.
+              {"\n\n"}
+              Alternatively, you can request account deletion on our website at:
             </Text>
+            <TouchableOpacity onPress={() => Linking.openURL("https://phperformance.uk/delete-account")}>
+              <Text className="text-sm font-outfit text-accent font-bold mt-1">
+                phperformance.uk/delete-account
+              </Text>
+            </TouchableOpacity>
           </View>
           <Pressable
             onPress={() => setDeleteOpen(true)}

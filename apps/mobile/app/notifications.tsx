@@ -212,8 +212,6 @@ export default function NotificationsScreen() {
                     const accent =
                       group.category === "schedule"
                         ? colors.warning
-                        : group.category === "payment"
-                        ? colors.danger
                         : group.category === "account"
                         ? colors.tint
                         : group.category === "progress"
@@ -222,9 +220,7 @@ export default function NotificationsScreen() {
                         ? colors.warning
                         : colors.accent;
                     const accentSoft =
-                      group.category === "payment"
-                        ? colors.dangerSoft
-                        : group.category === "schedule"
+                      group.category === "schedule"
                         ? colors.warningSoft
                         : group.category === "progress"
                         ? colors.successSoft

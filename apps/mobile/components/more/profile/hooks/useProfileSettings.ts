@@ -22,40 +22,6 @@ export type ManagedAthlete = {
   profilePicture?: string | null;
 };
 
-type AthleteOnboardingData = {
-  id: number;
-  name?: string | null;
-  birthDate?: string | null;
-  team?: string | null;
-  trainingPerWeek?: number | null;
-  injuries?: unknown;
-  growthNotes?: string | null;
-  performanceGoals?: string | null;
-  equipmentAccess?: string | null;
-  extraResponses?: Record<string, unknown>;
-};
-
-const normalizeToString = (value: unknown) => {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-};
-
-const normalizeExtraResponses = (input: unknown): Record<string, string> => {
-  if (typeof input !== "object" || input === null) return {};
-  const obj = input as Record<string, unknown>;
-  const result: Record<string, string> = {};
-  for (const key of Object.keys(obj)) {
-    result[key] = normalizeToString(obj[key]);
-  }
-  return result;
-};
-
 export function useProfileSettings() {
   const dispatch = useAppDispatch();
   const { profile, token } = useAppSelector((state) => state.user);
@@ -78,20 +44,7 @@ export function useProfileSettings() {
 
   const [name, setName] = useState(profile.name ?? "");
   const [email, setEmail] = useState(profile.email ?? "");
-  const [height, setHeight] = useState("");
-  const [weight, setWeight] = useState("");
-  const [position, setPosition] = useState("");
 
-  const [athleteName, setAthleteName] = useState("");
-  const [athleteBirthDate, setAthleteBirthDate] = useState("");
-  const [athleteTeam, setAthleteTeam] = useState("");
-  const [athleteTrainingPerWeek, setAthleteTrainingPerWeek] = useState("");
-  const [athleteInjuries, setAthleteInjuries] = useState("");
-  const [athleteGrowthNotes, setAthleteGrowthNotes] = useState("");
-  const [athletePerformanceGoals, setAthletePerformanceGoals] = useState("");
-  const [athleteEquipmentAccess, setAthleteEquipmentAccess] = useState("");
-  const [athleteExtraResponses, setAthleteExtraResponses] = useState<Record<string, string>>({});
-  const [hasLoadedAthleteDetails, setHasLoadedAthleteDetails] = useState(false);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [isSendingTestPush, setIsSendingTestPush] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -137,55 +90,6 @@ export function useProfileSettings() {
     loadAthletes();
   }, [loadAthletes]);
 
-  useEffect(() => {
-    if (!token || !activeAthleteId) return;
-    let active = true;
-    setHasLoadedAthleteDetails(false);
-    (async () => {
-      try {
-        const data = await apiRequest<{
-          athlete?: AthleteOnboardingData | null;
-        }>(`/onboarding/athletes/${activeAthleteId}`, {
-          token,
-          suppressStatusCodes: [401, 403, 404],
-        });
-        if (!active) return;
-        const athlete = data.athlete ?? null;
-        if (!athlete) return;
-
-        setAthleteName(athlete.name ?? "");
-        setAthleteBirthDate(athlete.birthDate ? normalizeToString(athlete.birthDate) : "");
-        setAthleteTeam(athlete.team ?? "");
-        setAthleteTrainingPerWeek(
-          athlete.trainingPerWeek === null || athlete.trainingPerWeek === undefined
-            ? ""
-            : String(athlete.trainingPerWeek)
-        );
-        setAthleteInjuries(athlete.injuries ? normalizeToString(athlete.injuries) : "");
-        setAthleteGrowthNotes(athlete.growthNotes ?? "");
-        setAthletePerformanceGoals(athlete.performanceGoals ?? "");
-        setAthleteEquipmentAccess(athlete.equipmentAccess ?? "");
-
-        const extraMap = normalizeExtraResponses(athlete.extraResponses ?? {});
-        setAthleteExtraResponses(extraMap);
-
-        // Convenience fields commonly edited in-profile
-        if (extraMap.height !== undefined) setHeight(extraMap.height);
-        if (extraMap.weight !== undefined) setWeight(extraMap.weight);
-        if (extraMap.position !== undefined) setPosition(extraMap.position);
-
-        setHasLoadedAthleteDetails(true);
-      } catch {
-        // stay as is
-      }
-    })();
-    return () => { active = false; };
-  }, [token, activeAthleteId]);
-
-  const setExtraResponseField = useCallback((key: string, value: string) => {
-    setAthleteExtraResponses((prev) => ({ ...prev, [key]: value }));
-  }, []);
-
   const handlePickAvatar = async () => {
     if (!token || isUploadingAvatar) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -209,7 +113,6 @@ export function useProfileSettings() {
       // ignore
     }
     if (!sizeBytes || !Number.isFinite(sizeBytes) || sizeBytes <= 0) {
-      // Safe fallback; server will still enforce upper bounds.
       sizeBytes = 512000;
     }
 
@@ -220,8 +123,6 @@ export function useProfileSettings() {
 
   const uploadAvatar = async (uri: string, input: { sizeBytes: number; contentType: string }) => {
     if (!token) throw new Error("Authentication required");
-    // Always generate a unique filename so the resulting public URL changes.
-    // This avoids stale avatar images due to device/CDN caching when a key is overwritten.
     const ext = (() => {
       const ct = input.contentType.toLowerCase();
       if (ct.includes("png")) return "png";
@@ -237,7 +138,6 @@ export function useProfileSettings() {
       body: { folder: "profile-photos", fileName, contentType: input.contentType, sizeBytes: input.sizeBytes },
     });
 
-    let uploaded = false;
     try {
       const result = await FileSystem.uploadAsync(presign.uploadUrl, uri, {
         httpMethod: "PUT",
@@ -247,9 +147,7 @@ export function useProfileSettings() {
       if (result.status < 200 || result.status >= 300) {
         throw new Error(`Upload failed (${result.status}).`);
       }
-      uploaded = true;
     } catch (err) {
-      // Fallback to fetch+blob PUT if FileSystem upload can't handle this URI.
       try {
         const blob = await (await fetch(uri)).blob();
         const res = await fetch(presign.uploadUrl, {
@@ -260,15 +158,11 @@ export function useProfileSettings() {
         if (!res.ok) {
           throw new Error(`Upload failed (${res.status}).`);
         }
-        uploaded = true;
       } catch {
         throw err instanceof Error ? err : new Error("Upload failed.");
       }
     }
 
-    if (!uploaded) {
-      throw new Error("Upload failed.");
-    }
     return presign.publicUrl;
   };
 
@@ -307,31 +201,6 @@ export function useProfileSettings() {
         });
         dispatch(updateProfile({ name: response.user.name ?? name }));
       }
-      if (activeAthleteId && hasLoadedAthleteDetails) {
-        const trainingPerWeekValue = athleteTrainingPerWeek.trim() === "" ? undefined : Number(athleteTrainingPerWeek);
-        const extraPatch: Record<string, unknown> = {
-          ...Object.fromEntries(Object.entries(athleteExtraResponses).map(([key, value]) => [key, value])),
-        };
-        await apiRequest(`/onboarding/athletes/${activeAthleteId}`, {
-          method: "PATCH",
-          token,
-          body: {
-            name: athleteName.trim() || undefined,
-            birthDate: athleteBirthDate.trim() || undefined,
-            team: athleteTeam,
-            trainingPerWeek: Number.isFinite(trainingPerWeekValue as any) ? (trainingPerWeekValue as number) : undefined,
-            injuries: athleteInjuries.trim() ? athleteInjuries : null,
-            growthNotes: athleteGrowthNotes.trim() ? athleteGrowthNotes : null,
-            performanceGoals: athletePerformanceGoals.trim() ? athletePerformanceGoals : null,
-            equipmentAccess: athleteEquipmentAccess.trim() ? athleteEquipmentAccess : null,
-            extraResponses: extraPatch,
-            height,
-            weight,
-            position,
-          },
-          suppressStatusCodes: [404],
-        });
-      }
       Alert.alert("Success", "Your changes have been saved.");
     } catch (err: any) {
       Alert.alert("Save Failed", err.message ?? "Something went wrong.");
@@ -359,35 +228,10 @@ export function useProfileSettings() {
     managedAthletes,
     managedAthleteCount,
     activeAthleteId,
-    hasLoadedAthleteDetails,
     name,
     setName,
     email,
     pushToken,
-    height,
-    setHeight,
-    weight,
-    setWeight,
-    position,
-    setPosition,
-    athleteName,
-    setAthleteName,
-    athleteBirthDate,
-    setAthleteBirthDate,
-    athleteTeam,
-    setAthleteTeam,
-    athleteTrainingPerWeek,
-    setAthleteTrainingPerWeek,
-    athleteInjuries,
-    setAthleteInjuries,
-    athleteGrowthNotes,
-    setAthleteGrowthNotes,
-    athletePerformanceGoals,
-    setAthletePerformanceGoals,
-    athleteEquipmentAccess,
-    setAthleteEquipmentAccess,
-    athleteExtraResponses,
-    setExtraResponseField,
     isUploadingAvatar,
     pendingAvatarUri,
     setPendingAvatarUri,

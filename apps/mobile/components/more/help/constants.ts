@@ -4,7 +4,6 @@ export const HELP_CATEGORIES: HelpCategory[] = [
   { id: "all", icon: "grid", label: "All topics", description: "Browse every guide in one place." },
   { id: "account", icon: "user", label: "Account", description: "Profile, guardians, and sign-in basics." },
   { id: "training", icon: "activity", label: "Training", description: "Programs, schedules, and video review help." },
-  { id: "billing", icon: "credit-card", label: "Billing", description: "Membership, renewals, and plan updates." },
   { id: "security", icon: "shield", label: "Security", description: "Passwords, privacy, and permissions." },
 ];
 
@@ -13,7 +12,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
     id: "feedback",
     icon: "message-square",
     label: "Message support",
-    description: "Best for billing, bugs, scheduling changes, and account issues.",
+    description: "Best for bugs, scheduling changes, and account issues.",
     route: "/feedback",
   },
   {
@@ -98,22 +97,6 @@ export const HELP_ARTICLES: HelpArticle[] = [
     actionRoute: "/permissions",
   },
   {
-    id: "billing-plan",
-    icon: "credit-card",
-    categoryId: "billing",
-    categoryLabel: "Billing",
-    title: "Membership, renewals, and plan questions",
-    summary: "Billing help moves faster when you share the plan name, renewal date, and the email linked to the account.",
-    highlights: [
-      "Mention whether you need an upgrade, renewal check, or payment support.",
-      "Never send full card details through the app.",
-      "Attach screenshots only if they do not reveal private payment information.",
-    ],
-    keywords: ["billing", "payment", "membership", "plan", "renewal"],
-    actionLabel: "Message billing support",
-    actionRoute: "/feedback",
-  },
-  {
     id: "video-review",
     icon: "video",
     categoryId: "training",
@@ -123,9 +106,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     highlights: [
       "Keep the athlete fully in frame and record in steady light.",
       "Add a short note about the drill or movement you want reviewed.",
-      "Premium members can upload from the More tab when access is enabled.",
+      "Upload from the session detail screen to add context for your coach.",
     ],
-    keywords: ["video", "review", "upload", "premium", "coach"],
+    keywords: ["video", "review", "upload", "coach"],
     actionLabel: "Go to support",
     actionRoute: "/feedback",
   },
@@ -140,7 +123,7 @@ export const FAQS: FaqItemType[] = [
   {
     id: "best-channel",
     question: "When should I use support instead of app settings?",
-    answer: "Use app settings for things you can update yourself, like permissions and profile details. Use support for billing issues, sign-in problems, plan changes, or anything that needs coach or admin review.",
+    answer: "Use app settings for things you can update yourself, like permissions and profile details. Use support for bugs, sign-in problems, program changes, or anything that needs coach or admin review.",
   },
   {
     id: "what-to-send",
@@ -149,4 +132,4 @@ export const FAQS: FaqItemType[] = [
   },
 ];
 
-export const POPULAR_SEARCHES = ["password", "schedule", "billing", "notifications"];
+export const POPULAR_SEARCHES = ["password", "schedule", "notifications"];

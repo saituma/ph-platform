@@ -4,40 +4,31 @@ import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
-import { ProgramTierUI, SubscriptionRequest } from "@/types/billing";
-import { PlanPricing } from "@/lib/billing";
-import { PlanPricingView } from "./PlanPricingView";
 
 interface Props {
-  tier: ProgramTierUI;
-  isCurrent: boolean;
-  pricing?: PlanPricing;
-  latestRequest: SubscriptionRequest | null;
-  onOpen: (id: any) => void;
-  onApply: (id: any) => void;
-  isProcessing: boolean;
+  tier: {
+    id: string;
+    name: string;
+    icon: string;
+    highlight?: string;
+    features: string[];
+  };
+  onOpen: (id: string) => void;
 }
 
 export function ProgramTierCard({
   tier,
-  isCurrent,
-  pricing,
-  latestRequest,
   onOpen,
-  onApply,
-  isProcessing,
 }: Props) {
   const { colors, isDark } = useAppTheme();
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-
-  const isPending = latestRequest?.planTier === tier.id && latestRequest?.status === "pending_approval";
 
   return (
     <View
       className="mb-6 rounded-[32px] border overflow-hidden"
       style={{
         backgroundColor: colors.card,
-        borderColor: isCurrent ? colors.accent : borderSoft,
+        borderColor: borderSoft,
         ...(isDark ? Shadows.none : Shadows.md),
       }}
     >
@@ -46,11 +37,6 @@ export function ProgramTierCard({
           <View className="flex-1">
             <View className="flex-row items-center gap-2 mb-1">
               <Text className="text-2xl font-clash font-bold text-app">{tier.name}</Text>
-              {isCurrent && (
-                <View className="bg-accent/10 px-2 py-0.5 rounded-full">
-                  <Text className="text-[10px] font-outfit-bold text-accent uppercase">Current</Text>
-                </View>
-              )}
             </View>
             {tier.highlight && (
               <Text className="text-xs font-outfit-bold text-accent uppercase tracking-widest">{tier.highlight}</Text>
@@ -59,10 +45,6 @@ export function ProgramTierCard({
           <View className="h-12 w-12 rounded-2xl items-center justify-center bg-accent/10">
             <Feather name={tier.icon as any} size={24} color={colors.accent} />
           </View>
-        </View>
-
-        <View className="mb-6">
-          <PlanPricingView pricing={pricing} />
         </View>
 
         <View className="gap-3 mb-6">
@@ -75,46 +57,12 @@ export function ProgramTierCard({
         </View>
 
         <View className="flex-row gap-3">
-          {isCurrent ? (
-            <Pressable
-              onPress={() => onOpen(tier.id)}
-              className="flex-1 rounded-full py-4 items-center border"
-              style={{ borderColor: borderSoft }}
-            >
-              <Text className="font-outfit-bold text-app uppercase">Details</Text>
-            </Pressable>
-          ) : (
-            <View
-              className="flex-1 flex-row rounded-full py-4 items-center justify-center gap-2 border"
-              style={{
-                borderColor: borderSoft,
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
-              }}
-              accessibilityRole="text"
-              accessibilityLabel="Locked plan"
-            >
-              <Feather name="lock" size={16} color={colors.textSecondary} />
-              <Text
-                className="font-outfit-bold uppercase"
-                style={{ color: colors.textSecondary }}
-              >
-                Locked
-              </Text>
-            </View>
-          )}
-
-          {!isCurrent && (
-            <Pressable
-              onPress={() => onApply(tier.id)}
-              disabled={isProcessing || isPending}
-              className="flex-1 rounded-full py-4 items-center bg-accent"
-              style={{ opacity: isProcessing || isPending ? 0.7 : 1 }}
-            >
-              <Text className="font-outfit-bold text-white uppercase">
-                {isPending ? "Pending" : "Upgrade"}
-              </Text>
-            </Pressable>
-          )}
+          <Pressable
+            onPress={() => onOpen(tier.id)}
+            className="flex-1 rounded-full py-4 items-center bg-accent"
+          >
+            <Text className="font-outfit-bold text-white uppercase">View Details</Text>
+          </Pressable>
         </View>
       </View>
     </View>

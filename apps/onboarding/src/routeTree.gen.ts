@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerificationRouteImport } from './routes/verification'
+import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
+import { Route as EducationFaqRouteImport } from './routes/education-faq'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -17,6 +19,16 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 const VerificationRoute = VerificationRouteImport.update({
   id: '/verification',
   path: '/verification',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsPrivacyRoute = TermsPrivacyRouteImport.update({
+  id: '/terms-privacy',
+  path: '/terms-privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EducationFaqRoute = EducationFaqRouteImport.update({
+  id: '/education-faq',
+  path: '/education-faq',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -38,12 +50,16 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/education-faq': typeof EducationFaqRoute
+  '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/education-faq': typeof EducationFaqRoute
+  '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -51,20 +67,43 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/education-faq': typeof EducationFaqRoute
+  '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/verification' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/education-faq'
+    | '/terms-privacy'
+    | '/verification'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/verification' | '/api/auth/$'
-  id: '__root__' | '/' | '/about' | '/verification' | '/api/auth/$'
+  to:
+    | '/'
+    | '/about'
+    | '/education-faq'
+    | '/terms-privacy'
+    | '/verification'
+    | '/api/auth/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/education-faq'
+    | '/terms-privacy'
+    | '/verification'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  EducationFaqRoute: typeof EducationFaqRoute
+  TermsPrivacyRoute: typeof TermsPrivacyRoute
   VerificationRoute: typeof VerificationRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -76,6 +115,20 @@ declare module '@tanstack/react-router' {
       path: '/verification'
       fullPath: '/verification'
       preLoaderRoute: typeof VerificationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms-privacy': {
+      id: '/terms-privacy'
+      path: '/terms-privacy'
+      fullPath: '/terms-privacy'
+      preLoaderRoute: typeof TermsPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/education-faq': {
+      id: '/education-faq'
+      path: '/education-faq'
+      fullPath: '/education-faq'
+      preLoaderRoute: typeof EducationFaqRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -105,6 +158,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  EducationFaqRoute: EducationFaqRoute,
+  TermsPrivacyRoute: TermsPrivacyRoute,
   VerificationRoute: VerificationRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

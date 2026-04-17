@@ -3,7 +3,7 @@ import { Text } from "@/components/ScaledText";
 import { AgeGate } from "@/components/AgeGate";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setAthleteUserId, setManagedAthletes } from "@/store/slices/userSlice";
+import { setManagedAthletes } from "@/store/slices/userSlice";
 import { apiRequest } from "@/lib/api";
 import { tierRank } from "@/lib/planAccess";
 import { formatPlanList, getUnlockingPlanNames } from "@/lib/unlockPlans";
@@ -25,9 +25,8 @@ export default function AthleteStatsScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isSectionHidden } = useAgeExperience();
-  const { token, programTier, managedAthletes, athleteUserId, profile } =
+  const { token, programTier, managedAthletes, profile } =
     useAppSelector((state) => state.user);
-  const athleteUserIdRef = useRef<number | null>(athleteUserId);
   const [isLoading, setIsLoading] = useState(true);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -65,7 +64,6 @@ export default function AthleteStatsScreen() {
     if (!token) return;
     try {
       const data = await apiRequest<{
-        guardian?: { activeAthleteId?: number | null } | null;
         athletes?: {
           id?: number;
           userId?: number | null;
@@ -79,42 +77,14 @@ export default function AthleteStatsScreen() {
       }>("/onboarding/athletes", { token });
       const athleteList = data.athletes ?? [];
       dispatch(setManagedAthletes(athleteList));
-      const hasSelection = athleteList.some(
-        (athlete) =>
-          athlete.id === athleteUserIdRef.current ||
-          athlete.userId === athleteUserIdRef.current,
-      );
-      if (!athleteUserIdRef.current || !hasSelection) {
-        const activeAthlete =
-          athleteList.find(
-            (item) => item.id === data.guardian?.activeAthleteId,
-          ) ??
-          athleteList[0] ??
-          null;
-        if (activeAthlete?.userId || activeAthlete?.id) {
-          dispatch(
-            setAthleteUserId(activeAthlete.userId ?? activeAthlete.id ?? null),
-          );
-        }
-      }
     } catch {
       dispatch(setManagedAthletes([]));
     } finally {
       setIsLoading(false);
     }
-  }, [athleteUserId, dispatch, token]);
+  }, [dispatch, token]);
 
-  useEffect(() => {
-    athleteUserIdRef.current = athleteUserId;
-  }, [athleteUserId]);
-
-  const selectedAthlete =
-    managedAthletes.find(
-      (athlete) =>
-        athlete.id === athleteUserId || athlete.userId === athleteUserId,
-    ) ??
-    managedAthletes[0] ??
-    null;
+  const selectedAthlete = managedAthletes[0] ?? null;
 
   const summaryStats = useMemo(() => {
     return [
@@ -167,13 +137,6 @@ export default function AthleteStatsScreen() {
     };
 
     try {
-      if (selectedAthlete.id) {
-        await apiRequest("/onboarding/select-athlete", {
-          token,
-          body: { athleteId: selectedAthlete.id },
-        });
-      }
-
       const [bookingsData, videosData, messagesData] = await Promise.all([
         apiRequest<{ items: any[] }>("/bookings", { token }),
         apiRequest<{ items: any[] }>("/videos", { token }),
@@ -409,52 +372,6 @@ export default function AthleteStatsScreen() {
                   </Text>
                 </View>
               </View>
-              {managedAthletes.length ? (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 8, paddingTop: 12 }}
-                >
-                  {managedAthletes.map((athlete) => {
-                    const isActive = athlete.id === selectedAthlete?.id;
-                    return (
-                      <TouchableOpacity
-                        key={athlete.id ?? athlete.name ?? Math.random()}
-                        onPress={async () => {
-                          if (athlete.userId || athlete.id) {
-                            dispatch(
-                              setAthleteUserId(
-                                athlete.userId ?? athlete.id ?? null,
-                              ),
-                            );
-                            try {
-                              await apiRequest("/onboarding/select-athlete", {
-                                token,
-                                body: { athleteId: athlete.id },
-                              });
-                            } catch {
-                              // Ignore selection sync errors.
-                            }
-                          }
-                        }}
-                        className={`px-3 py-2 rounded-full border ${
-                          isActive
-                            ? "bg-[#2F8F57]/15 border-[#2F8F57]/30"
-                            : "bg-secondary/5 border-app/10"
-                        }`}
-                      >
-                        <Text
-                          className={`text-xs font-outfit ${
-                            isActive ? "text-[#2F8F57]" : "text-secondary"
-                          }`}
-                        >
-                          {athlete.name ?? "Athlete"}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              ) : null}
             </View>
 
             <View className="gap-4 mb-6">

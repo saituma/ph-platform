@@ -16,6 +16,7 @@ import { useRunStore } from "../../../store/useRunStore";
 import {
   stopLocationTracking,
   startLocationTracking,
+  refreshRunNotification,
 } from "../../../lib/backgroundTask";
 
 import { useRunTrackingEngine } from "../../../hooks/tracking/useRunTrackingEngine";
@@ -94,6 +95,14 @@ export default function ActiveRunScreen() {
         shadowOffset: { width: 0, height: 10 },
         elevation: 8,
       };
+
+  useEffect(() => {
+    if (status !== "running") return;
+    const interval = setInterval(() => {
+      void refreshRunNotification();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [status]);
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 350 });

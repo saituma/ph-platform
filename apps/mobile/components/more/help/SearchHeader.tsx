@@ -42,7 +42,7 @@ export function SearchHeader({ searchQuery, setSearchQuery }: SearchHeaderProps)
       <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 py-3">
         <Feather name="search" size={18} color={colors.textSecondary} style={{ marginRight: 12 }} />
         <TextInput
-          placeholder="Search help topics, billing, notifications..."
+          placeholder="Search help topics, schedules, notifications..."
           className="flex-1 font-outfit text-app"
           placeholderTextColor={colors.placeholder}
           value={searchQuery}

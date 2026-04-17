@@ -89,6 +89,49 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
+      ],
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "PHSummary",
+              "label": "PH Performance Summary",
+              "description": "See your training progress and next session at a glance.",
+              "resourceName": "ph_summary_widget"
+            },
+            {
+              "name": "PHNextSession",
+              "label": "PH Next Session",
+              "description": "View your upcoming training session.",
+              "resourceName": "ph_next_session_widget"
+            },
+            {
+              "name": "PHWeeklyStats",
+              "label": "PH Weekly Stats",
+              "description": "Track your weekly running and training goals.",
+              "resourceName": "ph_weekly_stats_widget"
+            },
+            {
+              "name": "PHCurrentModule",
+              "label": "PH Current Module",
+              "description": "See which training module you are currently working on.",
+              "resourceName": "ph_current_module_widget"
+            },
+            {
+              "name": "PHSchedule",
+              "label": "PH Training Schedule",
+              "description": "Your upcoming bookings and session times.",
+              "resourceName": "ph_schedule_widget"
+            },
+            {
+              "name": "PHQuickActions",
+              "label": "PH Quick Actions",
+              "description": "Quickly start a run, message your coach, or log nutrition.",
+              "resourceName": "ph_quick_actions_widget"
+            }
+          ]
+        }
       ]
     ],
     "experiments": {

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { TrainingContentV2Workspace } from "@/types/billing";
+import { TrainingContentV2Workspace } from "@/types/programs";
 import * as programsService from "@/services/programs/programsService";
 import { mapTeamWorkspace } from "@/lib/programs/programMapper";
 

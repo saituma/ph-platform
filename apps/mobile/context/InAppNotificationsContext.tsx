@@ -302,27 +302,27 @@ export function InAppNotificationsProvider({
       >
         {items.map((item, index) => {
           const category = inferNotificationCategory(item.type, item.message);
-          const meta = getNotificationMeta(category);
+          const meta = getNotificationMeta(category, item.type);
           const title = getNotificationTitle(item.type, category) || meta.label;
 
           const accent =
-            category === "schedule"
+            meta.colorType === "warning"
               ? colors.warning
-              : category === "payment"
+              : meta.colorType === "danger"
                 ? colors.danger
-                : category === "account"
+                : meta.colorType === "tint"
                   ? colors.tint
-                  : category === "progress"
+                  : meta.colorType === "success"
                     ? colors.success
-                    : category === "system"
+                    : meta.colorType === "system"
                       ? colors.warning
                       : colors.accent;
           const accentSoft =
-            category === "payment"
+            meta.colorType === "danger"
               ? colors.dangerSoft
-              : category === "schedule"
+              : meta.colorType === "warning" || meta.colorType === "system"
                 ? colors.warningSoft
-                : category === "progress"
+                : meta.colorType === "success"
                   ? colors.successSoft
                   : colors.accentLight;
 
@@ -349,7 +349,7 @@ export function InAppNotificationsProvider({
                 <View
                   style={{
                     backgroundColor: colors.card,
-                    borderRadius: 16,
+                    borderRadius: 20,
                     borderWidth: 1,
                     borderColor: colors.border,
                     paddingVertical: 14,
@@ -362,6 +362,18 @@ export function InAppNotificationsProvider({
                     overflow: "hidden",
                   }}
                 >
+                  {/* Subtle Background Accent */}
+                  <View 
+                    style={{ 
+                      position: 'absolute', 
+                      top: 0, 
+                      left: 0, 
+                      width: 4, 
+                      bottom: 0, 
+                      backgroundColor: accent 
+                    }} 
+                  />
+
                   <View
                     style={{ flexDirection: "row", alignItems: "flex-start" }}
                   >
@@ -418,16 +430,16 @@ export function InAppNotificationsProvider({
                       {item.onPress ? (
                         <Text
                           className="text-[11px] font-outfit text-accent"
-                          style={{ marginTop: 6 }}
+                          style={{ marginTop: 6, fontWeight: '700' }}
                           numberOfLines={1}
                         >
-                          Tap to open
+                          Tap to open →
                         </Text>
                       ) : null}
                     </View>
                     <Text
-                      className="text-[11px] font-outfit text-secondary"
-                      style={{ marginLeft: 8 }}
+                      className="text-[10px] font-outfit text-secondary"
+                      style={{ marginLeft: 8, opacity: 0.7 }}
                     >
                       {formatRelativeTime(item.timestamp)}
                     </Text>
