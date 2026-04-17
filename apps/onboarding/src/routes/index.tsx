@@ -4,6 +4,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRightIcon, CircleNotch } from "@phosphor-icons/react";
 import { useState } from "react";
 import { env } from "#/env";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({ component: App });
 
@@ -30,15 +31,24 @@ function App() {
 			const data = await response.json();
 
 			if (!response.ok) {
+				if (response.status === 409) {
+					throw new Error("This email is already registered. Please sign in to your account.");
+				}
 				throw new Error(data.error || "Failed to start registration");
 			}
 
 			// Store email for verification page
 			sessionStorage.setItem("pending_email", email);
 
+			toast.success("Verification code sent!", {
+				description: `We've sent a 6-digit code to ${email}`,
+			});
+
 			navigate({ to: "/verification" });
 		} catch (error: any) {
-			alert(error.message || "An unexpected error occurred");
+			toast.error("Registration failed", {
+				description: error.message || "An unexpected error occurred. Please try again.",
+			});
 		} finally {
 			setIsLoading(false);
 		}
