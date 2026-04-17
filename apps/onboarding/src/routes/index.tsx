@@ -75,12 +75,11 @@ function App() {
             <div className="relative z-10 w-full max-w-2xl flex flex-col items-center space-y-12 text-center animate-in fade-in slide-in-from-bottom-6 duration-1000 ease-out">
                 <section className="space-y-6" id="hero">
                     <h1 className="text-5xl md:text-7xl font-bold font-bold-display tracking-tight text-foreground leading-[1.1]">
-                        Build your future with{" "}
-                        <span className="text-primary">PH Platform</span>
+                        Elevate your <span className="text-primary">Performance</span>
                     </h1>
                     <p className="text-lg md:text-2xl font-telma text-muted-foreground max-w-lg mx-auto">
-                        Join thousands of creators building the next generation of
-                        applications.
+                        Join thousands of athletes and teams building their future with
+                        world-class coaching.
                     </p>
                 </section>
 
