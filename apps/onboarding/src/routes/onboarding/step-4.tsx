@@ -109,21 +109,29 @@ function OnboardingStep4() {
 							</div>
 
 							<div className="space-y-4">
-								<SummaryItem 
-									label={isYouth ? "Guardian Name" : "Full Name"} 
-									value={athlete.guardianName || athlete.name} 
-									icon={User} 
-								/>
-								{isYouth && (
+								{isYouth ? (
+									<>
+										<SummaryItem 
+											label="Guardian Name" 
+											value={athlete.guardianName || "N/A"} 
+											icon={User} 
+										/>
+										<SummaryItem 
+											label="Athlete Name" 
+											value={athlete.name} 
+											icon={User} 
+										/>
+									</>
+								) : (
 									<SummaryItem 
-										label="Athlete Name" 
+										label="Full Name" 
 										value={athlete.name} 
 										icon={User} 
 									/>
 								)}
 								<SummaryItem 
 									label="Email Address" 
-									value={sessionStorage.getItem("pending_email") || "N/A"} 
+									value={sessionStorage.getItem("pending_email") || athlete.email || "N/A"} 
 									icon={EnvelopeSimple} 
 								/>
 								<SummaryItem 
