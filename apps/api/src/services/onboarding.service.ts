@@ -271,6 +271,124 @@ export async function startTeamOnboarding(input: {
 	return { ok: true };
 }
 
+export async function startPerformanceOnboarding(input: {
+	userId: number;
+	trainingPerWeek: number;
+	performanceGoals: string;
+	equipmentAccess: string;
+}) {
+	// Find the athlete record for this user (or guardian's active athlete)
+	const user = await db
+		.select()
+		.from(userTable)
+		.where(eq(userTable.id, input.userId))
+		.limit(1);
+
+	if (!user[0]) {
+		throw new Error("User not found.");
+	}
+
+	let athleteId: number | null = null;
+
+	if (user[0].role === "guardian") {
+		const guardian = await db
+			.select()
+			.from(guardianTable)
+			.where(eq(guardianTable.userId, input.userId))
+			.limit(1);
+
+		if (guardian[0]) {
+			const athlete = await db
+				.select()
+				.from(athleteTable)
+				.where(eq(athleteTable.guardianId, guardian[0].id))
+				.limit(1);
+			athleteId = athlete[0]?.id ?? null;
+		}
+	} else {
+		const athlete = await db
+			.select()
+			.from(athleteTable)
+			.where(eq(athleteTable.userId, input.userId))
+			.limit(1);
+		athleteId = athlete[0]?.id ?? null;
+	}
+
+	if (!athleteId) {
+		throw new Error("Athlete profile not found. Please complete basic information first.");
+	}
+
+	await db
+		.update(athleteTable)
+		.set({
+			trainingPerWeek: input.trainingPerWeek,
+			performanceGoals: input.performanceGoals,
+			equipmentAccess: input.equipmentAccess,
+			updatedAt: new Date(),
+		})
+		.where(eq(athleteTable.id, athleteId));
+
+	return { ok: true };
+}
+
+export async function saveOnboardingGoals(input: {
+	userId: number;
+	trainingPerWeek: number;
+	performanceGoals: string;
+	injuries?: any;
+	equipmentAccess?: string;
+}) {
+	const user = await db
+		.select()
+		.from(userTable)
+		.where(eq(userTable.id, input.userId))
+		.limit(1);
+
+	if (!user[0]) throw new Error("User not found");
+
+	let athleteId: number | null = null;
+
+	if (user[0].role === "athlete") {
+		const athlete = await db
+			.select()
+			.from(athleteTable)
+			.where(eq(athleteTable.userId, input.userId))
+			.limit(1);
+		athleteId = athlete[0]?.id ?? null;
+	} else {
+		// For guardians/coaches, update their active/primary athlete
+		const guardian = await db
+			.select()
+			.from(guardianTable)
+			.where(eq(guardianTable.userId, input.userId))
+			.limit(1);
+		
+		if (guardian[0]) {
+			const athlete = await db
+				.select()
+				.from(athleteTable)
+				.where(eq(athleteTable.guardianId, guardian[0].id))
+				.limit(1);
+			athleteId = athlete[0]?.id ?? null;
+		}
+	}
+
+	if (!athleteId) throw new Error("Athlete profile not found. Please complete basic info first.");
+
+	await db
+		.update(athleteTable)
+		.set({
+			trainingPerWeek: input.trainingPerWeek,
+			performanceGoals: input.performanceGoals,
+			injuries: input.injuries ?? null,
+			equipmentAccess: input.equipmentAccess ?? null,
+			updatedAt: new Date(),
+		})
+		.where(eq(athleteTable.id, athleteId));
+
+	return { ok: true };
+}
+
 export async function getOnboardingByUser(userId: number) {
   const user = await getUserById(userId);
   if (!user) return null;

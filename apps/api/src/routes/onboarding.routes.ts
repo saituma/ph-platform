@@ -6,6 +6,8 @@ import {
   submitYouthBasic,
   submitAdultBasic,
   submitTeamBasic,
+  submitPerformanceBasic,
+  submitGoals,
   getOnboardingStatus,
   getOnboardingConfig,
   getPhpPlusTabs,
@@ -22,6 +24,8 @@ router.post("/onboarding", requireAuth, submitOnboarding);
 router.post("/onboarding/youth-basic", requireAuth, submitYouthBasic);
 router.post("/onboarding/adult-basic", requireAuth, submitAdultBasic);
 router.post("/onboarding/team-basic", requireAuth, submitTeamBasic);
+router.post("/onboarding/performance", requireAuth, submitPerformanceBasic);
+router.post("/onboarding/goals", requireAuth, submitGoals);
 router.get("/onboarding", requireAuth, getOnboardingStatus);
 router.get("/onboarding/athletes", requireAuth, listGuardianAthletes);
 router.get("/onboarding/athletes/:athleteId", requireAuth, getGuardianAthlete);
