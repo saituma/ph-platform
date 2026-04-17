@@ -154,12 +154,12 @@ function App() {
                     <div className="flex flex-col items-center gap-2 pt-2">
                         <p className="text-xs text-muted-foreground">
                             Already have an account?{" "}
-                            <a
-                                href="/login"
+                            <Link
+                                to="/login"
                                 className="font-bold text-primary hover:underline transition-all"
                             >
                                 Log in to your dashboard
-                            </a>
+                            </Link>
                         </p>
                     </div>
                 </section>
