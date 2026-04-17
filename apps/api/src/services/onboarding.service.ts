@@ -229,6 +229,44 @@ export async function startAdultOnboarding(input: {
 	return { ok: true };
 }
 
+export async function startTeamOnboarding(input: {
+	userId: number;
+	name: string;
+	minAge: number;
+	maxAge: number;
+	maxAthletes: number;
+}) {
+	// Get or create team record
+	const teams = await db
+		.select()
+		.from(teamTable)
+		.where(eq(teamTable.adminId, input.userId))
+		.limit(1);
+
+	if (teams[0]) {
+		await db
+			.update(teamTable)
+			.set({
+				name: input.name,
+				minAge: input.minAge,
+				maxAge: input.maxAge,
+				maxAthletes: input.maxAthletes,
+				updatedAt: new Date(),
+			})
+			.where(eq(teamTable.id, teams[0].id));
+	} else {
+		await db.insert(teamTable).values({
+			name: input.name,
+			adminId: input.userId,
+			minAge: input.minAge,
+			maxAge: input.maxAge,
+			maxAthletes: input.maxAthletes,
+		});
+	}
+
+	return { ok: true };
+}
+
 export async function getOnboardingByUser(userId: number) {
   const user = await getUserById(userId);
   if (!user) return null;
