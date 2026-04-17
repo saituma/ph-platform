@@ -368,43 +368,101 @@ export async function registerLocal(input: { email: string; password: string; na
 }
 
 export async function confirmLocal(input: { email: string; code: string }) {
-  const users = await db
-    .select()
-    .from(userTable)
-    .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
-    .orderBy(desc(userTable.id))
-    .limit(1);
-  const user = users[0];
-  if (!user) {
-    throw { status: 404, message: "User not found." };
-  }
-  if (user.emailVerified) {
-    return { ok: true };
-  }
-  if (!user.verificationCode || !user.verificationExpiresAt) {
-    throw { status: 400, message: "Verification code not found." };
-  }
-  if (new Date(user.verificationExpiresAt) < new Date()) {
-    throw { status: 400, message: "Verification code expired." };
-  }
-  if (user.verificationCode !== input.code) {
-    await db
-      .update(userTable)
-      .set({ verificationAttempts: (user.verificationAttempts ?? 0) + 1, updatedAt: new Date() })
-      .where(eq(userTable.id, user.id));
-    throw { status: 400, message: "Invalid verification code." };
-  }
-  await db
-    .update(userTable)
-    .set({
-      emailVerified: true,
-      verificationCode: null,
-      verificationExpiresAt: null,
-      verificationAttempts: 0,
-      updatedAt: new Date(),
-    })
-    .where(eq(userTable.id, user.id));
-  return { ok: true };
+	const users = await db
+		.select()
+		.from(userTable)
+		.where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+		.orderBy(desc(userTable.id))
+		.limit(1);
+	const user = users[0];
+	if (!user) {
+		throw { status: 404, message: "User not found." };
+	}
+	if (user.emailVerified) {
+		const token = await createLocalToken({
+			sub: user.cognitoSub,
+			email: user.email,
+			name: user.name,
+			role: user.role,
+			userId: user.id,
+			tokenVersion: user.tokenVersion ?? 0,
+			expiresIn: "30d",
+		});
+		return { ok: true, accessToken: token, tokenType: "Bearer" };
+	}
+	if (!user.verificationCode || !user.verificationExpiresAt) {
+		throw { status: 400, message: "Verification code not found." };
+	}
+	if (new Date(user.verificationExpiresAt) < new Date()) {
+		throw { status: 400, message: "Verification code expired." };
+	}
+	if (user.verificationCode !== input.code) {
+		await db
+			.update(userTable)
+			.set({
+				verificationAttempts: (user.verificationAttempts ?? 0) + 1,
+				updatedAt: new Date(),
+			})
+			.where(eq(userTable.id, user.id));
+		throw { status: 400, message: "Invalid verification code." };
+	}
+	await db
+		.update(userTable)
+		.set({
+			emailVerified: true,
+			verificationCode: null,
+			verificationExpiresAt: null,
+			verificationAttempts: 0,
+			updatedAt: new Date(),
+		})
+		.where(eq(userTable.id, user.id));
+
+	const token = await createLocalToken({
+		sub: user.cognitoSub,
+		email: user.email,
+		name: user.name,
+		role: user.role,
+		userId: user.id,
+		tokenVersion: user.tokenVersion ?? 0,
+		expiresIn: "30d",
+	});
+
+	return { ok: true, accessToken: token, tokenType: "Bearer" };
+}
+
+export async function updateUserRole(input: {
+	email: string;
+	type: "youth" | "adult" | "team";
+}) {
+	const users = await db
+		.select()
+		.from(userTable)
+		.where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+		.orderBy(desc(userTable.id))
+		.limit(1);
+
+	const user = users[0];
+	if (!user) {
+		throw { status: 404, message: "User not found." };
+	}
+
+	const roleMap = {
+		youth: "youth_athlete",
+		adult: "adult_athlete",
+		team: "coach",
+	} as const;
+
+	const role = roleMap[input.type];
+
+	await db
+		.update(userTable)
+		.set({
+			role: role,
+			updatedAt: new Date(),
+		})
+		.where(eq(userTable.id, user.id));
+
+	return { ok: true, role };
 }
 
 export async function resendLocal(input: { email: string }) {

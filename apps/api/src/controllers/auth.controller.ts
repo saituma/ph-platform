@@ -15,6 +15,7 @@ import {
   signUpUser,
   registerLocal,
   startEmailRegistration,
+  updateUserRole,
   startForgotPassword,
   startForgotPasswordLocal,
 } from "../services/auth.service";
@@ -61,6 +62,11 @@ const startRegisterSchema = z.object({
   email: z.string().email(),
 });
 
+const updateRoleSchema = z.object({
+  email: z.string().email(),
+  type: z.enum(["youth", "adult", "team"]),
+});
+
 const changePasswordSchema = z.object({
   oldPassword: z.string().min(8),
   newPassword: z.string().min(8),
@@ -99,6 +105,12 @@ export async function startRegistration(req: Request, res: Response) {
     return res.status(200).json({ ok: true });
   }
   return res.status(400).json({ error: "Email-only registration is only supported in local auth mode." });
+}
+
+export async function updateRole(req: Request, res: Response) {
+  const input = updateRoleSchema.parse(req.body);
+  const result = await updateUserRole(input);
+  return res.status(200).json(result);
 }
 
 export async function confirmRegistration(req: Request, res: Response) {
