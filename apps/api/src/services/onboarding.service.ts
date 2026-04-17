@@ -166,11 +166,13 @@ export async function startYouthOnboarding(input: {
 	} else {
 		await db.insert(athleteTable).values({
 			guardianId: guardianId,
-			userId: null,
+			userId: 3, // Placeholder Admin
 			name: input.athleteName,
 			birthDate: input.birthDate,
 			age: age,
 			athleteType: "youth",
+			team: "",
+			trainingPerWeek: 0,
 		});
 	}
 
@@ -223,6 +225,8 @@ export async function startAdultOnboarding(input: {
 			birthDate: input.birthDate,
 			age: age,
 			athleteType: "adult",
+			team: "",
+			trainingPerWeek: 0,
 		});
 	}
 
