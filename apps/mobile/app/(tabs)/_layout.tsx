@@ -69,19 +69,16 @@ export default function TabLayout() {
 
   // Role Switching Logic
   const renderRoleLayout = () => {
-    if (isAdmin || appRole === "coach") {
+    if (isAdmin || appRole === \"coach\") {
       return <AdminLayout />;
     }
-    if (appRole === "adult_athlete") {
+    if (appRole === \"adult_athlete\") {
       return <AdultLayout />;
     }
-    if (
-      appRole === "youth_athlete_team_guardian" ||
-      appRole === "adult_athlete_team"
-    ) {
+    if (appRole === \"team\") {
       return <TeamLayout />;
     }
-    // Default fallback for youth guardian or other athlete states
+    // Default fallback for youth_athlete (Guardian mode)
     return <YouthLayout />;
   };
 

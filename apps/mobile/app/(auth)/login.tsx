@@ -9,6 +9,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
+import { getAuthBaseUrl } from "../../lib/authBaseUrl";
+import { signInWithWorkerAndExchange } from "../../lib/workerAuth";
 import {
   extractAuthErrorMessage,
   getFriendlyAuthErrorMessage,
@@ -61,14 +63,21 @@ export default function LoginScreen() {
     setFormError(null);
     setIsSubmitting(true);
     try {
-      const login = await apiRequest<{
-        accessToken?: string;
-        idToken?: string;
-        refreshToken?: string | null;
-      }>("/auth/login", {
-        method: "POST",
-        body: { email: data.email, password: data.password },
-      });
+      const authBase = getAuthBaseUrl();
+      const login = authBase
+        ? await signInWithWorkerAndExchange({
+            authBaseUrl: authBase,
+            email: data.email,
+            password: data.password,
+          })
+        : await apiRequest<{
+            accessToken?: string;
+            idToken?: string;
+            refreshToken?: string | null;
+          }>("/auth/login", {
+            method: "POST",
+            body: { email: data.email, password: data.password },
+          });
 
       const token = login.idToken ?? login.accessToken;
       if (!token) {
@@ -238,7 +247,7 @@ export default function LoginScreen() {
           <Text className="text-secondary text-base font-outfit text-center">
             New to PH Performance?{"\n"}
             <Text className="text-accent font-outfit-semibold">
-              Please register on our website.
+              Register on the web onboarding site, then sign in here.
             </Text>
           </Text>
         </View>

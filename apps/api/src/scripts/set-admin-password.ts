@@ -1,4 +1,3 @@
-import { AdminGetUserCommand, AdminSetUserPasswordCommand, CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import crypto from "crypto";
 import dns from "node:dns";
 import dotenv from "dotenv";
@@ -31,7 +30,7 @@ function hashPassword(input: string) {
 async function setLocalPassword(email: string, password: string) {
   const databaseUrl = process.env.DATABASE_URL ?? "";
   if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required for local auth mode.");
+    throw new Error("DATABASE_URL is required.");
   }
 
   const databaseSsl = process.env.DATABASE_SSL === "true";
@@ -60,55 +59,22 @@ async function setLocalPassword(email: string, password: string) {
     const sslHint = databaseSsl
       ? "DATABASE_SSL=true"
       : "Try DATABASE_SSL=true or add sslmode=verify-full to DATABASE_URL if your DB requires SSL.";
-    throw new Error(`Failed to update local password: ${message}. ${sslHint}`);
+    throw new Error(`Failed to update password: ${message}. ${sslHint}`);
   } finally {
     await pool.end();
   }
 }
 
-async function setCognitoPassword(email: string, password: string) {
-  const userPoolId = process.env.COGNITO_USER_POOL_ID ?? "";
-  if (!userPoolId) {
-    throw new Error("COGNITO_USER_POOL_ID is required for cognito auth mode.");
-  }
-
-  const region = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1";
-  const cognitoClient = new CognitoIdentityProviderClient({ region });
-
-  await cognitoClient.send(
-    new AdminGetUserCommand({
-      UserPoolId: userPoolId,
-      Username: email,
-    })
-  );
-
-  await cognitoClient.send(
-    new AdminSetUserPasswordCommand({
-      UserPoolId: userPoolId,
-      Username: email,
-      Password: password,
-      Permanent: true,
-    })
-  );
-}
-
 async function main() {
   loadEnv();
   const email = process.env.ADMIN_EMAIL ?? "dawitworkujima@gmail.com";
-  const password = process.env.ADMIN_PASSWORD ?? "Password123!";
-  if (!email || !password) {
+  const pwd = process.env.ADMIN_PASSWORD ?? "Password123!";
+  if (!email || !pwd) {
     throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD are required.");
   }
 
-  const authMode = process.env.AUTH_MODE ?? "cognito";
-  if (authMode === "local") {
-    await setLocalPassword(email, password);
-    console.log(`Password updated for ${email} (authMode=local).`);
-    return;
-  }
-
-  await setCognitoPassword(email, password);
-  console.log(`Password updated for ${email} (authMode=cognito).`);
+  await setLocalPassword(email, pwd);
+  console.log(`Password updated for ${email}.`);
 }
 
 main().catch((error) => {

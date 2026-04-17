@@ -4,7 +4,6 @@ import { createApp } from "../src/app";
 
 jest.mock("../src/config/env", () => ({
   env: {
-    authMode: "cognito",
     stripePublishableKey: "pk_test",
     stripeSecretKey: "",
     stripeWebhookSecret: "",
@@ -13,6 +12,10 @@ jest.mock("../src/config/env", () => ({
     videoMaxMb: 200,
     mediaMaxMb: 25,
   },
+}));
+
+jest.mock("../src/lib/jwt", () => ({
+  verifyAccessToken: jest.fn(async () => ({ user_id: 1, sub: "local:1", token_version: 0 })),
 }));
 
 jest.mock("../src/db", () => ({
@@ -39,14 +42,21 @@ jest.mock("../src/middlewares/roles", () => ({
 }));
 
 jest.mock("../src/services/auth.service", () => ({
-  signUpUser: jest.fn(async () => ({ UserSub: "sub", CodeDeliveryDetails: { Destination: "test@example.com" } })),
-  confirmSignUp: jest.fn(async () => ({})),
-  resendConfirmation: jest.fn(async () => ({ CodeDeliveryDetails: { Destination: "test@example.com" } })),
-  loginUser: jest.fn(async () => ({ AuthenticationResult: { AccessToken: "token", IdToken: "id", RefreshToken: "refresh", ExpiresIn: 3600, TokenType: "Bearer" } })),
-  refreshUserSession: jest.fn(async () => ({ AuthenticationResult: { AccessToken: "token", IdToken: "id", ExpiresIn: 3600, TokenType: "Bearer" } })),
-  startForgotPassword: jest.fn(async () => ({ CodeDeliveryDetails: { Destination: "test@example.com" } })),
-  confirmForgotPassword: jest.fn(async () => ({})),
-  changePassword: jest.fn(async () => ({})),
+  registerLocal: jest.fn(async () => ({ ok: true })),
+  confirmLocal: jest.fn(async () => ({ ok: true })),
+  resendLocal: jest.fn(async () => ({ ok: true })),
+  loginLocal: jest.fn(async () => ({
+    accessToken: "token",
+    idToken: "id",
+    refreshToken: null,
+    expiresIn: 3600,
+    tokenType: "Bearer",
+  })),
+  startForgotPasswordLocal: jest.fn(async () => ({ ok: true })),
+  confirmForgotPasswordLocal: jest.fn(async () => ({ ok: true })),
+  changePasswordLocal: jest.fn(async () => ({ ok: true })),
+  startEmailRegistration: jest.fn(async () => ({ ok: true })),
+  updateUserRole: jest.fn(async () => ({ ok: true, role: "guardian" })),
 }));
 
 jest.mock("../src/services/onboarding.service", () => ({
@@ -120,8 +130,8 @@ jest.mock("../src/services/s3.service", () => ({
   getPublicObjectUrl: jest.fn(async () => "https://s3.test/public"),
 }));
 
-jest.mock("../src/services/cloudfront.service", () => ({
-  getSignedMediaUrl: jest.fn(() => "https://cdn.test/signed"),
+jest.mock("../src/services/signed-media.service", () => ({
+  getSignedMediaUrl: jest.fn(async () => "https://cdn.test/signed"),
 }));
 
 jest.mock("../src/services/video.service", () => ({
@@ -230,8 +240,8 @@ describe("API routes", () => {
 
   it("POST /api/auth/register", async () => {
     const res = await request(app).post("/api/auth/register").send({ email: "test@example.com", password: "Password123", name: "Test" });
-    expect(res.status).toBe(201);
-    expect(res.body.userSub).toBe("sub");
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
   });
 
   it("POST /api/auth/confirm", async () => {
@@ -252,7 +262,7 @@ describe("API routes", () => {
 
   it("POST /api/auth/refresh", async () => {
     const res = await request(app).post("/api/auth/refresh").send({ refreshToken: "refresh" });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
   });
 
   it("POST /api/auth/forgot", async () => {

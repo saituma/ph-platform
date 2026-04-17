@@ -1,14 +1,18 @@
-import { AdminCreateUserCommand, AdminGetUserCommand, AdminSetUserPasswordCommand } from "@aws-sdk/client-cognito-identity-provider";
+import crypto from "crypto";
 import { eq } from "drizzle-orm";
 
-import { env } from "../config/env";
-import { cognitoClient } from "../lib/aws";
 import { db } from "../db";
 import { userTable } from "../db/schema";
 
 const email = process.env.ADMIN_EMAIL ?? "admin@gmail.com";
 const name = process.env.ADMIN_NAME ?? "Admin";
 const password = process.env.ADMIN_PASSWORD ?? "";
+
+function hashPassword(input: string) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(input, salt, 64).toString("hex");
+  return { hash, salt };
+}
 
 function generatePassword() {
   const base = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
@@ -19,64 +23,26 @@ function generatePassword() {
   return out;
 }
 
-async function ensureCognitoUser(tempPassword: string) {
-  try {
-    await cognitoClient.send(
-      new AdminCreateUserCommand({
-        UserPoolId: env.cognitoUserPoolId,
-        Username: email,
-        UserAttributes: [
-          { Name: "email", Value: email },
-          { Name: "email_verified", Value: "true" },
-          { Name: "name", Value: name },
-        ],
-        TemporaryPassword: tempPassword,
-        MessageAction: "SUPPRESS",
-      })
-    );
-  } catch (error: any) {
-    if (error?.name !== "UsernameExistsException") {
-      throw error;
-    }
-  }
+async function upsertAdmin() {
+  const finalPassword = password.trim() || generatePassword();
+  const { hash, salt } = hashPassword(finalPassword);
+  const sub = `local:${crypto.randomUUID()}`;
 
-  const user = await cognitoClient.send(
-    new AdminGetUserCommand({
-      UserPoolId: env.cognitoUserPoolId,
-      Username: email,
-    })
-  );
-
-  const sub = user.UserAttributes?.find((attr) => attr.Name === "sub")?.Value;
-  if (!sub) {
-    throw new Error("Missing Cognito sub");
-  }
-
-  return sub;
-}
-
-async function setPermanentPassword(tempPassword: string, permanentPassword?: string) {
-  if (!permanentPassword) {
-    return tempPassword;
-  }
-
-  await cognitoClient.send(
-    new AdminSetUserPasswordCommand({
-      UserPoolId: env.cognitoUserPoolId,
-      Username: email,
-      Password: permanentPassword,
-      Permanent: true,
-    })
-  );
-
-  return permanentPassword;
-}
-
-async function upsertAdmin(sub: string) {
   const existing = await db.select().from(userTable).where(eq(userTable.email, email)).limit(1);
   if (existing[0]) {
-    await db.update(userTable).set({ role: "admin", cognitoSub: sub, name }).where(eq(userTable.id, existing[0].id));
-    return existing[0].id;
+    await db
+      .update(userTable)
+      .set({
+        role: "admin",
+        cognitoSub: existing[0].cognitoSub?.startsWith("local:") ? existing[0].cognitoSub : sub,
+        name,
+        passwordHash: hash,
+        passwordSalt: salt,
+        emailVerified: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTable.id, existing[0].id));
+    return { id: existing[0].id, finalPassword };
   }
 
   const inserted = await db
@@ -86,24 +52,24 @@ async function upsertAdmin(sub: string) {
       name,
       role: "admin",
       cognitoSub: sub,
+      passwordHash: hash,
+      passwordSalt: salt,
+      emailVerified: true,
+      verificationCode: null,
+      verificationExpiresAt: null,
+      verificationAttempts: 0,
     })
     .returning();
 
-  return inserted[0].id;
+  return { id: inserted[0]!.id, finalPassword };
 }
 
 async function main() {
-  if (!env.cognitoUserPoolId) {
-    throw new Error("COGNITO_USER_POOL_ID is required");
-  }
-
-  const tempPassword = generatePassword();
-  const sub = await ensureCognitoUser(tempPassword);
-  const finalPassword = await setPermanentPassword(tempPassword, password);
-  await upsertAdmin(sub);
-
+  const { finalPassword } = await upsertAdmin();
   if (!password) {
-    console.log(`Temporary password for ${email}: ${finalPassword}`);
+    console.log(`Admin password for ${email}: ${finalPassword}`);
+  } else {
+    console.log(`Admin user ${email} ensured (password from ADMIN_PASSWORD).`);
   }
 }
 

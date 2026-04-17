@@ -11,7 +11,11 @@ const envPathCandidates = [
 ].filter(Boolean) as string[];
 
 const resolvedEnvPath = envPathCandidates.find((candidate) => fs.existsSync(candidate));
-dotenv.config({ path: resolvedEnvPath, override: true });
+// In tests, jest.setup.ts seeds required vars; do not let an empty .env override them.
+dotenv.config({
+  path: resolvedEnvPath,
+  override: process.env.NODE_ENV !== "test",
+});
 
 /** DB-only CLI scripts (e.g. seed:demo) only need DATABASE_URL; set PH_API_SCRIPT=1 to skip full app secrets. */
 const phApiScript = process.env.PH_API_SCRIPT === "1";
@@ -25,17 +29,17 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   DATABASE_SSL: z.string().optional(),
   RUN_MIGRATIONS_ON_STARTUP: z.string().optional(),
-  AWS_REGION: z.string().optional(),
-  AWS_DEFAULT_REGION: z.string().optional(),
-  COGNITO_USER_POOL_ID: z.string().optional(),
-  COGNITO_CLIENT_ID: z.string().optional(),
-  S3_BUCKET: z.string().optional(),
-  CLOUDFRONT_DOMAIN: z.string().optional(),
-  CLOUDFRONT_KEY_ID: z.string().optional(),
-  CLOUDFRONT_PRIVATE_KEY: z.string().optional(),
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().optional(),
+  R2_REGION: z.string().optional(),
+  /** Public origin for browser/mobile media URLs (R2 custom domain or r2.dev), e.g. https://pub-xxxx.r2.dev */
+  MEDIA_PUBLIC_BASE_URL: z.string().optional(),
+  /** Alias for MEDIA_PUBLIC_BASE_URL (optional). */
+  R2_PUBLIC_BASE_URL: z.string().optional(),
   ALLOW_JWT_BYPASS: z.string().optional(),
   ALLOW_EXPIRED_TOKENS: z.string().optional(),
-  AUTH_MODE: z.string().optional(),
   JWT_SECRET: optionalWhenScript("JWT_SECRET is required"),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().optional(),
@@ -84,16 +88,14 @@ export const env = {
   databaseUrl: raw.DATABASE_URL,
   databaseSsl: raw.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
   runMigrationsOnStartup: raw.RUN_MIGRATIONS_ON_STARTUP === "true" || raw.RUN_MIGRATIONS_ON_STARTUP === "1",
-  awsRegion: raw.AWS_REGION ?? raw.AWS_DEFAULT_REGION ?? "us-east-1",
-  cognitoUserPoolId: raw.COGNITO_USER_POOL_ID ?? "",
-  cognitoClientId: raw.COGNITO_CLIENT_ID ?? "",
-  s3Bucket: raw.S3_BUCKET ?? "",
-  cloudfrontDomain: raw.CLOUDFRONT_DOMAIN ?? "",
-  cloudfrontKeyId: raw.CLOUDFRONT_KEY_ID ?? "",
-  cloudfrontPrivateKey: raw.CLOUDFRONT_PRIVATE_KEY ?? "",
+  r2AccountId: raw.R2_ACCOUNT_ID ?? "",
+  r2AccessKeyId: raw.R2_ACCESS_KEY_ID ?? "",
+  r2SecretAccessKey: raw.R2_SECRET_ACCESS_KEY ?? "",
+  r2Bucket: raw.R2_BUCKET ?? "",
+  r2Region: raw.R2_REGION ?? "auto",
+  mediaPublicBaseUrl: raw.MEDIA_PUBLIC_BASE_URL ?? raw.R2_PUBLIC_BASE_URL ?? "",
   allowJwtBypass: raw.ALLOW_JWT_BYPASS === "true",
   allowExpiredTokens: raw.ALLOW_EXPIRED_TOKENS === "true",
-  authMode: raw.AUTH_MODE ?? "cognito",
   jwtSecret: phApiScript ? (raw.JWT_SECRET ?? scriptPlaceholder) : raw.JWT_SECRET!,
   smtpHost: raw.SMTP_HOST ?? "smtp.gmail.com",
   smtpPort: raw.SMTP_PORT ?? 465,

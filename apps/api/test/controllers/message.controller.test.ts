@@ -37,7 +37,7 @@ describe("message controller", () => {
 
     await listMessages(req, res);
 
-    expect(listThread).toHaveBeenCalledWith(1);
+    expect(listThread).toHaveBeenCalledWith(1, { includeVideoResponses: false });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       messages: [{ id: 1, content: "hello" }],

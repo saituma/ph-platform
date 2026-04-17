@@ -34,7 +34,7 @@ jest.mock("../../src/middlewares/roles", () => ({
 
 const hasDatabase = Boolean(env.databaseUrl);
 const hasStripe = Boolean(env.stripeSecretKey);
-const hasS3 = Boolean(env.s3Bucket && env.awsRegion);
+const hasR2 = Boolean(env.r2Bucket && env.r2AccountId && env.r2AccessKeyId && env.r2SecretAccessKey);
 
 const app = createApp();
 
@@ -684,7 +684,7 @@ describe("integration: routes (real DB/Stripe)", () => {
   });
 
   it("POST /api/media/presign", async () => {
-    if (!hasS3) {
+    if (!hasR2) {
       return;
     }
     const res = await request(app)

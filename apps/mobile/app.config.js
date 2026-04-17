@@ -16,6 +16,7 @@ module.exports = {
     extra: {
       ...(appJson.expo.extra || {}),
       apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL,
+      authBaseUrl: (process.env.EXPO_PUBLIC_AUTH_BASE_URL || "").replace(/\/+$/, ""),
     },
   },
 };

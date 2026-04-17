@@ -11,6 +11,7 @@ import {
   timestamp,
   uniqueIndex,
   varchar,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const Role = pgEnum("role", ["guardian", "athlete", "coach", "admin", "superAdmin"]);
@@ -1006,6 +1007,7 @@ export const runLogTable = pgTable(
     effortLevel: integer(),
     feelTags: jsonb(),
     notes: text(),
+    visibility: varchar({ length: 20 }).notNull().default("public"), // 'public' | 'private'
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
@@ -1013,6 +1015,23 @@ export const runLogTable = pgTable(
     userIdx: index("run_logs_user_idx").on(table.userId),
     clientIdUserUnique: uniqueIndex("run_logs_client_id_user_unique").on(table.clientId, table.userId),
     dateIdx: index("run_logs_date_idx").on(table.date),
+  })
+);
+
+export const runCommentTable = pgTable(
+  "run_comments",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    runLogId: integer().notNull().references(() => runLogTable.id, { onDelete: "cascade" }),
+    userId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }),
+    content: text().notNull(),
+    parentId: integer().references((): AnyPgColumn => runCommentTable.id, { onDelete: "cascade" }), // For replies
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    runIdx: index("run_comments_run_idx").on(table.runLogId),
+    parentIdx: index("run_comments_parent_idx").on(table.parentId),
   })
 );
 

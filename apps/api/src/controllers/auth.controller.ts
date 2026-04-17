@@ -2,27 +2,20 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import {
-  confirmForgotPassword,
   confirmForgotPasswordLocal,
-  confirmSignUp,
-  changePassword,
   confirmLocal,
-  loginUser,
+  changePasswordLocal,
   loginLocal,
-  refreshUserSession,
-  resendConfirmation as resendConfirmationCode,
   resendLocal,
-  signUpUser,
   registerLocal,
   startEmailRegistration,
   updateUserRole,
-  startForgotPassword,
   startForgotPasswordLocal,
 } from "../services/auth.service";
 import { updateUserProfile } from "../services/user.service";
 import { deleteOwnAccount } from "../services/account-deletion.service";
-import { env } from "../config/env";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
+import { verifyAccessToken } from "../lib/jwt";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -42,10 +35,6 @@ const resendSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-});
-
-const refreshSchema = z.object({
-  refreshToken: z.string().min(1),
 });
 
 const forgotSchema = z.object({
@@ -87,24 +76,14 @@ const updateMeSchema = z
 
 export async function register(req: Request, res: Response) {
   const input = registerSchema.parse(req.body);
-  if (env.authMode === "local") {
-    await registerLocal(input);
-    return res.status(200).json({ ok: true });
-  }
-  const response = await signUpUser(input);
-  if ("alreadyExists" in response) {
-    return res.status(200).json({ userSub: null, codeDelivery: response.CodeDeliveryDetails, alreadyExists: true });
-  }
-  return res.status(201).json({ userSub: response.UserSub, codeDelivery: response.CodeDeliveryDetails });
+  await registerLocal(input);
+  return res.status(200).json({ ok: true });
 }
 
 export async function startRegistration(req: Request, res: Response) {
   const input = startRegisterSchema.parse(req.body);
-  if (env.authMode === "local") {
-    await startEmailRegistration(input);
-    return res.status(200).json({ ok: true });
-  }
-  return res.status(400).json({ error: "Email-only registration is only supported in local auth mode." });
+  await startEmailRegistration(input);
+  return res.status(200).json({ ok: true });
 }
 
 export async function updateRole(req: Request, res: Response) {
@@ -115,71 +94,35 @@ export async function updateRole(req: Request, res: Response) {
 
 export async function confirmRegistration(req: Request, res: Response) {
   const input = confirmSchema.parse(req.body);
-  if (env.authMode === "local") {
-    const result = await confirmLocal(input);
-    return res.status(200).json(result);
-  }
-  await confirmSignUp(input);
-  return res.status(200).json({ ok: true });
+  const result = await confirmLocal(input);
+  return res.status(200).json(result);
 }
 
 export async function resendConfirmation(req: Request, res: Response) {
   const input = resendSchema.parse(req.body);
-  if (env.authMode === "local") {
-    await resendLocal(input);
-    return res.status(200).json({ ok: true });
-  }
-  const response = await resendConfirmationCode(input);
-  return res.status(200).json({ ok: true, codeDelivery: response.CodeDeliveryDetails });
+  await resendLocal(input);
+  return res.status(200).json({ ok: true });
 }
 
 export async function login(req: Request, res: Response) {
   const input = loginSchema.parse(req.body);
-  if (env.authMode === "local") {
-    const response = await loginLocal(input);
-    return res.status(200).json(response);
-  }
-  const response = await loginUser(input);
-  return res.status(200).json({
-    accessToken: response.AuthenticationResult?.AccessToken,
-    idToken: response.AuthenticationResult?.IdToken,
-    refreshToken: response.AuthenticationResult?.RefreshToken,
-    expiresIn: response.AuthenticationResult?.ExpiresIn,
-    tokenType: response.AuthenticationResult?.TokenType,
-  });
+  const response = await loginLocal(input);
+  return res.status(200).json(response);
 }
 
-export async function refreshToken(req: Request, res: Response) {
-  const input = refreshSchema.parse(req.body);
-  if (env.authMode === "local") {
-    return res.status(400).json({ error: "Refresh token is not available in local auth mode." });
-  }
-  const response = await refreshUserSession(input);
-  return res.status(200).json({
-    accessToken: response.AuthenticationResult?.AccessToken,
-    idToken: response.AuthenticationResult?.IdToken,
-    expiresIn: response.AuthenticationResult?.ExpiresIn,
-    tokenType: response.AuthenticationResult?.TokenType,
-  });
+export async function refreshToken(_req: Request, res: Response) {
+  return res.status(400).json({ error: "Refresh tokens are not used; sign in again to obtain a new access token." });
 }
 
 export async function startPasswordReset(req: Request, res: Response) {
   const input = forgotSchema.parse(req.body);
-  if (env.authMode === "local") {
-    await startForgotPasswordLocal(input);
-    return res.status(200).json({ ok: true });
-  }
-  const response = await startForgotPassword(input);
-  return res.status(200).json({ ok: true, codeDelivery: response.CodeDeliveryDetails });
+  await startForgotPasswordLocal(input);
+  return res.status(200).json({ ok: true });
 }
 
 export async function confirmPasswordReset(req: Request, res: Response) {
   const input = forgotConfirmSchema.parse(req.body);
-  if (env.authMode === "local") {
-    await confirmForgotPasswordLocal(input);
-    return res.status(200).json({ ok: true });
-  }
-  await confirmForgotPassword(input);
+  await confirmForgotPasswordLocal(input);
   return res.status(200).json({ ok: true });
 }
 
@@ -193,8 +136,13 @@ export async function updatePassword(req: Request, res: Response) {
   if (!token) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  await changePassword({
-    accessToken: token,
+  const payload = await verifyAccessToken(token);
+  const userId = payload.user_id as number | undefined;
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  await changePasswordLocal({
+    userId,
     previousPassword: input.data.oldPassword,
     proposedPassword: input.data.newPassword,
   });
