@@ -6,6 +6,7 @@ import {
   submitOnboarding as submitOnboardingService,
   startYouthOnboarding,
   startAdultOnboarding,
+  startTeamOnboarding,
   getPublicOnboardingConfig,
   getPhpPlusProgramTabs,
   updateAthleteProfilePicture,
@@ -53,6 +54,13 @@ const youthBasicSchema = z.object({
 const adultBasicSchema = z.object({
   name: z.string().min(1),
   birthDate: z.string().min(1),
+});
+
+const teamBasicSchema = z.object({
+  name: z.string().min(1),
+  minAge: z.number().int().min(1),
+  maxAge: z.number().int().min(1),
+  maxAthletes: z.number().int().min(1),
 });
 
 const athletePhotoSchema = z.object({
@@ -133,6 +141,15 @@ export async function submitYouthBasic(req: Request, res: Response) {
 export async function submitAdultBasic(req: Request, res: Response) {
   const parsed = adultBasicSchema.parse(req.body);
   const result = await startAdultOnboarding({
+    userId: req.user!.id,
+    ...parsed,
+  });
+  return res.status(200).json(result);
+}
+
+export async function submitTeamBasic(req: Request, res: Response) {
+  const parsed = teamBasicSchema.parse(req.body);
+  const result = await startTeamOnboarding({
     userId: req.user!.id,
     ...parsed,
   });
