@@ -47,7 +47,7 @@ const onboardingSchema = z.object({
 const youthBasicSchema = z.object({
   guardianName: z.string().min(1),
   athleteName: z.string().min(1),
-  age: z.number().int().min(1).max(100),
+  birthDate: z.string().min(1),
 });
 
 const adultBasicSchema = z.object({

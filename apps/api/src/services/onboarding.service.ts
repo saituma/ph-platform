@@ -100,7 +100,7 @@ export async function startYouthOnboarding(input: {
 	userId: number;
 	guardianName: string;
 	athleteName: string;
-	age: number;
+	birthDate: string;
 }) {
 	// Update guardian (user) name
 	await db
@@ -139,6 +139,12 @@ export async function startYouthOnboarding(input: {
 		guardianId = newGuardian.id;
 	}
 
+	const parsedBirthDate = parseISODate(input.birthDate);
+	if (!parsedBirthDate) {
+		throw new Error("Invalid birth date format.");
+	}
+	const age = calculateAge(parsedBirthDate, new Date());
+
 	// Create or update athlete record
 	const athletes = await db
 		.select()
@@ -151,7 +157,8 @@ export async function startYouthOnboarding(input: {
 			.update(athleteTable)
 			.set({
 				name: input.athleteName,
-				age: input.age,
+				birthDate: input.birthDate,
+				age: age,
 				athleteType: "youth",
 				updatedAt: new Date(),
 			})
@@ -159,12 +166,11 @@ export async function startYouthOnboarding(input: {
 	} else {
 		await db.insert(athleteTable).values({
 			guardianId: guardianId,
-			userId: 3, // Assigned to Admin (Piers) as placeholder during initial onboarding
+			userId: null,
 			name: input.athleteName,
-			age: input.age,
+			birthDate: input.birthDate,
+			age: age,
 			athleteType: "youth",
-			team: "",
-			trainingPerWeek: 0,
 		});
 	}
 

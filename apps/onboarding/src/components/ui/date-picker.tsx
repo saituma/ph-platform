@@ -15,10 +15,14 @@ export function DatePicker({
 	date,
 	setDate,
 	placeholder = "Pick a date",
+	fromYear = 1900,
+	toYear = new Date().getFullYear(),
 }: {
 	date: Date | undefined;
 	setDate: (date: Date | undefined) => void;
 	placeholder?: string;
+	fromYear?: number;
+	toYear?: number;
 }) {
 	return (
 		<Popover>
@@ -40,8 +44,10 @@ export function DatePicker({
 					selected={date}
 					onSelect={setDate}
 					initialFocus
+					fromYear={fromYear}
+					toYear={toYear}
 					disabled={(date) =>
-						date > new Date() || date < new Date("1900-01-01")
+						date > new Date() || date < new Date(`${fromYear}-01-01`)
 					}
 				/>
 			</PopoverContent>
