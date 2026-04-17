@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   getOnboardingByUser,
   submitOnboarding as submitOnboardingService,
+  startYouthOnboarding,
   getPublicOnboardingConfig,
   getPhpPlusProgramTabs,
   updateAthleteProfilePicture,
@@ -40,6 +41,12 @@ const onboardingSchema = z.object({
 }).refine((data) => Boolean(data.birthDate || data.age), {
   message: "Birth date is required.",
   path: ["birthDate"],
+});
+
+const youthBasicSchema = z.object({
+  guardianName: z.string().min(1),
+  athleteName: z.string().min(1),
+  age: z.number().int().min(1).max(100),
 });
 
 const athletePhotoSchema = z.object({
@@ -105,6 +112,15 @@ export async function submitOnboarding(req: Request, res: Response) {
     athleteId: input.athleteId ?? null,
   });
 
+  return res.status(200).json(result);
+}
+
+export async function submitYouthBasic(req: Request, res: Response) {
+  const parsed = youthBasicSchema.parse(req.body);
+  const result = await startYouthOnboarding({
+    userId: req.user!.id,
+    ...parsed,
+  });
   return res.status(200).json(result);
 }
 

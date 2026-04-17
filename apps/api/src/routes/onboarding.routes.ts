@@ -3,6 +3,7 @@ import { Router } from "express";
 import { requireAuth } from "../middlewares/auth";
 import {
   submitOnboarding,
+  submitYouthBasic,
   getOnboardingStatus,
   getOnboardingConfig,
   getPhpPlusTabs,
@@ -16,6 +17,7 @@ import {
 const router = Router();
 
 router.post("/onboarding", requireAuth, submitOnboarding);
+router.post("/onboarding/youth-basic", requireAuth, submitYouthBasic);
 router.get("/onboarding", requireAuth, getOnboardingStatus);
 router.get("/onboarding/athletes", requireAuth, listGuardianAthletes);
 router.get("/onboarding/athletes/:athleteId", requireAuth, getGuardianAthlete);
