@@ -247,14 +247,31 @@ h1, h2, h3, h4, h5, h6 {
   @apply bg-background border border-border rounded-lg px-2 py-1 text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary outline-none hover:bg-accent transition-colors cursor-pointer appearance-none;
 }
 
-.rdp-dropdown_month, .rdp-dropdown_year {
+.rdp-dropdown_root {
   @apply relative inline-flex items-center;
 }
 
-.rdp-caption_dropdowns {
-  @apply flex items-center justify-center gap-2 mb-2;
+.rdp-dropdowns {
+  @apply flex items-center justify-center gap-2;
 }
 
 .rdp-vhidden {
   @apply hidden;
+}
+
+/* Ensure the grid cells are perfectly aligned */
+.rdp-month_grid {
+  @apply w-full flex flex-col gap-1;
+}
+
+.rdp-weekdays {
+  @apply flex w-full justify-between mb-2;
+}
+
+.rdp-weekday {
+  @apply text-muted-foreground w-9 text-center font-bold text-xs uppercase tracking-tighter opacity-70;
+}
+
+.rdp-week {
+  @apply flex w-full justify-between;
 }
