@@ -16,6 +16,9 @@ import { updateUserProfile } from "../services/user.service";
 import { deleteOwnAccount } from "../services/account-deletion.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
 import { verifyAccessToken } from "../lib/jwt";
+import { getAthleteForUser } from "../services/user.service";
+import { getMessagingAccessTiers } from "../services/messaging-policy.service";
+import { buildAppCapabilities } from "../services/app-capabilities.service";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -54,6 +57,7 @@ const startRegisterSchema = z.object({
 const updateRoleSchema = z.object({
   email: z.string().email(),
   type: z.enum(["youth", "adult", "team"]),
+  password: z.string().min(8).optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -150,7 +154,26 @@ export async function updatePassword(req: Request, res: Response) {
 }
 
 export async function getMe(req: Request, res: Response) {
-  return res.status(200).json({ user: req.user });
+  const user = req.user!;
+  const [athlete, messagingAccessTiers] = await Promise.all([
+    getAthleteForUser(user.id),
+    getMessagingAccessTiers(),
+  ]);
+  const programTier = athlete?.currentProgramTier ?? null;
+  const capabilities = buildAppCapabilities({
+    role: user.role,
+    programTier,
+    messagingAccessTiers,
+  });
+
+  return res.status(200).json({
+    user: {
+      ...user,
+      programTier,
+      capabilities,
+      messagingAccessTiers,
+    },
+  });
 }
 
 export async function deleteAccount(req: Request, res: Response) {

@@ -274,7 +274,11 @@ export async function confirmLocal(input: { email: string; code: string }) {
   return { ok: true, accessToken: token, tokenType: "Bearer" };
 }
 
-export async function updateUserRole(input: { email: string; type: "youth" | "adult" | "team" }) {
+export async function updateUserRole(input: { 
+  email: string; 
+  type: "youth" | "adult" | "team";
+  password?: string;
+}) {
   const users = await db
     .select()
     .from(userTable)
@@ -294,13 +298,20 @@ export async function updateUserRole(input: { email: string; type: "youth" | "ad
   } as const;
 
   const role = roleMap[input.type];
+  const updateData: any = {
+    role: role as typeof user.role,
+    updatedAt: new Date(),
+  };
+
+  if (input.password) {
+    const { hash, salt } = hashPassword(input.password);
+    updateData.passwordHash = hash;
+    updateData.passwordSalt = salt;
+  }
 
   await db
     .update(userTable)
-    .set({
-      role: role as typeof user.role,
-      updatedAt: new Date(),
-    })
+    .set(updateData)
     .where(eq(userTable.id, user.id));
 
   return { ok: true, role };
