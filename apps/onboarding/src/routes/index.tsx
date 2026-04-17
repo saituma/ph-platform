@@ -150,6 +150,18 @@ function App() {
                             )}
                         </Button>
                     </form>
+
+                    <div className="flex flex-col items-center gap-2 pt-2">
+                        <p className="text-xs text-muted-foreground">
+                            Already have an account?{" "}
+                            <a
+                                href="/login"
+                                className="font-bold text-primary hover:underline transition-all"
+                            >
+                                Log in to your dashboard
+                            </a>
+                        </p>
+                    </div>
                 </section>
 
                 <p className="text-xs text-muted-foreground animate-in fade-in duration-1000 delay-700 fill-mode-both">
