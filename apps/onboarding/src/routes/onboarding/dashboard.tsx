@@ -73,24 +73,29 @@ function Dashboard() {
 	const isAdult = userData.athleteType === "adult";
 	const isTeam = userData.role === "coach";
 
-	// Determine the primary display name based on user requirements
-	const displayName = isYouth 
-		? userData.name // Guardian's name
-		: isAdult 
-			? userData.athleteName || userData.name 
-			: userData.name; // Team name
-
 	return (
 		<main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
 			<section className="space-y-10 animate-in fade-in duration-700">
 				<div className="flex items-center justify-between gap-4">
-					<div className="space-y-1">
+					<div className="space-y-2">
 						<h1 className="text-3xl font-black uppercase italic tracking-tight leading-none">
-							Welcome, <span className="text-primary">{displayName}</span>
+							Dashboard
 						</h1>
-						<p className="text-sm text-muted-foreground font-medium uppercase tracking-widest">
-							{isYouth ? "Guardian Dashboard" : isAdult ? "Athlete Dashboard" : "Team Dashboard"}
-						</p>
+						<div className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-bold uppercase tracking-widest text-primary/80">
+							{isYouth && (
+								<>
+									<span>Guardian: {userData.name}</span>
+									<span className="text-muted-foreground/30">•</span>
+									<span>Athlete: {userData.athleteName}</span>
+								</>
+							)}
+							{isAdult && (
+								<span>Athlete: {userData.name}</span>
+							)}
+							{isTeam && (
+								<span>Team: {userData.name}</span>
+							)}
+						</div>
 					</div>
 					<Button 
 						variant="ghost" 
