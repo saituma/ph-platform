@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { User, UserCircle, Users, ArrowRight } from "@phosphor-icons/react";
+import { User, UserCircle, Users, ArrowRight, CircleNotch } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { cn } from "#/lib/utils";
+import { toast } from "sonner";
+import { env } from "#/env";
 
 export const Route = createFileRoute("/onboarding/step-1")({
 	component: OnboardingStep1,
@@ -34,13 +36,52 @@ const USER_TYPES = [
 
 function OnboardingStep1() {
 	const [selected, setSelected] = useState<UserType>(null);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const navigate = useNavigate();
 
-	const handleContinue = () => {
-		if (!selected) return;
-		// Navigate to next step - to be implemented
-		console.log("Selected user type:", selected);
-		// navigate({ to: "/onboarding/step-2" }); 
+	const handleContinue = async () => {
+		if (!selected || isSubmitting) return;
+
+		const email = sessionStorage.getItem("pending_email");
+		const token = sessionStorage.getItem("auth_token");
+
+		if (!email || !token) {
+			toast.error("Session expired", {
+				description: "Please go back and verify your email again.",
+			});
+			return;
+		}
+
+		setIsSubmitting(true);
+		try {
+			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+			const response = await fetch(`${baseUrl}/api/auth/onboarding/role`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ email, type: selected }),
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || "Failed to save selection");
+			}
+
+			toast.success("Preference saved!", {
+				description: `You've joined as a ${USER_TYPES.find((t) => t.id === selected)?.title}.`,
+			});
+
+			// navigate({ to: "/onboarding/step-2" });
+		} catch (error: any) {
+			toast.error("Could not save selection", {
+				description: error.message || "An unexpected error occurred.",
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
 	return (
@@ -107,12 +148,18 @@ function OnboardingStep1() {
 				<div className="flex flex-col items-center pt-8">
 					<Button
 						onClick={handleContinue}
-						disabled={!selected}
+						disabled={!selected || isSubmitting}
 						size="lg"
 						className="min-w-[200px] h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
 					>
-						Continue
-						<ArrowRight weight="bold" className="ml-2 w-5 h-5" />
+						{isSubmitting ? (
+							<CircleNotch className="w-6 h-6 animate-spin" />
+						) : (
+							<>
+								Continue
+								<ArrowRight weight="bold" className="ml-2 w-5 h-5" />
+							</>
+						)}
 					</Button>
 					<p className="mt-4 text-xs text-muted-foreground">
 						You can change this later in your account settings.
