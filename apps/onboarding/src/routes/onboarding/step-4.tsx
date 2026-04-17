@@ -62,13 +62,12 @@ function OnboardingStep4() {
 	const handleConfirm = async () => {
 		setIsSubmitting(true);
 		// In a real flow, this might trigger the final onboarding completion or lead to payments
-		// For now, we'll simulate a success and eventually navigate to step-5 or app
 		setTimeout(() => {
 			toast.success("Profile Confirmed!", {
 				description: "Moving to plan selection and payment.",
 			});
 			setIsSubmitting(false);
-			// navigate({ to: "/onboarding/step-5" });
+			navigate({ to: "/onboarding/step-5" });
 		}, 1500);
 	};
 
