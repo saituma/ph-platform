@@ -38,6 +38,9 @@ yarn-error.log*
 .turbo/
 .cache/
 
+# Wrangler local secrets
+apps/worker/.dev.vars
+
 # API temp
 apps/api/tmp/
 

@@ -1,19 +1,14 @@
 jest.mock("../../src/services/auth.service", () => ({
-  changePassword: jest.fn(),
-  confirmForgotPassword: jest.fn(),
-  confirmSignUp: jest.fn(),
-  confirmLocal: jest.fn(),
-  loginUser: jest.fn(),
-  loginLocal: jest.fn(),
-  resendConfirmation: jest.fn(),
-  resendLocal: jest.fn(),
-  signUpUser: jest.fn(),
-  registerLocal: jest.fn(),
-  startForgotPassword: jest.fn(),
+  changePasswordLocal: jest.fn(),
+}));
+
+jest.mock("../../src/lib/jwt", () => ({
+  verifyAccessToken: jest.fn(),
 }));
 
 import { updatePassword } from "../../src/controllers/auth.controller";
-import { changePassword } from "../../src/services/auth.service";
+import { changePasswordLocal } from "../../src/services/auth.service";
+import { verifyAccessToken } from "../../src/lib/jwt";
 
 function createRes() {
   const res: any = {};
@@ -34,7 +29,7 @@ describe("auth controller", () => {
     await updatePassword(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(changePassword).not.toHaveBeenCalled();
+    expect(changePasswordLocal).not.toHaveBeenCalled();
   });
 
   it("returns 401 when auth token is missing", async () => {
@@ -44,10 +39,11 @@ describe("auth controller", () => {
     await updatePassword(req, res);
 
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(changePassword).not.toHaveBeenCalled();
+    expect(changePasswordLocal).not.toHaveBeenCalled();
   });
 
   it("calls service and returns 200", async () => {
+    (verifyAccessToken as jest.Mock).mockResolvedValue({ user_id: 42 });
     const req = {
       body: { oldPassword: "Password123", newPassword: "NewPassword123" },
       headers: { authorization: "Bearer token-123" },
@@ -56,8 +52,8 @@ describe("auth controller", () => {
 
     await updatePassword(req, res);
 
-    expect(changePassword).toHaveBeenCalledWith({
-      accessToken: "token-123",
+    expect(changePasswordLocal).toHaveBeenCalledWith({
+      userId: 42,
       previousPassword: "Password123",
       proposedPassword: "NewPassword123",
     });

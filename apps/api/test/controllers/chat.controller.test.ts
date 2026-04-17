@@ -54,6 +54,9 @@ describe("chat controller", () => {
       content: "Hello",
       contentType: "text",
       mediaUrl: undefined,
+      clientId: null,
+      replyToMessageId: undefined,
+      replyPreview: undefined,
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ message: { id: 1 } });

@@ -1,13 +1,5 @@
 import crypto from "crypto";
-import {
-  AdminCreateUserCommand,
-  AdminDeleteUserCommand,
-  AdminGetUserCommand,
-  AdminSetUserPasswordCommand,
-} from "@aws-sdk/client-cognito-identity-provider";
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
-
-import { cognitoClient } from "../../lib/aws";
 import { db } from "../../db";
 import {
   athleteTable,
@@ -38,7 +30,7 @@ import {
 import { env } from "../../config/env";
 import { sendAdminPasswordResetEmail, sendAdminWelcomeCredentialsEmail } from "../../lib/mailer";
 import { ensureAthleteUserRecord, submitOnboarding } from "../onboarding.service";
-import { createUserFromCognito, getAthleteForUser, getUserByEmail, getUserById } from "../user.service";
+import { getAthleteForUser, getUserByEmail, getUserById } from "../user.service";
 import { calculateAge, parseISODate } from "../../lib/age";
 
 export async function listUsers(options?: { q?: string; limit?: number }) {
@@ -428,10 +420,6 @@ export async function softDeleteUser(userId: number) {
     return updated[0] ?? null;
   });
 
-  if (env.authMode !== "local" && env.cognitoUserPoolId && !user.cognitoSub.startsWith("local:")) {
-    await deleteCognitoUserByEmail(user.email);
-  }
-
   return result;
 }
 
@@ -478,22 +466,6 @@ function computePlanExpiryFromCommitment(months: 6 | 12) {
   end.setMonth(end.getMonth() + months);
   end.setHours(23, 59, 59, 999);
   return end;
-}
-
-async function deleteCognitoUserByEmail(email: string) {
-  if (!env.cognitoUserPoolId) return;
-  try {
-    await cognitoClient.send(
-      new AdminDeleteUserCommand({
-        UserPoolId: env.cognitoUserPoolId,
-        Username: email,
-      })
-    );
-  } catch (error: any) {
-    if (error?.name !== "UserNotFoundException") {
-      console.warn("[admin] Cognito delete during rollback failed", error);
-    }
-  }
 }
 
 export type CreateGuardianWithOnboardingAdminInput = {
@@ -553,85 +525,27 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
   const tempPassword = resolveProvisionPassword(input.initialPassword);
   let userId: number | null = null;
   const createdEmail = email;
-  let cognitoProvisioned = false;
 
   try {
-    if (env.authMode === "local") {
-      const { hash, salt } = hashLocalProvisionPassword(tempPassword);
-      const inserted = await db
-        .insert(userTable)
-        .values({
-          cognitoSub: `local:${crypto.randomUUID()}`,
-          name: input.guardianDisplayName.trim(),
-          email,
-          role: "guardian",
-          passwordHash: hash,
-          passwordSalt: salt,
-          emailVerified: true,
-          verificationCode: null,
-          verificationExpiresAt: null,
-          verificationAttempts: 0,
-        })
-        .returning();
-      userId = inserted[0]?.id ?? null;
-      if (!userId) {
-        throw new Error("User insert failed");
-      }
-    } else {
-      if (!env.cognitoUserPoolId) {
-        throw { status: 500, message: "Authentication is not configured for provisioning." };
-      }
-      try {
-        await cognitoClient.send(
-          new AdminCreateUserCommand({
-            UserPoolId: env.cognitoUserPoolId,
-            Username: email,
-            UserAttributes: [
-              { Name: "email", Value: email },
-              { Name: "email_verified", Value: "true" },
-              { Name: "name", Value: input.guardianDisplayName.trim() },
-            ],
-            TemporaryPassword: tempPassword,
-            MessageAction: "SUPPRESS",
-          })
-        );
-      } catch (error: any) {
-        if (error?.name === "UsernameExistsException") {
-          throw { status: 409, message: "An account with this email already exists in Cognito." };
-        }
-        if (error?.name === "InvalidPasswordException") {
-          throw {
-            status: 400,
-            message: "Temporary password did not meet your Cognito password policy. Try again or contact support.",
-          };
-        }
-        throw error;
-      }
-      cognitoProvisioned = true;
-
-      const cognitoUser = await cognitoClient.send(
-        new AdminGetUserCommand({
-          UserPoolId: env.cognitoUserPoolId,
-          Username: email,
-        })
-      );
-      const sub = cognitoUser.UserAttributes?.find((attr) => attr.Name === "sub")?.Value;
-      if (!sub) {
-        await deleteCognitoUserByEmail(createdEmail);
-        throw new Error("Missing Cognito sub after user creation");
-      }
-
-      const cognitoRow = await createUserFromCognito({
-        sub,
-        email,
+    const { hash, salt } = hashLocalProvisionPassword(tempPassword);
+    const inserted = await db
+      .insert(userTable)
+      .values({
+        cognitoSub: `local:${crypto.randomUUID()}`,
         name: input.guardianDisplayName.trim(),
+        email,
         role: "guardian",
-      });
-      userId = cognitoRow.id;
-      await db
-        .update(userTable)
-        .set({ emailVerified: true, updatedAt: new Date() })
-        .where(eq(userTable.id, userId));
+        passwordHash: hash,
+        passwordSalt: salt,
+        emailVerified: true,
+        verificationCode: null,
+        verificationExpiresAt: null,
+        verificationAttempts: 0,
+      })
+      .returning();
+    userId = inserted[0]?.id ?? null;
+    if (!userId) {
+      throw new Error("User insert failed");
     }
 
     const onboardingResult = await submitOnboarding({
@@ -696,9 +610,6 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
     if (userId) {
       await softDeleteUser(userId);
     }
-    if (env.authMode !== "local" && cognitoProvisioned) {
-      await deleteCognitoUserByEmail(createdEmail);
-    }
     throw error;
   }
 }
@@ -727,85 +638,27 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
   const tempPassword = resolveProvisionPassword(input.initialPassword);
   let userId: number | null = null;
   const createdEmail = email;
-  let cognitoProvisioned = false;
 
   try {
-    if (env.authMode === "local") {
-      const { hash, salt } = hashLocalProvisionPassword(tempPassword);
-      const inserted = await db
-        .insert(userTable)
-        .values({
-          cognitoSub: `local:${crypto.randomUUID()}`,
-          name: athleteName,
-          email,
-          role: "athlete",
-          passwordHash: hash,
-          passwordSalt: salt,
-          emailVerified: true,
-          verificationCode: null,
-          verificationExpiresAt: null,
-          verificationAttempts: 0,
-        })
-        .returning();
-      userId = inserted[0]?.id ?? null;
-      if (!userId) {
-        throw new Error("User insert failed");
-      }
-    } else {
-      if (!env.cognitoUserPoolId) {
-        throw { status: 500, message: "Authentication is not configured for provisioning." };
-      }
-      try {
-        await cognitoClient.send(
-          new AdminCreateUserCommand({
-            UserPoolId: env.cognitoUserPoolId,
-            Username: email,
-            UserAttributes: [
-              { Name: "email", Value: email },
-              { Name: "email_verified", Value: "true" },
-              { Name: "name", Value: athleteName },
-            ],
-            TemporaryPassword: tempPassword,
-            MessageAction: "SUPPRESS",
-          })
-        );
-      } catch (error: any) {
-        if (error?.name === "UsernameExistsException") {
-          throw { status: 409, message: "An account with this email already exists in Cognito." };
-        }
-        if (error?.name === "InvalidPasswordException") {
-          throw {
-            status: 400,
-            message: "Temporary password did not meet your Cognito password policy. Try again or contact support.",
-          };
-        }
-        throw error;
-      }
-      cognitoProvisioned = true;
-
-      const cognitoUser = await cognitoClient.send(
-        new AdminGetUserCommand({
-          UserPoolId: env.cognitoUserPoolId,
-          Username: email,
-        })
-      );
-      const sub = cognitoUser.UserAttributes?.find((attr) => attr.Name === "sub")?.Value;
-      if (!sub) {
-        await deleteCognitoUserByEmail(createdEmail);
-        throw new Error("Missing Cognito sub after user creation");
-      }
-
-      const cognitoRow = await createUserFromCognito({
-        sub,
-        email,
+    const { hash, salt } = hashLocalProvisionPassword(tempPassword);
+    const inserted = await db
+      .insert(userTable)
+      .values({
+        cognitoSub: `local:${crypto.randomUUID()}`,
         name: athleteName,
+        email,
         role: "athlete",
-      });
-      userId = cognitoRow.id;
-      await db
-        .update(userTable)
-        .set({ emailVerified: true, updatedAt: new Date() })
-        .where(eq(userTable.id, userId));
+        passwordHash: hash,
+        passwordSalt: salt,
+        emailVerified: true,
+        verificationCode: null,
+        verificationExpiresAt: null,
+        verificationAttempts: 0,
+      })
+      .returning();
+    userId = inserted[0]?.id ?? null;
+    if (!userId) {
+      throw new Error("User insert failed");
     }
 
     const now = new Date();
@@ -887,9 +740,6 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
     if (userId) {
       await softDeleteUser(userId);
     }
-    if (env.authMode !== "local" && cognitoProvisioned) {
-      await deleteCognitoUserByEmail(createdEmail);
-    }
     throw error;
   }
 }
@@ -902,49 +752,16 @@ export async function resetUserPasswordAdmin(input: { userId: number; temporaryP
 
   const nextPassword = resolveProvisionPassword(input.temporaryPassword);
 
-  if (env.authMode === "local") {
-    const { hash, salt } = hashLocalProvisionPassword(nextPassword);
-    await db
-      .update(userTable)
-      .set({
-        passwordHash: hash,
-        passwordSalt: salt,
-        tokenVersion: (user.tokenVersion ?? 0) + 1,
-        updatedAt: new Date(),
-      })
-      .where(eq(userTable.id, user.id));
-  } else {
-    if (!env.cognitoUserPoolId) {
-      throw { status: 500, message: "Authentication is not configured for password resets." };
-    }
-
-    try {
-      await cognitoClient.send(
-        new AdminSetUserPasswordCommand({
-          UserPoolId: env.cognitoUserPoolId,
-          Username: user.email,
-          Password: nextPassword,
-          Permanent: false,
-        })
-      );
-    } catch (error: any) {
-      if (error?.name === "UserNotFoundException") {
-        throw { status: 404, message: "User not found in Cognito." };
-      }
-      if (error?.name === "InvalidPasswordException") {
-        throw { status: 400, message: "Temporary password did not meet your Cognito password policy." };
-      }
-      throw error;
-    }
-
-    await db
-      .update(userTable)
-      .set({
-        tokenVersion: (user.tokenVersion ?? 0) + 1,
-        updatedAt: new Date(),
-      })
-      .where(eq(userTable.id, user.id));
-  }
+  const { hash, salt } = hashLocalProvisionPassword(nextPassword);
+  await db
+    .update(userTable)
+    .set({
+      passwordHash: hash,
+      passwordSalt: salt,
+      tokenVersion: (user.tokenVersion ?? 0) + 1,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, user.id));
 
   let emailSent = true;
   try {

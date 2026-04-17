@@ -1,0 +1,14 @@
+name = "ph-app-api"
+main = "src/index.ts"
+compatibility_date = "2025-04-17"
+compatibility_flags = ["nodejs_compat"]
+
+# Secrets (set in Cloudflare dashboard or CI):
+#   DATABASE_URL, BETTER_AUTH_SECRET, JWT_SECRET (must match apps/api JWT_SECRET)
+# Optional [vars]:
+#   BETTER_AUTH_URL = "https://your-worker.workers.dev"
+#   TRUSTED_ORIGINS_EXTRA = "https://app.example.com,http://localhost:3000"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "ph-media"

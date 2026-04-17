@@ -47,10 +47,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       }
     }
 
-    if (env.authMode === "local") {
-      if (typeof tokenVersion !== "number" || tokenVersion !== user.tokenVersion) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
+    if (typeof tokenVersion !== "number" || tokenVersion !== user.tokenVersion) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     if (user.isBlocked) {

@@ -13,6 +13,7 @@ export type ManagedAthlete = {
   userId?: number | null;
   name?: string | null;
   age?: number | null;
+  athleteType?: \"youth\" | \"adult\" | null;
   team?: string | null;
   level?: string | null;
   trainingPerWeek?: number | null;

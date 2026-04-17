@@ -268,17 +268,22 @@ export function AuthPersist() {
             userId?: number | null;
             name?: string | null;
             age?: number | null;
+            athleteType?: \"youth\" | \"adult\" | null;
             team?: string | null;
             level?: string | null;
             trainingPerWeek?: number | null;
             profilePicture?: string | null;
           }[];
-        }>("/onboarding/athletes", {
+        }>(\"/onboarding/athletes\", {
           token,
           suppressStatusCodes: [401, 403, 404],
         });
         if (!active) return;
-        dispatch(setManagedAthletes(data.athletes ?? []));
+        const athletes = data.athletes ?? [];
+        dispatch(setManagedAthletes(athletes));
+        if (athletes.length > 0) {
+          latestOnboardingAthlete = athletes[0];
+        }
       } catch {
         if (!active) return;
         dispatch(setManagedAthletes([]));

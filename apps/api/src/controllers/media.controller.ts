@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-import { getSignedMediaUrl } from "../services/cloudfront.service";
+import { getSignedMediaUrl } from "../services/signed-media.service";
 import { env } from "../config/env";
 import { getPresignedUploadUrl, getPublicObjectUrl } from "../services/s3.service";
 
@@ -19,7 +19,7 @@ const uploadSchema = z.object({
 
 export async function signMediaUrl(req: Request, res: Response) {
   const input = signSchema.parse(req.body);
-  const url = getSignedMediaUrl({ path: input.path, expiresInSeconds: input.expiresInSeconds });
+  const url = await getSignedMediaUrl({ path: input.path, expiresInSeconds: input.expiresInSeconds });
   return res.status(200).json({ url });
 }
 

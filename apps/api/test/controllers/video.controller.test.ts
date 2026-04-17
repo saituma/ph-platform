@@ -76,7 +76,7 @@ describe("video controller", () => {
 
     await listVideos(req, res);
 
-    expect(listVideoUploadsByAthlete).toHaveBeenCalledWith(8, { programSectionContentId: null });
+    expect(listVideoUploadsByAthlete).toHaveBeenCalledWith(8, { contentId: null });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ items: [{ id: 1 }] });
   });
@@ -101,7 +101,8 @@ describe("video controller", () => {
       athleteId: 8,
       videoUrl: "https://example.com/video.mp4",
       notes: undefined,
-      programSectionContentId: 123,
+      programSectionContentId: null,
+      trainingSessionItemId: 123,
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ item: { id: 99 } });

@@ -46,17 +46,12 @@ router.get("/version", async (_req, res) => {
     columnExists("service_types", "slotMode"),
   ]);
 
-  let databaseTargets:
-    | { hasDatabaseMigrationUrl: boolean; sameAsDatabaseUrl: boolean | null }
-    | null = null;
+  let databaseTargets: { identity: string | null } | null = null;
   try {
-    const urlA = process.env.DATABASE_URL ?? "";
-    const urlB = process.env.DATABASE_MIGRATION_URL ?? "";
-    const hasDatabaseMigrationUrl = Boolean(urlB.trim());
-    const sameAsDatabaseUrl = hasDatabaseMigrationUrl
-      ? normalizeDbIdentity(urlA) === normalizeDbIdentity(urlB)
-      : null;
-    databaseTargets = { hasDatabaseMigrationUrl, sameAsDatabaseUrl };
+    const url = process.env.DATABASE_URL ?? "";
+    databaseTargets = {
+      identity: url.trim() ? normalizeDbIdentity(url) : null,
+    };
   } catch {
     databaseTargets = null;
   }

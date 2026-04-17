@@ -7,7 +7,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
-import { Client, Pool } from "pg";
+import { Client } from "pg";
 
 import { env } from "../config/env";
 
@@ -287,6 +287,34 @@ async function normalizeLegacyBookingTypes(db: any) {
   }
 }
 
+function isTransientMigrationConnectionError(err: unknown): boolean {
+  const e = err as NodeJS.ErrnoException & { code?: string };
+  const code = e?.code;
+  if (
+    code === "ECONNRESET" ||
+    code === "ECONNREFUSED" ||
+    code === "ETIMEDOUT" ||
+    code === "EPIPE" ||
+    code === "ENOTFOUND"
+  ) {
+    return true;
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  const low = msg.toLowerCase();
+  return (
+    low.includes("econnreset") ||
+    low.includes("connection terminated") ||
+    low.includes("db_termination") ||
+    low.includes("server closed the connection")
+  );
+}
+
+function describeMigrationErr(err: unknown): string {
+  const e = err as NodeJS.ErrnoException & { code?: string };
+  if (e?.code) return `${e.code}: ${e instanceof Error ? e.message : String(err)}`;
+  return err instanceof Error ? err.message : String(err);
+}
+
 async function assertTrainingContentV2Schema(db: any) {
   const [
     hasModules,
@@ -325,19 +353,21 @@ async function assertTrainingContentV2Schema(db: any) {
   }
 }
 
-export async function runMigrations(options?: {
-  databaseUrl?: string;
+async function executeMigrationsOnce(options: {
+  databaseUrl: string;
   migrationsFolder?: string;
   skipTrainingV2Assertion?: boolean;
 }) {
-  const rawUrl = options?.databaseUrl ?? env.databaseUrl;
+  const rawUrl = options.databaseUrl;
   const connectionString = normalizeConnectionString(rawUrl);
   const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(rawUrl);
 
   const client = new Client({
     connectionString,
     ssl: useSsl ? { rejectUnauthorized: false } : undefined,
-    connectionTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 60_000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
   });
 
   try {
@@ -351,7 +381,7 @@ export async function runMigrations(options?: {
     } catch (e) {
       console.warn("[Migrations] Could not normalize run_logs schema (discovery failed), proceeding...");
     }
-    
+
     // Compatibility shim: older booking/service type values (group_call, one_on_one, etc.)
     // must be normalized before enum-cast migrations run.
     try {
@@ -361,8 +391,7 @@ export async function runMigrations(options?: {
     }
 
     const migrationsFolder =
-      options?.migrationsFolder ??
-      path.resolve(process.cwd(), "drizzle");
+      options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
 
     const sqlMigrationTags = readSqlMigrationTags(migrationsFolder);
     const journalEntries = readJournalEntries(migrationsFolder);
@@ -442,19 +471,54 @@ export async function runMigrations(options?: {
     if (!options?.skipTrainingV2Assertion) {
       await assertTrainingContentV2Schema(db);
     }
-  } catch (error) {
-    const target = safeDbTarget(rawUrl);
-    const message =
-      error instanceof Error
-        ? `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ""}`
-        : String(error);
-    const folder =
-      options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
-    console.error(
-      `[Migrations] Failed (ssl=${useSsl ? "on" : "off"}, folder=${folder}, host=${target.host}${target.port ? `:${target.port}` : ""}${target.database ? `/${target.database}` : ""}).\n${message}`,
-    );
-    throw error;
   } finally {
     await client.end();
+  }
+}
+
+const MIGRATION_CONNECTION_ATTEMPTS = 5;
+
+export async function runMigrations(options?: {
+  databaseUrl?: string;
+  migrationsFolder?: string;
+  skipTrainingV2Assertion?: boolean;
+}) {
+  const rawUrl = options?.databaseUrl ?? env.databaseUrl;
+
+  for (let attempt = 0; attempt < MIGRATION_CONNECTION_ATTEMPTS; attempt++) {
+    try {
+      await executeMigrationsOnce({
+        databaseUrl: rawUrl,
+        migrationsFolder: options?.migrationsFolder,
+        skipTrainingV2Assertion: options?.skipTrainingV2Assertion,
+      });
+      return;
+    } catch (error) {
+      const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(rawUrl);
+      const target = safeDbTarget(rawUrl);
+      const folder =
+        options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
+      const message =
+        error instanceof Error
+          ? `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ""}`
+          : String(error);
+
+      if (
+        attempt < MIGRATION_CONNECTION_ATTEMPTS - 1 &&
+        isTransientMigrationConnectionError(error)
+      ) {
+        const delay = Math.min(15_000, 500 * Math.pow(2, attempt));
+        console.warn(
+          `[Migrations] ${describeMigrationErr(error)} — retry ${attempt + 2}/${MIGRATION_CONNECTION_ATTEMPTS} after ${delay}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+
+      console.error(
+        `[Migrations] Failed (ssl=${useSsl ? "on" : "off"}, folder=${folder}, host=${target.host}${target.port ? `:${target.port}` : ""}${target.database ? `/${target.database}` : ""}).\n${message}`,
+      );
+      throw error;
+    }
   }
 }

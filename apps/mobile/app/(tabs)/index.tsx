@@ -26,7 +26,8 @@ import Animated, {
   FadeInDown,
   FadeInRight,
 } from "react-native-reanimated";
-import { useHomeContent } from "@/hooks/home/useHomeContent";
+import { useHomeContent } from \"@/hooks/home/useHomeContent\";
+import { isAdultAthleteAppRole } from \"@/lib/appRole\";
 
 const AnimatedTouchableOpacity =
   Animated.createAnimatedComponent(TouchableOpacity);
@@ -354,35 +355,47 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Command Center - Refined Two-Column Layout */}
-        <View className="mb-10 px-6">
+        <View className=\"mb-10 px-6\">
           <Animated.View
             entering={FadeInDown.delay(300).duration(600)}
-            className="flex-row items-center justify-between mb-4"
+            className=\"flex-row items-center justify-between mb-4\"
           >
-            <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2.5px]">
+            <Text className=\"text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2.5px]\">
               Command Center
             </Text>
           </Animated.View>
 
-          <View className="flex-row gap-4">
+          <View className=\"flex-row gap-4\">
             <QuickLink
               index={0}
-              icon="edit-3"
-              label="Nutrition"
-              sublabel="Daily tracking"
-              onPress={() => router.push("/nutrition")}
+              icon=\"edit-3\"
+              label=\"Nutrition\"
+              sublabel=\"Daily tracking\"
+              onPress={() => router.push(\"/nutrition\")}
               colors={colors}
               isDark={isDark}
             />
-            <QuickLink
-              index={1}
-              icon="users"
-              label="Parent Platform"
-              sublabel="Family support"
-              onPress={() => router.push("/parent-platform")}
-              colors={colors}
-              isDark={isDark}
-            />
+            {isAdultAthleteAppRole(appRole) ? (
+              <QuickLink
+                index={1}
+                icon=\"activity\"
+                label=\"Run Tracking\"
+                sublabel=\"Lace up & go\"
+                onPress={() => router.push(\"/(tabs)/tracking\")}
+                colors={colors}
+                isDark={isDark}
+              />
+            ) : (
+              <QuickLink
+                index={1}
+                icon=\"users\"
+                label=\"Parent Platform\"
+                sublabel=\"Family support\"
+                onPress={() => router.push(\"/parent-platform\")}
+                colors={colors}
+                isDark={isDark}
+              />
+            )}
           </View>
         </View>
 
