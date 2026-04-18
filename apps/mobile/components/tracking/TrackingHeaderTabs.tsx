@@ -10,11 +10,13 @@ export function TrackingHeaderTabs({
   colors,
   isDark,
   topInset = 0,
+  paddingHorizontal = 16,
 }: {
   active: ActiveTab;
   colors: Record<string, string>;
   isDark: boolean;
   topInset?: number;
+  paddingHorizontal?: number;
 }) {
   const router = useRouter();
 
@@ -38,7 +40,7 @@ export function TrackingHeaderTabs({
     <View
       style={{
         paddingTop: topInset,
-        paddingHorizontal: 16,
+        paddingHorizontal,
         paddingBottom: 10,
       }}
     >
