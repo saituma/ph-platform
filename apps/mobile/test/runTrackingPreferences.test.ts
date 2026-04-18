@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert } from "react-native";
 import {
   getRunBackgroundTrackingDefault,
   setRunBackgroundTrackingDefault,
@@ -8,6 +9,7 @@ import {
   setOsrmRoutingConsentState,
   type OsrmConsentState,
 } from "@/lib/runTrackingPreferences";
+import { ensureOsrmConsentOrExplain } from "@/lib/osrmRoutingConsent";
 
 describe("runTrackingPreferences", () => {
   beforeEach(() => {
@@ -57,3 +59,72 @@ describe("runTrackingPreferences", () => {
   });
 });
 
+describe("osrmRoutingConsent", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("returns true immediately when OSRM consent already accepted", async () => {
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce("accepted");
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+
+    await expect(ensureOsrmConsentOrExplain()).resolves.toBe(true);
+    expect(alertSpy).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
+  it("returns false immediately when OSRM consent already declined", async () => {
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce("declined");
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+
+    await expect(ensureOsrmConsentOrExplain()).resolves.toBe(false);
+    expect(alertSpy).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
+  it("prompts and persists declined when user chooses Not now", async () => {
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(null);
+    (AsyncStorage.setItem as jest.Mock).mockResolvedValueOnce(undefined);
+
+    const alertSpy = jest
+      .spyOn(Alert, "alert")
+      .mockImplementation((...args: any[]) => {
+        const buttons = args[2] as Array<{ text?: string; onPress?: () => void }>;
+        const notNow = buttons.find((b) => b.text === "Not now");
+        notNow?.onPress?.();
+      });
+
+    await expect(ensureOsrmConsentOrExplain()).resolves.toBe(false);
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      "ph:run:osrm_consent:v1",
+      "declined",
+    );
+
+    alertSpy.mockRestore();
+  });
+
+  it("prompts and persists accepted when user chooses Enable", async () => {
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(null);
+    (AsyncStorage.setItem as jest.Mock).mockResolvedValueOnce(undefined);
+
+    const alertSpy = jest
+      .spyOn(Alert, "alert")
+      .mockImplementation((...args: any[]) => {
+        const buttons = args[2] as Array<{ text?: string; onPress?: () => void }>;
+        const enable = buttons.find((b) => b.text === "Enable");
+        enable?.onPress?.();
+      });
+
+    await expect(ensureOsrmConsentOrExplain()).resolves.toBe(true);
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      "ph:run:osrm_consent:v1",
+      "accepted",
+    );
+
+    alertSpy.mockRestore();
+  });
+});
