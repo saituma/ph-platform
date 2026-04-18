@@ -25,6 +25,7 @@ import openGraphRoutes from "./open-graph.routes";
 import versionRoutes from "./version.routes";
 import giphyRoutes from "./giphy.routes";
 import runsRoutes from "./runs.routes";
+import socialRoutes from "./social.routes";
 
 const router = Router();
 
@@ -53,5 +54,6 @@ router.use(openGraphRoutes);
 router.use(versionRoutes);
 router.use(giphyRoutes);
 router.use(runsRoutes);
+router.use(socialRoutes);
 
 export default router;
