@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
 import { Modal, TouchableOpacity, View } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
 import Animated, {
   useAnimatedStyle,
@@ -38,7 +38,7 @@ export function PinModal({
   showClose = true,
 }: PinModalProps) {
   const { isDark, toggleColorScheme, colors } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const [pin, setPin] = useState("");
   const shakeOffset = useSharedValue(0);
 

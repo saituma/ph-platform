@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 import { Text } from "@/components/ScaledText";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -40,7 +40,7 @@ export function BookingModal({
   onSuccess,
 }: BookingModalProps) {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
 
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(

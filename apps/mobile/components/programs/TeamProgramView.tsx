@@ -1,5 +1,6 @@
 import React from "react";
 import { View, ScrollView, RefreshControl } from "react-native";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
 import { AgeBasedTrainingPanel } from "@/components/programs/AgeBasedTrainingPanel";
@@ -29,33 +30,38 @@ export function TeamProgramView({
   focusInfo,
 }: Props) {
   const { colors, isDark } = useAppTheme();
+  const insets = useAppSafeAreaInsets();
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const headerBackground = isDark ? colors.cardElevated : "#F7FFF9";
 
   return (
     <ScrollView
+      style={{ backgroundColor: colors.background }}
       contentContainerStyle={{ paddingBottom: 40 }}
       refreshControl={
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
     >
-      <View className="px-6 pt-6 pb-4">
-        <View
-          className="rounded-[30px] border p-5"
-          style={{
-            backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
-            borderColor: borderSoft,
-            ...(isDark ? Shadows.none : Shadows.md),
-          }}
-        >
-          <Text className="text-sm font-outfit text-accent font-bold uppercase tracking-widest">
-            Team Program
-          </Text>
-          <Text className="text-3xl font-clash font-bold text-app mt-1">
-            Hi, {focusName}
-          </Text>
-          <Text className="text-sm font-outfit text-secondary mt-1">
-            {focusInfo.join(" • ")}
-          </Text>
+      <View style={{ backgroundColor: headerBackground, paddingTop: insets.top }}>
+        <View className="px-6 pt-4 pb-4">
+          <View
+            className="rounded-[30px] border p-5"
+            style={{
+              backgroundColor: headerBackground,
+              borderColor: borderSoft,
+              ...(isDark ? Shadows.none : Shadows.md),
+            }}
+          >
+            <Text className="text-sm font-outfit text-accent font-bold uppercase tracking-widest">
+              Team Program
+            </Text>
+            <Text className="text-3xl font-clash font-bold text-app mt-1">
+              Hi, {focusName}
+            </Text>
+            <Text className="text-sm font-outfit text-secondary mt-1">
+              {focusInfo.join(" • ")}
+            </Text>
+          </View>
         </View>
       </View>
 

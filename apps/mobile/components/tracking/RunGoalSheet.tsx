@@ -17,7 +17,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { fonts, radius, spacing, icons } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { TrackingMapView } from "./TrackingMapView";
 import { MapStyleSwitcher } from "./MapStyleSwitcher";
 import type {
@@ -72,7 +72,7 @@ export function RunGoalSheet({
   onConfirm,
 }: RunGoalSheetProps) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const mapRef = useRef<TrackingMapViewRef | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

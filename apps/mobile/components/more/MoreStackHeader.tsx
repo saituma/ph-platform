@@ -58,10 +58,21 @@ export function MoreStackHeader({
                 router.replace(backHref as any);
               }
             }}
-            className="h-11 w-11 items-center justify-center rounded-2xl active:opacity-80"
-            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.85)" }}
+            hitSlop={10}
+            className="h-11 w-11 items-center justify-center rounded-[18px] active:opacity-80"
+            style={{
+              backgroundColor: isDark
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(255,255,255,0.85)",
+            }}
           >
-            <Feather name="arrow-left" size={20} color={colors.accent} />
+            <Feather
+              name="arrow-left"
+              size={20}
+              color={colors.accent}
+              // Feather's arrow-left glyph is slightly right-heavy; nudge for optical centering.
+              style={{ transform: [{ translateX: -0.5 }] }}
+            />
           </Pressable>
 
           {rightSlot ?? (badge ? (

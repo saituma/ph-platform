@@ -4,7 +4,7 @@ import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ServiceType, type AdminBooking } from "@/types/admin";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
 import { formatIsoShort } from "@/lib/admin-utils";
@@ -34,7 +34,7 @@ export function AdminBookingsSection({
   initialAction,
 }: Props) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
 
   const {
     bookingsHook,

@@ -13,7 +13,7 @@ import Animated, {
   FadeOutDown,
   Layout,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useHeaderHeight } from "@react-navigation/elements";
 
 import { MessageBubble } from "./MessageBubble";
@@ -90,7 +90,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
   coachingContextLabel,
 }: ThreadChatBodyProps) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   let headerHeight = 0;

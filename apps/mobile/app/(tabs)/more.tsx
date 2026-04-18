@@ -11,7 +11,7 @@ import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
 import { Image, Pressable, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   logout,
@@ -147,7 +147,7 @@ export default function MoreScreen() {
       : `Version ${appVersion}`;
   }, []);
 
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   // This app uses a custom, absolutely-positioned tab bar (see `components/navigation/TabBar.tsx`).
   // To keep the Logout button visible, reserve space above the tab bar overlay.
   const tabBarOverlayHeightEstimate = 86 + Math.max(insets.bottom, 12);

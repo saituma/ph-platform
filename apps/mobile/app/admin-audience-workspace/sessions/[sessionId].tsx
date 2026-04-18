@@ -31,13 +31,14 @@ import {
   Switch,
   StyleSheet,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 
 export default function AdminSessionDetailScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
   const { sessionId: rawSessionId, audienceLabel: rawLabel, moduleId: rawModuleId } = useLocalSearchParams<{ sessionId: string; audienceLabel: string; moduleId: string }>();

@@ -29,7 +29,7 @@ import {
 } from "@/types/admin-messages";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useSocket } from "@/context/SocketContext";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
@@ -51,7 +51,7 @@ export function AdminGroupSection({
   category,
 }: Props) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const { socket } = useSocket();
   const groupsHook = useAdminGroups(token, canLoad);
   const { uploadAttachment } = useMediaUpload(token);

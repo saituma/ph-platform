@@ -1,0 +1,169 @@
+diff --git a/dist/common/components/index.js b/dist/common/components/index.js
+index a5f8e0a0eac1268b11d13f24485b4004c2e91de8..4526f1015dac4d1470c2d781aed7d88b00715eb7 100644
+--- a/dist/common/components/index.js
++++ b/dist/common/components/index.js
+@@ -75,7 +75,12 @@ module.exports = {
+     return require("react-native").experimental_LayoutConformance;
+   },
+   get ProgressBarAndroid() {
+-    return require("react-native").ProgressBarAndroid;
++    try {
++      const mod = require("@react-native-community/progress-bar-android");
++      return mod && mod.default ? mod.default : mod;
++    } catch {
++      return require("react-native").ProgressBarAndroid;
++    }
+   },
+   get StatusBar() {
+     return require("react-native").StatusBar;
+@@ -117,7 +122,12 @@ module.exports = {
+     return require("react-native").BackHandler;
+   },
+   get Clipboard() {
+-    return require("react-native").Clipboard;
++    try {
++      const mod = require("@react-native-clipboard/clipboard");
++      return mod && mod.default ? mod.default : mod;
++    } catch {
++      return require("react-native").Clipboard;
++    }
+   },
+   get codegenNativeCommands() {
+     return require("react-native").codegenNativeCommands;
+@@ -153,7 +163,35 @@ module.exports = {
+     return require("react-native").I18nManager;
+   },
+   get InteractionManager() {
+-    return require("react-native").InteractionManager;
++    const ric = globalThis?.requestIdleCallback;
++    const cic = globalThis?.cancelIdleCallback;
++    return {
++      runAfterInteractions: (task) => {
++        let cancelled = false;
++        const run = () => {
++          if (!cancelled) task();
++        };
++        const handle =
++          typeof ric === "function"
++            ? ric(run, { timeout: 300 })
++            : setTimeout(run, 0);
++        return {
++          cancel: () => {
++            cancelled = true;
++            if (typeof cic === "function") {
++              try {
++                cic(handle);
++              } catch {}
++            }
++            try {
++              clearTimeout(handle);
++            } catch {}
++          },
++        };
++      },
++      createInteractionHandle: () => 0,
++      clearInteractionHandle: () => {},
++    };
+   },
+   get Keyboard() {
+     return require("react-native").Keyboard;
+diff --git a/dist/common/components/native/SafeAreaView.js b/dist/common/components/native/SafeAreaView.js
+index 2a0dc42eea70f94f94cd65c33e4b6120aea4a28f..102e289ae2372ee5d00799773a2846d1cbddd01d 100644
+--- a/dist/common/components/native/SafeAreaView.js
++++ b/dist/common/components/native/SafeAreaView.js
+@@ -5,12 +5,12 @@ Object.defineProperty(exports, "__esModule", {
+ });
+ module.exports = exports.SafeAreaView = void 0;
+ var _jsxRuntime = require("react/jsx-runtime");
+-var _reactNative = require("react-native");
++var _safeAreaContext = require("react-native-safe-area-context");
+ var _utils = require("../utils");
+ var _useStyle = require("./useStyle");
+-const SafeAreaView = exports.SafeAreaView = (0, _utils.copyComponentProperties)(_reactNative.SafeAreaView, props => {
++const SafeAreaView = exports.SafeAreaView = (0, _utils.copyComponentProperties)(_safeAreaContext.SafeAreaView, props => {
+   const style = (0, _useStyle.useStyle)(props.className, props);
+-  return /* @__PURE__ */(0, _jsxRuntime.jsx)(_reactNative.SafeAreaView, {
++  return /* @__PURE__ */(0, _jsxRuntime.jsx)(_safeAreaContext.SafeAreaView, {
+     ...props,
+     style: [style, props.style]
+   });
+diff --git a/dist/module/components/index.js b/dist/module/components/index.js
+index 3ef92109eacb4c5cee52f5fc8ef3721b137349d1..c03853880ccbfb62fc4f1fb4c5f89e998727063e 100644
+--- a/dist/module/components/index.js
++++ b/dist/module/components/index.js
+@@ -73,7 +73,12 @@ module.exports = {
+     return require("react-native").experimental_LayoutConformance;
+   },
+   get ProgressBarAndroid() {
+-    return require("react-native").ProgressBarAndroid;
++    try {
++      const mod = require("@react-native-community/progress-bar-android");
++      return mod && mod.default ? mod.default : mod;
++    } catch {
++      return require("react-native").ProgressBarAndroid;
++    }
+   },
+   get StatusBar() {
+     return require("react-native").StatusBar;
+@@ -115,7 +120,12 @@ module.exports = {
+     return require("react-native").BackHandler;
+   },
+   get Clipboard() {
+-    return require("react-native").Clipboard;
++    try {
++      const mod = require("@react-native-clipboard/clipboard");
++      return mod && mod.default ? mod.default : mod;
++    } catch {
++      return require("react-native").Clipboard;
++    }
+   },
+   get codegenNativeCommands() {
+     return require("react-native").codegenNativeCommands;
+@@ -151,7 +161,35 @@ module.exports = {
+     return require("react-native").I18nManager;
+   },
+   get InteractionManager() {
+-    return require("react-native").InteractionManager;
++    const ric = globalThis?.requestIdleCallback;
++    const cic = globalThis?.cancelIdleCallback;
++    return {
++      runAfterInteractions: (task) => {
++        let cancelled = false;
++        const run = () => {
++          if (!cancelled) task();
++        };
++        const handle =
++          typeof ric === "function"
++            ? ric(run, { timeout: 300 })
++            : setTimeout(run, 0);
++        return {
++          cancel: () => {
++            cancelled = true;
++            if (typeof cic === "function") {
++              try {
++                cic(handle);
++              } catch {}
++            }
++            try {
++              clearTimeout(handle);
++            } catch {}
++          },
++        };
++      },
++      createInteractionHandle: () => 0,
++      clearInteractionHandle: () => {},
++    };
+   },
+   get Keyboard() {
+     return require("react-native").Keyboard;
+diff --git a/dist/module/components/native/SafeAreaView.js b/dist/module/components/native/SafeAreaView.js
+index d7c9187e61314025f990154c615b3c539e43f69a..cec967b51eb5e89bc8937ca185902d8d8f5fb062 100644
+--- a/dist/module/components/native/SafeAreaView.js
++++ b/dist/module/components/native/SafeAreaView.js
+@@ -1,5 +1,5 @@
+ import { jsx } from "react/jsx-runtime";
+-import { SafeAreaView as RNSafeAreaView } from "react-native";
++import { SafeAreaView as RNSafeAreaView } from "react-native-safe-area-context";
+ import { copyComponentProperties } from "../utils.js";
+ import { useStyle } from "./useStyle.js";
+ export const SafeAreaView = copyComponentProperties(RNSafeAreaView, (props) => {

@@ -4,7 +4,7 @@ import { Text } from "@/components/ScaledText";
 import { useAppSelector } from "@/store/hooks";
 import React, { useMemo, useState } from "react";
 import { View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 import { HeaderTabKey } from "@/types/admin-messages";
 import { Chip } from "@/components/admin/AdminShared";
@@ -22,7 +22,7 @@ import { AdminCard } from "@/roles/admin/components/AdminCard";
 
 export default function AdminMessagesScreen() {
   const { colors } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const myUserIdRaw = useAppSelector((state) => state.user.profile?.id) ?? null;

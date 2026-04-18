@@ -7,7 +7,7 @@ import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Transition } from "@/components/navigation/TransitionStack";
 import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { isLiquidGlassAvailable, isGlassEffectAPIAvailable } from "expo-glass-effect";
 import { LiquidGlass } from "@/components/ui/LiquidGlass";
 
@@ -29,7 +29,7 @@ function getInitials(name: string) {
 
 export function ThreadHeader({ thread, onBack, sharedBoundTag, sharedAvatarTag }: ThreadHeaderProps) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const headerBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const avatarBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.12)";
   const mutedPill = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";

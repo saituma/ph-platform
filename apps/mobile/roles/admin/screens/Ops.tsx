@@ -5,7 +5,7 @@ import { subscribeToAdminOpsRequests } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect } from "react";
 import { Pressable, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useRouter } from "expo-router";
 
 import { Feather } from "@/components/ui/theme-icons";
@@ -13,7 +13,7 @@ import { AdminCard } from "@/roles/admin/components/AdminCard";
 
 export default function AdminOpsScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 

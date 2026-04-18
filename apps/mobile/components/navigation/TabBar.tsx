@@ -6,7 +6,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import * as Haptics from "expo-haptics";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -137,7 +137,7 @@ export function TabBar({
   onTabPress,
 }: TabBarProps) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
 
   const visibleTabs = React.useMemo(
     () =>

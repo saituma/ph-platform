@@ -10,12 +10,13 @@ import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { View, TouchableOpacity, Modal, Pressable, ActivityIndicator, Alert } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 
 export default function AdminModuleDetailScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
   const { moduleId: rawModuleId, audienceLabel: rawLabel } = useLocalSearchParams<{ moduleId: string; audienceLabel: string }>();

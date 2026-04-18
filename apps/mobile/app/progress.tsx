@@ -12,7 +12,8 @@ import {
   KeyboardAvoidingView,
   Keyboard,
 } from "react-native";
-import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -115,7 +116,7 @@ function SparkBars({
 }
 
 export default function ProgressScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
 
   const [tab, setTab] = useState<Tab>("strength");

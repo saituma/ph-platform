@@ -13,7 +13,7 @@ import { LiquidGlass, LiquidGlassContainer } from '@/components/ui/LiquidGlass';
 import { Colors, fonts, radius, spacing, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@/components/ui/theme-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { MeshGradientView } from "expo-mesh-gradient";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -46,7 +46,7 @@ export default function LiquidGlassDemo() {
   const scheme = useColorScheme();
   const colorScheme = scheme === "dark" ? "dark" : "light";
   const colors = Colors[colorScheme];
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const [glassStyle, setGlassStyle] = useState<'regular' | 'clear' | 'none'>('regular');
   
   // Floating animation values

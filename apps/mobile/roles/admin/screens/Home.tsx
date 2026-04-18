@@ -15,7 +15,7 @@ import {
     Pressable,
     View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Animated, {
     FadeInDown,
     ZoomIn,
@@ -96,7 +96,7 @@ function chunk<T>(items: T[], size: number) {
 
 export default function AdminHomeScreen() {
     const { colors } = useAppTheme();
-    const insets = useSafeAreaInsets();
+    const insets = useAppSafeAreaInsets();
     const token = useAppSelector((state) => state.user.token);
     const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
     const canLoad = Boolean(token && bootstrapReady);

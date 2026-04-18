@@ -38,7 +38,8 @@
       "@react-navigation/native": "7.1.33"
     },
     "patchedDependencies": {
-      "react-native-youtube-iframe@2.4.1": "patches/react-native-youtube-iframe@2.4.1.patch"
+      "react-native-youtube-iframe@2.4.1": "patches/react-native-youtube-iframe@2.4.1.patch",
+      "uniwind@1.6.2": "patches/uniwind@1.6.2.patch"
     }
   }
 }

@@ -1,18 +1,17 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import {
-  hasAssignedProgramTier,
   hasPhpPlusPlanFeatures,
 } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
-import { useRouter } from "expo-router";
 import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 import { ScheduleHeader } from "@/components/tracking/schedule/ScheduleHeader";
 import { CalendarGrid } from "@/components/tracking/schedule/CalendarGrid";
@@ -23,14 +22,12 @@ import { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
 
 export default function ScheduleScreen() {
-  const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const { token, programTier } = useAppSelector((state) => state.user);
-  const canUseSchedule = hasAssignedProgramTier(programTier);
-  const canCreateBookings = canUseSchedule;
+  const canCreateBookings = true;
   const { isSectionHidden } = useAgeExperience();
   const isFocused = useSafeIsFocused(true);
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
 
   const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(() => formatDateKey(new Date()));
@@ -174,22 +171,6 @@ export default function ScheduleScreen() {
 
   if (isSectionHidden("schedule")) {
     return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
-  }
-
-  if (!canUseSchedule) {
-    return (
-      <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: colors.background }}>
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-2xl font-clash font-bold text-app text-center mb-3">Schedule</Text>
-          <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
-            Use the Programs tab to book sessions and manage your schedule.
-          </Text>
-          <Pressable onPress={() => router.push("/(tabs)/programs")} className="mt-8 rounded-full px-8 py-3 bg-accent">
-            <Text className="text-sm font-outfit font-semibold text-white">Open training</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
   }
 
   return (

@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useMemo } from "react";
 import { ActivityIndicator, Linking, View, Pressable } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import {
   useLocalSearchParams,
   useRouter,
@@ -120,7 +118,7 @@ export default function ProgramContentDetailScreen() {
     (state) => state.user,
   );
   const { isDark, colors } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
 
   /**
