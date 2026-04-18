@@ -29,7 +29,7 @@ type HomeDraft = {
 
 export default function ContentPage() {
   const [createContent, { isLoading }] = useCreateContentMutation();
-  const [updateContent] = useUpdateContentMutation();
+  const [updateContent, { isLoading: isUpdating }] = useUpdateContentMutation();
   const [approveSubmission] = useApproveTestimonialSubmissionMutation();
   const [rejectSubmission] = useRejectTestimonialSubmissionMutation();
   const { data: homeData, refetch: refetchHome } = useGetHomeContentQuery();
@@ -64,7 +64,7 @@ export default function ContentPage() {
           />
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading || isUpdating ? (
             <div className="space-y-4">
               <Skeleton className="h-10 w-56" />
               <div className="grid gap-4 lg:grid-cols-2">
