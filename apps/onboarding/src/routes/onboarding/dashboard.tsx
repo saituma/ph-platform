@@ -171,9 +171,31 @@ function Dashboard() {
 							<p className="text-xs text-muted-foreground">{userData.programTier?.replace(/_/g, ' ') || "No active plan"}</p>
 						</div>
 						{userData.planExpiresAt && (
-							<div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-								<Clock size={12} weight="bold" className="text-primary" />
-								Expires: {formatDate(userData.planExpiresAt)}
+							<div className="w-full space-y-2 px-4">
+								<div className="flex justify-between items-end">
+									<span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
+										Plan Progress
+									</span>
+									<span className="text-[9px] font-black uppercase text-primary">
+										{Math.max(0, Math.ceil((new Date(userData.planExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} Days Left
+									</span>
+								</div>
+								<div className="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
+									<div 
+										className="h-full bg-primary transition-all duration-1000 ease-out"
+										style={{ 
+											width: `${Math.min(100, Math.max(0, 
+												((new Date(userData.planExpiresAt).getTime() - Date.now()) / 
+												(new Date(userData.planExpiresAt).getTime() - new Date(userData.planCreatedAt || userData.createdAt).getTime() || 1)) * 100
+											))}%` 
+										}}
+									/>
+								</div>
+								<div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+									<Clock size={10} weight="bold" className="text-primary" />
+									{userData.planPaymentType === 'monthly' ? 'Next Charge: ' : 'Plan Ends: '}
+									{formatDate(userData.planExpiresAt)}
+								</div>
 							</div>
 						)}
 						{!userData.programTier && (
@@ -240,6 +262,35 @@ function Dashboard() {
 											</div>
 										</div>
 									</div>
+
+									{athlete.planExpiresAt && (
+										<div className="space-y-2 pt-2 border-t border-border/20">
+											<div className="flex justify-between items-end">
+												<span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+													Plan Validity
+												</span>
+												<span className="text-[10px] font-black uppercase text-primary">
+													{Math.max(0, Math.ceil((new Date(athlete.planExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} Days Left
+												</span>
+											</div>
+											<div className="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
+												<div 
+													className="h-full bg-primary transition-all duration-1000 ease-out"
+													style={{ 
+														width: `${Math.min(100, Math.max(0, 
+															((new Date(athlete.planExpiresAt).getTime() - Date.now()) / 
+															(new Date(athlete.planExpiresAt).getTime() - new Date(athlete.planCreatedAt || athlete.createdAt).getTime() || 1)) * 100
+														))}%` 
+													}}
+												/>
+											</div>
+											<div className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase">
+												<Clock size={10} weight="bold" className="text-primary" />
+												{athlete.planPaymentType === 'monthly' ? 'Next Charge: ' : 'Plan Ends: '}
+												{formatDate(athlete.planExpiresAt)}
+											</div>
+										</div>
+									)}
 								</Card>
 							))}
 						</div>

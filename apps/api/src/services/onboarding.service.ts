@@ -440,6 +440,8 @@ export async function getOnboardingByUser(userId: number) {
     const decorated = decorateAthlete(athlete);
     if (decorated) {
       (decorated as any).trainingStats = stats[0] || { finishedSessions: 0, finishedModules: 0 };
+      (decorated as any).planPaymentType = athlete.planPaymentType;
+      (decorated as any).planCreatedAt = athlete.createdAt;
     }
 
     try {
@@ -459,6 +461,8 @@ export async function getOnboardingByUser(userId: number) {
       athlete: athleteTable,
       guardianName: userTable.name,
       guardianPhone: guardianTable.phoneNumber,
+      planPaymentType: athleteTable.planPaymentType,
+      planCreatedAt: athleteTable.createdAt,
     })
     .from(athleteTable)
     .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
@@ -497,6 +501,8 @@ export async function getOnboardingByUser(userId: number) {
       if (decorated) {
         (decorated as any).guardianName = row.guardianName;
         (decorated as any).phoneNumber = row.guardianPhone;
+        (decorated as any).planPaymentType = row.planPaymentType;
+        (decorated as any).planCreatedAt = row.planCreatedAt;
         (decorated as any).trainingStats = stats[0] || { finishedSessions: 0, finishedModules: 0 };
       }
       return decorated;
