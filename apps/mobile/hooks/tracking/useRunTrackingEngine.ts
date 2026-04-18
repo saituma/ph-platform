@@ -14,10 +14,18 @@ export type RouteMetrics = {
   distanceM: number;
 };
 
+export type UseRunTrackingEngineOpts = {
+  osrmRoutingEnabled: boolean;
+};
+
 export function useRunTrackingEngine(
   toastTranslateY: SharedValue<number>,
   insetsTop: number,
+  opts?: UseRunTrackingEngineOpts,
 ) {
+  // Default to enabled to preserve existing behavior for any legacy call sites.
+  const osrmRoutingEnabled = opts?.osrmRoutingEnabled ?? true;
+
   const {
     status,
     tick,
@@ -173,6 +181,8 @@ export function useRunTrackingEngine(
   }, []);
 
   const fetchRoute = useCallback(async (startLat: number, startLng: number, destLat: number, destLng: number) => {
+    if (!osrmRoutingEnabled) return;
+
     const now = Date.now();
     if (now - lastRouteFetchTime.current < 30000 || isFetchingRoute) return;
 
@@ -202,7 +212,7 @@ export function useRunTrackingEngine(
     } finally {
       setIsFetchingRoute(false);
     }
-  }, [isFetchingRoute]);
+  }, [isFetchingRoute, osrmRoutingEnabled]);
 
   useEffect(() => {
     if (useRunStore.getState().status === "idle") {
@@ -233,6 +243,15 @@ export function useRunTrackingEngine(
   }, [destination]);
 
   useEffect(() => {
+    if (!osrmRoutingEnabled) {
+      setRoutePolyline(null);
+      setRouteMetrics(null);
+    }
+  }, [osrmRoutingEnabled]);
+
+  useEffect(() => {
+    if (!osrmRoutingEnabled) return;
+
     const destinationThresholdMeters = 40;
     if (goalKm && !goalReached && distanceMeters >= goalKm * 1000) {
       markGoalReached();
@@ -276,7 +295,8 @@ export function useRunTrackingEngine(
     triggerGoalFeedback,
     fetchRoute,
     routePolyline,
-    isFetchingRoute
+    isFetchingRoute,
+    osrmRoutingEnabled,
   ]);
 
   const lastCoordinate = liveCoordinate;
