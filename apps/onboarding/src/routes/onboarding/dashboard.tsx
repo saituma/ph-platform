@@ -15,6 +15,7 @@ import {
 	IdentificationCard,
 	Clock,
 	CheckCircle,
+	Hourglass,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
@@ -25,6 +26,56 @@ import { cn } from "#/lib/utils";
 export const Route = createFileRoute("/onboarding/dashboard")({
 	component: Dashboard,
 });
+
+function Countdown({ expiryDate }: { expiryDate: string }) {
+	const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number }>({ d: 0, h: 0, m: 0, s: 0 });
+
+	useEffect(() => {
+		const calculate = () => {
+			const now = new Date().getTime();
+			const end = new Date(expiryDate).getTime();
+			const distance = end - now;
+
+			if (distance < 0) {
+				setTimeLeft({ d: 0, h: 0, m: 0, s: 0 });
+				return;
+			}
+
+			setTimeLeft({
+				d: Math.floor(distance / (1000 * 60 * 60 * 24)),
+				h: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+				m: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
+				s: Math.floor((distance % (1000 * 60)) / 1000),
+			});
+		};
+
+		calculate();
+		const interval = setInterval(calculate, 1000);
+		return () => clearInterval(interval);
+	}, [expiryDate]);
+
+	return (
+		<div className="flex gap-4 sm:gap-6 items-center">
+			<TimeUnit value={timeLeft.d} label="Days" />
+			<TimeUnit value={timeLeft.h} label="Hours" />
+			<TimeUnit value={timeLeft.m} label="Mins" />
+			<TimeUnit value={timeLeft.s} label="Secs" />
+		</div>
+	);
+}
+
+function TimeUnit({ value, label }: { value: number; label: string }) {
+	return (
+		<div className="flex flex-col items-center">
+			<div className="bg-background/80 backdrop-blur-sm border border-border/60 w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center shadow-lg border-b-2 border-b-primary/40">
+				<span className="text-lg sm:text-2xl font-black tabular-nums tracking-tighter text-primary">
+					{String(value).padStart(2, '0')}
+				</span>
+			</div>
+			<span className="mt-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{label}</span>
+		</div>
+	);
+}
 
 function Dashboard() {
 	const [userData, setUserData] = useState<any>(null);
@@ -207,6 +258,32 @@ function Dashboard() {
 						)}
 					</Card>
 				</div>
+
+				{/* Plan Countdown Section */}
+				{userData.planExpiresAt && (
+					<Card className="p-8 rounded-[3rem] border-border/60 bg-primary/5 backdrop-blur-md shadow-2xl relative overflow-hidden border-2 border-primary/20">
+						<div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full -mr-48 -mt-48 blur-3xl" />
+						
+						<div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+							<div className="space-y-2 text-center md:text-left">
+								<div className="flex items-center justify-center md:justify-start gap-3 text-primary">
+									<Hourglass size={28} weight="fill" className="animate-pulse" />
+									<h2 className="text-2xl font-black uppercase italic tracking-tight">Plan Countdown</h2>
+								</div>
+								<p className="text-muted-foreground font-bold uppercase tracking-widest text-[9px]">
+									Time remaining until your {userData.planPaymentType === 'monthly' ? 'next renewal' : 'plan ends'}
+								</p>
+							</div>
+
+							<Countdown expiryDate={userData.planExpiresAt} />
+
+							<div className="hidden lg:block space-y-1 text-right">
+								<p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Final Date</p>
+								<p className="text-sm font-black text-primary uppercase">{formatDate(userData.planExpiresAt)}</p>
+							</div>
+						</div>
+					</Card>
+				)}
 
 				{/* Athletes Performance Section */}
 				{athletesData.length > 0 && (
