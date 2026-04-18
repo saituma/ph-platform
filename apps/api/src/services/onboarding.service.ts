@@ -435,6 +435,7 @@ export async function getOnboardingByUser(userId: number) {
         .select({
           athlete: athleteTable,
           guardianName: userTable.name,
+          guardianPhone: guardianTable.phoneNumber,
         })
         .from(athleteTable)
         .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
@@ -449,6 +450,7 @@ export async function getOnboardingByUser(userId: number) {
         .select({
           athlete: athleteTable,
           guardianName: userTable.name,
+          guardianPhone: guardianTable.phoneNumber,
         })
         .from(athleteTable)
         .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
@@ -459,6 +461,7 @@ export async function getOnboardingByUser(userId: number) {
   
   const athleteRow = athletes[0]?.athlete ?? null;
   const guardianName = athletes[0]?.guardianName ?? null;
+  const guardianPhone = athletes[0]?.guardianPhone ?? null;
   
   if (!athleteRow) return null;
   let ensured = athleteRow;
@@ -470,6 +473,7 @@ export async function getOnboardingByUser(userId: number) {
   const decorated = decorateAthlete(ensured);
   if (decorated) {
     (decorated as any).guardianName = guardianName;
+    (decorated as any).phoneNumber = guardianPhone;
   }
   try {
     await maybeSendBirthdayNotifications(decorated);
