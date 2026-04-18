@@ -189,12 +189,16 @@ export async function getAthleteForUser(userId: number) {
       equipmentAccess: athleteTable.equipmentAccess,
       profilePicture: athleteTable.profilePicture,
       currentProgramTier: athleteTable.currentProgramTier,
+      planExpiresAt: athleteTable.planExpiresAt,
       onboardingCompleted: athleteTable.onboardingCompleted,
+      extraResponses: athleteTable.extraResponses,
       createdAt: athleteTable.createdAt,
       updatedAt: athleteTable.updatedAt,
+      phoneNumber: guardianTable.phoneNumber,
     })
     .from(athleteTable)
     .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+    .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
     .where(eq(athleteTable.userId, userId))
     .limit(1);
 
@@ -204,7 +208,7 @@ export async function getAthleteForUser(userId: number) {
   const { athlete } = await getGuardianAndAthlete(userId);
   if (!athlete) return null;
 
-  // For guardian-owned athletes, we also need to join the team name
+  // For guardian-owned athletes, we also need to join the team name and phone
   const [athleteWithTeam] = await db
     .select({
       id: athleteTable.id,
@@ -223,12 +227,16 @@ export async function getAthleteForUser(userId: number) {
       equipmentAccess: athleteTable.equipmentAccess,
       profilePicture: athleteTable.profilePicture,
       currentProgramTier: athleteTable.currentProgramTier,
+      planExpiresAt: athleteTable.planExpiresAt,
       onboardingCompleted: athleteTable.onboardingCompleted,
+      extraResponses: athleteTable.extraResponses,
       createdAt: athleteTable.createdAt,
       updatedAt: athleteTable.updatedAt,
+      phoneNumber: guardianTable.phoneNumber,
     })
     .from(athleteTable)
     .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+    .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
     .where(eq(athleteTable.id, athlete.id))
     .limit(1);
 
