@@ -17,6 +17,7 @@ export type HomeContentPayload = {
   description?: string | null;
   welcome?: string | null;
   introVideoUrl?: string | null;
+  introVideos?: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }> | null;
   heroImageUrl?: string | null;
   testimonials?: HomeTestimonial[] | null;
   adminStory?: string | null;
@@ -75,6 +76,25 @@ export async function fetchHomeContent(token: string, forceRefresh = false) {
     description: body.description ?? null,
     welcome: body.welcome ?? null,
     introVideoUrl: body.introVideoUrl ?? null,
+    introVideos: Array.isArray((body as any).introVideos)
+      ? (((body as any).introVideos ?? []) as Array<{
+          url: string;
+          roles: Array<"team" | "youth" | "adult">;
+        }>)
+          .map((rule) => ({
+            url: String((rule as any)?.url ?? "").trim(),
+            roles: Array.isArray((rule as any)?.roles)
+              ? ((rule as any).roles as unknown[])
+                  .map((r) => String(r).trim().toLowerCase())
+                  .filter((r) => r === "team" || r === "youth" || r === "adult")
+              : [],
+          }))
+          .map((rule) => ({
+            url: rule.url,
+            roles: Array.from(new Set(rule.roles)).sort() as Array<"team" | "youth" | "adult">,
+          }))
+          .filter((rule) => rule.url.length > 0 && rule.roles.length > 0)
+      : null,
     heroImageUrl: body.heroImageUrl ?? null,
     testimonials:
       parsedTestimonials ??

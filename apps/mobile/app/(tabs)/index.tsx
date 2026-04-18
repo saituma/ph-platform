@@ -97,6 +97,30 @@ export default function HomeScreen() {
     bootstrapReady,
   );
 
+  const resolvedIntroVideoUrl = useMemo(() => {
+    const fallback = homeContent?.introVideoUrl ?? null;
+    const rules = homeContent?.introVideos ?? null;
+    if (!rules || rules.length === 0) return fallback;
+
+    const introAudience = (() => {
+      if (!appRole) return "youth" as const;
+      if (
+        appRole === "team" ||
+        appRole === "adult_athlete_team" ||
+        appRole === "youth_athlete_team_guardian"
+      ) {
+        return "team" as const;
+      }
+      if (appRole === "coach") return "adult" as const;
+      return isAdultAthleteAppRole(appRole) ? ("adult" as const) : ("youth" as const);
+    })();
+
+    const match = rules.find(
+      (rule) => rule?.url && Array.isArray(rule.roles) && rule.roles.includes(introAudience),
+    );
+    return match?.url ?? fallback;
+  }, [appRole, homeContent?.introVideoUrl, homeContent?.introVideos]);
+
   const firstName = useMemo(() => {
     const candidate = profile?.name?.trim()?.split(/\s+/)[0];
     return candidate || "Athlete";
@@ -333,15 +357,15 @@ export default function HomeScreen() {
             </View>
           ) : (
             <>
-              {homeContent?.introVideoUrl && (
+              {resolvedIntroVideoUrl && (
                 <Animated.View
                   entering={FadeInDown.delay(600)
                     .duration(400)
                     .easing(Easing.out(Easing.cubic))}
                 >
                   <IntroVideoSection
-                    introVideoUrl={homeContent.introVideoUrl}
-                    posterUrl={homeContent.heroImageUrl ?? null}
+                    introVideoUrl={resolvedIntroVideoUrl}
+                    posterUrl={homeContent?.heroImageUrl ?? null}
                   />
                 </Animated.View>
               )}
