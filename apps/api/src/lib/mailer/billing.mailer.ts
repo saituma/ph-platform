@@ -10,6 +10,8 @@ export async function sendSubscriptionPendingUserEmail(input: {
   name: string;
   planName: string;
   planTier: string;
+  amount?: string | null;
+  billingCycle?: "monthly" | "six_months" | "yearly" | null;
 }) {
   try {
     const tierLabel = formatProgramTierLabel(input.planTier);
@@ -17,9 +19,20 @@ export async function sendSubscriptionPendingUserEmail(input: {
     const name = escapeHtml(input.name);
     const plan = escapeHtml(input.planName);
     const tier = escapeHtml(tierLabel);
+    const amount = input.amount ? escapeHtml(input.amount) : null;
+    const cycle = String(input.billingCycle ?? "").trim().toLowerCase();
+    const cycleLabel =
+      cycle === "monthly"
+        ? "Monthly"
+        : cycle === "six_months"
+        ? "6 months (upfront)"
+        : cycle === "yearly"
+        ? "Yearly (upfront)"
+        : null;
     const bodyHtml = `
 ${textP(`Hi ${name},`)}
 ${textP(`We’ve successfully received your payment for <strong>${plan}</strong> <span style="color:${E.muted};">(${tier})</span>.`)}
+${amount ? textP(`Amount paid: <strong>${amount}</strong>${cycleLabel ? ` <span style="color:${E.muted};">(${escapeHtml(cycleLabel)})</span>` : ""}.`) : ""}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;margin:0 0 24px;">
   <tr>
     <td style="padding:18px 22px;font-size:14px;color:#166534;line-height:1.6;font-family:${E.font};">

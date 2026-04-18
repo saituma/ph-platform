@@ -297,11 +297,15 @@ export async function listRequestsAdmin(_req: Request, res: Response) {
 
 export async function approveRequestAdmin(req: Request, res: Response) {
   const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
-  const updated = await approveSubscriptionRequest(requestId);
-  if (!updated) {
-    return res.status(404).json({ error: "Request not found" });
+  try {
+    const updated = await approveSubscriptionRequest(requestId);
+    if (!updated) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+    return res.status(200).json({ request: updated });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || "Failed to approve request" });
   }
-  return res.status(200).json({ request: updated });
 }
 
 export async function rejectRequestAdmin(req: Request, res: Response) {

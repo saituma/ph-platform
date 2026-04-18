@@ -11,6 +11,9 @@ export async function sendSubscriptionPendingStaffEmail(input: {
   athleteName?: string | null;
   planName: string;
   planTier: string;
+  amount?: string | null;
+  billingCycle?: "monthly" | "six_months" | "yearly" | null;
+  paymentMode?: "subscription" | "payment" | null;
   requestId: number;
   adminReviewUrl?: string;
 }) {
@@ -22,10 +25,22 @@ export async function sendSubscriptionPendingStaffEmail(input: {
     const tier = escapeHtml(tierLabel);
     const payer = escapeHtml(input.payerName);
     const email = escapeHtml(input.payerEmail);
+    const amount = input.amount ? escapeHtml(input.amount) : null;
+    const cycle = String(input.billingCycle ?? "").trim().toLowerCase();
+    const cycleLabel =
+      cycle === "monthly"
+        ? "monthly"
+        : cycle === "six_months"
+        ? "six_months"
+        : cycle === "yearly"
+        ? "yearly"
+        : null;
+    const modeLabel = input.paymentMode ? escapeHtml(input.paymentMode) : null;
 
     const rows = [
       labelRow("Request", `#${rid}`),
       labelRow("Plan", `${plan} (${tier})`),
+      ...(amount ? [labelRow("Amount", `${amount}${cycleLabel ? ` · ${escapeHtml(cycleLabel)}` : ""}${modeLabel ? ` · ${modeLabel}` : ""}`)] : []),
       labelRow("Account", `${payer} · ${email}`),
       ...(input.athleteName ? [labelRow("Athlete", escapeHtml(input.athleteName))] : []),
     ].join("");

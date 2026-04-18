@@ -78,6 +78,71 @@ function formatMoneyFromStripeCents(cents: number, currencyCode: string) {
   }
 }
 
+export async function quoteAthleteBillingCycleAmount(
+  plan: {
+    tier: (typeof ProgramType.enumValues)[number];
+    stripePriceId?: string | null;
+    stripePriceIdMonthly?: string | null;
+    stripePriceIdYearly?: string | null;
+    displayPrice?: string | null;
+    monthlyPrice?: string | null;
+    yearlyPrice?: string | null;
+  },
+  billingCycle: AthleteBillingCycle
+): Promise<{ amount: string | null; mode: "subscription" | "payment" }> {
+  const mode = checkoutModeForBillingCycle(billingCycle);
+
+  if (stripe) {
+    try {
+      const priceId = await ensureAthleteCheckoutPriceId(
+        {
+          tier: plan.tier,
+          stripePriceId: plan.stripePriceId,
+          stripePriceIdMonthly: plan.stripePriceIdMonthly,
+          stripePriceIdYearly: plan.stripePriceIdYearly,
+        },
+        billingCycle
+      );
+      const price = await stripe.prices.retrieve(priceId);
+      const cents = price.unit_amount;
+      const cur = price.currency ?? "gbp";
+      if (cents == null) return { amount: null, mode };
+      return { amount: formatMoneyFromStripeCents(cents, cur), mode };
+    } catch {
+      // fall through to non-stripe quoting
+    }
+  }
+
+  if (billingCycle === "monthly") {
+    const raw = plan.monthlyPrice ?? plan.displayPrice ?? null;
+    const cleaned = raw
+      ? raw
+          .replace(/\/\s*month\b/gi, "")
+          .replace(/\bper\s+month\b/gi, "")
+          .trim()
+      : null;
+    return { amount: cleaned, mode };
+  }
+
+  if (billingCycle === "yearly") {
+    const raw = plan.yearlyPrice ?? null;
+    const cleaned = raw
+      ? raw
+          .replace(/\/\s*year\b/gi, "")
+          .replace(/\bper\s+year\b/gi, "")
+          .trim()
+      : null;
+    return { amount: cleaned, mode };
+  }
+
+  // six_months: best-effort derived from monthly display if provided.
+  const base = plan.monthlyPrice ?? plan.displayPrice ?? null;
+  const cents = parsePriceToCents(base);
+  if (!cents) return { amount: null, mode };
+  const symbol = getCurrencySymbol(base);
+  return { amount: formatPriceFromCents(cents * 6, symbol), mode };
+}
+
 function parseDiscountConfig(input: {
   discountType?: string | null;
   discountValue?: string | null;
