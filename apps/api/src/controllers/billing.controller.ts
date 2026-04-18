@@ -190,6 +190,7 @@ export async function createCheckout(req: Request, res: Response) {
     if (
       message === "Plan not available" ||
       message === "Stripe is not configured" ||
+      message.startsWith("Stripe could not find price ") ||
       message.includes("Plan is not configured for Stripe payments") ||
       message.startsWith("No Stripe price for ") ||
       message.startsWith("Invalid Stripe price reference ")
