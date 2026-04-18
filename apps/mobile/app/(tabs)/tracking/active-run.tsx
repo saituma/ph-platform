@@ -21,12 +21,20 @@ import {
 
 import { useRunTrackingEngine } from "../../../hooks/tracking/useRunTrackingEngine";
 import { LiveMap } from "../../../components/tracking/active-run/LiveMap";
+import { RunPrivacyControls } from "../../../components/tracking/active-run/RunPrivacyControls";
 import { RunStatusOverlay } from "../../../components/tracking/active-run/RunStatusOverlay";
 import { RunActionButtons } from "../../../components/tracking/active-run/RunActionButtons";
 import { RunBottomBar } from "../../../components/tracking/active-run/RunBottomBar";
 import { RunStopSheet } from "../../../components/tracking/active-run/RunStopSheet";
 import { RunToast } from "../../../components/tracking/active-run/RunToast";
 import { mainTabBarTotalHeight } from "../../../lib/tracking/mainTabBarInset";
+import {
+  getRunBackgroundTrackingDefault,
+  setRunBackgroundTrackingDefault,
+  getOsrmRoutingDefault,
+  setOsrmRoutingDefault,
+} from "../../../lib/runTrackingPreferences";
+import { ensureOsrmConsentOrExplain } from "../../../lib/osrmRoutingConsent";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
@@ -44,6 +52,9 @@ export default function ActiveRunScreen() {
     destination,
   } = useRunStore();
 
+  const [backgroundTrackingEnabled, setBackgroundTrackingEnabled] =
+    useState(false);
+  const [osrmRoutingEnabled, setOsrmRoutingEnabled] = useState(false);
   const [showStopSheet, setShowStopSheet] = useState(false);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
@@ -65,7 +76,11 @@ export default function ActiveRunScreen() {
     routeMetrics,
     isFetchingRoute,
     isWarmedUp,
-  } = useRunTrackingEngine(toastTranslateY, insets.top);
+  } = ((useRunTrackingEngine as any)(
+    toastTranslateY,
+    insets.top,
+    { osrmRoutingEnabled },
+  ) as ReturnType<typeof useRunTrackingEngine>);
 
   const bottomBarHeight = 88;
   const overlayGap = 16;
@@ -97,6 +112,22 @@ export default function ActiveRunScreen() {
       };
 
   useEffect(() => {
+    let active = true;
+    (async () => {
+      const [bg, osrm] = await Promise.all([
+        getRunBackgroundTrackingDefault(),
+        getOsrmRoutingDefault(),
+      ]);
+      if (!active) return;
+      setBackgroundTrackingEnabled(bg);
+      setOsrmRoutingEnabled(osrm);
+    })().catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (status !== "running") return;
     const interval = setInterval(() => {
       void refreshRunNotification();
@@ -118,12 +149,22 @@ export default function ActiveRunScreen() {
     if (!hasGps) return;
     if (status === "running") {
       startForegroundWatch().catch(() => null);
-      startLocationTracking().catch(() => null);
+      if (backgroundTrackingEnabled) {
+        startLocationTracking().catch(() => null);
+      } else {
+        stopLocationTracking().catch(() => null);
+      }
     } else {
       stopForegroundWatch();
       stopLocationTracking().catch(() => null);
     }
-  }, [hasGps, startForegroundWatch, status, stopForegroundWatch]);
+  }, [
+    backgroundTrackingEnabled,
+    hasGps,
+    startForegroundWatch,
+    status,
+    stopForegroundWatch,
+  ]);
 
   const openStopDialog = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -267,7 +308,7 @@ export default function ActiveRunScreen() {
           </View>
         )}
 
-        {destination && (isFetchingRoute || routeMetrics) ? (
+        {osrmRoutingEnabled && destination && (isFetchingRoute || routeMetrics) ? (
           <View
             pointerEvents="none"
             style={{
@@ -304,6 +345,36 @@ export default function ActiveRunScreen() {
           glassBorder={glassBorder}
           glassShadow={glassShadow}
           insetsTop={insets.top}
+        />
+
+        <RunPrivacyControls
+          colors={colors}
+          glassBg={glassBg}
+          glassBorder={glassBorder}
+          glassShadow={glassShadow}
+          mainTabBarOverlap={mainTabBarOverlap}
+          bottomOffsetFromTabBar={
+            bottomBarHeight + overlayGap + 8 + actionRowHeight + 12
+          }
+          backgroundTrackingEnabled={backgroundTrackingEnabled}
+          onToggleBackgroundTracking={() => {
+            const next = !backgroundTrackingEnabled;
+            setBackgroundTrackingEnabled(next);
+            void setRunBackgroundTrackingDefault(next);
+            // When enabling, the next effect tick will call startLocationTracking() which shows disclosure+permission if needed.
+          }}
+          osrmRoutingEnabled={osrmRoutingEnabled}
+          onToggleOsrmRouting={async () => {
+            if (osrmRoutingEnabled) {
+              setOsrmRoutingEnabled(false);
+              void setOsrmRoutingDefault(false);
+              return;
+            }
+            const ok = await ensureOsrmConsentOrExplain();
+            if (!ok) return;
+            setOsrmRoutingEnabled(true);
+            void setOsrmRoutingDefault(true);
+          }}
         />
 
         <RunActionButtons
