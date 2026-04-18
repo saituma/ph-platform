@@ -4,6 +4,8 @@ import { env } from "../config/env";
 import { db } from "../db";
 import { athleteTable, subscriptionPlanTable, subscriptionRequestTable, userTable } from "../db/schema";
 import { sendPushNotification } from "./push.service";
+import { quoteAthleteBillingCycleAmount } from "./billing/plan.service";
+import { ATHLETE_BILLING_CYCLES, type AthleteBillingCycle } from "./billing/stripe.service";
 import {
   sendSubscriptionApprovedUserEmail,
   sendSubscriptionPendingStaffEmail,
@@ -20,8 +22,15 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
       userId: subscriptionRequestTable.userId,
       userEmail: userTable.email,
       userName: userTable.name,
+      planBillingCycle: subscriptionRequestTable.planBillingCycle,
       planName: subscriptionPlanTable.name,
       planTier: subscriptionPlanTable.tier,
+      planDisplayPrice: subscriptionPlanTable.displayPrice,
+      planMonthlyPrice: subscriptionPlanTable.monthlyPrice,
+      planYearlyPrice: subscriptionPlanTable.yearlyPrice,
+      stripePriceId: subscriptionPlanTable.stripePriceId,
+      stripePriceIdMonthly: subscriptionPlanTable.stripePriceIdMonthly,
+      stripePriceIdYearly: subscriptionPlanTable.stripePriceIdYearly,
       athleteName: athleteTable.name,
     })
     .from(subscriptionRequestTable)
@@ -38,13 +47,36 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
   }
 
   const adminBase = env.adminWebUrl.replace(/\/$/, "");
-  const adminReviewUrl = `${adminBase}/users`;
+  const adminReviewUrl = `${adminBase}/billing/pending-approvals`;
+
+  const cycleRaw = String(row.planBillingCycle ?? "").trim().toLowerCase();
+  const billingCycle = ATHLETE_BILLING_CYCLES.includes(cycleRaw as AthleteBillingCycle)
+    ? (cycleRaw as AthleteBillingCycle)
+    : null;
+
+  const quote =
+    billingCycle && row.planTier
+      ? await quoteAthleteBillingCycleAmount(
+          {
+            tier: row.planTier,
+            stripePriceId: row.stripePriceId,
+            stripePriceIdMonthly: row.stripePriceIdMonthly,
+            stripePriceIdYearly: row.stripePriceIdYearly,
+            displayPrice: row.planDisplayPrice,
+            monthlyPrice: row.planMonthlyPrice,
+            yearlyPrice: row.planYearlyPrice,
+          },
+          billingCycle
+        )
+      : null;
 
   await sendSubscriptionPendingUserEmail({
     to: row.userEmail,
     name: row.userName || "there",
     planName: row.planName,
     planTier: row.planTier,
+    amount: quote?.amount ?? null,
+    billingCycle: billingCycle,
   });
 
   void sendPushNotification(
@@ -81,6 +113,9 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
       athleteName: row.athleteName,
       planName: row.planName,
       planTier: row.planTier,
+      amount: quote?.amount ?? null,
+      billingCycle: billingCycle,
+      paymentMode: quote?.mode ?? null,
       requestId,
       adminReviewUrl,
     });

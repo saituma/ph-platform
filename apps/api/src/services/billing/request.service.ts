@@ -16,9 +16,10 @@ import {
   ensureStripePriceId,
   ensureAthleteCheckoutPriceId,
   checkoutModeForBillingCycle,
+  ATHLETE_BILLING_CYCLES,
   type AthleteBillingCycle,
 } from "./stripe.service";
-import { computePlanPeriodEnd, computeAthleteAccessEnd } from "./plan.service";
+import { computePlanPeriodEnd, computeAthleteAccessEnd, quoteAthleteBillingCycleAmount } from "./plan.service";
 import { sendPushNotification } from "../push.service";
 import {
   notifySubscriptionEnteredPendingApproval,
@@ -315,13 +316,14 @@ export async function updateRequestFromStripeSession(sessionId: string, paymentS
 }
 
 export async function listSubscriptionRequests() {
-  return db
+  const rows = await db
     .select({
       requestId: subscriptionRequestTable.id,
       status: subscriptionRequestTable.status,
       paymentStatus: subscriptionRequestTable.paymentStatus,
       stripeSessionId: subscriptionRequestTable.stripeSessionId,
       createdAt: subscriptionRequestTable.createdAt,
+      planBillingCycle: subscriptionRequestTable.planBillingCycle,
       userId: userTable.id,
       userName: userTable.name,
       userEmail: userTable.email,
@@ -330,14 +332,73 @@ export async function listSubscriptionRequests() {
       planId: subscriptionPlanTable.id,
       planName: subscriptionPlanTable.name,
       planTier: subscriptionPlanTable.tier,
-      displayPrice: subscriptionPlanTable.displayPrice,
-      billingInterval: subscriptionPlanTable.billingInterval,
+      planDisplayPrice: subscriptionPlanTable.displayPrice,
+      planBillingInterval: subscriptionPlanTable.billingInterval,
+      planMonthlyPrice: subscriptionPlanTable.monthlyPrice,
+      planYearlyPrice: subscriptionPlanTable.yearlyPrice,
+      stripePriceId: subscriptionPlanTable.stripePriceId,
+      stripePriceIdMonthly: subscriptionPlanTable.stripePriceIdMonthly,
+      stripePriceIdYearly: subscriptionPlanTable.stripePriceIdYearly,
     })
     .from(subscriptionRequestTable)
     .leftJoin(userTable, eq(subscriptionRequestTable.userId, userTable.id))
     .leftJoin(athleteTable, eq(subscriptionRequestTable.athleteId, athleteTable.id))
     .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
     .orderBy(desc(subscriptionRequestTable.createdAt));
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const cycleRaw = String(row.planBillingCycle ?? "").trim().toLowerCase();
+      const cycle = ATHLETE_BILLING_CYCLES.includes(cycleRaw as AthleteBillingCycle)
+        ? (cycleRaw as AthleteBillingCycle)
+        : null;
+
+      let displayPrice = row.planDisplayPrice ?? null;
+      let billingInterval = row.planBillingInterval ?? null;
+      let paymentMode: "subscription" | "payment" | null = null;
+
+      if (cycle && row.planTier) {
+        billingInterval = cycle;
+        const quote = await quoteAthleteBillingCycleAmount(
+          {
+            tier: row.planTier,
+            stripePriceId: row.stripePriceId,
+            stripePriceIdMonthly: row.stripePriceIdMonthly,
+            stripePriceIdYearly: row.stripePriceIdYearly,
+            displayPrice: row.planDisplayPrice,
+            monthlyPrice: row.planMonthlyPrice,
+            yearlyPrice: row.planYearlyPrice,
+          },
+          cycle
+        );
+        paymentMode = quote.mode;
+        if (quote.amount) {
+          displayPrice =
+            cycle === "monthly" ? `${quote.amount}/month` : `${quote.amount} upfront`;
+        }
+      }
+
+      return {
+        requestId: row.requestId,
+        status: row.status,
+        paymentStatus: row.paymentStatus,
+        stripeSessionId: row.stripeSessionId,
+        createdAt: row.createdAt,
+        userId: row.userId,
+        userName: row.userName,
+        userEmail: row.userEmail,
+        athleteId: row.athleteId,
+        athleteName: row.athleteName,
+        planId: row.planId,
+        planName: row.planName,
+        planTier: row.planTier,
+        planBillingCycle: row.planBillingCycle,
+        displayPrice,
+        billingInterval,
+        paymentMode,
+      };
+    })
+  );
 }
 
 export async function getLatestSubscriptionRequest(input: { userId: number; athleteId: number }) {
@@ -387,6 +448,8 @@ export async function approveSubscriptionRequest(requestId: number) {
         requestId: subscriptionRequestTable.id,
         userId: subscriptionRequestTable.userId,
         athleteId: subscriptionRequestTable.athleteId,
+        status: subscriptionRequestTable.status,
+        paymentStatus: subscriptionRequestTable.paymentStatus,
         planTier: subscriptionPlanTable.tier,
         billingInterval: subscriptionPlanTable.billingInterval,
         planBillingCycle: subscriptionRequestTable.planBillingCycle,
@@ -401,6 +464,14 @@ export async function approveSubscriptionRequest(requestId: number) {
     const request = rows[0];
     if (!request?.athleteId || !request.planTier) {
       return { row: null as null, planApprovedEmail: null as null };
+    }
+
+    const normalizedPaymentStatus = String(request.paymentStatus ?? "").trim().toLowerCase();
+    const isPaid = normalizedPaymentStatus === "paid" || normalizedPaymentStatus === "no_payment_required";
+    if (!isPaid) {
+      throw new Error(
+        `Cannot approve request #${requestId}: payment not confirmed (status=${request.status}, paymentStatus=${request.paymentStatus ?? "unknown"})`
+      );
     }
 
     const cycle = request.planBillingCycle as AthleteBillingCycle | null;
