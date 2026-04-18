@@ -28,6 +28,7 @@ export type SocialCommentItem = {
   avatarUrl: string | null;
   content: string;
   createdAt: string;
+  isMine: boolean;
 };
 
 export async function fetchLeaderboard(
@@ -120,4 +121,3 @@ export async function reportComment(
     },
   );
 }
-
