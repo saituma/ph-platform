@@ -9,6 +9,7 @@ import {
   fetchAdultDirectory,
   fetchLeaderboard,
   fetchRunFeed,
+  type SocialSort,
   type SocialLeaderboardItem,
   type SocialRunFeedItem,
 } from "@/services/tracking/socialService";
@@ -28,6 +29,12 @@ export default function TrackingSocialScreen() {
   const [adults, setAdults] = useState<{ userId: number; name: string; avatarUrl: string | null }[]>([]);
   const [feed, setFeed] = useState<SocialRunFeedItem[]>([]);
 
+  const [rangeDays, setRangeDays] = useState<number>(7); // 0 = All
+  const [sort, setSort] = useState<SocialSort>("date_desc");
+  const [leaderboardSort, setLeaderboardSort] = useState<
+    "distance_desc" | "distance_asc" | "duration_desc" | "duration_asc"
+  >("distance_desc");
+
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [activeRunLogId, setActiveRunLogId] = useState<number | null>(null);
 
@@ -41,9 +48,9 @@ export default function TrackingSocialScreen() {
     setLoading(true);
     try {
       const [lb, dir, runs] = await Promise.all([
-        fetchLeaderboard(token, { windowDays: 7, limit: 25 }),
+        fetchLeaderboard(token, { windowDays: rangeDays === 0 ? 0 : rangeDays, limit: 25, sort: leaderboardSort }),
         fetchAdultDirectory(token, { limit: 20, cursor: null }),
-        fetchRunFeed(token, { limit: 20, cursor: null }),
+        fetchRunFeed(token, { limit: 20, cursor: null, windowDays: rangeDays, sort }),
       ]);
       setLeaderboard(lb.items ?? []);
       setAdults(dir.items ?? []);
@@ -53,12 +60,40 @@ export default function TrackingSocialScreen() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [leaderboardSort, rangeDays, sort, token]);
 
-  useEffect(() => {
-    if (!canLoad) return;
-    void load();
-  }, [canLoad, load]);
+  const pickSort = useCallback(() => {
+    Alert.alert("Sort", "Choose how to sort the feed.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Newest", onPress: () => setSort("date_desc") },
+      { text: "Oldest", onPress: () => setSort("date_asc") },
+      { text: "Longest distance", onPress: () => setSort("distance_desc") },
+      { text: "Shortest distance", onPress: () => setSort("distance_asc") },
+      { text: "Longest duration", onPress: () => setSort("duration_desc") },
+      { text: "Shortest duration", onPress: () => setSort("duration_asc") },
+      { text: "Most commented", onPress: () => setSort("comments_desc") },
+    ]);
+  }, []);
+
+  const pickLeaderboardSort = useCallback(() => {
+    Alert.alert("Leaderboard sort", "Choose how to rank athletes.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Most km", onPress: () => setLeaderboardSort("distance_desc") },
+      { text: "Least km", onPress: () => setLeaderboardSort("distance_asc") },
+      { text: "Most minutes", onPress: () => setLeaderboardSort("duration_desc") },
+      { text: "Least minutes", onPress: () => setLeaderboardSort("duration_asc") },
+    ]);
+  }, []);
+
+  const pickRange = useCallback(() => {
+    Alert.alert("Range", "Choose a time window.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "7 days", onPress: () => setRangeDays(7) },
+      { text: "30 days", onPress: () => setRangeDays(30) },
+      { text: "90 days", onPress: () => setRangeDays(90) },
+      { text: "All time", onPress: () => setRangeDays(0) },
+    ]);
+  }, []);
 
   const openComments = useCallback((runLogId: number) => {
     setActiveRunLogId(runLogId);
@@ -74,6 +109,12 @@ export default function TrackingSocialScreen() {
   }, []);
 
   const headerSubtitle = useMemo(() => "Adults only · Public runs + leaderboard", []);
+
+  // Refresh when filters change.
+  useEffect(() => {
+    if (!canLoad) return;
+    void load();
+  }, [canLoad, load, rangeDays, sort, leaderboardSort]);
 
   if (!token) {
     return (
@@ -116,6 +157,52 @@ export default function TrackingSocialScreen() {
           </Text>
         </View>
 
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: 6, flexDirection: "row", gap: 10 }}>
+          <Pressable
+            onPress={pickRange}
+            style={({ pressed }) => ({
+              height: 36,
+              paddingHorizontal: 12,
+              borderRadius: radius.pill,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              gap: 8,
+              opacity: pressed ? 0.9 : 1,
+            })}
+          >
+            <Feather name="calendar" size={14} color={colors.icon} />
+            <Text className="text-xs font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+              {rangeDays === 0 ? "All" : `${rangeDays}D`}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={pickSort}
+            style={({ pressed }) => ({
+              height: 36,
+              paddingHorizontal: 12,
+              borderRadius: radius.pill,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              gap: 8,
+              opacity: pressed ? 0.9 : 1,
+            })}
+          >
+            <Feather name="sliders" size={14} color={colors.icon} />
+            <Text className="text-xs font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+              Sort
+            </Text>
+          </Pressable>
+        </View>
+
         {loading ? (
           <View style={{ paddingTop: 40, alignItems: "center" }}>
             <ActivityIndicator />
@@ -131,9 +218,16 @@ export default function TrackingSocialScreen() {
                 padding: 14,
               }}
             >
-              <Text className="text-sm font-clash font-semibold" style={{ color: colors.text }}>
-                Leaderboard (7 days)
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text className="text-sm font-clash font-semibold" style={{ color: colors.text }}>
+                  Leaderboard ({rangeDays === 0 ? "All" : `${rangeDays} days`})
+                </Text>
+                <Pressable onPress={pickLeaderboardSort}>
+                  <Text className="text-xs font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+                    Rank
+                  </Text>
+                </Pressable>
+              </View>
               <View style={{ gap: 10, marginTop: 10 }}>
                 {leaderboard.length === 0 ? (
                   <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
@@ -312,9 +406,9 @@ export default function TrackingSocialScreen() {
           onClose={() => setCommentsOpen(false)}
           token={token}
           runLogId={activeRunLogId}
+          runOwnerName={feed.find((r) => r.runLogId === activeRunLogId)?.name ?? null}
         />
       ) : null}
     </View>
   );
 }
-
