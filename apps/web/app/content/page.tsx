@@ -19,6 +19,7 @@ import {
 
 type HomeDraft = {
   introVideoUrl?: string;
+  introVideos?: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }> | unknown;
   testimonials?: TestimonialEntry[] | string;
   adminStory?: string;
   professionalPhoto?: string;
@@ -76,6 +77,12 @@ export default function ContentPage() {
             <ContentTabs
               initialHome={{
                 introVideoUrl: homeDraft.introVideoUrl ?? "",
+                introVideos: Array.isArray((homeDraft as any).introVideos)
+                  ? (((homeDraft as any).introVideos ?? []) as Array<{
+                      url: string;
+                      roles: Array<"team" | "youth" | "adult">;
+                    }>)
+                  : [],
                 testimonials: homeDraft.testimonials ?? [],
                 adminStory: homeDraft.adminStory ?? "",
                 professionalPhoto:
@@ -145,7 +152,11 @@ export default function ContentPage() {
               }}
               onSaveIntroVideo={async (data) => {
                 setError(null);
-                const nextDraft = { ...homeDraft, introVideoUrl: data.introVideoUrl };
+                const nextDraft = {
+                  ...homeDraft,
+                  introVideoUrl: data.introVideoUrl,
+                  introVideos: data.introVideos,
+                };
                 const payload = {
                   title: "Home",
                   content: baseHomeTitle,

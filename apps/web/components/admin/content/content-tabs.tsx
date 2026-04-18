@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -36,17 +36,24 @@ type SubmissionBody = {
 type ContentTabsProps = {
   initialHome?: {
     introVideoUrl?: string;
+    introVideos?: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }>;
     adminStory?: string;
     professionalPhoto?: string;
     testimonials?: TestimonialEntry[] | string;
   } | null;
   onSaveProfile: (data: { adminStory: string; professionalPhoto: string }) => void;
   onSaveTestimonials: (data: { testimonials: TestimonialEntry[] }) => void;
-  onSaveIntroVideo: (data: { introVideoUrl: string }) => void;
+  onSaveIntroVideo: (data: {
+    introVideoUrl: string;
+    introVideos: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }>;
+  }) => void;
   testimonialSubmissions?: TestimonialSubmission[];
   onApproveTestimonial?: (submissionId: number) => void;
   onRejectTestimonial?: (submissionId: number) => void;
 };
+
+type IntroAudience = "team" | "youth" | "adult";
+type IntroVideoRule = { url: string; roles: IntroAudience[] };
 
 export function ContentTabs({
   initialHome,
@@ -59,7 +66,35 @@ export function ContentTabs({
 }: ContentTabsProps) {
   const adminStoryRef = useRef<HTMLTextAreaElement | null>(null);
   const [showAdminStoryPreview, setShowAdminStoryPreview] = useState(false);
-  const [homeIntroVideo, setHomeIntroVideo] = useState(() => initialHome?.introVideoUrl ?? "");
+  const deriveIntroVideos = (home: ContentTabsProps["initialHome"]): IntroVideoRule[] => {
+    if (!home) return [];
+    const rulesRaw = Array.isArray(home.introVideos) ? home.introVideos : [];
+    const rules = rulesRaw
+      .map((rule) => ({
+        url: String(rule?.url ?? "").trim(),
+        roles: Array.isArray(rule?.roles)
+          ? (rule.roles as unknown[]).map((r) => String(r).trim().toLowerCase() as IntroAudience)
+          : [],
+      }))
+      .map((rule) => ({
+        url: rule.url,
+        roles: Array.from(new Set(rule.roles.filter((r) => r === "team" || r === "youth" || r === "adult"))).sort(),
+      }))
+      .filter((rule) => rule.url.length > 0 && rule.roles.length > 0);
+    if (rules.length) return rules;
+    const legacy = String(home.introVideoUrl ?? "").trim();
+    return legacy ? [{ url: legacy, roles: ["adult", "team", "youth"] }] : [];
+  };
+
+  const [introVideos, setIntroVideos] = useState<IntroVideoRule[]>(() =>
+    deriveIntroVideos(initialHome ?? null),
+  );
+  const [newIntroUrl, setNewIntroUrl] = useState("");
+  const [newIntroRoles, setNewIntroRoles] = useState<Record<IntroAudience, boolean>>({
+    team: true,
+    youth: true,
+    adult: true,
+  });
   const [homeProfessionalPhoto, setHomeProfessionalPhoto] = useState(() => initialHome?.professionalPhoto ?? "");
   const [adminStory, setAdminStory] = useState(() => initialHome?.adminStory ?? "");
   const [homeTestimonials, setHomeTestimonials] = useState<TestimonialEntry[]>(() => {
@@ -82,6 +117,38 @@ export function ContentTabs({
   const [testimonialVideoUrl, setTestimonialVideoUrl] = useState("");
   const [testimonialVideoAspect, setTestimonialVideoAspect] = useState<"reel" | "landscape" | "square">("reel");
   const [introVideoError, setIntroVideoError] = useState<string | null>(null);
+
+  const lastInitialRef = useRef<ContentTabsProps["initialHome"]>(initialHome ?? null);
+  useEffect(() => {
+    const prev = lastInitialRef.current;
+    const next = initialHome ?? null;
+    lastInitialRef.current = next;
+    if (!next) return;
+
+    setHomeProfessionalPhoto((current) => {
+      const prevValue = prev?.professionalPhoto ?? "";
+      const nextValue = next.professionalPhoto ?? "";
+      if (current === prevValue) return nextValue;
+      if (!current && nextValue) return nextValue;
+      return current;
+    });
+    setAdminStory((current) => {
+      const prevValue = prev?.adminStory ?? "";
+      const nextValue = next.adminStory ?? "";
+      if (current === prevValue) return nextValue;
+      if (!current && nextValue) return nextValue;
+      return current;
+    });
+    setIntroVideos((current) => {
+      const prevDerived = deriveIntroVideos(prev ?? null);
+      const nextDerived = deriveIntroVideos(next);
+      const currentSerialized = JSON.stringify(current);
+      const prevSerialized = JSON.stringify(prevDerived);
+      if (currentSerialized === prevSerialized) return nextDerived;
+      if (current.length === 0 && nextDerived.length > 0) return nextDerived;
+      return current;
+    });
+  }, [initialHome]);
 
   const isBlockedIntroVideoUrl = (value: string) => {
     const normalized = value.trim().toLowerCase();
@@ -240,6 +307,14 @@ export function ContentTabs({
                     >
                       Remove
                     </Button>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-border bg-secondary/10">
+                    <img
+                      src={homeProfessionalPhoto}
+                      alt="Professional photo preview"
+                      className="h-56 w-full object-cover"
+                      loading="lazy"
+                    />
                   </div>
                 </div>
               ) : (
@@ -509,36 +584,151 @@ export function ContentTabs({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Intro Video</Label>
-              <ParentCourseMediaUpload
-                label={homeIntroVideo ? "Replace Video" : "Upload Video"}
-                folder="home/intro-video"
-                accept="video/*"
-                maxSizeMb={200}
-                onUploaded={(url) => setHomeIntroVideo(url)}
-              />
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Or paste a direct video file URL</Label>
-                <Input
-                  placeholder="https://…mp4 or https://youtube.com/watch?v=…"
-                  value={homeIntroVideo}
-                  onChange={(event) => {
-                    setHomeIntroVideo(event.target.value);
+              <div className="rounded-2xl border border-border bg-secondary/10 p-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Show for
+                  </span>
+                  {(["team", "youth", "adult"] as const).map((role) => (
+                    <label key={`intro-role-${role}`} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={newIntroRoles[role]}
+                        onChange={(e) => {
+                          setNewIntroRoles((prev) => ({ ...prev, [role]: e.target.checked }));
+                        }}
+                      />
+                      <span className="capitalize">{role}</span>
+                    </label>
+                  ))}
+                </div>
+                <ParentCourseMediaUpload
+                  label="Upload Video"
+                  folder="home/intro-video"
+                  accept="video/*"
+                  maxSizeMb={200}
+                  onUploaded={(url) => {
                     setIntroVideoError(null);
+                    const roles = (Object.entries(newIntroRoles) as Array<[IntroAudience, boolean]>)
+                      .filter(([, enabled]) => enabled)
+                      .map(([role]) => role)
+                      .sort();
+                    if (roles.length === 0) {
+                      setIntroVideoError("Select at least one role for this video.");
+                      return;
+                    }
+                    setIntroVideos((prev) => [...prev, { url, roles }]);
                   }}
                 />
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Or paste a direct video file URL</Label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      placeholder="https://…mp4 or https://youtube.com/watch?v=…"
+                      value={newIntroUrl}
+                      onChange={(event) => {
+                        setNewIntroUrl(event.target.value);
+                        setIntroVideoError(null);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const normalized = newIntroUrl.trim();
+                        if (!normalized) return;
+                        if (isBlockedIntroVideoUrl(normalized)) {
+                          setIntroVideoError(
+                            "Vimeo URLs are not supported for intro video. Use an upload, a direct .mp4 URL, or YouTube.",
+                          );
+                          return;
+                        }
+                        const roles = (Object.entries(newIntroRoles) as Array<[IntroAudience, boolean]>)
+                          .filter(([, enabled]) => enabled)
+                          .map(([role]) => role)
+                          .sort();
+                        if (roles.length === 0) {
+                          setIntroVideoError("Select at least one role for this video.");
+                          return;
+                        }
+                        setIntroVideos((prev) => [...prev, { url: normalized, roles }]);
+                        setNewIntroUrl("");
+                      }}
+                      disabled={!newIntroUrl.trim().length}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
               </div>
               {introVideoError ? (
                 <p className="text-xs text-red-500">{introVideoError}</p>
               ) : null}
-              {homeIntroVideo ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
-                  <span className="break-all text-muted-foreground">{homeIntroVideo}</span>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setHomeIntroVideo("");
-                    setIntroVideoError(null);
-                  }}>
-                    Remove
-                  </Button>
+              {introVideos.length > 0 ? (
+                <div className="space-y-3">
+                  {introVideos.map((rule, index) => (
+                    <div
+                      key={`intro-video-${index}-${rule.url}`}
+                      className="rounded-2xl border border-border bg-secondary/10 p-4 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-2 flex-1">
+                          <Label className="text-xs text-muted-foreground">Video URL</Label>
+                          <Input
+                            value={rule.url}
+                            onChange={(event) => {
+                              const nextUrl = event.target.value;
+                              setIntroVideos((prev) =>
+                                prev.map((item, idx) => (idx === index ? { ...item, url: nextUrl } : item)),
+                              );
+                              setIntroVideoError(null);
+                            }}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setIntroVideos((prev) => prev.filter((_, idx) => idx !== index));
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Roles
+                        </span>
+                        {(["team", "youth", "adult"] as const).map((role) => (
+                          <label
+                            key={`intro-video-${index}-role-${role}`}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={rule.roles.includes(role)}
+                              onChange={(e) => {
+                                setIntroVideos((prev) =>
+                                  prev.map((item, idx) => {
+                                    if (idx !== index) return item;
+                                    const nextRoles = new Set(item.roles);
+                                    if (e.target.checked) nextRoles.add(role);
+                                    else nextRoles.delete(role);
+                                    return { ...item, roles: Array.from(nextRoles).sort() as IntroAudience[] };
+                                  }),
+                                );
+                              }}
+                            />
+                            <span className="capitalize">{role}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {rule.roles.length === 0 ? (
+                        <p className="text-xs text-red-500">Pick at least one role or remove this entry.</p>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
@@ -552,12 +742,30 @@ export function ContentTabs({
             <Button
               className="w-full"
               onClick={() => {
-                const normalized = homeIntroVideo.trim();
-                if (normalized && isBlockedIntroVideoUrl(normalized)) {
-                  setIntroVideoError("Vimeo URLs are not supported for intro video. Use an upload, a direct .mp4 URL, or YouTube.");
+                const normalizedRules: IntroVideoRule[] = introVideos
+                  .map((rule) => ({
+                    url: String(rule.url ?? "").trim(),
+                    roles: Array.from(
+                      new Set((rule.roles ?? []).filter((r) => r === "team" || r === "youth" || r === "adult")),
+                    ).sort(),
+                  }))
+                  .filter((rule) => rule.url.length > 0);
+
+                const bad = normalizedRules.find((rule) => isBlockedIntroVideoUrl(rule.url));
+                if (bad) {
+                  setIntroVideoError(
+                    "Vimeo URLs are not supported for intro video. Use an upload, a direct .mp4 URL, or YouTube.",
+                  );
                   return;
                 }
-                onSaveIntroVideo({ introVideoUrl: normalized });
+                const emptyRoles = normalizedRules.find((rule) => rule.roles.length === 0);
+                if (emptyRoles) {
+                  setIntroVideoError("Each intro video must have at least one role selected.");
+                  return;
+                }
+
+                const fallbackUrl = normalizedRules[0]?.url ?? "";
+                onSaveIntroVideo({ introVideoUrl: fallbackUrl, introVideos: normalizedRules });
               }}
             >
               Save Intro Video
