@@ -16,6 +16,7 @@ import { deleteOwnAccount } from "../services/account-deletion.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
 import { verifyAccessToken } from "../lib/jwt";
 import { getAthleteForUser, updateUserProfile } from "../services/user.service";
+import { getOnboardingByUser } from "../services/onboarding.service";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { buildAppCapabilities } from "../services/app-capabilities.service";
 
@@ -154,10 +155,12 @@ export async function updatePassword(req: Request, res: Response) {
 
 export async function getMe(req: Request, res: Response) {
   const user = req.user!;
-  const [athlete, messagingAccessTiers] = await Promise.all([
-    getAthleteForUser(user.id),
+  const [athleteData, messagingAccessTiers] = await Promise.all([
+    getOnboardingByUser(user.id),
     getMessagingAccessTiers(),
   ]);
+
+  const athlete = athleteData as any;
   const programTier = athlete?.currentProgramTier ?? null;
   const capabilities = buildAppCapabilities({
     role: user.role,
@@ -181,6 +184,8 @@ export async function getMe(req: Request, res: Response) {
       growthNotes: athlete?.growthNotes ?? null,
       injuries: athlete?.injuries ?? null,
       onboardingCompleted: athlete?.onboardingCompleted ?? false,
+      trainingStats: athlete?.trainingStats ?? null,
+      allAthletes: athlete?.allAthletes ?? null,
       capabilities,
       messagingAccessTiers,
     },
