@@ -15,6 +15,7 @@ import {
   listPlansAdmin,
   listRequestsAdmin,
   rejectRequestAdmin,
+  syncRequestPaymentAdmin,
   updatePlanAdmin,
   verifyRevenueCatPurchase,
 } from "../controllers/billing.controller";
@@ -66,6 +67,12 @@ router.post(
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
   rejectRequestAdmin
+);
+router.post(
+  "/admin/subscription-requests/:requestId/sync-payment",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  syncRequestPaymentAdmin
 );
 
 export default router;

@@ -97,6 +97,24 @@ export function PendingApprovalsManager() {
     }
   };
 
+  const handleSyncPayment = async (requestId: number) => {
+    setActionError(null);
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch(`/api/backend/admin/subscription-requests/${requestId}/sync-payment`, {
+        method: "POST",
+        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "Failed to sync payment.");
+      }
+      await loadRequests();
+    } catch (error: unknown) {
+      setActionError(getErrorMessage(error, "Failed to sync payment."));
+    }
+  };
+
   const filteredRequests = useMemo(
     () =>
       requests.filter((request) =>
@@ -179,6 +197,13 @@ export function PendingApprovalsManager() {
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => handleApprove(request.requestId)}>
                         Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleSyncPayment(request.requestId)}
+                      >
+                        Sync
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleReject(request.requestId)}>
                         Reject
