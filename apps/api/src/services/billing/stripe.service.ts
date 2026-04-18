@@ -166,6 +166,32 @@ export async function resolvePriceIdByTierLookup(
   }
 }
 
+async function resolvePriceIdByLookupKey(lookupKey: string): Promise<string | null> {
+  if (!stripe) return null;
+  const key = String(lookupKey ?? "").trim();
+  if (!key) return null;
+  try {
+    const prices = await stripe.prices.list({ lookup_keys: [key], active: true, limit: 1 });
+    return prices.data[0]?.id ?? null;
+  } catch (err) {
+    console.warn(`[Stripe] Lookup failed for ${key}`, err);
+    return null;
+  }
+}
+
+async function ensureStripePriceIdOrLookupKeyId(raw: string): Promise<string> {
+  const normalized = String(raw ?? "").trim();
+  if (!normalized) {
+    throw new Error("Missing Stripe price id");
+  }
+  if (normalized.startsWith("price_")) return normalized;
+  const fromLookup = await resolvePriceIdByLookupKey(normalized);
+  if (fromLookup) return fromLookup;
+  throw new Error(
+    `Invalid Stripe price reference "${normalized}". Expected a Stripe Price id (price_...) or a valid Stripe Price lookup key.`
+  );
+}
+
 /** Checkout line item: lookup key first, then DB/env (monthly/yearly only for fallback). */
 export async function ensureAthleteCheckoutPriceId(
   plan: {
@@ -179,10 +205,12 @@ export async function ensureAthleteCheckoutPriceId(
   const fromLookup = await resolvePriceIdByTierLookup(plan.tier, billingCycle);
   if (fromLookup) return fromLookup;
   if (billingCycle === "monthly") {
-    return ensureStripePriceId(plan, "monthly");
+    const raw = ensureStripePriceId(plan, "monthly");
+    return ensureStripePriceIdOrLookupKeyId(raw);
   }
   if (billingCycle === "yearly") {
-    return ensureStripePriceId(plan, "yearly");
+    const raw = ensureStripePriceId(plan, "yearly");
+    return ensureStripePriceIdOrLookupKeyId(raw);
   }
   const lk = lookupKeyForAthleteBilling(plan.tier, billingCycle);
   throw new Error(

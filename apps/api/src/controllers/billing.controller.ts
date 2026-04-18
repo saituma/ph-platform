@@ -173,7 +173,31 @@ export async function createCheckout(req: Request, res: Response) {
       request,
     });
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || "Failed to create checkout session" });
+    const statusCode = typeof error?.statusCode === "number" ? error.statusCode : null;
+    const code = typeof error?.code === "string" ? error.code : null;
+    const param = typeof error?.param === "string" ? error.param : null;
+    const message = typeof error?.message === "string" ? error.message : "Failed to create checkout session";
+
+    // Stripe returns 404 resource_missing when a referenced Price id doesn't exist in the current account/mode.
+    if (statusCode === 404 && (code === "resource_missing" || code === "invalid_request_error") && param === "price") {
+      return res.status(400).json({
+        error:
+          "Stripe price not found. Check that the plan's Stripe price id (price_...) or lookup key exists in the same Stripe account/mode as STRIPE_SECRET_KEY (test vs live).",
+      });
+    }
+
+    // Common config/validation errors should be surfaced as 400s.
+    if (
+      message === "Plan not available" ||
+      message === "Stripe is not configured" ||
+      message.includes("Plan is not configured for Stripe payments") ||
+      message.startsWith("No Stripe price for ") ||
+      message.startsWith("Invalid Stripe price reference ")
+    ) {
+      return res.status(400).json({ error: message });
+    }
+
+    return res.status(500).json({ error: message });
   }
 }
 
