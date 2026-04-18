@@ -16,9 +16,9 @@ describe("runTrackingPreferences", () => {
     jest.clearAllMocks();
   });
 
-  it("defaults background tracking to false when unset", async () => {
+  it("defaults background tracking to true when unset", async () => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(null);
-    await expect(getRunBackgroundTrackingDefault()).resolves.toBe(false);
+    await expect(getRunBackgroundTrackingDefault()).resolves.toBe(true);
   });
 
   it("roundtrips background tracking default", async () => {

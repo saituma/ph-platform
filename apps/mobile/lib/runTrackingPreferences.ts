@@ -24,7 +24,7 @@ export type OsrmConsentState = "accepted" | "declined";
 
 export async function getRunBackgroundTrackingDefault(): Promise<boolean> {
   const v = await getBool(KEY_BG_DEFAULT);
-  return v ?? false;
+  return v ?? true;
 }
 
 export async function setRunBackgroundTrackingDefault(
@@ -51,4 +51,3 @@ export async function getOsrmRoutingConsentState(): Promise<OsrmConsentState | n
 export async function setOsrmRoutingConsentState(state: OsrmConsentState): Promise<void> {
   await AsyncStorage.setItem(KEY_OSRM_CONSENT, state);
 }
-
