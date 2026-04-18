@@ -20,12 +20,5 @@ export const BASE_TEAM_TAB_ROUTES: TabConfig[] = [
     icon: "calendar",
     iconOutline: "calendar-outline",
   },
-  {
-    key: "tracking",
-    label: "Tracking",
-    icon: "walk",
-    iconOutline: "walk-outline",
-  },
   { key: "more", label: "More", icon: "menu", iconOutline: "menu-outline" },
 ];
-
