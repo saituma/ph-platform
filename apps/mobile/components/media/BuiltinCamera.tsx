@@ -19,7 +19,7 @@ import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 interface BuiltinCameraProps {
   visible: boolean;
@@ -38,7 +38,7 @@ export function BuiltinCamera({
   onRecorded,
 }: BuiltinCameraProps) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
 
   const [facing, setFacing] = useState<"front" | "back">("back");
   const [flash, setFlash] = useState<"on" | "off">("off");

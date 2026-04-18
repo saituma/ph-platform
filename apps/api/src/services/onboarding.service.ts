@@ -402,7 +402,10 @@ export async function saveOnboardingGoals(input: {
 			injuries: input.injuries ?? null,
 			equipmentAccess: input.equipmentAccess ?? null,
 			growthNotes: input.growthNotes ?? null,
-			extraResponses: user[0].role === "athlete" ? sql`COALESCE(extra_responses, '{}'::jsonb) || ${JSON.stringify({ phone: input.phone })}::jsonb` : undefined,
+			extraResponses:
+				user[0].role === "athlete"
+					? sql`COALESCE(${athleteTable.extraResponses}, '{}'::jsonb) || ${JSON.stringify({ phone: input.phone })}::jsonb`
+					: undefined,
 			updatedAt: new Date(),
 		})
 		.where(eq(athleteTable.id, athleteId));

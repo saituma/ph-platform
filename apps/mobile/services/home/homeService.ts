@@ -29,77 +29,130 @@ export async function fetchHomeContent(token: string, forceRefresh = false) {
   const data = await apiRequest<{ items?: any[] }>("/content/home", {
     token,
     forceRefresh,
+    // Home content is edited frequently in admin; caching causes confusing "it didn't save" reports.
+    // Always skip the client cache and rely on HTTP no-cache headers + server freshness.
+    skipCache: true,
   });
-  const item = (data.items ?? [])[0];
-  if (!item) return null;
+  const items = Array.isArray(data.items) ? data.items : [];
+  if (!items.length) return null;
 
-  let body: HomeContentPayload = {};
-  if (item.body) {
-    if (typeof item.body === "string" && item.body.trim().length) {
+  const parseBody = (raw: any): HomeContentPayload => {
+    if (!raw) return {};
+    if (typeof raw === "string" && raw.trim().length) {
       try {
-        body = JSON.parse(item.body) as HomeContentPayload;
+        return JSON.parse(raw) as HomeContentPayload;
       } catch {
-        body = {};
+        return {};
       }
-    } else if (typeof item.body === "object") {
-      body = item.body as HomeContentPayload;
+    }
+    if (typeof raw === "object") {
+      return raw as HomeContentPayload;
+    }
+    return {};
+  };
+
+  const normalizeIntroVideos = (body: HomeContentPayload) => {
+    const rawRules = (body as any).introVideos;
+    if (!Array.isArray(rawRules)) return null;
+    const normalized = (rawRules as any[])
+      .map((rule) => {
+        const url = String(rule?.url ?? "").trim();
+        const rolesRaw = rule?.roles;
+        const rolesList = Array.isArray(rolesRaw)
+          ? rolesRaw
+          : typeof rolesRaw === "string"
+            ? rolesRaw.split(/[,|\s]+/)
+            : [];
+        const roles = rolesList
+          .map((r: any) => String(r).trim().toLowerCase())
+          .filter((r: string) => r === "team" || r === "youth" || r === "adult");
+        return {
+          url,
+          roles: Array.from(new Set(roles)).sort() as Array<"team" | "youth" | "adult">,
+        };
+      })
+      .filter((rule) => rule.url.length > 0 && rule.roles.length > 0);
+    return normalized.length ? normalized : null;
+  };
+
+  const parseTestimonials = (body: any): HomeTestimonial[] | null => {
+    const raw = body?.testimonials;
+    if (Array.isArray(raw)) return raw as HomeTestimonial[];
+    if (typeof raw === "string" && raw.trim().length) {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? (parsed as HomeTestimonial[]) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const resolveProfessionalPhoto = (body: HomeContentPayload): string | null => {
+    const direct =
+      typeof body.professionalPhoto === "string" && body.professionalPhoto.trim()
+        ? body.professionalPhoto.trim()
+        : null;
+    if (direct) return direct;
+    if (Array.isArray(body.professionalPhotos)) {
+      return (body.professionalPhotos[0] as any) ?? null;
+    }
+    if (typeof body.professionalPhotos === "string") {
+      return (
+        body.professionalPhotos
+          .split(/\r?\n|,/)
+          .map((entry) => entry.trim())
+          .filter(Boolean)[0] ?? null
+      );
+    }
+    return null;
+  };
+
+  // The API may return multiple home rows (historical + age-gated). The app should behave as if
+  // "home" is one document: take the newest value per field, and fall back to older rows if the
+  // newest row is missing a specific field (common during partial edits / migrations).
+  const merged: HomeContentPayload = {};
+  for (const item of items) {
+    const body = parseBody(item?.body);
+    const headlineCandidate = body.headline ?? item?.content ?? item?.title ?? null;
+    const professionalPhotoCandidate = resolveProfessionalPhoto(body);
+    const testimonialsCandidate = parseTestimonials(body);
+    const introVideosCandidate = normalizeIntroVideos(body);
+
+    if (!merged.headline && typeof headlineCandidate === "string" && headlineCandidate.trim().length) {
+      merged.headline = headlineCandidate.trim();
+    }
+    if (!merged.description && typeof body.description === "string" && body.description.trim().length) {
+      merged.description = body.description.trim();
+    }
+    if (!merged.welcome && typeof body.welcome === "string" && body.welcome.trim().length) {
+      merged.welcome = body.welcome.trim();
+    }
+    if (!merged.introVideoUrl && typeof body.introVideoUrl === "string" && body.introVideoUrl.trim().length) {
+      merged.introVideoUrl = body.introVideoUrl.trim();
+    }
+    if (!merged.introVideos && introVideosCandidate && introVideosCandidate.length) {
+      merged.introVideos = introVideosCandidate;
+    }
+    if (!merged.heroImageUrl && typeof body.heroImageUrl === "string" && body.heroImageUrl.trim().length) {
+      merged.heroImageUrl = body.heroImageUrl.trim();
+    }
+    if (!merged.adminStory && typeof body.adminStory === "string" && body.adminStory.trim().length) {
+      merged.adminStory = body.adminStory;
+    }
+    if (!merged.professionalPhoto && typeof professionalPhotoCandidate === "string" && professionalPhotoCandidate) {
+      merged.professionalPhoto = professionalPhotoCandidate;
+    }
+    if (!merged.testimonials && testimonialsCandidate && testimonialsCandidate.length) {
+      merged.testimonials = testimonialsCandidate as any;
     }
   }
 
-  const parsedTestimonials =
-    typeof body.testimonials === "string" &&
-    (body.testimonials as string).trim().length
-      ? (() => {
-          try {
-            const parsed = JSON.parse(body.testimonials);
-            return Array.isArray(parsed) ? parsed : null;
-          } catch {
-            return null;
-          }
-        })()
-      : null;
+  // Back-compat: if introVideos exist but introVideoUrl is missing, set it to the first rule's URL.
+  if (!merged.introVideoUrl && merged.introVideos && merged.introVideos.length) {
+    merged.introVideoUrl = merged.introVideos[0]?.url ?? null;
+  }
 
-  const professionalPhoto =
-    typeof body.professionalPhoto === "string" && body.professionalPhoto.trim()
-      ? body.professionalPhoto.trim()
-      : Array.isArray(body.professionalPhotos)
-        ? body.professionalPhotos[0] ?? null
-        : typeof body.professionalPhotos === "string"
-          ? body.professionalPhotos
-              .split(/\r?\n|,/)
-              .map((entry) => entry.trim())
-              .filter(Boolean)[0] ?? null
-          : null;
-
-  return {
-    headline: body.headline ?? item.content ?? item.title ?? null,
-    description: body.description ?? null,
-    welcome: body.welcome ?? null,
-    introVideoUrl: body.introVideoUrl ?? null,
-    introVideos: Array.isArray((body as any).introVideos)
-      ? (((body as any).introVideos ?? []) as Array<{
-          url: string;
-          roles: Array<"team" | "youth" | "adult">;
-        }>)
-          .map((rule) => ({
-            url: String((rule as any)?.url ?? "").trim(),
-            roles: Array.isArray((rule as any)?.roles)
-              ? ((rule as any).roles as unknown[])
-                  .map((r) => String(r).trim().toLowerCase())
-                  .filter((r) => r === "team" || r === "youth" || r === "adult")
-              : [],
-          }))
-          .map((rule) => ({
-            url: rule.url,
-            roles: Array.from(new Set(rule.roles)).sort() as Array<"team" | "youth" | "adult">,
-          }))
-          .filter((rule) => rule.url.length > 0 && rule.roles.length > 0)
-      : null,
-    heroImageUrl: body.heroImageUrl ?? null,
-    testimonials:
-      parsedTestimonials ??
-      (Array.isArray(body.testimonials) ? body.testimonials : null),
-    adminStory: body.adminStory ?? null,
-    professionalPhoto,
-  } as HomeContentPayload;
+  return merged as HomeContentPayload;
 }

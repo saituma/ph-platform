@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 import { Text } from "@/components/ScaledText";
@@ -85,7 +85,7 @@ const QuickLink = ({
 export default function HomeScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const { profile, token, athleteUserId, managedAthletes, appRole } =
     useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
@@ -118,7 +118,7 @@ export default function HomeScreen() {
     const match = rules.find(
       (rule) => rule?.url && Array.isArray(rule.roles) && rule.roles.includes(introAudience),
     );
-    return match?.url ?? fallback;
+    return match?.url ?? fallback ?? rules[0]?.url ?? null;
   }, [appRole, homeContent?.introVideoUrl, homeContent?.introVideos]);
 
   const firstName = useMemo(() => {

@@ -23,7 +23,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -264,7 +264,7 @@ function SmallAction({
 
 export default function AdminNutritionScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 

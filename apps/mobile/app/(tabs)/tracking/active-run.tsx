@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, Text, View, Pressable } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text, View, Pressable } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useRouter, Stack } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -39,7 +40,7 @@ import { ensureOsrmConsentOrExplain } from "../../../lib/osrmRoutingConsent";
 export default function ActiveRunScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const {
     status,
     pauseRun,

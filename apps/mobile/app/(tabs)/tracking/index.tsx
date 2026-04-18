@@ -13,7 +13,7 @@ import { fonts, radius, spacing, icons } from "@/constants/theme";
 import { getPersonalBests, getRecentRuns, getWeeklySummaries, initSQLiteRuns, RunRecord } from "../../../lib/sqliteRuns";
 import { RunCard } from "../../../components/tracking/RunCard";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
 import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 import { formatDurationClock, formatHoursMinutes } from "../../../lib/tracking/runUtils";
@@ -38,7 +38,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export default function TrackingHomeScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const isFocused = useSafeIsFocused(true);
   const [recentRuns, setRecentRuns] = useState<RunRecord[]>([]);
   const [weeklyStats, setWeeklyStats] = useState({ totalDistance: 0, totalTime: 0, numRuns: 0 });

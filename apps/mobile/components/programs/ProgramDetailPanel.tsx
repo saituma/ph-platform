@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Pressable, Modal, TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { NavigationContext } from "@react-navigation/native";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
@@ -66,7 +64,7 @@ function ProgramDetailPanelBase({
   isFocused,
 }: ProgramDetailPanelProps & { isFocused: boolean }) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const { token, athleteUserId, managedAthletes, appRole } = useAppSelector(
     (state) => state.user,
   );
@@ -242,6 +240,7 @@ function ProgramDetailPanelBase({
   return (
     <SafeAreaView
       className="flex-1"
+      edges={["left", "right", "bottom"]}
       style={{ backgroundColor: colors.background }}
     >
       <View
@@ -249,6 +248,7 @@ function ProgramDetailPanelBase({
           backgroundColor: colors.card,
           zIndex: 10,
           ...(isDark ? Shadows.none : Shadows.sm),
+          paddingTop: insets.top,
         }}
       >
         <View className="px-4 py-3 flex-row items-center justify-between">

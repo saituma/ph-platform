@@ -18,12 +18,13 @@ import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { View, TouchableOpacity, Pressable, Modal, ActivityIndicator, Alert, ScrollView } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 
 export default function AdminAudienceWorkspaceScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const pathname = usePathname();
   const router = useRouter();
   const { audienceLabel: rawLabel, mode } = useLocalSearchParams<{ audienceLabel: string; mode?: string }>();

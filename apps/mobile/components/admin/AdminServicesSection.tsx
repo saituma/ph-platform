@@ -10,7 +10,8 @@ import {
 } from "@/lib/admin-utils";
 import { useAdminServices } from "@/hooks/admin/useAdminServices";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 
 import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
@@ -284,7 +285,7 @@ function FormField({ label, value, onChangeText, placeholder, keyboardType = "de
 
 export function AdminServicesSection({ token, canLoad }: Props) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const servicesHook = useAdminServices(token, canLoad);
   const { teams, load: loadTeams } = useAdminTeams(token, canLoad);
 

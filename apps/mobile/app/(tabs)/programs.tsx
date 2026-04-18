@@ -74,14 +74,15 @@ export default function ProgramsScreen() {
     );
   }
 
-  if (isTeamMode) {
-    return (
-      <SafeAreaView
-        className="flex-1"
-        style={{ backgroundColor: colors.background }}
-      >
-        <TeamProgramView
-          workspace={workspace}
+	  if (isTeamMode) {
+	    return (
+	      <SafeAreaView
+	        className="flex-1"
+	        edges={["left", "right", "bottom"]}
+	        style={{ backgroundColor: colors.background }}
+	      >
+	        <TeamProgramView
+	          workspace={workspace}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onOpenModule={(id) => router.push(`/programs/module/${id}`)}
@@ -101,14 +102,14 @@ export default function ProgramsScreen() {
 
   const programId = programDetailRouteIdFromTier(programTier) as ProgramId;
 
-  return (
-    <SafeAreaView
-      className="flex-1 bg-app"
-      edges={["top"]}
-      style={{ backgroundColor: colors.background }}
-    >
-      <SafeMaskedView style={{ flex: 1 }}>
-        <ProgramDetailPanel
+	  return (
+	    <SafeAreaView
+	      className="flex-1 bg-app"
+	      edges={["left", "right", "bottom"]}
+	      style={{ backgroundColor: colors.background }}
+	    >
+	      <SafeMaskedView style={{ flex: 1 }}>
+	        <ProgramDetailPanel
           programId={programId}
           showBack={false}
           onNavigate={(path) => router.push(path as any)}

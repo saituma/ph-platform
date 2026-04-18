@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -53,7 +53,7 @@ type PendingSessionVideo = {
 export default function ProgramSessionDetailScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const { sessionId, programId, moduleId, backToModule } =
     useLocalSearchParams<{
       sessionId: string;

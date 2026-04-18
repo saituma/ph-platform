@@ -14,7 +14,8 @@ import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { NavigationRecoveryBoundary } from "@/components/NavigationRecoveryBoundary";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View, TouchableOpacity, ActivityIndicator } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import * as ImagePicker from "expo-image-picker";
 import { Feather } from "@/components/ui/theme-icons";
 
@@ -125,7 +126,7 @@ function ActionButton({
 
 export default function AdminVideosScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 

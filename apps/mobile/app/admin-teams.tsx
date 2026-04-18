@@ -8,7 +8,7 @@ import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 type AdminTeam = {
   team: string;
@@ -91,7 +91,7 @@ function SmallAction({
 
 export default function AdminTeamsListScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);

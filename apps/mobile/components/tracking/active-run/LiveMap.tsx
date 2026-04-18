@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useMemo, useState } from "react";
 import { View, Pressable } from "react-native";
 import type { Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { TrackingMapView } from "../TrackingMapView";
 import { MapErrorBoundary } from "../MapErrorBoundary";
 import { MapStyleSwitcher } from "../MapStyleSwitcher";
@@ -37,7 +37,7 @@ export function LiveMap({
   onRecenter,
   mapStyleAnchorBottom,
 }: LiveMapProps) {
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
   const mapRef = useRef<TrackingMapViewRef | null>(null);
   const hasAnimatedToFirstFix = useRef(false);

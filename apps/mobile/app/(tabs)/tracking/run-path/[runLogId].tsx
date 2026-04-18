@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, SafeAreaView, Share, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActivityIndicator, Alert, Pressable, Share, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 
@@ -18,7 +19,7 @@ type LatLng = { latitude: number; longitude: number };
 
 export default function RunPathScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const { colors } = useAppTheme();
   const token = useAppSelector((s) => s.user.token);
   const params = useLocalSearchParams<{ runLogId?: string }>();

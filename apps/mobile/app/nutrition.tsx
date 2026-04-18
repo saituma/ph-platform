@@ -7,11 +7,12 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Platform, Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
 
 export default function NutritionScreen() {
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const { colors } = useAppTheme();
   const { appRole, programTier } = useAppSelector((state) => state.user);

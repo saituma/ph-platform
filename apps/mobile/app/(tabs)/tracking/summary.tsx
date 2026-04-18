@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Pressable, SafeAreaView, ScrollView, StyleSheet } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Pressable, ScrollView, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 import { useRunStore } from "../../../store/useRunStore";
 import { Stack, useRouter } from "expo-router";
@@ -34,7 +35,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function RunSummaryScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const {
     distanceMeters,

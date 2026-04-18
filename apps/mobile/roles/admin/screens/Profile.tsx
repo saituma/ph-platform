@@ -12,7 +12,7 @@ import { logout } from "@/store/slices/userSlice";
 import { useRouter } from "expo-router";
 import React, { useCallback } from "react";
 import { Alert, Image, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -25,7 +25,7 @@ export default function AdminProfileScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const isAuthenticated = useAppSelector((s) => s.user.isAuthenticated);
 
   const {

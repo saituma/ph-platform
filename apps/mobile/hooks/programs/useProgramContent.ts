@@ -3,7 +3,7 @@ import { ProgramSectionContent, TrainingContentV2Workspace } from "@/types/progr
 import { ProgramId, getSessionTypesForTab } from "@/constants/program-details";
 import { programIdToTier } from "@/lib/planAccess";
 import * as programsService from "@/services/programs/programsService";
-import { mapPhpPlusTabs, mapMergedSectionContent } from "@/lib/programs/programMapper";
+import { mapPhpPlusTabs, mapMergedSectionContent, mapTeamWorkspace } from "@/lib/programs/programMapper";
 
 export function useProgramContent(
   token: string | null,
@@ -76,7 +76,7 @@ export function useProgramContent(
           activeAthleteAge,
           force,
         );
-        setTrainingContentV2(workspace as any);
+        setTrainingContentV2(mapTeamWorkspace(workspace as any));
       } catch {
         setTrainingContentV2(null);
         setTrainingError("Failed to load training modules.");

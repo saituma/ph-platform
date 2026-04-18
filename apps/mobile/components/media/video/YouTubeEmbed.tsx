@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Pressable,
@@ -65,6 +65,7 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
   const { colors } = useAppTheme();
   const [isReady, setIsReady] = useState(false);
   const [hasEmbedError, setHasEmbedError] = useState(false);
+  const [hasPlaybackStarted, setHasPlaybackStarted] = useState(false);
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const playerRef = useRef<YoutubeIframeHandle | null>(null);
   
@@ -112,7 +113,6 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
   /** Always 16:9 for YouTube (matches hosted iframe + forced layout in VideoPlayer). */
   const initialPlayerParams = useMemo(
     () => ({
-      preventFullScreen: true,
       modestbranding: true,
       rel: false,
       controls: true,
@@ -130,6 +130,26 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
     width > 0 &&
     typeof height === "number" &&
     height > 0;
+
+  useEffect(() => {
+    setHasPlaybackStarted(false);
+    setHasEmbedError(false);
+    setIsReady(false);
+  }, [videoId]);
+
+  useEffect(() => {
+    if (hasEmbedError) return;
+    if (!isReady) return;
+    if (!shouldPlay) return;
+    if (hasPlaybackStarted) return;
+
+    const timer = setTimeout(() => {
+      // Some YouTube videos (age-restricted, private, blocked by network policy, etc.) can render as a blank/black player
+      // without reliably firing onError. If playback hasn't started shortly after ready, show the "Open in YouTube" fallback.
+      setHasEmbedError(true);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [hasEmbedError, hasPlaybackStarted, isReady, shouldPlay]);
 
   return (
     <View
@@ -180,6 +200,9 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
             }}
             onChangeState={(state: string) => {
               onPlayerStateChange?.(state);
+              if (state === "playing" || state === "buffering" || state === "paused") {
+                setHasPlaybackStarted(true);
+              }
             }}
             onError={(e: unknown) => {
               console.warn('[YouTubeEmbed] Player Error:', e);
@@ -190,6 +213,10 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
             webViewProps={{
               allowsFullscreenVideo: true,
               allowsInlineMediaPlayback: true,
+              javaScriptEnabled: true,
+              domStorageEnabled: true,
+              originWhitelist: ["*"],
+              mediaPlaybackRequiresUserAction: false,
             }}
           />
         ) : null

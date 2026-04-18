@@ -9,7 +9,7 @@ import { useAdminAvailability } from "@/hooks/admin/useAdminAvailability";
 import { ServiceType } from "@/types/admin";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Shadows } from "@/constants/theme";
 
 interface Props {
@@ -20,7 +20,7 @@ interface Props {
 
 export function AdminAvailabilitySection({ token, canLoad, services }: Props) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const availabilityHook = useAdminAvailability(token, canLoad);
 
   const [availabilityServiceTypeId, setAvailabilityServiceTypeId] = useState("");

@@ -25,8 +25,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@/components/ui/theme-icons";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 type ViewMode = "youth" | "adult" | "team";
 
@@ -41,7 +42,7 @@ type AudienceCard = {
 
 export default function AdminContentScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);

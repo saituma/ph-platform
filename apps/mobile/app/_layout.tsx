@@ -9,14 +9,13 @@ import { Stack, slideFromRight, Transition } from "@/components/navigation/Trans
 import { HeroAppProvider } from "@/components/ui/hero";
 import { AuthPersist } from "@/store/AuthPersist";
 import { ReduxProvider } from "@/store/Provider";
-import { StatusBar } from "expo-status-bar";
 import React, {
   PropsWithChildren,
   ReactElement,
   useEffect,
   useMemo,
 } from "react";
-import { View } from "react-native";
+import { StatusBar, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
@@ -31,11 +30,18 @@ import Constants, { ExecutionEnvironment } from "expo-constants";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { AndroidBackToTabs } from "@/components/navigation/AndroidBackToTabs";
 import { runStartupSelfTest } from "@/lib/startupDiagnostics";
+import { useAppSelector } from "@/store/hooks";
+import { usePathname } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { selectBootstrapReady } from "@/store/slices/appSlice";
 
 // Ensure cold start lands in the main tab shell (Home), not a deep stack route.
 export const unstable_settings = {
   initialRouteName: "(tabs)",
 };
+
+// Keep the native splash visible until we decide the initial navigation target.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const GestureRoot = ({ children }: { children: ReactElement }) => (
   <GestureHandlerRootView style={{ flex: 1 }}>{children}</GestureHandlerRootView>
@@ -63,6 +69,33 @@ const KeyboardProviderImpl: React.ComponentType<PropsWithChildren> = isExpoGo()
 
 function MaybeKeyboardProvider({ children }: PropsWithChildren) {
   return <KeyboardProviderImpl>{children}</KeyboardProviderImpl>;
+}
+
+function StartupSplashController() {
+  const hydrated = useAppSelector((state) => state.user.hydrated);
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const appRole = useAppSelector((state) => state.user.appRole);
+  const bootstrapReady = useAppSelector(selectBootstrapReady);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (isAuthenticated && !bootstrapReady) return;
+
+    const role = String(appRole ?? "");
+    const isYouthRole =
+      role === "youth_athlete" || role.startsWith("youth_athlete_");
+
+    // If the app restored into a deep program route for a youth account,
+    // wait until the redirect to Home finishes so we never flash that screen.
+    if (isAuthenticated && isYouthRole && pathname.startsWith("/programs")) {
+      return;
+    }
+
+    void SplashScreen.hideAsync().catch(() => {});
+  }, [appRole, bootstrapReady, hydrated, isAuthenticated, pathname]);
+
+  return null;
 }
 
 export default function RootLayout() {
@@ -102,6 +135,7 @@ export default function RootLayout() {
       <RootErrorBoundary>
       <View style={{ flex: 1 }}>
         <AuthPersist />
+        <StartupSplashController />
         <AndroidBackToTabs />
         <Stack screenOptions={rootStackScreenOptions}>
           <Stack.Screen
@@ -201,7 +235,7 @@ export default function RootLayout() {
           {/* Standalone route (same pattern as nutrition.tsx) — explicit screen helps blank-stack registration */}
           <Stack.Screen name="progress" options={{ headerShown: false }} />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar hidden translucent backgroundColor="transparent" />
       </View>
       </RootErrorBoundary>
     </Compose>

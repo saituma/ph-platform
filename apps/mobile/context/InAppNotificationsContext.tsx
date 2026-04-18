@@ -20,7 +20,7 @@ import Animated, {
   FadeOutUp,
   Layout,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -78,7 +78,7 @@ export function InAppNotificationsProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;

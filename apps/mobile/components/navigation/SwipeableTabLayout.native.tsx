@@ -4,7 +4,6 @@ import {
   setGlobalActiveTab,
   subscribeToGlobalTabRequests,
 } from "@/context/ActiveTabContext";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   NavigationContainerRefContext,
@@ -43,9 +42,7 @@ export function SwipeableTabLayout({
   onIndexChange,
 }: SwipeableTabLayoutProps) {
   const { colors } = useAppTheme();
-  const insets = useSafeAreaInsets();
   const pagerRef = useRef<PagerView>(null);
-  const barHeight = Platform.OS === "ios" ? 64 : 68;
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
 

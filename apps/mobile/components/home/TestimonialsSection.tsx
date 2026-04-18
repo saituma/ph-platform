@@ -1,6 +1,13 @@
 import { Feather } from "@/components/ui/theme-icons";
 import React, { useEffect, useRef, useState } from "react";
-import { FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, View, useWindowDimensions } from "react-native";
+import {
+  FlatList,
+  Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
@@ -25,55 +32,121 @@ type TestimonialsSectionProps = {
   items?: TestimonialItem[] | null;
 };
 
-function TestimonialCard({ item, colors, isDark, cardWidth }: { item: TestimonialItem; colors: any; isDark: boolean; cardWidth: number }) {
+function TestimonialCard({
+  item,
+  colors,
+  isDark,
+  cardWidth,
+}: {
+  item: TestimonialItem;
+  colors: any;
+  isDark: boolean;
+  cardWidth: number;
+}) {
   const photo = item.photoUrl ?? item.photo ?? item.imageUrl ?? item.image ?? null;
   const quote = String(item.quote ?? "").trim();
+  const rating = Math.max(1, Math.min(5, Number(item.rating ?? 5)));
 
   return (
     <View style={{ width: cardWidth, paddingHorizontal: 8 }}>
       <View
-        className="rounded-[32px] p-7"
+        className="rounded-[32px] p-6 border"
         style={{
           backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
           ...(isDark ? Shadows.none : Shadows.sm),
-          minHeight: 280,
+          minHeight: 264,
         }}
       >
-        <View className="flex-row justify-between items-start mb-5">
-          <View className="flex-row gap-0.5">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Ionicons
-                key={i}
-                name="star"
-                size={14}
-                color={i <= (item.rating ?? 5) ? "#F59E0B" : isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.05)"}
-              />
-            ))}
+        <View className="flex-row items-start justify-between mb-4">
+          <View className="flex-row items-center gap-2">
+            <View
+              className="rounded-full px-3 py-1 border"
+              style={{
+                backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.08)",
+                borderColor: isDark ? "rgba(34,197,94,0.20)" : "rgba(34,197,94,0.16)",
+              }}
+            >
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="star" size={12} color="#F59E0B" />
+                <Text
+                  className="text-[11px] font-outfit font-bold"
+                  style={{ color: isDark ? "#E2E8F0" : "#0F172A" }}
+                >
+                  {rating.toFixed(1)}
+                </Text>
+              </View>
+            </View>
+
+            <View className="flex-row gap-0.5">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Ionicons
+                  key={i}
+                  name="star"
+                  size={13}
+                  color={
+                    i <= rating
+                      ? "#F59E0B"
+                      : isDark
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(15,23,42,0.07)"
+                  }
+                />
+              ))}
+            </View>
           </View>
-          <Ionicons name="chatbubble-ellipses" size={24} color={colors.accent} style={{ opacity: 0.2 }} />
+
+          <Ionicons
+            name="chatbubble-ellipses"
+            size={22}
+            color={colors.accent}
+            style={{ opacity: isDark ? 0.22 : 0.16 }}
+          />
         </View>
 
-        <Text 
-          className="text-app font-outfit text-[17px] leading-[26px] mb-8 flex-1"
-          style={{ color: isDark ? "#F8FAFC" : "#334155" }}
+        <Text
+          className="font-outfit text-[16px] leading-[26px] flex-1"
+          style={{ color: isDark ? "#E2E8F0" : "#334155" }}
+          numberOfLines={6}
         >
-          "{quote}"
+          {quote ? `“${quote}”` : "“Great experience.”"}
         </Text>
 
-        <View className="flex-row items-center gap-4 mt-auto pt-5 border-t" style={{ borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)" }}>
-          <View className="h-12 w-12 rounded-full overflow-hidden bg-accent/10">
+        <View
+          className="flex-row items-center gap-4 mt-auto pt-5 border-t"
+          style={{
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)",
+          }}
+        >
+          <View
+            className="h-12 w-12 rounded-full overflow-hidden items-center justify-center border"
+            style={{
+              backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.08)",
+              borderColor: isDark ? "rgba(34,197,94,0.20)" : "rgba(34,197,94,0.16)",
+            }}
+          >
             {photo ? (
               <Image source={{ uri: photo }} className="h-full w-full" resizeMode="cover" />
             ) : (
-              <View className="h-full w-full items-center justify-center">
-                <Feather name="user" size={20} color={colors.accent} />
-              </View>
+              <Feather name="user" size={18} color={colors.accent} />
             )}
           </View>
           <View className="flex-1">
-            <Text className="font-clash font-bold text-app text-[16px]">{item.name}</Text>
+            <Text
+              className="font-clash font-bold text-[16px]"
+              style={{ color: isDark ? "#F8FAFC" : colors.text }}
+              numberOfLines={1}
+            >
+              {item.name}
+            </Text>
             {item.role ? (
-              <Text className="text-secondary font-outfit text-[12px] mt-0.5">{item.role}</Text>
+              <Text
+                className="font-outfit text-[11px] mt-0.5 uppercase tracking-[1.2px]"
+                style={{ color: isDark ? "rgba(226,232,240,0.72)" : "rgba(71,85,105,0.82)" }}
+                numberOfLines={1}
+              >
+                {item.role}
+              </Text>
             ) : null}
           </View>
         </View>
@@ -87,6 +160,8 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
   const { colors, isDark } = useAppTheme();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const isUserInteractingRef = useRef(false);
+  const activeIndexRef = useRef(0);
   const testimonials = items && items.length ? items : [];
 
   // Card takes up 85% of screen, plus padding. This ensures the next card peeks in.
@@ -96,7 +171,9 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
   useEffect(() => {
     if (testimonials.length <= 1) return;
     const interval = setInterval(() => {
-      let nextIndex = activeIndex + 1;
+      if (isUserInteractingRef.current) return;
+      const currentIndex = activeIndexRef.current;
+      let nextIndex = currentIndex + 1;
       if (nextIndex >= testimonials.length) nextIndex = 0;
       // scrollToIndex requires getItemLayout/onScrollToIndexFailed; fixed-width items use offset instead.
       flatListRef.current?.scrollToOffset({
@@ -104,31 +181,52 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
         animated: true,
       });
       setActiveIndex(nextIndex);
+      activeIndexRef.current = nextIndex;
     }, AUTO_SCROLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [activeIndex, cardWidth, testimonials.length]);
+  }, [cardWidth, testimonials.length]);
 
   if (!testimonials.length) return null;
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
-    if (index !== activeIndex) setActiveIndex(index);
+    if (index !== activeIndex) {
+      setActiveIndex(index);
+      activeIndexRef.current = index;
+    }
   };
 
   return (
     <View>
       <View className="flex-row items-end justify-between px-6 mb-4">
-        <Text className="text-lg font-clash font-bold text-app">Testimonials</Text>
+        <View className="flex-1 pr-4">
+          <Text className="text-lg font-clash font-bold text-app">Testimonials</Text>
+          <Text
+            className="mt-1 text-[12px] font-outfit"
+            style={{ color: isDark ? "rgba(226,232,240,0.72)" : "rgba(71,85,105,0.82)" }}
+            numberOfLines={1}
+          >
+            Real feedback from athletes & parents
+          </Text>
+        </View>
 
-        <View className="flex-row gap-1.5 mb-1.5">
-          {testimonials.map((_, i) => (
-            <DotIndicator
-              key={i}
-              isActive={activeIndex === i}
-              activeColor={colors.accent}
-              inactiveColor={isDark ? "rgba(255,255,255,0.15)" : "rgba(15,23,42,0.1)"}
-            />
-          ))}
+        <View className="items-end">
+          <Text
+            className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
+            style={{ color: isDark ? "rgba(226,232,240,0.78)" : "rgba(71,85,105,0.82)" }}
+          >
+            {activeIndex + 1} / {testimonials.length}
+          </Text>
+          <View className="flex-row gap-1.5 mt-2">
+            {testimonials.map((_, i) => (
+              <DotIndicator
+                key={i}
+                isActive={activeIndex === i}
+                activeColor={colors.accent}
+                inactiveColor={isDark ? "rgba(255,255,255,0.16)" : "rgba(15,23,42,0.10)"}
+              />
+            ))}
+          </View>
         </View>
       </View>
 
@@ -151,6 +249,12 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
         decelerationRate="fast"
         onScroll={onScroll}
         scrollEventThrottle={16}
+        onScrollBeginDrag={() => {
+          isUserInteractingRef.current = true;
+        }}
+        onScrollEndDrag={() => {
+          isUserInteractingRef.current = false;
+        }}
       />
     </View>
   );

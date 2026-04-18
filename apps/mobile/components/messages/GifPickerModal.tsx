@@ -8,7 +8,7 @@ import {
   View,
   Linking,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Image as ExpoImage } from "expo-image";
 import * as Clipboard from "expo-clipboard";
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
@@ -36,7 +36,7 @@ export function GifPickerModal({
   onSelectGif: (url: string) => void;
 }) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<GifResult[]>([]);
   const [loading, setLoading] = React.useState(false);

@@ -1,6 +1,6 @@
 import React from "react";
 import { Modal, Pressable, TextInput, View, FlatList } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
@@ -82,7 +82,7 @@ export function EmojiPickerModal({
   onSelectEmoji: (emoji: string) => void;
 }) {
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppSafeAreaInsets();
   const [query, setQuery] = React.useState("");
   const [category, setCategory] = React.useState<string>(CATEGORIES[0] ?? "");
 
