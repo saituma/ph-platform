@@ -81,6 +81,8 @@ export function SwipeableTabLayout({
   const isUserSwipingRef = useRef(false);
 
   const staticInitialPage = useRef(initialIndex);
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -103,7 +105,7 @@ export function SwipeableTabLayout({
     if (initialIndex === lastInitialIndex.current) return;
 
     lastInitialIndex.current = initialIndex;
-    const needsSync = initialIndex !== activeIndex;
+    const needsSync = initialIndex !== activeIndexRef.current;
     if (!needsSync) return;
     if (isUserSwipingRef.current || isSyncingRef.current) return;
 
@@ -113,7 +115,7 @@ export function SwipeableTabLayout({
     lastNotifiedIndex.current = initialIndex;
 
     pagerRef.current?.setPageWithoutAnimation(initialIndex);
-  }, [initialIndex, activeIndex, markVisited]);
+  }, [initialIndex, markVisited]);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;

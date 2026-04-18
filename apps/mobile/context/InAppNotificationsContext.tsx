@@ -79,7 +79,10 @@ export function InAppNotificationsProvider({
   children: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
-  
+  const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
+
   const { colors, isDark } = useAppTheme();
   const [items, setItems] = useState<InAppNotificationItem[]>([]);
   const [appState, setAppState] = useState<AppStateStatus>(
@@ -257,9 +260,7 @@ export function InAppNotificationsProvider({
               onPress: url
                 ? () => {
                     try {
-                      // eslint-disable-next-line react-hooks/rules-of-hooks
-                      const r = useRouter();
-                      r.push(url as any);
+                      routerRef.current.push(url as any);
                     } catch {
                       // Router not ready
                     }

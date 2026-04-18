@@ -4,6 +4,7 @@ import * as Haptics from "expo-haptics";
 import { useRunStore } from "../../store/useRunStore";
 import { haversineDistance } from "../../lib/haversine";
 import { getNotifications } from "@/lib/notifications";
+import { sendRunProgressNotification } from "@/lib/runProgressNotifications";
 import { Region } from "react-native-maps";
 import { withSpring } from "react-native-reanimated";
 import { SharedValue } from "react-native-reanimated";
@@ -222,6 +223,16 @@ export function useRunTrackingEngine(
 
     const timer = setInterval(() => {
       tick();
+      const milestones = useRunStore.getState().consumeProgressMilestones();
+      if (milestones.length) {
+        for (const meters of milestones) {
+          const km = meters >= 1000 ? (meters / 1000).toFixed(1) : null;
+          void sendRunProgressNotification({
+            title: km ? `Distance: ${km} km` : `Distance: ${Math.round(meters)} m`,
+            body: "Keep going.",
+          });
+        }
+      }
       // Also poll warmup state to trigger UI changes without rerendering the whole tree on every coordinate
       setIsWarmedUp(useRunStore.getState().getIsWarmedUp());
     }, 1000);

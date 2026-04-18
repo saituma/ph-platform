@@ -175,7 +175,7 @@ export default function PremiumExerciseDetailScreen() {
     index?: string;
   }>();
   const router = useRouter();
-  const { token, managedAthletes, athleteUserId, programTier } = useAppSelector(
+  const { token, managedAthletes, athleteUserId, programTier, appRole } = useAppSelector(
     (state) => state.user,
   );
 
@@ -186,6 +186,18 @@ export default function PremiumExerciseDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
   const lastLoadedRef = useRef<string | null>(null);
+
+  /**
+   * Youth users should land on the Home tab on cold start.
+   * If this deep program route becomes the root screen (no back stack), redirect to Home.
+   */
+  useEffect(() => {
+    const role = String(appRole ?? "");
+    const isYouth = role === "youth_athlete" || role.startsWith("youth_athlete_");
+    if (!isYouth) return;
+    if (router.canGoBack()) return;
+    router.replace("/" as any);
+  }, [appRole, router]);
 
   const load = useCallback(
     async (force = false) => {

@@ -5,6 +5,7 @@ import {
   Modal,
   Pressable,
   Share,
+  ScrollView,
   TextInput,
   View,
 } from "react-native";
@@ -29,7 +30,7 @@ import {
 
 const REACTION_EMOJIS = ["👍", "❤️", "🔥", "👏", "😂", "😮", "😢", "😡"] as const;
 
-type ReplyState = { parentId: number; name: string } | null;
+type ReplyState = { parentCommentId: number; name: string } | null;
 type EditState = { commentId: number } | null;
 
 export function CommentsSheet({
@@ -53,6 +54,7 @@ export function CommentsSheet({
 
   const [replyTo, setReplyTo] = useState<ReplyState>(null);
   const [editing, setEditing] = useState<EditState>(null);
+  const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set());
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuComment, setMenuComment] = useState<SocialCommentItem | null>(null);
@@ -87,22 +89,52 @@ export function CommentsSheet({
     setReplyTo(null);
     setEditing(null);
     setText("");
+    setCollapsed(new Set());
     void load();
   }, [load, open]);
 
-  const buildThread = useMemo(() => {
-    const byParent = new Map<number, SocialCommentItem[]>();
+  const thread = useMemo(() => {
+    const byId = new Map<number, SocialCommentItem>();
+    for (const c of items) byId.set(c.commentId, c);
+
+    const childrenByParent = new Map<number, SocialCommentItem[]>();
     const roots: SocialCommentItem[] = [];
+
     for (const c of items) {
       const pid = c.parentId;
-      if (pid == null) {
+      if (pid == null || !byId.has(pid)) {
         roots.push(c);
-      } else {
-        if (!byParent.has(pid)) byParent.set(pid, []);
-        byParent.get(pid)!.push(c);
+        continue;
       }
+      if (!childrenByParent.has(pid)) childrenByParent.set(pid, []);
+      childrenByParent.get(pid)!.push(c);
     }
-    return { roots, byParent };
+
+    const sortByTimeAsc = (a: SocialCommentItem, b: SocialCommentItem) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+
+    roots.sort(sortByTimeAsc);
+    for (const [pid, arr] of childrenByParent.entries()) {
+      arr.sort(sortByTimeAsc);
+      childrenByParent.set(pid, arr);
+    }
+
+    const descCount = new Map<number, number>();
+    const visiting = new Set<number>();
+    const dfsCount = (id: number): number => {
+      if (descCount.has(id)) return descCount.get(id)!;
+      if (visiting.has(id)) return 0;
+      visiting.add(id);
+      const kids = childrenByParent.get(id) ?? [];
+      let total = 0;
+      for (const k of kids) total += 1 + dfsCount(k.commentId);
+      visiting.delete(id);
+      descCount.set(id, total);
+      return total;
+    };
+    for (const c of items) dfsCount(c.commentId);
+
+    return { roots, childrenByParent, descCount };
   }, [items]);
 
   const openMenu = useCallback((comment: SocialCommentItem) => {
@@ -142,7 +174,7 @@ export function CommentsSheet({
         await load();
         return;
       }
-      await postRunComment(token, runLogId, trimmed, { parentId: replyTo?.parentId ?? null });
+      await postRunComment(token, runLogId, trimmed, { parentId: replyTo?.parentCommentId ?? null });
       setReplyTo(null);
       setText("");
       await load();
@@ -204,10 +236,20 @@ export function CommentsSheet({
   }, [closeMenu, runOwnerName]);
 
   const onReply = useCallback((comment: SocialCommentItem) => {
-    setReplyTo({ parentId: comment.parentId ?? comment.commentId, name: comment.name });
+    setReplyTo({ parentCommentId: comment.commentId, name: comment.name });
     setEditing(null);
+    setText("");
     closeMenu();
   }, [closeMenu]);
+
+  const toggleCollapsed = useCallback((commentId: number) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(commentId)) next.delete(commentId);
+      else next.add(commentId);
+      return next;
+    });
+  }, []);
 
   const onEdit = useCallback((comment: SocialCommentItem) => {
     setEditing({ commentId: comment.commentId });
@@ -294,33 +336,31 @@ export function CommentsSheet({
               <ActivityIndicator />
             </View>
           ) : (
-            <View className="gap-3" style={{ maxHeight: 360 }}>
-              {buildThread.roots.length === 0 ? (
+            <ScrollView
+              style={{ maxHeight: 360 }}
+              contentContainerStyle={{ gap: 10, paddingRight: 2 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {thread.roots.length === 0 ? (
                 <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
                   No comments yet.
                 </Text>
               ) : null}
 
-              {buildThread.roots.map((c) => (
-                <View key={c.commentId}>
-                  <CommentCard
-                    comment={c}
-                    colors={colors}
-                    onLongPress={() => openMenu(c)}
-                  />
-                  {(buildThread.byParent.get(c.commentId) ?? []).map((r) => (
-                    <View key={r.commentId} style={{ marginLeft: 18, marginTop: 8 }}>
-                      <CommentCard
-                        comment={r}
-                        colors={colors}
-                        onLongPress={() => openMenu(r)}
-                        compact={true}
-                      />
-                    </View>
-                  ))}
-                </View>
+              {thread.roots.map((c) => (
+                <CommentThreadNode
+                  key={c.commentId}
+                  comment={c}
+                  depth={0}
+                  childrenByParent={thread.childrenByParent}
+                  descCount={thread.descCount}
+                  collapsed={collapsed}
+                  toggleCollapsed={toggleCollapsed}
+                  colors={colors}
+                  openMenu={openMenu}
+                />
               ))}
-            </View>
+            </ScrollView>
           )}
 
           <View className="flex-row items-center gap-3 mt-4">
@@ -376,6 +416,71 @@ export function CommentsSheet({
         items={reactors}
       />
     </Modal>
+  );
+}
+
+function CommentThreadNode({
+  comment,
+  depth,
+  childrenByParent,
+  descCount,
+  collapsed,
+  toggleCollapsed,
+  colors,
+  openMenu,
+}: {
+  comment: SocialCommentItem;
+  depth: number;
+  childrenByParent: Map<number, SocialCommentItem[]>;
+  descCount: Map<number, number>;
+  collapsed: Set<number>;
+  toggleCollapsed: (commentId: number) => void;
+  colors: Record<string, string>;
+  openMenu: (comment: SocialCommentItem) => void;
+}) {
+  const kids = childrenByParent.get(comment.commentId) ?? [];
+  const hasKids = kids.length > 0;
+  const isCollapsed = collapsed.has(comment.commentId);
+  const indent = Math.min(6, depth) * 14;
+  const compact = depth > 0;
+  const totalReplies = descCount.get(comment.commentId) ?? kids.length;
+
+  return (
+    <View>
+      <View style={{ marginLeft: indent }}>
+        <CommentCard comment={comment} colors={colors} onLongPress={() => openMenu(comment)} compact={compact} />
+      </View>
+
+      {hasKids ? (
+        <View style={{ marginLeft: indent + 6, marginTop: 6 }}>
+          <Pressable
+            onPress={() => toggleCollapsed(comment.commentId)}
+            style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, alignSelf: "flex-start" })}
+          >
+            <Text className="text-xs font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+              {isCollapsed ? `View replies (${totalReplies})` : "Hide replies"}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {!isCollapsed
+        ? kids.map((k) => (
+            <View key={k.commentId} style={{ marginTop: 8 }}>
+              <CommentThreadNode
+                comment={k}
+                depth={depth + 1}
+                childrenByParent={childrenByParent}
+                descCount={descCount}
+                collapsed={collapsed}
+                toggleCollapsed={toggleCollapsed}
+                colors={colors}
+                openMenu={openMenu}
+              />
+            </View>
+          ))
+        : null}
+    </View>
   );
 }
 
@@ -654,4 +759,3 @@ function ReactorsModal({
     </Modal>
   );
 }
-

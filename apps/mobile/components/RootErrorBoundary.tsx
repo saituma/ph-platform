@@ -16,7 +16,15 @@ export class RootErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
+    const depth =
+      /maximum update depth/i.test(error.message) ||
+      /maximum update depth/i.test(String((error as Error)?.stack ?? ""));
     console.error("[RootErrorBoundary]", error.message, info.componentStack);
+    if (__DEV__ && depth) {
+      console.warn(
+        "[DEPTH-PROBE] ErrorBoundary saw max update depth — componentStack above is the best React hint for which tree failed.",
+      );
+    }
   }
 
   private clearError = (): void => {

@@ -5,10 +5,19 @@ export async function getNotifications() {
       return null;
     }
 
-    const Constants = await import("expo-constants");
-    const anyConstants = Constants as any;
-    const ownership = anyConstants?.default?.appOwnership ?? anyConstants?.appOwnership;
-    if (ownership === "expo") {
+    const ConstantsMod = await import("expo-constants");
+    const anyConstants = ConstantsMod as any;
+    const constants = anyConstants?.default ?? anyConstants;
+    const ownership = constants?.appOwnership ?? null;
+    const executionEnvironment = constants?.executionEnvironment ?? null;
+    const ExecutionEnvironment = anyConstants?.ExecutionEnvironment;
+    const isStoreClient =
+      ExecutionEnvironment &&
+      executionEnvironment === ExecutionEnvironment.StoreClient;
+    const isExpoGo =
+      ownership === "expo" || isStoreClient || executionEnvironment === "storeClient";
+
+    if (isExpoGo) {
       // Expo Go does not support remote push notifications.
       return null;
     }

@@ -1,5 +1,4 @@
 import { Platform } from "react-native";
-import { SchedulableTriggerInputTypes } from "expo-notifications";
 import { getNotifications } from "@/lib/notifications";
 import {
   getProgressReminderPrefs,
@@ -12,6 +11,8 @@ const NOTIF_ID = "ph-progress-daily";
 export async function syncProgressWeeklyReminder(prefs?: ProgressReminderPrefs) {
   const Notifications = await getNotifications();
   if (!Notifications) return;
+
+  const { SchedulableTriggerInputTypes } = Notifications;
 
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== "granted") return;

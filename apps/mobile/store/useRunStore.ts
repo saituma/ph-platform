@@ -30,6 +30,9 @@ interface RunStore {
   destination: Destination | null;
   goalReached: boolean;
   destinationReached: boolean;
+  /** Optional local notification cadence (progress). */
+  progressNotifyEveryMeters: number | null;
+  nextProgressNotifyAtMeters: number | null;
   warmupUntil: number | null;
   currentRunId: string | null;
 
@@ -43,6 +46,8 @@ interface RunStore {
   setDistanceOverrideMeters: (meters: number | null) => void;
   setGoalKm: (km: number | null) => void;
   setDestination: (dest: Destination | null) => void;
+  setProgressNotifyEveryMeters: (meters: number | null) => void;
+  consumeProgressMilestones: () => number[];
   markGoalReached: () => void;
   markDestinationReached: () => void;
   getIsWarmedUp: () => boolean;
@@ -64,10 +69,13 @@ export const useRunStore = create<RunStore>((set, get) => ({
   destination: null,
   goalReached: false,
   destinationReached: false,
+  progressNotifyEveryMeters: null,
+  nextProgressNotifyAtMeters: null,
   warmupUntil: null,
   currentRunId: null,
 
   startRun: () => {
+    const every = get().progressNotifyEveryMeters;
     set({
       status: "running",
       startTime: Date.now(),
@@ -79,6 +87,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
       elapsedSeconds: 0,
       warmupUntil: Date.now() + 8000,
       currentRunId: Crypto.randomUUID(),
+      nextProgressNotifyAtMeters:
+        typeof every === "number" && Number.isFinite(every) && every >= 100 ? every : null,
     });
   },
 
@@ -119,6 +129,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
       destination: null,
       goalReached: false,
       destinationReached: false,
+      progressNotifyEveryMeters: null,
+      nextProgressNotifyAtMeters: null,
       warmupUntil: null,
       currentRunId: null,
     });
@@ -181,6 +193,37 @@ export const useRunStore = create<RunStore>((set, get) => ({
   setDistanceOverrideMeters: (meters) => set({ distanceOverrideMeters: meters }),
   setGoalKm: (km) => set({ goalKm: km, goalReached: false }),
   setDestination: (dest) => set({ destination: dest, destinationReached: false }),
+  setProgressNotifyEveryMeters: (meters) => {
+    const m =
+      typeof meters === "number" && Number.isFinite(meters) && meters >= 100
+        ? Math.floor(meters)
+        : null;
+    set({ progressNotifyEveryMeters: m, nextProgressNotifyAtMeters: m != null ? m : null });
+  },
+  consumeProgressMilestones: () => {
+    const { progressNotifyEveryMeters, nextProgressNotifyAtMeters, distanceMeters } = get();
+    const every =
+      typeof progressNotifyEveryMeters === "number" && Number.isFinite(progressNotifyEveryMeters) && progressNotifyEveryMeters >= 100
+        ? progressNotifyEveryMeters
+        : null;
+    if (!every) return [];
+
+    let next =
+      typeof nextProgressNotifyAtMeters === "number" && Number.isFinite(nextProgressNotifyAtMeters)
+        ? nextProgressNotifyAtMeters
+        : every;
+
+    const reached: number[] = [];
+    // Cap per call to avoid lockups if distance jumps wildly.
+    while (distanceMeters >= next && reached.length < 8) {
+      reached.push(next);
+      next += every;
+    }
+    if (reached.length) {
+      set({ nextProgressNotifyAtMeters: next });
+    }
+    return reached;
+  },
   markGoalReached: () => set({ goalReached: true }),
   markDestinationReached: () => set({ destinationReached: true }),
 

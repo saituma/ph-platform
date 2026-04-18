@@ -1762,12 +1762,13 @@ export default function UserDetailPage() {
                       setExerciseVideoPreviewUrl(URL.createObjectURL(file));
                       try {
                         setIsUploadingExerciseVideo(true);
-                        const presigned = await presignMediaUpload({
-                          folder: "exercises/video",
-                          fileName: file.name,
-                          contentType: file.type || "video/mp4",
-                          sizeBytes: file.size,
-                        }).unwrap();
+	                        const presigned = await presignMediaUpload({
+	                          folder: "exercises/video",
+	                          fileName: file.name,
+	                          contentType: file.type || "video/mp4",
+	                          sizeBytes: file.size,
+	                          client: "web",
+	                        }).unwrap();
 
                         const putRes = await fetch(presigned.uploadUrl, {
                           method: "PUT",

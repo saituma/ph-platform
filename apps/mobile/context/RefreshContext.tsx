@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 type RefreshHandler = () => Promise<void> | void;
 
@@ -18,26 +26,27 @@ export function RefreshProvider({ children }: { children: React.ReactNode }) {
   );
   const [isLoading, setIsLoading] = useState(false);
 
-  const registerHandler = (handler: RefreshHandler) => {
+  const registerHandler = useCallback((handler: RefreshHandler) => {
     setRefreshHandler(() => handler);
-  };
+  }, []);
 
-  const unregisterHandler = (handler: RefreshHandler) => {
+  const unregisterHandler = useCallback((handler: RefreshHandler) => {
     setRefreshHandler((prev) => (prev === handler ? null : prev));
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      registerHandler,
+      unregisterHandler,
+      refreshHandler,
+      isLoading,
+      setIsLoading,
+    }),
+    [registerHandler, unregisterHandler, refreshHandler, isLoading],
+  );
 
   return (
-    <RefreshContext.Provider
-      value={{
-        registerHandler,
-        unregisterHandler,
-        refreshHandler,
-        isLoading,
-        setIsLoading,
-      }}
-    >
-      {children}
-    </RefreshContext.Provider>
+    <RefreshContext.Provider value={value}>{children}</RefreshContext.Provider>
   );
 }
 
@@ -55,9 +64,16 @@ export function useRefreshContext() {
  */
 export function usePullToRefresh(onRefresh: RefreshHandler) {
   const { registerHandler, unregisterHandler } = useRefreshContext();
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
 
-  React.useEffect(() => {
-    registerHandler(onRefresh);
-    return () => unregisterHandler(onRefresh);
-  }, [onRefresh, registerHandler, unregisterHandler]);
+  const stableHandler = useCallback(() => {
+    const fn = onRefreshRef.current;
+    return fn?.();
+  }, []);
+
+  useEffect(() => {
+    registerHandler(stableHandler);
+    return () => unregisterHandler(stableHandler);
+  }, [registerHandler, unregisterHandler, stableHandler]);
 }

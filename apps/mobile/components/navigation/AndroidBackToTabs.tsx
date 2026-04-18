@@ -1,6 +1,6 @@
 import { shouldAndroidFallbackToTabs } from "@/lib/navigation/androidBackToTabs";
 import { usePathname, useRouter } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { BackHandler, Platform } from "react-native";
 
 /**
@@ -12,24 +12,28 @@ import { BackHandler, Platform } from "react-native";
  */
 export function AndroidBackToTabs() {
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const pathname = usePathname();
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
 
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (router.canGoBack()) {
+      const r = routerRef.current;
+      if (r.canGoBack()) {
         return false;
       }
       if (shouldAndroidFallbackToTabs(pathname)) {
-        router.replace("/(tabs)");
+        // Home route; `(tabs)` group is not part of the public path.
+        r.replace("/");
         return true;
       }
       return false;
     });
 
     return () => sub.remove();
-  }, [router, pathname]);
+  }, [pathname]);
 
   return null;
 }

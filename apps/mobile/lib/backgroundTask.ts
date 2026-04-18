@@ -1,8 +1,9 @@
 import * as TaskManager from "expo-task-manager";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
 import { useRunStore } from "../store/useRunStore";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
+import { NOTIFICATION_CHANNELS } from "@/lib/notificationSetup";
+import { getNotifications } from "@/lib/notifications";
 
 export const BACKGROUND_LOCATION_TASK = "BACKGROUND_LOCATION_TASK";
 
@@ -48,6 +49,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     const { locations } = data as { locations: Location.LocationObject[] };
     const addCoordinate = useRunStore.getState().addCoordinate;
     const tick = useRunStore.getState().tick;
+    const consumeProgressMilestones = useRunStore.getState().consumeProgressMilestones;
 
     let changed = false;
     locations.forEach((loc) => {
@@ -71,6 +73,29 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     if (changed) {
       tick();
       void refreshRunNotification();
+
+      try {
+        const Notifications = await getNotifications();
+        if (!Notifications) {
+          return;
+        }
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status === "granted") {
+          const milestones = consumeProgressMilestones();
+          for (const meters of milestones) {
+            const km = meters >= 1000 ? (meters / 1000).toFixed(1) : null;
+            const title = km ? `Distance: ${km} km` : `Distance: ${Math.round(meters)} m`;
+            const body = "Keep going.";
+            const content: any = { title, body, sound: "default", data: { type: "run_progress" } };
+            if (Platform.OS === "android") {
+              content.channelId = NOTIFICATION_CHANNELS.system;
+            }
+            await Notifications.scheduleNotificationAsync({ content, trigger: null });
+          }
+        }
+      } catch {
+        // ignore notification failures
+      }
     }
   }
 });

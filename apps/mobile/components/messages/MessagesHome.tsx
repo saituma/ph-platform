@@ -8,7 +8,7 @@ import {
 } from "@/context/ActiveTabContext";
 import { apiRequest } from "@/lib/api";
 import { useMessagesController } from "@/hooks/useMessagesController";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useAppSelector } from "@/store/hooks";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, View } from "react-native";
@@ -29,16 +29,8 @@ function pickLatestAnnouncement(items: unknown[]): any | null {
 
 export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
   const { colors } = useAppTheme();
-  const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.user.token);
-  const programTier = useAppSelector((state) => state.user.programTier);
-  const messagingAccessTiers = useAppSelector(
-    (state) => state.user.messagingAccessTiers,
-  );
-  const appRole = useAppSelector((state) => state.user.appRole);
-  const profile = useAppSelector((state) => state.user.profile);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
-  const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
   const { isSectionHidden } = useAgeExperience();
 
   const {
@@ -63,10 +55,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
     pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
   /** Pager swipe does not always update URL; pathname alone can miss the messages tab. */
   const isMessagesSurface = isOnMessagesTab || isMessagesRoute;
-  const canMessage = true;
-  const isYouthAthleteRole =
-    appRole === "youth_athlete_guardian_only" ||
-    appRole === "youth_athlete_team_guardian";
   const unreadCount = React.useMemo(
     () =>
       sortedThreads.reduce(
@@ -75,22 +63,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
       ),
     [sortedThreads],
   );
-  const activeAthlete = React.useMemo(() => {
-    if (!managedAthletes.length) return null;
-    return (
-      managedAthletes.find(
-        (athlete) =>
-          athlete.id === athleteUserId || athlete.userId === athleteUserId,
-      ) ?? managedAthletes[0]
-    );
-  }, [athleteUserId, managedAthletes]);
-  const focusName = activeAthlete?.name || profile?.name || "Athlete";
-  const heroSubtitle = isYouthAthleteRole
-    ? `Stay connected with your coach and keep ${focusName}'s training on track.`
-    : mode === "team"
-      ? "Team chat, groups, and announcements — in one place."
-      : "Cleaner chat, faster replies, and a calmer mobile flow.";
-
   const [announcementsLoading, setAnnouncementsLoading] = React.useState(true);
   const [announcementsMeta, setAnnouncementsMeta] = React.useState<{
     count: number;
@@ -103,15 +75,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
     if (mode === "team") return sortedThreads;
     return sortedThreads.filter((thread) => thread.channelType !== "team");
   }, [mode, sortedThreads]);
-
-  const channelCounts = React.useMemo(() => {
-    const team = inboxThreads.filter((t) => t.channelType === "team").length;
-    const coach = inboxThreads.filter((t) => t.channelType === "coach_group").length;
-    const direct = inboxThreads.filter(
-      (t) => t.channelType === "direct" || !t.id.startsWith("group:"),
-    ).length;
-    return { team, coach, direct };
-  }, [inboxThreads]);
 
   // Load whenever this screen is shown (MessagesHome only mounts after the Messages tab is visited).
   // Do not gate on URL / active tab index — those can lag one frame and skip the fetch entirely.
@@ -207,12 +170,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
             >
               Messages
             </Text>
-            <Text
-              className="mt-2.5 text-base font-outfit leading-relaxed"
-              style={{ color: colors.textSecondary }}
-            >
-              {heroSubtitle}
-            </Text>
           </View>
           <View
             className="h-16 w-16 rounded-[24px] items-center justify-center border"
@@ -254,20 +211,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
               </Text>
             </View>
           )}
-          <View
-            className="rounded-full px-4 py-2 border"
-            style={{
-              backgroundColor: colors.backgroundSecondary,
-              borderColor: colors.borderSubtle,
-            }}
-          >
-            <Text
-              className="text-[12px] font-outfit font-semibold"
-              style={{ color: colors.textSecondary }}
-            >
-              {isYouthAthleteRole ? "Coach Support" : "Media Sharing"}
-            </Text>
-          </View>
         </View>
       </View>
 
@@ -297,7 +240,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
                 className="text-[13px] font-outfit-bold font-bold uppercase tracking-[2px]"
                 style={{ color: colors.accent }}
               >
-                Announcements
+                Updates
               </Text>
             </View>
             {!announcementsLoading && announcementsMeta?.count ? (
@@ -321,19 +264,18 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
               numberOfLines={1}
             >
               {announcementsLoading
-                ? "Loading announcements…"
-                : announcementsMeta?.title || "No announcements yet"}
+                ? "…"
+                : announcementsMeta?.title || "None"}
             </Text>
-            <Text
-              className="mt-2 text-[14px] font-outfit leading-6"
-              style={{ color: colors.textSecondary }}
-              numberOfLines={2}
-            >
-              {announcementsLoading
-                ? "Fetching the latest from your coach."
-                : announcementsMeta?.snippet ||
-                  "Broadcast updates from your coach will appear here."}
-            </Text>
+            {!announcementsLoading && announcementsMeta?.snippet ? (
+              <Text
+                className="mt-2 text-[14px] font-outfit leading-6"
+                style={{ color: colors.textSecondary }}
+                numberOfLines={2}
+              >
+                {announcementsMeta.snippet}
+              </Text>
+            ) : null}
             {!announcementsLoading && announcementsMeta?.when ? (
               <View className="mt-4 pt-4 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                 <Text
@@ -345,18 +287,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
               </View>
             ) : null}
           </View>
-        </Pressable>
-      </View>
-
-      <View className="px-6 mb-4 flex-row items-center justify-between">
-        <Text className="text-[11px] font-outfit-bold font-bold uppercase tracking-[1.5px]" style={{ color: colors.textDim }}>
-          Your Inbox
-        </Text>
-        <Pressable className="flex-row items-center gap-1.5 active:opacity-70">
-          <Ionicons name="add-circle" size={18} color={colors.accent} />
-          <Text className="text-[13px] font-outfit-bold font-bold" style={{ color: colors.accent }}>
-            New Message
-          </Text>
         </Pressable>
       </View>
 

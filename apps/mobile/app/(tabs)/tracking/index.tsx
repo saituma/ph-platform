@@ -18,7 +18,6 @@ import { Text } from "@/components/ScaledText";
 import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 import { formatDurationClock, formatHoursMinutes } from "../../../lib/tracking/runUtils";
 import { getLastNDaysLabel, getLastNDaysRangeLabel } from "../../../lib/tracking/dateRange";
-import { RunGoalSheet } from "../../../components/tracking/RunGoalSheet";
 import { useRunStore } from "../../../store/useRunStore";
 import { syncRuns } from "../../../lib/runSync";
 import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
@@ -44,8 +43,7 @@ export default function TrackingHomeScreen() {
   const [recentRuns, setRecentRuns] = useState<RunRecord[]>([]);
   const [weeklyStats, setWeeklyStats] = useState({ totalDistance: 0, totalTime: 0, numRuns: 0 });
   const [personalBests, setPersonalBests] = useState(() => getPersonalBests());
-  const [goalSheetOpen, setGoalSheetOpen] = useState(false);
-  const { setGoalKm, setDestination } = useRunStore();
+  const { resetRun } = useRunStore();
 
   // Screen entry animation
   const opacity = useSharedValue(0);
@@ -99,7 +97,8 @@ export default function TrackingHomeScreen() {
     scaleBtn.value = withSpring(0.97, { damping: 15, stiffness: 300 });
     setTimeout(() => {
       scaleBtn.value = withSpring(1, { damping: 15, stiffness: 300 });
-      setGoalSheetOpen(true);
+      resetRun();
+      router.push("/(tabs)/tracking/run-setup" as any);
     }, 100);
   };
 
@@ -392,15 +391,7 @@ export default function TrackingHomeScreen() {
 	        </View>
       </ScrollView>
 
-      <RunGoalSheet
-        visible={goalSheetOpen}
-        onClose={() => setGoalSheetOpen(false)}
-        onConfirm={(goalKm, destination) => {
-          setGoalKm(goalKm);
-          setDestination(destination);
-          router.push("/(tabs)/tracking/active-run" as any);
-        }}
-      />
+      {/* Run setup is now a full-screen flow at /(tabs)/tracking/run-setup */}
     </Animated.View>
   );
 }

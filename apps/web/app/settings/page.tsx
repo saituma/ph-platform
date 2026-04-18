@@ -115,12 +115,13 @@ export default function SettingsPage() {
 
     try {
       setIsUploading(true);
-      const { uploadUrl, publicUrl } = await createUploadUrl({
-        folder: "profile-pictures",
-        fileName: `${Date.now()}-${file.name}`,
-        contentType: file.type,
-        sizeBytes: file.size,
-      }).unwrap();
+	      const { uploadUrl, publicUrl } = await createUploadUrl({
+	        folder: "profile-pictures",
+	        fileName: `${Date.now()}-${file.name}`,
+	        contentType: file.type,
+	        sizeBytes: file.size,
+	        client: "web",
+	      }).unwrap();
 
       await fetch(uploadUrl, {
         method: "PUT",

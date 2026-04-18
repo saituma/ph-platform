@@ -9,6 +9,7 @@ import {
   clearCommentReaction,
   deleteComment,
   getLeaderboard,
+  getPublicRunDetail,
   listCommentReactions,
   listAdults,
   listPublicRuns,
@@ -76,6 +77,24 @@ export async function runs(req: Request, res: Response) {
       sort,
     } as any);
     return res.status(200).json(out);
+  } catch (err) {
+    return handleSocialError(res, err);
+  }
+}
+
+export async function runDetail(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    await assertAdultAthlete(req.user.id);
+    const runLogId = Number(req.params.runLogId);
+    if (!Number.isFinite(runLogId)) {
+      return res.status(400).json({ error: "Invalid runLogId" });
+    }
+    const item = await getPublicRunDetail({
+      viewerUserId: req.user.id,
+      runLogId: Math.floor(runLogId),
+    });
+    return res.status(200).json({ item });
   } catch (err) {
     return handleSocialError(res, err);
   }

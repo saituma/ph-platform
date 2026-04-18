@@ -116,12 +116,24 @@ export default function ProgramContentDetailScreen() {
       index?: string;
     }>();
   const router = useRouter();
-  const { token, programTier, athleteUserId, managedAthletes } = useAppSelector(
+  const { token, programTier, athleteUserId, managedAthletes, appRole } = useAppSelector(
     (state) => state.user,
   );
   const { isDark, colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
+
+  /**
+   * Youth users should land on the Home tab on cold start.
+   * If this deep program route becomes the root screen (no back stack), redirect to Home.
+   */
+  useEffect(() => {
+    const role = String(appRole ?? "");
+    const isYouth = role === "youth_athlete" || role.startsWith("youth_athlete_");
+    if (!isYouth) return;
+    if (router.canGoBack()) return;
+    router.replace("/" as any);
+  }, [appRole, router]);
 
   const {
     item,

@@ -1,3 +1,4 @@
+import "@/lib/debug/updateDepthProbe";
 import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 import { FontScaleProvider } from "@/context/FontScaleContext";
 import { RefreshProvider } from "@/context/RefreshContext";
@@ -9,8 +10,13 @@ import { HeroAppProvider } from "@/components/ui/hero";
 import { AuthPersist } from "@/store/AuthPersist";
 import { ReduxProvider } from "@/store/Provider";
 import { StatusBar } from "expo-status-bar";
-import React, { PropsWithChildren, ReactElement, useEffect } from "react";
-import { View, Platform } from "react-native";
+import React, {
+  PropsWithChildren,
+  ReactElement,
+  useEffect,
+  useMemo,
+} from "react";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
@@ -18,7 +24,6 @@ import "./global.css";
 import "@/lib/backgroundTask";
 import AppThemeProvider from "./theme/AppThemeProvider";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { Compose } from "@/lib/compose";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -26,6 +31,11 @@ import Constants, { ExecutionEnvironment } from "expo-constants";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { AndroidBackToTabs } from "@/components/navigation/AndroidBackToTabs";
 import { runStartupSelfTest } from "@/lib/startupDiagnostics";
+
+// Ensure cold start lands in the main tab shell (Home), not a deep stack route.
+export const unstable_settings = {
+  initialRouteName: "(tabs)",
+};
 
 const GestureRoot = ({ children }: { children: ReactElement }) => (
   <GestureHandlerRootView style={{ flex: 1 }}>{children}</GestureHandlerRootView>
@@ -35,17 +45,47 @@ const QueryWrapper = ({ children }: { children: ReactElement }) => (
   <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 );
 
+function isExpoGo(): boolean {
+  return (
+    Constants.appOwnership === "expo" ||
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+  );
+}
+
+/**
+ * Do not static-import react-native-keyboard-controller: loading its module runs native
+ * bindings and crashes in Expo Go. Only require it in dev / release builds that include the native module.
+ */
+const KeyboardProviderImpl: React.ComponentType<PropsWithChildren> = isExpoGo()
+  ? ({ children }) => <>{children}</>
+  : // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require("react-native-keyboard-controller").KeyboardProvider;
+
+function MaybeKeyboardProvider({ children }: PropsWithChildren) {
+  return <KeyboardProviderImpl>{children}</KeyboardProviderImpl>;
+}
+
 export default function RootLayout() {
   useEffect(() => {
     void runStartupSelfTest();
   }, []);
+
+  // Stable reference: inline `screenOptions={{ ... }}` recreates every render and can
+  // churn react-native-screen-transitions blank-stack descriptors → useLocalRoutes
+  // layout setState loops when any ancestor (e.g. SocketProvider) re-renders.
+  const rootStackScreenOptions = useMemo(
+    () => ({
+      ...slideFromRight,
+    }),
+    [],
+  );
 
   return (
     <Compose
       providers={[
         GestureRoot,
         QueryWrapper,
-        KeyboardProvider,
+        MaybeKeyboardProvider,
         BottomSheetModalProvider,
         ReduxProvider,
         SafeAreaProvider,
@@ -63,11 +103,7 @@ export default function RootLayout() {
       <View style={{ flex: 1 }}>
         <AuthPersist />
         <AndroidBackToTabs />
-        <Stack
-          screenOptions={{
-            ...slideFromRight,
-          }}
-        >
+        <Stack screenOptions={rootStackScreenOptions}>
           <Stack.Screen
             name="programs/[id]"
             options={({ route }: any) => ({

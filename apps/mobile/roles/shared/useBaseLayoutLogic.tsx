@@ -9,20 +9,32 @@ export function useBaseLayoutLogic(visibleTabs: TabConfig[], tabComponents: Reco
   const pathname = useSafePathname("");
 
   const initialIndex = useMemo(() => {
+    const storedIndex = visibleTabs.findIndex((tab) => tab.key === lastTabKey);
+
     if (!pathname) {
-      const storedIndex = visibleTabs.findIndex((tab) => tab.key === lastTabKey);
       return storedIndex >= 0 ? storedIndex : 0;
     }
-    if (!pathname.startsWith("/(tabs)")) {
-      const storedIndex = visibleTabs.findIndex(
-        (tab) => tab.key === lastTabKey,
-      );
-      return storedIndex >= 0 ? storedIndex : 0;
+
+    // Expo Router hides route groups in the URL, so tabs can be:
+    // - "/" (Home)
+    // - "/programs", "/messages", "/schedule", "/more"
+    // - "/tracking/..." (nested)
+    // Also accept internal paths that still include the group: "/(tabs)/programs".
+    const normalizedPath = pathname.replace(/^\//, "").replace(/^\(tabs\)\/?/, "");
+    const segments = normalizedPath.split("/").filter(Boolean);
+
+    let routeName = segments[0] || "index";
+
+    // Role-prefixed message routes should still select the Messages tab.
+    if (
+      (routeName === "team" ||
+        routeName === "adult" ||
+        routeName === "youth" ||
+        routeName === "admin") &&
+      segments[1] === "messages"
+    ) {
+      routeName = "messages";
     }
-    const normalizedPath = pathname
-      .replace(/^\//, "")
-      .replace(/^\(tabs\)\/?/, "");
-    const routeName = normalizedPath.split("/")[0] || "index";
 
     const index = visibleTabs.findIndex((tab) => tab.key === routeName);
     const resolvedIndex = index >= 0 ? index : 0;

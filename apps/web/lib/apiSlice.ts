@@ -911,15 +911,16 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["PhysioReferrals"],
     }),
-    createMediaUploadUrl: builder.mutation<
-      { uploadUrl: string; publicUrl: string; key: string },
-      {
-        folder: string;
-        fileName: string;
-        contentType: string;
-        sizeBytes: number;
-      }
-    >({
+	    createMediaUploadUrl: builder.mutation<
+	      { uploadUrl: string; publicUrl: string; key: string },
+	      {
+	        folder: string;
+	        fileName: string;
+	        contentType: string;
+	        sizeBytes: number;
+	        client?: "web" | "native";
+	      }
+	    >({
       query: (body) => ({
         url: "/media/presign",
         method: "POST",
@@ -1143,15 +1144,16 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Content"],
     }),
-    presignMediaUpload: builder.mutation<
-      { uploadUrl: string; publicUrl: string; key: string },
-      {
-        folder: string;
-        fileName: string;
-        contentType: string;
-        sizeBytes: number;
-      }
-    >({
+	    presignMediaUpload: builder.mutation<
+	      { uploadUrl: string; publicUrl: string; key: string },
+	      {
+	        folder: string;
+	        fileName: string;
+	        contentType: string;
+	        sizeBytes: number;
+	        client?: "web" | "native";
+	      }
+	    >({
       query: (body) => ({
         url: "/media/presign",
         method: "POST",

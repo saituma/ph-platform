@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
+import { useRouter } from "expo-router";
 import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
 import {
   fetchAdultDirectory,
@@ -18,8 +19,10 @@ import { formatDurationClock, formatDistanceKm } from "@/lib/tracking/runUtils";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
+import { MiniRunPathPreview } from "@/components/tracking/social/MiniRunPathPreview";
 
 export default function TrackingSocialScreen() {
+  const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
@@ -321,6 +324,24 @@ export default function TrackingSocialScreen() {
                         padding: 12,
                       }}
                     >
+                      <Pressable
+                        onPress={() =>
+                          router.push({
+                            pathname: "/(tabs)/tracking/run-path/[runLogId]" as any,
+                            params: { runLogId: String(r.runLogId) },
+                          } as any)
+                        }
+                        style={({ pressed }) => ({
+                          opacity: pressed ? 0.92 : 1,
+                          marginBottom: 10,
+                        })}
+                      >
+                        <MiniRunPathPreview
+                          points={r.pathPreview}
+                          height={108}
+                          colors={colors}
+                        />
+                      </Pressable>
                       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                         <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>
                           {r.name}

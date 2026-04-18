@@ -18,7 +18,7 @@ type IntroVideoSectionProps = {
 export function IntroVideoSection({
   introVideoUrl,
   posterUrl,
-  tabIndex = 2,
+  tabIndex = 0,
 }: IntroVideoSectionProps) {
   const { isDark } = useAppTheme();
   const globalActiveTab = useActiveTabIndex();

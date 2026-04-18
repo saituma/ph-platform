@@ -13,6 +13,21 @@ export async function getPresignedUploadUrl(input: { key: string; contentType: s
   return await client.presignedPutObject(bucket, input.key, 900);
 }
 
+export async function putObject(input: { key: string; body: Buffer; contentType: string }) {
+  const bucket = env.r2Bucket.trim();
+  if (!bucket) {
+    throw new Error("R2_BUCKET is not configured");
+  }
+  const client = getR2S3Client();
+  const contentType = input.contentType.trim();
+  if (!contentType) {
+    throw new Error("contentType is required");
+  }
+  await client.putObject(bucket, input.key, input.body, input.body.length, {
+    "Content-Type": contentType,
+  });
+}
+
 function publicBaseUrl(): string | null {
   const raw = String(env.mediaPublicBaseUrl ?? "").trim();
   if (!raw) return null;

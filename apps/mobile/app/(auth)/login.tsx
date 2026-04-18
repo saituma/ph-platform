@@ -120,7 +120,8 @@ export default function LoginScreen() {
         ),
       );
 
-      router.replace("/(tabs)");
+      // Home route; `(tabs)` group is not part of the public path.
+      router.replace("/");
     } catch (err: any) {
       setFormError(getFriendlyAuthErrorMessage(err, "login"));
     } finally {

@@ -133,12 +133,13 @@ export default function SessionDetailPage() {
       setIsUploadingVideo(true);
       setUploadProgress(0);
       const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
-      const result = await createUploadUrl({
-        folder: "training-content/session-items",
-        fileName,
-        contentType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-      }).unwrap();
+	      const result = await createUploadUrl({
+	        folder: "training-content/session-items",
+	        fileName,
+	        contentType: file.type || "application/octet-stream",
+	        sizeBytes: file.size,
+	        client: "web",
+	      }).unwrap();
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();

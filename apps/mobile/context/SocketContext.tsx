@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { io, Socket } from "socket.io-client";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { useAppSelector } from "@/store/hooks";
@@ -7,6 +14,7 @@ import { scheduleLocalNotification } from "@/lib/localNotifications";
 
 interface SocketContextType {
   socket: Socket | null;
+  /** Derived from the client instance; omitted from deps to avoid re-rendering the tree on connect/disconnect. */
   isConnected: boolean;
   setActiveThreadId: (id: string | null) => void;
 }
@@ -18,10 +26,11 @@ const SocketContext = createContext<SocketContextType>({
 });
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
-  const { token, profile, athleteUserId } = useAppSelector((state) => state.user);
+  const token = useAppSelector((state) => state.user.token);
+  const profileId = useAppSelector((state) => state.user.profile?.id);
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
 
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const activeThreadIdRef = useRef<string | null>(null);
@@ -34,9 +43,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   }, [activeThreadId]);
 
   useEffect(() => {
-    const effectiveProfileId = String(profile.id ?? "");
+    const effectiveProfileId = String(profileId ?? "");
     effectiveProfileIdRef.current = effectiveProfileId;
-  }, [profile.id]);
+  }, [profileId]);
 
   useEffect(() => {
     const acting = athleteUserId ? Number(athleteUserId) : null;
@@ -50,7 +59,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         socketRef.current.disconnect();
         socketRef.current = null;
         setSocket(null);
-        setIsConnected(false);
       }
       return;
     }
@@ -87,13 +95,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     newSocket.on("connect", () => {
       if (__DEV__) console.log("[Socket] Global connected");
       connectErrorCountRef.current = 0;
-      setIsConnected(true);
       emitActingJoin();
     });
 
     newSocket.on("disconnect", (reason) => {
       if (__DEV__) console.log("[Socket] Global disconnected", reason);
-      setIsConnected(false);
     });
     newSocket.on("connect_error", (error) => {
       connectErrorCountRef.current += 1;
@@ -176,23 +182,32 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       newSocket.disconnect();
       socketRef.current = null;
       setSocket(null);
-      setIsConnected(false);
     };
   }, [token]);
 
   // No role-based socket room switching for guardians; messages are guardian-only.
 
+  // Re-emit when acting user changes; initial connect is handled in the `connect` listener above.
+  // Intentionally omit connection state from React — `setIsConnected` used to re-render the whole
+  // tree on every connect and trigger update-depth loops in react-native-screen-transitions + navigator.
   useEffect(() => {
     if (!socketRef.current?.connected) return;
     const acting = athleteUserId ? Number(athleteUserId) : null;
     const actingUserId = Number.isFinite(acting as number) && (acting as number) > 0 ? (acting as number) : null;
     socketRef.current.emit("acting:join", actingUserId ? { actingUserId } : {});
-  }, [athleteUserId, isConnected]);
+  }, [athleteUserId, socket]);
+
+  const value = useMemo(
+    () => ({
+      socket,
+      isConnected: socket?.connected ?? false,
+      setActiveThreadId,
+    }),
+    [socket, setActiveThreadId],
+  );
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected, setActiveThreadId }}>
-      {children}
-    </SocketContext.Provider>
+    <SocketContext.Provider value={value}>{children}</SocketContext.Provider>
   );
 };
 
