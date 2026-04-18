@@ -171,15 +171,16 @@ export async function getMe(req: Request, res: Response) {
   return res.status(200).json({
     user: {
       ...user,
+      ...athlete, // Spread athlete data to include everything (trainingStats, planExpiresAt, etc.)
       programTier,
       athleteType: athlete?.athleteType ?? null,
       athleteName: athlete?.name ?? null,
       athleteId: athlete?.id ?? null,
-      phoneNumber: athlete?.phoneNumber ?? (athlete?.extraResponses as any)?.phone ?? null,
+      phoneNumber: athlete?.phoneNumber ?? athlete?.guardianPhone ?? (athlete?.extraResponses as any)?.phone ?? null,
       birthDate: athlete?.birthDate ?? null,
       planExpiresAt: athlete?.planExpiresAt ?? null,
       planPaymentType: athlete?.planPaymentType ?? null,
-      planCreatedAt: athlete?.createdAt ?? null,
+      planCreatedAt: athlete?.planCreatedAt ?? athlete?.createdAt ?? null,
       trainingPerWeek: athlete?.trainingPerWeek ?? 0,
       performanceGoals: athlete?.performanceGoals ?? null,
       equipmentAccess: athlete?.equipmentAccess ?? null,
