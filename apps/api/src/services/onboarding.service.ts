@@ -1,4 +1,4 @@
-import { and, desc, eq, sql, count, countDistinct } from "drizzle-orm";
+import { and, desc, eq, sql, count, countDistinct, or } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -454,8 +454,7 @@ export async function getOnboardingByUser(userId: number) {
 
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const guardian = guardians[0];
-  if (!guardian) return null;
-
+  
   const athletesRows = await db
     .select({
       athlete: athleteTable,
@@ -467,10 +466,15 @@ export async function getOnboardingByUser(userId: number) {
     .from(athleteTable)
     .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
     .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
-    .where(eq(athleteTable.guardianId, guardian.id))
+    .where(
+      guardian 
+        ? or(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.userId, userId))
+        : eq(athleteTable.userId, userId)
+    )
     .orderBy(
-      sql`CASE WHEN ${athleteTable.id} = ${guardian.activeAthleteId} THEN 0 ELSE 1 END`,
-      desc(athleteTable.createdAt)
+      guardian?.activeAthleteId
+        ? sql`CASE WHEN ${athleteTable.id} = ${guardian.activeAthleteId} THEN 0 ELSE 1 END`
+        : desc(athleteTable.createdAt)
     );
 
   if (athletesRows.length === 0) return null;
