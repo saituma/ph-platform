@@ -22,6 +22,7 @@ import { RunGoalSheet } from "../../../components/tracking/RunGoalSheet";
 import { useRunStore } from "../../../store/useRunStore";
 import { syncRuns } from "../../../lib/runSync";
 import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
+import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
 
 const QUOTES = [
   "Rest is a weapon. Use it wisely.", // Sunday
@@ -129,11 +130,18 @@ export default function TrackingHomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: spacing.xl,
-          paddingTop: insets.top + 24,
+          paddingTop: 0,
           paddingBottom: trackingScrollBottomPad(insets),
           flexGrow: 1,
         }}
       >
+        <TrackingHeaderTabs
+          active="running"
+          colors={colors}
+          isDark={isDark}
+          topInset={insets.top + 12}
+          paddingHorizontal={spacing.xl}
+        />
         {/* Section 1 - Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xxxl }}>
 	          <View>
