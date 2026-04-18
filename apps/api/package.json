@@ -25,7 +25,8 @@
     "athletes:clamp-youth-ages": "PH_API_SCRIPT=1 tsx src/scripts/clamp-youth-ages.ts",
     "fix:adult-tiers": "PH_API_SCRIPT=1 tsx src/scripts/fix-adult-tier-modules.ts",
     "stripe:list-plan-prices": "PH_API_SCRIPT=1 tsx src/scripts/list-plan-prices.ts",
-    "stripe:list-lookup-prices": "tsx src/scripts/list-stripe-lookup-prices.ts"
+    "stripe:list-lookup-prices": "tsx src/scripts/list-stripe-lookup-prices.ts",
+    "stripe:verify-plan-prices": "tsx src/scripts/verify-stripe-plan-prices.ts"
   },
   "keywords": [],
   "author": "",

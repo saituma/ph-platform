@@ -16,6 +16,7 @@ import {
   ensureStripePriceId,
   ensureAthleteCheckoutPriceId,
   checkoutModeForBillingCycle,
+  lookupKeyForAthleteBilling,
   ATHLETE_BILLING_CYCLES,
   type AthleteBillingCycle,
 } from "./stripe.service";
@@ -42,6 +43,13 @@ function isStripeNotFoundError(error: unknown) {
   if (!error || typeof error !== "object") return false;
   const e = error as { statusCode?: unknown; code?: unknown };
   return e.statusCode === 404 || e.code === "resource_missing";
+}
+
+function stripeModeFromSecretKey(secretKey: string | null | undefined): "test" | "live" | "unknown" {
+  const normalized = String(secretKey ?? "").trim();
+  if (normalized.startsWith("sk_test_")) return "test";
+  if (normalized.startsWith("sk_live_")) return "live";
+  return "unknown";
 }
 
 function paymentStatusFromPaymentIntentStatus(status?: string | null): string {
@@ -138,6 +146,21 @@ export async function createCheckoutSession(input: {
   const mode = checkoutModeForBillingCycle(billingCycle);
 
   const stripeClient = getStripeClient();
+  try {
+    await stripeClient.prices.retrieve(priceId);
+  } catch (error: unknown) {
+    if (isStripeNotFoundError(error)) {
+      const expectedLookupKey = lookupKeyForAthleteBilling(plan.tier, billingCycle);
+      const stripeMode = stripeModeFromSecretKey(process.env.STRIPE_SECRET_KEY);
+      throw new Error(
+        `Stripe could not find price "${priceId}" for plan #${plan.id} (${plan.tier}, ${billingCycle}). ` +
+          `Create/activate a Stripe Price with lookup key "${expectedLookupKey}" in Stripe (${stripeMode} mode), ` +
+          `or update the plan's Stripe price id to a valid one in the same Stripe account/mode.`
+      );
+    }
+    throw error;
+  }
+
   const session = await stripeClient.checkout.sessions.create({
     mode,
     line_items: [{ price: priceId, quantity: 1 }],
