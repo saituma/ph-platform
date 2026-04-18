@@ -178,6 +178,8 @@ export async function getMe(req: Request, res: Response) {
       phoneNumber: athlete?.phoneNumber ?? (athlete?.extraResponses as any)?.phone ?? null,
       birthDate: athlete?.birthDate ?? null,
       planExpiresAt: athlete?.planExpiresAt ?? null,
+      planPaymentType: athlete?.planPaymentType ?? null,
+      planCreatedAt: athlete?.createdAt ?? null,
       trainingPerWeek: athlete?.trainingPerWeek ?? 0,
       performanceGoals: athlete?.performanceGoals ?? null,
       equipmentAccess: athlete?.equipmentAccess ?? null,
