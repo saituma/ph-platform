@@ -33,6 +33,87 @@ function schedulePendingApprovalEmails(requestId: number, previousStatus: string
   });
 }
 
+function isPaidStatus(paymentStatus: string | null | undefined) {
+  const normalized = String(paymentStatus ?? "").trim().toLowerCase();
+  return normalized === "paid" || normalized === "no_payment_required";
+}
+
+function isStripeNotFoundError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { statusCode?: unknown; code?: unknown };
+  return e.statusCode === 404 || e.code === "resource_missing";
+}
+
+function paymentStatusFromPaymentIntentStatus(status?: string | null): string {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  if (normalized === "succeeded") return "paid";
+  if (normalized === "canceled") return "canceled";
+  if (normalized === "processing") return "processing";
+  return "unpaid";
+}
+
+export async function syncSubscriptionRequestPaymentFromStripe(requestId: number) {
+  const rows = await db
+    .select({
+      id: subscriptionRequestTable.id,
+      status: subscriptionRequestTable.status,
+      paymentStatus: subscriptionRequestTable.paymentStatus,
+      stripeSessionId: subscriptionRequestTable.stripeSessionId,
+    })
+    .from(subscriptionRequestTable)
+    .where(eq(subscriptionRequestTable.id, requestId))
+    .limit(1);
+
+  const request = rows[0] ?? null;
+  if (!request) return null;
+  const stripeId = String(request.stripeSessionId ?? "").trim();
+  if (!stripeId) {
+    throw new Error(`Cannot sync request #${requestId}: missing Stripe reference id`);
+  }
+
+  const stripeClient = getStripeClient();
+
+  let paymentStatus: string = request.paymentStatus ?? "unpaid";
+  try {
+    if (stripeId.startsWith("cs_")) {
+      const session = await stripeClient.checkout.sessions.retrieve(stripeId);
+      paymentStatus = session.payment_status ?? "unpaid";
+    } else if (stripeId.startsWith("pi_")) {
+      const intent = await stripeClient.paymentIntents.retrieve(stripeId);
+      paymentStatus = paymentStatusFromPaymentIntentStatus(intent.status);
+    } else {
+      throw new Error(`Unsupported Stripe reference id "${stripeId}"`);
+    }
+  } catch (error: unknown) {
+    if (isStripeNotFoundError(error)) {
+      throw new Error(
+        `Stripe could not find "${stripeId}". Check STRIPE_SECRET_KEY (test vs live) and that this request was created in the same Stripe account.`
+      );
+    }
+    throw error;
+  }
+
+  const nextStatus = isPaidStatus(paymentStatus) ? "pending_approval" : "pending_payment";
+  const previousStatus = request.status;
+
+  const updated = await db
+    .update(subscriptionRequestTable)
+    .set({
+      paymentStatus,
+      status: nextStatus,
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptionRequestTable.id, requestId))
+    .returning();
+
+  const row = updated[0] ?? null;
+  if (row) {
+    schedulePendingApprovalEmails(row.id, previousStatus, row.status);
+  }
+
+  return row;
+}
+
 export async function createCheckoutSession(input: {
   userId: number;
   userEmail: string;
@@ -442,14 +523,43 @@ export async function updateSubscriptionRequestStatus(
 }
 
 export async function approveSubscriptionRequest(requestId: number) {
+  const current = await db
+    .select({
+      id: subscriptionRequestTable.id,
+      status: subscriptionRequestTable.status,
+      paymentStatus: subscriptionRequestTable.paymentStatus,
+    })
+    .from(subscriptionRequestTable)
+    .where(eq(subscriptionRequestTable.id, requestId))
+    .limit(1);
+
+  const currentRow = current[0] ?? null;
+  if (!currentRow) return null;
+
+  if (!isPaidStatus(currentRow.paymentStatus)) {
+    await syncSubscriptionRequestPaymentFromStripe(requestId);
+    const refreshed = await db
+      .select({
+        status: subscriptionRequestTable.status,
+        paymentStatus: subscriptionRequestTable.paymentStatus,
+      })
+      .from(subscriptionRequestTable)
+      .where(eq(subscriptionRequestTable.id, requestId))
+      .limit(1);
+    const refreshedRow = refreshed[0] ?? null;
+    if (!isPaidStatus(refreshedRow?.paymentStatus)) {
+      throw new Error(
+        `Cannot approve request #${requestId}: payment not confirmed (status=${refreshedRow?.status ?? "unknown"}, paymentStatus=${refreshedRow?.paymentStatus ?? "unknown"})`
+      );
+    }
+  }
+
   const { row, planApprovedEmail } = await db.transaction(async (tx) => {
     const rows = await tx
       .select({
         requestId: subscriptionRequestTable.id,
         userId: subscriptionRequestTable.userId,
         athleteId: subscriptionRequestTable.athleteId,
-        status: subscriptionRequestTable.status,
-        paymentStatus: subscriptionRequestTable.paymentStatus,
         planTier: subscriptionPlanTable.tier,
         billingInterval: subscriptionPlanTable.billingInterval,
         planBillingCycle: subscriptionRequestTable.planBillingCycle,
@@ -464,14 +574,6 @@ export async function approveSubscriptionRequest(requestId: number) {
     const request = rows[0];
     if (!request?.athleteId || !request.planTier) {
       return { row: null as null, planApprovedEmail: null as null };
-    }
-
-    const normalizedPaymentStatus = String(request.paymentStatus ?? "").trim().toLowerCase();
-    const isPaid = normalizedPaymentStatus === "paid" || normalizedPaymentStatus === "no_payment_required";
-    if (!isPaid) {
-      throw new Error(
-        `Cannot approve request #${requestId}: payment not confirmed (status=${request.status}, paymentStatus=${request.paymentStatus ?? "unknown"})`
-      );
     }
 
     const cycle = request.planBillingCycle as AthleteBillingCycle | null;

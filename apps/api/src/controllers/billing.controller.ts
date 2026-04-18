@@ -20,6 +20,7 @@ import {
   enrichPlansWithBillingQuotes,
   listSubscriptionPlans,
   listSubscriptionRequests,
+  syncSubscriptionRequestPaymentFromStripe,
   updateSubscriptionRequestStatus,
   updateSubscriptionPlan,
   updateRequestFromStripeSession,
@@ -315,6 +316,19 @@ export async function rejectRequestAdmin(req: Request, res: Response) {
     return res.status(404).json({ error: "Request not found" });
   }
   return res.status(200).json({ request: updated });
+}
+
+export async function syncRequestPaymentAdmin(req: Request, res: Response) {
+  const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
+  try {
+    const updated = await syncSubscriptionRequestPaymentFromStripe(requestId);
+    if (!updated) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+    return res.status(200).json({ request: updated });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || "Failed to sync payment" });
+  }
 }
 
 export async function stripeWebhook(req: Request, res: Response) {
