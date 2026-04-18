@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql, count, countDistinct } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -12,6 +12,8 @@ import {
   ProgramType,
   userTable,
   teamTable,
+  athleteTrainingSessionCompletionTable,
+  trainingModuleSessionTable,
 } from "../db/schema";
 import { getUserById } from "./user.service";
 import { calculateAge, clampYouthAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
@@ -411,6 +413,7 @@ export async function saveOnboardingGoals(input: {
 export async function getOnboardingByUser(userId: number) {
   const user = await getUserById(userId);
   if (!user) return null;
+
   if (user.role === "athlete") {
     const athletes = await db
       .select()
@@ -419,7 +422,26 @@ export async function getOnboardingByUser(userId: number) {
       .orderBy(desc(athleteTable.createdAt))
       .limit(1);
     const athlete = athletes[0] ?? null;
+    if (!athlete) return null;
+
+    // Get training stats for single athlete
+    const stats = await db
+      .select({
+        finishedSessions: count(athleteTrainingSessionCompletionTable.id),
+        finishedModules: countDistinct(trainingModuleSessionTable.moduleId),
+      })
+      .from(athleteTrainingSessionCompletionTable)
+      .leftJoin(
+        trainingModuleSessionTable,
+        eq(athleteTrainingSessionCompletionTable.sessionId, trainingModuleSessionTable.id)
+      )
+      .where(eq(athleteTrainingSessionCompletionTable.athleteId, athlete.id));
+
     const decorated = decorateAthlete(athlete);
+    if (decorated) {
+      (decorated as any).trainingStats = stats[0] || { finishedSessions: 0, finishedModules: 0 };
+    }
+
     try {
       await maybeSendBirthdayNotifications(decorated);
     } catch (error) {
@@ -427,60 +449,74 @@ export async function getOnboardingByUser(userId: number) {
     }
     return decorated;
   }
+
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const guardian = guardians[0];
   if (!guardian) return null;
-  const athletes = guardian.activeAthleteId
-    ? await db
+
+  const athletesRows = await db
+    .select({
+      athlete: athleteTable,
+      guardianName: userTable.name,
+      guardianPhone: guardianTable.phoneNumber,
+    })
+    .from(athleteTable)
+    .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+    .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
+    .where(eq(athleteTable.guardianId, guardian.id))
+    .orderBy(
+      sql`CASE WHEN ${athleteTable.id} = ${guardian.activeAthleteId} THEN 0 ELSE 1 END`,
+      desc(athleteTable.createdAt)
+    );
+
+  if (athletesRows.length === 0) return null;
+
+  const decoratedAthletes = await Promise.all(
+    athletesRows.map(async (row) => {
+      let ensured = row.athlete;
+      try {
+        ensured = await ensureAthleteUserRecord(row.athlete);
+      } catch (error) {
+        console.warn("[Onboarding] Failed to ensure athlete user record during status lookup", error);
+      }
+
+      // Get training stats for each athlete
+      const stats = await db
         .select({
-          athlete: athleteTable,
-          guardianName: userTable.name,
-          guardianPhone: guardianTable.phoneNumber,
+          finishedSessions: count(athleteTrainingSessionCompletionTable.id),
+          finishedModules: countDistinct(trainingModuleSessionTable.moduleId),
         })
-        .from(athleteTable)
-        .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
-        .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
-        .where(eq(athleteTable.guardianId, guardian.id))
-        .orderBy(
-          sql`CASE WHEN ${athleteTable.id} = ${guardian.activeAthleteId} THEN 0 ELSE 1 END`,
-          desc(athleteTable.createdAt),
+        .from(athleteTrainingSessionCompletionTable)
+        .leftJoin(
+          trainingModuleSessionTable,
+          eq(athleteTrainingSessionCompletionTable.sessionId, trainingModuleSessionTable.id)
         )
-        .limit(1)
-    : await db
-        .select({
-          athlete: athleteTable,
-          guardianName: userTable.name,
-          guardianPhone: guardianTable.phoneNumber,
-        })
-        .from(athleteTable)
-        .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
-        .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
-        .where(eq(athleteTable.guardianId, guardian.id))
-        .orderBy(desc(athleteTable.createdAt))
-        .limit(1);
-  
-  const athleteRow = athletes[0]?.athlete ?? null;
-  const guardianName = athletes[0]?.guardianName ?? null;
-  const guardianPhone = athletes[0]?.guardianPhone ?? null;
-  
-  if (!athleteRow) return null;
-  let ensured = athleteRow;
+        .where(eq(athleteTrainingSessionCompletionTable.athleteId, ensured.id));
+
+      const decorated = decorateAthlete(ensured);
+      if (decorated) {
+        (decorated as any).guardianName = row.guardianName;
+        (decorated as any).phoneNumber = row.guardianPhone;
+        (decorated as any).trainingStats = stats[0] || { finishedSessions: 0, finishedModules: 0 };
+      }
+      return decorated;
+    })
+  );
+
   try {
-    ensured = await ensureAthleteUserRecord(athleteRow);
-  } catch (error) {
-    console.warn("[Onboarding] Failed to ensure athlete user record during status lookup", error);
-  }
-  const decorated = decorateAthlete(ensured);
-  if (decorated) {
-    (decorated as any).guardianName = guardianName;
-    (decorated as any).phoneNumber = guardianPhone;
-  }
-  try {
-    await maybeSendBirthdayNotifications(decorated);
+    const primary = decoratedAthletes[0];
+    if (primary) {
+      await maybeSendBirthdayNotifications(primary);
+    }
   } catch (error) {
     console.warn("[Onboarding] Failed birthday notification side effect for guardian onboarding status", error);
   }
-  return decorated;
+
+  // Return the first athlete as primary for backward compatibility, but include allAthletes
+  return {
+    ...decoratedAthletes[0],
+    allAthletes: decoratedAthletes,
+  };
 }
 
 export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$inferSelect) {

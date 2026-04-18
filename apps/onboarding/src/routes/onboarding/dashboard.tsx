@@ -14,6 +14,7 @@ import {
 	Warning,
 	IdentificationCard,
 	Clock,
+	CheckCircle,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
@@ -80,6 +81,9 @@ function Dashboard() {
 	const isYouth = userData.athleteType === "youth";
 	const isAdult = userData.athleteType === "adult";
 	const isTeam = userData.role === "coach";
+	const isGuardian = userData.role === "guardian";
+
+	const athletesData = userData.allAthletes || (userData.athleteId ? [userData] : []);
 
 	const formatDate = (dateString: string | null) => {
 		if (!dateString) return "N/A";
@@ -181,6 +185,66 @@ function Dashboard() {
 						)}
 					</Card>
 				</div>
+
+				{/* Athletes Performance Section */}
+				{athletesData.length > 0 && (
+					<div className="space-y-6">
+						<div className="flex items-center gap-3">
+							<TrendUp size={24} weight="bold" className="text-primary" />
+							<h2 className="text-xl font-black uppercase italic">Performance Stats</h2>
+						</div>
+
+						<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+							{athletesData.map((athlete: any) => (
+								<Card key={athlete.id} className="p-6 rounded-[2rem] border-border/60 bg-card/40 backdrop-blur-md shadow-xl space-y-4 hover:border-primary/40 transition-colors">
+									<div className="flex items-center justify-between border-b border-border/40 pb-3">
+										<div className="flex items-center gap-3">
+											<div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+												<User size={20} weight="bold" />
+											</div>
+											<div className="flex flex-col">
+												<span className="text-sm font-black uppercase tracking-tight leading-none">
+													{athlete.name || athlete.athleteName}
+												</span>
+												<span className="text-[10px] font-bold text-muted-foreground uppercase">
+													{athlete.athleteType}
+												</span>
+											</div>
+										</div>
+										<div className="bg-primary/20 text-primary text-[10px] font-black uppercase px-2 py-1 rounded-lg">
+											{athlete.currentProgramTier || "No Tier"}
+										</div>
+									</div>
+
+									<div className="grid grid-cols-2 gap-4">
+										<div className="space-y-1">
+											<span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+												Finished Sessions
+											</span>
+											<div className="flex items-center gap-2">
+												<CheckCircle size={16} weight="bold" className="text-green-500" />
+												<span className="text-lg font-black text-foreground">
+													{athlete.trainingStats?.finishedSessions || 0}
+												</span>
+											</div>
+										</div>
+										<div className="space-y-1">
+											<span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+												Finished Modules
+											</span>
+											<div className="flex items-center gap-2">
+												<Layout size={16} weight="bold" className="text-primary" />
+												<span className="text-lg font-black text-foreground">
+													{athlete.trainingStats?.finishedModules || 0}
+												</span>
+											</div>
+										</div>
+									</div>
+								</Card>
+							))}
+						</div>
+					</div>
+				)}
 
 				<div className="grid gap-6 md:grid-cols-2">
 					{/* Detailed Athlete Info */}
