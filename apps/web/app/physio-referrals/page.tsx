@@ -409,12 +409,13 @@ export default function ReferralsPage() {
   ) => {
     try {
       setUploading(true);
-      const { uploadUrl, publicUrl } = await createUploadUrl({
-        folder: "referrals",
-        fileName: `${Date.now()}-${file.name}`,
-        contentType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-      }).unwrap();
+	      const { uploadUrl, publicUrl } = await createUploadUrl({
+	        folder: "referrals",
+	        fileName: `${Date.now()}-${file.name}`,
+	        contentType: file.type || "application/octet-stream",
+	        sizeBytes: file.size,
+	        client: "web",
+	      }).unwrap();
 
       await fetch(uploadUrl, {
         method: "PUT",

@@ -140,12 +140,13 @@ export default function AddUserPage() {
 
     try {
       setIsUploadingAthletePhoto(true);
-      const { uploadUrl, publicUrl } = await createUploadUrl({
-        folder: "athlete-profile-pictures",
-        fileName: `${Date.now()}-${file.name}`,
-        contentType: file.type,
-        sizeBytes: file.size,
-      }).unwrap();
+	      const { uploadUrl, publicUrl } = await createUploadUrl({
+	        folder: "athlete-profile-pictures",
+	        fileName: `${Date.now()}-${file.name}`,
+	        contentType: file.type,
+	        sizeBytes: file.size,
+	        client: "web",
+	      }).unwrap();
 
       const uploadResponse = await fetch(uploadUrl, {
         method: "PUT",

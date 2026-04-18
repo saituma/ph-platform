@@ -85,7 +85,10 @@ export function createApp() {
   app.use(express.json({ limit: bodyLimit }));
   app.use(express.urlencoded({ extended: false, limit: bodyLimit }));
   app.use((req, res, next) => {
-    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && !req.path.startsWith("/api/billing/webhook")) {
+    const path = req.path ?? "";
+    const isStripeWebhook = path.startsWith("/api/billing/webhook");
+    const isMediaUpload = path.startsWith("/api/media/upload");
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && !isStripeWebhook && !isMediaUpload) {
       const contentType = req.headers["content-type"] ?? "";
       if (!contentType.toString().includes("application/json")) {
         return res.status(415).json({ error: "Content-Type must be application/json" });

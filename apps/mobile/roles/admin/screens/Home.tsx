@@ -184,24 +184,13 @@ export default function AdminHomeScreen() {
                             Admin
                         </Text>
                     </View>
-                    <Text className="text-base font-outfit text-secondary leading-relaxed">
-                        Monitor engagement, manage bookings, and broadcast updates.
-                    </Text>
                 </Animated.View>
 
-                {/* Command Center */}
                 <Animated.View
                     entering={FadeInDown.delay(150).duration(400)}
                     className="mb-6 px-6"
                 >
                     <AdminCard>
-                        <View className="flex-row items-center gap-2 mb-6">
-                            <View className="w-2 h-2 rounded-full bg-accent" />
-                            <Text className="text-[13px] font-outfit-bold font-bold uppercase tracking-widest text-app">
-                                Command Center
-                            </Text>
-                        </View>
-
                         <View className="flex-row flex-wrap" style={{ marginHorizontal: -8, marginBottom: -16 }}>
                             {commandActions.map((action) => (
                                 <View

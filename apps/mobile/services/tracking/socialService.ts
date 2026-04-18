@@ -19,6 +19,7 @@ export type SocialRunFeedItem = {
   durationSeconds: number;
   avgPace: number | null;
   commentCount: number;
+  pathPreview: { latitude: number; longitude: number }[] | null;
 };
 
 export type SocialCommentItem = {
@@ -112,6 +113,27 @@ export async function fetchRunFeed(
     `/social/runs?${q}`,
     { token, suppressLog: true, skipCache: true, forceRefresh: true },
   );
+}
+
+export async function fetchRunDetail(token: string, runLogId: number) {
+  return apiRequest<{
+    item: {
+      runLogId: number;
+      userId: number;
+      name: string;
+      avatarUrl: string | null;
+      date: string;
+      distanceMeters: number;
+      durationSeconds: number;
+      avgPace: number | null;
+      path: { latitude: number; longitude: number }[] | null;
+    };
+  }>(`/social/runs/${encodeURIComponent(String(runLogId))}`, {
+    token,
+    suppressLog: true,
+    skipCache: true,
+    forceRefresh: true,
+  });
 }
 
 export async function fetchRunComments(token: string, runLogId: number) {

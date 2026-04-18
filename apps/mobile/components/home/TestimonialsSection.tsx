@@ -72,7 +72,9 @@ function TestimonialCard({ item, colors, isDark, cardWidth }: { item: Testimonia
           </View>
           <View className="flex-1">
             <Text className="font-clash font-bold text-app text-[16px]">{item.name}</Text>
-            <Text className="text-secondary font-outfit text-[12px] mt-0.5">{item.role || "Verified Athlete"}</Text>
+            {item.role ? (
+              <Text className="text-secondary font-outfit text-[12px] mt-0.5">{item.role}</Text>
+            ) : null}
           </View>
         </View>
       </View>
@@ -115,14 +117,8 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
 
   return (
     <View>
-      <View className="flex-row items-end justify-between px-6 mb-6">
-        <View>
-          <View className="flex-row items-center gap-2 mb-1">
-            <View className="h-1.5 w-1.5 rounded-full bg-accent" />
-            <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2px]">Real Results</Text>
-          </View>
-          <Text className="text-[26px] font-clash font-bold text-app leading-tight">Athletes Speak</Text>
-        </View>
+      <View className="flex-row items-end justify-between px-6 mb-4">
+        <Text className="text-lg font-clash font-bold text-app">Testimonials</Text>
 
         <View className="flex-row gap-1.5 mb-1.5">
           {testimonials.map((_, i) => (

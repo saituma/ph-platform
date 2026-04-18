@@ -3,6 +3,7 @@ import React, {
   ReactNode,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -20,9 +21,9 @@ type RequestListener = (index: number) => void;
 
 let _activeIndex = 0;
 let _tabRouteKeys: string[] = [
+  "index",
   "programs",
   "messages",
-  "index",
   "schedule",
   "tracking",
   "more",
@@ -102,9 +103,11 @@ export function ActiveTabProvider({
   currentTabIndex,
   children,
 }: ActiveTabContextType & { children: ReactNode }) {
+  const value = useMemo(
+    () => ({ activeTabIndex, currentTabIndex }),
+    [activeTabIndex, currentTabIndex],
+  );
   return (
-    <ActiveTabContext.Provider value={{ activeTabIndex, currentTabIndex }}>
-      {children}
-    </ActiveTabContext.Provider>
+    <ActiveTabContext.Provider value={value}>{children}</ActiveTabContext.Provider>
   );
 }

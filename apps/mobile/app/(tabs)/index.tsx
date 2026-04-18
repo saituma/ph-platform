@@ -7,7 +7,6 @@ import { Shadows } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
   Image,
   Pressable,
   RefreshControl,
@@ -70,12 +69,14 @@ const QuickLink = ({
         >
           {label}
         </Text>
-        <Text
-          className="text-[11px] font-outfit text-secondary"
-          numberOfLines={1}
-        >
-          {sublabel}
-        </Text>
+        {sublabel ? (
+          <Text
+            className="text-[11px] font-outfit text-secondary"
+            numberOfLines={1}
+          >
+            {sublabel}
+          </Text>
+        ) : null}
       </View>
     </AnimatedTouchableOpacity>
   );
@@ -95,13 +96,6 @@ export default function HomeScreen() {
     token,
     bootstrapReady,
   );
-
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
-  }, []);
 
   const firstName = useMemo(() => {
     const candidate = profile?.name?.trim()?.split(/\s+/)[0];
@@ -125,23 +119,12 @@ export default function HomeScreen() {
     return trimmed.length ? trimmed : null;
   }, [activeAthlete?.team]);
 
-  const fallbackWelcome = useMemo(() => {
-    const opening =
-      greeting === "Good morning"
-        ? "You're set up for a strong start today."
-        : greeting === "Good afternoon"
-          ? "Keep your momentum going and stay locked in."
-          : "Finish the day strong and stay connected to your training.";
-
-    return `${opening} Check your next steps, stay consistent, and keep building.`;
-  }, [greeting]);
-
   const resolvedWelcomeMessage = useMemo(() => {
     if (welcomeHeroState === "ready") {
-      return homeContent?.welcome?.trim() || homeContent?.headline?.trim();
+      return homeContent?.welcome?.trim() || homeContent?.headline?.trim() || "";
     }
-    return fallbackWelcome;
-  }, [welcomeHeroState, homeContent, fallbackWelcome]);
+    return "";
+  }, [welcomeHeroState, homeContent]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -214,23 +197,6 @@ export default function HomeScreen() {
             />
             <View className="flex-row items-start justify-between">
               <View className="flex-1 pr-4">
-                <View
-                  className="mb-3 self-start rounded-full px-3 py-2"
-                  style={{ backgroundColor: colors.accentLight }}
-                >
-                  <View className="flex-row items-center gap-2">
-                    <View
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: colors.accent }}
-                    />
-                    <Text
-                      className="text-[11px] font-outfit font-bold uppercase tracking-[1.8px]"
-                      style={{ color: colors.accent }}
-                    >
-                      {greeting}
-                    </Text>
-                  </View>
-                </View>
                 <Text className="font-clash text-[34px] font-bold leading-tight text-app">
                   Welcome back, {firstName}
                 </Text>
@@ -253,12 +219,14 @@ export default function HomeScreen() {
                   </View>
                 ) : (
                   <>
-                    <Text
-                      className="mt-4 text-[16px] font-outfit leading-7"
-                      style={{ color: colors.textSecondary }}
-                    >
-                      {resolvedWelcomeMessage}
-                    </Text>
+                    {resolvedWelcomeMessage ? (
+                      <Text
+                        className="mt-4 text-[16px] font-outfit leading-7"
+                        style={{ color: colors.textSecondary }}
+                      >
+                        {resolvedWelcomeMessage}
+                      </Text>
+                    ) : null}
 
                     {welcomeHeroState === "error" ? (
                       <Pressable
@@ -321,56 +289,15 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
             </View>
-
-            <View className="mt-5 flex-row items-center gap-3">
-              <View
-                className="rounded-full px-3 py-2"
-                style={{
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.06)"
-                    : colors.backgroundSecondary,
-                }}
-              >
-                <Text
-                  className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px]"
-                  style={{ color: colors.textSecondary }}
-                >
-                  {welcomeHeroState === "ready"
-                    ? "Personalized welcome"
-                    : welcomeHeroState === "error"
-                      ? "Using offline fallback"
-                      : "Daily focus"}
-                </Text>
-              </View>
-              <Text
-                className="flex-1 text-[12px] font-outfit"
-                style={{ color: colors.textSecondary }}
-              >
-                {welcomeHeroState === "ready"
-                  ? "Your latest home message is ready."
-                  : "Your training is still here and ready even when content needs a moment."}
-              </Text>
-            </View>
           </View>
         </Animated.View>
 
-        {/* Command Center - Refined Two-Column Layout */}
         <View className="mb-10 px-6">
-          <Animated.View
-            entering={FadeInDown.delay(300).duration(600)}
-            className="flex-row items-center justify-between mb-4"
-          >
-            <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2.5px]">
-              Command Center
-            </Text>
-          </Animated.View>
-
           <View className="flex-row gap-4">
             <QuickLink
               index={0}
               icon="edit-3"
               label="Nutrition"
-              sublabel="Daily tracking"
               onPress={() => router.push("/nutrition")}
               colors={colors}
               isDark={isDark}
@@ -380,7 +307,6 @@ export default function HomeScreen() {
                 index={1}
                 icon="activity"
                 label="Run Tracking"
-                sublabel="Lace up & go"
                 onPress={() => router.push("/(tabs)/tracking")}
                 colors={colors}
                 isDark={isDark}
@@ -390,7 +316,6 @@ export default function HomeScreen() {
                 index={1}
                 icon="users"
                 label="Parent Platform"
-                sublabel="Family support"
                 onPress={() => router.push("/parent-platform")}
                 colors={colors}
                 isDark={isDark}
@@ -414,12 +339,6 @@ export default function HomeScreen() {
                     .duration(400)
                     .easing(Easing.out(Easing.cubic))}
                 >
-                  <View className="flex-row items-center gap-2 mb-4">
-                    <View className="h-1.5 w-1.5 rounded-full bg-accent" />
-                    <Text className="text-[11px] font-outfit font-bold text-secondary uppercase tracking-[2px]">
-                      Featured Highlight
-                    </Text>
-                  </View>
                   <IntroVideoSection
                     introVideoUrl={homeContent.introVideoUrl}
                     posterUrl={homeContent.heroImageUrl ?? null}

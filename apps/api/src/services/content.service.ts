@@ -275,7 +275,14 @@ export async function getHomeContentForUser(userId: number) {
     .from(contentTable)
     .where(eq(contentTable.surface, "home"))
     .orderBy(desc(contentTable.updatedAt));
-  return items.filter((item) => matchesAgeRange(item, age));
+  const filtered = items.filter((item) => matchesAgeRange(item, age));
+  // Age cohort often isn't resolved yet (onboarding, guardian before athlete sync). Strict ageList
+  // filtering would return [] and the app shows no intro video / story / testimonials. Fall back to
+  // all home rows until we know age; once age exists, filtering stays precise.
+  if (filtered.length === 0 && age === null && items.length > 0) {
+    return items;
+  }
+  return filtered;
 }
 
 export async function getLegalContentForUser() {

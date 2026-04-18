@@ -61,6 +61,8 @@ function resolveNavigationPathFromPushData(
 
 export function usePushNotificationResponses(enabled: boolean) {
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const lastHandledNotificationRef = useRef<string | null>(null);
   const { appRole, apiUserRole, token } = useAppSelector((state) => state.user);
   const rolePrefix = getMessagesRolePrefix({ appRole, apiUserRole });
@@ -173,42 +175,44 @@ export function usePushNotificationResponses(enabled: boolean) {
         rolePrefix,
         data as Record<string, unknown> | undefined,
       );
+      const nav = routerRef.current;
       if (mappedPath) {
         if (!isSafeInternalPath(mappedPath)) return;
         if (mappedPath.startsWith("/messages/")) {
           const thread = mappedPath.replace("/messages/", "");
-          router.push(messagesThreadHref(rolePrefix, thread));
+          nav.push(messagesThreadHref(rolePrefix, thread));
           return;
         }
-        router.push(mappedPath as any);
+        nav.push(mappedPath as any);
         return;
       }
       const threadId = data?.threadId;
       if (threadId) {
-        router.push(messagesThreadHref(rolePrefix, String(threadId)));
+        nav.push(messagesThreadHref(rolePrefix, String(threadId)));
         return;
       }
       if (data?.type === "booking" || data?.screen === "schedule") {
-        router.push("/(tabs)/schedule");
+        nav.push("/(tabs)/schedule");
         return;
       }
       if (data?.screen === "messages") {
-        router.push("/(tabs)/messages");
+        nav.push("/(tabs)/messages");
         return;
       }
       if (data?.screen === "progress" || data?.type === "progress_reminder") {
-        router.push("/progress");
+        nav.push("/progress");
         return;
       }
       if (data?.screen === "plans" || data?.type === "plan_approved") {
-        router.push("/plans");
+        // Legacy `plans` route removed; land in Programs.
+        nav.push("/(tabs)/programs");
         return;
       }
       if (
         data?.screen === "physio-referral" ||
         data?.type === "physio-referral"
       ) {
-        router.push("/physio-referral");
+        nav.push("/physio-referral");
         return;
       }
       if (
@@ -216,9 +220,9 @@ export function usePushNotificationResponses(enabled: boolean) {
         (data?.contentId != null || data?.videoUploadId != null)
       ) {
         if (data.contentId != null) {
-          router.push(`/programs/content/${String(data.contentId)}`);
+          nav.push(`/programs/content/${String(data.contentId)}`);
         } else {
-          router.push("/video-upload");
+          nav.push("/video-upload");
         }
         return;
       }
@@ -253,5 +257,5 @@ export function usePushNotificationResponses(enabled: boolean) {
     return () => {
       sub?.remove();
     };
-  }, [enabled, rolePrefix, router, token]);
+  }, [enabled, rolePrefix, token]);
 }

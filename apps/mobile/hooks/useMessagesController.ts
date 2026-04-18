@@ -24,6 +24,8 @@ import {
 export function useMessagesController() {
   const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const { thread, id, draft: draftQuery } = useLocalSearchParams<{
     thread?: string;
     id?: string;
@@ -123,6 +125,9 @@ export function useMessagesController() {
     });
   }, [threads]);
 
+  const currentThreadId = currentThread?.id;
+  const currentThreadUnread = currentThread?.unread ?? 0;
+
   useEffect(() => {
     setReplyTarget(null);
   }, [currentThread?.id, setReplyTarget]);
@@ -142,14 +147,14 @@ export function useMessagesController() {
       draftRef.current = String(draftQuery);
       draftConsumedRef.current = key;
     }
-  }, [draftQuery, threadId, currentThread, setDraft, draftRef]);
+  }, [draftQuery, threadId, currentThread?.id, setDraft, draftRef]);
 
   const clearThread = useCallback(() => {
-    router.replace(messagesTabHref);
+    routerRef.current.replace(messagesTabHref);
     setSelectedThread(null);
     setOpeningThreadId(null);
     setPendingAttachment(null);
-  }, [messagesTabHref, router, setPendingAttachment, setSelectedThread]);
+  }, [messagesTabHref, setPendingAttachment, setSelectedThread]);
 
   const openThread = useCallback(
     (
@@ -160,12 +165,12 @@ export function useMessagesController() {
       if (openingThreadId === thread.id && threadId === thread.id) return;
       setOpeningThreadId(thread.id);
       setSelectedThread(thread);
-      router.push({
+      routerRef.current.push({
         pathname: `/${rolePrefix}/messages/[id]`,
         params: { id: thread.id, sharedBoundTag, sharedAvatarTag },
       } as any);
     },
-    [openingThreadId, rolePrefix, router, threadId, setSelectedThread],
+    [openingThreadId, rolePrefix, threadId, setSelectedThread],
   );
 
   const resetOpeningThread = useCallback(() => {
@@ -531,7 +536,7 @@ export function useMessagesController() {
       }
     }, 12000);
     return () => clearInterval(interval);
-  }, [currentThread, loadGroupMessages, loadMessages, socket?.connected]);
+  }, [currentThread?.id, loadGroupMessages, loadMessages, socket?.connected]);
 
   useEffect(() => {
     if (!socket?.connected) return;
@@ -546,14 +551,19 @@ export function useMessagesController() {
   }, [currentThread?.id, socket?.connected, socket]);
 
   useEffect(() => {
-    if (!currentThread) return;
-    if ((currentThread.unread ?? 0) === 0) return;
-    if (currentThread.id.startsWith("group:")) {
-      markGroupThreadRead(currentThread.id);
+    if (!currentThreadId) return;
+    if (currentThreadUnread === 0) return;
+    if (currentThreadId.startsWith("group:")) {
+      markGroupThreadRead(currentThreadId);
       return;
     }
-    markDirectThreadReadById(currentThread.id);
-  }, [currentThread, markDirectThreadReadById, markGroupThreadRead]);
+    markDirectThreadReadById(currentThreadId);
+  }, [
+    currentThreadId,
+    currentThreadUnread,
+    markDirectThreadReadById,
+    markGroupThreadRead,
+  ]);
 
   useEffect(() => {
     let subscription: { remove: () => void } | null = null;
@@ -580,7 +590,7 @@ export function useMessagesController() {
             openThread(thread);
             return;
           }
-          router.push(messagesThreadHref(rolePrefix, threadId));
+          routerRef.current.push(messagesThreadHref(rolePrefix, threadId));
         },
       );
     });
@@ -588,23 +598,17 @@ export function useMessagesController() {
     return () => {
       subscription?.remove();
     };
-  }, [
-    markDirectThreadReadById,
-    openThread,
-    router,
-    threads,
-    rolePrefix,
-  ]);
+  }, [markDirectThreadReadById, openThread, threads, rolePrefix]);
 
   useEffect(() => {
-    if (Platform.OS !== "android" || !currentThread) return;
+    if (Platform.OS !== "android" || !currentThreadId) return;
     const handler = () => {
       clearThread();
       return true;
     };
     const sub = BackHandler.addEventListener("hardwareBackPress", handler);
     return () => sub.remove();
-  }, [clearThread, currentThread]);
+  }, [clearThread, currentThreadId]);
 
   const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(
     null,

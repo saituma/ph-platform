@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { useRouter } from "expo-router";
 import { Socket } from "socket.io-client";
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread } from "@/types/messages";
@@ -49,8 +48,6 @@ export function useChatActions({
   setIsThreadLoading,
   setGroupMembers,
 }: ChatActionsParams) {
-  const router = useRouter();
-
   const loadMessages = useCallback(
     async (options?: { silent?: boolean }) => {
       if (!token) {

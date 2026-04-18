@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Redirect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { AgeGate } from "@/components/AgeGate";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { programDetailRouteIdFromTier } from "@/lib/planAccess";
+import { ProgramDetailPanel } from "@/components/programs/ProgramDetailPanel";
+import { SafeMaskedView } from "@/components/navigation/TransitionStack";
+import type { ProgramId } from "@/constants/program-details";
 
 import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
 import { TeamProgramView } from "@/components/programs/TeamProgramView";
@@ -43,6 +46,12 @@ export default function ProgramsScreen() {
   } = useTeamWorkspace(token, activeAthlete?.age ?? null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  /**
+   * Non-team: show program detail **inside the Programs tab** (no `router.push` to `programs/[id]`).
+   * Pushing the stack route from this screen could run while another tab was visible (pager mounts
+   * all pages) or race native tab index — leaving program detail as the root stack screen on cold start.
+   */
 
   useEffect(() => {
     if (isTeamMode) {
@@ -90,6 +99,21 @@ export default function ProgramsScreen() {
     );
   }
 
-  const detailId = programDetailRouteIdFromTier(programTier);
-  return <Redirect href={`/programs/${detailId}`} />;
+  const programId = programDetailRouteIdFromTier(programTier) as ProgramId;
+
+  return (
+    <SafeAreaView
+      className="flex-1 bg-app"
+      edges={["top"]}
+      style={{ backgroundColor: colors.background }}
+    >
+      <SafeMaskedView style={{ flex: 1 }}>
+        <ProgramDetailPanel
+          programId={programId}
+          showBack={false}
+          onNavigate={(path) => router.push(path as any)}
+        />
+      </SafeMaskedView>
+    </SafeAreaView>
+  );
 }

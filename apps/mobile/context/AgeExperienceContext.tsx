@@ -1,4 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -90,15 +97,20 @@ export function AgeExperienceProvider({ children }: { children: React.ReactNode 
     [config.hiddenSections]
   );
 
+  const isSectionHidden = useCallback(
+    (sectionId: string) => hiddenSections.includes(sectionId),
+    [hiddenSections],
+  );
+
   const value = useMemo(
     () => ({
       isLoading,
       config,
       hiddenSections,
-      isSectionHidden: (sectionId: string) => hiddenSections.includes(sectionId),
+      isSectionHidden,
       refreshExperience,
     }),
-    [config, hiddenSections, isLoading, refreshExperience]
+    [config, hiddenSections, isLoading, isSectionHidden, refreshExperience]
   );
 
   return <AgeExperienceContext.Provider value={value}>{children}</AgeExperienceContext.Provider>;

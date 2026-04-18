@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Pressable, SafeAreaView, ScrollView } from "react-native";
+import { View, Pressable, SafeAreaView, ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRunStore } from "../../../store/useRunStore";
@@ -23,6 +23,7 @@ import { TrackingMetricTile } from "../../../components/tracking/TrackingMetricT
 import { haversineDistance } from "../../../lib/haversine";
 import { TrackingMapView } from "../../../components/tracking/TrackingMapView";
 import { MapStyleSwitcher } from "../../../components/tracking/MapStyleSwitcher";
+import { BlurView } from "expo-blur";
 import type {
   TrackingMapLayer,
   TrackingMapStyle,
@@ -256,6 +257,32 @@ export default function RunSummaryScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      {coordinates.length > 0 && initialRegion ? (
+        <>
+          <TrackingMapView
+            style={StyleSheet.absoluteFillObject}
+            initialRegion={initialRegion}
+            userInterfaceStyle={isDark ? "dark" : "light"}
+            layers={summaryMapLayers}
+            fitBounds
+            mapStyle={mapStyle}
+          />
+          <BlurView
+            pointerEvents="none"
+            intensity={isDark ? 14 : 10}
+            tint={isDark ? "dark" : "light"}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFillObject,
+              { backgroundColor: isDark ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.06)" },
+            ]}
+          />
+        </>
+      ) : null}
+
       <Animated.ScrollView 
         bounces={true} 
         showsVerticalScrollIndicator={false}
@@ -304,7 +331,7 @@ export default function RunSummaryScreen() {
         </View>
 
         <View style={{ 
-          backgroundColor: isDark ? colors.card : colors.cardElevated, 
+          backgroundColor: isDark ? "rgba(15,15,30,0.72)" : "rgba(255,255,255,0.78)", 
           borderColor: colors.border, 
           borderWidth: 1, 
           borderRadius: radius.xxl, 

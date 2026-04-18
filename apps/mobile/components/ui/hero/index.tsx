@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { HeroUINativeProvider, type HeroUINativeConfig } from "heroui-native";
 import {
   Pressable,
@@ -71,17 +71,20 @@ type UISkeletonProps = {
 };
 
 export function HeroAppProvider({ children }: { children: React.ReactNode }) {
-  const config: HeroUINativeConfig = {
-    textProps: {
-      allowFontScaling: false,
-      maxFontSizeMultiplier: 1.2,
-      adjustsFontSizeToFit: false,
-    },
-    toast: false,
-    devInfo: {
-      stylingPrinciples: false,
-    },
-  };
+  const config = useMemo<HeroUINativeConfig>(
+    () => ({
+      textProps: {
+        allowFontScaling: false,
+        maxFontSizeMultiplier: 1.2,
+        adjustsFontSizeToFit: false,
+      },
+      toast: false,
+      devInfo: {
+        stylingPrinciples: false,
+      },
+    }),
+    [],
+  );
 
   return <HeroUINativeProvider config={config}>{children}</HeroUINativeProvider>;
 }

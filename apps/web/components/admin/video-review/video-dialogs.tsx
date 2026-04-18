@@ -232,12 +232,13 @@ export function VideoDialogs({
       setIsUploading(true);
       setUploadProgress(0);
       const uniqueName = makeUniqueName(fileName);
-      const result = await createUploadUrl({
-        folder: "video-review/coach-response",
-        fileName: uniqueName,
-        contentType: blob.type || "application/octet-stream",
-        sizeBytes: blob.size,
-      }).unwrap();
+	      const result = await createUploadUrl({
+	        folder: "video-review/coach-response",
+	        fileName: uniqueName,
+	        contentType: blob.type || "application/octet-stream",
+	        sizeBytes: blob.size,
+	        client: "web",
+	      }).unwrap();
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.upload.onprogress = (event) => {

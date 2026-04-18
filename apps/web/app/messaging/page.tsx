@@ -1059,12 +1059,13 @@ export default function MessagingPage() {
     const safeName = `${Date.now()}-${file.name.replace(/\\s+/g, "-")}`;
     try {
       setIsUploadingMedia(true);
-      const presign = await createMediaUploadUrl({
-        folder: "messages",
-        fileName: safeName,
-        contentType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-      }).unwrap();
+	      const presign = await createMediaUploadUrl({
+	        folder: "messages",
+	        fileName: safeName,
+	        contentType: file.type || "application/octet-stream",
+	        sizeBytes: file.size,
+	        client: "web",
+	      }).unwrap();
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();

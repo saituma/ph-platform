@@ -53,12 +53,13 @@ export function ParentCourseMediaUpload({
     try {
       setIsUploading(true);
       setProgress(0);
-      const result = await createUploadUrl({
-        folder,
-        fileName: file.name,
-        contentType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-      }).unwrap();
+	      const result = await createUploadUrl({
+	        folder,
+	        fileName: file.name,
+	        contentType: file.type || "application/octet-stream",
+	        sizeBytes: file.size,
+	        client: "web",
+	      }).unwrap();
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();

@@ -138,6 +138,22 @@ describe("content.service", () => {
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe(1);
     });
+
+    test("TC-C021: getHomeContentForUser returns all home rows when age is unresolved and cohort filter would exclude everything", async () => {
+      let callCount = 0;
+      mockSelect.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return createMockChain([]);
+        if (callCount === 2) {
+          return createMockChain([{ id: 7, surface: "home", ageList: [12], body: "{}" }]);
+        }
+        return createMockChain([]);
+      });
+
+      const result = await getHomeContentForUser(1);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(7);
+    });
   });
 
   test("TC-C007: matchesAgeRange handles null age correctly", () => {

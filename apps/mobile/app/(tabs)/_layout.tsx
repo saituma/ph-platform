@@ -1,9 +1,5 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { View } from "react-native";
-import {
-  Redirect,
-  Slot,
-} from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { isAdminRole } from "@/lib/isAdminRole";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
@@ -15,11 +11,12 @@ import { YouthLayout } from "@/roles/youth/YouthLayout";
 
 import { usePushNotificationResponses } from "@/hooks/navigation/usePushNotificationResponses";
 import { useProfileSync } from "@/hooks/navigation/useProfileSync";
-import {
-  useSafePathname,
-  useSafeRouter,
-  useSafeSegments,
-} from "@/hooks/navigation/useSafeExpoRouter";
+import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
+
+// Ensure `router.replace("/(tabs)")` and cold starts land on Home, not Programs.
+export const unstable_settings = {
+  initialRouteName: "index",
+};
 
 export default function TabLayout() {
   const {
@@ -34,9 +31,6 @@ export default function TabLayout() {
   } = useAppSelector((state) => state.user);
 
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
-  const router = useSafeRouter();
-  const pathname = useSafePathname("");
-  const segments = useSafeSegments([]);
 
   const forceLogout =
     process.env.EXPO_PUBLIC_FORCE_LOGOUT === "1" ||
@@ -64,7 +58,7 @@ export default function TabLayout() {
   }
 
   if (!effectiveAuth) {
-    return <Redirect href="/(auth)/login" />;
+    return <ReplaceOnce href="/(auth)/login" />;
   }
 
   // Role Switching Logic

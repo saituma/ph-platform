@@ -29,6 +29,35 @@ const ALLOWED_REACTION_EMOJIS = new Set([
   "😡",
 ]);
 
+type LatLng = { latitude: number; longitude: number };
+
+function parseLatLngs(raw: unknown): LatLng[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: LatLng[] = [];
+  for (const v of raw) {
+    if (!v || typeof v !== "object") continue;
+    const anyV = v as any;
+    const lat = typeof anyV.latitude === "number" ? anyV.latitude : anyV.lat;
+    const lng = typeof anyV.longitude === "number" ? anyV.longitude : anyV.lng;
+    if (typeof lat !== "number" || typeof lng !== "number") continue;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    out.push({ latitude: lat, longitude: lng });
+  }
+  return out.length ? out : null;
+}
+
+function downsample(points: LatLng[], maxPoints: number): LatLng[] {
+  if (points.length <= maxPoints) return points;
+  const stride = Math.max(1, Math.ceil(points.length / maxPoints));
+  const out: LatLng[] = [points[0]!];
+  for (let i = stride; i < points.length - 1; i += stride) {
+    out.push(points[i]!);
+    if (out.length >= maxPoints - 1) break;
+  }
+  out.push(points[points.length - 1]!);
+  return out;
+}
+
 export async function assertAdultAthlete(userId: number): Promise<void> {
   const athlete = await db
     .select({
@@ -220,6 +249,7 @@ export async function listPublicRuns(input: {
       durationSeconds: runLogTable.durationSeconds,
       avgPace: runLogTable.avgPace,
       commentCount: commentsExpr,
+      coordinates: runLogTable.coordinates,
     })
     .from(runLogTable)
     .innerJoin(userTable, eq(userTable.id, runLogTable.userId))
@@ -240,6 +270,10 @@ export async function listPublicRuns(input: {
 
   return {
     items: page.map((r) => ({
+      pathPreview: (() => {
+        const pts = parseLatLngs(r.coordinates);
+        return pts ? downsample(pts, 80) : null;
+      })(),
       runLogId: r.runLogId,
       userId: r.userId,
       name: r.name,
@@ -251,6 +285,49 @@ export async function listPublicRuns(input: {
       commentCount: Number(r.commentCount ?? 0),
     })),
     nextCursor,
+  };
+}
+
+export async function getPublicRunDetail(input: { viewerUserId: number; runLogId: number }) {
+  // Validates that the run is adult + public.
+  await ensurePublicAdultRun(input.runLogId);
+
+  const row = await db
+    .select({
+      runLogId: runLogTable.id,
+      userId: runLogTable.userId,
+      name: userTable.name,
+      profilePicture: userTable.profilePicture,
+      date: runLogTable.date,
+      distanceMeters: runLogTable.distanceMeters,
+      durationSeconds: runLogTable.durationSeconds,
+      avgPace: runLogTable.avgPace,
+      coordinates: runLogTable.coordinates,
+    })
+    .from(runLogTable)
+    .innerJoin(userTable, eq(userTable.id, runLogTable.userId))
+    .innerJoin(athleteTable, eq(athleteTable.userId, runLogTable.userId))
+    .where(and(eq(runLogTable.id, input.runLogId), eq(athleteTable.athleteType, "adult"), eq(runLogTable.visibility, "public")))
+    .limit(1);
+
+  if (!row.length) {
+    throw new SocialAccessError("NOT_FOUND", "Run not found");
+  }
+
+  const r = row[0]!;
+  const pts = parseLatLngs(r.coordinates);
+  const path = pts ? downsample(pts, 1200) : null;
+
+  return {
+    runLogId: r.runLogId,
+    userId: r.userId,
+    name: r.name,
+    avatarUrl: normalizeStoredMediaUrl(r.profilePicture ?? null),
+    date: r.date.toISOString(),
+    distanceMeters: r.distanceMeters,
+    durationSeconds: r.durationSeconds,
+    avgPace: r.avgPace ?? null,
+    path,
   };
 }
 
