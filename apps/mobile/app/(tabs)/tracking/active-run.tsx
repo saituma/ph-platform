@@ -76,11 +76,7 @@ export default function ActiveRunScreen() {
     routeMetrics,
     isFetchingRoute,
     isWarmedUp,
-  } = ((useRunTrackingEngine as any)(
-    toastTranslateY,
-    insets.top,
-    { osrmRoutingEnabled },
-  ) as ReturnType<typeof useRunTrackingEngine>);
+  } = useRunTrackingEngine(toastTranslateY, insets.top, { osrmRoutingEnabled });
 
   const bottomBarHeight = 88;
   const overlayGap = 16;
