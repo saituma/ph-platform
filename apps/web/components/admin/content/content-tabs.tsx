@@ -69,6 +69,87 @@ export function ContentTabs({
   const adminStoryRef = useRef<HTMLTextAreaElement | null>(null);
   const [showAdminStoryPreview, setShowAdminStoryPreview] = useState(false);
 
+  const getYoutubeEmbedUrl = (raw: string): string | null => {
+    try {
+      const input = raw.trim();
+      if (!input) return null;
+      const url = new URL(input);
+      const host = url.hostname.toLowerCase();
+      const pathname = url.pathname;
+      const isYoutube =
+        host === "youtu.be" ||
+        host.endsWith("youtube.com") ||
+        host.endsWith("youtube-nocookie.com");
+      if (!isYoutube) return null;
+
+      const extractId = () => {
+        if (host === "youtu.be") {
+          return pathname.replace(/^\/+/, "").split("/")[0] || null;
+        }
+        if (pathname.startsWith("/watch")) {
+          return url.searchParams.get("v");
+        }
+        if (pathname.startsWith("/shorts/")) {
+          return pathname.split("/")[2] || null;
+        }
+        if (pathname.startsWith("/embed/")) {
+          return pathname.split("/")[2] || null;
+        }
+        return url.searchParams.get("v");
+      };
+
+      const id = extractId();
+      if (!id) return null;
+      const safeId = id.replace(/[^a-zA-Z0-9_-]/g, "");
+      if (!safeId) return null;
+      return `https://www.youtube.com/embed/${safeId}`;
+    } catch {
+      return null;
+    }
+  };
+
+  const getLoomEmbedUrl = (raw: string): string | null => {
+    try {
+      const input = raw.trim();
+      if (!input) return null;
+      const url = new URL(input);
+      const host = url.hostname.toLowerCase();
+      if (!host.endsWith("loom.com")) return null;
+      const path = url.pathname.replace(/^\/+/, "");
+      const parts = path.split("/");
+      const kind = parts[0];
+      const id = parts[1] || "";
+      if (!id) return null;
+      const safeId = id.replace(/[^a-zA-Z0-9_-]/g, "");
+      if (!safeId) return null;
+      if (kind === "embed") return `https://www.loom.com/embed/${safeId}`;
+      if (kind === "share") return `https://www.loom.com/embed/${safeId}`;
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const isDirectVideoUrl = (raw: string): boolean => {
+    try {
+      const input = raw.trim();
+      if (!input) return false;
+      const url = new URL(input);
+      const path = url.pathname.toLowerCase();
+      return (
+        path.endsWith(".mp4") ||
+        path.endsWith(".webm") ||
+        path.endsWith(".mov") ||
+        path.endsWith(".m4v") ||
+        path.endsWith(".mkv") ||
+        path.endsWith(".ogg") ||
+        path.endsWith(".ogv")
+      );
+    } catch {
+      return false;
+    }
+  };
+
   const normalizeIntroRules = (rules: IntroVideoRule[]): IntroVideoRule[] => {
     const normalized = rules
       .map((rule) => ({
@@ -714,6 +795,38 @@ export function ContentTabs({
                           </Button>
                         </div>
 
+                        {(() => {
+                          const youtube = getYoutubeEmbedUrl(rule.url);
+                          const loom = getLoomEmbedUrl(rule.url);
+                          if (youtube || loom) {
+                            const src = youtube ?? loom!;
+                            return (
+                              <div className="overflow-hidden rounded-2xl border border-border bg-secondary/10 aspect-video">
+                                <iframe
+                                  src={src}
+                                  className="h-full w-full"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                  title="Intro video preview"
+                                />
+                              </div>
+                            );
+                          }
+                          if (isDirectVideoUrl(rule.url)) {
+                            return (
+                              <div className="overflow-hidden rounded-2xl border border-border bg-secondary/10">
+                                <video
+                                  src={rule.url}
+                                  controls
+                                  className="h-56 w-full object-cover"
+                                  preload="metadata"
+                                />
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
                         <div className="flex flex-wrap items-center gap-3">
                           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Roles
@@ -893,6 +1006,40 @@ export function ContentTabs({
                       </Button>
                     </div>
                   </div>
+
+                  {newIntroUrl.trim() ? (
+                    (() => {
+                      const youtube = getYoutubeEmbedUrl(newIntroUrl);
+                      const loom = getLoomEmbedUrl(newIntroUrl);
+                      if (youtube || loom) {
+                        const src = youtube ?? loom!;
+                        return (
+                          <div className="overflow-hidden rounded-2xl border border-border bg-secondary/10 aspect-video">
+                            <iframe
+                              src={src}
+                              className="h-full w-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              title="New intro video preview"
+                            />
+                          </div>
+                        );
+                      }
+                      if (isDirectVideoUrl(newIntroUrl)) {
+                        return (
+                          <div className="overflow-hidden rounded-2xl border border-border bg-secondary/10">
+                            <video
+                              src={newIntroUrl.trim()}
+                              controls
+                              className="h-56 w-full object-cover"
+                              preload="metadata"
+                            />
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()
+                  ) : null}
 
                   <p className="text-xs text-muted-foreground">
                     Each role can only have one intro video. One video can be used for multiple roles by selecting
