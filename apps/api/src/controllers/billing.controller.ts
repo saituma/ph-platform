@@ -8,7 +8,7 @@ import { env } from "../config/env";
 import { guardianTable } from "../db/schema";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { db } from "../db";
-import { getAthleteForUser, getGuardianAndAthlete } from "../services/user.service";
+import { getAthleteForUser } from "../services/user.service";
 import {
   approveSubscriptionRequest,
   confirmCheckoutSession,
@@ -111,7 +111,7 @@ export async function downgradePlan(req: Request, res: Response) {
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const { athlete } = await getGuardianAndAthlete(req.user!.id);
+  const athlete = await getAthleteForUser(req.user!.id);
   if (!athlete || !athlete.currentProgramTier) {
     return res.status(400).json({ error: "No active plan to downgrade" });
   }
@@ -154,7 +154,7 @@ export async function createCheckout(req: Request, res: Response) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { athlete } = await getGuardianAndAthlete(req.user!.id);
+  const athlete = await getAthleteForUser(req.user!.id);
   if (!athlete) {
     return res.status(400).json({ error: "No athlete profile found" });
   }
@@ -213,7 +213,7 @@ export async function createPaymentSheet(req: Request, res: Response) {
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const { athlete } = await getGuardianAndAthlete(req.user!.id);
+  const athlete = await getAthleteForUser(req.user!.id);
   if (!athlete) {
     return res.status(400).json({ error: "No athlete profile found" });
   }
