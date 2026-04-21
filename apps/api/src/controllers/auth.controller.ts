@@ -23,6 +23,31 @@ import { db } from "../db";
 import { teamTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 
+/** Roster/admin flows set `athletes.teamId` but may leave varchar `athletes.team` empty — resolve a real label for clients. */
+async function resolveAthleteTeamNameForMe(
+  athlete: { team?: unknown; teamId?: number | null } | null | undefined,
+): Promise<string | null> {
+  if (!athlete) return null;
+  const raw = typeof athlete.team === "string" ? athlete.team.trim() : "";
+  if (raw.length > 0 && raw.toLowerCase() !== "unknown") {
+    return raw;
+  }
+  const tid = athlete.teamId;
+  if (typeof tid === "number" && Number.isFinite(tid) && tid > 0) {
+    const [row] = await db
+      .select({ name: teamTable.name })
+      .from(teamTable)
+      .where(eq(teamTable.id, tid))
+      .limit(1);
+    const n = typeof row?.name === "string" ? row.name.trim() : "";
+    if (n.length > 0 && n.toLowerCase() !== "unknown") {
+      return n;
+    }
+    return n.length > 0 ? n : null;
+  }
+  return null;
+}
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -171,34 +196,41 @@ export async function getMe(req: Request, res: Response) {
     messagingAccessTiers,
   });
 
-  const team =
-    user.role === "coach" || user.role === "admin" || user.role === "superAdmin"
-      ? ((
-          await db
-            .select({
-              id: teamTable.id,
-              name: teamTable.name,
-              minAge: teamTable.minAge,
-              maxAge: teamTable.maxAge,
-              maxAthletes: teamTable.maxAthletes,
-              emailSlug: teamTable.emailSlug,
-              planId: teamTable.planId,
-              subscriptionStatus: teamTable.subscriptionStatus,
-              planExpiresAt: teamTable.planExpiresAt,
-              createdAt: teamTable.createdAt,
-              updatedAt: teamTable.updatedAt,
-            })
-            .from(teamTable)
-            .where(eq(teamTable.adminId, user.id))
-            .limit(1)
-        )[0] ?? null)
-      : null;
+  const isCoachRole =
+    user.role === "coach" || user.role === "admin" || user.role === "superAdmin";
+
+  const coachManagedTeam = isCoachRole
+    ? ((
+        await db
+          .select({
+            id: teamTable.id,
+            name: teamTable.name,
+            minAge: teamTable.minAge,
+            maxAge: teamTable.maxAge,
+            maxAthletes: teamTable.maxAthletes,
+            emailSlug: teamTable.emailSlug,
+            planId: teamTable.planId,
+            subscriptionStatus: teamTable.subscriptionStatus,
+            planExpiresAt: teamTable.planExpiresAt,
+            createdAt: teamTable.createdAt,
+            updatedAt: teamTable.updatedAt,
+          })
+          .from(teamTable)
+          .where(eq(teamTable.adminId, user.id))
+          .limit(1)
+      )[0] ?? null)
+    : null;
+
+  // Coach/admin: managed team record. Athletes/guardians: team name string (from row and/or teamId join).
+  const teamForUser = isCoachRole
+    ? coachManagedTeam
+    : await resolveAthleteTeamNameForMe(athlete);
 
   return res.status(200).json({
     user: {
       ...user,
       ...athlete, // Spread athlete data to include everything (trainingStats, planExpiresAt, etc.)
-      team,
+      team: teamForUser,
       programTier,
       athleteType: athlete?.athleteType ?? null,
       athleteName: athlete?.name ?? null,
