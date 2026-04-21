@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -13,7 +13,8 @@ import { fonts, radius, spacing, icons } from "@/constants/theme";
 import { getPersonalBests, getRecentRuns, getWeeklySummaries, initSQLiteRuns, RunRecord } from "../../../lib/sqliteRuns";
 import { RunCard } from "../../../components/tracking/RunCard";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { useAppSelector } from "@/store/hooks";
+import { useFocusEffect } from "@react-navigation/native";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
 import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
@@ -23,6 +24,17 @@ import { useRunStore } from "../../../store/useRunStore";
 import { syncRuns } from "../../../lib/runSync";
 import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
 import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
+import { apiRequest } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
+import { enrichTeamFieldsIfOnboardingHasThem } from "@/lib/auth/enrichTeamFromOnboarding";
+import { resolveAppRole } from "@/lib/appRole";
+import { hasOrgTeamMembership } from "@/lib/teamMembership";
+import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
+import {
+  setApiUserRole,
+  setAppRole,
+  setAuthTeamMembership,
+} from "@/store/slices/userSlice";
 
 const QUOTES = [
   "Rest is a weapon. Use it wisely.", // Sunday
@@ -38,8 +50,145 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function TrackingHomeScreen() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const { colors, isDark } = useAppTheme();
+  const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
+  const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
+  const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
+  /** Direct `/auth/me` parse for this screen — does not rely on bootstrap having run first. */
+  const [directMeTeam, setDirectMeTeam] = useState<{
+    team: string | null;
+    teamId: number | null;
+  } | null | undefined>(undefined);
+
+  const loadMeForTeamHeader = useCallback(async () => {
+    if (!token) {
+      if (__DEV__) {
+        console.log("[TrackingTab] loadMeForTeamHeader: no token, skip");
+      }
+      return;
+    }
+    try {
+      if (__DEV__) {
+        console.log("[TrackingTab] GET /auth/me — apiBaseUrl:", getApiBaseUrl());
+      }
+      const me = await apiRequest<{
+        user?: {
+          role?: string | null;
+          team?: unknown;
+          teamId?: unknown;
+          athleteType?: "youth" | "adult" | null;
+        };
+      }>("/auth/me", {
+        token,
+        forceRefresh: true,
+        suppressStatusCodes: [401, 403],
+      });
+      if (!me.user) {
+        if (__DEV__) {
+          console.warn("[TrackingTab] /auth/me: missing user", { me });
+        }
+        setDirectMeTeam(null);
+        return;
+      }
+      if (__DEV__) {
+        const u = me.user as Record<string, unknown>;
+        console.log("[TrackingTab] /auth/me user (subset)", {
+          id: u.id,
+          role: u.role,
+          team: u.team,
+          teamId: u.teamId,
+          athleteType: u.athleteType,
+          athleteId: u.athleteId,
+        });
+      }
+
+      const { fields, athleteType: athleteTypeForRole } =
+        await enrichTeamFieldsIfOnboardingHasThem({
+          token,
+          meUser: me.user,
+        });
+
+      if (__DEV__) {
+        console.log("[TrackingTab] team fields (after /onboarding fallback if needed)", fields);
+        console.log(
+          "[TrackingTab] resolveAppRole →",
+          resolveAppRole({
+            userRole: me.user.role ?? "guardian",
+            athlete: {
+              ...fields,
+              athleteType: athleteTypeForRole,
+            },
+          }),
+        );
+      }
+
+      setDirectMeTeam(fields);
+      dispatch(setAuthTeamMembership(fields));
+      dispatch(setApiUserRole(me.user.role ?? null));
+      dispatch(
+        setAppRole(
+          resolveAppRole({
+            userRole: me.user.role ?? "guardian",
+            athlete: {
+              ...fields,
+              athleteType: athleteTypeForRole,
+            },
+          }),
+        ),
+      );
+    } catch (err) {
+      if (__DEV__) {
+        console.warn("[TrackingTab] /auth/me request failed", err);
+      }
+      setDirectMeTeam(null);
+    }
+  }, [token, dispatch]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadMeForTeamHeader();
+    }, [loadMeForTeamHeader]),
+  );
+
+  const showTeamTab = useMemo(() => {
+    const fromDirectFetch =
+      directMeTeam != null && hasOrgTeamMembership(directMeTeam);
+    const fromRedux = shouldUseTeamTrackingFeatures({
+      appRole,
+      authTeamMembership,
+      firstManagedAthlete: managedAthletes[0] ?? null,
+    });
+    return fromDirectFetch || fromRedux;
+  }, [directMeTeam, appRole, authTeamMembership, managedAthletes]);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    const fromDirect =
+      directMeTeam != null && hasOrgTeamMembership(directMeTeam);
+    const fromRedux = shouldUseTeamTrackingFeatures({
+      appRole,
+      authTeamMembership,
+      firstManagedAthlete: managedAthletes[0] ?? null,
+    });
+    console.log("[TrackingTab] Team header gate", {
+      showTeamTab,
+      fromDirect,
+      fromRedux,
+      directMeTeam,
+      appRole,
+      authTeamMembership,
+      managedAthlete0: managedAthletes[0],
+    });
+  }, [
+    showTeamTab,
+    directMeTeam,
+    appRole,
+    authTeamMembership,
+    managedAthletes,
+  ]);
+
   const insets = useAppSafeAreaInsets();
   const isFocused = useSafeIsFocused(true);
   const [recentRuns, setRecentRuns] = useState<RunRecord[]>([]);
@@ -142,7 +291,7 @@ export default function TrackingHomeScreen() {
           isDark={isDark}
           topInset={insets.top + 12}
           paddingHorizontal={spacing.xl}
-          showTeamTab={appRole === "team"}
+          showTeamTab={showTeamTab}
         />
         {/* Section 1 - Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xxxl }}>

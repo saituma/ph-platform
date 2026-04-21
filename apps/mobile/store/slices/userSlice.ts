@@ -15,6 +15,7 @@ export type ManagedAthlete = {
   age?: number | null;
   athleteType?: "youth" | "adult" | null;
   team?: string | null;
+  teamId?: number | null;
   level?: string | null;
   trainingPerWeek?: number | null;
   profilePicture?: string | null;
@@ -58,6 +59,8 @@ interface UserState {
   athleteUserId: number | null;
   /** Onboarding questionnaire completion for the active athlete context. */
   onboardingCompleted: boolean | null;
+  /** From GET /auth/me — team label + roster id (survives appRole sync edge cases). */
+  authTeamMembership: { team: string | null; teamId: number | null } | null;
 }
 
 const initialState: UserState = {
@@ -80,6 +83,7 @@ const initialState: UserState = {
   capabilities: null,
   athleteUserId: null,
   onboardingCompleted: null,
+  authTeamMembership: null,
 };
 
 const userSlice = createSlice({
@@ -131,6 +135,12 @@ const userSlice = createSlice({
     setOnboardingCompleted: (state, action: PayloadAction<boolean | null>) => {
       state.onboardingCompleted = action.payload;
     },
+    setAuthTeamMembership: (
+      state,
+      action: PayloadAction<{ team: string | null; teamId: number | null } | null>,
+    ) => {
+      state.authTeamMembership = action.payload;
+    },
     logout: (state) => {
       state.isAuthenticated = false;
       state.token = null;
@@ -144,6 +154,7 @@ const userSlice = createSlice({
       state.capabilities = null;
       state.athleteUserId = null;
       state.onboardingCompleted = null;
+      state.authTeamMembership = null;
     },
   },
 });
@@ -161,6 +172,7 @@ export const {
   setCapabilities,
   setAthleteUserId,
   setOnboardingCompleted,
+  setAuthTeamMembership,
   logout,
 } =
   userSlice.actions;
