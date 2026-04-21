@@ -24,6 +24,7 @@ import { apiRequest, clearApiCache } from "@/lib/api";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
 import { resolveAppRole } from "@/lib/appRole";
+import { hasAssignedTeam } from "@/lib/teamMembership";
 import { promptBatteryOptimizationConsentOnce } from "@/lib/batteryOptimizationConsent";
 
 const STORAGE_KEYS = {
@@ -224,14 +225,27 @@ export function AuthPersist() {
       athleteType?: "youth" | "adult" | null;
       team?: string | null;
     } | null = null;
+    /** From GET /auth/me — used when /onboarding/athletes is empty (e.g. athlete logged in without a guardian row). */
+    let latestMeAthleteHint: {
+      athleteType?: "youth" | "adult" | null;
+      team?: string | null;
+    } | null = null;
 
     const syncResolvedAppRole = () => {
       if (!active || !latestUserRole) return;
+      // Prefer whichever source has a real team string (onboarding list can be a different child or omit team).
+      const tOnboarding = latestOnboardingAthlete?.team;
+      const tMe = latestMeAthleteHint?.team;
+      const teamForRole = hasAssignedTeam(tOnboarding)
+        ? tOnboarding
+        : hasAssignedTeam(tMe)
+          ? tMe
+          : tOnboarding ?? tMe ?? null;
       dispatch(
         setAppRole(
           resolveAppRole({
             userRole: latestUserRole,
-            athlete: latestOnboardingAthlete,
+            athlete: { team: teamForRole },
           }),
         ),
       );
@@ -248,10 +262,17 @@ export function AuthPersist() {
             programTier?: string | null;
             messagingAccessTiers?: string[];
             capabilities?: AppCapabilities | null;
+            team?: unknown;
+            athleteType?: "youth" | "adult" | null;
           };
         }>("/auth/me", { token, suppressStatusCodes: [401, 403] });
         if (!active || !me.user) return;
         latestUserRole = me.user.role ?? null;
+        const teamFromMe = me.user.team;
+        latestMeAthleteHint = {
+          athleteType: me.user.athleteType ?? null,
+          team: typeof teamFromMe === "string" ? teamFromMe : null,
+        };
         dispatch(setApiUserRole(latestUserRole));
         dispatch(setProgramTier(me.user.programTier ?? null));
         dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
@@ -263,6 +284,7 @@ export function AuthPersist() {
             avatar: me.user.profilePicture ?? null,
           }),
         );
+        syncResolvedAppRole();
       } catch {
         if (!active) return;
       }
