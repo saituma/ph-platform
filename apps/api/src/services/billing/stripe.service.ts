@@ -23,6 +23,30 @@ export function getCancelUrl() {
   return env.stripeCancelUrl;
 }
 
+/** Stripe 404 on Price retrieve/create — wrong account, test vs live, deleted/archived price, or bad lookup key. */
+export function isStripePriceMissingError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { statusCode?: unknown; code?: unknown; param?: unknown };
+  return e.statusCode === 404 && e.code === "resource_missing" && e.param === "price";
+}
+
+function stripeModeFromSecretKey(secretKey: string | null | undefined): "test" | "live" | "unknown" {
+  const normalized = String(secretKey ?? "").trim();
+  if (normalized.startsWith("sk_test_")) return "test";
+  if (normalized.startsWith("sk_live_")) return "live";
+  return "unknown";
+}
+
+/** Session retrieve: invalid id or STRIPE_SECRET_KEY mode does not match the session. */
+export function isStripeCheckoutSessionNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { statusCode?: unknown; code?: unknown; message?: unknown };
+  if (e.statusCode !== 404) return false;
+  if (e.code === "resource_missing") return true;
+  const msg = String(e.message ?? "").toLowerCase();
+  return msg.includes("no such checkout.session");
+}
+
 export async function createTeamCheckoutSession(input: {
   teamId: number;
   adminId: number;
@@ -60,6 +84,19 @@ export async function createTeamCheckoutSession(input: {
     throw new Error(
       `Price not found. Please ensure Lookup Key '${input.priceLookupKey}' is set in Stripe, or ${input.tier} environment variable is configured.`
     );
+  }
+
+  try {
+    await stripeClient.prices.retrieve(priceId);
+  } catch (error: unknown) {
+    if (isStripePriceMissingError(error)) {
+      const mode = stripeModeFromSecretKey(env.stripeSecretKey);
+      throw new Error(
+        `Stripe could not find price "${priceId}" for team checkout (lookup key "${input.priceLookupKey}", ${input.interval}). ` +
+          `Create or re-activate that Price in Stripe (${mode} mode) so it matches STRIPE_SECRET_KEY.`
+      );
+    }
+    throw error;
   }
 
   const session = await stripeClient.checkout.sessions.create({
