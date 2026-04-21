@@ -70,6 +70,19 @@ export function DebugPushSection({
         </View>
 
         <View>
+          <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mb-2">
+            Device Push Token ({pushRegistration.devicePushTokenType ?? "?"})
+          </Text>
+          <View className="bg-app border border-app rounded-xl p-3">
+            <Text className="text-[11px] font-mono text-secondary" numberOfLines={2}>
+              {pushRegistration.devicePushToken ||
+                pushRegistration.devicePushTokenError ||
+                "Token not available (check google-services + permissions)"}
+            </Text>
+          </View>
+        </View>
+
+        <View>
           <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.5px] font-bold mb-2">Last Sync State</Text>
           <View className="bg-app border border-app rounded-xl p-3">
             <Text className="text-[11px] font-mono text-secondary" numberOfLines={3}>

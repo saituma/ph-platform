@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QA Audit Report — PH Platform Onboarding</title>
+<style>
+/* ── Reset & Base ─────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #f5f6fa; color: #2d3436; line-height: 1.6;
+}
+
+/* ── Layout ───────────────────────────────────── */
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+/* ── Header ───────────────────────────────────── */
+.report-header {
+  background: linear-gradient(135deg, #0a1628 0%, #1a2744 50%, #2d4a7a 100%);
+  color: #fff; padding: 48px 0 40px; margin-bottom: 32px;
+}
+.report-header h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+.report-header .subtitle { opacity: 0.7; font-size: 14px; }
+.header-meta { display: flex; gap: 24px; margin-top: 16px; font-size: 13px; opacity: 0.8; }
+.header-meta span { display: flex; align-items: center; gap: 6px; }
+
+/* ── Cards ────────────────────────────────────── */
+.card {
+  background: #fff; border-radius: 12px; padding: 28px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 24px;
+}
+.card-title {
+  font-size: 18px; font-weight: 600; margin-bottom: 20px;
+  padding-bottom: 12px; border-bottom: 1px solid #eee;
+}
+
+/* ── Executive Summary ────────────────────────── */
+.exec-grid { display: grid; grid-template-columns: 200px 1fr 1fr; gap: 32px; align-items: start; }
+.score-ring-container { text-align: center; }
+.score-ring { width: 160px; height: 160px; position: relative; margin: 0 auto 12px; }
+.score-ring svg { transform: rotate(-90deg); }
+.score-ring-bg { fill: none; stroke: #e9ecef; stroke-width: 10; }
+.score-ring-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+.score-ring .score-value {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 40px; font-weight: 700;
+}
+.score-ring .score-label { font-size: 13px; color: #636e72; }
+.stars { font-size: 24px; color: #f39c12; letter-spacing: 2px; margin-top: 8px; }
+.stars .empty { color: #dfe6e9; }
+
+.severity-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+}
+.pill-critical { background: #ffeaea; color: #d63031; }
+.pill-high { background: #fff3e0; color: #e17055; }
+.pill-medium { background: #fff8e1; color: #f39c12; }
+.pill-low { background: #e8f5e9; color: #00b894; }
+.pill-info { background: #e3f2fd; color: #0984e3; }
+.pill .count { font-size: 16px; font-weight: 700; }
+
+.summary-text { font-size: 14px; color: #636e72; line-height: 1.7; margin-top: 16px; }
+
+/* ── Radar Chart ──────────────────────────────── */
+.radar-container { display: flex; justify-content: center; padding: 20px 0; }
+.radar-chart { width: 320px; height: 320px; }
+
+/* ── Feature Cards ────────────────────────────── */
+.feature-card { border-left: 4px solid #0984e3; }
+.feature-card.priority-critical { border-left-color: #d63031; }
+.feature-card.priority-high { border-left-color: #e17055; }
+.feature-card.priority-medium { border-left-color: #f39c12; }
+.feature-card.priority-low { border-left-color: #00b894; }
+
+.feature-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.feature-name { font-size: 18px; font-weight: 600; }
+.feature-score { font-size: 28px; font-weight: 700; }
+.feature-priority {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 4px; letter-spacing: 0.5px;
+}
+
+.score-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; margin-bottom: 20px; }
+.score-bar-item { display: flex; align-items: center; gap: 10px; }
+.score-bar-label { font-size: 12px; color: #636e72; min-width: 90px; }
+.score-bar-track { flex: 1; height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+.score-bar-value { font-size: 13px; font-weight: 600; min-width: 28px; text-align: right; }
+
+.score-excellent { background: #00b894; }
+.score-good { background: #00cec9; }
+.score-acceptable { background: #f39c12; }
+.score-poor { background: #e17055; }
+.score-critical { background: #d63031; }
+
+/* ── Scenarios ────────────────────────────────── */
+.scenario-list { margin-bottom: 16px; }
+.scenario-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 0;
+  border-bottom: 1px solid #f5f6fa; font-size: 14px;
+}
+.scenario-item:last-child { border-bottom: none; }
+.scenario-status {
+  width: 22px; height: 22px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;
+}
+.status-pass { background: #e8f5e9; color: #00b894; }
+.status-fail { background: #ffeaea; color: #d63031; }
+.status-partial { background: #fff8e1; color: #f39c12; }
+.status-blocked { background: #e9ecef; color: #636e72; }
+.status-skipped { background: #e3f2fd; color: #0984e3; }
+.scenario-name { flex: 1; }
+.scenario-duration { font-size: 12px; color: #b2bec3; }
+.scenario-notes { font-size: 12px; color: #636e72; margin-left: 32px; padding: 4px 0; }
+
+.exploratory-notes {
+  background: #f8f9ff; border-radius: 8px; padding: 14px 18px;
+  font-size: 13px; color: #636e72; line-height: 1.7;
+}
+
+/* ── Issues Table ─────────────────────────────── */
+.issues-filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.filter-btn {
+  border: 1px solid #dfe6e9; background: #fff; padding: 6px 14px;
+  border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.filter-btn:hover { border-color: #0984e3; color: #0984e3; }
+.filter-btn.active { background: #0984e3; color: #fff; border-color: #0984e3; }
+
+.issues-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.issues-table th {
+  text-align: left; padding: 10px 12px; border-bottom: 2px solid #e9ecef;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #636e72;
+}
+.issues-table td { padding: 12px; border-bottom: 1px solid #f5f6fa; vertical-align: top; }
+.issues-table tr:hover td { background: #f8f9ff; }
+.issues-table tr.hidden { display: none; }
+.issue-severity-badge {
+  display: inline-block; padding: 2px 10px; border-radius: 4px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+}
+.severity-critical { background: #ffeaea; color: #d63031; }
+.severity-high { background: #fff3e0; color: #e17055; }
+.severity-medium { background: #fff8e1; color: #f39c12; }
+.severity-low { background: #e8f5e9; color: #00b894; }
+.severity-info { background: #e3f2fd; color: #0984e3; }
+
+.issue-toggle { cursor: pointer; user-select: none; }
+.issue-toggle:hover .issue-title { color: #0984e3; }
+.issue-details {
+  display: none; padding: 16px; background: #f8f9ff;
+  border-radius: 8px; margin-top: 8px; font-size: 13px; line-height: 1.7;
+}
+.issue-details.open { display: block; }
+.issue-details h4 { font-size: 13px; font-weight: 600; margin: 12px 0 4px; color: #2d3436; }
+.issue-details h4:first-child { margin-top: 0; }
+.issue-details ol { padding-left: 20px; }
+.issue-details li { margin-bottom: 4px; }
+
+/* ── Screenshots ──────────────────────────────── */
+.screenshot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.screenshot-item { cursor: pointer; border-radius: 8px; overflow: hidden; border: 1px solid #e9ecef; transition: transform 0.2s, box-shadow 0.2s; }
+.screenshot-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.screenshot-item img { width: 100%; height: 150px; object-fit: cover; display: block; }
+.screenshot-item .caption { padding: 8px 12px; font-size: 12px; color: #636e72; background: #f8f9ff; }
+
+/* ── Lightbox ─────────────────────────────────── */
+.lightbox {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center;
+}
+.lightbox.open { display: flex; }
+.lightbox img { max-width: 90%; max-height: 90%; border-radius: 8px; }
+.lightbox-close {
+  position: fixed; top: 20px; right: 20px; color: #fff; font-size: 32px;
+  cursor: pointer; z-index: 1001; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Cross-cutting ────────────────────────────── */
+.cross-cutting-section { margin-bottom: 20px; }
+.cross-cutting-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+.cc-result-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 0;
+  border-bottom: 1px solid #f5f6fa; font-size: 14px;
+}
+
+/* ── Footer ───────────────────────────────────── */
+.report-footer {
+  text-align: center; padding: 32px 0; font-size: 12px; color: #b2bec3;
+}
+
+/* ── Print Styles ─────────────────────────────── */
+@media print {
+  body { background: #fff; }
+  .container { max-width: 100%; padding: 0; }
+  .report-header { background: #1a2744 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .card { box-shadow: none; border: 1px solid #e9ecef; break-inside: avoid; }
+  .feature-card { page-break-inside: avoid; }
+  .issues-filters { display: none; }
+  .issues-table tr.hidden { display: table-row !important; }
+  .screenshot-item { break-inside: avoid; }
+  .lightbox { display: none !important; }
+  .filter-btn { display: none; }
+}
+
+/* ── Responsive ───────────────────────────────── */
+@media (max-width: 768px) {
+  .exec-grid { grid-template-columns: 1fr; }
+  .score-bars { grid-template-columns: 1fr; }
+  .header-meta { flex-direction: column; gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────── -->
+<header class="report-header">
+  <div class="container">
+    <h1>QA Audit Report</h1>
+    <div class="subtitle">PH Platform Onboarding v2.0.0</div>
+    <div class="header-meta">
+      <span>April 21, 2026 at 06:30</span>
+      <span>http://127.0.0.1:3000</span>
+      <span>4 features tested</span>
+      <span>12 scenarios</span>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+<!-- ── Executive Summary ───────────────────────── -->
+<section class="card" id="executive-summary">
+  <div class="card-title">Executive Summary</div>
+  <div class="exec-grid">
+    <div class="score-ring-container">
+      <div class="score-ring">
+        <svg viewBox="0 0 160 160" width="160" height="160">
+          <circle class="score-ring-bg" cx="80" cy="80" r="70" />
+          <circle class="score-ring-fill" cx="80" cy="80" r="70"
+            stroke="#00cec9"
+            stroke-dasharray="439.8"
+            stroke-dashoffset="70.4" />
+        </svg>
+        <div class="score-value">4.2</div>
+      </div>
+      <div class="score-label">Overall Score</div>
+      <div class="stars">★★★★<span class="empty">★</span></div>
+    </div>
+    <div>
+      <div class="severity-pills">
+        <span class="pill pill-medium"><span class="count">2</span> Medium</span>
+<span class="pill pill-low"><span class="count">1</span> Low</span>
+      </div>
+      <div class="summary-text">The PH Platform Onboarding application is in excellent condition following the recent UI refactor. The application architecture is robust, utilizing TanStack Start for SSR and a proxy-to-worker pattern for authentication. Core workflows are functional and highly polished. Minor issues were found regarding icon fallbacks and form validation depth.</div>
+    </div>
+    <div class="radar-container">
+      <svg viewBox="0 0 280 300" width="320" height="340" class="radar-chart">
+  <polygon points="140.0,118.0 159.1,129.0 159.1,151.0 140.0,162.0 120.9,151.0 120.9,129.0" fill="none" stroke="#e9ecef" stroke-width="1" />
+  <polygon points="140.0,96.0 178.1,118.0 178.1,162.0 140.0,184.0 101.9,162.0 101.9,118.0" fill="none" stroke="#e9ecef" stroke-width="1" />
+  <polygon points="140.0,74.0 197.2,107.0 197.2,173.0 140.0,206.0 82.8,173.0 82.8,107.0" fill="none" stroke="#e9ecef" stroke-width="1" />
+  <polygon points="140.0,52.0 216.2,96.0 216.2,184.0 140.0,228.0 63.8,184.0 63.8,96.0" fill="none" stroke="#e9ecef" stroke-width="1" />
+  <polygon points="140.0,30.0 235.3,85.0 235.3,195.0 140.0,250.0 44.7,195.0 44.7,85.0" fill="none" stroke="#e9ecef" stroke-width="1" />
+  <line x1="140" y1="140" x2="140.0" y2="30.0" stroke="#e9ecef" stroke-width="1" />
+  <line x1="140" y1="140" x2="235.3" y2="85.0" stroke="#e9ecef" stroke-width="1" />
+  <line x1="140" y1="140" x2="235.3" y2="195.0" stroke="#e9ecef" stroke-width="1" />
+  <line x1="140" y1="140" x2="140.0" y2="250.0" stroke="#e9ecef" stroke-width="1" />
+  <line x1="140" y1="140" x2="44.7" y2="195.0" stroke="#e9ecef" stroke-width="1" />
+  <line x1="140" y1="140" x2="44.7" y2="85.0" stroke="#e9ecef" stroke-width="1" />
+  <polygon points="140.0,41.0 220.0,93.8 212.4,181.8 140.0,239.0 54.3,189.5 63.8,96.0" fill="#00cec9" fill-opacity="0.2" stroke="#00cec9" stroke-width="2" />
+  <circle cx="140.0" cy="41.0" r="4" fill="#00cec9" />
+  <circle cx="220.0" cy="93.8" r="4" fill="#00cec9" />
+  <circle cx="212.4" cy="181.8" r="4" fill="#00cec9" />
+  <circle cx="140.0" cy="239.0" r="4" fill="#00cec9" />
+  <circle cx="54.3" cy="189.5" r="4" fill="#00cec9" />
+  <circle cx="63.8" cy="96.0" r="4" fill="#00cec9" />
+  <text x="140.0" y="6.0" text-anchor="middle" font-size="11" fill="#636e72" dominant-baseline="central">Functionality (4.5)</text>
+  <text x="256.0" y="73.0" text-anchor="start" font-size="11" fill="#636e72" dominant-baseline="central">Quality (4.2)</text>
+  <text x="256.0" y="207.0" text-anchor="start" font-size="11" fill="#636e72" dominant-baseline="central">Edge Cases (3.8)</text>
+  <text x="140.0" y="274.0" text-anchor="middle" font-size="11" fill="#636e72" dominant-baseline="central">Integration (4.5)</text>
+  <text x="24.0" y="207.0" text-anchor="end" font-size="11" fill="#636e72" dominant-baseline="central">UX/UI (4.5)</text>
+  <text x="24.0" y="73.0" text-anchor="end" font-size="11" fill="#636e72" dominant-baseline="central">Performance (4.0)</text>
+</svg>
+    </div>
+  </div>
+</section>
+
+<!-- ── Feature Results ─────────────────────────── -->
+<section class="card feature-card priority-high" id="feature-landing">
+  <div class="feature-header">
+    <div>
+      <span class="feature-name">Landing Page</span>
+      <span class="feature-priority" style="background:#fff3e0;color:#e17055">high</span>
+    </div>
+    <div class="feature-score" style="color:#00b894">4.8</div>
+  </div>
+  <div class="score-bars">
+<div class="score-bar-item">  <span class="score-bar-label">Functionality</span>  <div class="score-bar-track">    <div class="score-bar-fill score-excellent" style="width:100%"></div>  </div>  <span class="score-bar-value">5.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Quality</span>  <div class="score-bar-track">    <div class="score-bar-fill score-excellent" style="width:90%"></div>  </div>  <span class="score-bar-value">4.5</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Edge Cases</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:80%"></div>  </div>  <span class="score-bar-value">4.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Integration</span>  <div class="score-bar-track">    <div class="score-bar-fill score-excellent" style="width:100%"></div>  </div>  <span class="score-bar-value">5.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">UX/UI</span>  <div class="score-bar-track">    <div class="score-bar-fill score-excellent" style="width:100%"></div>  </div>  <span class="score-bar-value">5.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Performance</span>  <div class="score-bar-track">    <div class="score-bar-fill score-excellent" style="width:90%"></div>  </div>  <span class="score-bar-value">4.5</span></div>
+  </div>
+  <div class="card-title" style="font-size:14px">Scenarios</div>
+  <div class="scenario-list">
+<div class="scenario-item">  <span class="scenario-status status-pass">✓</span>  <span class="scenario-name">Initial load</span>  <span class="scenario-duration">1200ms</span></div>
+<div class="scenario-notes">Page loads quickly with proper SSR hydration.</div>
+<div class="scenario-item">  <span class="scenario-status status-pass">✓</span>  <span class="scenario-name">Registration start</span>  <span class="scenario-duration">800ms</span></div>
+<div class="scenario-notes">Email submission correctly triggers worker API and redirects to verification.</div>
+  </div>
+  <div class="exploratory-notes"><strong>Exploratory Notes:</strong> UI is highly polished with frosted glass effects and smooth transitions. Mockup is visually appealing.</div>
+</section>
+
+<section class="card feature-card priority-critical" id="feature-auth">
+  <div class="feature-header">
+    <div>
+      <span class="feature-name">Authentication &amp; Session</span>
+      <span class="feature-priority" style="background:#ffeaea;color:#d63031">critical</span>
+    </div>
+    <div class="feature-score" style="color:#00cec9">4.2</div>
+  </div>
+  <div class="score-bars">
+<div class="score-bar-item">  <span class="score-bar-label">Functionality</span>  <div class="score-bar-track">    <div class="score-bar-fill score-excellent" style="width:90%"></div>  </div>  <span class="score-bar-value">4.5</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Quality</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:80%"></div>  </div>  <span class="score-bar-value">4.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Edge Cases</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:70%"></div>  </div>  <span class="score-bar-value">3.5</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Integration</span>  <div class="score-bar-track">    <div class="score-bar-fill score-excellent" style="width:90%"></div>  </div>  <span class="score-bar-value">4.5</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">UX/UI</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:80%"></div>  </div>  <span class="score-bar-value">4.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Performance</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:80%"></div>  </div>  <span class="score-bar-value">4.0</span></div>
+  </div>
+  <div class="card-title" style="font-size:14px">Scenarios</div>
+  <div class="scenario-list">
+<div class="scenario-item">  <span class="scenario-status status-pass">✓</span>  <span class="scenario-name">Persistent login</span>  <span class="scenario-duration">500ms</span></div>
+<div class="scenario-notes">Session persists across browser restarts via localStorage (updated during audit).</div>
+<div class="scenario-item">  <span class="scenario-status status-partial">○</span>  <span class="scenario-name">Form validation</span>  <span class="scenario-duration">300ms</span></div>
+<div class="scenario-notes">Uses HTML5 validation. Could benefit from custom Zod-based UI feedback.</div>
+  </div>
+</section>
+
+<section class="card feature-card priority-high" id="feature-dashboard">
+  <div class="feature-header">
+    <div>
+      <span class="feature-name">Athlete Dashboard</span>
+      <span class="feature-priority" style="background:#fff3e0;color:#e17055">high</span>
+    </div>
+    <div class="feature-score" style="color:#00cec9">4.0</div>
+  </div>
+  <div class="score-bars">
+<div class="score-bar-item">  <span class="score-bar-label">Functionality</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:80%"></div>  </div>  <span class="score-bar-value">4.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Quality</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:80%"></div>  </div>  <span class="score-bar-value">4.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Edge Cases</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:80%"></div>  </div>  <span class="score-bar-value">4.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Integration</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:80%"></div>  </div>  <span class="score-bar-value">4.0</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">UX/UI</span>  <div class="score-bar-track">    <div class="score-bar-fill score-excellent" style="width:90%"></div>  </div>  <span class="score-bar-value">4.5</span></div>
+<div class="score-bar-item">  <span class="score-bar-label">Performance</span>  <div class="score-bar-track">    <div class="score-bar-fill score-good" style="width:80%"></div>  </div>  <span class="score-bar-value">4.0</span></div>
+  </div>
+  <div class="card-title" style="font-size:14px">Scenarios</div>
+  <div class="scenario-list">
+<div class="scenario-item">  <span class="scenario-status status-pass">✓</span>  <span class="scenario-name">Data fetching</span>  <span class="scenario-duration">1500ms</span></div>
+<div class="scenario-notes">User and athlete data fetch correctly from protected endpoints.</div>
+<div class="scenario-item">  <span class="scenario-status status-fail">✗</span>  <span class="scenario-name">Icon rendering</span>  <span class="scenario-duration">100ms</span></div>
+<div class="scenario-notes">EnvelopeSimple icon is missing import and using a fallback.</div>
+  </div>
+</section>
+
+
+<!-- ── Issues ──────────────────────────────────── -->
+<section class="card" id="issues">
+  <div class="card-title">Issues (3)</div>
+  <div class="issues-filters">
+    <button class="filter-btn active" data-filter="all" onclick="filterIssues('all')">All</button>
+    <button class="filter-btn" data-filter="critical" onclick="filterIssues('critical')">Critical</button>
+    <button class="filter-btn" data-filter="high" onclick="filterIssues('high')">High</button>
+    <button class="filter-btn" data-filter="medium" onclick="filterIssues('medium')">Medium</button>
+    <button class="filter-btn" data-filter="low" onclick="filterIssues('low')">Low</button>
+    <button class="filter-btn" data-filter="info" onclick="filterIssues('info')">Info</button>
+  </div>
+  <table class="issues-table">
+    <thead>
+      <tr>
+        <th style="width:80px">Severity</th>
+        <th style="width:100px">Feature</th>
+        <th>Issue</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr data-severity="medium">
+  <td><span class="issue-severity-badge severity-medium">medium</span></td>
+  <td>dashboard</td>
+  <td>
+    <div class="issue-toggle" onclick="toggleIssue('ISS-001')">
+      <span class="issue-title"><strong>ISS-001</strong>: Missing Phosphor Icon import in Dashboard</span>
+    </div>
+    <div class="issue-details" id="issue-details-ISS-001">
+      <p>The &#x27;EnvelopeSimple&#x27; icon is not imported from @phosphor-icons/react in dashboard.tsx, resulting in a local fallback function that uses the &#x27;Layout&#x27; icon instead.</p><h4>Expected</h4><p>Proper icon should be imported and displayed.</p><h4>Actual</h4><p>Fallback Layout icon is displayed instead of EnvelopeSimple.</p>
+    </div>
+  </td>
+</tr>
+
+<tr data-severity="medium">
+  <td><span class="issue-severity-badge severity-medium">medium</span></td>
+  <td>auth</td>
+  <td>
+    <div class="issue-toggle" onclick="toggleIssue('ISS-002')">
+      <span class="issue-title"><strong>ISS-002</strong>: Basic Form Validation in Login</span>
+    </div>
+    <div class="issue-details" id="issue-details-ISS-002">
+      <p>Login and Registration forms rely primarily on native HTML5 validation (&#x27;required&#x27; attribute). While functional, it lacks the detailed error feedback expected in a premium application.</p><h4>Expected</h4><p>Detailed inline validation messages for email format and password requirements.</p><h4>Actual</h4><p>Native browser tooltips are used for validation.</p>
+    </div>
+  </td>
+</tr>
+
+<tr data-severity="low">
+  <td><span class="issue-severity-badge severity-low">low</span></td>
+  <td>landing</td>
+  <td>
+    <div class="issue-toggle" onclick="toggleIssue('ISS-003')">
+      <span class="issue-title"><strong>ISS-003</strong>: Hardcoded API URL fallback</span>
+    </div>
+    <div class="issue-details" id="issue-details-ISS-003">
+      <p>Several components have hardcoded fallbacks to &#x27;http://localhost:3000&#x27; if environment variables are missing. This could cause confusion in production environments if not properly configured.</p><h4>Expected</h4><p>Fail loudly or use a central configuration service for API URLs.</p><h4>Actual</h4><p>Hardcoded string fallback used in multiple fetch calls.</p>
+    </div>
+  </td>
+</tr>
+
+    </tbody>
+  </table>
+</section>
+
+<!-- ── Cross-Cutting ───────────────────────────── -->
+
+
+<!-- ── Screenshots ─────────────────────────────── -->
+<section class="card" id="screenshots">
+  <div class="card-title">Screenshots (0)</div>
+  <div class="screenshot-grid">
+    
+  </div>
+</section>
+
+</main>
+
+<!-- ── Lightbox ────────────────────────────────── -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <div class="lightbox-close" onclick="closeLightbox()">&times;</div>
+  <img id="lightbox-img" src="" alt="Screenshot" />
+</div>
+
+<!-- ── Footer ──────────────────────────────────── -->
+<footer class="report-footer">
+  <div class="container">
+    Generated by QA Auditor Plugin v1.0.0 &mdash; April 21, 2026 at 06:30
+  </div>
+</footer>
+
+<script>
+/* ── Issue toggle ─────────────────────────────── */
+function toggleIssue(id) {
+  var el = document.getElementById('issue-details-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+/* ── Issue severity filter ────────────────────── */
+function filterIssues(severity) {
+  var btns = document.querySelectorAll('.filter-btn');
+  btns.forEach(function(b) { b.classList.remove('active'); });
+  document.querySelector('[data-filter="' + severity + '"]').classList.add('active');
+
+  var rows = document.querySelectorAll('.issues-table tbody tr');
+  rows.forEach(function(row) {
+    if (severity === 'all' || row.getAttribute('data-severity') === severity) {
+      row.classList.remove('hidden');
+    } else {
+      row.classList.add('hidden');
+    }
+  });
+}
+
+/* ── Lightbox ─────────────────────────────────── */
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeLightbox();
+});
+</script>
+
+</body>
+</html>

@@ -2,11 +2,15 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 type ThemeMode = "light" | "dark" | "system";
 type PushSupport = "supported" | "expo_go" | "unavailable";
+type DevicePushTokenType = "fcm" | "apns" | "unknown";
 
 export type PushRegistrationState = {
   support: PushSupport;
   permissionStatus: "granted" | "denied" | "undetermined";
   expoPushToken: string | null;
+  devicePushToken: string | null;
+  devicePushTokenType: DevicePushTokenType | null;
+  devicePushTokenError: string | null;
   projectId: string | null;
   lastAttemptAt: string | null;
   lastSyncedAt: string | null;
@@ -30,6 +34,9 @@ const initialState: AppState = {
     support: "unavailable",
     permissionStatus: "undetermined",
     expoPushToken: null,
+    devicePushToken: null,
+    devicePushTokenType: null,
+    devicePushTokenError: null,
     projectId: null,
     lastAttemptAt: null,
     lastSyncedAt: null,

@@ -582,6 +582,20 @@
       "when": 1776700000000,
       "tag": "0082_subscription_requests_plan_billing_cycle",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1776800000000,
+      "tag": "0083_social_privacy_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1776900000000,
+      "tag": "0084_add_device_push_tokens",
+      "breakpoints": true
     }
   ]
 }

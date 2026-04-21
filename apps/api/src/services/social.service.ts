@@ -6,12 +6,14 @@ import {
   auditLogsTable,
   runCommentTable,
   runLogTable,
+  socialPrivacySettingsTable,
   userTable,
 } from "../db/schema";
 import { normalizeStoredMediaUrl } from "./s3.service";
+import { assertSocialEnabled, getPrivacySettings } from "./social-privacy.service";
 
 export class SocialAccessError extends Error {
-  code: "NOT_ADULT" | "NOT_FOUND" | "FORBIDDEN";
+  code: "NOT_ADULT" | "NOT_FOUND" | "FORBIDDEN" | "SOCIAL_DISABLED";
   constructor(code: SocialAccessError["code"], message: string) {
     super(message);
     this.code = code;
@@ -70,6 +72,12 @@ export async function assertAdultAthlete(userId: number): Promise<void> {
   if (!athlete.length || athlete[0]?.athleteType !== "adult") {
     throw new SocialAccessError("NOT_ADULT", "Adult athlete access required");
   }
+
+  // Check if user has social features enabled
+  const settings = await getPrivacySettings(userId);
+  if (!settings.socialEnabled) {
+    throw new SocialAccessError("SOCIAL_DISABLED", "Social features not enabled. Please opt-in in privacy settings.");
+  }
 }
 
 export async function ensurePublicAdultRun(runLogId: number): Promise<{ ownerUserId: number }> {
@@ -92,6 +100,13 @@ export async function ensurePublicAdultRun(runLogId: number): Promise<{ ownerUse
   if (r.athleteType !== "adult" || r.visibility !== "public") {
     throw new SocialAccessError("FORBIDDEN", "Run not available");
   }
+
+  // Check owner's privacy settings
+  const ownerSettings = await getPrivacySettings(r.ownerUserId);
+  if (!ownerSettings.socialEnabled) {
+    throw new SocialAccessError("FORBIDDEN", "User has disabled social features");
+  }
+
   return { ownerUserId: r.ownerUserId };
 }
 
@@ -135,10 +150,13 @@ export async function getLeaderboard(input: {
     .from(runLogTable)
     .innerJoin(userTable, eq(userTable.id, runLogTable.userId))
     .innerJoin(athleteTable, eq(athleteTable.userId, runLogTable.userId))
+    .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, runLogTable.userId))
     .where(
       and(
         eq(athleteTable.athleteType, "adult"),
         eq(runLogTable.visibility, "public"),
+        eq(socialPrivacySettingsTable.socialEnabled, true),
+        eq(socialPrivacySettingsTable.showInLeaderboard, true),
         since ? gte(runLogTable.date, since) : sql`true`,
       ),
     )
@@ -169,6 +187,9 @@ export async function listAdults(input: { limit: number; cursor?: number }) {
   const filters = [
     eq(athleteTable.athleteType, "adult"),
     eq(athleteTable.userId, userTable.id),
+    eq(socialPrivacySettingsTable.userId, athleteTable.userId),
+    eq(socialPrivacySettingsTable.socialEnabled, true),
+    eq(socialPrivacySettingsTable.showInDirectory, true),
   ];
 
   const rows = await db
@@ -179,6 +200,7 @@ export async function listAdults(input: { limit: number; cursor?: number }) {
     })
     .from(athleteTable)
     .innerJoin(userTable, eq(userTable.id, athleteTable.userId))
+    .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, athleteTable.userId))
     .where(cursor != null ? and(...filters, gt(userTable.id, cursor)) : and(...filters))
     .orderBy(userTable.id)
     .limit(limit + 1);
@@ -254,10 +276,13 @@ export async function listPublicRuns(input: {
     .from(runLogTable)
     .innerJoin(userTable, eq(userTable.id, runLogTable.userId))
     .innerJoin(athleteTable, eq(athleteTable.userId, runLogTable.userId))
+    .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, runLogTable.userId))
     .where(
       and(
         eq(athleteTable.athleteType, "adult"),
         eq(runLogTable.visibility, "public"),
+        eq(socialPrivacySettingsTable.socialEnabled, true),
+        eq(socialPrivacySettingsTable.shareRunsPublicly, true),
         since ? gte(runLogTable.date, since) : sql`true`,
         cursor != null ? lt(runLogTable.id, cursor) : sql`true`,
       ),

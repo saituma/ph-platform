@@ -47,8 +47,8 @@ function OnboardingStep3() {
 	const navigate = useNavigate();
 
 	useEffect(() => {
-		const email = sessionStorage.getItem("pending_email");
-		const token = sessionStorage.getItem("auth_token");
+		const email = localStorage.getItem("pending_email");
+		const token = localStorage.getItem("auth_token");
 
 		if (!email || !token) {
 			toast.error("Session expired", {
@@ -79,7 +79,7 @@ function OnboardingStep3() {
 			return;
 		}
 
-		const token = sessionStorage.getItem("auth_token");
+		const token = localStorage.getItem("auth_token");
 		if (!token) return;
 
 		setIsSubmitting(true);
@@ -191,7 +191,7 @@ function OnboardingStep3() {
 									className="text-sm font-bold text-foreground flex items-center gap-2"
 								>
 									<Phone size={18} className="text-primary" />
-									{sessionStorage.getItem("user_type") === "youth"
+									{localStorage.getItem("user_type") === "youth"
 										? "Guardian Phone Number"
 										: "Your Phone Number"}
 								</label>

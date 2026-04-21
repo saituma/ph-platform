@@ -88,7 +88,6 @@ router.get("/version", async (_req, res) => {
   return res.status(200).json({
     ok: true,
     nodeEnv: env.nodeEnv,
-    runMigrationsOnStartup: env.runMigrationsOnStartup,
     gitCommit:
       process.env.RENDER_GIT_COMMIT ||
       process.env.GIT_COMMIT ||

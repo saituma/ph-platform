@@ -245,11 +245,8 @@ export default function LoginScreen() {
         ) : null}
 
         <View className="flex-row justify-center items-center mt-4">
-          <Text className="text-secondary text-base font-outfit text-center">
-            New to PH Performance?{"\n"}
-            <Text className="text-accent font-outfit-semibold">
-              Register on the web onboarding site, then sign in here.
-            </Text>
+          <Text className="text-accent text-base font-outfit-semibold text-center">
+            Send register request
           </Text>
         </View>
       </KeyboardAwareScrollView>

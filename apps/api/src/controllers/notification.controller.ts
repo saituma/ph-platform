@@ -40,22 +40,45 @@ export async function markNotificationRead(req: Request, res: Response) {
 }
 
 const pushTokenSchema = z.object({
-  token: z.string().min(1),
+  // Backwards-compatible: mobile previously sent `{ token: <expoPushToken> }`.
+  token: z.string().min(1).optional(),
+  expoPushToken: z.string().min(1).optional(),
+  devicePushToken: z.string().min(1).optional(),
+  devicePushTokenType: z.enum(["fcm", "apns", "unknown"]).optional(),
 });
 
 export async function savePushToken(req: Request, res: Response) {
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const { token } = pushTokenSchema.parse(req.body);
-  if (!Expo.isExpoPushToken(token)) {
+  const parsed = pushTokenSchema.parse(req.body);
+
+  const expoPushToken =
+    parsed.expoPushToken ?? parsed.token ?? undefined;
+  const devicePushToken = parsed.devicePushToken ?? undefined;
+  const devicePushTokenType = parsed.devicePushTokenType ?? undefined;
+
+  if (!expoPushToken && !devicePushToken) {
+    return res.status(400).json({ error: "Missing push token" });
+  }
+
+  if (expoPushToken && !Expo.isExpoPushToken(expoPushToken)) {
     return res.status(400).json({ error: "Invalid Expo push token" });
   }
-  console.log(`[PushToken] Attempting to save token for user ${req.user.id}: ${token.slice(0, 10)}...`);
-  
+
+  console.log(
+    `[PushToken] Saving push token(s) for user ${req.user.id}: expo=${expoPushToken ? expoPushToken.slice(0, 10) + "…" : "none"} device=${devicePushToken ? devicePushToken.slice(0, 10) + "…" : "none"}`,
+  );
+
   const result = await db
     .update(userTable)
-    .set({ expoPushToken: token, updatedAt: new Date() })
+    .set({
+      ...(expoPushToken ? { expoPushToken } : {}),
+      ...(devicePushToken
+        ? { devicePushToken, devicePushTokenType: devicePushTokenType ?? "unknown" }
+        : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(userTable.id, req.user.id))
     .returning();
 

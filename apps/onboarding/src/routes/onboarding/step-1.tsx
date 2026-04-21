@@ -57,8 +57,8 @@ function OnboardingStep1() {
 	const navigate = useNavigate();
 
 	useEffect(() => {
-		const email = sessionStorage.getItem("pending_email");
-		const token = sessionStorage.getItem("auth_token");
+		const email = localStorage.getItem("pending_email");
+		const token = localStorage.getItem("auth_token");
 
 		if (!email || !token) {
 			toast.error("Session expired", {
@@ -84,8 +84,8 @@ function OnboardingStep1() {
 	const handleContinue = async () => {
 		if (!canContinue) return;
 
-		const email = sessionStorage.getItem("pending_email");
-		const token = sessionStorage.getItem("auth_token");
+		const email = localStorage.getItem("pending_email");
+		const token = localStorage.getItem("auth_token");
 
 		if (!email || !token) {
 			toast.error("Session expired", {
@@ -116,7 +116,7 @@ function OnboardingStep1() {
 				description: `You've joined as a ${USER_TYPES.find((t) => t.id === selected)?.title}.`,
 			});
 
-			sessionStorage.setItem("user_type", selected as string);
+			localStorage.setItem("user_type", selected as string);
 			navigate({ to: "/onboarding/step-2" });
 		} catch (error: any) {
 			toast.error("Could not save selection", {

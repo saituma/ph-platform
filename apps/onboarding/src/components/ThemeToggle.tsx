@@ -77,12 +77,12 @@ export default function ThemeToggle() {
 			onClick={toggleMode}
 			aria-label={label}
 			title={label}
-			className="flex h-10 w-10 items-center justify-center rounded-lg border border-input bg-background text-muted-foreground shadow-sm transition-all duration-200 hover:bg-accent hover:text-accent-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-background/40 backdrop-blur-3xl text-muted-foreground/50 shadow-lg transition-all duration-300 hover:bg-primary/10 hover:text-primary hover:border-primary/20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
 		>
 			<Icon
 				size={20}
-				weight="regular"
-				className="transition-transform duration-300 ease-spring"
+				weight="bold"
+				className="transition-transform duration-500 ease-spring"
 			/>
 		</button>
 	);

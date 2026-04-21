@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { env } from "../config/env";
 import { db } from "../db";
 import { userTable } from "../db/schema";
+import { isFcmEnabled, isFcmTokenError, sendFcmPush } from "./fcm.service";
 
 // Only pass accessToken when it is actually set — passing an empty string
 // causes the Expo Push API to reject every request with UNAUTHORIZED since
@@ -126,17 +127,80 @@ export async function sendPushNotification(userId: number, title: string, body: 
     }
 
     const [user] = await db
-      .select({ expoPushToken: userTable.expoPushToken })
+      .select({
+        expoPushToken: userTable.expoPushToken,
+        devicePushToken: userTable.devicePushToken,
+        devicePushTokenType: userTable.devicePushTokenType,
+      })
       .from(userTable)
       .where(eq(userTable.id, userId))
       .limit(1);
 
-    const token = user?.expoPushToken;
-    if (!token) {
-      console.warn(`[Push Service] No Expo push token saved for user ${userId}`);
+    const token = user?.expoPushToken ?? null;
+    const channelId = getChannelId(data?.type);
+    const dataForDevice = stringifyPushData(data);
+
+    const devicePushToken = user?.devicePushToken ?? null;
+    const devicePushTokenTypeRaw = (user?.devicePushTokenType ?? "").toLowerCase();
+    const devicePushTokenType =
+      devicePushTokenTypeRaw === "fcm"
+        ? "fcm"
+        : devicePushTokenTypeRaw === "apns"
+        ? "apns"
+        : devicePushTokenTypeRaw
+        ? "unknown"
+        : null;
+
+    if (devicePushToken && devicePushTokenType === "fcm" && isFcmEnabled()) {
       logDebugPush({
         location: "push.service.ts:sendPushNotification",
-        message: "no_expo_token_for_user",
+        message: "push_send_attempt_fcm",
+        data: {
+          userId,
+          dataType,
+          channelId,
+          nonStringDataKeys,
+          titleLen: title.length,
+          bodyLen: body.length,
+          tokenPrefix: `${devicePushToken.slice(0, 12)}…`,
+        },
+      });
+      try {
+        await sendFcmPush({
+          token: devicePushToken,
+          title,
+          body,
+          data: dataForDevice,
+          android: { channelId, priority: "high" },
+        });
+        return;
+      } catch (err) {
+        console.error(`[Push Service] FCM send failed for user ${userId}:`, err);
+        logDebugPush({
+          location: "push.service.ts:sendPushNotification",
+          message: "push_send_fcm_failed",
+          data: {
+            userId,
+            dataType,
+            err: err instanceof Error ? err.message : String(err),
+          },
+        });
+        if (isFcmTokenError(err)) {
+          await db
+            .update(userTable)
+            .set({ devicePushToken: null, devicePushTokenType: null, updatedAt: new Date() })
+            .where(eq(userTable.id, userId));
+          console.warn(`[Push Service] Cleared device push token for user ${userId} (FCM token invalid/unregistered)`);
+        }
+        // Fallback to Expo below if available.
+      }
+    }
+
+    if (!token) {
+      console.warn(`[Push Service] No push token saved for user ${userId} (deviceType=${devicePushTokenType ?? "none"})`);
+      logDebugPush({
+        location: "push.service.ts:sendPushNotification",
+        message: "no_push_token_for_user",
         data: { userId, dataType, titleLen: title.length, bodyLen: body.length },
       });
       return;
@@ -156,11 +220,9 @@ export async function sendPushNotification(userId: number, title: string, body: 
       return;
     }
 
-    const channelId = getChannelId(data?.type);
-    const dataForDevice = stringifyPushData(data);
     logDebugPush({
       location: "push.service.ts:sendPushNotification",
-      message: "push_send_attempt",
+      message: "push_send_attempt_expo",
       data: {
         userId,
         dataType,
@@ -171,6 +233,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
         tokenPrefix: `${token.slice(0, 12)}…`,
       },
     });
+
     const categoryId = getCategoryId(data?.type);
     const message: ExpoPushMessage = {
       to: token,

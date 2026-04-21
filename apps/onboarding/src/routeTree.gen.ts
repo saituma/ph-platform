@@ -11,10 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
+import { Route as PortalRouteImport } from './routes/portal'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PortalTrackingRouteImport } from './routes/portal/tracking'
+import { Route as PortalScheduleRouteImport } from './routes/portal/schedule'
+import { Route as PortalMoreRouteImport } from './routes/portal/more'
+import { Route as PortalMessagesRouteImport } from './routes/portal/messages'
+import { Route as PortalDashboardRouteImport } from './routes/portal/dashboard'
 import { Route as OnboardingSuccessRouteImport } from './routes/onboarding/success'
 import { Route as OnboardingStep5RouteImport } from './routes/onboarding/step-5'
 import { Route as OnboardingStep4RouteImport } from './routes/onboarding/step-4'
@@ -22,7 +29,10 @@ import { Route as OnboardingStep3RouteImport } from './routes/onboarding/step-3'
 import { Route as OnboardingStep2RouteImport } from './routes/onboarding/step-2'
 import { Route as OnboardingStep1RouteImport } from './routes/onboarding/step-1'
 import { Route as OnboardingDashboardRouteImport } from './routes/onboarding/dashboard'
+import { Route as PortalProgramsIndexRouteImport } from './routes/portal/programs/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as PortalProgramsSessionSessionIdRouteImport } from './routes/portal/programs/session/$sessionId'
+import { Route as PortalProgramsModuleModuleIdRouteImport } from './routes/portal/programs/module/$moduleId'
 
 const VerificationRoute = VerificationRouteImport.update({
   id: '/verification',
@@ -34,9 +44,19 @@ const TermsPrivacyRoute = TermsPrivacyRouteImport.update({
   path: '/terms-privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeaturesRoute = FeaturesRouteImport.update({
+  id: '/features',
+  path: '/features',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EducationFaqRoute = EducationFaqRouteImport.update({
@@ -53,6 +73,31 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PortalTrackingRoute = PortalTrackingRouteImport.update({
+  id: '/tracking',
+  path: '/tracking',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalScheduleRoute = PortalScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalMoreRoute = PortalMoreRouteImport.update({
+  id: '/more',
+  path: '/more',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalMessagesRoute = PortalMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalDashboardRoute = PortalDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => PortalRoute,
 } as any)
 const OnboardingSuccessRoute = OnboardingSuccessRouteImport.update({
   id: '/onboarding/success',
@@ -89,17 +134,36 @@ const OnboardingDashboardRoute = OnboardingDashboardRouteImport.update({
   path: '/onboarding/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortalProgramsIndexRoute = PortalProgramsIndexRouteImport.update({
+  id: '/programs/',
+  path: '/programs/',
+  getParentRoute: () => PortalRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortalProgramsSessionSessionIdRoute =
+  PortalProgramsSessionSessionIdRouteImport.update({
+    id: '/programs/session/$sessionId',
+    path: '/programs/session/$sessionId',
+    getParentRoute: () => PortalRoute,
+  } as any)
+const PortalProgramsModuleModuleIdRoute =
+  PortalProgramsModuleModuleIdRouteImport.update({
+    id: '/programs/module/$moduleId',
+    path: '/programs/module/$moduleId',
+    getParentRoute: () => PortalRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/education-faq': typeof EducationFaqRoute
+  '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
@@ -109,13 +173,23 @@ export interface FileRoutesByFullPath {
   '/onboarding/step-4': typeof OnboardingStep4Route
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
+  '/portal/dashboard': typeof PortalDashboardRoute
+  '/portal/messages': typeof PortalMessagesRoute
+  '/portal/more': typeof PortalMoreRoute
+  '/portal/schedule': typeof PortalScheduleRoute
+  '/portal/tracking': typeof PortalTrackingRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/portal/programs/': typeof PortalProgramsIndexRoute
+  '/portal/programs/module/$moduleId': typeof PortalProgramsModuleModuleIdRoute
+  '/portal/programs/session/$sessionId': typeof PortalProgramsSessionSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/education-faq': typeof EducationFaqRoute
+  '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
@@ -125,14 +199,24 @@ export interface FileRoutesByTo {
   '/onboarding/step-4': typeof OnboardingStep4Route
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
+  '/portal/dashboard': typeof PortalDashboardRoute
+  '/portal/messages': typeof PortalMessagesRoute
+  '/portal/more': typeof PortalMoreRoute
+  '/portal/schedule': typeof PortalScheduleRoute
+  '/portal/tracking': typeof PortalTrackingRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/portal/programs': typeof PortalProgramsIndexRoute
+  '/portal/programs/module/$moduleId': typeof PortalProgramsModuleModuleIdRoute
+  '/portal/programs/session/$sessionId': typeof PortalProgramsSessionSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/education-faq': typeof EducationFaqRoute
+  '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
@@ -142,7 +226,15 @@ export interface FileRoutesById {
   '/onboarding/step-4': typeof OnboardingStep4Route
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
+  '/portal/dashboard': typeof PortalDashboardRoute
+  '/portal/messages': typeof PortalMessagesRoute
+  '/portal/more': typeof PortalMoreRoute
+  '/portal/schedule': typeof PortalScheduleRoute
+  '/portal/tracking': typeof PortalTrackingRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/portal/programs/': typeof PortalProgramsIndexRoute
+  '/portal/programs/module/$moduleId': typeof PortalProgramsModuleModuleIdRoute
+  '/portal/programs/session/$sessionId': typeof PortalProgramsSessionSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -150,7 +242,9 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/education-faq'
+    | '/features'
     | '/login'
+    | '/portal'
     | '/terms-privacy'
     | '/verification'
     | '/onboarding/dashboard'
@@ -160,13 +254,23 @@ export interface FileRouteTypes {
     | '/onboarding/step-4'
     | '/onboarding/step-5'
     | '/onboarding/success'
+    | '/portal/dashboard'
+    | '/portal/messages'
+    | '/portal/more'
+    | '/portal/schedule'
+    | '/portal/tracking'
     | '/api/auth/$'
+    | '/portal/programs/'
+    | '/portal/programs/module/$moduleId'
+    | '/portal/programs/session/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
     | '/education-faq'
+    | '/features'
     | '/login'
+    | '/portal'
     | '/terms-privacy'
     | '/verification'
     | '/onboarding/dashboard'
@@ -176,13 +280,23 @@ export interface FileRouteTypes {
     | '/onboarding/step-4'
     | '/onboarding/step-5'
     | '/onboarding/success'
+    | '/portal/dashboard'
+    | '/portal/messages'
+    | '/portal/more'
+    | '/portal/schedule'
+    | '/portal/tracking'
     | '/api/auth/$'
+    | '/portal/programs'
+    | '/portal/programs/module/$moduleId'
+    | '/portal/programs/session/$sessionId'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/education-faq'
+    | '/features'
     | '/login'
+    | '/portal'
     | '/terms-privacy'
     | '/verification'
     | '/onboarding/dashboard'
@@ -192,14 +306,24 @@ export interface FileRouteTypes {
     | '/onboarding/step-4'
     | '/onboarding/step-5'
     | '/onboarding/success'
+    | '/portal/dashboard'
+    | '/portal/messages'
+    | '/portal/more'
+    | '/portal/schedule'
+    | '/portal/tracking'
     | '/api/auth/$'
+    | '/portal/programs/'
+    | '/portal/programs/module/$moduleId'
+    | '/portal/programs/session/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   EducationFaqRoute: typeof EducationFaqRoute
+  FeaturesRoute: typeof FeaturesRoute
   LoginRoute: typeof LoginRoute
+  PortalRoute: typeof PortalRouteWithChildren
   TermsPrivacyRoute: typeof TermsPrivacyRoute
   VerificationRoute: typeof VerificationRoute
   OnboardingDashboardRoute: typeof OnboardingDashboardRoute
@@ -228,11 +352,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsPrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/education-faq': {
@@ -255,6 +393,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/portal/tracking': {
+      id: '/portal/tracking'
+      path: '/tracking'
+      fullPath: '/portal/tracking'
+      preLoaderRoute: typeof PortalTrackingRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/schedule': {
+      id: '/portal/schedule'
+      path: '/schedule'
+      fullPath: '/portal/schedule'
+      preLoaderRoute: typeof PortalScheduleRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/more': {
+      id: '/portal/more'
+      path: '/more'
+      fullPath: '/portal/more'
+      preLoaderRoute: typeof PortalMoreRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/messages': {
+      id: '/portal/messages'
+      path: '/messages'
+      fullPath: '/portal/messages'
+      preLoaderRoute: typeof PortalMessagesRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/dashboard': {
+      id: '/portal/dashboard'
+      path: '/dashboard'
+      fullPath: '/portal/dashboard'
+      preLoaderRoute: typeof PortalDashboardRouteImport
+      parentRoute: typeof PortalRoute
     }
     '/onboarding/success': {
       id: '/onboarding/success'
@@ -305,6 +478,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portal/programs/': {
+      id: '/portal/programs/'
+      path: '/programs'
+      fullPath: '/portal/programs/'
+      preLoaderRoute: typeof PortalProgramsIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -312,14 +492,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portal/programs/session/$sessionId': {
+      id: '/portal/programs/session/$sessionId'
+      path: '/programs/session/$sessionId'
+      fullPath: '/portal/programs/session/$sessionId'
+      preLoaderRoute: typeof PortalProgramsSessionSessionIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/programs/module/$moduleId': {
+      id: '/portal/programs/module/$moduleId'
+      path: '/programs/module/$moduleId'
+      fullPath: '/portal/programs/module/$moduleId'
+      preLoaderRoute: typeof PortalProgramsModuleModuleIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
   }
 }
+
+interface PortalRouteChildren {
+  PortalDashboardRoute: typeof PortalDashboardRoute
+  PortalMessagesRoute: typeof PortalMessagesRoute
+  PortalMoreRoute: typeof PortalMoreRoute
+  PortalScheduleRoute: typeof PortalScheduleRoute
+  PortalTrackingRoute: typeof PortalTrackingRoute
+  PortalProgramsIndexRoute: typeof PortalProgramsIndexRoute
+  PortalProgramsModuleModuleIdRoute: typeof PortalProgramsModuleModuleIdRoute
+  PortalProgramsSessionSessionIdRoute: typeof PortalProgramsSessionSessionIdRoute
+}
+
+const PortalRouteChildren: PortalRouteChildren = {
+  PortalDashboardRoute: PortalDashboardRoute,
+  PortalMessagesRoute: PortalMessagesRoute,
+  PortalMoreRoute: PortalMoreRoute,
+  PortalScheduleRoute: PortalScheduleRoute,
+  PortalTrackingRoute: PortalTrackingRoute,
+  PortalProgramsIndexRoute: PortalProgramsIndexRoute,
+  PortalProgramsModuleModuleIdRoute: PortalProgramsModuleModuleIdRoute,
+  PortalProgramsSessionSessionIdRoute: PortalProgramsSessionSessionIdRoute,
+}
+
+const PortalRouteWithChildren =
+  PortalRoute._addFileChildren(PortalRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   EducationFaqRoute: EducationFaqRoute,
+  FeaturesRoute: FeaturesRoute,
   LoginRoute: LoginRoute,
+  PortalRoute: PortalRouteWithChildren,
   TermsPrivacyRoute: TermsPrivacyRoute,
   VerificationRoute: VerificationRoute,
   OnboardingDashboardRoute: OnboardingDashboardRoute,

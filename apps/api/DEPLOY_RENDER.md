@@ -41,8 +41,10 @@ At minimum, production startup validates:
 
 Optional but commonly needed:
 
-- `RUN_MIGRATIONS_ON_STARTUP=1` (or `true`)
 - `DATABASE_SSL=true`
 - `CORS_ORIGINS`
 - `EXPO_ACCESS_TOKEN`
+- `FIREBASE_SERVICE_ACCOUNT_JSON` (only if sending direct FCM from the API)
 - AWS/S3/CloudFront + SMTP/Resend vars (as applicable)
+
+Database migrations are expected to be run manually (for example, from your local machine using `pnpm -C apps/api db:migrate` against the target `DATABASE_URL`).

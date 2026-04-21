@@ -28,7 +28,6 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   DATABASE_SSL: z.string().optional(),
-  RUN_MIGRATIONS_ON_STARTUP: z.string().optional(),
   R2_ACCOUNT_ID: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
@@ -70,6 +69,8 @@ const envSchema = z.object({
   BOOKING_ACTION_SECRET: z.string().optional(),
   OPEN_AI_API_KEY: optionalWhenScript("OPENAI_API_KEY is required"),
   EXPO_ACCESS_TOKEN: z.string().optional(),
+  /** Firebase Admin service account JSON (raw JSON string or base64-encoded JSON). */
+  FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   CORS_ORIGINS: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().optional(),
 });
@@ -91,7 +92,6 @@ export const env = {
   nodeEnv: raw.NODE_ENV,
   databaseUrl: raw.DATABASE_URL,
   databaseSsl: raw.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
-  runMigrationsOnStartup: raw.RUN_MIGRATIONS_ON_STARTUP === "true" || raw.RUN_MIGRATIONS_ON_STARTUP === "1",
   r2AccountId: raw.R2_ACCOUNT_ID ?? "",
   r2AccessKeyId: raw.R2_ACCESS_KEY_ID ?? "",
   r2SecretAccessKey: raw.R2_SECRET_ACCESS_KEY ?? "",
@@ -125,6 +125,7 @@ export const env = {
     raw.BOOKING_ACTION_SECRET ?? (phApiScript ? (raw.JWT_SECRET ?? scriptPlaceholder) : raw.JWT_SECRET!),
   openaiApiKey: phApiScript ? (raw.OPEN_AI_API_KEY ?? scriptPlaceholder) : raw.OPEN_AI_API_KEY!,
   expoAccessToken: raw.EXPO_ACCESS_TOKEN ?? "",
+  firebaseServiceAccountJson: raw.FIREBASE_SERVICE_ACCOUNT_JSON ?? "",
   corsOrigins: raw.CORS_ORIGINS ?? "http://localhost:3000",
   requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
 };

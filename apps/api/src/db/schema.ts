@@ -96,6 +96,8 @@ export const userTable = pgTable("users", {
   isDeleted: boolean().notNull().default(false),
   tokenVersion: integer().notNull().default(0),
   expoPushToken: varchar({ length: 255 }),
+  devicePushToken: text(),
+  devicePushTokenType: varchar({ length: 20 }),
 
   nutritionReminderEnabled: boolean("nutrition_reminder_enabled").notNull().default(false),
   nutritionReminderTimeLocal: varchar("nutrition_reminder_time_local", { length: 5 }), // 'HH:MM'
@@ -1089,3 +1091,43 @@ export const nutritionLogsTable = pgTable("nutrition_logs", {
   userIdx: index("nutrition_logs_user_idx").on(table.userId),
   dateIdx: index("nutrition_logs_date_idx").on(table.dateKey),
 }));
+
+export const socialPrivacySettingsTable = pgTable(
+  "social_privacy_settings",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }),
+    // Core privacy settings - default false for strict privacy by default
+    socialEnabled: boolean().notNull().default(false),
+    // Granular controls when enabled
+    shareRunsPublicly: boolean().notNull().default(false),
+    allowComments: boolean().notNull().default(true),
+    showInLeaderboard: boolean().notNull().default(true),
+    showInDirectory: boolean().notNull().default(true),
+    // Metadata
+    optedInAt: timestamp(),
+    optedOutAt: timestamp(),
+    privacyVersionAccepted: varchar({ length: 20 }), // e.g., "1.0"
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdUnique: uniqueIndex("social_privacy_settings_user_unique").on(table.userId),
+    userIdx: index("social_privacy_settings_user_idx").on(table.userId),
+  })
+);
+
+export const runLikeTable = pgTable(
+  "run_likes",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    runLogId: integer().notNull().references(() => runLogTable.id, { onDelete: "cascade" }),
+    userId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    runUserUnique: uniqueIndex("run_likes_run_user_unique").on(table.runLogId, table.userId),
+    runIdx: index("run_likes_run_idx").on(table.runLogId),
+    userIdx: index("run_likes_user_idx").on(table.userId),
+  })
+);

@@ -16,7 +16,7 @@ import {
 } from "@phosphor-icons/react";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { env } from "#/env";
+import { config } from "#/lib/config";
 
 export const Route = createFileRoute("/verification")({
     component: VerificationComponent,
@@ -71,7 +71,7 @@ function VerificationComponent() {
 
     const handleVerify = async () => {
         const code = otp.join("");
-        const email = sessionStorage.getItem("pending_email");
+        const email = localStorage.getItem("pending_email");
 
         if (!email) {
             toast.error("Session expired", {
@@ -82,8 +82,7 @@ function VerificationComponent() {
 
         setIsVerifying(true);
         try {
-            const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-            const response = await fetch(`${baseUrl}/api/auth/confirm`, {
+            const response = await fetch(`${config.api.baseUrl}/api/auth/confirm`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -99,7 +98,7 @@ function VerificationComponent() {
 
             // Store token for subsequent onboarding steps
             if (data.accessToken) {
-                sessionStorage.setItem("auth_token", data.accessToken);
+                localStorage.setItem("auth_token", data.accessToken);
             }
 
             toast.success("Account verified!", {
@@ -116,13 +115,12 @@ function VerificationComponent() {
     };
 
     const handleResend = async () => {
-        const email = sessionStorage.getItem("pending_email");
+        const email = localStorage.getItem("pending_email");
         if (!email) return;
 
         setIsResending(true);
         try {
-            const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-            const response = await fetch(`${baseUrl}/api/auth/resend`, {
+            const response = await fetch(`${config.api.baseUrl}/api/auth/resend`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -167,7 +165,7 @@ function VerificationComponent() {
                     Back to login
                 </Link>
 
-                <Card className="w-full border-border shadow-2xl bg-card/50 backdrop-blur-sm rounded-2xl overflow-hidden ring-1 ring-border/50">
+                <Card className="w-full border border-border/40 shadow-2xl bg-card/60 backdrop-blur-xl rounded-[2rem] overflow-hidden">
                     <CardHeader className="space-y-4 pt-10 text-center">
                         <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-2 animate-bounce-subtle">
                             <EnvelopeSimpleIcon weight="duotone" className="w-8 h-8" />
@@ -192,7 +190,7 @@ function VerificationComponent() {
                                     type="text"
                                     inputMode="numeric"
                                     autoComplete="one-time-code"
-                                    className="w-full h-20 text-center text-7xl font-black rounded-2xl border-2 border-input bg-background/50 focus-visible:ring-offset-0 focus-visible:ring-primary/20 focus-visible:border-primary transition-all duration-300 shadow-sm"
+                                    className="w-full h-16 sm:h-20 text-center text-4xl sm:text-5xl font-black rounded-xl border border-input bg-background/50 focus-visible:ring-offset-0 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition-all shadow-sm"
                                     placeholder="•"
                                 />
                             ))}
@@ -201,7 +199,7 @@ function VerificationComponent() {
                         <Button
                             disabled={!isComplete || isVerifying}
                             onClick={handleVerify}
-                            className="w-full h-14 rounded-2xl text-lg font-bold transition-all hover:scale-[1.01] active:scale-[0.99] shadow-xl shadow-primary/20"
+                            className="w-full h-14 rounded-xl text-base font-bold shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
                         >
                             {isVerifying ? (
                                 <CircleNotch className="w-6 h-6 animate-spin text-primary-foreground" />

@@ -33,4 +33,4 @@ COPY --from=base /app/apps/api/drizzle.config.ts ./apps/api/drizzle.config.ts
 WORKDIR /app/apps/api
 
 EXPOSE 3001
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "node dist/scripts/run-migrations.js && node dist/index.js"]

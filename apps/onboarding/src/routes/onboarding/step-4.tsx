@@ -32,7 +32,7 @@ function OnboardingStep4() {
 
 	useEffect(() => {
 		const fetchStatus = async () => {
-			const token = sessionStorage.getItem("auth_token");
+			const token = localStorage.getItem("auth_token");
 			if (!token) {
 				navigate({ to: "/" });
 				return;
@@ -130,7 +130,7 @@ function OnboardingStep4() {
 								)}
 								<SummaryItem 
 									label="Email Address" 
-									value={sessionStorage.getItem("pending_email") || athlete.email || "N/A"} 
+									value={localStorage.getItem("pending_email") || athlete.email || "N/A"} 
 									icon={EnvelopeSimple} 
 								/>
 								<SummaryItem 

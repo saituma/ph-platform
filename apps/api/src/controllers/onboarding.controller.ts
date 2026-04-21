@@ -147,30 +147,55 @@ export async function submitOnboarding(req: Request, res: Response) {
 }
 
 export async function submitYouthBasic(req: Request, res: Response) {
-  const parsed = youthBasicSchema.parse(req.body);
-  const result = await startYouthOnboarding({
-    userId: req.user!.id,
-    ...parsed,
-  });
-  return res.status(200).json(result);
+  const parsed = youthBasicSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+  try {
+    const result = await startYouthOnboarding({
+      userId: req.user!.id,
+      ...parsed.data,
+    });
+    return res.status(200).json(result);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message ?? "Failed to save youth details" });
+  }
 }
 
 export async function submitAdultBasic(req: Request, res: Response) {
-  const parsed = adultBasicSchema.parse(req.body);
-  const result = await startAdultOnboarding({
-    userId: req.user!.id,
-    ...parsed,
-  });
-  return res.status(200).json(result);
+  const parsed = adultBasicSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+  try {
+    const result = await startAdultOnboarding({
+      userId: req.user!.id,
+      ...parsed.data,
+    });
+    return res.status(200).json(result);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message ?? "Failed to save adult details" });
+  }
 }
 
 export async function submitTeamBasic(req: Request, res: Response) {
-  const parsed = teamBasicSchema.parse(req.body);
-  const result = await startTeamOnboarding({
-    userId: req.user!.id,
-    ...parsed,
-  });
-  return res.status(200).json(result);
+  const parsed = teamBasicSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+  try {
+    const result = await startTeamOnboarding({
+      userId: req.user!.id,
+      ...parsed.data,
+    });
+    return res.status(200).json(result);
+  } catch (err: any) {
+    const msg = err?.message ?? "Failed to create team";
+    if (msg.includes("unique") || msg.includes("duplicate") || err?.code === "23505") {
+      return res.status(409).json({ error: "A team with that name already exists. Please choose a different name." });
+    }
+    return res.status(500).json({ error: msg });
+  }
 }
 
 export async function submitGoals(req: Request, res: Response) {

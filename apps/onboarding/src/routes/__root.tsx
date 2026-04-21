@@ -1,19 +1,18 @@
+import { TanStackDevtools } from "@tanstack/react-devtools";
+import type { QueryClient } from "@tanstack/react-query";
 import {
-	HeadContent,
-	Scripts,
 	createRootRouteWithContext,
+	HeadContent,
+	Link,
+	Scripts,
+	useRouter,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { TanStackDevtools } from "@tanstack/react-devtools";
-import Header from "../components/Header";
 import Footer from "../components/Footer";
+import Header from "../components/Header";
 import { Toaster } from "../components/ui/sonner";
-
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
-
 import appCss from "../styles.css?url";
-
-import type { QueryClient } from "@tanstack/react-query";
 
 interface MyRouterContext {
 	queryClient: QueryClient;
@@ -49,20 +48,50 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		],
 	}),
 	shellComponent: RootDocument,
+	notFoundComponent: () => {
+		return (
+			<div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
+				<h1 className="text-4xl font-bold mb-4">404 - Not Found</h1>
+				<p className="text-muted-foreground mb-8">
+					The page you are looking for does not exist.
+				</p>
+				<Link
+					to="/"
+					className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold"
+				>
+					Go Home
+				</Link>
+			</div>
+		);
+	},
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+	const router = useRouter();
+	const pathname = router.state.location.pathname;
+	const showChrome = !pathname.startsWith("/portal");
+
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
+				{/* biome-ignore lint/security/noDangerouslySetInnerHtml: theme init script must run before hydration */}
 				<script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
 				<HeadContent />
 			</head>
 			<body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
-			    <Header />
-			    {children}
-			    <Footer />
-			    <Toaster closeButton position="top-center" />
+				{showChrome && <Header />}
+				{children}
+				{showChrome && <Footer />}
+				<Toaster 
+                    closeButton 
+                    position="top-center" 
+                    toastOptions={{
+                        className: "bg-card/40 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl",
+                        style: {
+                            fontFamily: "var(--font-sans)",
+                        }
+                    }}
+                />
 
 				<TanStackDevtools
 					config={{
