@@ -14,6 +14,7 @@ import { TrackingMapView } from "@/components/tracking/TrackingMapView";
 import { MapStyleSwitcher } from "@/components/tracking/MapStyleSwitcher";
 import type { TrackingMapLayer, TrackingMapStyle } from "@/components/tracking/trackingMapLayers";
 import { formatDistanceKm, formatDurationClock } from "@/lib/tracking/runUtils";
+import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 
 type LatLng = { latitude: number; longitude: number };
 
@@ -23,7 +24,17 @@ export default function RunPathScreen() {
   const { colors } = useAppTheme();
   const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
-  const useTeamFeed = appRole === "team";
+  const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
+  const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
+  const useTeamFeed = useMemo(
+    () =>
+      shouldUseTeamTrackingFeatures({
+        appRole,
+        authTeamMembership,
+        firstManagedAthlete: managedAthletes[0] ?? null,
+      }),
+    [appRole, authTeamMembership, managedAthletes],
+  );
   const params = useLocalSearchParams<{ runLogId?: string }>();
 
   const runLogId = useMemo(() => {

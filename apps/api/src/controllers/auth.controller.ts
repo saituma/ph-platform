@@ -230,6 +230,8 @@ export async function getMe(req: Request, res: Response) {
     user: {
       ...user,
       ...athlete, // Spread athlete data to include everything (trainingStats, planExpiresAt, etc.)
+      // Athlete row `id` is the athlete PK; clients expect `user.id` = auth account id (`users.id`).
+      id: user.id,
       team: teamForUser,
       programTier,
       athleteType: athlete?.athleteType ?? null,

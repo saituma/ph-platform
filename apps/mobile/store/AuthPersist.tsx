@@ -18,6 +18,7 @@ import {
   setProgramTier,
   setMessagingAccessTiers,
   setCapabilities,
+  setAuthTeamMembership,
   type AppCapabilities,
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
@@ -25,6 +26,8 @@ import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
 import { resolveAppRole } from "@/lib/appRole";
 import { hasAssignedTeam } from "@/lib/teamMembership";
+import { enrichTeamFieldsIfOnboardingHasThem } from "@/lib/auth/enrichTeamFromOnboarding";
+import { parseTeamIdFromApi } from "@/lib/tracking/teamTrackingGate";
 import { promptBatteryOptimizationConsentOnce } from "@/lib/batteryOptimizationConsent";
 
 const STORAGE_KEYS = {
@@ -224,16 +227,19 @@ export function AuthPersist() {
       userId?: number | null;
       athleteType?: "youth" | "adult" | null;
       team?: string | null;
+      teamId?: number | null;
     } | null = null;
     /** From GET /auth/me — used when /onboarding/athletes is empty (e.g. athlete logged in without a guardian row). */
     let latestMeAthleteHint: {
       athleteType?: "youth" | "adult" | null;
       team?: string | null;
+      teamId?: number | null;
     } | null = null;
 
     const syncResolvedAppRole = () => {
-      if (!active || !latestUserRole) return;
-      // Prefer whichever source has a real team string (onboarding list can be a different child or omit team).
+      if (!active) return;
+      const effectiveUserRole =
+        (latestUserRole && String(latestUserRole).trim()) || "guardian";
       const tOnboarding = latestOnboardingAthlete?.team;
       const tMe = latestMeAthleteHint?.team;
       const teamForRole = hasAssignedTeam(tOnboarding)
@@ -241,11 +247,21 @@ export function AuthPersist() {
         : hasAssignedTeam(tMe)
           ? tMe
           : tOnboarding ?? tMe ?? null;
+      const idOnboarding = parseTeamIdFromApi(latestOnboardingAthlete?.teamId);
+      const idMe = parseTeamIdFromApi(latestMeAthleteHint?.teamId);
+      const teamIdForRole = idOnboarding ?? idMe ?? null;
+      const athleteTypeForRole =
+        latestOnboardingAthlete?.athleteType ?? latestMeAthleteHint?.athleteType ?? null;
+      const athleteForRole = {
+        team: teamForRole,
+        teamId: teamIdForRole,
+        athleteType: athleteTypeForRole,
+      };
       dispatch(
         setAppRole(
           resolveAppRole({
-            userRole: latestUserRole,
-            athlete: { team: teamForRole },
+            userRole: effectiveUserRole,
+            athlete: athleteForRole,
           }),
         ),
       );
@@ -263,16 +279,33 @@ export function AuthPersist() {
             messagingAccessTiers?: string[];
             capabilities?: AppCapabilities | null;
             team?: unknown;
+            teamId?: number | null;
             athleteType?: "youth" | "adult" | null;
           };
-        }>("/auth/me", { token, suppressStatusCodes: [401, 403] });
+        }>("/auth/me", {
+          token,
+          suppressStatusCodes: [401, 403],
+          // Avoid stale cached /auth/me (team label / teamId) after server or roster changes.
+          forceRefresh: true,
+        });
         if (!active || !me.user) return;
         latestUserRole = me.user.role ?? null;
-        const teamFromMe = me.user.team;
+        const { fields: enrichedTeam, athleteType: enrichedAthleteType } =
+          await enrichTeamFieldsIfOnboardingHasThem({
+            token,
+            meUser: me.user,
+          });
         latestMeAthleteHint = {
-          athleteType: me.user.athleteType ?? null,
-          team: typeof teamFromMe === "string" ? teamFromMe : null,
+          athleteType: enrichedAthleteType ?? me.user.athleteType ?? null,
+          team: enrichedTeam.team,
+          teamId: enrichedTeam.teamId,
         };
+        dispatch(
+          setAuthTeamMembership({
+            team: enrichedTeam.team,
+            teamId: enrichedTeam.teamId,
+          }),
+        );
         dispatch(setApiUserRole(latestUserRole));
         dispatch(setProgramTier(me.user.programTier ?? null));
         dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
@@ -300,6 +333,7 @@ export function AuthPersist() {
             age?: number | null;
             athleteType?: "youth" | "adult" | null;
             team?: string | null;
+            teamId?: number | null;
             level?: string | null;
             trainingPerWeek?: number | null;
             profilePicture?: string | null;

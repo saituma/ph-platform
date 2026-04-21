@@ -27,9 +27,10 @@ import {
   setCredentials,
   setApiUserRole,
   setAppRole,
+  setAuthTeamMembership,
 } from "../../store/slices/userSlice";
+import { enrichTeamFieldsIfOnboardingHasThem } from "@/lib/auth/enrichTeamFromOnboarding";
 import { resolveAppRole } from "@/lib/appRole";
-import { isAdminRole } from "@/lib/isAdminRole";
 
 const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
@@ -91,13 +92,24 @@ export default function LoginScreen() {
           email: string;
           role?: string | null;
           profilePicture?: string | null;
+          team?: unknown;
+          teamId?: number | null;
+          athleteType?: "youth" | "adult" | null;
         };
       }>("/auth/me", {
         token,
+        forceRefresh: true,
       });
 
       const apiRole = me.user.role ?? null;
-      const admin = isAdminRole(apiRole);
+
+      const { fields: teamFields, athleteType: athleteTypeResolved } =
+        await enrichTeamFieldsIfOnboardingHasThem({
+          token,
+          meUser: me.user,
+        });
+      const teamLabel = teamFields.team;
+      const teamId = teamFields.teamId;
 
       dispatch(
         setCredentials({
@@ -115,8 +127,21 @@ export default function LoginScreen() {
       dispatch(setApiUserRole(apiRole));
 
       dispatch(
+        setAuthTeamMembership({
+          team: teamLabel,
+          teamId,
+        }),
+      );
+      dispatch(
         setAppRole(
-          resolveAppRole({ userRole: apiRole, athlete: null }),
+          resolveAppRole({
+            userRole: apiRole ?? "guardian",
+            athlete: {
+              team: teamLabel,
+              teamId,
+              athleteType: athleteTypeResolved ?? me.user.athleteType ?? null,
+            },
+          }),
         ),
       );
 

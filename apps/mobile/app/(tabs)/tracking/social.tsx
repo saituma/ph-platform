@@ -35,6 +35,7 @@ import { formatDurationClock, formatDistanceKm } from "@/lib/tracking/runUtils";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { spacing, radius } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
+import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 import { MiniRunPathPreview } from "@/components/tracking/social/MiniRunPathPreview";
 
 type TabType = "community" | "my-runs" | "settings";
@@ -45,8 +46,18 @@ export default function TrackingSocialScreen() {
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
+  const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
+  const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
   /** Team athletes use `/api/teams/social/*`; solo adults only track privately (no feed). */
-  const useTeamFeed = appRole === "team";
+  const useTeamFeed = useMemo(
+    () =>
+      shouldUseTeamTrackingFeatures({
+        appRole,
+        authTeamMembership,
+        firstManagedAthlete: managedAthletes[0] ?? null,
+      }),
+    [appRole, authTeamMembership, managedAthletes],
+  );
 
   const [activeTab, setActiveTab] = useState<TabType>("community");
 

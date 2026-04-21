@@ -1,4 +1,4 @@
-import { hasAssignedTeam } from "@/lib/teamMembership";
+import { hasOrgTeamMembership } from "@/lib/teamMembership";
 
 export type AppRole =
   | "coach"
@@ -13,7 +13,12 @@ type ApiUserRole = "guardian" | "athlete" | "coach" | "admin" | "superAdmin" | s
 
 type ResolveAppRoleInput = {
   userRole: ApiUserRole;
-  athlete?: { team?: string | null } | null;
+  athlete?: {
+    team?: string | null;
+    teamId?: number | null;
+    /** From `/auth/me` — required to distinguish youth vs adult when API `role` is `"athlete"`. */
+    athleteType?: "youth" | "adult" | null;
+  } | null;
 };
 
 /** Adult athletes see athlete-facing flows like workout logging after sessions. */
@@ -23,7 +28,7 @@ export function isAdultAthleteAppRole(role: AppRole | null | undefined): boolean
 
 export function resolveAppRole(input: ResolveAppRoleInput): AppRole {
   const role = (input.userRole ?? "").toLowerCase();
-  const inTeam = hasAssignedTeam(input.athlete?.team);
+  const inTeam = hasOrgTeamMembership(input.athlete ?? undefined);
 
   if (role === "coach" || role === "admin" || role === "superadmin") {
     return "coach";
@@ -34,6 +39,9 @@ export function resolveAppRole(input: ResolveAppRoleInput): AppRole {
   }
 
   if (role === "athlete") {
+    const at = input.athlete?.athleteType;
+    if (at === "youth") return "youth_athlete";
+    if (at === "adult") return "adult_athlete";
     return "adult_athlete";
   }
 
