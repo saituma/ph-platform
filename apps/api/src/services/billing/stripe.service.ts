@@ -78,7 +78,7 @@ export async function createTeamCheckoutSession(input: {
       type: "team_subscription",
       ...input.metadata,
     },
-    success_url: `${getSuccessUrl()}?team_created=${input.teamId}`,
+    success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&team_created=${input.teamId}`,
     cancel_url: getCancelUrl(),
   });
 

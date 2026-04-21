@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { 
 	CheckCircle, 
 	EnvelopeOpen, 
@@ -8,12 +9,44 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
+import { toast } from "sonner";
+import { env } from "#/env";
 
 export const Route = createFileRoute("/onboarding/success")({
 	component: OnboardingSuccess,
 });
 
 function OnboardingSuccess() {
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const params = new URLSearchParams(window.location.search);
+		const sessionId = params.get("session_id")?.trim();
+		if (!sessionId) return;
+
+		const token = localStorage.getItem("auth_token");
+		if (!token) return;
+
+		const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+		void fetch(`${baseUrl}/api/billing/confirm`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({ sessionId }),
+		})
+			.then(async (res) => {
+				if (res.ok) return;
+				const payload = await res.json().catch(() => ({}));
+				throw new Error(payload?.error || "Could not confirm payment.");
+			})
+			.catch((err: any) => {
+				toast.error("Payment confirmation", {
+					description: err?.message || "Could not confirm payment. Please contact support.",
+				});
+			});
+	}, []);
+
 	return (
 		<main className="mx-auto max-w-2xl px-4 py-20 sm:px-6 lg:px-8">
 			<section className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">

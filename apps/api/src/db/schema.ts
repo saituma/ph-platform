@@ -876,6 +876,22 @@ export const subscriptionRequestTable = pgTable("subscription_requests", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const teamSubscriptionRequestTable = pgTable("team_subscription_requests", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  adminId: integer().notNull().references(() => userTable.id),
+  teamId: integer().notNull().references(() => teamTable.id),
+  planId: integer().notNull().references(() => subscriptionPlanTable.id),
+  planBillingCycle: varchar({ length: 20 }),
+  stripeSessionId: varchar({ length: 255 }),
+  stripeSubscriptionId: varchar({ length: 255 }),
+  paymentStatus: varchar({ length: 100 }),
+  paymentAmountCents: integer(),
+  paymentCurrency: varchar({ length: 10 }),
+  status: subscriptionStatus().notNull().default("pending_payment"),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
 export const videoUploadTable = pgTable("video_uploads", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   athleteId: integer().notNull().references(() => athleteTable.id),
