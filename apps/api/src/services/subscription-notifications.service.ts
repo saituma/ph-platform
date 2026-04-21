@@ -6,22 +6,35 @@ import { athleteTable, subscriptionPlanTable, subscriptionRequestTable, userTabl
 import { sendPushNotification } from "./push.service";
 import { quoteAthleteBillingCycleAmount } from "./billing/plan.service";
 import { ATHLETE_BILLING_CYCLES, type AthleteBillingCycle } from "./billing/stripe.service";
+import { buildBillingReceiptEmailFromStripeSession } from "../lib/mailer/billing-receipt-email";
 import {
+  isMailDeliveryConfigured,
   sendSubscriptionApprovedUserEmail,
   sendSubscriptionPendingStaffEmail,
   sendSubscriptionPendingUserEmail,
 } from "../lib/mailer";
+import { getStripeClient } from "./billing/stripe.service";
 
 /**
  * When a subscription request first enters pending_approval after payment, notify the payer and staff.
  * Idempotent by transition check at call sites (only call when status actually changed).
  */
 export async function notifySubscriptionEnteredPendingApproval(requestId: number) {
+  if (!isMailDeliveryConfigured()) {
+    console.warn(
+      "[Mailer] Subscription emails skipped: outbound mail is not configured. Set RESEND_API_KEY, or SMTP_USER + SMTP_PASS + SMTP_FROM, in apps/api/.env then restart the API.",
+    );
+    return;
+  }
+
   const rows = await db
     .select({
       userId: subscriptionRequestTable.userId,
       userEmail: userTable.email,
       userName: userTable.name,
+      userRole: userTable.role,
+      stripeSessionId: subscriptionRequestTable.stripeSessionId,
+      receiptPublicId: subscriptionRequestTable.receiptPublicId,
       planBillingCycle: subscriptionRequestTable.planBillingCycle,
       planName: subscriptionPlanTable.name,
       planTier: subscriptionPlanTable.tier,
@@ -31,6 +44,7 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
       stripePriceId: subscriptionPlanTable.stripePriceId,
       stripePriceIdMonthly: subscriptionPlanTable.stripePriceIdMonthly,
       stripePriceIdYearly: subscriptionPlanTable.stripePriceIdYearly,
+      athleteId: subscriptionRequestTable.athleteId,
       athleteName: athleteTable.name,
     })
     .from(subscriptionRequestTable)
@@ -49,7 +63,9 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
   const adminBase = env.adminWebUrl.replace(/\/$/, "");
   const adminReviewUrl = `${adminBase}/billing/pending-approvals`;
 
-  const cycleRaw = String(row.planBillingCycle ?? "").trim().toLowerCase();
+  const cycleRaw = String(row.planBillingCycle ?? "")
+    .trim()
+    .toLowerCase();
   const billingCycle = ATHLETE_BILLING_CYCLES.includes(cycleRaw as AthleteBillingCycle)
     ? (cycleRaw as AthleteBillingCycle)
     : null;
@@ -66,9 +82,40 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
             monthlyPrice: row.planMonthlyPrice,
             yearlyPrice: row.planYearlyPrice,
           },
-          billingCycle
+          billingCycle,
         )
       : null;
+
+  const cycleLabel =
+    billingCycle === "monthly"
+      ? "Monthly subscription"
+      : billingCycle === "six_months"
+        ? "6 months (upfront)"
+        : billingCycle === "yearly"
+          ? "Yearly (upfront)"
+          : null;
+
+  let receipt: ReturnType<typeof buildBillingReceiptEmailFromStripeSession> | null = null;
+  const sid = String(row.stripeSessionId ?? "").trim();
+  if (sid.startsWith("cs_") && row.receiptPublicId) {
+    try {
+      const stripe = getStripeClient();
+      const session = await stripe.checkout.sessions.retrieve(sid, {
+        expand: ["line_items.data.price"],
+      });
+      receipt = buildBillingReceiptEmailFromStripeSession(session, {
+        receiptPublicId: row.receiptPublicId,
+        internalRequestId: requestId,
+        accountRole: row.userRole,
+        paidAt: new Date(session.created * 1000),
+        billingCycleLabel: cycleLabel,
+        teamBlock: null,
+        athleteBlock: `${row.athleteName ?? "Athlete"} · athlete #${row.athleteId}`,
+      });
+    } catch (err) {
+      console.warn("[Billing] Could not load Stripe session for receipt email", sid, err);
+    }
+  }
 
   await sendSubscriptionPendingUserEmail({
     to: row.userEmail,
@@ -77,6 +124,7 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
     planTier: row.planTier,
     amount: quote?.amount ?? null,
     billingCycle: billingCycle,
+    receipt,
   });
 
   void sendPushNotification(
@@ -93,24 +141,25 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
       and(
         eq(userTable.isDeleted, false),
         eq(userTable.isBlocked, false),
-        or(
-          eq(userTable.role, "coach"),
-          eq(userTable.role, "admin"),
-          eq(userTable.role, "superAdmin")
-        ),
-        ne(userTable.email, "")
-      )
+        or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
+        ne(userTable.email, ""),
+      ),
     );
 
   const seen = new Set<string>();
   for (const s of staff) {
     if (!s.email || seen.has(s.email)) continue;
+    if (s.email === row.userEmail) continue;
     seen.add(s.email);
     await sendSubscriptionPendingStaffEmail({
       to: s.email,
+      recipientName: s.name,
       payerName: row.userName || "Member",
       payerEmail: row.userEmail,
-      athleteName: row.athleteName,
+      payerRole: row.userRole,
+      subscriptionContext: "athlete",
+      team: null,
+      athlete: row.athleteId != null ? { id: row.athleteId, name: row.athleteName } : null,
       planName: row.planName,
       planTier: row.planTier,
       amount: quote?.amount ?? null,
@@ -118,6 +167,7 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
       paymentMode: quote?.mode ?? null,
       requestId,
       adminReviewUrl,
+      receipt,
     });
   }
 }

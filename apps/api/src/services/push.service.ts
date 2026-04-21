@@ -45,9 +45,7 @@ function getCategoryId(type?: string) {
 
 /** Structured logs for push delivery debugging; grep host logs for `PH_PUSH_DEBUG`. */
 function logDebugPush(payload: Record<string, unknown>) {
-  console.info(
-    `[PH_PUSH_DEBUG] ${JSON.stringify({ timestamp: Date.now(), ...payload })}`,
-  );
+  console.info(`[PH_PUSH_DEBUG] ${JSON.stringify({ timestamp: Date.now(), ...payload })}`);
 }
 
 /** Expo/FCM expect string values in `data`; non-strings can break Android delivery. */
@@ -93,10 +91,7 @@ async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
     });
 
     if (code === "DeviceNotRegistered") {
-      await db
-        .update(userTable)
-        .set({ expoPushToken: null, updatedAt: new Date() })
-        .where(eq(userTable.id, userId));
+      await db.update(userTable).set({ expoPushToken: null, updatedAt: new Date() }).where(eq(userTable.id, userId));
       console.warn(`[Push Service] Cleared expo push token for user ${userId} (device not registered)`);
     }
   }
@@ -146,10 +141,10 @@ export async function sendPushNotification(userId: number, title: string, body: 
       devicePushTokenTypeRaw === "fcm"
         ? "fcm"
         : devicePushTokenTypeRaw === "apns"
-        ? "apns"
-        : devicePushTokenTypeRaw
-        ? "unknown"
-        : null;
+          ? "apns"
+          : devicePushTokenTypeRaw
+            ? "unknown"
+            : null;
 
     if (devicePushToken && devicePushTokenType === "fcm" && isFcmEnabled()) {
       logDebugPush({
@@ -197,7 +192,9 @@ export async function sendPushNotification(userId: number, title: string, body: 
     }
 
     if (!token) {
-      console.warn(`[Push Service] No push token saved for user ${userId} (deviceType=${devicePushTokenType ?? "none"})`);
+      console.warn(
+        `[Push Service] No push token saved for user ${userId} (deviceType=${devicePushTokenType ?? "none"})`,
+      );
       logDebugPush({
         location: "push.service.ts:sendPushNotification",
         message: "no_push_token_for_user",
@@ -213,10 +210,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
         message: "invalid_expo_token",
         data: { userId, dataType },
       });
-      await db
-        .update(userTable)
-        .set({ expoPushToken: null, updatedAt: new Date() })
-        .where(eq(userTable.id, userId));
+      await db.update(userTable).set({ expoPushToken: null, updatedAt: new Date() }).where(eq(userTable.id, userId));
       return;
     }
 

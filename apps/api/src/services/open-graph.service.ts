@@ -59,11 +59,7 @@ async function assertHostnameIsPublic(hostname: string) {
   }
 }
 
-async function readTextWithLimit(
-  res: Response,
-  byteLimit: number,
-  signal: AbortSignal,
-): Promise<string> {
+async function readTextWithLimit(res: Response, byteLimit: number, signal: AbortSignal): Promise<string> {
   const reader = res.body?.getReader?.();
   if (!reader) {
     // Fallback: this can exceed limit if body is huge, but Node fetch should expose streams.
@@ -120,10 +116,8 @@ function parseMetaTags(html: string): MetaTag[] {
 function pickMeta(meta: MetaTag[], key: string): string | null {
   const lowerKey = key.toLowerCase();
   for (const tag of meta) {
-    if (tag.property && tag.property.toLowerCase() === lowerKey)
-      return tag.content ?? null;
-    if (tag.name && tag.name.toLowerCase() === lowerKey)
-      return tag.content ?? null;
+    if (tag.property && tag.property.toLowerCase() === lowerKey) return tag.content ?? null;
+    if (tag.name && tag.name.toLowerCase() === lowerKey) return tag.content ?? null;
   }
   return null;
 }
@@ -143,10 +137,7 @@ function normalizeUrl(input: string): URL {
   return url;
 }
 
-function resolveMaybeRelativeUrl(
-  candidate: string | null,
-  base: string,
-): string | null {
+function resolveMaybeRelativeUrl(candidate: string | null, base: string): string | null {
   if (!candidate) return null;
   try {
     return new URL(candidate, base).toString();
@@ -155,9 +146,7 @@ function resolveMaybeRelativeUrl(
   }
 }
 
-export async function fetchOpenGraph(
-  urlString: string,
-): Promise<OpenGraphData> {
+export async function fetchOpenGraph(urlString: string): Promise<OpenGraphData> {
   const normalized = normalizeUrl(urlString).toString();
   const cached = cache.get(normalized);
   const now = Date.now();
@@ -176,8 +165,7 @@ export async function fetchOpenGraph(
       redirect: "follow",
       headers: {
         "User-Agent": "PH-App/1.0 (OpenGraphFetcher)",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
       signal: controller.signal,
     });
@@ -195,22 +183,14 @@ export async function fetchOpenGraph(
       return value;
     }
 
-    const html = await readTextWithLimit(
-      res,
-      MAX_HTML_BYTES,
-      controller.signal,
-    );
+    const html = await readTextWithLimit(res, MAX_HTML_BYTES, controller.signal);
     const finalUrl = res.url || normalized;
 
     const meta = parseMetaTags(html);
-    const ogTitle =
-      pickMeta(meta, "og:title") ?? pickMeta(meta, "twitter:title");
+    const ogTitle = pickMeta(meta, "og:title") ?? pickMeta(meta, "twitter:title");
     const ogDesc =
-      pickMeta(meta, "og:description") ??
-      pickMeta(meta, "twitter:description") ??
-      pickMeta(meta, "description");
-    const ogImage =
-      pickMeta(meta, "og:image") ?? pickMeta(meta, "twitter:image");
+      pickMeta(meta, "og:description") ?? pickMeta(meta, "twitter:description") ?? pickMeta(meta, "description");
+    const ogImage = pickMeta(meta, "og:image") ?? pickMeta(meta, "twitter:image");
     const ogSite = pickMeta(meta, "og:site_name");
     const title = ogTitle ?? parseTitleTag(html);
     const image = resolveMaybeRelativeUrl(ogImage, finalUrl);

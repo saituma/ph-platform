@@ -1,10 +1,6 @@
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../../db";
-import {
-  availabilityBlockTable,
-  bookingTable,
-  serviceTypeTable,
-} from "../../db/schema";
+import { availabilityBlockTable, bookingTable, serviceTypeTable } from "../../db/schema";
 
 export type ProgramTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
 export type ServiceTypeKind = "one_to_one" | "semi_private" | "in_person";
@@ -12,10 +8,13 @@ export type WeeklyEntry = { weekday: number; time: string };
 export type SlotDefinition = { time: string; capacity?: number | null };
 export type ServiceTypeRecord = typeof serviceTypeTable.$inferSelect;
 
-export function normalizeEligiblePlans(service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "type">): ProgramTier[] {
+export function normalizeEligiblePlans(
+  service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "type">,
+): ProgramTier[] {
   if (Array.isArray(service.eligiblePlans)) {
-    return service.eligiblePlans.filter((value): value is ProgramTier =>
-      value === "PHP" || value === "PHP_Premium" || value === "PHP_Premium_Plus" || value === "PHP_Pro",
+    return service.eligiblePlans.filter(
+      (value): value is ProgramTier =>
+        value === "PHP" || value === "PHP_Premium" || value === "PHP_Premium_Plus" || value === "PHP_Pro",
     );
   }
   if (service.programTier) return [service.programTier as ProgramTier];
@@ -29,7 +28,9 @@ export function normalizeEligibleTargets(service: Pick<ServiceTypeRecord, "eligi
   return [];
 }
 
-export function normalizeWeeklyEntries(service: Pick<ServiceTypeRecord, "weeklyEntries" | "fixedStartTime">): WeeklyEntry[] {
+export function normalizeWeeklyEntries(
+  service: Pick<ServiceTypeRecord, "weeklyEntries" | "fixedStartTime">,
+): WeeklyEntry[] {
   if (Array.isArray(service.weeklyEntries)) {
     return (service.weeklyEntries as any[])
       .map((entry) => {
@@ -90,7 +91,10 @@ export function endOfUtcDay(date: Date) {
   return new Date(`${toDateKey(date)}T23:59:59.999Z`);
 }
 
-export function serviceAllowsTier(service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "type">, viewerProgramTier?: ProgramTier | null) {
+export function serviceAllowsTier(
+  service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "type">,
+  viewerProgramTier?: ProgramTier | null,
+) {
   const eligiblePlans = normalizeEligiblePlans(service);
   if (!eligiblePlans.length) return true;
   if (!viewerProgramTier) return false;
@@ -98,8 +102,8 @@ export function serviceAllowsTier(service: Pick<ServiceTypeRecord, "eligiblePlan
 }
 
 export function serviceAllowsAthlete(
-  service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "eligibleTargets" | "type">, 
-  athlete: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null
+  service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "eligibleTargets" | "type">,
+  athlete: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null,
 ) {
   // Check tier
   if (!serviceAllowsTier(service, athlete?.currentProgramTier as ProgramTier)) {
@@ -214,8 +218,7 @@ export function buildExactSlots(
       startsAt: start.toISOString(),
       endsAt: occurrenceEnd.toISOString(),
       capacity,
-      remainingCapacity:
-        capacity == null ? null : Math.max(0, capacity - used),
+      remainingCapacity: capacity == null ? null : Math.max(0, capacity - used),
     },
   ];
 }

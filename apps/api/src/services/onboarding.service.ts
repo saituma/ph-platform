@@ -15,6 +15,7 @@ import {
   athleteTrainingSessionCompletionTable,
   trainingModuleSessionTable,
 } from "../db/schema";
+import { slugifySegment } from "../lib/slug";
 import { getUserById } from "./user.service";
 import { calculateAge, clampYouthAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
 import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardian } from "./user.service";
@@ -63,9 +64,7 @@ const defaultPublicConfig = {
     { id: "parentEmail", label: "Guardian Email", type: "text", required: true, visible: true },
     { id: "parentPhone", label: "Guardian Phone", type: "text", required: false, visible: true },
   ],
-  requiredDocuments: [
-    { id: "consent", label: "Guardian Consent Form", required: true },
-  ],
+  requiredDocuments: [{ id: "consent", label: "Guardian Consent Form", required: true }],
   welcomeMessage: "Welcome to PH Performance. Let's get your athlete set up.",
   coachMessage: "Need help? Your coach is ready to support you.",
   /** DB default only; not exposed on public onboarding config API. */
@@ -92,332 +91,292 @@ const PHP_PLUS_TABS = new Set(defaultPublicConfig.phpPlusProgramTabs);
 
 const normalizePhpPlusTabs = (input: unknown) => {
   if (!Array.isArray(input)) return null;
-  const normalized = input
-    .map((tab) => String(tab))
-    .filter((tab) => PHP_PLUS_TABS.has(tab));
+  const normalized = input.map((tab) => String(tab)).filter((tab) => PHP_PLUS_TABS.has(tab));
   return normalized;
 };
 
 export async function startYouthOnboarding(input: {
-	userId: number;
-	guardianName: string;
-	athleteName: string;
-	birthDate: string;
+  userId: number;
+  guardianName: string;
+  athleteName: string;
+  birthDate: string;
 }) {
-	// Update guardian (user) name
-	await db
-		.update(userTable)
-		.set({
-			name: input.guardianName,
-			updatedAt: new Date(),
-		})
-		.where(eq(userTable.id, input.userId));
+  // Update guardian (user) name
+  await db
+    .update(userTable)
+    .set({
+      name: input.guardianName,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, input.userId));
 
-	// Get or create guardian record
-	let guardianId: number;
-	const guardians = await db
-		.select()
-		.from(guardianTable)
-		.where(eq(guardianTable.userId, input.userId))
-		.limit(1);
+  // Get or create guardian record
+  let guardianId: number;
+  const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
 
-	if (guardians[0]) {
-		guardianId = guardians[0].id;
-	} else {
-		const [user] = await db
-			.select({ email: userTable.email })
-			.from(userTable)
-			.where(eq(userTable.id, input.userId))
-			.limit(1);
+  if (guardians[0]) {
+    guardianId = guardians[0].id;
+  } else {
+    const [user] = await db
+      .select({ email: userTable.email })
+      .from(userTable)
+      .where(eq(userTable.id, input.userId))
+      .limit(1);
 
-		const [newGuardian] = await db
-			.insert(guardianTable)
-			.values({
-				userId: input.userId,
-				email: user?.email ?? "",
-				relationToAthlete: "Parent",
-			})
-			.returning();
-		guardianId = newGuardian.id;
-	}
+    const [newGuardian] = await db
+      .insert(guardianTable)
+      .values({
+        userId: input.userId,
+        email: user?.email ?? "",
+        relationToAthlete: "Parent",
+      })
+      .returning();
+    guardianId = newGuardian.id;
+  }
 
-	const parsedBirthDate = parseISODate(input.birthDate);
-	if (!parsedBirthDate) {
-		throw new Error("Invalid birth date format.");
-	}
-	const age = calculateAge(parsedBirthDate, new Date());
+  const parsedBirthDate = parseISODate(input.birthDate);
+  if (!parsedBirthDate) {
+    throw new Error("Invalid birth date format.");
+  }
+  const age = calculateAge(parsedBirthDate, new Date());
 
-	// Create or update athlete record
-	const athletes = await db
-		.select()
-		.from(athleteTable)
-		.where(eq(athleteTable.guardianId, guardianId))
-		.limit(1);
+  // Create or update athlete record
+  const athletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardianId)).limit(1);
 
-	if (athletes[0]) {
-		await db
-			.update(athleteTable)
-			.set({
-				name: input.athleteName,
-				birthDate: input.birthDate,
-				age: age,
-				athleteType: "youth",
-				updatedAt: new Date(),
-			})
-			.where(eq(athleteTable.id, athletes[0].id));
-	} else {
-		await db.insert(athleteTable).values({
-			guardianId: guardianId,
-			userId: 3, // Placeholder Admin
-			name: input.athleteName,
-			birthDate: input.birthDate,
-			age: age,
-			athleteType: "youth",
-			team: "",
-			trainingPerWeek: 0,
-		});
-	}
+  if (athletes[0]) {
+    await db
+      .update(athleteTable)
+      .set({
+        name: input.athleteName,
+        birthDate: input.birthDate,
+        age: age,
+        athleteType: "youth",
+        updatedAt: new Date(),
+      })
+      .where(eq(athleteTable.id, athletes[0].id));
+  } else {
+    await db.insert(athleteTable).values({
+      guardianId: guardianId,
+      userId: 3, // Placeholder Admin
+      name: input.athleteName,
+      birthDate: input.birthDate,
+      age: age,
+      athleteType: "youth",
+      team: "",
+      trainingPerWeek: 0,
+    });
+  }
 
-	return { ok: true };
+  return { ok: true };
 }
 
-export async function startAdultOnboarding(input: {
-	userId: number;
-	name: string;
-	birthDate: string;
-}) {
-	// Update user name
-	await db
-		.update(userTable)
-		.set({
-			name: input.name,
-			updatedAt: new Date(),
-		})
-		.where(eq(userTable.id, input.userId));
+export async function startAdultOnboarding(input: { userId: number; name: string; birthDate: string }) {
+  // Update user name
+  await db
+    .update(userTable)
+    .set({
+      name: input.name,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, input.userId));
 
-	// Create or update athlete record
-	const athletes = await db
-		.select()
-		.from(athleteTable)
-		.where(eq(athleteTable.userId, input.userId))
-		.limit(1);
+  // Create or update athlete record
+  const athletes = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
 
-	const parsedBirthDate = parseISODate(input.birthDate);
-	if (!parsedBirthDate) {
-		throw new Error("Invalid birth date format.");
-	}
-	const age = calculateAge(parsedBirthDate, new Date());
+  const parsedBirthDate = parseISODate(input.birthDate);
+  if (!parsedBirthDate) {
+    throw new Error("Invalid birth date format.");
+  }
+  const age = calculateAge(parsedBirthDate, new Date());
 
-	if (athletes[0]) {
-		await db
-			.update(athleteTable)
-			.set({
-				name: input.name,
-				birthDate: input.birthDate,
-				age: age,
-				athleteType: "adult",
-				updatedAt: new Date(),
-			})
-			.where(eq(athleteTable.id, athletes[0].id));
-	} else {
-		await db.insert(athleteTable).values({
-			userId: input.userId,
-			guardianId: null,
-			name: input.name,
-			birthDate: input.birthDate,
-			age: age,
-			athleteType: "adult",
-			team: "",
-			trainingPerWeek: 0,
-		});
-	}
+  if (athletes[0]) {
+    await db
+      .update(athleteTable)
+      .set({
+        name: input.name,
+        birthDate: input.birthDate,
+        age: age,
+        athleteType: "adult",
+        updatedAt: new Date(),
+      })
+      .where(eq(athleteTable.id, athletes[0].id));
+  } else {
+    await db.insert(athleteTable).values({
+      userId: input.userId,
+      guardianId: null,
+      name: input.name,
+      birthDate: input.birthDate,
+      age: age,
+      athleteType: "adult",
+      team: "",
+      trainingPerWeek: 0,
+    });
+  }
 
-	return { ok: true };
+  return { ok: true };
 }
 
 export async function startTeamOnboarding(input: {
-	userId: number;
-	name: string;
-	minAge: number;
-	maxAge: number;
-	maxAthletes: number;
+  userId: number;
+  name: string;
+  minAge: number;
+  maxAge: number;
+  maxAthletes: number;
 }) {
-	// Get or create team record.
-	//
-	// Select only what we need (id) to avoid failing when the database is behind on
-	// newer optional columns added to `teams` via migrations.
-	const teams = await db
-		.select({ id: teamTable.id })
-		.from(teamTable)
-		.where(eq(teamTable.adminId, input.userId))
-		.limit(1);
+  // Get or create team record.
+  //
+  // Select only what we need (id) to avoid failing when the database is behind on
+  // newer optional columns added to `teams` via migrations.
+  const teams = await db
+    .select({ id: teamTable.id, emailSlug: teamTable.emailSlug })
+    .from(teamTable)
+    .where(eq(teamTable.adminId, input.userId))
+    .limit(1);
 
-	if (teams[0]) {
-		await db
-			.update(teamTable)
-			.set({
-				name: input.name,
-				minAge: input.minAge,
-				maxAge: input.maxAge,
-				maxAthletes: input.maxAthletes,
-				updatedAt: new Date(),
-			})
-			.where(eq(teamTable.id, teams[0].id));
-	} else {
-		const inserted = await db
-			.insert(teamTable)
-			.values({
-			name: input.name,
-			adminId: input.userId,
-			minAge: input.minAge,
-			maxAge: input.maxAge,
-			maxAthletes: input.maxAthletes,
-		})
-			.returning({ id: teamTable.id });
-		return { ok: true, teamId: inserted[0]?.id ?? null };
-	}
+  if (teams[0]) {
+    const slugDefault = `${slugifySegment(input.name)}-${teams[0].id}`;
+    await db
+      .update(teamTable)
+      .set({
+        name: input.name,
+        minAge: input.minAge,
+        maxAge: input.maxAge,
+        maxAthletes: input.maxAthletes,
+        emailSlug: teams[0].emailSlug ?? slugDefault,
+        updatedAt: new Date(),
+      })
+      .where(eq(teamTable.id, teams[0].id));
+  } else {
+    const inserted = await db
+      .insert(teamTable)
+      .values({
+        name: input.name,
+        adminId: input.userId,
+        minAge: input.minAge,
+        maxAge: input.maxAge,
+        maxAthletes: input.maxAthletes,
+      })
+      .returning({ id: teamTable.id });
+    const newId = inserted[0]?.id;
+    if (newId) {
+      const slugDefault = `${slugifySegment(input.name)}-${newId}`;
+      await db
+        .update(teamTable)
+        .set({ emailSlug: slugDefault, updatedAt: new Date() })
+        .where(eq(teamTable.id, newId));
+    }
+    return { ok: true, teamId: newId ?? null };
+  }
 
-	return { ok: true, teamId: teams[0].id };
+  return { ok: true, teamId: teams[0].id };
 }
 
 export async function startPerformanceOnboarding(input: {
-	userId: number;
-	trainingPerWeek: number;
-	performanceGoals: string;
-	equipmentAccess: string;
+  userId: number;
+  trainingPerWeek: number;
+  performanceGoals: string;
+  equipmentAccess: string;
 }) {
-	// Find the athlete record for this user (or guardian's active athlete)
-	const user = await db
-		.select()
-		.from(userTable)
-		.where(eq(userTable.id, input.userId))
-		.limit(1);
+  // Find the athlete record for this user (or guardian's active athlete)
+  const user = await db.select().from(userTable).where(eq(userTable.id, input.userId)).limit(1);
 
-	if (!user[0]) {
-		throw new Error("User not found.");
-	}
+  if (!user[0]) {
+    throw new Error("User not found.");
+  }
 
-	let athleteId: number | null = null;
+  let athleteId: number | null = null;
 
-	if (user[0].role === "guardian") {
-		const guardian = await db
-			.select()
-			.from(guardianTable)
-			.where(eq(guardianTable.userId, input.userId))
-			.limit(1);
+  if (user[0].role === "guardian") {
+    const guardian = await db.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
 
-		if (guardian[0]) {
-			const athlete = await db
-				.select()
-				.from(athleteTable)
-				.where(eq(athleteTable.guardianId, guardian[0].id))
-				.limit(1);
-			athleteId = athlete[0]?.id ?? null;
-		}
-	} else {
-		const athlete = await db
-			.select()
-			.from(athleteTable)
-			.where(eq(athleteTable.userId, input.userId))
-			.limit(1);
-		athleteId = athlete[0]?.id ?? null;
-	}
+    if (guardian[0]) {
+      const athlete = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian[0].id)).limit(1);
+      athleteId = athlete[0]?.id ?? null;
+    }
+  } else {
+    const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
+    athleteId = athlete[0]?.id ?? null;
+  }
 
-	if (!athleteId) {
-		throw new Error("Athlete profile not found. Please complete basic information first.");
-	}
+  if (!athleteId) {
+    throw new Error("Athlete profile not found. Please complete basic information first.");
+  }
 
-	await db
-		.update(athleteTable)
-		.set({
-			trainingPerWeek: input.trainingPerWeek,
-			performanceGoals: input.performanceGoals,
-			equipmentAccess: input.equipmentAccess,
-			updatedAt: new Date(),
-		})
-		.where(eq(athleteTable.id, athleteId));
+  await db
+    .update(athleteTable)
+    .set({
+      trainingPerWeek: input.trainingPerWeek,
+      performanceGoals: input.performanceGoals,
+      equipmentAccess: input.equipmentAccess,
+      updatedAt: new Date(),
+    })
+    .where(eq(athleteTable.id, athleteId));
 
-	return { ok: true };
+  return { ok: true };
 }
 
 export async function saveOnboardingGoals(input: {
-	userId: number;
-	trainingPerWeek: number;
-	performanceGoals: string;
-	injuries?: any;
-	equipmentAccess?: string;
-	growthNotes?: string;
-	phone: string;
+  userId: number;
+  trainingPerWeek: number;
+  performanceGoals: string;
+  injuries?: any;
+  equipmentAccess?: string;
+  growthNotes?: string;
+  phone: string;
 }) {
-	const user = await db
-		.select()
-		.from(userTable)
-		.where(eq(userTable.id, input.userId))
-		.limit(1);
+  const user = await db.select().from(userTable).where(eq(userTable.id, input.userId)).limit(1);
 
-	if (!user[0]) throw new Error("User not found");
+  if (!user[0]) throw new Error("User not found");
 
-	// Update phone on user table
-	// Since userTable doesn't have phone, we'll check if guardian exists
-	const guardian = await db
-		.select()
-		.from(guardianTable)
-		.where(eq(guardianTable.userId, input.userId))
-		.limit(1);
+  // Update phone on user table
+  // Since userTable doesn't have phone, we'll check if guardian exists
+  const guardian = await db.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
 
-	if (guardian[0]) {
-		await db
-			.update(guardianTable)
-			.set({
-				phoneNumber: input.phone,
-				updatedAt: new Date(),
-			})
-			.where(eq(guardianTable.id, guardian[0].id));
-	} else if (user[0].role === "athlete") {
-		// For adult athletes, we can store phone in extraResponses or similar if no column exists
-		// Actually, let's check if we can add it to user table if needed, but for now we'll use extraResponses on athleteTable
-	}
+  if (guardian[0]) {
+    await db
+      .update(guardianTable)
+      .set({
+        phoneNumber: input.phone,
+        updatedAt: new Date(),
+      })
+      .where(eq(guardianTable.id, guardian[0].id));
+  } else if (user[0].role === "athlete") {
+    // For adult athletes, we can store phone in extraResponses or similar if no column exists
+    // Actually, let's check if we can add it to user table if needed, but for now we'll use extraResponses on athleteTable
+  }
 
-	let athleteId: number | null = null;
+  let athleteId: number | null = null;
 
-	if (user[0].role === "athlete") {
-		const athlete = await db
-			.select()
-			.from(athleteTable)
-			.where(eq(athleteTable.userId, input.userId))
-			.limit(1);
-		athleteId = athlete[0]?.id ?? null;
-	} else {
-		// For guardians/coaches, update their active/primary athlete
-		if (guardian[0]) {
-			const athlete = await db
-				.select()
-				.from(athleteTable)
-				.where(eq(athleteTable.guardianId, guardian[0].id))
-				.limit(1);
-			athleteId = athlete[0]?.id ?? null;
-		}
-	}
+  if (user[0].role === "athlete") {
+    const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
+    athleteId = athlete[0]?.id ?? null;
+  } else {
+    // For guardians/coaches, update their active/primary athlete
+    if (guardian[0]) {
+      const athlete = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian[0].id)).limit(1);
+      athleteId = athlete[0]?.id ?? null;
+    }
+  }
 
-	if (!athleteId) throw new Error("Athlete profile not found. Please complete basic info first.");
+  if (!athleteId) throw new Error("Athlete profile not found. Please complete basic info first.");
 
-	await db
-		.update(athleteTable)
-		.set({
-			trainingPerWeek: input.trainingPerWeek,
-			performanceGoals: input.performanceGoals,
-			injuries: input.injuries ?? null,
-			equipmentAccess: input.equipmentAccess ?? null,
-			growthNotes: input.growthNotes ?? null,
-			extraResponses:
-				user[0].role === "athlete"
-					? sql`COALESCE(${athleteTable.extraResponses}, '{}'::jsonb) || ${JSON.stringify({ phone: input.phone })}::jsonb`
-					: undefined,
-			updatedAt: new Date(),
-		})
-		.where(eq(athleteTable.id, athleteId));
+  await db
+    .update(athleteTable)
+    .set({
+      trainingPerWeek: input.trainingPerWeek,
+      performanceGoals: input.performanceGoals,
+      injuries: input.injuries ?? null,
+      equipmentAccess: input.equipmentAccess ?? null,
+      growthNotes: input.growthNotes ?? null,
+      extraResponses:
+        user[0].role === "athlete"
+          ? sql`COALESCE(${athleteTable.extraResponses}, '{}'::jsonb) || ${JSON.stringify({ phone: input.phone })}::jsonb`
+          : undefined,
+      updatedAt: new Date(),
+    })
+    .where(eq(athleteTable.id, athleteId));
 
-	return { ok: true };
+  return { ok: true };
 }
 
 export async function getOnboardingByUser(userId: number) {
@@ -443,7 +402,7 @@ export async function getOnboardingByUser(userId: number) {
       .from(athleteTrainingSessionCompletionTable)
       .leftJoin(
         trainingModuleSessionTable,
-        eq(athleteTrainingSessionCompletionTable.sessionId, trainingModuleSessionTable.id)
+        eq(athleteTrainingSessionCompletionTable.sessionId, trainingModuleSessionTable.id),
       )
       .where(eq(athleteTrainingSessionCompletionTable.athleteId, athlete.id));
 
@@ -464,7 +423,7 @@ export async function getOnboardingByUser(userId: number) {
 
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const guardian = guardians[0];
-  
+
   const athletesRows = await db
     .select({
       athlete: athleteTable,
@@ -477,14 +436,14 @@ export async function getOnboardingByUser(userId: number) {
     .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
     .leftJoin(userTable, eq(guardianTable.userId, userTable.id))
     .where(
-      guardian 
+      guardian
         ? or(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.userId, userId))
-        : eq(athleteTable.userId, userId)
+        : eq(athleteTable.userId, userId),
     )
     .orderBy(
       guardian?.activeAthleteId
         ? sql`CASE WHEN ${athleteTable.id} = ${guardian.activeAthleteId} THEN 0 ELSE 1 END`
-        : desc(athleteTable.createdAt)
+        : desc(athleteTable.createdAt),
     );
 
   if (athletesRows.length === 0) return null;
@@ -507,7 +466,7 @@ export async function getOnboardingByUser(userId: number) {
         .from(athleteTrainingSessionCompletionTable)
         .leftJoin(
           trainingModuleSessionTable,
-          eq(athleteTrainingSessionCompletionTable.sessionId, trainingModuleSessionTable.id)
+          eq(athleteTrainingSessionCompletionTable.sessionId, trainingModuleSessionTable.id),
         )
         .where(eq(athleteTrainingSessionCompletionTable.athleteId, ensured.id));
 
@@ -520,7 +479,7 @@ export async function getOnboardingByUser(userId: number) {
         (decorated as any).trainingStats = stats[0] || { finishedSessions: 0, finishedModules: 0 };
       }
       return decorated;
-    })
+    }),
   );
 
   try {
@@ -616,9 +575,7 @@ export async function submitOnboarding(input: {
   }
   const birthDateValue = input.birthDate ?? null;
   const resolvedTeam = input.team?.trim() || "";
-  const desiredTier =
-    input.desiredProgramType ??
-    ("PHP" as (typeof ProgramType.enumValues)[number]);
+  const desiredTier = input.desiredProgramType ?? ("PHP" as (typeof ProgramType.enumValues)[number]);
   const starterPlan = await getActiveSubscriptionPlanByTier(desiredTier);
   const shouldAutoAssignStarterTier =
     desiredTier === "PHP" && Boolean(starterPlan) && isSubscriptionPlanFree(starterPlan);
@@ -627,9 +584,9 @@ export async function submitOnboarding(input: {
   const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
   const guardian = guardians[0] ?? null;
   const shouldCreateNew = Boolean(input.createNew);
-  const existingAthlete = guardian && !shouldCreateNew
-    ? (
-        input.athleteId
+  const existingAthlete =
+    guardian && !shouldCreateNew
+      ? (input.athleteId
           ? await db
               .select()
               .from(athleteTable)
@@ -640,9 +597,8 @@ export async function submitOnboarding(input: {
               .from(athleteTable)
               .where(eq(athleteTable.guardianId, guardian.id))
               .orderBy(athleteTable.createdAt)
-              .limit(1)
-      )[0]
-    : null;
+              .limit(1))[0]
+      : null;
 
   let athleteRow: typeof athleteTable.$inferSelect | null = null;
 
@@ -653,7 +609,11 @@ export async function submitOnboarding(input: {
     guardianId = existingAthlete.guardianId;
     await db
       .update(guardianTable)
-      .set({ email: input.parentEmail, phoneNumber: input.parentPhone ?? null, relationToAthlete: input.relationToAthlete ?? null })
+      .set({
+        email: input.parentEmail,
+        phoneNumber: input.parentPhone ?? null,
+        relationToAthlete: input.relationToAthlete ?? null,
+      })
       .where(eq(guardianTable.id, guardianId));
     const updated = await db
       .update(athleteTable)
@@ -680,7 +640,11 @@ export async function submitOnboarding(input: {
       guardianId = guardian.id;
       await db
         .update(guardianTable)
-        .set({ email: input.parentEmail, phoneNumber: input.parentPhone ?? null, relationToAthlete: input.relationToAthlete ?? null })
+        .set({
+          email: input.parentEmail,
+          phoneNumber: input.parentPhone ?? null,
+          relationToAthlete: input.relationToAthlete ?? null,
+        })
         .where(eq(guardianTable.id, guardianId));
     } else {
       const guardianResult = (await db
@@ -768,10 +732,7 @@ export async function submitOnboarding(input: {
   return { athleteId, athleteUserId: updatedAthlete.userId, status: responseStatus };
 }
 
-export async function updateAthleteProfilePicture(input: {
-  userId: number;
-  profilePicture: string | null;
-}) {
+export async function updateAthleteProfilePicture(input: { userId: number; profilePicture: string | null }) {
   const { athlete } = await getGuardianAndAthlete(input.userId);
   if (!athlete) return null;
   let ensured = athlete;
@@ -811,7 +772,7 @@ export async function listGuardianAthletesWithUsers(userId: number) {
         console.warn("[Onboarding] Failed to ensure athlete user record while listing guardian athletes", error);
         return athlete;
       }
-    })
+    }),
   );
   const decorated = ensured.map((athlete) => decorateAthlete(athlete)).filter(Boolean) as typeof ensured;
   await Promise.all(
@@ -821,7 +782,7 @@ export async function listGuardianAthletesWithUsers(userId: number) {
       } catch (error) {
         console.warn("[Onboarding] Failed birthday notification side effect while listing guardian athletes", error);
       }
-    })
+    }),
   );
   return { guardian, athletes: decorated };
 }
@@ -830,10 +791,7 @@ export async function setActiveGuardianAthlete(input: { userId: number; athleteI
   return setActiveAthleteForGuardian(input);
 }
 
-export async function getGuardianAthleteProfileFields(input: {
-  userId: number;
-  athleteId: number;
-}) {
+export async function getGuardianAthleteProfileFields(input: { userId: number; athleteId: number }) {
   const { guardian } = await getGuardianAndAthlete(input.userId);
   if (!guardian) return null;
 
@@ -899,10 +857,7 @@ export async function updateGuardianAthleteProfileFields(input: {
   return updated ?? null;
 }
 
-export async function getGuardianAthleteOnboardingData(input: {
-  userId: number;
-  athleteId: number;
-}) {
+export async function getGuardianAthleteOnboardingData(input: { userId: number; athleteId: number }) {
   const { guardian } = await getGuardianAndAthlete(input.userId);
   if (!guardian) return null;
 
@@ -1057,7 +1012,9 @@ function decorateAthlete(athlete: typeof athleteTable.$inferSelect | null) {
   };
 }
 
-async function maybeSendBirthdayNotifications(athlete: (typeof athleteTable.$inferSelect & { isBirthday?: boolean }) | null) {
+async function maybeSendBirthdayNotifications(
+  athlete: (typeof athleteTable.$inferSelect & { isBirthday?: boolean }) | null,
+) {
   if (!athlete?.isBirthday) return;
 
   const recipientIds = new Set<number>();
@@ -1090,8 +1047,8 @@ async function maybeSendBirthdayNotifications(athlete: (typeof athleteTable.$inf
             eq(notificationTable.userId, userId),
             eq(notificationTable.type, "birthday"),
             eq(notificationTable.link, birthdayLink),
-            sql`DATE(${notificationTable.createdAt}) = CURRENT_DATE`
-          )
+            sql`DATE(${notificationTable.createdAt}) = CURRENT_DATE`,
+          ),
         )
         .limit(1);
 
@@ -1116,7 +1073,7 @@ async function maybeSendBirthdayNotifications(athlete: (typeof athleteTable.$inf
         url: birthdayLink,
         athleteId: athlete.id,
       });
-    })
+    }),
   );
 }
 
@@ -1139,7 +1096,14 @@ function normalizeConfigFields(fields: any[] | null | undefined) {
   const hasAthleteType = normalized.some((field) => field?.id === "athleteType");
   if (hasAthleteType) return normalized;
   return [
-    { id: "athleteType", label: "Athlete type", type: "dropdown", required: true, visible: true, options: ["youth", "adult"] },
+    {
+      id: "athleteType",
+      label: "Athlete type",
+      type: "dropdown",
+      required: true,
+      visible: true,
+      options: ["youth", "adult"],
+    },
     ...normalized,
   ];
 }

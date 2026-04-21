@@ -11,6 +11,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
 import { Toaster } from "../components/ui/sonner";
+import { TooltipProvider } from "../components/ui/tooltip";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import appCss from "../styles.css?url";
 
@@ -69,10 +70,16 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 function RootDocument({ children }: { children: React.ReactNode }) {
 	const router = useRouter();
 	const pathname = router.state.location.pathname;
-	
-    // Define marketing/home pages where we want to show the chrome
-    const marketingPages = ["/", "/about", "/features", "/education-faq", "/terms-privacy"];
-    const showChrome = marketingPages.includes(pathname);
+
+	// Define marketing/home pages where we want to show the chrome
+	const marketingPages = [
+		"/",
+		"/about",
+		"/features",
+		"/education-faq",
+		"/terms-privacy",
+	];
+	const showChrome = marketingPages.includes(pathname);
 
 	return (
 		<html lang="en" suppressHydrationWarning>
@@ -82,34 +89,38 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
-				{showChrome && <Header />}
-				{children}
-				{showChrome && <Footer />}
-				<Toaster 
-                    closeButton 
-                    position="top-center" 
-                    toastOptions={{
-                        className: "bg-card/40 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl",
-                        style: {
-                            fontFamily: "var(--font-sans)",
-                        }
-                    }}
-                />
+				<TooltipProvider>
+					{showChrome && <Header />}
+					{children}
+					{showChrome && <Footer />}
+					<Toaster
+						closeButton
+						position="top-center"
+						toastOptions={{
+							className:
+								"bg-card/40 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl",
+							style: {
+								fontFamily: "var(--font-sans)",
+							},
+						}}
+					/>
 
-				<TanStackDevtools
-					config={{
-						position: "bottom-right",
-					}}
-					plugins={[
-						{
-							name: "Tanstack Router",
-							render: <TanStackRouterDevtoolsPanel />,
-						},
-						TanStackQueryDevtools,
-					]}
-				/>
+					<TanStackDevtools
+						config={{
+							position: "bottom-right",
+						}}
+						plugins={[
+							{
+								name: "Tanstack Router",
+								render: <TanStackRouterDevtoolsPanel />,
+							},
+							TanStackQueryDevtools,
+						]}
+					/>
+				</TooltipProvider>
 				<Scripts />
 			</body>
 		</html>
 	);
 }
+

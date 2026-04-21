@@ -24,7 +24,10 @@ const teamMemberUpdateSchema = z.object({
   birthDate: z.string().optional().nullable(),
   trainingPerWeek: z.coerce.number().int().min(0).optional(),
   currentProgramTier: z.enum(ProgramType.enumValues).optional().nullable(),
-  injuries: z.union([z.string(), z.array(z.string())]).optional().nullable(),
+  injuries: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .nullable(),
   growthNotes: z.string().optional().nullable(),
   performanceGoals: z.string().optional().nullable(),
   equipmentAccess: z.string().optional().nullable(),
@@ -69,9 +72,7 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
     })
     .safeParse(req.body);
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
   }
 
   try {
@@ -165,9 +166,7 @@ export async function attachAthleteToTeamAdminDetails(req: Request, res: Respons
   const teamName = z.string().min(1).parse(req.params.teamName);
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
   try {
-    const parsed = z
-      .object({ allowMoveFromOtherTeam: z.coerce.boolean().optional() })
-      .safeParse(req.body ?? {});
+    const parsed = z.object({ allowMoveFromOtherTeam: z.coerce.boolean().optional() }).safeParse(req.body ?? {});
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid request" });
     }

@@ -1,9 +1,6 @@
 import { and, count, eq } from "drizzle-orm";
 import { db } from "../../db";
-import {
-  bookingTable,
-  serviceTypeTable,
-} from "../../db/schema";
+import { bookingTable, serviceTypeTable } from "../../db/schema";
 import {
   ProgramTier,
   ServiceTypeKind,
@@ -24,14 +21,13 @@ import { notifyBookingRequested } from "./notification.service";
 let cachedSupportsServiceEligiblePlans: boolean | null = null;
 
 function errorMentionsMissingColumn(error: unknown, columnName: string) {
-  const message =
-    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   return message.toLowerCase().includes(`column`) && message.includes(columnName);
 }
 
-export async function listServiceTypes(options?: { 
-  includeInactive?: boolean; 
-  includeLocked?: boolean; 
+export async function listServiceTypes(options?: {
+  includeInactive?: boolean;
+  includeLocked?: boolean;
   viewerProgramTier?: ProgramTier | null;
   athlete?: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null;
 }) {
@@ -109,9 +105,7 @@ export async function listServiceTypes(options?: {
 
   let rows: ServiceTypeRecord[];
   try {
-    rows = shouldTryEligiblePlans
-      ? ((await selectAll()) as ServiceTypeRecord[])
-      : await selectWithoutEligiblePlans();
+    rows = shouldTryEligiblePlans ? ((await selectAll()) as ServiceTypeRecord[]) : await selectWithoutEligiblePlans();
     if (shouldTryEligiblePlans) cachedSupportsServiceEligiblePlans = true;
   } catch (error) {
     if (shouldTryEligiblePlans && errorMentionsMissingColumn(error, "eligiblePlans")) {
@@ -127,7 +121,7 @@ export async function listServiceTypes(options?: {
   if (options?.includeLocked) {
     return rows.map((service) => {
       const eligiblePlans = normalizeEligiblePlans(service);
-      const allowed = options?.athlete 
+      const allowed = options?.athlete
         ? serviceAllowsAthlete(service, options.athlete)
         : serviceAllowsTier(service, options?.viewerProgramTier);
       const isLocked = eligiblePlans.length > 0 && !allowed;
@@ -149,13 +143,13 @@ export async function listServiceTypes(options?: {
         ...service,
         remainingCapacity: Math.max(0, service.capacity - activeCount),
       };
-    })
+    }),
   );
 
-  return rowsWithCapacity.filter((service) => 
-    options?.athlete 
+  return rowsWithCapacity.filter((service) =>
+    options?.athlete
       ? serviceAllowsAthlete(service, options.athlete)
-      : serviceAllowsTier(service, options?.viewerProgramTier)
+      : serviceAllowsTier(service, options?.viewerProgramTier),
   );
 }
 
@@ -257,35 +251,28 @@ export async function updateServiceType(
 
   const nextType = input.type ?? existing[0].type;
   const programTier = input.programTier ?? existing[0].programTier ?? null;
-  const eligiblePlans = input.eligiblePlans ??
-        normalizeEligiblePlans({
-          eligiblePlans: existing[0].eligiblePlans,
-          programTier: programTier ?? existing[0].programTier ?? null,
-          type: nextType,
-        });
+  const eligiblePlans =
+    input.eligiblePlans ??
+    normalizeEligiblePlans({
+      eligiblePlans: existing[0].eligiblePlans,
+      programTier: programTier ?? existing[0].programTier ?? null,
+      type: nextType,
+    });
 
   const [updated] = await db
     .update(serviceTypeTable)
     .set({
       name: input.name ?? existing[0].name,
-      description:
-        input.description !== undefined
-          ? input.description
-          : existing[0].description ?? null,
+      description: input.description !== undefined ? input.description : (existing[0].description ?? null),
       type: nextType,
       durationMinutes: input.durationMinutes ?? existing[0].durationMinutes,
-      capacity:
-        input.capacity !== undefined ? input.capacity : existing[0].capacity ?? null,
+      capacity: input.capacity !== undefined ? input.capacity : (existing[0].capacity ?? null),
       fixedStartTime: null,
       attendeeVisibility: input.attendeeVisibility ?? existing[0].attendeeVisibility ?? true,
       defaultLocation:
-        input.defaultLocation !== undefined
-          ? input.defaultLocation
-          : existing[0].defaultLocation ?? null,
+        input.defaultLocation !== undefined ? input.defaultLocation : (existing[0].defaultLocation ?? null),
       defaultMeetingLink:
-        input.defaultMeetingLink !== undefined
-          ? input.defaultMeetingLink
-          : existing[0].defaultMeetingLink ?? null,
+        input.defaultMeetingLink !== undefined ? input.defaultMeetingLink : (existing[0].defaultMeetingLink ?? null),
       programTier,
       eligiblePlans,
       eligibleTargets: input.eligibleTargets ?? existing[0].eligibleTargets ?? [],
@@ -293,15 +280,11 @@ export async function updateServiceType(
       recurrenceEndMode: input.recurrenceEndMode ?? existing[0].recurrenceEndMode ?? null,
       recurrenceCount: input.recurrenceCount ?? existing[0].recurrenceCount ?? null,
       weeklyEntries: input.weeklyEntries ?? existing[0].weeklyEntries ?? [],
-      oneTimeDate:
-        input.oneTimeDate !== undefined ? input.oneTimeDate : existing[0].oneTimeDate ?? null,
-      oneTimeTime:
-        input.oneTimeTime !== undefined ? input.oneTimeTime : existing[0].oneTimeTime ?? null,
+      oneTimeDate: input.oneTimeDate !== undefined ? input.oneTimeDate : (existing[0].oneTimeDate ?? null),
+      oneTimeTime: input.oneTimeTime !== undefined ? input.oneTimeTime : (existing[0].oneTimeTime ?? null),
       slotMode: input.slotMode ?? existing[0].slotMode ?? "shared_capacity",
       slotIntervalMinutes:
-        input.slotIntervalMinutes !== undefined
-          ? input.slotIntervalMinutes
-          : existing[0].slotIntervalMinutes ?? null,
+        input.slotIntervalMinutes !== undefined ? input.slotIntervalMinutes : (existing[0].slotIntervalMinutes ?? null),
       slotDefinitions: input.slotDefinitions ?? existing[0].slotDefinitions ?? [],
       isActive: input.isActive ?? existing[0].isActive ?? true,
       updatedAt: new Date(),
@@ -318,10 +301,7 @@ export async function deleteServiceType(id: number) {
     throw new Error("Service type not found");
   }
 
-  const [bookingAgg] = await db
-    .select({ n: count() })
-    .from(bookingTable)
-    .where(eq(bookingTable.serviceTypeId, id));
+  const [bookingAgg] = await db.select({ n: count() }).from(bookingTable).where(eq(bookingTable.serviceTypeId, id));
   const bookingCount = Number(bookingAgg?.n ?? 0);
   if (bookingCount > 0) {
     throw new Error(
@@ -352,7 +332,11 @@ export async function createBooking(input: {
   timezoneOffsetMinutes?: number;
   bypassAvailability?: boolean;
 }) {
-  const serviceType = await db.select().from(serviceTypeTable).where(eq(serviceTypeTable.id, input.serviceTypeId)).limit(1);
+  const serviceType = await db
+    .select()
+    .from(serviceTypeTable)
+    .where(eq(serviceTypeTable.id, input.serviceTypeId))
+    .limit(1);
   if (!serviceType[0]) {
     throw new Error("Service type not found");
   }

@@ -1,7 +1,13 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-import { getExerciseLibrary, getProgramAiInsight, getProgramByIdForUser, getProgramCards, getProgramSessions } from "../services/program.service";
+import {
+  getExerciseLibrary,
+  getProgramAiInsight,
+  getProgramByIdForUser,
+  getProgramCards,
+  getProgramSessions,
+} from "../services/program.service";
 
 const programIdSchema = z.coerce.number().int().min(1);
 

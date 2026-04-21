@@ -136,11 +136,7 @@ export async function createVideoUpload(input: {
   // Post-upload AI feedback trigger (asynchronous)
   (async () => {
     try {
-      const athlete = await db
-        .select()
-        .from(athleteTable)
-        .where(eq(athleteTable.id, input.athleteId))
-        .limit(1);
+      const athlete = await db.select().from(athleteTable).where(eq(athleteTable.id, input.athleteId)).limit(1);
 
       if (athlete[0]?.currentProgramTier === "PHP_Premium" && input.notes) {
         const { generateVideoFeedback, ensureAiCoachUser } = await import("./ai.service");
@@ -161,10 +157,7 @@ export async function createVideoUpload(input: {
   return upload;
 }
 
-export async function listVideoUploadsByAthlete(
-  athleteId: number,
-  options?: { contentId?: number | null },
-) {
+export async function listVideoUploadsByAthlete(athleteId: number, options?: { contentId?: number | null }) {
   const filters = [eq(videoUploadTable.athleteId, athleteId)];
   if (options?.contentId) {
     const contentFilter = or(
@@ -179,11 +172,7 @@ export async function listVideoUploadsByAthlete(
     .where(and(...filters));
 }
 
-export async function reviewVideoUpload(input: {
-  uploadId: number;
-  coachId: number;
-  feedback: string;
-}) {
+export async function reviewVideoUpload(input: { uploadId: number; coachId: number; feedback: string }) {
   const result = await db
     .update(videoUploadTable)
     .set({ reviewedByCoach: input.coachId, reviewedAt: new Date(), feedback: input.feedback })
@@ -221,7 +210,7 @@ export async function reviewVideoUpload(input: {
           userId,
           "Video Reviewed",
           "Your coach has provided feedback on your training video.",
-          payload
+          payload,
         );
       }
 

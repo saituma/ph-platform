@@ -2,13 +2,15 @@ import { and, eq, ne, or } from "drizzle-orm";
 
 import { env } from "../config/env";
 import { db } from "../db";
+import { subscriptionPlanTable, teamSubscriptionRequestTable, teamTable, userTable } from "../db/schema";
+import { buildBillingReceiptEmailFromStripeSession } from "../lib/mailer/billing-receipt-email";
 import {
-  subscriptionPlanTable,
-  teamSubscriptionRequestTable,
-  teamTable,
-  userTable,
-} from "../db/schema";
-import { sendSubscriptionApprovedUserEmail, sendSubscriptionPendingStaffEmail, sendSubscriptionPendingUserEmail } from "../lib/mailer";
+  isMailDeliveryConfigured,
+  sendSubscriptionApprovedUserEmail,
+  sendSubscriptionPendingStaffEmail,
+  sendSubscriptionPendingUserEmail,
+} from "../lib/mailer";
+import { getStripeClient } from "./billing/stripe.service";
 
 function formatStripeAmount(amountCents: number | null, currency: string | null) {
   if (amountCents == null) return null;
@@ -22,15 +24,26 @@ function formatStripeAmount(amountCents: number | null, currency: string | null)
 }
 
 export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId: number) {
+  if (!isMailDeliveryConfigured()) {
+    console.warn(
+      '[Mailer] Team subscription emails skipped: outbound mail is not configured. Set RESEND_API_KEY, or SMTP_USER + SMTP_PASS + SMTP_FROM (From can be e.g. "PH Performance <on@resend.dev>"), in apps/api/.env then restart the API.',
+    );
+    return;
+  }
+
   const rows = await db
     .select({
       requestId: teamSubscriptionRequestTable.id,
       planBillingCycle: teamSubscriptionRequestTable.planBillingCycle,
       paymentAmountCents: teamSubscriptionRequestTable.paymentAmountCents,
       paymentCurrency: teamSubscriptionRequestTable.paymentCurrency,
+      stripeSessionId: teamSubscriptionRequestTable.stripeSessionId,
+      receiptPublicId: teamSubscriptionRequestTable.receiptPublicId,
+      teamId: teamTable.id,
       adminId: userTable.id,
       adminEmail: userTable.email,
       adminName: userTable.name,
+      adminRole: userTable.role,
       teamName: teamTable.name,
       maxAthletes: teamTable.maxAthletes,
       planName: subscriptionPlanTable.name,
@@ -54,6 +67,40 @@ export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId
 
   const amount = formatStripeAmount(row.paymentAmountCents ?? null, row.paymentCurrency ?? null);
 
+  const cycleRaw = String(row.planBillingCycle ?? "")
+    .trim()
+    .toLowerCase();
+  const cycleLabel =
+    cycleRaw === "monthly"
+      ? "Monthly subscription (per seat in checkout)"
+      : cycleRaw === "six_months"
+        ? "6 months (upfront)"
+        : cycleRaw === "yearly"
+          ? "Yearly (upfront)"
+          : null;
+
+  let receipt: ReturnType<typeof buildBillingReceiptEmailFromStripeSession> | null = null;
+  const sid = String(row.stripeSessionId ?? "").trim();
+  if (sid.startsWith("cs_") && row.receiptPublicId) {
+    try {
+      const stripe = getStripeClient();
+      const session = await stripe.checkout.sessions.retrieve(sid, {
+        expand: ["line_items.data.price"],
+      });
+      receipt = buildBillingReceiptEmailFromStripeSession(session, {
+        receiptPublicId: row.receiptPublicId,
+        internalRequestId: row.requestId,
+        accountRole: row.adminRole,
+        paidAt: new Date(session.created * 1000),
+        billingCycleLabel: cycleLabel,
+        teamBlock: `Team #${row.teamId} · ${row.teamName} · seats: ${row.maxAthletes ?? "—"}`,
+        athleteBlock: null,
+      });
+    } catch (err) {
+      console.warn("[Billing] Could not load Stripe session for team receipt email", sid, err);
+    }
+  }
+
   await sendSubscriptionPendingUserEmail({
     to: row.adminEmail,
     name: row.adminName || "there",
@@ -61,6 +108,7 @@ export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId
     planTier: row.planTier,
     amount,
     billingCycle: (row.planBillingCycle as any) ?? null,
+    receipt,
   });
 
   const staff = await db
@@ -71,26 +119,37 @@ export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId
         eq(userTable.isDeleted, false),
         eq(userTable.isBlocked, false),
         or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
-        ne(userTable.email, "")
-      )
+        ne(userTable.email, ""),
+      ),
     );
 
   const seen = new Set<string>();
   for (const s of staff) {
     if (!s.email || seen.has(s.email)) continue;
+    if (s.email === row.adminEmail) continue;
     seen.add(s.email);
     await sendSubscriptionPendingStaffEmail({
       to: s.email,
+      recipientName: s.name,
       payerName: row.adminName || "Team admin",
       payerEmail: row.adminEmail,
-      athleteName: `Team: ${row.teamName} (${row.maxAthletes} athletes)`,
+      payerRole: row.adminRole,
+      subscriptionContext: "team",
+      team: { id: row.teamId, name: row.teamName, maxAthletes: row.maxAthletes },
+      athlete: null,
       planName: row.planName,
       planTier: row.planTier,
       amount,
       billingCycle: (row.planBillingCycle as any) ?? null,
-      paymentMode: String(row.planBillingCycle ?? "").trim().toLowerCase() === "monthly" ? "subscription" : "payment",
+      paymentMode:
+        String(row.planBillingCycle ?? "")
+          .trim()
+          .toLowerCase() === "monthly"
+          ? "subscription"
+          : "payment",
       requestId: row.requestId,
       adminReviewUrl,
+      receipt,
     });
   }
 }
@@ -115,4 +174,3 @@ export async function notifyTeamSubscriptionApproved(teamRequestId: number) {
     planTier: row.planTier,
   });
 }
-

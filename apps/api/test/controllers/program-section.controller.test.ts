@@ -20,10 +20,7 @@ import {
   getProgramSectionContentHandler,
   listProgramSectionContentHandler,
 } from "../../src/controllers/program-section.controller";
-import {
-  getProgramSectionContentById,
-  listProgramSectionContent,
-} from "../../src/services/program-section.service";
+import { getProgramSectionContentById, listProgramSectionContent } from "../../src/services/program-section.service";
 import { getCompletedProgramSectionContentIdsForAthlete } from "../../src/services/program-section-completion.service";
 import { getAthleteForUser } from "../../src/services/user.service";
 

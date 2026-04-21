@@ -75,16 +75,11 @@ export async function listLatestUserLocations() {
       latestSubquery,
       and(
         eq(userLocationTable.userId, latestSubquery.userId),
-        eq(userLocationTable.recordedAt, latestSubquery.latestAt)
-      )
+        eq(userLocationTable.recordedAt, latestSubquery.latestAt),
+      ),
     )
     .innerJoin(userTable, eq(userTable.id, userLocationTable.userId))
-    .where(
-      and(
-        eq(userTable.isDeleted, false),
-        inArray(userTable.role, [...ALLOWED_LOCATION_ROLES])
-      )
-    )
+    .where(and(eq(userTable.isDeleted, false), inArray(userTable.role, [...ALLOWED_LOCATION_ROLES])))
     .orderBy(userTable.name);
 }
 
@@ -108,8 +103,8 @@ export async function listUserLocationHistory(days: number) {
       and(
         eq(userTable.isDeleted, false),
         inArray(userTable.role, [...ALLOWED_LOCATION_ROLES]),
-        gte(userLocationTable.recordedAt, since)
-      )
+        gte(userLocationTable.recordedAt, since),
+      ),
     )
     .orderBy(desc(userLocationTable.recordedAt));
 }

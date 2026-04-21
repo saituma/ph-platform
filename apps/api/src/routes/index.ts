@@ -26,6 +26,8 @@ import versionRoutes from "./version.routes";
 import giphyRoutes from "./giphy.routes";
 import runsRoutes from "./runs.routes";
 import socialRoutes from "./social.routes";
+import teamSocialRoutes from "./team-social.routes";
+import teamRosterRoutes from "./team-roster.routes";
 
 const router = Router();
 
@@ -55,5 +57,7 @@ router.use(versionRoutes);
 router.use(giphyRoutes);
 router.use(runsRoutes);
 router.use(socialRoutes);
+router.use(teamSocialRoutes);
+router.use(teamRosterRoutes);
 
 export default router;

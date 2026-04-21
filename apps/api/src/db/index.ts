@@ -48,13 +48,32 @@ if (!env.databaseUrl) {
 
 const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(env.databaseUrl);
 const connectionString = useSsl ? normalizeConnectionString(env.databaseUrl) : env.databaseUrl;
-const sslOption = useSsl ? env.databaseSsl ?? { rejectUnauthorized: false } : undefined;
+const sslOption = useSsl ? (env.databaseSsl ?? { rejectUnauthorized: false }) : undefined;
+
+/** Neon pooler (PgBouncer): recycle clients before the proxy closes long-lived sockets (reduces ECONNRESET). */
+const isNeonPoolerHost = (() => {
+  try {
+    return new URL(env.databaseUrl).hostname.includes("-pooler");
+  } catch {
+    return false;
+  }
+})();
 
 export const pool = new Pool({
   connectionString,
   ssl: sslOption,
-  connectionTimeoutMillis: 60_000,
+  connectionTimeoutMillis: 30_000,
   keepAlive: true,
+  ...(isNeonPoolerHost
+    ? {
+        maxUses: 750,
+        maxLifetimeSeconds: 60 * 60,
+      }
+    : {}),
+});
+
+pool.on("error", (err) => {
+  console.error("[DB] Pool idle client error:", err);
 });
 
 // Ensure public schema is on the search_path for pooled Neon connections.

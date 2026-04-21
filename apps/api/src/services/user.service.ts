@@ -93,23 +93,13 @@ export async function createUserFromCognito(input: {
   return result[0];
 }
 
-export async function updateUserRole(
-  userId: number,
-  role: "guardian" | "athlete" | "coach" | "admin" | "superAdmin"
-) {
-  const result = await db
-    .update(userTable)
-    .set({ role })
-    .where(eq(userTable.id, userId))
-    .returning();
+export async function updateUserRole(userId: number, role: "guardian" | "athlete" | "coach" | "admin" | "superAdmin") {
+  const result = await db.update(userTable).set({ role }).where(eq(userTable.id, userId)).returning();
 
   return result[0] ?? null;
 }
 
-export async function updateUserProfile(
-  userId: number,
-  input: { name?: string; profilePicture?: string | null }
-) {
+export async function updateUserProfile(userId: number, input: { name?: string; profilePicture?: string | null }) {
   const result = await db
     .update(userTable)
     .set({
@@ -131,10 +121,7 @@ export async function updateUserProfile(
 }
 
 export async function syncAthleteProfilePictureForUser(userId: number, profilePicture: string | null) {
-  await db
-    .update(athleteTable)
-    .set({ profilePicture, updatedAt: new Date() })
-    .where(eq(athleteTable.userId, userId));
+  await db.update(athleteTable).set({ profilePicture, updatedAt: new Date() }).where(eq(athleteTable.userId, userId));
 }
 
 export async function getGuardianAndAthlete(userId: number) {
@@ -143,13 +130,9 @@ export async function getGuardianAndAthlete(userId: number) {
   if (!guardian) {
     return { guardian: null, athlete: null };
   }
-  let athlete = null as (typeof athleteTable.$inferSelect | null);
+  let athlete = null as typeof athleteTable.$inferSelect | null;
   if (guardian.activeAthleteId) {
-    const active = await db
-      .select()
-      .from(athleteTable)
-      .where(eq(athleteTable.id, guardian.activeAthleteId))
-      .limit(1);
+    const active = await db.select().from(athleteTable).where(eq(athleteTable.id, guardian.activeAthleteId)).limit(1);
     athlete = active[0] ?? null;
   }
   if (!athlete) {
@@ -272,11 +255,7 @@ export async function setActiveAthleteForGuardian(input: { userId: number; athle
 }
 
 export async function ensureGuardianForUser(userId: number) {
-  const guardians = await db
-    .select()
-    .from(guardianTable)
-    .where(eq(guardianTable.userId, userId))
-    .limit(1);
+  const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   if (guardians[0]) return guardians[0];
 
   const user = await getUserById(userId);

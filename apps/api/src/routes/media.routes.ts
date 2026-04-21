@@ -20,7 +20,7 @@ router.post(
   "/media/presign",
   requireAuth,
   requireRole(["admin", "superAdmin", "coach", "guardian", "athlete"]),
-  createMediaUploadUrl
+  createMediaUploadUrl,
 );
 
 export default router;

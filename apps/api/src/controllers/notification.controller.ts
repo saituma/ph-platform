@@ -53,8 +53,7 @@ export async function savePushToken(req: Request, res: Response) {
   }
   const parsed = pushTokenSchema.parse(req.body);
 
-  const expoPushToken =
-    parsed.expoPushToken ?? parsed.token ?? undefined;
+  const expoPushToken = parsed.expoPushToken ?? parsed.token ?? undefined;
   const devicePushToken = parsed.devicePushToken ?? undefined;
   const devicePushTokenType = parsed.devicePushTokenType ?? undefined;
 
@@ -74,16 +73,14 @@ export async function savePushToken(req: Request, res: Response) {
     .update(userTable)
     .set({
       ...(expoPushToken ? { expoPushToken } : {}),
-      ...(devicePushToken
-        ? { devicePushToken, devicePushTokenType: devicePushTokenType ?? "unknown" }
-        : {}),
+      ...(devicePushToken ? { devicePushToken, devicePushTokenType: devicePushTokenType ?? "unknown" } : {}),
       updatedAt: new Date(),
     })
     .where(eq(userTable.id, req.user.id))
     .returning();
 
   console.log(`[PushToken] Update successful for user ${req.user.id}. Rows updated: ${result.length}`);
-  
+
   return res.status(200).json({ success: true });
 }
 
@@ -91,13 +88,13 @@ export async function testPushNotification(req: Request, res: Response) {
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  
+
   await sendPushNotification(
     req.user.id,
     "Test Notification",
     "If you see this, push notifications are working correctly!",
-    { type: "system", test: true, url: "/notifications" }
+    { type: "system", test: true, url: "/notifications" },
   );
-  
+
   return res.status(200).json({ success: true, message: "Test notification sent" });
 }

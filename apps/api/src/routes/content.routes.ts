@@ -42,19 +42,19 @@ router.get(
   "/content/testimonials/submissions",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  listTestimonialSubmissions
+  listTestimonialSubmissions,
 );
 router.post(
   "/content/testimonials/:submissionId/approve",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  approveTestimonialSubmission
+  approveTestimonialSubmission,
 );
 router.post(
   "/content/testimonials/:submissionId/reject",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  rejectTestimonialSubmission
+  rejectTestimonialSubmission,
 );
 router.get("/content/parent-courses", requireAuth, listParentCoursesHandler);
 router.get("/content/parent-courses/:courseId", requireAuth, getParentCourseHandler);
@@ -64,7 +64,17 @@ router.get("/content/:contentId/ai-insight", requireAuth, getContentAiInsightCon
 router.post("/content", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createContentItem);
 router.put("/content/:contentId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateContentItem);
 router.delete("/content/:contentId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteContent);
-router.post("/content/parent-courses", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createParentCourseHandler);
-router.put("/content/parent-courses/:courseId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), updateParentCourseHandler);
+router.post(
+  "/content/parent-courses",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  createParentCourseHandler,
+);
+router.put(
+  "/content/parent-courses/:courseId",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  updateParentCourseHandler,
+);
 
 export default router;

@@ -115,17 +115,9 @@ export async function attachGroupMessageReactions<T extends { id: number }>(mess
   }));
 }
 
-export async function toggleDirectMessageReaction(input: {
-  messageId: number;
-  userId: number;
-  emoji: string;
-}) {
+export async function toggleDirectMessageReaction(input: { messageId: number; userId: number; emoji: string }) {
   await ensureReactionTables();
-  const messageRows = await db
-    .select()
-    .from(messageTable)
-    .where(eq(messageTable.id, input.messageId))
-    .limit(1);
+  const messageRows = await db.select().from(messageTable).where(eq(messageTable.id, input.messageId)).limit(1);
   const message = messageRows[0] as DirectMessageRow | undefined;
   if (!message) {
     throw new Error("Message not found");
@@ -148,8 +140,8 @@ export async function toggleDirectMessageReaction(input: {
       and(
         eq(messageReactionTable.messageId, input.messageId),
         eq(messageReactionTable.userId, input.userId),
-        eq(messageReactionTable.emoji, input.emoji)
-      )
+        eq(messageReactionTable.emoji, input.emoji),
+      ),
     )
     .limit(1);
   if (existing[0]) {
@@ -182,9 +174,7 @@ export async function toggleGroupMessageReaction(input: {
   const messageRows = await db
     .select()
     .from(chatGroupMessageTable)
-    .where(
-      and(eq(chatGroupMessageTable.id, input.messageId), eq(chatGroupMessageTable.groupId, input.groupId))
-    )
+    .where(and(eq(chatGroupMessageTable.id, input.messageId), eq(chatGroupMessageTable.groupId, input.groupId)))
     .limit(1);
   const message = messageRows[0] as GroupMessageRow | undefined;
   if (!message) {
@@ -197,8 +187,8 @@ export async function toggleGroupMessageReaction(input: {
       and(
         eq(chatGroupMessageReactionTable.messageId, input.messageId),
         eq(chatGroupMessageReactionTable.userId, input.userId),
-        eq(chatGroupMessageReactionTable.emoji, input.emoji)
-      )
+        eq(chatGroupMessageReactionTable.emoji, input.emoji),
+      ),
     )
     .limit(1);
   if (existing[0]) {

@@ -127,9 +127,7 @@ export function initSocket(server: HttpServer) {
       if (!groupId || !Number.isFinite(groupId)) return;
       try {
         const actingUserId = (socket.data.actingUserId as number | null) ?? null;
-        const ids = [userId, actingUserId].filter(
-          (value): value is number => Boolean(value) && Number.isFinite(value),
-        );
+        const ids = [userId, actingUserId].filter((value): value is number => Boolean(value) && Number.isFinite(value));
         let allowed = false;
         for (const candidateId of ids) {
           // If we're joining on behalf of an acting user, ensure the guardian relation still holds.
@@ -190,38 +188,42 @@ export function initSocket(server: HttpServer) {
         clientId?: string;
         actingUserId?: number;
       }) => {
-      const content = payload?.content?.trim() ?? "";
-      if (!payload?.toUserId || (!content && !payload.mediaUrl)) return;
-      const senderId = (payload.actingUserId ? Number(payload.actingUserId) : null) || (socket.data.actingUserId as number | null) || userId;
-      
-      // Safety check: ensure the actual user is allowed to act as this athlete
-      if (senderId !== userId) {
-        const { athlete } = await getGuardianAndAthlete(userId);
-        if (!athlete || athlete.userId !== senderId) {
-          return; // Not authorized to act as this user
-        }
-      }
+        const content = payload?.content?.trim() ?? "";
+        if (!payload?.toUserId || (!content && !payload.mediaUrl)) return;
+        const senderId =
+          (payload.actingUserId ? Number(payload.actingUserId) : null) ||
+          (socket.data.actingUserId as number | null) ||
+          userId;
 
-      try {
-        await sendMessage({
-          senderId,
-          receiverId: payload.toUserId,
-          content: content || "Attachment",
-          contentType: payload.contentType ?? "text",
-          mediaUrl: payload.mediaUrl,
-          replyToMessageId: payload.replyToMessageId ?? null,
-          replyPreview: payload.replyPreview ?? null,
-          clientId: payload.clientId,
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "";
-        if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "AI_COACH_REQUIRES_PREMIUM") {
-          console.warn("[socket] message:send blocked:", msg);
-          return;
+        // Safety check: ensure the actual user is allowed to act as this athlete
+        if (senderId !== userId) {
+          const { athlete } = await getGuardianAndAthlete(userId);
+          if (!athlete || athlete.userId !== senderId) {
+            return; // Not authorized to act as this user
+          }
         }
-        throw err;
-      }
-    });
+
+        try {
+          await sendMessage({
+            senderId,
+            receiverId: payload.toUserId,
+            content: content || "Attachment",
+            contentType: payload.contentType ?? "text",
+            mediaUrl: payload.mediaUrl,
+            replyToMessageId: payload.replyToMessageId ?? null,
+            replyPreview: payload.replyPreview ?? null,
+            clientId: payload.clientId,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "";
+          if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "AI_COACH_REQUIRES_PREMIUM") {
+            console.warn("[socket] message:send blocked:", msg);
+            return;
+          }
+          throw err;
+        }
+      },
+    );
 
     socket.on(
       "group:send",
@@ -235,33 +237,37 @@ export function initSocket(server: HttpServer) {
         clientId?: string;
         actingUserId?: number;
       }) => {
-      const content = payload?.content?.trim() ?? "";
-      if (!payload?.groupId || (!content && !payload.mediaUrl)) return;
-      const allowed = await isGroupMember(payload.groupId, userId);
-      if (!allowed) return;
-      const senderId = (payload.actingUserId ? Number(payload.actingUserId) : null) || (socket.data.actingUserId as number | null) || userId;
+        const content = payload?.content?.trim() ?? "";
+        if (!payload?.groupId || (!content && !payload.mediaUrl)) return;
+        const allowed = await isGroupMember(payload.groupId, userId);
+        if (!allowed) return;
+        const senderId =
+          (payload.actingUserId ? Number(payload.actingUserId) : null) ||
+          (socket.data.actingUserId as number | null) ||
+          userId;
 
-      // Safety check
-      if (senderId !== userId) {
-        const { athlete } = await getGuardianAndAthlete(userId);
-        if (!athlete || athlete.userId !== senderId) {
-          return;
+        // Safety check
+        if (senderId !== userId) {
+          const { athlete } = await getGuardianAndAthlete(userId);
+          if (!athlete || athlete.userId !== senderId) {
+            return;
+          }
         }
-      }
 
-      const message = await createGroupMessage({
-        groupId: payload.groupId,
-        senderId,
-        content: content || "Attachment",
-        contentType: payload.contentType ?? "text",
-        mediaUrl: payload.mediaUrl,
-        replyToMessageId: payload.replyToMessageId ?? null,
-        replyPreview: payload.replyPreview ?? null,
-        clientId: payload.clientId ?? null,
-      });
-      // createGroupMessage emits "group:message" (including clientId when provided)
-      void message;
-    });
+        const message = await createGroupMessage({
+          groupId: payload.groupId,
+          senderId,
+          content: content || "Attachment",
+          contentType: payload.contentType ?? "text",
+          mediaUrl: payload.mediaUrl,
+          replyToMessageId: payload.replyToMessageId ?? null,
+          replyPreview: payload.replyPreview ?? null,
+          clientId: payload.clientId ?? null,
+        });
+        // createGroupMessage emits "group:message" (including clientId when provided)
+        void message;
+      },
+    );
 
     socket.on("typing:start", async (payload: { toUserId?: number; groupId?: number }) => {
       const name = (socket.data.actingName as string | null) ?? (socket.data.name as string);

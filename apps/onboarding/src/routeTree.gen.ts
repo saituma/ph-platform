@@ -12,16 +12,29 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PortalTrackingRouteImport } from './routes/portal/tracking'
+import { Route as PortalTestimonialRouteImport } from './routes/portal/testimonial'
+import { Route as PortalTermsRouteImport } from './routes/portal/terms'
 import { Route as PortalScheduleRouteImport } from './routes/portal/schedule'
+import { Route as PortalProfileRouteImport } from './routes/portal/profile'
+import { Route as PortalPrivacySecurityRouteImport } from './routes/portal/privacy-security'
+import { Route as PortalPrivacyPolicyRouteImport } from './routes/portal/privacy-policy'
+import { Route as PortalPermissionsRouteImport } from './routes/portal/permissions'
+import { Route as PortalNutritionRouteImport } from './routes/portal/nutrition'
+import { Route as PortalNotificationsRouteImport } from './routes/portal/notifications'
 import { Route as PortalMoreRouteImport } from './routes/portal/more'
 import { Route as PortalMessagesRouteImport } from './routes/portal/messages'
+import { Route as PortalHelpRouteImport } from './routes/portal/help'
+import { Route as PortalFeedbackRouteImport } from './routes/portal/feedback'
 import { Route as PortalDashboardRouteImport } from './routes/portal/dashboard'
+import { Route as PortalCoachAppRouteImport } from './routes/portal/coach-app'
+import { Route as PortalAnnouncementsRouteImport } from './routes/portal/announcements'
+import { Route as PortalAboutRouteImport } from './routes/portal/about'
 import { Route as OnboardingSuccessRouteImport } from './routes/onboarding/success'
 import { Route as OnboardingStep5RouteImport } from './routes/onboarding/step-5'
 import { Route as OnboardingStep4RouteImport } from './routes/onboarding/step-4'
@@ -29,7 +42,9 @@ import { Route as OnboardingStep3RouteImport } from './routes/onboarding/step-3'
 import { Route as OnboardingStep2RouteImport } from './routes/onboarding/step-2'
 import { Route as OnboardingStep1RouteImport } from './routes/onboarding/step-1'
 import { Route as OnboardingDashboardRouteImport } from './routes/onboarding/dashboard'
+import { Route as PortalTeamIndexRouteImport } from './routes/portal/team/index'
 import { Route as PortalProgramsIndexRouteImport } from './routes/portal/programs/index'
+import { Route as PortalTeamAthleteIdRouteImport } from './routes/portal/team/$athleteId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as PortalProgramsSessionSessionIdRouteImport } from './routes/portal/programs/session/$sessionId'
 import { Route as PortalProgramsModuleModuleIdRouteImport } from './routes/portal/programs/module/$moduleId'
@@ -47,6 +62,11 @@ const TermsPrivacyRoute = TermsPrivacyRouteImport.update({
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
+  id: '/payment-success',
+  path: '/payment-success',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -74,14 +94,49 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PortalTrackingRoute = PortalTrackingRouteImport.update({
-  id: '/tracking',
-  path: '/tracking',
+const PortalTestimonialRoute = PortalTestimonialRouteImport.update({
+  id: '/testimonial',
+  path: '/testimonial',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalTermsRoute = PortalTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalScheduleRoute = PortalScheduleRouteImport.update({
   id: '/schedule',
   path: '/schedule',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalProfileRoute = PortalProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPrivacySecurityRoute = PortalPrivacySecurityRouteImport.update({
+  id: '/privacy-security',
+  path: '/privacy-security',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPrivacyPolicyRoute = PortalPrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPermissionsRoute = PortalPermissionsRouteImport.update({
+  id: '/permissions',
+  path: '/permissions',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalNutritionRoute = PortalNutritionRouteImport.update({
+  id: '/nutrition',
+  path: '/nutrition',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalNotificationsRoute = PortalNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalMoreRoute = PortalMoreRouteImport.update({
@@ -94,9 +149,34 @@ const PortalMessagesRoute = PortalMessagesRouteImport.update({
   path: '/messages',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalHelpRoute = PortalHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalFeedbackRoute = PortalFeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PortalDashboardRoute = PortalDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalCoachAppRoute = PortalCoachAppRouteImport.update({
+  id: '/coach-app',
+  path: '/coach-app',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalAnnouncementsRoute = PortalAnnouncementsRouteImport.update({
+  id: '/announcements',
+  path: '/announcements',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalAboutRoute = PortalAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => PortalRoute,
 } as any)
 const OnboardingSuccessRoute = OnboardingSuccessRouteImport.update({
@@ -134,9 +214,19 @@ const OnboardingDashboardRoute = OnboardingDashboardRouteImport.update({
   path: '/onboarding/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortalTeamIndexRoute = PortalTeamIndexRouteImport.update({
+  id: '/team/',
+  path: '/team/',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PortalProgramsIndexRoute = PortalProgramsIndexRouteImport.update({
   id: '/programs/',
   path: '/programs/',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalTeamAthleteIdRoute = PortalTeamAthleteIdRouteImport.update({
+  id: '/team/$athleteId',
+  path: '/team/$athleteId',
   getParentRoute: () => PortalRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -163,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/education-faq': typeof EducationFaqRoute
   '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
+  '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
@@ -173,13 +264,27 @@ export interface FileRoutesByFullPath {
   '/onboarding/step-4': typeof OnboardingStep4Route
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
+  '/portal/about': typeof PortalAboutRoute
+  '/portal/announcements': typeof PortalAnnouncementsRoute
+  '/portal/coach-app': typeof PortalCoachAppRoute
   '/portal/dashboard': typeof PortalDashboardRoute
+  '/portal/feedback': typeof PortalFeedbackRoute
+  '/portal/help': typeof PortalHelpRoute
   '/portal/messages': typeof PortalMessagesRoute
   '/portal/more': typeof PortalMoreRoute
+  '/portal/notifications': typeof PortalNotificationsRoute
+  '/portal/nutrition': typeof PortalNutritionRoute
+  '/portal/permissions': typeof PortalPermissionsRoute
+  '/portal/privacy-policy': typeof PortalPrivacyPolicyRoute
+  '/portal/privacy-security': typeof PortalPrivacySecurityRoute
+  '/portal/profile': typeof PortalProfileRoute
   '/portal/schedule': typeof PortalScheduleRoute
-  '/portal/tracking': typeof PortalTrackingRoute
+  '/portal/terms': typeof PortalTermsRoute
+  '/portal/testimonial': typeof PortalTestimonialRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
+  '/portal/team/': typeof PortalTeamIndexRoute
   '/portal/programs/module/$moduleId': typeof PortalProgramsModuleModuleIdRoute
   '/portal/programs/session/$sessionId': typeof PortalProgramsSessionSessionIdRoute
 }
@@ -189,6 +294,7 @@ export interface FileRoutesByTo {
   '/education-faq': typeof EducationFaqRoute
   '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
+  '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
@@ -199,13 +305,27 @@ export interface FileRoutesByTo {
   '/onboarding/step-4': typeof OnboardingStep4Route
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
+  '/portal/about': typeof PortalAboutRoute
+  '/portal/announcements': typeof PortalAnnouncementsRoute
+  '/portal/coach-app': typeof PortalCoachAppRoute
   '/portal/dashboard': typeof PortalDashboardRoute
+  '/portal/feedback': typeof PortalFeedbackRoute
+  '/portal/help': typeof PortalHelpRoute
   '/portal/messages': typeof PortalMessagesRoute
   '/portal/more': typeof PortalMoreRoute
+  '/portal/notifications': typeof PortalNotificationsRoute
+  '/portal/nutrition': typeof PortalNutritionRoute
+  '/portal/permissions': typeof PortalPermissionsRoute
+  '/portal/privacy-policy': typeof PortalPrivacyPolicyRoute
+  '/portal/privacy-security': typeof PortalPrivacySecurityRoute
+  '/portal/profile': typeof PortalProfileRoute
   '/portal/schedule': typeof PortalScheduleRoute
-  '/portal/tracking': typeof PortalTrackingRoute
+  '/portal/terms': typeof PortalTermsRoute
+  '/portal/testimonial': typeof PortalTestimonialRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs': typeof PortalProgramsIndexRoute
+  '/portal/team': typeof PortalTeamIndexRoute
   '/portal/programs/module/$moduleId': typeof PortalProgramsModuleModuleIdRoute
   '/portal/programs/session/$sessionId': typeof PortalProgramsSessionSessionIdRoute
 }
@@ -216,6 +336,7 @@ export interface FileRoutesById {
   '/education-faq': typeof EducationFaqRoute
   '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
+  '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
   '/terms-privacy': typeof TermsPrivacyRoute
   '/verification': typeof VerificationRoute
@@ -226,13 +347,27 @@ export interface FileRoutesById {
   '/onboarding/step-4': typeof OnboardingStep4Route
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
+  '/portal/about': typeof PortalAboutRoute
+  '/portal/announcements': typeof PortalAnnouncementsRoute
+  '/portal/coach-app': typeof PortalCoachAppRoute
   '/portal/dashboard': typeof PortalDashboardRoute
+  '/portal/feedback': typeof PortalFeedbackRoute
+  '/portal/help': typeof PortalHelpRoute
   '/portal/messages': typeof PortalMessagesRoute
   '/portal/more': typeof PortalMoreRoute
+  '/portal/notifications': typeof PortalNotificationsRoute
+  '/portal/nutrition': typeof PortalNutritionRoute
+  '/portal/permissions': typeof PortalPermissionsRoute
+  '/portal/privacy-policy': typeof PortalPrivacyPolicyRoute
+  '/portal/privacy-security': typeof PortalPrivacySecurityRoute
+  '/portal/profile': typeof PortalProfileRoute
   '/portal/schedule': typeof PortalScheduleRoute
-  '/portal/tracking': typeof PortalTrackingRoute
+  '/portal/terms': typeof PortalTermsRoute
+  '/portal/testimonial': typeof PortalTestimonialRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
+  '/portal/team/': typeof PortalTeamIndexRoute
   '/portal/programs/module/$moduleId': typeof PortalProgramsModuleModuleIdRoute
   '/portal/programs/session/$sessionId': typeof PortalProgramsSessionSessionIdRoute
 }
@@ -244,6 +379,7 @@ export interface FileRouteTypes {
     | '/education-faq'
     | '/features'
     | '/login'
+    | '/payment-success'
     | '/portal'
     | '/terms-privacy'
     | '/verification'
@@ -254,13 +390,27 @@ export interface FileRouteTypes {
     | '/onboarding/step-4'
     | '/onboarding/step-5'
     | '/onboarding/success'
+    | '/portal/about'
+    | '/portal/announcements'
+    | '/portal/coach-app'
     | '/portal/dashboard'
+    | '/portal/feedback'
+    | '/portal/help'
     | '/portal/messages'
     | '/portal/more'
+    | '/portal/notifications'
+    | '/portal/nutrition'
+    | '/portal/permissions'
+    | '/portal/privacy-policy'
+    | '/portal/privacy-security'
+    | '/portal/profile'
     | '/portal/schedule'
-    | '/portal/tracking'
+    | '/portal/terms'
+    | '/portal/testimonial'
     | '/api/auth/$'
+    | '/portal/team/$athleteId'
     | '/portal/programs/'
+    | '/portal/team/'
     | '/portal/programs/module/$moduleId'
     | '/portal/programs/session/$sessionId'
   fileRoutesByTo: FileRoutesByTo
@@ -270,6 +420,7 @@ export interface FileRouteTypes {
     | '/education-faq'
     | '/features'
     | '/login'
+    | '/payment-success'
     | '/portal'
     | '/terms-privacy'
     | '/verification'
@@ -280,13 +431,27 @@ export interface FileRouteTypes {
     | '/onboarding/step-4'
     | '/onboarding/step-5'
     | '/onboarding/success'
+    | '/portal/about'
+    | '/portal/announcements'
+    | '/portal/coach-app'
     | '/portal/dashboard'
+    | '/portal/feedback'
+    | '/portal/help'
     | '/portal/messages'
     | '/portal/more'
+    | '/portal/notifications'
+    | '/portal/nutrition'
+    | '/portal/permissions'
+    | '/portal/privacy-policy'
+    | '/portal/privacy-security'
+    | '/portal/profile'
     | '/portal/schedule'
-    | '/portal/tracking'
+    | '/portal/terms'
+    | '/portal/testimonial'
     | '/api/auth/$'
+    | '/portal/team/$athleteId'
     | '/portal/programs'
+    | '/portal/team'
     | '/portal/programs/module/$moduleId'
     | '/portal/programs/session/$sessionId'
   id:
@@ -296,6 +461,7 @@ export interface FileRouteTypes {
     | '/education-faq'
     | '/features'
     | '/login'
+    | '/payment-success'
     | '/portal'
     | '/terms-privacy'
     | '/verification'
@@ -306,13 +472,27 @@ export interface FileRouteTypes {
     | '/onboarding/step-4'
     | '/onboarding/step-5'
     | '/onboarding/success'
+    | '/portal/about'
+    | '/portal/announcements'
+    | '/portal/coach-app'
     | '/portal/dashboard'
+    | '/portal/feedback'
+    | '/portal/help'
     | '/portal/messages'
     | '/portal/more'
+    | '/portal/notifications'
+    | '/portal/nutrition'
+    | '/portal/permissions'
+    | '/portal/privacy-policy'
+    | '/portal/privacy-security'
+    | '/portal/profile'
     | '/portal/schedule'
-    | '/portal/tracking'
+    | '/portal/terms'
+    | '/portal/testimonial'
     | '/api/auth/$'
+    | '/portal/team/$athleteId'
     | '/portal/programs/'
+    | '/portal/team/'
     | '/portal/programs/module/$moduleId'
     | '/portal/programs/session/$sessionId'
   fileRoutesById: FileRoutesById
@@ -323,6 +503,7 @@ export interface RootRouteChildren {
   EducationFaqRoute: typeof EducationFaqRoute
   FeaturesRoute: typeof FeaturesRoute
   LoginRoute: typeof LoginRoute
+  PaymentSuccessRoute: typeof PaymentSuccessRoute
   PortalRoute: typeof PortalRouteWithChildren
   TermsPrivacyRoute: typeof TermsPrivacyRoute
   VerificationRoute: typeof VerificationRoute
@@ -357,6 +538,13 @@ declare module '@tanstack/react-router' {
       path: '/portal'
       fullPath: '/portal'
       preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment-success': {
+      id: '/payment-success'
+      path: '/payment-success'
+      fullPath: '/payment-success'
+      preLoaderRoute: typeof PaymentSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -394,11 +582,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/portal/tracking': {
-      id: '/portal/tracking'
-      path: '/tracking'
-      fullPath: '/portal/tracking'
-      preLoaderRoute: typeof PortalTrackingRouteImport
+    '/portal/testimonial': {
+      id: '/portal/testimonial'
+      path: '/testimonial'
+      fullPath: '/portal/testimonial'
+      preLoaderRoute: typeof PortalTestimonialRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/terms': {
+      id: '/portal/terms'
+      path: '/terms'
+      fullPath: '/portal/terms'
+      preLoaderRoute: typeof PortalTermsRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/schedule': {
@@ -406,6 +601,48 @@ declare module '@tanstack/react-router' {
       path: '/schedule'
       fullPath: '/portal/schedule'
       preLoaderRoute: typeof PortalScheduleRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/profile': {
+      id: '/portal/profile'
+      path: '/profile'
+      fullPath: '/portal/profile'
+      preLoaderRoute: typeof PortalProfileRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/privacy-security': {
+      id: '/portal/privacy-security'
+      path: '/privacy-security'
+      fullPath: '/portal/privacy-security'
+      preLoaderRoute: typeof PortalPrivacySecurityRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/privacy-policy': {
+      id: '/portal/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/portal/privacy-policy'
+      preLoaderRoute: typeof PortalPrivacyPolicyRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/permissions': {
+      id: '/portal/permissions'
+      path: '/permissions'
+      fullPath: '/portal/permissions'
+      preLoaderRoute: typeof PortalPermissionsRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/nutrition': {
+      id: '/portal/nutrition'
+      path: '/nutrition'
+      fullPath: '/portal/nutrition'
+      preLoaderRoute: typeof PortalNutritionRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/notifications': {
+      id: '/portal/notifications'
+      path: '/notifications'
+      fullPath: '/portal/notifications'
+      preLoaderRoute: typeof PortalNotificationsRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/more': {
@@ -422,11 +659,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalMessagesRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/help': {
+      id: '/portal/help'
+      path: '/help'
+      fullPath: '/portal/help'
+      preLoaderRoute: typeof PortalHelpRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/feedback': {
+      id: '/portal/feedback'
+      path: '/feedback'
+      fullPath: '/portal/feedback'
+      preLoaderRoute: typeof PortalFeedbackRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/portal/dashboard': {
       id: '/portal/dashboard'
       path: '/dashboard'
       fullPath: '/portal/dashboard'
       preLoaderRoute: typeof PortalDashboardRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/coach-app': {
+      id: '/portal/coach-app'
+      path: '/coach-app'
+      fullPath: '/portal/coach-app'
+      preLoaderRoute: typeof PortalCoachAppRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/announcements': {
+      id: '/portal/announcements'
+      path: '/announcements'
+      fullPath: '/portal/announcements'
+      preLoaderRoute: typeof PortalAnnouncementsRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/about': {
+      id: '/portal/about'
+      path: '/about'
+      fullPath: '/portal/about'
+      preLoaderRoute: typeof PortalAboutRouteImport
       parentRoute: typeof PortalRoute
     }
     '/onboarding/success': {
@@ -478,11 +750,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portal/team/': {
+      id: '/portal/team/'
+      path: '/team'
+      fullPath: '/portal/team/'
+      preLoaderRoute: typeof PortalTeamIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/portal/programs/': {
       id: '/portal/programs/'
       path: '/programs'
       fullPath: '/portal/programs/'
       preLoaderRoute: typeof PortalProgramsIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/team/$athleteId': {
+      id: '/portal/team/$athleteId'
+      path: '/team/$athleteId'
+      fullPath: '/portal/team/$athleteId'
+      preLoaderRoute: typeof PortalTeamAthleteIdRouteImport
       parentRoute: typeof PortalRoute
     }
     '/api/auth/$': {
@@ -510,23 +796,51 @@ declare module '@tanstack/react-router' {
 }
 
 interface PortalRouteChildren {
+  PortalAboutRoute: typeof PortalAboutRoute
+  PortalAnnouncementsRoute: typeof PortalAnnouncementsRoute
+  PortalCoachAppRoute: typeof PortalCoachAppRoute
   PortalDashboardRoute: typeof PortalDashboardRoute
+  PortalFeedbackRoute: typeof PortalFeedbackRoute
+  PortalHelpRoute: typeof PortalHelpRoute
   PortalMessagesRoute: typeof PortalMessagesRoute
   PortalMoreRoute: typeof PortalMoreRoute
+  PortalNotificationsRoute: typeof PortalNotificationsRoute
+  PortalNutritionRoute: typeof PortalNutritionRoute
+  PortalPermissionsRoute: typeof PortalPermissionsRoute
+  PortalPrivacyPolicyRoute: typeof PortalPrivacyPolicyRoute
+  PortalPrivacySecurityRoute: typeof PortalPrivacySecurityRoute
+  PortalProfileRoute: typeof PortalProfileRoute
   PortalScheduleRoute: typeof PortalScheduleRoute
-  PortalTrackingRoute: typeof PortalTrackingRoute
+  PortalTermsRoute: typeof PortalTermsRoute
+  PortalTestimonialRoute: typeof PortalTestimonialRoute
+  PortalTeamAthleteIdRoute: typeof PortalTeamAthleteIdRoute
   PortalProgramsIndexRoute: typeof PortalProgramsIndexRoute
+  PortalTeamIndexRoute: typeof PortalTeamIndexRoute
   PortalProgramsModuleModuleIdRoute: typeof PortalProgramsModuleModuleIdRoute
   PortalProgramsSessionSessionIdRoute: typeof PortalProgramsSessionSessionIdRoute
 }
 
 const PortalRouteChildren: PortalRouteChildren = {
+  PortalAboutRoute: PortalAboutRoute,
+  PortalAnnouncementsRoute: PortalAnnouncementsRoute,
+  PortalCoachAppRoute: PortalCoachAppRoute,
   PortalDashboardRoute: PortalDashboardRoute,
+  PortalFeedbackRoute: PortalFeedbackRoute,
+  PortalHelpRoute: PortalHelpRoute,
   PortalMessagesRoute: PortalMessagesRoute,
   PortalMoreRoute: PortalMoreRoute,
+  PortalNotificationsRoute: PortalNotificationsRoute,
+  PortalNutritionRoute: PortalNutritionRoute,
+  PortalPermissionsRoute: PortalPermissionsRoute,
+  PortalPrivacyPolicyRoute: PortalPrivacyPolicyRoute,
+  PortalPrivacySecurityRoute: PortalPrivacySecurityRoute,
+  PortalProfileRoute: PortalProfileRoute,
   PortalScheduleRoute: PortalScheduleRoute,
-  PortalTrackingRoute: PortalTrackingRoute,
+  PortalTermsRoute: PortalTermsRoute,
+  PortalTestimonialRoute: PortalTestimonialRoute,
+  PortalTeamAthleteIdRoute: PortalTeamAthleteIdRoute,
   PortalProgramsIndexRoute: PortalProgramsIndexRoute,
+  PortalTeamIndexRoute: PortalTeamIndexRoute,
   PortalProgramsModuleModuleIdRoute: PortalProgramsModuleModuleIdRoute,
   PortalProgramsSessionSessionIdRoute: PortalProgramsSessionSessionIdRoute,
 }
@@ -540,6 +854,7 @@ const rootRouteChildren: RootRouteChildren = {
   EducationFaqRoute: EducationFaqRoute,
   FeaturesRoute: FeaturesRoute,
   LoginRoute: LoginRoute,
+  PaymentSuccessRoute: PaymentSuccessRoute,
   PortalRoute: PortalRouteWithChildren,
   TermsPrivacyRoute: TermsPrivacyRoute,
   VerificationRoute: VerificationRoute,

@@ -13,6 +13,7 @@ import {
   createPlanAdmin,
   downgradePlan,
   getBillingStatus,
+  getPaymentReceipt,
   listTeamRequestsAdmin,
   listPlans,
   listPlansAdmin,
@@ -31,83 +32,69 @@ router.get("/billing/plans", listPlans);
 router.get("/billing/public-plans", listPlans);
 router.get("/billing/status", requireAuth, getBillingStatus);
 router.post("/billing/checkout", requireAuth, createCheckout);
-router.post(
-  "/billing/team/checkout",
-  requireAuth,
-  requireRole(["coach", "admin", "superAdmin"]),
-  createTeamCheckout
-);
+router.post("/billing/team/checkout", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createTeamCheckout);
 router.post("/billing/payment-sheet", requireAuth, createPaymentSheet);
 router.post("/billing/payment-sheet/confirm", requireAuth, confirmPaymentSheet);
 router.post("/billing/revenuecat/verify", requireAuth, verifyRevenueCatPurchase);
 router.post("/billing/confirm", requireAuth, confirmCheckout);
+router.get("/billing/receipt/:receiptId", requireAuth, getPaymentReceipt);
 router.post("/billing/downgrade", requireAuth, downgradePlan);
 
-router.get(
-  "/admin/subscription-plans",
-  requireAuth,
-  requireRole(["coach", "admin", "superAdmin"]),
-  listPlansAdmin
-);
-router.post(
-  "/admin/subscription-plans",
-  requireAuth,
-  requireRole(["coach", "admin", "superAdmin"]),
-  createPlanAdmin
-);
+router.get("/admin/subscription-plans", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listPlansAdmin);
+router.post("/admin/subscription-plans", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createPlanAdmin);
 router.put(
   "/admin/subscription-plans/:planId",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  updatePlanAdmin
+  updatePlanAdmin,
 );
 router.get(
   "/admin/subscription-requests",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  listRequestsAdmin
+  listRequestsAdmin,
 );
 router.get(
   "/admin/team-subscription-requests",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  listTeamRequestsAdmin
+  listTeamRequestsAdmin,
 );
 router.post(
   "/admin/subscription-requests/:requestId/approve",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  approveRequestAdmin
+  approveRequestAdmin,
 );
 router.post(
   "/admin/team-subscription-requests/:requestId/approve",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  approveTeamRequestAdmin
+  approveTeamRequestAdmin,
 );
 router.post(
   "/admin/subscription-requests/:requestId/reject",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  rejectRequestAdmin
+  rejectRequestAdmin,
 );
 router.post(
   "/admin/team-subscription-requests/:requestId/reject",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  rejectTeamRequestAdmin
+  rejectTeamRequestAdmin,
 );
 router.post(
   "/admin/subscription-requests/:requestId/sync-payment",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  syncRequestPaymentAdmin
+  syncRequestPaymentAdmin,
 );
 router.post(
   "/admin/team-subscription-requests/:requestId/sync-payment",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  syncTeamRequestPaymentAdmin
+  syncTeamRequestPaymentAdmin,
 );
 
 export default router;

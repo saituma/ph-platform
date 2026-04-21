@@ -1,6 +1,6 @@
-import { BASE_TEAM_TAB_ROUTES } from "../shared/tabs";
+import { ATHLETE_TAB_ROUTES_WITH_TRACKING } from "../shared/tabs";
 
-export const YOUTH_TAB_ROUTES = BASE_TEAM_TAB_ROUTES.filter(
+export const YOUTH_TAB_ROUTES = ATHLETE_TAB_ROUTES_WITH_TRACKING.filter(
   (tab) => tab.key !== "tracking",
 );
 

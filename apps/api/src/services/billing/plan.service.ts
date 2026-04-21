@@ -78,6 +78,28 @@ function formatMoneyFromStripeCents(cents: number, currencyCode: string) {
   }
 }
 
+function stripeErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+function stripeErrorCode(err: unknown): string | undefined {
+  if (err && typeof err === "object" && "code" in err && typeof (err as { code: unknown }).code === "string") {
+    return (err as { code: string }).code;
+  }
+  return undefined;
+}
+
+function logStripePriceDisplayWarning(priceId: string, err: unknown) {
+  const message = stripeErrorMessage(err);
+  const code = stripeErrorCode(err);
+  const hint =
+    code === "resource_missing"
+      ? " (DB price IDs must exist in the Stripe account for STRIPE_SECRET_KEY — check test vs live and account match.)"
+      : "";
+  console.warn(`[Billing] Could not load Stripe price for display ${priceId}: ${message}${hint}`);
+}
+
 export async function quoteAthleteBillingCycleAmount(
   plan: {
     tier: (typeof ProgramType.enumValues)[number];
@@ -88,7 +110,7 @@ export async function quoteAthleteBillingCycleAmount(
     monthlyPrice?: string | null;
     yearlyPrice?: string | null;
   },
-  billingCycle: AthleteBillingCycle
+  billingCycle: AthleteBillingCycle,
 ): Promise<{ amount: string | null; mode: "subscription" | "payment" }> {
   const mode = checkoutModeForBillingCycle(billingCycle);
 
@@ -101,7 +123,7 @@ export async function quoteAthleteBillingCycleAmount(
           stripePriceIdMonthly: plan.stripePriceIdMonthly,
           stripePriceIdYearly: plan.stripePriceIdYearly,
         },
-        billingCycle
+        billingCycle,
       );
       const price = await stripe.prices.retrieve(priceId);
       const cents = price.unit_amount;
@@ -150,7 +172,9 @@ function parseDiscountConfig(input: {
 }) {
   const legacyType = input.discountType ?? null;
   const rawValue = String(input.discountValue ?? "").trim();
-  const appliesTo = String(input.discountAppliesTo ?? "").trim().toLowerCase();
+  const appliesTo = String(input.discountAppliesTo ?? "")
+    .trim()
+    .toLowerCase();
 
   const empty = {
     monthly: null as string | null,
@@ -222,7 +246,11 @@ function buildPublicPlanPricing(plan: {
   discountValue?: string | null;
   discountAppliesTo?: string | null;
 }) {
-  const buildEntry = (label: "Monthly" | "Yearly", rawValue: string | null | undefined, interval: "monthly" | "yearly") => {
+  const buildEntry = (
+    label: "Monthly" | "Yearly",
+    rawValue: string | null | undefined,
+    interval: "monthly" | "yearly",
+  ) => {
     if (!rawValue?.trim()) return null;
     const originalCents = parsePriceToCents(rawValue);
     if (!originalCents) {
@@ -249,8 +277,8 @@ function buildPublicPlanPricing(plan: {
       hasDiscount && plan.discountType === "percent" && intervalDiscountValue
         ? `${String(intervalDiscountValue).trim()}% off`
         : hasDiscount && plan.discountType === "amount"
-        ? "Discount applied"
-        : null;
+          ? "Discount applied"
+          : null;
     return {
       label,
       interval,
@@ -272,7 +300,7 @@ function buildPublicPlanPricing(plan: {
       ? featured.hasDiscount
         ? `${featured.label} ${featured.discounted}`
         : featured.original
-      : plan.displayPrice ?? null,
+      : (plan.displayPrice ?? null),
     monthly,
     yearly,
   };
@@ -285,7 +313,9 @@ type PlanRowForPricing = Parameters<typeof buildPublicPlanPricing>[0] & {
   tier?: (typeof ProgramType.enumValues)[number];
 };
 
-async function fetchStripeMonthlyUnit(plan: PlanRowForPricing): Promise<{ unitAmount: number; currency: string } | null> {
+async function fetchStripeMonthlyUnit(
+  plan: PlanRowForPricing,
+): Promise<{ unitAmount: number; currency: string } | null> {
   if (!stripe) return null;
   const priceId = tryResolveMonthlyStripePriceId(plan);
   if (!priceId) return null;
@@ -294,7 +324,7 @@ async function fetchStripeMonthlyUnit(plan: PlanRowForPricing): Promise<{ unitAm
     if (price.unit_amount == null) return null;
     return { unitAmount: price.unit_amount, currency: price.currency ?? "gbp" };
   } catch (err) {
-    console.warn("[Billing] Could not load Stripe price for display", priceId, err);
+    logStripePriceDisplayWarning(priceId, err);
     return null;
   }
 }
@@ -306,7 +336,7 @@ async function fetchStripeMonthlyUnit(plan: PlanRowForPricing): Promise<{ unitAm
 function mergeStripeMonthlyPricing(
   plan: PlanRowForPricing,
   base: ReturnType<typeof buildPublicPlanPricing>,
-  stripeMonthly: { unitAmount: number; currency: string }
+  stripeMonthly: { unitAmount: number; currency: string },
 ) {
   const originalCents = stripeMonthly.unitAmount;
   const discountedCents = applyDiscountToAmount({
@@ -322,8 +352,8 @@ function mergeStripeMonthlyPricing(
     hasDiscount && plan.discountType === "percent" && intervalDiscountValue
       ? `${String(intervalDiscountValue).trim()}% off`
       : hasDiscount && plan.discountType === "amount"
-      ? "Discount applied"
-      : null;
+        ? "Discount applied"
+        : null;
 
   const monthly = {
     label: "Monthly" as const,
@@ -345,7 +375,7 @@ function mergeStripeMonthlyPricing(
       ? featured.hasDiscount
         ? `${featured.label} ${featured.discounted}`
         : featured.original
-      : plan.displayPrice ?? null,
+      : (plan.displayPrice ?? null),
   };
 }
 
@@ -376,7 +406,7 @@ export async function listSubscriptionPlans(options?: { includeInactive?: boolea
         ...plan,
         pricing,
       };
-    })
+    }),
   );
 
   return withStripe;
@@ -385,7 +415,7 @@ export async function listSubscriptionPlans(options?: { includeInactive?: boolea
 /** Adds `billingQuote` for onboarding plan picker (Stripe lookup + same resolution as checkout). */
 export async function enrichPlansWithBillingQuotes(
   plans: Awaited<ReturnType<typeof listSubscriptionPlans>>,
-  billingCycle: AthleteBillingCycle
+  billingCycle: AthleteBillingCycle,
 ) {
   if (!stripe) {
     return plans.map((p) => ({ ...p, billingQuote: null }));
@@ -401,7 +431,7 @@ export async function enrichPlansWithBillingQuotes(
             stripePriceIdYearly: plan.stripePriceIdYearly,
             tier: plan.tier,
           },
-          billingCycle
+          billingCycle,
         );
         const price = await stripeClient.prices.retrieve(priceId);
         const cents = price.unit_amount;
@@ -427,7 +457,7 @@ export async function enrichPlansWithBillingQuotes(
       } catch {
         return { ...plan, billingQuote: null };
       }
-    })
+    }),
   );
 }
 
@@ -455,17 +485,17 @@ export function isSubscriptionPlanFree(plan: {
     return false;
   }
 
-  const display = String(plan.displayPrice ?? "").trim().toLowerCase();
+  const display = String(plan.displayPrice ?? "")
+    .trim()
+    .toLowerCase();
   if (display === "free" || display === "included") {
     return true;
   }
 
-  const hasStripePrice = [
-    plan.stripePriceId,
-    plan.stripePriceIdMonthly,
-    plan.stripePriceIdYearly,
-  ].some((value) => {
-    const normalized = String(value ?? "").trim().toLowerCase();
+  const hasStripePrice = [plan.stripePriceId, plan.stripePriceIdMonthly, plan.stripePriceIdYearly].some((value) => {
+    const normalized = String(value ?? "")
+      .trim()
+      .toLowerCase();
     return Boolean(normalized) && normalized !== "manual";
   });
 
@@ -565,7 +595,7 @@ export async function updateSubscriptionPlan(
     discountValue: string | null;
     discountAppliesTo: string | null;
     isActive: boolean;
-  }>
+  }>,
 ) {
   const existingRows = await db
     .select()

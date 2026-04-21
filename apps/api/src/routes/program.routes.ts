@@ -1,7 +1,14 @@
 import { Router } from "express";
 
 import { requireAuth } from "../middlewares/auth";
-import { getActiveProgramAiInsightController, getProgram, getProgramAiInsightController, getProgramSessionsById, listProgramExercises, listPrograms } from "../controllers/program.controller";
+import {
+  getActiveProgramAiInsightController,
+  getProgram,
+  getProgramAiInsightController,
+  getProgramSessionsById,
+  listProgramExercises,
+  listPrograms,
+} from "../controllers/program.controller";
 
 const router = Router();
 

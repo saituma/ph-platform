@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	Activity,
@@ -12,9 +13,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { BookingModal } from "@/components/portal/BookingModal";
+import { getClientAuthToken } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
 import { fetchBookings } from "@/services/scheduleService";
-import { useQuery } from "@tanstack/react-query";
 
 export const scheduleKeys = {
 	all: ["schedule"] as const,
@@ -24,7 +25,7 @@ export const scheduleKeys = {
 
 export const Route = createFileRoute("/portal/schedule")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = localStorage.getItem("auth_token");
+		const token = getClientAuthToken();
 		if (token) {
 			await queryClient.ensureQueryData({
 				queryKey: scheduleKeys.bookings(token),

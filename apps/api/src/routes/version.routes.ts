@@ -32,19 +32,14 @@ async function columnExists(tableName: string, columnName: string) {
 }
 
 router.get("/version", async (_req, res) => {
-  const [
-    hasGroupLastReadAt,
-    hasGroupLastReadAtSnake,
-    hasEligiblePlans,
-    hasSchedulePattern,
-    hasSlotMode,
-  ] = await Promise.all([
-    columnExists("chat_group_members", "lastReadAt"),
-    columnExists("chat_group_members", "last_read_at"),
-    columnExists("service_types", "eligiblePlans"),
-    columnExists("service_types", "schedulePattern"),
-    columnExists("service_types", "slotMode"),
-  ]);
+  const [hasGroupLastReadAt, hasGroupLastReadAtSnake, hasEligiblePlans, hasSchedulePattern, hasSlotMode] =
+    await Promise.all([
+      columnExists("chat_group_members", "lastReadAt"),
+      columnExists("chat_group_members", "last_read_at"),
+      columnExists("service_types", "eligiblePlans"),
+      columnExists("service_types", "schedulePattern"),
+      columnExists("service_types", "slotMode"),
+    ]);
 
   let databaseTargets: { identity: string | null } | null = null;
   try {
@@ -88,11 +83,7 @@ router.get("/version", async (_req, res) => {
   return res.status(200).json({
     ok: true,
     nodeEnv: env.nodeEnv,
-    gitCommit:
-      process.env.RENDER_GIT_COMMIT ||
-      process.env.GIT_COMMIT ||
-      process.env.VERCEL_GIT_COMMIT_SHA ||
-      null,
+    gitCommit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || null,
     now: new Date().toISOString(),
     databaseTargets,
     codeMigrations,

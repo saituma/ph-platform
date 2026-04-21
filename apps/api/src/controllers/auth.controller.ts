@@ -173,7 +173,7 @@ export async function getMe(req: Request, res: Response) {
 
   const team =
     user.role === "coach" || user.role === "admin" || user.role === "superAdmin"
-      ? (
+      ? ((
           await db
             .select({
               id: teamTable.id,
@@ -181,6 +181,7 @@ export async function getMe(req: Request, res: Response) {
               minAge: teamTable.minAge,
               maxAge: teamTable.maxAge,
               maxAthletes: teamTable.maxAthletes,
+              emailSlug: teamTable.emailSlug,
               planId: teamTable.planId,
               subscriptionStatus: teamTable.subscriptionStatus,
               planExpiresAt: teamTable.planExpiresAt,
@@ -190,7 +191,7 @@ export async function getMe(req: Request, res: Response) {
             .from(teamTable)
             .where(eq(teamTable.adminId, user.id))
             .limit(1)
-        )[0] ?? null
+        )[0] ?? null)
       : null;
 
   return res.status(200).json({

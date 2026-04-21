@@ -27,7 +27,7 @@ const onboardingConfigSchema = z.object({
       id: z.string().min(1),
       label: z.string().min(1),
       required: z.boolean(),
-    })
+    }),
   ),
   welcomeMessage: z.string().optional().nullable(),
   coachMessage: z.string().optional().nullable(),

@@ -60,10 +60,7 @@ export async function getCompletedProgramSectionContentIdsForAthlete(athleteId: 
   return new Set(rows.map((row) => row.programSectionContentId));
 }
 
-export async function isProgramSectionContentCompletedForAthlete(input: {
-  athleteId: number;
-  contentId: number;
-}) {
+export async function isProgramSectionContentCompletedForAthlete(input: { athleteId: number; contentId: number }) {
   const rows = await db
     .select({ id: programSectionCompletionTable.id })
     .from(programSectionCompletionTable)

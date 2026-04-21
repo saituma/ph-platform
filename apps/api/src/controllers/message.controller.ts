@@ -31,9 +31,7 @@ const reactionSchema = z.object({
 });
 
 const listMessagesQuerySchema = z.object({
-  includeVideoResponses: z
-    .union([z.literal("1"), z.literal("0"), z.literal("true"), z.literal("false")])
-    .optional(),
+  includeVideoResponses: z.union([z.literal("1"), z.literal("0"), z.literal("true"), z.literal("false")]).optional(),
 });
 
 export async function listMessages(req: Request, res: Response) {
@@ -44,13 +42,13 @@ export async function listMessages(req: Request, res: Response) {
   });
   const lastCoach = await getLastAdminContact(userId);
   const coach = lastCoach ?? (await getCoachUser());
-  
+
   const { isUserPremium } = await import("../services/message.service");
   const premium = await isUserPremium(userId);
 
   const coaches = [];
   if (coach) coaches.push(coach);
-  
+
   if (premium) {
     const { ensureAiCoachUser } = await import("../services/ai.service");
     const aiCoachId = await ensureAiCoachUser();
@@ -61,7 +59,7 @@ export async function listMessages(req: Request, res: Response) {
         name: "AI Coach",
         role: "AI Assistant",
         profilePicture: null,
-        isAi: true
+        isAi: true,
       });
     }
   }
@@ -72,7 +70,7 @@ export async function listMessages(req: Request, res: Response) {
 export async function sendMessageToCoach(req: Request, res: Response) {
   const input = sendSchema.parse(req.body);
   const userId = req.user!.id;
-  
+
   let receiverId = input.receiverId;
   if (!receiverId) {
     const lastCoach = await getLastAdminContact(userId);

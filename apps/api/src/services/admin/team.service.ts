@@ -65,12 +65,7 @@ async function ensureTeamChatGroup(teamName: string, createdByUserId: number) {
   const existing = await db
     .select({ id: chatGroupTable.id })
     .from(chatGroupTable)
-    .where(
-      and(
-        eq(chatGroupTable.name, cleanTeamName),
-        eq(chatGroupTable.category, "team"),
-      ),
-    )
+    .where(and(eq(chatGroupTable.name, cleanTeamName), eq(chatGroupTable.category, "team")))
     .limit(1);
   if (existing[0]) return existing[0];
 
@@ -87,12 +82,7 @@ async function ensureTeamChatGroup(teamName: string, createdByUserId: number) {
   const fallback = await db
     .select({ id: chatGroupTable.id })
     .from(chatGroupTable)
-    .where(
-      and(
-        eq(chatGroupTable.name, cleanTeamName),
-        eq(chatGroupTable.category, "team"),
-      ),
-    )
+    .where(and(eq(chatGroupTable.name, cleanTeamName), eq(chatGroupTable.category, "team")))
     .limit(1);
   return fallback[0] ?? null;
 }
@@ -118,9 +108,7 @@ async function syncTeamChatMembers(teamId: number, groupId: number) {
     .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
     .where(and(eq(athleteTable.teamId, teamId), eq(userTable.isDeleted, false)));
 
-  const guardianIds = athleteUsers
-    .map((row) => row.guardianId)
-    .filter((id): id is number => typeof id === "number");
+  const guardianIds = athleteUsers.map((row) => row.guardianId).filter((id): id is number => typeof id === "number");
 
   const guardianUsers = guardianIds.length
     ? await db
@@ -130,10 +118,7 @@ async function syncTeamChatMembers(teamId: number, groupId: number) {
         .where(and(eq(userTable.isDeleted, false), inArray(guardianTable.id, guardianIds)))
     : [];
 
-  const userIds = [
-    ...athleteUsers.map((row) => row.athleteUserId),
-    ...guardianUsers.map((row) => row.userId),
-  ];
+  const userIds = [...athleteUsers.map((row) => row.athleteUserId), ...guardianUsers.map((row) => row.userId)];
 
   await addUsersToGroup(groupId, userIds);
 }
@@ -199,14 +184,16 @@ export async function createTeamAdmin(input: {
     else if (billingCycle === "yearly") expiresAt.setFullYear(expiresAt.getFullYear() + 1);
     else expiresAt.setMonth(expiresAt.getMonth() + 1);
 
-    await db.update(teamTable).set({
-      subscriptionStatus: "active",
-      planPaymentType: billingCycle === "monthly" ? "monthly" : "upfront",
-      planCommitmentMonths: billingCycle === "6months" ? 6 : billingCycle === "yearly" ? 12 : 1,
-      planExpiresAt: expiresAt,
-      updatedAt: new Date(),
-    }).where(eq(teamTable.id, created.id));
-
+    await db
+      .update(teamTable)
+      .set({
+        subscriptionStatus: "active",
+        planPaymentType: billingCycle === "monthly" ? "monthly" : "upfront",
+        planCommitmentMonths: billingCycle === "6months" ? 6 : billingCycle === "yearly" ? 12 : 1,
+        planExpiresAt: expiresAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(teamTable.id, created.id));
   } else {
     // 2. STRIPE FLOW (Pay Now or Email Link)
     // Construct the Lookup Key based on your convention: tier_interval
@@ -215,7 +202,11 @@ export async function createTeamAdmin(input: {
     const lookupKey = `${plan.tier.toLowerCase()}_${intervalKey}`;
 
     try {
-      const adminUser = await db.select({ email: userTable.email }).from(userTable).where(eq(userTable.id, input.adminId)).limit(1);
+      const adminUser = await db
+        .select({ email: userTable.email })
+        .from(userTable)
+        .where(eq(userTable.id, input.adminId))
+        .limit(1);
       const session = await createTeamCheckoutSession({
         teamId: created.id,
         adminId: input.adminId,
@@ -276,7 +267,10 @@ export async function listTeamsAdmin() {
     .leftJoin(athleteTable, eq(athleteTable.teamId, teamTable.id))
     .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
     .groupBy(teamTable.id, teamTable.name, teamTable.createdAt, teamTable.updatedAt)
-    .orderBy(desc(sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`), teamTable.name);
+    .orderBy(
+      desc(sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`),
+      teamTable.name,
+    );
 
   return rows;
 }
@@ -285,9 +279,7 @@ function normalizeInjuriesForText(value: unknown): string | null {
   if (value == null) return null;
   if (typeof value === "string") return value;
   if (Array.isArray(value)) {
-    const flattened = value
-      .map((item) => (typeof item === "string" ? item.trim() : String(item)))
-      .filter(Boolean);
+    const flattened = value.map((item) => (typeof item === "string" ? item.trim() : String(item))).filter(Boolean);
     return flattened.length ? flattened.join(", ") : null;
   }
   try {
@@ -464,10 +456,7 @@ export async function updateTeamDefaultsAdmin(input: {
   const team = await ensureTeamExists({ name: cleanTeamName });
   if (!team) throw { status: 404, message: "Team not found." };
 
-  await db
-    .update(teamTable)
-    .set({ updatedAt: new Date() })
-    .where(eq(teamTable.id, team.id));
+  await db.update(teamTable).set({ updatedAt: new Date() }).where(eq(teamTable.id, team.id));
 
   const rows = await db
     .update(athleteTable)
@@ -542,9 +531,12 @@ export async function updateTeamMemberAdmin(input: {
       athletePatch.injuries = null;
     }
   }
-  if (input.growthNotes !== undefined) athletePatch.growthNotes = input.growthNotes?.trim() ? input.growthNotes.trim() : null;
-  if (input.performanceGoals !== undefined) athletePatch.performanceGoals = input.performanceGoals?.trim() ? input.performanceGoals.trim() : null;
-  if (input.equipmentAccess !== undefined) athletePatch.equipmentAccess = input.equipmentAccess?.trim() ? input.equipmentAccess.trim() : null;
+  if (input.growthNotes !== undefined)
+    athletePatch.growthNotes = input.growthNotes?.trim() ? input.growthNotes.trim() : null;
+  if (input.performanceGoals !== undefined)
+    athletePatch.performanceGoals = input.performanceGoals?.trim() ? input.performanceGoals.trim() : null;
+  if (input.equipmentAccess !== undefined)
+    athletePatch.equipmentAccess = input.equipmentAccess?.trim() ? input.equipmentAccess.trim() : null;
 
   if (Object.keys(athletePatch).length > 0) {
     athletePatch.updatedAt = new Date();
@@ -564,10 +556,7 @@ export async function updateTeamMemberAdmin(input: {
     await db.update(guardianTable).set(guardianPatch).where(eq(guardianTable.id, athlete.guardianId));
   }
 
-  await db
-    .update(teamTable)
-    .set({ updatedAt: new Date() })
-    .where(eq(teamTable.id, team.id));
+  await db.update(teamTable).set({ updatedAt: new Date() }).where(eq(teamTable.id, team.id));
 
   return { ok: true };
 }
@@ -640,16 +629,10 @@ export async function attachAthleteToTeamAdmin(input: {
     })
     .where(eq(athleteTable.id, athlete.id));
 
-  await db
-    .update(teamTable)
-    .set({ updatedAt: new Date() })
-    .where(eq(teamTable.id, team.id));
+  await db.update(teamTable).set({ updatedAt: new Date() }).where(eq(teamTable.id, team.id));
 
   if (athlete.teamId) {
-    await db
-      .update(teamTable)
-      .set({ updatedAt: new Date() })
-      .where(eq(teamTable.id, athlete.teamId));
+    await db.update(teamTable).set({ updatedAt: new Date() }).where(eq(teamTable.id, athlete.teamId));
   }
 
   const group = await ensureTeamChatGroup(cleanTeamName, input.createdByUserId);
@@ -671,4 +654,11 @@ export async function attachAthleteToTeamAdmin(input: {
     ok: true,
     alreadyInTeam: false,
   };
+}
+
+/** Adds a coach-provisioned athlete user to the team chat group (best-effort). */
+export async function addTeamAthleteToTeamChat(teamName: string, athleteUserId: number, createdByUserId: number) {
+  const group = await ensureTeamChatGroup(teamName.trim(), createdByUserId);
+  if (!group?.id) return;
+  await addUsersToGroup(group.id, [athleteUserId]);
 }

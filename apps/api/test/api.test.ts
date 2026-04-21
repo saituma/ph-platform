@@ -116,12 +116,7 @@ jest.mock("../src/services/user.service", () => ({
 }));
 
 jest.mock("../src/services/messaging-policy.service", () => ({
-  getMessagingAccessTiers: jest.fn(async () => [
-    "PHP",
-    "PHP_Premium",
-    "PHP_Premium_Plus",
-    "PHP_Pro",
-  ]),
+  getMessagingAccessTiers: jest.fn(async () => ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]),
 }));
 
 jest.mock("../src/services/booking.service", () => ({
@@ -248,7 +243,9 @@ describe("API routes", () => {
   });
 
   it("POST /api/auth/register", async () => {
-    const res = await request(app).post("/api/auth/register").send({ email: "test@example.com", password: "Password123", name: "Test" });
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ email: "test@example.com", password: "Password123", name: "Test" });
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
   });
@@ -304,20 +301,18 @@ describe("API routes", () => {
   });
 
   it("POST /api/onboarding", async () => {
-    const res = await request(app)
-      .post("/api/onboarding")
-      .send({
-        athleteName: "Athlete",
-        age: 12,
-        team: "Team",
-        trainingPerWeek: 3,
-        growthNotes: null,
-        parentEmail: "parent@example.com",
-        desiredProgramType: "PHP",
-        termsVersion: "v1",
-        privacyVersion: "v1",
-        appVersion: "1.0.0",
-      });
+    const res = await request(app).post("/api/onboarding").send({
+      athleteName: "Athlete",
+      age: 12,
+      team: "Team",
+      trainingPerWeek: 3,
+      growthNotes: null,
+      parentEmail: "parent@example.com",
+      desiredProgramType: "PHP",
+      termsVersion: "v1",
+      privacyVersion: "v1",
+      appVersion: "1.0.0",
+    });
     expect(res.status).toBe(200);
   });
 
@@ -384,29 +379,31 @@ describe("API routes", () => {
   });
 
   it("PUT /api/content/1", async () => {
-    const res = await request(app)
-      .put("/api/content/1")
-      .send({ title: "Title", content: "Body", type: "article" });
+    const res = await request(app).put("/api/content/1").send({ title: "Title", content: "Body", type: "article" });
     expect(res.status).toBe(200);
   });
 
   it("POST /api/content/parent-courses", async () => {
-    const res = await request(app).post("/api/content/parent-courses").send({
-      title: "Course",
-      summary: "Summary",
-      category: "Growth and maturation",
-      modules: [{ id: "mod-1", title: "Intro", type: "article", order: 0, content: "Text" }],
-    });
+    const res = await request(app)
+      .post("/api/content/parent-courses")
+      .send({
+        title: "Course",
+        summary: "Summary",
+        category: "Growth and maturation",
+        modules: [{ id: "mod-1", title: "Intro", type: "article", order: 0, content: "Text" }],
+      });
     expect(res.status).toBe(201);
   });
 
   it("PUT /api/content/parent-courses/1", async () => {
-    const res = await request(app).put("/api/content/parent-courses/1").send({
-      title: "Course",
-      summary: "Summary",
-      category: "Growth and maturation",
-      modules: [{ id: "mod-1", title: "Intro", type: "article", order: 0, content: "Text" }],
-    });
+    const res = await request(app)
+      .put("/api/content/parent-courses/1")
+      .send({
+        title: "Course",
+        summary: "Summary",
+        category: "Growth and maturation",
+        modules: [{ id: "mod-1", title: "Intro", type: "article", order: 0, content: "Text" }],
+      });
     expect(res.status).toBe(200);
   });
 
@@ -436,7 +433,9 @@ describe("API routes", () => {
   });
 
   it("POST /api/chat/groups", async () => {
-    const res = await request(app).post("/api/chat/groups").send({ name: "Group", memberIds: [2] });
+    const res = await request(app)
+      .post("/api/chat/groups")
+      .send({ name: "Group", memberIds: [2] });
     expect(res.status).toBe(201);
   });
 
@@ -446,7 +445,9 @@ describe("API routes", () => {
   });
 
   it("POST /api/chat/groups/1/members", async () => {
-    const res = await request(app).post("/api/chat/groups/1/members").send({ memberIds: [2] });
+    const res = await request(app)
+      .post("/api/chat/groups/1/members")
+      .send({ memberIds: [2] });
     expect(res.status).toBe(200);
   });
 
@@ -471,7 +472,9 @@ describe("API routes", () => {
   });
 
   it("POST /api/bookings/services", async () => {
-    const res = await request(app).post("/api/bookings/services").send({ name: "Call", type: "group_call", durationMinutes: 30 });
+    const res = await request(app)
+      .post("/api/bookings/services")
+      .send({ name: "Call", type: "group_call", durationMinutes: 30 });
     expect(res.status).toBe(201);
   });
 
@@ -481,7 +484,9 @@ describe("API routes", () => {
   });
 
   it("GET /api/bookings/availability", async () => {
-    const res = await request(app).get("/api/bookings/availability").query({ serviceTypeId: 1, from: new Date().toISOString(), to: new Date().toISOString() });
+    const res = await request(app)
+      .get("/api/bookings/availability")
+      .query({ serviceTypeId: 1, from: new Date().toISOString(), to: new Date().toISOString() });
     expect(res.status).toBe(200);
   });
 
@@ -527,7 +532,9 @@ describe("API routes", () => {
   });
 
   it("POST /api/media/signed-url", async () => {
-    const res = await request(app).post("/api/media/signed-url").send({ path: "media/test.png", expiresInSeconds: 900 });
+    const res = await request(app)
+      .post("/api/media/signed-url")
+      .send({ path: "media/test.png", expiresInSeconds: 900 });
     expect(res.status).toBe(200);
   });
 
@@ -644,9 +651,7 @@ describe("API routes", () => {
   });
 
   it("PUT /api/admin/profile", async () => {
-    const res = await request(app)
-      .put("/api/admin/profile")
-      .send({ name: "Admin", email: "admin@example.com" });
+    const res = await request(app).put("/api/admin/profile").send({ name: "Admin", email: "admin@example.com" });
     expect(res.status).toBe(200);
   });
 
@@ -668,19 +673,21 @@ describe("API routes", () => {
   });
 
   it("PUT /api/admin/onboarding-config", async () => {
-    const res = await request(app).put("/api/admin/onboarding-config").send({
-      version: 1,
-      fields: [
-        { id: "athleteName", label: "Athlete Name", type: "text", required: true, visible: true },
-        { id: "birthDate", label: "Birth Date", type: "date", required: true, visible: true },
-      ],
-      requiredDocuments: [{ id: "consent", label: "Guardian Consent Form", required: true }],
-      welcomeMessage: "Welcome",
-      coachMessage: "Coach",
-      defaultProgramTier: "PHP",
-      approvalWorkflow: "manual",
-      notes: "Notes",
-    });
+    const res = await request(app)
+      .put("/api/admin/onboarding-config")
+      .send({
+        version: 1,
+        fields: [
+          { id: "athleteName", label: "Athlete Name", type: "text", required: true, visible: true },
+          { id: "birthDate", label: "Birth Date", type: "date", required: true, visible: true },
+        ],
+        requiredDocuments: [{ id: "consent", label: "Guardian Consent Form", required: true }],
+        welcomeMessage: "Welcome",
+        coachMessage: "Coach",
+        defaultProgramTier: "PHP",
+        approvalWorkflow: "manual",
+        notes: "Notes",
+      });
     expect(res.status).toBe(200);
   });
 
@@ -760,7 +767,9 @@ describe("API routes", () => {
   });
 
   it("POST /api/admin/sessions", async () => {
-    const res = await request(app).post("/api/admin/sessions").send({ programId: 1, weekNumber: 1, sessionNumber: 1, type: "program" });
+    const res = await request(app)
+      .post("/api/admin/sessions")
+      .send({ programId: 1, weekNumber: 1, sessionNumber: 1, type: "program" });
     expect(res.status).toBe(201);
   });
 

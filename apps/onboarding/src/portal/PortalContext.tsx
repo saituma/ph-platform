@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
 	createContext,
 	type ReactNode,
@@ -8,7 +9,6 @@ import {
 	useState,
 } from "react";
 import { env } from "@/env";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type PortalUser = {
 	id: number;
@@ -32,6 +32,7 @@ export type PortalUser = {
 		minAge: number | null;
 		maxAge: number | null;
 		maxAthletes: number;
+		emailSlug?: string | null;
 		planId: number | null;
 		subscriptionStatus: string | null;
 		planExpiresAt: string | null;
@@ -86,7 +87,6 @@ async function fetchPortalUser(token: string): Promise<PortalUser> {
 
 export function PortalProvider({ children }: { children: ReactNode }) {
 	const [token, setToken] = useState<string | null>(null);
-	const queryClient = useQueryClient();
 
 	useEffect(() => {
 		const currentToken = localStorage.getItem("auth_token");
@@ -100,7 +100,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 		refetch,
 	} = useQuery({
 		queryKey: portalKeys.user(token),
-		queryFn: () => fetchPortalUser(token!),
+		queryFn: async () => {
+			const t = token;
+			if (!t) throw new Error("Not authenticated");
+			return fetchPortalUser(t);
+		},
 		enabled: !!token,
 		staleTime: 1000 * 60 * 10, // 10 minutes
 	});

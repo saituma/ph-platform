@@ -10,7 +10,14 @@ import {
   listPhysioReferrals,
   updatePhysioReferral,
 } from "../services/physio-referral.service";
-import { ProgramType, notificationTable, athleteTable, guardianTable, physioRefferalsTable, userTable } from "../db/schema";
+import {
+  ProgramType,
+  notificationTable,
+  athleteTable,
+  guardianTable,
+  physioRefferalsTable,
+  userTable,
+} from "../db/schema";
 import { db } from "../db";
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getSocketServer } from "../socket-hub";
@@ -18,25 +25,28 @@ import { sendPushNotification } from "../services/push.service";
 import { createReferralGroup, getReferralGroupAthletes, listReferralGroups } from "../services/referral-group.service";
 import { sendReferralAssignedEmail } from "../lib/mailer";
 
-const physioMetadataSchema = z.object({
-  referralType: z.string().optional().nullable(),
-  assignmentMode: z.enum(["single", "team", "age_range", "group"]).optional().nullable(),
-  targetLabel: z.string().optional().nullable(),
-  targetGroupKey: z.string().optional().nullable(),
-  targetTeam: z.string().optional().nullable(),
-  minAge: z.number().int().optional().nullable(),
-  maxAge: z.number().int().optional().nullable(),
-  providerName: z.string().optional().nullable(),
-  organizationName: z.string().optional().nullable(),
-  imageUrl: z.string().url().optional().nullable(),
-  physioName: z.string().optional().nullable(),
-  clinicName: z.string().optional().nullable(),
-  location: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  email: z.string().optional().nullable(),
-  specialty: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-}).optional().nullable();
+const physioMetadataSchema = z
+  .object({
+    referralType: z.string().optional().nullable(),
+    assignmentMode: z.enum(["single", "team", "age_range", "group"]).optional().nullable(),
+    targetLabel: z.string().optional().nullable(),
+    targetGroupKey: z.string().optional().nullable(),
+    targetTeam: z.string().optional().nullable(),
+    minAge: z.number().int().optional().nullable(),
+    maxAge: z.number().int().optional().nullable(),
+    providerName: z.string().optional().nullable(),
+    organizationName: z.string().optional().nullable(),
+    imageUrl: z.string().url().optional().nullable(),
+    physioName: z.string().optional().nullable(),
+    clinicName: z.string().optional().nullable(),
+    location: z.string().optional().nullable(),
+    phone: z.string().optional().nullable(),
+    email: z.string().optional().nullable(),
+    specialty: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+  })
+  .optional()
+  .nullable();
 
 const createPhysioSchema = z.object({
   athleteId: z.coerce.number().int().min(1),
@@ -64,33 +74,35 @@ const updatePhysioSchema = z.object({
   metadata: physioMetadataSchema,
 });
 
-const bulkTargetingSchema = z.discriminatedUnion("mode", [
-  z.object({
-    mode: z.literal("single"),
-    athleteId: z.coerce.number().int().min(1),
-  }),
-  z.object({
-    mode: z.literal("team"),
-    team: z.string().trim().min(1),
-  }),
-  z.object({
-    mode: z.literal("age_range"),
-    minAge: z.coerce.number().int().min(1),
-    maxAge: z.coerce.number().int().min(1),
-  }),
-  z.object({
-    mode: z.literal("group"),
-    groupId: z.coerce.number().int().min(1),
-  }),
-]).superRefine((value, ctx) => {
-  if (value.mode === "age_range" && value.minAge > value.maxAge) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Minimum age cannot exceed maximum age.",
-      path: ["minAge"],
-    });
-  }
-});
+const bulkTargetingSchema = z
+  .discriminatedUnion("mode", [
+    z.object({
+      mode: z.literal("single"),
+      athleteId: z.coerce.number().int().min(1),
+    }),
+    z.object({
+      mode: z.literal("team"),
+      team: z.string().trim().min(1),
+    }),
+    z.object({
+      mode: z.literal("age_range"),
+      minAge: z.coerce.number().int().min(1),
+      maxAge: z.coerce.number().int().min(1),
+    }),
+    z.object({
+      mode: z.literal("group"),
+      groupId: z.coerce.number().int().min(1),
+    }),
+  ])
+  .superRefine((value, ctx) => {
+    if (value.mode === "age_range" && value.minAge > value.maxAge) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Minimum age cannot exceed maximum age.",
+        path: ["minAge"],
+      });
+    }
+  });
 
 const bulkCreatePhysioSchema = z.object({
   targeting: bulkTargetingSchema,
@@ -104,19 +116,21 @@ const bulkCreatePhysioSchema = z.object({
   metadata: physioMetadataSchema,
 });
 
-const createReferralGroupSchema = z.object({
-  name: z.string().trim().min(1).max(255),
-  expectedSize: z.coerce.number().int().min(1),
-  athleteIds: z.array(z.coerce.number().int().min(1)).min(1),
-}).superRefine((value, ctx) => {
-  if (value.expectedSize !== value.athleteIds.length) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Expected size must match the number of athletes selected.",
-      path: ["expectedSize"],
-    });
-  }
-});
+const createReferralGroupSchema = z
+  .object({
+    name: z.string().trim().min(1).max(255),
+    expectedSize: z.coerce.number().int().min(1),
+    athleteIds: z.array(z.coerce.number().int().min(1)).min(1),
+  })
+  .superRefine((value, ctx) => {
+    if (value.expectedSize !== value.athleteIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Expected size must match the number of athletes selected.",
+        path: ["expectedSize"],
+      });
+    }
+  });
 
 function normalizeReferralType(value?: string | null) {
   return String(value ?? "")
@@ -124,10 +138,7 @@ function normalizeReferralType(value?: string | null) {
     .toLowerCase();
 }
 
-function getMetadataString(
-  metadata: Record<string, unknown> | null | undefined,
-  key: string
-) {
+function getMetadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
   const value = metadata?.[key];
   return typeof value === "string" ? value : null;
 }
@@ -142,7 +153,13 @@ function getReferralProviderLabel(metadata?: Record<string, unknown> | null) {
   return providerName?.trim() || null;
 }
 
-function getAssignmentLabel(input: { mode: "single" | "team" | "age_range" | "group"; team?: string; minAge?: number; maxAge?: number; groupName?: string }) {
+function getAssignmentLabel(input: {
+  mode: "single" | "team" | "age_range" | "group";
+  team?: string;
+  minAge?: number;
+  maxAge?: number;
+  groupName?: string;
+}) {
   if (input.mode === "team") {
     return input.team?.trim() ? `Team ${input.team.trim()}` : "Team";
   }
@@ -158,11 +175,12 @@ function getAssignmentLabel(input: { mode: "single" | "team" | "age_range" | "gr
   return "Individual athlete";
 }
 
-async function listEligibleAthleteTargets(input:
-  | { mode: "single"; athleteId: number }
-  | { mode: "team"; team: string }
-  | { mode: "age_range"; minAge: number; maxAge: number }
-  | { mode: "group"; groupId: number }
+async function listEligibleAthleteTargets(
+  input:
+    | { mode: "single"; athleteId: number }
+    | { mode: "team"; team: string }
+    | { mode: "age_range"; minAge: number; maxAge: number }
+    | { mode: "group"; groupId: number },
 ) {
   const filters = [] as any[];
   if (input.mode === "single") {
@@ -204,11 +222,7 @@ async function resolveReferralRecipients(athleteId: number) {
   if (!row) return [] as { userId: number; email: string | null; name: string | null }[];
 
   const userIds = Array.from(
-    new Set(
-      [row.athleteUserId, row.guardianUserId].filter(
-        (value): value is number => Number.isFinite(value)
-      )
-    )
+    new Set([row.athleteUserId, row.guardianUserId].filter((value): value is number => Number.isFinite(value))),
   );
 
   if (!userIds.length) return [];
@@ -255,7 +269,7 @@ async function notifyReferralRecipients(input: {
           type: "physio_referral",
           content: input.content,
           link: input.link ?? null,
-        }))
+        })),
       );
     }
 
@@ -284,8 +298,8 @@ async function notifyReferralRecipients(input: {
             url: "/physio-referral",
             athleteId: String(input.athleteId),
             referralId: input.referralId ? String(input.referralId) : undefined,
-          })
-        )
+          }),
+        ),
       );
     }
 
@@ -298,8 +312,8 @@ async function notifyReferralRecipients(input: {
               to: recipient.email!,
               name: recipient.name?.trim() || "there",
               ...input.emailPayload!,
-            }).catch(() => null)
-          )
+            }).catch(() => null),
+          ),
       );
     }
   } catch {
@@ -364,7 +378,7 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
   const existingEntries = await getPhysioReferralsForAthlete(input.athleteId);
   const duplicate = existingEntries.find((item) => {
     const existingType = normalizeReferralType(
-      getMetadataString(item.metadata as Record<string, unknown> | null, "referralType")
+      getMetadataString(item.metadata as Record<string, unknown> | null, "referralType"),
     );
     return existingType === nextReferralType;
   });
@@ -396,7 +410,9 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
     emailPayload: {
       referralType,
       providerName,
-      organizationName: getMetadataString(input.metadata ?? null, "organizationName") ?? getMetadataString(input.metadata ?? null, "clinicName"),
+      organizationName:
+        getMetadataString(input.metadata ?? null, "organizationName") ??
+        getMetadataString(input.metadata ?? null, "clinicName"),
       imageUrl: getMetadataString(input.metadata ?? null, "imageUrl"),
       targetLabel: getMetadataString(input.metadata ?? null, "targetLabel"),
       referralLink: input.referalLink,
@@ -415,7 +431,9 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
   const input = bulkCreatePhysioSchema.parse(req.body);
   const referralType = getReferralTypeLabel(input.metadata ?? null);
   const providerName = getReferralProviderLabel(input.metadata ?? null);
-  const organizationName = getMetadataString(input.metadata ?? null, "organizationName") ?? getMetadataString(input.metadata ?? null, "clinicName");
+  const organizationName =
+    getMetadataString(input.metadata ?? null, "organizationName") ??
+    getMetadataString(input.metadata ?? null, "clinicName");
   const imageUrl = getMetadataString(input.metadata ?? null, "imageUrl");
   const notes = getMetadataString(input.metadata ?? null, "notes");
   const targeting = input.targeting;
@@ -428,13 +446,13 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
       ? "Individual athlete"
       : targeting.mode === "team"
         ? getAssignmentLabel({ mode: "team", team: targeting.team })
-      : targeting.mode === "age_range"
-        ? getAssignmentLabel({
-            mode: "age_range",
-            minAge: targeting.minAge,
-            maxAge: targeting.maxAge,
-          })
-        : getAssignmentLabel({ mode: "group", groupName });
+        : targeting.mode === "age_range"
+          ? getAssignmentLabel({
+              mode: "age_range",
+              minAge: targeting.minAge,
+              maxAge: targeting.maxAge,
+            })
+          : getAssignmentLabel({ mode: "group", groupName });
 
   const athletes = await listEligibleAthleteTargets(targeting as any);
   if (!athletes.length) {
@@ -448,7 +466,7 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
     const existingEntries = await getPhysioReferralsForAthlete(athlete.athleteId);
     const duplicate = existingEntries.find((item) => {
       const existingType = normalizeReferralType(
-        getMetadataString(item.metadata as Record<string, unknown> | null, "referralType")
+        getMetadataString(item.metadata as Record<string, unknown> | null, "referralType"),
       );
       return existingType === normalizeReferralType(input.metadata?.referralType);
     });
@@ -545,7 +563,7 @@ export async function updatePhysioReferralAdmin(req: Request, res: Response) {
     const duplicate = existingEntries.find((item) => {
       if (item.id === id) return false;
       const existingType = normalizeReferralType(
-        getMetadataString(item.metadata as Record<string, unknown> | null, "referralType")
+        getMetadataString(item.metadata as Record<string, unknown> | null, "referralType"),
       );
       return existingType === nextReferralType;
     });
@@ -555,7 +573,7 @@ export async function updatePhysioReferralAdmin(req: Request, res: Response) {
   }
   const updated = await updatePhysioReferral({
     id,
-    referalLink: input.referalLink === "" ? null : input.referalLink ?? undefined,
+    referalLink: input.referalLink === "" ? null : (input.referalLink ?? undefined),
     discountPercent: input.discountPercent ?? undefined,
     programTier: athleteTier,
     metadata: input.metadata ?? undefined,

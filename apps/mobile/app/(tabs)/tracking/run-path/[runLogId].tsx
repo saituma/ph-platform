@@ -22,6 +22,8 @@ export default function RunPathScreen() {
   const insets = useAppSafeAreaInsets();
   const { colors } = useAppTheme();
   const token = useAppSelector((s) => s.user.token);
+  const appRole = useAppSelector((s) => s.user.appRole);
+  const useTeamFeed = appRole === "team";
   const params = useLocalSearchParams<{ runLogId?: string }>();
 
   const runLogId = useMemo(() => {
@@ -50,7 +52,7 @@ export default function RunPathScreen() {
     setLoading(true);
     void (async () => {
       try {
-        const res = await fetchRunDetail(token, runLogId);
+        const res = await fetchRunDetail(token, runLogId, { useTeamFeed });
         if (!alive) return;
         setItem(res.item ?? null);
       } catch (e: any) {
@@ -64,7 +66,7 @@ export default function RunPathScreen() {
     return () => {
       alive = false;
     };
-  }, [runLogId, token]);
+  }, [runLogId, token, useTeamFeed]);
 
   const points = item?.path ?? null;
 

@@ -24,19 +24,19 @@ router.post(
   "/program-section-content",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  createProgramSectionContentHandler
+  createProgramSectionContentHandler,
 );
 router.put(
   "/program-section-content/:contentId",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  updateProgramSectionContentHandler
+  updateProgramSectionContentHandler,
 );
 router.delete(
   "/program-section-content/:contentId",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
-  deleteProgramSectionContentHandler
+  deleteProgramSectionContentHandler,
 );
 
 export default router;

@@ -134,7 +134,11 @@ async function main() {
     })
     .from(trainingOtherContentTable)
     .where(eq(trainingOtherContentTable.audienceLabel, phpLabel))
-    .orderBy(asc(trainingOtherContentTable.type), asc(trainingOtherContentTable.order), asc(trainingOtherContentTable.id));
+    .orderBy(
+      asc(trainingOtherContentTable.type),
+      asc(trainingOtherContentTable.order),
+      asc(trainingOtherContentTable.id),
+    );
 
   if (sourceModules.length === 0 && sourceOthers.length === 0) {
     console.log("No adult PHP content found to redistribute. Exiting.");
@@ -170,15 +174,25 @@ async function main() {
   }
 
   // Others: distribute per type to keep each tier having similar "other items" coverage.
-  const othersByTier = new Map<Tier, Array<{ id: number; type: string; order: number }>>(TIERS.map((tier) => [tier, []]));
-  const othersByType = new Map<string, Array<{ id: number; title: string; type: string; order: number; metadata: unknown }>>();
+  const othersByTier = new Map<Tier, Array<{ id: number; type: string; order: number }>>(
+    TIERS.map((tier) => [tier, []]),
+  );
+  const othersByType = new Map<
+    string,
+    Array<{ id: number; title: string; type: string; order: number; metadata: unknown }>
+  >();
   for (const row of sourceOthers) {
     const type = String(row.type);
-    othersByType.set(type, [...(othersByType.get(type) ?? []), { id: row.id, title: row.title, type, order: row.order ?? 1, metadata: row.metadata }]);
+    othersByType.set(type, [
+      ...(othersByType.get(type) ?? []),
+      { id: row.id, title: row.title, type, order: row.order ?? 1, metadata: row.metadata },
+    ]);
   }
 
   for (const rows of othersByType.values()) {
-    const inferredBuckets = new Map<Tier, Array<{ id: number; type: string; order: number }>>(TIERS.map((tier) => [tier, []]));
+    const inferredBuckets = new Map<Tier, Array<{ id: number; type: string; order: number }>>(
+      TIERS.map((tier) => [tier, []]),
+    );
     const ambiguous: Array<{ id: number; type: string; order: number }> = [];
 
     for (const row of rows) {
@@ -260,7 +274,9 @@ async function main() {
     // Move other content. Keep ordering stable inside (tier,type) groups.
     for (const tier of TIERS) {
       const label = labels.get(tier)!;
-      const rows = (othersByTier.get(tier) ?? []).sort((a, b) => a.type.localeCompare(b.type) || a.order - b.order || a.id - b.id);
+      const rows = (othersByTier.get(tier) ?? []).sort(
+        (a, b) => a.type.localeCompare(b.type) || a.order - b.order || a.id - b.id,
+      );
       let currentType = "";
       let typeOrder = 0;
       for (const row of rows) {

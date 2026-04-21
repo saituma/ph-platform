@@ -44,6 +44,9 @@ export default function TrackingSocialScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
+  const appRole = useAppSelector((s) => s.user.appRole);
+  /** Team athletes use `/api/teams/social/*`; solo adults only track privately (no feed). */
+  const useTeamFeed = appRole === "team";
 
   const [activeTab, setActiveTab] = useState<TabType>("community");
 
@@ -89,9 +92,14 @@ export default function TrackingSocialScreen() {
     setLoading(true);
     try {
       const [lb, dir, runs] = await Promise.all([
-        fetchLeaderboard(token, { windowDays: rangeDays === 0 ? 0 : rangeDays, limit: 25, sort: leaderboardSort }),
-        fetchAdultDirectory(token, { limit: 20, cursor: null }),
-        fetchRunFeed(token, { limit: 20, cursor: null, windowDays: rangeDays, sort }),
+        fetchLeaderboard(token, {
+          windowDays: rangeDays === 0 ? 0 : rangeDays,
+          limit: 25,
+          sort: leaderboardSort,
+          useTeamFeed,
+        }),
+        fetchAdultDirectory(token, { limit: 20, cursor: null, useTeamFeed }),
+        fetchRunFeed(token, { limit: 20, cursor: null, windowDays: rangeDays, sort, useTeamFeed }),
       ]);
       setLeaderboard(lb.items ?? []);
       setAdults(dir.items ?? []);
@@ -101,7 +109,7 @@ export default function TrackingSocialScreen() {
     } finally {
       setLoading(false);
     }
-  }, [leaderboardSort, rangeDays, sort, token]);
+  }, [leaderboardSort, rangeDays, sort, token, useTeamFeed]);
 
   const loadMyRuns = useCallback(async () => {
     if (!token) return;
@@ -129,6 +137,13 @@ export default function TrackingSocialScreen() {
     if (!canLoad) return;
     load();
   }, [canLoad, load]);
+
+  // Solo adults track privately — this screen is team-only (feed APIs).
+  useEffect(() => {
+    if (!token) return;
+    if (useTeamFeed) return;
+    router.replace("/(tabs)/tracking" as any);
+  }, [token, useTeamFeed, router]);
 
   const pickSort = useCallback(() => {
     Alert.alert("Sort", "Choose how to sort the feed.", [
@@ -180,17 +195,23 @@ export default function TrackingSocialScreen() {
     if (!token) return;
     try {
       if (run.userLiked) {
-        await unlikeRun(token, run.runLogId);
+        await unlikeRun(token, run.runLogId, { useTeamFeed });
       } else {
-        await likeRun(token, run.runLogId);
+        await likeRun(token, run.runLogId, { useTeamFeed });
       }
       // Refresh feed to update like counts
-      const runs = await fetchRunFeed(token, { limit: 20, cursor: null, windowDays: rangeDays, sort });
+      const runs = await fetchRunFeed(token, {
+        limit: 20,
+        cursor: null,
+        windowDays: rangeDays,
+        sort,
+        useTeamFeed,
+      });
       setFeed(runs.items ?? []);
     } catch (e: any) {
       Alert.alert("Error", String(e?.message ?? "Could not update like"));
     }
-  }, [token, rangeDays, sort]);
+  }, [token, rangeDays, sort, useTeamFeed]);
 
   const handleToggleSocialEnabled = useCallback(async (value: boolean) => {
     if (!token || !privacySettings) return;
@@ -272,6 +293,7 @@ export default function TrackingSocialScreen() {
           isDark={isDark}
           topInset={0}
           paddingHorizontal={0}
+          showTeamTab={useTeamFeed}
         />
         <Text className="text-base font-outfit" style={{ color: colors.textSecondary }}>
           Sign in to view Team.
@@ -866,6 +888,7 @@ export default function TrackingSocialScreen() {
           isDark={isDark}
           topInset={insets.top + 12}
           paddingHorizontal={spacing.xl}
+          showTeamTab={useTeamFeed}
         />
 
         {/* Tab Navigation */}
@@ -945,6 +968,7 @@ export default function TrackingSocialScreen() {
           token={token}
           runLogId={activeRunLogId}
           runOwnerName={feed.find((r) => r.runLogId === activeRunLogId)?.name ?? null}
+          useTeamFeed={useTeamFeed}
         />
       )}
     </View>

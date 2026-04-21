@@ -89,8 +89,7 @@ async function main() {
       const cents = price.unit_amount;
       const cur = price.currency ?? "gbp";
       const interval = price.recurring?.interval ?? "(one-off)";
-      const amount =
-        cents != null ? formatMoney(cents, cur) : "(no unit_amount — metered/tiered?)";
+      const amount = cents != null ? formatMoney(cents, cur) : "(no unit_amount — metered/tiered?)";
       table.push({
         tier,
         planName,

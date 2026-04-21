@@ -80,7 +80,8 @@ describe("onboarding.service - submitOnboarding", () => {
     const mockInsert = db.insert as jest.Mock;
     mockInsert.mockReturnValue({
       values: jest.fn().mockReturnValue({
-        returning: jest.fn()
+        returning: jest
+          .fn()
           .mockResolvedValueOnce([{ id: 10 }]) // guardian insert
           .mockResolvedValueOnce([{ id: 20, userId: 1, name: "Test Athlete" }]), // athlete insert
       }),
@@ -98,10 +99,11 @@ describe("onboarding.service - submitOnboarding", () => {
     mockSelect.mockReturnValue({
       from: jest.fn().mockReturnValue({
         where: jest.fn().mockReturnValue({
-          limit: jest.fn()
+          limit: jest
+            .fn()
             .mockResolvedValueOnce([]) // initial guardian select
             .mockResolvedValueOnce([{ id: 1, role: "athlete" }]) // user select in ensureAthleteUserRecord
-            .mockResolvedValueOnce([]) // enrollment select
+            .mockResolvedValueOnce([]), // enrollment select
         }),
       }),
     });
@@ -109,11 +111,12 @@ describe("onboarding.service - submitOnboarding", () => {
     // db.insert for legalAcceptance and enrollment
     mockInsert.mockReturnValue({
       values: jest.fn().mockReturnValue({
-        returning: jest.fn()
+        returning: jest
+          .fn()
           .mockResolvedValueOnce([{ id: 10 }]) // guardian insert
           .mockResolvedValueOnce([{ id: 20, userId: 1, name: "Test Athlete" }]) // athlete insert
           .mockResolvedValueOnce([]) // legalAcceptance insert
-          .mockResolvedValueOnce([]) // enrollment insert
+          .mockResolvedValueOnce([]), // enrollment insert
       }),
     });
 
@@ -142,11 +145,12 @@ describe("onboarding.service - submitOnboarding", () => {
     mockSelect.mockReturnValue({
       from: jest.fn().mockReturnValue({
         where: jest.fn().mockReturnValue({
-          limit: jest.fn()
+          limit: jest
+            .fn()
             .mockResolvedValueOnce([{ id: 10 }]) // guardian lookup
             .mockResolvedValueOnce([{ id: 20, guardianId: 10, userId: 1 }]) // existing athlete lookup
             .mockResolvedValueOnce([{ id: 1, role: "athlete" }]) // user select in ensureAthleteUserRecord
-            .mockResolvedValueOnce([{ id: 100 }]) // enrollment select (existing)
+            .mockResolvedValueOnce([{ id: 100 }]), // enrollment select (existing)
         }),
       }),
     });

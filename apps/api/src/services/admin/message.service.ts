@@ -1,11 +1,6 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
-import {
-  athleteTable,
-  guardianTable,
-  messageTable,
-  userTable,
-} from "../../db/schema";
+import { athleteTable, guardianTable, messageTable, userTable } from "../../db/schema";
 import { getAdminCoachIds, sendMessage } from "../message.service";
 import { attachDirectMessageReactions } from "../reaction.service";
 
@@ -22,10 +17,7 @@ function joinNumbers(values: number[]) {
   );
 }
 
-export async function listMessageThreadsAdmin(
-  coachId: number,
-  options?: { q?: string; limit?: number },
-) {
+export async function listMessageThreadsAdmin(coachId: number, options?: { q?: string; limit?: number }) {
   const q = options?.q?.trim().toLowerCase() ?? "";
   const limit = asSafeLimit(options?.limit, 50);
   const adminIds = await getAdminCoachIds();
@@ -140,10 +132,8 @@ export async function listMessageThreadsAdmin(
     const timeB = new Date(threads.get(b)!.latestAt).getTime();
     return timeB - timeA;
   });
-  
-  const users = userIds.length
-    ? await db.select().from(userTable).where(inArray(userTable.id, userIds))
-    : [];
+
+  const users = userIds.length ? await db.select().from(userTable).where(inArray(userTable.id, userIds)) : [];
 
   const guardianNameByAthleteUserId = new Map<number, string>();
   if (userIds.length) {
@@ -155,7 +145,9 @@ export async function listMessageThreadsAdmin(
       .from(athleteTable)
       .where(inArray(athleteTable.userId, userIds));
 
-    const guardianIds = Array.from(new Set(athleteRows.map((row) => row.guardianId).filter((id): id is number => id != null)));
+    const guardianIds = Array.from(
+      new Set(athleteRows.map((row) => row.guardianId).filter((id): id is number => id != null)),
+    );
     if (guardianIds.length) {
       const guardianRows = await db
         .select({
@@ -170,10 +162,7 @@ export async function listMessageThreadsAdmin(
 
       const guardianNameById = new Map<number, string>();
       for (const row of guardianRows) {
-        guardianNameById.set(
-          row.guardianId,
-          row.guardianName ?? row.guardianEmail ?? "Guardian"
-        );
+        guardianNameById.set(row.guardianId, row.guardianName ?? row.guardianEmail ?? "Guardian");
       }
 
       for (const row of athleteRows) {
@@ -271,8 +260,8 @@ export async function listThreadMessagesAdmin(coachId: number, userId: number) {
     .where(
       or(
         and(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, otherUserIds)),
-        and(inArray(messageTable.senderId, otherUserIds), inArray(messageTable.receiverId, adminIds))
-      )
+        and(inArray(messageTable.senderId, otherUserIds), inArray(messageTable.receiverId, adminIds)),
+      ),
     )
     .orderBy(messageTable.createdAt);
   return attachDirectMessageReactions(messages);
@@ -304,8 +293,8 @@ export async function deleteThreadMessagesAdmin(coachId: number, userId: number)
     .where(
       or(
         and(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, otherUserIds)),
-        and(inArray(messageTable.senderId, otherUserIds), inArray(messageTable.receiverId, adminIds))
-      )
+        and(inArray(messageTable.senderId, otherUserIds), inArray(messageTable.receiverId, adminIds)),
+      ),
     );
   return result.rowCount ?? 0;
 }
@@ -339,7 +328,11 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
     .update(messageTable)
     .set({ read: true })
     .where(
-      and(inArray(messageTable.receiverId, adminIds), inArray(messageTable.senderId, otherUserIds), eq(messageTable.read, false))
+      and(
+        inArray(messageTable.receiverId, adminIds),
+        inArray(messageTable.senderId, otherUserIds),
+        eq(messageTable.read, false),
+      ),
     );
 
   return result.rowCount ?? 0;

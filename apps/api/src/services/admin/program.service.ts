@@ -144,10 +144,7 @@ export async function createExercise(input: {
 }
 
 export async function listExercises() {
-  return db
-    .select()
-    .from(exerciseTable)
-    .orderBy(desc(exerciseTable.createdAt));
+  return db.select().from(exerciseTable).orderBy(desc(exerciseTable.createdAt));
 }
 
 export async function updateExercise(
@@ -165,7 +162,7 @@ export async function updateExercise(
     restSeconds?: number | null;
     notes?: string | null;
     videoUrl?: string | null;
-  }
+  },
 ) {
   const updatePayload: Record<string, any> = {
     updatedAt: new Date(),
@@ -184,20 +181,13 @@ export async function updateExercise(
   if (input.notes !== undefined) updatePayload.notes = input.notes;
   if (input.videoUrl !== undefined) updatePayload.videoUrl = input.videoUrl;
 
-  const updated = await db
-    .update(exerciseTable)
-    .set(updatePayload)
-    .where(eq(exerciseTable.id, exerciseId))
-    .returning();
+  const updated = await db.update(exerciseTable).set(updatePayload).where(eq(exerciseTable.id, exerciseId)).returning();
 
   return updated[0] ?? null;
 }
 
 export async function deleteExercise(exerciseId: number) {
-  const deleted = await db
-    .delete(exerciseTable)
-    .where(eq(exerciseTable.id, exerciseId))
-    .returning();
+  const deleted = await db.delete(exerciseTable).where(eq(exerciseTable.id, exerciseId)).returning();
 
   return deleted[0] ?? null;
 }

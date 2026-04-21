@@ -18,15 +18,13 @@ export async function getCoachUser() {
         or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
         eq(userTable.isDeleted, false),
         eq(userTable.isBlocked, false),
-        ne(userTable.email, AI_COACH_EMAIL)
-      )
+        ne(userTable.email, AI_COACH_EMAIL),
+      ),
     )
     .orderBy(
       desc(sql`length(trim(coalesce(${userTable.profilePicture}, ''))) > 0`),
-      desc(
-        sql`lower(trim(coalesce(${userTable.name}, ''))) not in ('admin', 'administrator')`
-      ),
-      desc(userTable.updatedAt)
+      desc(sql`lower(trim(coalesce(${userTable.name}, ''))) not in ('admin', 'administrator')`),
+      desc(userTable.updatedAt),
     );
   return users[0] ?? null;
 }
@@ -48,8 +46,8 @@ export async function getAdminCoachIds() {
       and(
         or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
         eq(userTable.isDeleted, false),
-        eq(userTable.isBlocked, false)
-      )
+        eq(userTable.isBlocked, false),
+      ),
     );
   return admins.map((row) => row.id);
 }
@@ -71,8 +69,8 @@ export async function getLastAdminContact(userId: number) {
     .where(
       or(
         and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, humanAdminIds)),
-        and(inArray(messageTable.senderId, humanAdminIds), eq(messageTable.receiverId, userId))
-      )
+        and(inArray(messageTable.senderId, humanAdminIds), eq(messageTable.receiverId, userId)),
+      ),
     )
     .orderBy(desc(messageTable.createdAt))
     .limit(1);
@@ -82,10 +80,7 @@ export async function getLastAdminContact(userId: number) {
   return getCoachUserById(otherId);
 }
 
-export async function listThread(
-  userId: number,
-  options?: { includeVideoResponses?: boolean },
-) {
+export async function listThread(userId: number, options?: { includeVideoResponses?: boolean }) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
   const includeVideoResponses = options?.includeVideoResponses === true;
@@ -131,7 +126,7 @@ export async function sendMessage(input: {
   // Detect if message is to AI Coach (virtual ID: -1 or real AI coach user ID)
   let resolvedReceiverId = input.receiverId;
   let aiCoachId: number | null = null;
-  
+
   if (input.receiverId === -1) {
     // Legacy virtual ID path
     const { ensureAiCoachUser } = await import("./ai.service");
@@ -188,27 +183,32 @@ export async function sendMessage(input: {
   // If message is to AI Coach, generate and send AI response
   if (aiCoachId !== null) {
     const { generateAiCoachResponse } = await import("./ai.service");
-    
+
     // Fetch recent history for context (last 5 messages)
     const historyRows = await db
-      .select({ role: sql<string>`case when ${messageTable.senderId} = ${input.senderId} then 'user' else 'assistant' end`.as("role"), content: messageTable.content })
+      .select({
+        role: sql<string>`case when ${messageTable.senderId} = ${input.senderId} then 'user' else 'assistant' end`.as(
+          "role",
+        ),
+        content: messageTable.content,
+      })
       .from(messageTable)
       .where(
         or(
           and(eq(messageTable.senderId, input.senderId), eq(messageTable.receiverId, aiCoachId)),
-          and(eq(messageTable.senderId, aiCoachId), eq(messageTable.receiverId, input.senderId))
-        )
+          and(eq(messageTable.senderId, aiCoachId), eq(messageTable.receiverId, input.senderId)),
+        ),
       )
       .orderBy(desc(messageTable.createdAt))
       .limit(5);
-    
-    const history = historyRows.reverse().map(h => ({ 
-      role: h.role as "user" | "assistant", 
-      content: h.content 
+
+    const history = historyRows.reverse().map((h) => ({
+      role: h.role as "user" | "assistant",
+      content: h.content,
     }));
 
     const aiResponse = await generateAiCoachResponse(input.content, history);
-    
+
     // Save AI response to DB
     const aiResult = await db
       .insert(messageTable)
@@ -219,9 +219,9 @@ export async function sendMessage(input: {
         contentType: "text",
       })
       .returning();
-    
+
     const aiMessage = aiResult[0];
-    
+
     // Emit AI response via socket
     const io = getSocketServer();
     if (io) {
@@ -231,9 +231,7 @@ export async function sendMessage(input: {
 
   // Send push notification to receiver (skip for AI coach)
   if (aiCoachId === null) {
-    let senderMeta:
-      | { name: string | null; profilePicture: string | null }
-      | null = null;
+    let senderMeta: { name: string | null; profilePicture: string | null } | null = null;
     try {
       const sender = await db
         .select({ name: userTable.name, profilePicture: userTable.profilePicture })
@@ -243,7 +241,7 @@ export async function sendMessage(input: {
       senderMeta = sender[0]
         ? { name: sender[0].name ?? null, profilePicture: sender[0].profilePicture ?? null }
         : null;
-        
+
       const title = `New message from ${senderMeta?.name ?? "Coach"}`;
       const body = input.contentType === "text" ? input.content : `Sent a ${input.contentType}`;
 

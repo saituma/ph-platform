@@ -84,7 +84,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     next();
   } catch (err) {
-    console.error("Auth failed", err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[Auth] Bearer token rejected: ${message}`);
     return res.status(401).json({ error: "Unauthorized" });
   }
 }

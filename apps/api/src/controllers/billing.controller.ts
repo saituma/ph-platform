@@ -5,7 +5,15 @@ import { eq } from "drizzle-orm";
 
 import { ProgramType } from "../db/schema";
 import { env } from "../config/env";
-import { guardianTable, subscriptionPlanTable, teamTable } from "../db/schema";
+import {
+  athleteTable,
+  guardianTable,
+  subscriptionPlanTable,
+  subscriptionRequestTable,
+  teamSubscriptionRequestTable,
+  teamTable,
+  userTable,
+} from "../db/schema";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { db } from "../db";
 import { getAthleteForUser } from "../services/user.service";
@@ -40,6 +48,21 @@ import {
   upsertTeamPendingApprovalFromSessionMetadata,
 } from "../services/billing/team-request.service";
 import { updateAthleteProgramTier } from "../services/admin/user.service";
+import { buildClientCheckoutReceipt } from "../services/billing/checkout-confirmation-payload";
+import { enrichReceiptWithStripeSession, getPaymentReceiptForViewer } from "../services/billing/receipt.service";
+
+/** Walk Drizzle / node-pg `error.cause` chain for Postgres SQLSTATE (e.g. 42P01). */
+function postgresSqlstate(error: unknown): string | undefined {
+  let current: unknown = error;
+  for (let i = 0; i < 10 && current && typeof current === "object"; i++) {
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) {
+      return code;
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return undefined;
+}
 
 const checkoutSchema = z.object({
   planId: z.coerce.number().int().min(1),
@@ -54,6 +77,8 @@ const listPlansQuerySchema = z.object({
 const confirmSchema = z.object({
   sessionId: z.string().min(1),
 });
+
+const receiptPublicIdSchema = z.string().uuid("Invalid receipt id");
 
 const teamCheckoutSchema = z.object({
   teamId: z.coerce.number().int().min(1),
@@ -219,6 +244,13 @@ export async function createCheckout(req: Request, res: Response) {
       return res.status(400).json({ error: message });
     }
 
+    if (message.includes("Not a valid URL")) {
+      return res.status(400).json({
+        error:
+          "Stripe redirect URLs must be absolute (include http:// or https://). Set STRIPE_SUCCESS_URL and STRIPE_CANCEL_URL in apps/api/.env — for example http://localhost:3000/onboarding/success",
+      });
+    }
+
     return res.status(500).json({ error: message });
   }
 }
@@ -311,6 +343,13 @@ export async function createTeamCheckout(req: Request, res: Response) {
       return res.status(400).json({ error: message });
     }
 
+    if (message.includes("Not a valid URL")) {
+      return res.status(400).json({
+        error:
+          "Stripe redirect URLs must be absolute (include http:// or https://). Set STRIPE_SUCCESS_URL and STRIPE_CANCEL_URL in apps/api/.env — for example http://localhost:3000/onboarding/success",
+      });
+    }
+
     return res.status(500).json({ error: message });
   }
 }
@@ -389,11 +428,15 @@ export async function confirmCheckout(req: Request, res: Response) {
     }
 
     const stripe = getStripeClient();
-    const session = await stripe.checkout.sessions.retrieve(parsed.data.sessionId);
+    const session = await stripe.checkout.sessions.retrieve(parsed.data.sessionId, {
+      expand: ["line_items.data.price"],
+    });
     const paymentStatus = session.payment_status ?? "unpaid";
     const meta = (session.metadata ?? {}) as Record<string, string | undefined>;
 
-    const metaType = String(meta.type ?? "").trim().toLowerCase();
+    const metaType = String(meta.type ?? "")
+      .trim()
+      .toLowerCase();
     if (metaType === "team_subscription") {
       const adminId = Number(meta.adminId ?? "");
       if (!Number.isFinite(adminId) || adminId !== req.user.id) {
@@ -402,14 +445,60 @@ export async function confirmCheckout(req: Request, res: Response) {
       try {
         await upsertTeamPendingApprovalFromSessionMetadata(session);
         const teamRequest = await updateTeamRequestFromStripeCheckoutSession(session, paymentStatus);
-        return res.status(200).json({ teamRequest, paymentStatus });
+        if (!teamRequest) {
+          return res.status(200).json({ teamRequest: null, paymentStatus, receipt: null });
+        }
+        const [teamExtra] = await db
+          .select({
+            teamName: teamTable.name,
+            maxAthletes: teamTable.maxAthletes,
+            planName: subscriptionPlanTable.name,
+            planTier: subscriptionPlanTable.tier,
+            payerEmail: userTable.email,
+            payerName: userTable.name,
+            payerRole: userTable.role,
+          })
+          .from(teamSubscriptionRequestTable)
+          .innerJoin(userTable, eq(teamSubscriptionRequestTable.adminId, userTable.id))
+          .innerJoin(teamTable, eq(teamSubscriptionRequestTable.teamId, teamTable.id))
+          .leftJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
+          .where(eq(teamSubscriptionRequestTable.id, teamRequest.id))
+          .limit(1);
+        const receipt = buildClientCheckoutReceipt(session, {
+          kind: "team",
+          receiptPublicId: teamRequest.receiptPublicId,
+          internalRequestId: teamRequest.id,
+          status: teamRequest.status,
+          paymentStatus: teamRequest.paymentStatus,
+          planBillingCycle: teamRequest.planBillingCycle,
+          payer: teamExtra
+            ? { email: teamExtra.payerEmail, name: teamExtra.payerName, role: teamExtra.payerRole }
+            : undefined,
+          team: teamExtra
+            ? { id: teamRequest.teamId, name: teamExtra.teamName, maxAthletes: teamExtra.maxAthletes }
+            : { id: teamRequest.teamId, name: "Team", maxAthletes: null },
+          plan:
+            teamExtra?.planName != null
+              ? { id: teamRequest.planId, name: teamExtra.planName, tier: teamExtra.planTier ?? "" }
+              : null,
+        });
+        return res.status(200).json({ teamRequest, paymentStatus, receipt });
       } catch (inner: unknown) {
-        const err = inner as { name?: string; message?: string; query?: string; cause?: { code?: string }; code?: string };
+        const err = inner as {
+          name?: string;
+          message?: string;
+          query?: string;
+          cause?: { code?: string };
+          code?: string;
+        };
         const msg = typeof err?.message === "string" ? err.message : "";
         if (err?.name === "DrizzleQueryError" || typeof err?.query === "string" || msg.startsWith("Failed query:")) {
-          const pgCode = err?.cause?.code ?? err?.code;
+          const pgCode = postgresSqlstate(inner) ?? err?.cause?.code ?? err?.code;
           if (pgCode === "42P01" || pgCode === "42703") {
-            return res.status(503).json({ error: "Database schema is out of date. Run migrations and try again." });
+            return res.status(503).json({
+              error: "Database schema is out of date. Run migrations and try again.",
+              hint: "From the repo: cd apps/api && pnpm db:migrate (DATABASE_URL must point at this database).",
+            });
           }
           if (pgCode === "23503") {
             return res.status(400).json({
@@ -429,8 +518,44 @@ export async function confirmCheckout(req: Request, res: Response) {
       return res.status(403).json({ error: "You do not have access to this checkout session" });
     }
 
-    const request = await updateRequestFromStripeSession(session.id, paymentStatus);
-    return res.status(200).json({ request, paymentStatus });
+    const request = await updateRequestFromStripeSession(session);
+    let receipt: ReturnType<typeof buildClientCheckoutReceipt> | null = null;
+    if (request) {
+      const [athleteExtra] = await db
+        .select({
+          payerEmail: userTable.email,
+          payerName: userTable.name,
+          payerRole: userTable.role,
+          athleteName: athleteTable.name,
+          planName: subscriptionPlanTable.name,
+          planTier: subscriptionPlanTable.tier,
+        })
+        .from(subscriptionRequestTable)
+        .innerJoin(userTable, eq(subscriptionRequestTable.userId, userTable.id))
+        .leftJoin(athleteTable, eq(subscriptionRequestTable.athleteId, athleteTable.id))
+        .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
+        .where(eq(subscriptionRequestTable.id, request.id))
+        .limit(1);
+      receipt = buildClientCheckoutReceipt(session, {
+        kind: "athlete",
+        receiptPublicId: request.receiptPublicId,
+        internalRequestId: request.id,
+        status: request.status,
+        paymentStatus: request.paymentStatus,
+        planBillingCycle: request.planBillingCycle,
+        payer: athleteExtra
+          ? { email: athleteExtra.payerEmail, name: athleteExtra.payerName, role: athleteExtra.payerRole }
+          : undefined,
+        athlete: athleteExtra
+          ? { id: request.athleteId, name: athleteExtra.athleteName }
+          : { id: request.athleteId, name: null },
+        plan:
+          athleteExtra?.planName != null
+            ? { id: request.planId, name: athleteExtra.planName, tier: athleteExtra.planTier ?? "" }
+            : null,
+      });
+    }
+    return res.status(200).json({ request, paymentStatus, receipt });
   } catch (error: unknown) {
     const e = error as { message?: string; statusCode?: number; code?: string; param?: string };
     const message = typeof e?.message === "string" ? e.message : "Failed to confirm payment";
@@ -448,6 +573,39 @@ export async function confirmCheckout(req: Request, res: Response) {
       });
     }
 
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function getPaymentReceipt(req: Request, res: Response) {
+  const receiptId = receiptPublicIdSchema.safeParse(req.params.receiptId);
+  if (!receiptId.success) {
+    return res.status(400).json({ error: "Invalid receipt id", details: receiptId.error.flatten() });
+  }
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const result = await getPaymentReceiptForViewer({
+      receiptPublicId: receiptId.data,
+      viewerUserId: req.user.id,
+      viewerRole: req.user.role,
+    });
+    if (result === null) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+    if ("forbidden" in result) {
+      return res.status(403).json({ error: "You do not have access to this receipt" });
+    }
+    const { stripeSummary } = await enrichReceiptWithStripeSession({
+      stripeSessionId: result.stripeSessionId,
+      paymentAmountCents: result.paymentAmountCents,
+      paymentCurrency: result.paymentCurrency,
+    });
+    return res.status(200).json({ receipt: result, stripeSummary });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to load receipt";
     return res.status(500).json({ error: message });
   }
 }
@@ -586,48 +744,56 @@ export async function stripeWebhook(req: Request, res: Response) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.id) {
-        const metaType = String((session.metadata as any)?.type ?? "").trim().toLowerCase();
+        const metaType = String((session.metadata as any)?.type ?? "")
+          .trim()
+          .toLowerCase();
         if (metaType === "team_subscription") {
           await upsertTeamPendingApprovalFromSessionMetadata(session);
           await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "paid");
         } else {
-          await updateRequestFromStripeSession(session.id, session.payment_status ?? "paid");
+          await updateRequestFromStripeSession(session);
         }
       }
     }
     if (event.type === "checkout.session.async_payment_succeeded") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.id) {
-        const metaType = String((session.metadata as any)?.type ?? "").trim().toLowerCase();
+        const metaType = String((session.metadata as any)?.type ?? "")
+          .trim()
+          .toLowerCase();
         if (metaType === "team_subscription") {
           await upsertTeamPendingApprovalFromSessionMetadata(session);
           await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "paid");
         } else {
-          await updateRequestFromStripeSession(session.id, session.payment_status ?? "paid");
+          await updateRequestFromStripeSession(session);
         }
       }
     }
     if (event.type === "checkout.session.async_payment_failed") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.id) {
-        const metaType = String((session.metadata as any)?.type ?? "").trim().toLowerCase();
+        const metaType = String((session.metadata as any)?.type ?? "")
+          .trim()
+          .toLowerCase();
         if (metaType === "team_subscription") {
           await upsertTeamPendingApprovalFromSessionMetadata(session);
           await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "failed");
         } else {
-          await updateRequestFromStripeSession(session.id, session.payment_status ?? "failed");
+          await updateRequestFromStripeSession(session);
         }
       }
     }
     if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.id) {
-        const metaType = String((session.metadata as any)?.type ?? "").trim().toLowerCase();
+        const metaType = String((session.metadata as any)?.type ?? "")
+          .trim()
+          .toLowerCase();
         if (metaType === "team_subscription") {
           await upsertTeamPendingApprovalFromSessionMetadata(session);
           await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "expired");
         } else {
-          await updateRequestFromStripeSession(session.id, session.payment_status ?? "expired");
+          await updateRequestFromStripeSession(session);
         }
       }
     }
@@ -652,10 +818,10 @@ export async function verifyRevenueCatPurchase(req: any, res: any) {
     // In a real implementation you would either rely on webhooks from RevenueCat,
     // or call their REST API to verify the receipt using the app_user_id.
     // For this demonstration, we'll mark the user as pending approval for the tier requested.
-    
+
     // We can simulate creating a subscription request here:
     // ... we need to import a service function to do this, but for now we'll just return success.
-    
+
     return res.json({ success: true, message: "Purchase verified via RevenueCat" });
   } catch (error) {
     console.error("Error verifying RevenueCat purchase", error);

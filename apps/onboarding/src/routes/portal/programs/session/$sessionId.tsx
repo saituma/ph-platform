@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
 	ArrowLeft,
@@ -8,18 +9,16 @@ import {
 	PlayCircle,
 	Video,
 } from "lucide-react";
-import { usePortal } from "@/portal/PortalContext";
-import {
-	fetchTeamWorkspace,
-} from "@/services/programsService";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { programKeys } from "../index";
 import { toast } from "sonner";
 import { env } from "@/env";
+import { getClientAuthToken } from "@/lib/client-storage";
+import { usePortal } from "@/portal/PortalContext";
+import { fetchTeamWorkspace } from "@/services/programsService";
+import { programKeys } from "../index";
 
 export const Route = createFileRoute("/portal/programs/session/$sessionId")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = localStorage.getItem("auth_token");
+		const token = getClientAuthToken();
 		if (token) {
 			await queryClient.ensureQueryData({
 				queryKey: programKeys.workspace(token, null),
@@ -257,7 +256,9 @@ function SessionDetailPage() {
 			toast.success("Session completed!", {
 				description: "Your progress has been saved.",
 			});
-			queryClient.invalidateQueries({ queryKey: programKeys.workspace(token, age) });
+			queryClient.invalidateQueries({
+				queryKey: programKeys.workspace(token, age),
+			});
 
 			if (parentModule) {
 				navigate({
@@ -270,7 +271,8 @@ function SessionDetailPage() {
 		},
 		onError: (err) => {
 			toast.error("Error", {
-				description: err instanceof Error ? err.message : "Failed to finish session",
+				description:
+					err instanceof Error ? err.message : "Failed to finish session",
 			});
 		},
 	});
@@ -293,7 +295,10 @@ function SessionDetailPage() {
 			<div className="flex h-screen items-center justify-center pb-20 px-4">
 				<div className="text-center">
 					<p className="text-muted-foreground mb-4">
-						{portalError || (programsError instanceof Error ? programsError.message : "Session not found")}
+						{portalError ||
+							(programsError instanceof Error
+								? programsError.message
+								: "Session not found")}
 					</p>
 					<Link
 						to="/portal/programs"

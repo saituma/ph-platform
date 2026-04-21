@@ -27,9 +27,7 @@ type GiphySearchResponse = {
 };
 
 function getGiphyApiKey(): string {
-  return (
-    process.env.GIPHY_API_KEY ?? process.env.NEXT_PUBLIC_GIPHY_API_KEY ?? ""
-  ).trim();
+  return (process.env.GIPHY_API_KEY ?? process.env.NEXT_PUBLIC_GIPHY_API_KEY ?? "").trim();
 }
 
 const querySchema = z.object({
@@ -54,11 +52,7 @@ export async function searchGiphy(req: Request, res: Response) {
       results: [],
     });
   }
-  const url = new URL(
-    query
-      ? "https://api.giphy.com/v1/gifs/search"
-      : "https://api.giphy.com/v1/gifs/trending",
-  );
+  const url = new URL(query ? "https://api.giphy.com/v1/gifs/search" : "https://api.giphy.com/v1/gifs/trending");
   url.searchParams.set("api_key", apiKey);
   if (query) url.searchParams.set("q", query);
   url.searchParams.set("limit", String(limit));
@@ -72,16 +66,13 @@ export async function searchGiphy(req: Request, res: Response) {
       cache: "no-store",
       headers: { Accept: "application/json" },
     });
-    const payload = (await response
-      .json()
-      .catch(() => null)) as GiphySearchResponse | null;
+    const payload = (await response.json().catch(() => null)) as GiphySearchResponse | null;
 
     if (!response.ok) {
       return res.status(502).json({
         error: "GIPHY search failed",
         upstreamStatus: response.status,
-        upstreamMessage:
-          (payload?.meta?.msg && String(payload.meta.msg).trim()) || undefined,
+        upstreamMessage: (payload?.meta?.msg && String(payload.meta.msg).trim()) || undefined,
         results: [],
       });
     }
@@ -94,10 +85,7 @@ export async function searchGiphy(req: Request, res: Response) {
         if (!previewUrl || !urlValue) return null;
         return { id: item.id, previewUrl, url: urlValue };
       })
-      .filter(
-        (item): item is { id: string; previewUrl: string; url: string } =>
-          Boolean(item),
-      );
+      .filter((item): item is { id: string; previewUrl: string; url: string } => Boolean(item));
 
     return res.status(200).json({ results });
   } catch {

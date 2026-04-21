@@ -1,5 +1,14 @@
 import { apiRequest } from "@/lib/api";
 
+/** Team athletes use `/teams/social/*`; solo adults use only local tracking (no feed). */
+export function socialFeedBase(useTeamFeed: boolean): "/social" | "/teams/social" {
+  return useTeamFeed ? "/teams/social" : "/social";
+}
+
+function directoryPath(useTeamFeed: boolean): string {
+  return useTeamFeed ? "/teams/social/directory" : "/social/adults";
+}
+
 export type SocialLeaderboardItem = {
   userId: number;
   name: string;
@@ -66,6 +75,17 @@ export type PrivacySettings = {
   optedInAt: string | null;
 };
 
+/** Same defaults as API `getPrivacySettings` when no DB row exists. Used when GET /social/privacy is unavailable (404). */
+export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
+  socialEnabled: false,
+  shareRunsPublicly: false,
+  allowComments: true,
+  showInLeaderboard: true,
+  showInDirectory: true,
+  privacyVersionAccepted: null,
+  optedInAt: null,
+};
+
 export type MySocialRunItem = {
   runLogId: number;
   date: string;
@@ -83,13 +103,16 @@ export async function fetchLeaderboard(
     windowDays?: number;
     limit?: number;
     sort?: "distance_desc" | "distance_asc" | "duration_desc" | "duration_asc";
+    /** When true, use `/teams/social/*` (team athletes). */
+    useTeamFeed?: boolean;
   },
 ) {
   const windowDays = opts?.windowDays ?? 7;
   const limit = opts?.limit ?? 50;
   const sort = opts?.sort ?? "distance_desc";
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ items: SocialLeaderboardItem[] }>(
-    `/social/leaderboard?windowDays=${encodeURIComponent(
+    `${base}/leaderboard?windowDays=${encodeURIComponent(
       String(windowDays),
     )}&limit=${encodeURIComponent(String(limit))}&sort=${encodeURIComponent(sort)}`,
     { token, suppressLog: true, skipCache: true, forceRefresh: true },
@@ -98,7 +121,7 @@ export async function fetchLeaderboard(
 
 export async function fetchAdultDirectory(
   token: string,
-  opts?: { limit?: number; cursor?: number | null },
+  opts?: { limit?: number; cursor?: number | null; useTeamFeed?: boolean },
 ) {
   const limit = opts?.limit ?? 50;
   const cursor = opts?.cursor ?? null;
@@ -108,7 +131,7 @@ export async function fetchAdultDirectory(
   return apiRequest<{
     items: { userId: number; name: string; avatarUrl: string | null }[];
     nextCursor: number | null;
-  }>(`/social/adults?${q}`, {
+  }>(`${directoryPath(Boolean(opts?.useTeamFeed))}?${q}`, {
     token,
     suppressLog: true,
     skipCache: true,
@@ -123,22 +146,25 @@ export async function fetchRunFeed(
     cursor?: number | null;
     windowDays?: number;
     sort?: SocialSort;
+    useTeamFeed?: boolean;
   },
 ) {
   const limit = opts?.limit ?? 20;
   const cursor = opts?.cursor ?? null;
   const windowDays = opts?.windowDays ?? 0;
   const sort = opts?.sort ?? "date_desc";
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   const q = `limit=${encodeURIComponent(String(limit))}${
     cursor != null ? `&cursor=${encodeURIComponent(String(cursor))}` : ""
   }&windowDays=${encodeURIComponent(String(windowDays))}&sort=${encodeURIComponent(sort)}`;
   return apiRequest<{ items: SocialRunFeedItem[]; nextCursor: number | null }>(
-    `/social/runs?${q}`,
+    `${base}/runs?${q}`,
     { token, suppressLog: true, skipCache: true, forceRefresh: true },
   );
 }
 
-export async function fetchRunDetail(token: string, runLogId: number) {
+export async function fetchRunDetail(token: string, runLogId: number, opts?: { useTeamFeed?: boolean }) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{
     item: {
       runLogId: number;
@@ -151,7 +177,7 @@ export async function fetchRunDetail(token: string, runLogId: number) {
       avgPace: number | null;
       path: { latitude: number; longitude: number }[] | null;
     };
-  }>(`/social/runs/${encodeURIComponent(String(runLogId))}`, {
+  }>(`${base}/runs/${encodeURIComponent(String(runLogId))}`, {
     token,
     suppressLog: true,
     skipCache: true,
@@ -159,9 +185,10 @@ export async function fetchRunDetail(token: string, runLogId: number) {
   });
 }
 
-export async function fetchRunComments(token: string, runLogId: number) {
+export async function fetchRunComments(token: string, runLogId: number, opts?: { useTeamFeed?: boolean }) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ items: SocialCommentItem[] }>(
-    `/social/runs/${encodeURIComponent(String(runLogId))}/comments`,
+    `${base}/runs/${encodeURIComponent(String(runLogId))}/comments`,
     { token, suppressLog: true, skipCache: true, forceRefresh: true },
   );
 }
@@ -170,10 +197,11 @@ export async function postRunComment(
   token: string,
   runLogId: number,
   content: string,
-  opts?: { parentId?: number | null },
+  opts?: { parentId?: number | null; useTeamFeed?: boolean },
 ) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ item: SocialCommentItem }>(
-    `/social/runs/${encodeURIComponent(String(runLogId))}/comments`,
+    `${base}/runs/${encodeURIComponent(String(runLogId))}/comments`,
     {
       token,
       method: "POST",
@@ -183,16 +211,23 @@ export async function postRunComment(
   );
 }
 
-export async function editComment(token: string, commentId: number, content: string) {
+export async function editComment(
+  token: string,
+  commentId: number,
+  content: string,
+  opts?: { useTeamFeed?: boolean },
+) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ item: SocialCommentItem }>(
-    `/social/comments/${encodeURIComponent(String(commentId))}`,
+    `${base}/comments/${encodeURIComponent(String(commentId))}`,
     { token, method: "PATCH", body: { content }, suppressLog: true },
   );
 }
 
-export async function deleteComment(token: string, commentId: number) {
+export async function deleteComment(token: string, commentId: number, opts?: { useTeamFeed?: boolean }) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ ok: true }>(
-    `/social/comments/${encodeURIComponent(String(commentId))}`,
+    `${base}/comments/${encodeURIComponent(String(commentId))}`,
     { token, method: "DELETE", suppressLog: true, suppressStatusCodes: [404] },
   );
 }
@@ -201,9 +236,11 @@ export async function reportComment(
   token: string,
   commentId: number,
   reason?: string,
+  opts?: { useTeamFeed?: boolean },
 ) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ ok: true }>(
-    `/social/comments/${encodeURIComponent(String(commentId))}/report`,
+    `${base}/comments/${encodeURIComponent(String(commentId))}/report`,
     {
       token,
       method: "POST",
@@ -214,35 +251,52 @@ export async function reportComment(
   );
 }
 
-export async function listCommentReactions(token: string, commentId: number) {
+export async function listCommentReactions(token: string, commentId: number, opts?: { useTeamFeed?: boolean }) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ items: SocialCommentReactionUser[] }>(
-    `/social/comments/${encodeURIComponent(String(commentId))}/reactions`,
+    `${base}/comments/${encodeURIComponent(String(commentId))}/reactions`,
     { token, suppressLog: true, skipCache: true, forceRefresh: true },
   );
 }
 
-export async function setCommentReaction(token: string, commentId: number, emoji: string) {
+export async function setCommentReaction(
+  token: string,
+  commentId: number,
+  emoji: string,
+  opts?: { useTeamFeed?: boolean },
+) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ ok: true }>(
-    `/social/comments/${encodeURIComponent(String(commentId))}/reaction`,
+    `${base}/comments/${encodeURIComponent(String(commentId))}/reaction`,
     { token, method: "POST", body: { emoji }, suppressLog: true },
   );
 }
 
-export async function clearCommentReaction(token: string, commentId: number) {
+export async function clearCommentReaction(token: string, commentId: number, opts?: { useTeamFeed?: boolean }) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ ok: true }>(
-    `/social/comments/${encodeURIComponent(String(commentId))}/reaction`,
+    `${base}/comments/${encodeURIComponent(String(commentId))}/reaction`,
     { token, method: "DELETE", suppressLog: true },
   );
 }
 
 // Privacy Settings
 export async function fetchPrivacySettings(token: string) {
-  return apiRequest<{ settings: PrivacySettings }>("/social/privacy", {
-    token,
-    suppressLog: true,
-    skipCache: true,
-    forceRefresh: true,
-  });
+  try {
+    return await apiRequest<{ settings: PrivacySettings }>("/social/privacy", {
+      token,
+      suppressLog: true,
+      skipCache: true,
+      forceRefresh: true,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    // Stale API deploys or proxies that omit /social/* return 404; use local defaults.
+    if (/^404\s/.test(msg)) {
+      return { settings: { ...DEFAULT_PRIVACY_SETTINGS } };
+    }
+    throw e;
+  }
 }
 
 export async function updatePrivacySettings(
@@ -258,24 +312,27 @@ export async function updatePrivacySettings(
 }
 
 // Run Likes
-export async function likeRun(token: string, runLogId: number) {
+export async function likeRun(token: string, runLogId: number, opts?: { useTeamFeed?: boolean }) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ ok: true }>(
-    `/social/runs/${encodeURIComponent(String(runLogId))}/like`,
+    `${base}/runs/${encodeURIComponent(String(runLogId))}/like`,
     { token, method: "POST", suppressLog: true },
   );
 }
 
-export async function unlikeRun(token: string, runLogId: number) {
+export async function unlikeRun(token: string, runLogId: number, opts?: { useTeamFeed?: boolean }) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ ok: true }>(
-    `/social/runs/${encodeURIComponent(String(runLogId))}/like`,
+    `${base}/runs/${encodeURIComponent(String(runLogId))}/like`,
     { token, method: "DELETE", suppressLog: true },
   );
 }
 
-export async function fetchRunLikes(token: string, runLogId: number) {
+export async function fetchRunLikes(token: string, runLogId: number, opts?: { useTeamFeed?: boolean }) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{
     items: { userId: number; name: string; avatarUrl: string | null; createdAt: string }[];
-  }>(`/social/runs/${encodeURIComponent(String(runLogId))}/likes`, {
+  }>(`${base}/runs/${encodeURIComponent(String(runLogId))}/likes`, {
     token,
     suppressLog: true,
     skipCache: true,

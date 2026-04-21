@@ -1,10 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../db";
-import {
-  trainingAudienceTable,
-  trainingModuleTable,
-  trainingOtherContentTable,
-} from "../../db/schema";
+import { trainingAudienceTable, trainingModuleTable, trainingOtherContentTable } from "../../db/schema";
 
 export function normalizeAudienceLabel(input: string) {
   const cleaned = input.trim().replace(/\s+/g, " ");

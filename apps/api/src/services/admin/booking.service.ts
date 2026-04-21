@@ -123,11 +123,7 @@ export async function updateBookingDetailsAdmin(input: {
   if (input.location !== undefined) patch.location = input.location;
   if (input.meetingLink !== undefined) patch.meetingLink = input.meetingLink;
 
-  const updated = await db
-    .update(bookingTable)
-    .set(patch)
-    .where(eq(bookingTable.id, input.bookingId))
-    .returning();
+  const updated = await db.update(bookingTable).set(patch).where(eq(bookingTable.id, input.bookingId)).returning();
 
   return updated[0] ?? null;
 }

@@ -29,7 +29,7 @@ function parseArgs(argv: string[]) {
 
   return {
     confirm: args.has("--confirm") || process.env.CONFIRM_MIGRATE_19_99 === "yes",
-    defaultTier: defaultTier ?? ((process.env.DEFAULT_TIER as Tier | undefined) ?? "PHP"),
+    defaultTier: defaultTier ?? (process.env.DEFAULT_TIER as Tier | undefined) ?? "PHP",
   };
 }
 
@@ -74,7 +74,11 @@ async function main() {
       .from(trainingOtherContentTable)
       .where(eq(trainingOtherContentTable.audienceLabel, sourceLabel)),
     db
-      .select({ id: trainingOtherSettingTable.id, type: trainingOtherSettingTable.type, enabled: trainingOtherSettingTable.enabled })
+      .select({
+        id: trainingOtherSettingTable.id,
+        type: trainingOtherSettingTable.type,
+        enabled: trainingOtherSettingTable.enabled,
+      })
       .from(trainingOtherSettingTable)
       .where(eq(trainingOtherSettingTable.audienceLabel, sourceLabel)),
     db
@@ -93,7 +97,7 @@ async function main() {
     console.log(`No items found under audienceLabel=${sourceLabel}, but audience is registered.`);
     if (!confirm) {
       console.log(
-        "Dry-run only. Re-run with `--confirm` (or set CONFIRM_MIGRATE_19_99=yes) to delete the empty audience registration."
+        "Dry-run only. Re-run with `--confirm` (or set CONFIRM_MIGRATE_19_99=yes) to delete the empty audience registration.",
       );
       return;
     }
@@ -131,7 +135,7 @@ async function main() {
   console.log(`- Default tier (when title is ambiguous): ${defaultTier}`);
   for (const tier of [...tiersUsed].sort()) {
     console.log(
-      `- ${tier} -> ${toAdultAudienceLabel(tier)}: ${moduleMoves.get(tier)?.length ?? 0} modules, ${otherMoves.get(tier)?.length ?? 0} others`
+      `- ${tier} -> ${toAdultAudienceLabel(tier)}: ${moduleMoves.get(tier)?.length ?? 0} modules, ${otherMoves.get(tier)?.length ?? 0} others`,
     );
   }
 

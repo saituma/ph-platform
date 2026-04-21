@@ -1,5 +1,12 @@
 import { env } from "@/env";
 
+/** React Query keys for `/api/content/home` (dashboard + coach info page). */
+export const homeQueryKeys = {
+	all: ["home"] as const,
+	content: (token: string | null) =>
+		[...homeQueryKeys.all, "content", token] as const,
+};
+
 export type HomeTestimonial = {
   id: string;
   name: string;

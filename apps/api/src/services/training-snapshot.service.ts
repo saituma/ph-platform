@@ -54,10 +54,7 @@ export async function listTrainingSnapshotForAdmin(): Promise<TrainingSnapshotRo
       completedAt: athletePlanExerciseCompletionTable.completedAt,
     })
     .from(athletePlanSessionTable)
-    .innerJoin(
-      athletePlanExerciseTable,
-      eq(athletePlanExerciseTable.planSessionId, athletePlanSessionTable.id),
-    )
+    .innerJoin(athletePlanExerciseTable, eq(athletePlanExerciseTable.planSessionId, athletePlanSessionTable.id))
     .leftJoin(
       athletePlanExerciseCompletionTable,
       and(

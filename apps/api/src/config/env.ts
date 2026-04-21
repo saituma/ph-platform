@@ -52,7 +52,8 @@ const envSchema = z.object({
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   STRIPE_SUCCESS_URL: optionalWhenScript("STRIPE_SUCCESS_URL is required"),
   STRIPE_CANCEL_URL: optionalWhenScript("STRIPE_CANCEL_URL is required"),
-  STRIPE_WEBHOOK_SECRET: optionalWhenScript("STRIPE_WEBHOOK_SECRET is required"),
+  /** Optional locally; required in production if you use POST /api/billing/webhook (see billing.controller). */
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PRICE_PHP: z.string().optional(),
   STRIPE_PRICE_PHP_PLUS: z.string().optional(),
   STRIPE_PRICE_PHP_PREMIUM: z.string().optional(),
@@ -67,12 +68,15 @@ const envSchema = z.object({
   API_BASE_URL: z.string().optional(),
   ADMIN_WEB_URL: optionalWhenScript("ADMIN_WEB_URL is required"),
   BOOKING_ACTION_SECRET: z.string().optional(),
-  OPEN_AI_API_KEY: optionalWhenScript("OPENAI_API_KEY is required"),
+  /** Optional locally; AI routes return offline when unset (see ai.service). */
+  OPEN_AI_API_KEY: z.string().optional(),
   EXPO_ACCESS_TOKEN: z.string().optional(),
   /** Firebase Admin service account JSON (raw JSON string or base64-encoded JSON). */
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   CORS_ORIGINS: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().optional(),
+  /** Domain for coach-provisioned team athlete logins: `{user}.{teamSlug}@domain` */
+  TEAM_ATHLETE_EMAIL_DOMAIN: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -112,7 +116,9 @@ export const env = {
   stripePublishableKey: raw.STRIPE_PUBLISHABLE_KEY ?? "",
   stripeSuccessUrl: phApiScript ? (raw.STRIPE_SUCCESS_URL ?? "http://localhost") : raw.STRIPE_SUCCESS_URL!,
   stripeCancelUrl: phApiScript ? (raw.STRIPE_CANCEL_URL ?? "http://localhost") : raw.STRIPE_CANCEL_URL!,
-  stripeWebhookSecret: phApiScript ? (raw.STRIPE_WEBHOOK_SECRET ?? scriptPlaceholder) : raw.STRIPE_WEBHOOK_SECRET!,
+  stripeWebhookSecret: phApiScript
+    ? (raw.STRIPE_WEBHOOK_SECRET ?? scriptPlaceholder)
+    : (raw.STRIPE_WEBHOOK_SECRET ?? ""),
   stripePricePhp: raw.STRIPE_PRICE_PHP ?? "",
   stripePricePlus: raw.STRIPE_PRICE_PHP_PLUS ?? raw.STRIPE_PRICE_PLUS ?? "",
   stripePricePremium: raw.STRIPE_PRICE_PHP_PREMIUM ?? raw.STRIPE_PRICE_PREMIUM ?? "",
@@ -123,9 +129,10 @@ export const env = {
   adminWebUrl: phApiScript ? (raw.ADMIN_WEB_URL ?? "http://localhost") : raw.ADMIN_WEB_URL!,
   bookingActionSecret:
     raw.BOOKING_ACTION_SECRET ?? (phApiScript ? (raw.JWT_SECRET ?? scriptPlaceholder) : raw.JWT_SECRET!),
-  openaiApiKey: phApiScript ? (raw.OPEN_AI_API_KEY ?? scriptPlaceholder) : raw.OPEN_AI_API_KEY!,
+  openaiApiKey: phApiScript ? (raw.OPEN_AI_API_KEY ?? scriptPlaceholder) : (raw.OPEN_AI_API_KEY ?? ""),
   expoAccessToken: raw.EXPO_ACCESS_TOKEN ?? "",
   firebaseServiceAccountJson: raw.FIREBASE_SERVICE_ACCOUNT_JSON ?? "",
   corsOrigins: raw.CORS_ORIGINS ?? "http://localhost:3000",
   requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
+  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
 };

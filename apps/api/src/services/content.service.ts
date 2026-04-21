@@ -29,11 +29,7 @@ const tierOrder: Record<(typeof ProgramType.enumValues)[number], number> = {
 };
 
 export async function getHomeContent() {
-  return db
-    .select()
-    .from(contentTable)
-    .where(eq(contentTable.surface, "home"))
-    .orderBy(desc(contentTable.updatedAt));
+  return db.select().from(contentTable).where(eq(contentTable.surface, "home")).orderBy(desc(contentTable.updatedAt));
 }
 
 export async function getLegalContent() {
@@ -41,10 +37,7 @@ export async function getLegalContent() {
 }
 
 export async function getTestimonialSubmissions() {
-  return db
-    .select()
-    .from(contentTable)
-    .where(eq(contentTable.surface, "testimonial_submissions"));
+  return db.select().from(contentTable).where(eq(contentTable.surface, "testimonial_submissions"));
 }
 
 const TEAM_TARGET_PREFIX = "target:team:";
@@ -92,7 +85,11 @@ async function resolveAnnouncementAudienceContext(userId: number) {
   let relatedAthletes = directAthletes;
 
   if (!relatedAthletes.length) {
-    const guardian = await db.select({ id: guardianTable.id }).from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
+    const guardian = await db
+      .select({ id: guardianTable.id })
+      .from(guardianTable)
+      .where(eq(guardianTable.userId, userId))
+      .limit(1);
     if (guardian[0]) {
       relatedAthletes = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian[0].id));
     }
@@ -100,7 +97,11 @@ async function resolveAnnouncementAudienceContext(userId: number) {
 
   const teams = new Set(
     relatedAthletes
-      .map((athlete) => String(athlete.team ?? "").trim().toLowerCase())
+      .map((athlete) =>
+        String(athlete.team ?? "")
+          .trim()
+          .toLowerCase(),
+      )
       .filter((team) => team.length > 0),
   );
   const ages = relatedAthletes
@@ -108,7 +109,9 @@ async function resolveAnnouncementAudienceContext(userId: number) {
     .filter((age): age is number => Number.isFinite(age));
   const athleteTypes = new Set<string>();
   for (const athlete of relatedAthletes) {
-    const explicit = String(athlete.athleteType ?? "").trim().toLowerCase();
+    const explicit = String(athlete.athleteType ?? "")
+      .trim()
+      .toLowerCase();
     if (explicit) {
       athleteTypes.add(explicit);
       continue;
@@ -203,10 +206,7 @@ export async function listStoriesForUser() {
 }
 
 export async function listStoriesAdmin() {
-  return db
-    .select()
-    .from(storyTable)
-    .orderBy(asc(storyTable.order), desc(storyTable.updatedAt));
+  return db.select().from(storyTable).orderBy(asc(storyTable.order), desc(storyTable.updatedAt));
 }
 
 type StoryInput = {
@@ -253,7 +253,7 @@ async function resolveAthleteAge(userId: number) {
 
 export function matchesAgeRange(
   item: { minAge?: number | null; maxAge?: number | null; ageList?: unknown | null },
-  age: number | null
+  age: number | null,
 ) {
   const list = Array.isArray(item.ageList)
     ? (item.ageList as unknown[]).map((val) => Number(val)).filter((val) => Number.isFinite(val))
@@ -291,7 +291,7 @@ export async function getLegalContentForUser() {
 
 export async function getParentPlatformContent(userId: number, role?: string) {
   if (role && !isAdminRole(role) && role !== "athlete") {
-    return [] as typeof contentTable.$inferSelect[];
+    return [] as (typeof contentTable.$inferSelect)[];
   }
   if (isAdminRole(role)) {
     return db.select().from(contentTable).where(eq(contentTable.surface, "parent_platform"));
@@ -332,9 +332,7 @@ export async function createContent(input: {
   isActive?: boolean | null;
   createdBy: number;
 }) {
-  const ageList = Array.isArray(input.ageList)
-    ? input.ageList.filter((val) => Number.isFinite(val))
-    : null;
+  const ageList = Array.isArray(input.ageList) ? input.ageList.filter((val) => Number.isFinite(val)) : null;
   const result = await db
     .insert(contentTable)
     .values({
@@ -346,8 +344,8 @@ export async function createContent(input: {
       surface: input.surface,
       category: input.category ?? null,
       ageList: ageList && ageList.length ? ageList : null,
-      minAge: ageList && ageList.length ? null : input.minAge ?? null,
-      maxAge: ageList && ageList.length ? null : input.maxAge ?? null,
+      minAge: ageList && ageList.length ? null : (input.minAge ?? null),
+      maxAge: ageList && ageList.length ? null : (input.maxAge ?? null),
       startsAt: input.startsAt ?? null,
       endsAt: input.endsAt ?? null,
       isActive: input.isActive ?? true,
@@ -380,9 +378,7 @@ export async function updateContent(input: {
   endsAt?: Date | null;
   isActive?: boolean | null;
 }) {
-  const ageList = Array.isArray(input.ageList)
-    ? input.ageList.filter((val) => Number.isFinite(val))
-    : null;
+  const ageList = Array.isArray(input.ageList) ? input.ageList.filter((val) => Number.isFinite(val)) : null;
   const updatePayload: Record<string, unknown> = {
     title: input.title,
     content: input.content,
@@ -391,18 +387,14 @@ export async function updateContent(input: {
     programTier: input.programTier ?? null,
     category: input.category ?? null,
     ageList: ageList && ageList.length ? ageList : null,
-    minAge: ageList && ageList.length ? null : input.minAge ?? null,
-    maxAge: ageList && ageList.length ? null : input.maxAge ?? null,
+    minAge: ageList && ageList.length ? null : (input.minAge ?? null),
+    maxAge: ageList && ageList.length ? null : (input.maxAge ?? null),
     updatedAt: new Date(),
   };
   if ("startsAt" in input) updatePayload.startsAt = input.startsAt ?? null;
   if ("endsAt" in input) updatePayload.endsAt = input.endsAt ?? null;
   if ("isActive" in input) updatePayload.isActive = input.isActive ?? true;
-  const result = await db
-    .update(contentTable)
-    .set(updatePayload)
-    .where(eq(contentTable.id, input.id))
-    .returning();
+  const result = await db.update(contentTable).set(updatePayload).where(eq(contentTable.id, input.id)).returning();
 
   return result[0] ?? null;
 }
@@ -417,10 +409,7 @@ export async function updateContentCategory(input: { id: number; category: strin
 }
 
 export async function deleteContentItem(contentId: number) {
-  const result = await db
-    .delete(contentTable)
-    .where(eq(contentTable.id, contentId))
-    .returning();
+  const result = await db.delete(contentTable).where(eq(contentTable.id, contentId)).returning();
   return result[0] ?? null;
 }
 
@@ -430,28 +419,21 @@ export async function getContentByIdAdmin(contentId: number) {
 }
 
 export async function getContentAiInsight(contentId: number, ageGroup?: string | null) {
-  const item = await db
-    .select()
-    .from(contentTable)
-    .where(eq(contentTable.id, contentId))
-    .limit(1);
+  const item = await db.select().from(contentTable).where(eq(contentTable.id, contentId)).limit(1);
 
   if (!item[0]) return null;
 
   const { generateContentSummary } = await import("./ai.service");
-  
+
   // Combine title and body for context
-  const contentText = [
-    item[0].title,
-    item[0].body
-  ].filter(Boolean).join("\n\n");
+  const contentText = [item[0].title, item[0].body].filter(Boolean).join("\n\n");
 
   if (!contentText) return null;
 
   return await generateContentSummary(item[0].title, contentText, ageGroup ?? undefined);
-  }
+}
 
-  type ParentCourseModule = {
+type ParentCourseModule = {
   id: string;
   title: string;
   type: "article" | "video" | "pdf" | "faq";
@@ -459,9 +441,9 @@ export async function getContentAiInsight(contentId: number, ageGroup?: string |
   mediaUrl?: string | null;
   order: number;
   preview?: boolean | null;
-  };
+};
 
-  function normalizeModules(modules: ParentCourseModule[] | null | undefined) {
+function normalizeModules(modules: ParentCourseModule[] | null | undefined) {
   if (!Array.isArray(modules)) return [] as ParentCourseModule[];
   return modules
     .map((module, index) => ({
@@ -476,10 +458,7 @@ export async function getContentAiInsight(contentId: number, ageGroup?: string |
     .sort((a, b) => a.order - b.order);
 }
 
-function applyTierAccess(
-  items: typeof parentCourseTable.$inferSelect[],
-  allowed: number | null
-) {
+function applyTierAccess(items: (typeof parentCourseTable.$inferSelect)[], allowed: number | null) {
   return items
     .map((item) => {
       const modules = normalizeModules(item.modules as any);
@@ -581,11 +560,7 @@ export async function updateParentCourse(input: {
 }
 
 export async function getParentCourseAiInsight(courseId: number) {
-  const course = await db
-    .select()
-    .from(parentCourseTable)
-    .where(eq(parentCourseTable.id, courseId))
-    .limit(1);
+  const course = await db.select().from(parentCourseTable).where(eq(parentCourseTable.id, courseId)).limit(1);
 
   if (!course[0]) return null;
 

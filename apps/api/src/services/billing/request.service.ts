@@ -20,6 +20,8 @@ import {
   ATHLETE_BILLING_CYCLES,
   type AthleteBillingCycle,
 } from "./stripe.service";
+import { newReceiptPublicId } from "../../lib/receipt-public-id";
+import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
 import { computePlanPeriodEnd, computeAthleteAccessEnd, quoteAthleteBillingCycleAmount } from "./plan.service";
 import { sendPushNotification } from "../push.service";
 import {
@@ -35,7 +37,9 @@ function schedulePendingApprovalEmails(requestId: number, previousStatus: string
 }
 
 function isPaidStatus(paymentStatus: string | null | undefined) {
-  const normalized = String(paymentStatus ?? "").trim().toLowerCase();
+  const normalized = String(paymentStatus ?? "")
+    .trim()
+    .toLowerCase();
   return normalized === "paid" || normalized === "no_payment_required";
 }
 
@@ -53,7 +57,9 @@ function stripeModeFromSecretKey(secretKey: string | null | undefined): "test" |
 }
 
 function paymentStatusFromPaymentIntentStatus(status?: string | null): string {
-  const normalized = String(status ?? "").trim().toLowerCase();
+  const normalized = String(status ?? "")
+    .trim()
+    .toLowerCase();
   if (normalized === "succeeded") return "paid";
   if (normalized === "canceled") return "canceled";
   if (normalized === "processing") return "processing";
@@ -95,7 +101,7 @@ export async function syncSubscriptionRequestPaymentFromStripe(requestId: number
   } catch (error: unknown) {
     if (isStripeNotFoundError(error)) {
       throw new Error(
-        `Stripe could not find "${stripeId}". Check STRIPE_SECRET_KEY (test vs live) and that this request was created in the same Stripe account.`
+        `Stripe could not find "${stripeId}". Check STRIPE_SECRET_KEY (test vs live) and that this request was created in the same Stripe account.`,
       );
     }
     throw error;
@@ -155,7 +161,7 @@ export async function createCheckoutSession(input: {
       throw new Error(
         `Stripe could not find price "${priceId}" for plan #${plan.id} (${plan.tier}, ${billingCycle}). ` +
           `Create/activate a Stripe Price with lookup key "${expectedLookupKey}" in Stripe (${stripeMode} mode), ` +
-          `or update the plan's Stripe price id to a valid one in the same Stripe account/mode.`
+          `or update the plan's Stripe price id to a valid one in the same Stripe account/mode.`,
       );
     }
     throw error;
@@ -184,6 +190,7 @@ export async function createCheckoutSession(input: {
       planId: plan.id,
       planBillingCycle: billingCycle,
       stripeSessionId: session.id,
+      receiptPublicId: newReceiptPublicId(),
       paymentStatus: session.payment_status ?? "unpaid",
       status: "pending_payment",
     })
@@ -217,7 +224,7 @@ export async function createPaymentSheetIntent(input: {
   });
   const ephemeralKey = await stripeClient.ephemeralKeys.create(
     { customer: customer.id },
-    { apiVersion: "2025-02-24.acacia" }
+    { apiVersion: "2025-02-24.acacia" },
   );
 
   let paymentIntentId: string;
@@ -256,9 +263,8 @@ export async function createPaymentSheetIntent(input: {
         athleteId: String(input.athleteId),
       },
     });
-    const intent = (subscription.latest_invoice as Stripe.Invoice | null)?.payment_intent as
-      | Stripe.PaymentIntent
-      | null;
+    const intent = (subscription.latest_invoice as Stripe.Invoice | null)
+      ?.payment_intent as Stripe.PaymentIntent | null;
     if (!intent) {
       throw new Error("Unable to create payment intent");
     }
@@ -277,6 +283,7 @@ export async function createPaymentSheetIntent(input: {
       userId: input.userId,
       athleteId: input.athleteId,
       planId: plan.id,
+      receiptPublicId: newReceiptPublicId(),
       stripeSessionId: paymentIntentId,
       paymentStatus: paymentStatus ?? "requires_payment_method",
       status: "pending_payment",
@@ -297,9 +304,7 @@ export async function confirmPaymentSheetIntent(input: { paymentIntentId: string
   const intent = await stripeClient.paymentIntents.retrieve(input.paymentIntentId);
   const paymentStatus = intent.status ?? "unknown";
   const nextStatus =
-    paymentStatus === "succeeded" || paymentStatus === "processing"
-      ? "pending_approval"
-      : "pending_payment";
+    paymentStatus === "succeeded" || paymentStatus === "processing" ? "pending_approval" : "pending_payment";
 
   const prior = await db
     .select()
@@ -307,8 +312,8 @@ export async function confirmPaymentSheetIntent(input: { paymentIntentId: string
     .where(
       and(
         eq(subscriptionRequestTable.stripeSessionId, input.paymentIntentId),
-        eq(subscriptionRequestTable.userId, input.userId)
-      )
+        eq(subscriptionRequestTable.userId, input.userId),
+      ),
     )
     .limit(1);
   const previousStatus = prior[0]?.status ?? "pending_payment";
@@ -323,8 +328,8 @@ export async function confirmPaymentSheetIntent(input: { paymentIntentId: string
     .where(
       and(
         eq(subscriptionRequestTable.stripeSessionId, input.paymentIntentId),
-        eq(subscriptionRequestTable.userId, input.userId)
-      )
+        eq(subscriptionRequestTable.userId, input.userId),
+      ),
     )
     .returning();
 
@@ -347,8 +352,8 @@ export async function confirmCheckoutSession(input: { sessionId: string; userId:
     .where(
       and(
         eq(subscriptionRequestTable.stripeSessionId, input.sessionId),
-        eq(subscriptionRequestTable.userId, input.userId)
-      )
+        eq(subscriptionRequestTable.userId, input.userId),
+      ),
     )
     .limit(1);
 
@@ -358,17 +363,24 @@ export async function confirmCheckoutSession(input: { sessionId: string; userId:
   }
 
   const nextStatus =
-    paymentStatus === "paid" || paymentStatus === "no_payment_required"
-      ? "pending_approval"
-      : "pending_payment";
+    paymentStatus === "paid" || paymentStatus === "no_payment_required" ? "pending_approval" : "pending_payment";
 
   const previousStatus = request.status;
+
+  const amountCents = typeof session.amount_total === "number" ? session.amount_total : null;
+  const currency = typeof session.currency === "string" ? session.currency : null;
+  const stripePaymentIntentId = checkoutSessionPaymentIntentId(session);
+  const receiptPublicId = request.receiptPublicId?.trim() || newReceiptPublicId();
 
   const updated = await db
     .update(subscriptionRequestTable)
     .set({
       paymentStatus,
       status: nextStatus,
+      paymentAmountCents: amountCents ?? request.paymentAmountCents,
+      paymentCurrency: currency ?? request.paymentCurrency,
+      stripePaymentIntentId: stripePaymentIntentId ?? request.stripePaymentIntentId,
+      receiptPublicId,
       updatedAt: new Date(),
     })
     .where(eq(subscriptionRequestTable.id, request.id))
@@ -382,7 +394,12 @@ export async function confirmCheckoutSession(input: { sessionId: string; userId:
   return { session, request: row };
 }
 
-export async function updateRequestFromStripeSession(sessionId: string, paymentStatus: string) {
+export async function updateRequestFromStripeSession(session: Stripe.Checkout.Session) {
+  const sessionId = String(session.id ?? "").trim();
+  if (!sessionId) return null;
+
+  const paymentStatus = session.payment_status ?? "unpaid";
+
   const requests = await db
     .select()
     .from(subscriptionRequestTable)
@@ -395,17 +412,24 @@ export async function updateRequestFromStripeSession(sessionId: string, paymentS
   }
 
   const nextStatus =
-    paymentStatus === "paid" || paymentStatus === "no_payment_required"
-      ? "pending_approval"
-      : "pending_payment";
+    paymentStatus === "paid" || paymentStatus === "no_payment_required" ? "pending_approval" : "pending_payment";
 
   const previousStatus = request.status;
+
+  const amountCents = typeof session.amount_total === "number" ? session.amount_total : null;
+  const currency = typeof session.currency === "string" ? session.currency : null;
+  const stripePaymentIntentId = checkoutSessionPaymentIntentId(session);
+  const receiptPublicId = request.receiptPublicId?.trim() || newReceiptPublicId();
 
   const updated = await db
     .update(subscriptionRequestTable)
     .set({
       paymentStatus,
       status: nextStatus,
+      paymentAmountCents: amountCents ?? request.paymentAmountCents,
+      paymentCurrency: currency ?? request.paymentCurrency,
+      stripePaymentIntentId: stripePaymentIntentId ?? request.stripePaymentIntentId,
+      receiptPublicId,
       updatedAt: new Date(),
     })
     .where(eq(subscriptionRequestTable.id, request.id))
@@ -452,7 +476,9 @@ export async function listSubscriptionRequests() {
 
   return Promise.all(
     rows.map(async (row) => {
-      const cycleRaw = String(row.planBillingCycle ?? "").trim().toLowerCase();
+      const cycleRaw = String(row.planBillingCycle ?? "")
+        .trim()
+        .toLowerCase();
       const cycle = ATHLETE_BILLING_CYCLES.includes(cycleRaw as AthleteBillingCycle)
         ? (cycleRaw as AthleteBillingCycle)
         : null;
@@ -473,12 +499,11 @@ export async function listSubscriptionRequests() {
             monthlyPrice: row.planMonthlyPrice,
             yearlyPrice: row.planYearlyPrice,
           },
-          cycle
+          cycle,
         );
         paymentMode = quote.mode;
         if (quote.amount) {
-          displayPrice =
-            cycle === "monthly" ? `${quote.amount}/month` : `${quote.amount} upfront`;
+          displayPrice = cycle === "monthly" ? `${quote.amount}/month` : `${quote.amount} upfront`;
         }
       }
 
@@ -501,7 +526,7 @@ export async function listSubscriptionRequests() {
         billingInterval,
         paymentMode,
       };
-    })
+    }),
   );
 }
 
@@ -523,10 +548,7 @@ export async function getLatestSubscriptionRequest(input: { userId: number; athl
     .from(subscriptionRequestTable)
     .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
     .where(
-      and(
-        eq(subscriptionRequestTable.userId, input.userId),
-        eq(subscriptionRequestTable.athleteId, input.athleteId)
-      )
+      and(eq(subscriptionRequestTable.userId, input.userId), eq(subscriptionRequestTable.athleteId, input.athleteId)),
     )
     .orderBy(desc(subscriptionRequestTable.createdAt))
     .limit(1);
@@ -535,7 +557,7 @@ export async function getLatestSubscriptionRequest(input: { userId: number; athl
 
 export async function updateSubscriptionRequestStatus(
   requestId: number,
-  status: (typeof subscriptionStatus.enumValues)[number]
+  status: (typeof subscriptionStatus.enumValues)[number],
 ) {
   const result = await db
     .update(subscriptionRequestTable)
@@ -572,7 +594,7 @@ export async function approveSubscriptionRequest(requestId: number) {
     const refreshedRow = refreshed[0] ?? null;
     if (!isPaidStatus(refreshedRow?.paymentStatus)) {
       throw new Error(
-        `Cannot approve request #${requestId}: payment not confirmed (status=${refreshedRow?.status ?? "unknown"}, paymentStatus=${refreshedRow?.paymentStatus ?? "unknown"})`
+        `Cannot approve request #${requestId}: payment not confirmed (status=${refreshedRow?.status ?? "unknown"}, paymentStatus=${refreshedRow?.paymentStatus ?? "unknown"})`,
       );
     }
   }
@@ -648,16 +670,14 @@ export async function approveSubscriptionRequest(requestId: number) {
         request.userId,
         "Plan approved",
         `Your ${request.planTier.replace("_", " ")} plan is now active.`,
-        { url: "/plans", type: "plan_approved", planTier: request.planTier }
+        { url: "/plans", type: "plan_approved", planTier: request.planTier },
       );
     } catch (error) {
       console.error("[Billing] Failed to send plan approval push:", error);
     }
 
     const approvedRow = updated[0] ?? null;
-    const planApprovedEmail = approvedRow
-      ? { userId: request.userId, planTier: request.planTier }
-      : null;
+    const planApprovedEmail = approvedRow ? { userId: request.userId, planTier: request.planTier } : null;
     return { row: approvedRow, planApprovedEmail };
   });
 

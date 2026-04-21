@@ -72,16 +72,34 @@ router.post("/admin/messages/:userId/read", AdminMessageController.markThreadRea
 
 // Athlete Plans (Premium) & Progress
 router.get("/admin/training-snapshot", AdminAthletePlanController.listTrainingSnapshotAdmin);
-router.get("/admin/users/:userId/program-section-completions", AdminAthletePlanController.listProgramSectionCompletionsAdmin);
+router.get(
+  "/admin/users/:userId/program-section-completions",
+  AdminAthletePlanController.listProgramSectionCompletionsAdmin,
+);
 router.get("/admin/users/:userId/premium-plan", AdminAthletePlanController.getPremiumPlanAdmin);
 router.get("/admin/users/:userId/premium-session-checkins", AdminAthletePlanController.listPremiumSessionCheckinsAdmin);
 router.post("/admin/users/:userId/premium-plan/clone", AdminAthletePlanController.clonePremiumPlanAdmin);
 router.post("/admin/users/:userId/premium-plan/sessions", AdminAthletePlanController.createPremiumPlanSessionAdmin);
-router.patch("/admin/users/:userId/premium-plan/sessions/:sessionId", AdminAthletePlanController.updatePremiumPlanSessionAdmin);
-router.delete("/admin/users/:userId/premium-plan/sessions/:sessionId", AdminAthletePlanController.deletePremiumPlanSessionAdmin);
-router.post("/admin/users/:userId/premium-plan/sessions/:sessionId/exercises", AdminAthletePlanController.addPremiumPlanExerciseAdmin);
-router.patch("/admin/users/:userId/premium-plan/exercises/:planExerciseId", AdminAthletePlanController.updatePremiumPlanExerciseAdmin);
-router.delete("/admin/users/:userId/premium-plan/exercises/:planExerciseId", AdminAthletePlanController.deletePremiumPlanExerciseAdmin);
+router.patch(
+  "/admin/users/:userId/premium-plan/sessions/:sessionId",
+  AdminAthletePlanController.updatePremiumPlanSessionAdmin,
+);
+router.delete(
+  "/admin/users/:userId/premium-plan/sessions/:sessionId",
+  AdminAthletePlanController.deletePremiumPlanSessionAdmin,
+);
+router.post(
+  "/admin/users/:userId/premium-plan/sessions/:sessionId/exercises",
+  AdminAthletePlanController.addPremiumPlanExerciseAdmin,
+);
+router.patch(
+  "/admin/users/:userId/premium-plan/exercises/:planExerciseId",
+  AdminAthletePlanController.updatePremiumPlanExerciseAdmin,
+);
+router.delete(
+  "/admin/users/:userId/premium-plan/exercises/:planExerciseId",
+  AdminAthletePlanController.deletePremiumPlanExerciseAdmin,
+);
 
 // Programs & Exercises
 router.post("/admin/enrollments", AdminProgramController.assignProgram);

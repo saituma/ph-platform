@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import {
   SocialAccessError,
-  assertAdultAthlete,
+  assertGlobalSocialDeprecated,
   createRunComment,
   editComment,
   clearCommentReaction,
@@ -27,12 +27,13 @@ import {
   getMySocialRuns,
 } from "../services/social-privacy.service";
 
-function handleSocialError(res: Response, err: unknown) {
+export function handleSocialError(res: Response, err: unknown) {
   if (err instanceof SocialAccessError) {
     if (err.code === "NOT_ADULT") return res.status(403).json({ error: "Forbidden" });
     if (err.code === "FORBIDDEN") return res.status(403).json({ error: "Forbidden" });
     if (err.code === "NOT_FOUND") return res.status(404).json({ error: "Not found" });
-    if (err.code === "SOCIAL_DISABLED") return res.status(403).json({ error: "Social features not enabled", code: "SOCIAL_DISABLED" });
+    if (err.code === "SOCIAL_DISABLED")
+      return res.status(403).json({ error: "Social features not enabled", code: "SOCIAL_DISABLED" });
   }
   return res.status(500).json({ error: "Internal error" });
 }
@@ -40,17 +41,14 @@ function handleSocialError(res: Response, err: unknown) {
 export async function leaderboard(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const windowDays = req.query.windowDays ? Number(req.query.windowDays) : 7;
     const limit = req.query.limit ? Number(req.query.limit) : 50;
     const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
     const items = await getLeaderboard({
       windowDays,
       limit,
-      sort:
-        sort === "distance_asc" || sort === "duration_desc" || sort === "duration_asc"
-          ? sort
-          : "distance_desc",
+      sort: sort === "distance_asc" || sort === "duration_desc" || sort === "duration_asc" ? sort : "distance_desc",
     });
     return res.status(200).json({ items });
   } catch (err) {
@@ -61,7 +59,7 @@ export async function leaderboard(req: Request, res: Response) {
 export async function adults(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const limit = req.query.limit ? Number(req.query.limit) : 50;
     const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
     const out = await listAdults({ limit, cursor });
@@ -74,7 +72,7 @@ export async function adults(req: Request, res: Response) {
 export async function runs(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const limit = req.query.limit ? Number(req.query.limit) : 20;
     const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
     // windowDays <= 0 means "All".
@@ -95,7 +93,7 @@ export async function runs(req: Request, res: Response) {
 export async function runDetail(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
@@ -103,6 +101,7 @@ export async function runDetail(req: Request, res: Response) {
     const item = await getPublicRunDetail({
       viewerUserId: req.user.id,
       runLogId: Math.floor(runLogId),
+      teamId: null,
     });
     return res.status(200).json({ item });
   } catch (err) {
@@ -113,12 +112,12 @@ export async function runDetail(req: Request, res: Response) {
 export async function commentsList(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
     }
-    const items = await listRunComments(req.user.id, Math.floor(runLogId));
+    const items = await listRunComments(req.user.id, Math.floor(runLogId), undefined);
     return res.status(200).json({ items });
   } catch (err) {
     return handleSocialError(res, err);
@@ -133,7 +132,7 @@ const createCommentSchema = z.object({
 export async function commentsCreate(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
@@ -147,6 +146,7 @@ export async function commentsCreate(req: Request, res: Response) {
       runLogId: Math.floor(runLogId),
       content: parsed.data.content,
       parentId: parsed.data.parentId ?? null,
+      teamId: undefined,
     });
     return res.status(200).json({ item });
   } catch (err) {
@@ -157,7 +157,7 @@ export async function commentsCreate(req: Request, res: Response) {
 export async function commentDelete(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -176,7 +176,7 @@ const editSchema = z.object({
 export async function commentEdit(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -203,7 +203,7 @@ const reportSchema = z.object({
 export async function commentReport(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -226,7 +226,7 @@ export async function commentReport(req: Request, res: Response) {
 export async function commentReactionsList(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -245,7 +245,7 @@ const reactionSchema = z.object({
 export async function commentReactionSet(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -268,7 +268,7 @@ export async function commentReactionSet(req: Request, res: Response) {
 export async function commentReactionClear(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -321,6 +321,7 @@ export async function privacySettingsUpdate(req: Request, res: Response) {
 export async function runLikesList(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
+    await assertGlobalSocialDeprecated(req.user.id);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
@@ -335,7 +336,7 @@ export async function runLikesList(req: Request, res: Response) {
 export async function runLikeCreate(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertAdultAthlete(req.user.id);
+    await assertGlobalSocialDeprecated(req.user.id);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
@@ -350,6 +351,7 @@ export async function runLikeCreate(req: Request, res: Response) {
 export async function runLikeDelete(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
+    await assertGlobalSocialDeprecated(req.user.id);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });

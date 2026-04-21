@@ -74,26 +74,18 @@ function MaybeKeyboardProvider({ children }: PropsWithChildren) {
 function StartupSplashController() {
   const hydrated = useAppSelector((state) => state.user.hydrated);
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
-  const appRole = useAppSelector((state) => state.user.appRole);
   const bootstrapReady = useAppSelector(selectBootstrapReady);
-  const pathname = usePathname();
 
   useEffect(() => {
     if (!hydrated) return;
     if (isAuthenticated && !bootstrapReady) return;
 
-    const role = String(appRole ?? "");
-    const isYouthRole =
-      role === "youth_athlete" || role.startsWith("youth_athlete_");
-
-    // If the app restored into a deep program route for a youth account,
-    // wait until the redirect to Home finishes so we never flash that screen.
-    if (isAuthenticated && isYouthRole && pathname.startsWith("/programs")) {
-      return;
-    }
+    // Program detail (`/programs/[id]`) handles cold-start redirect / blank frame internally;
+    // do not gate splash on pathname here — a broad `/programs` check would block hideAsync
+    // forever when the user cold-opens a legitimate program deep link.
 
     void SplashScreen.hideAsync().catch(() => {});
-  }, [appRole, bootstrapReady, hydrated, isAuthenticated, pathname]);
+  }, [bootstrapReady, hydrated, isAuthenticated]);
 
   return null;
 }

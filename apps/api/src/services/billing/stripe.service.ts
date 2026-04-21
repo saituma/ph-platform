@@ -15,12 +15,24 @@ export function getStripeClient() {
   return stripe;
 }
 
+/**
+ * Stripe Checkout requires absolute URLs with a scheme. A common .env mistake is
+ * `localhost:3000/...` (no scheme), which yields Stripe error "Not a valid URL".
+ */
+export function normalizeStripeRedirectUrl(raw: string): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return s;
+  const trimmed = s.replace(/^\/+/, "");
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `http://${trimmed}`;
+}
+
 export function getSuccessUrl() {
-  return env.stripeSuccessUrl;
+  return normalizeStripeRedirectUrl(env.stripeSuccessUrl);
 }
 
 export function getCancelUrl() {
-  return env.stripeCancelUrl;
+  return normalizeStripeRedirectUrl(env.stripeCancelUrl);
 }
 
 /** Stripe 404 on Price retrieve/create — wrong account, test vs live, deleted/archived price, or bad lookup key. */
@@ -82,7 +94,7 @@ export async function createTeamCheckoutSession(input: {
 
   if (!priceId) {
     throw new Error(
-      `Price not found. Please ensure Lookup Key '${input.priceLookupKey}' is set in Stripe, or ${input.tier} environment variable is configured.`
+      `Price not found. Please ensure Lookup Key '${input.priceLookupKey}' is set in Stripe, or ${input.tier} environment variable is configured.`,
     );
   }
 
@@ -93,7 +105,7 @@ export async function createTeamCheckoutSession(input: {
       const mode = stripeModeFromSecretKey(env.stripeSecretKey);
       throw new Error(
         `Stripe could not find price "${priceId}" for team checkout (lookup key "${input.priceLookupKey}", ${input.interval}). ` +
-          `Create or re-activate that Price in Stripe (${mode} mode) so it matches STRIPE_SECRET_KEY.`
+          `Create or re-activate that Price in Stripe (${mode} mode) so it matches STRIPE_SECRET_KEY.`,
       );
     }
     throw error;
@@ -124,7 +136,7 @@ export async function createTeamCheckoutSession(input: {
 
 export function resolveTierFallbackPrice(
   tier: (typeof ProgramType.enumValues)[number],
-  interval?: "monthly" | "yearly" | "six_months"
+  interval?: "monthly" | "yearly" | "six_months",
 ) {
   // We only have fallbacks in .env for monthly.
   // Upfront (six_months/yearly) MUST be configured in Stripe via Lookup Keys.
@@ -144,14 +156,14 @@ export function ensureStripePriceId(
     stripePriceIdYearly?: string | null;
     tier?: (typeof ProgramType.enumValues)[number];
   },
-  interval?: "monthly" | "yearly"
+  interval?: "monthly" | "yearly",
 ) {
   const intervalPrice =
     interval === "monthly"
       ? (plan.stripePriceIdMonthly ?? "").trim()
       : interval === "yearly"
-      ? (plan.stripePriceIdYearly ?? "").trim()
-      : "";
+        ? (plan.stripePriceIdYearly ?? "").trim()
+        : "";
   if (intervalPrice) return intervalPrice;
   const normalized = (plan.stripePriceId ?? "").trim();
   if (!normalized || normalized === "manual") {
@@ -181,16 +193,15 @@ export type AthleteBillingCycle = (typeof ATHLETE_BILLING_CYCLES)[number];
 
 export function lookupKeyForAthleteBilling(
   tier: (typeof ProgramType.enumValues)[number],
-  billingCycle: AthleteBillingCycle
+  billingCycle: AthleteBillingCycle,
 ) {
-  const suffix =
-    billingCycle === "monthly" ? "monthly" : billingCycle === "six_months" ? "six_months" : "yearly";
+  const suffix = billingCycle === "monthly" ? "monthly" : billingCycle === "six_months" ? "six_months" : "yearly";
   return `${tier.toLowerCase()}_${suffix}`;
 }
 
 export async function resolvePriceIdByTierLookup(
   tier: (typeof ProgramType.enumValues)[number],
-  billingCycle: AthleteBillingCycle
+  billingCycle: AthleteBillingCycle,
 ): Promise<string | null> {
   if (!stripe) return null;
   const lookupKey = lookupKeyForAthleteBilling(tier, billingCycle);
@@ -225,7 +236,7 @@ async function ensureStripePriceIdOrLookupKeyId(raw: string): Promise<string> {
   const fromLookup = await resolvePriceIdByLookupKey(normalized);
   if (fromLookup) return fromLookup;
   throw new Error(
-    `Invalid Stripe price reference "${normalized}". Expected a Stripe Price id (price_...) or a valid Stripe Price lookup key.`
+    `Invalid Stripe price reference "${normalized}". Expected a Stripe Price id (price_...) or a valid Stripe Price lookup key.`,
   );
 }
 
@@ -237,7 +248,7 @@ export async function ensureAthleteCheckoutPriceId(
     stripePriceIdYearly?: string | null;
     tier: (typeof ProgramType.enumValues)[number];
   },
-  billingCycle: AthleteBillingCycle
+  billingCycle: AthleteBillingCycle,
 ): Promise<string> {
   const fromLookup = await resolvePriceIdByTierLookup(plan.tier, billingCycle);
   if (fromLookup) return fromLookup;
@@ -251,7 +262,7 @@ export async function ensureAthleteCheckoutPriceId(
   }
   const lk = lookupKeyForAthleteBilling(plan.tier, billingCycle);
   throw new Error(
-    `No Stripe price for ${plan.tier} / ${billingCycle}. Create a Price with lookup key "${lk}" in Stripe.`
+    `No Stripe price for ${plan.tier} / ${billingCycle}. Create a Price with lookup key "${lk}" in Stripe.`,
   );
 }
 

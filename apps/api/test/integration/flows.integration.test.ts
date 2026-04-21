@@ -66,7 +66,9 @@ describe("integration flows", () => {
   });
 
   test("chat creation", async () => {
-    const res = await request(app).post("/api/chat/groups").send({ name: "Test", memberIds: [2] });
+    const res = await request(app)
+      .post("/api/chat/groups")
+      .send({ name: "Test", memberIds: [2] });
     expect(res.status).toBe(201);
   });
 });

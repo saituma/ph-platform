@@ -58,10 +58,7 @@ export function fatalExit(context: string, error?: unknown, exitCode = 1) {
   if (exiting) return;
   exiting = true;
 
-  const message =
-    error === undefined
-      ? `[Fatal] ${context}\n`
-      : `[Fatal] ${context}\n${formatUnknown(error)}\n`;
+  const message = error === undefined ? `[Fatal] ${context}\n` : `[Fatal] ${context}\n${formatUnknown(error)}\n`;
 
   process.exitCode = exitCode;
 

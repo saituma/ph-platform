@@ -12,7 +12,11 @@ jest.mock("../../src/services/reaction.service", () => ({
   toggleGroupMessageReaction: jest.fn(),
 }));
 
-import { listGroupChatMessages, sendGroupChatMessage, toggleGroupReaction } from "../../src/controllers/chat.controller";
+import {
+  listGroupChatMessages,
+  sendGroupChatMessage,
+  toggleGroupReaction,
+} from "../../src/controllers/chat.controller";
 import { isGroupMember, createGroupMessage, listGroupMessages } from "../../src/services/chat.service";
 import { toggleGroupMessageReaction } from "../../src/services/reaction.service";
 

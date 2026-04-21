@@ -32,12 +32,10 @@ async function notifyProgramChanged(athleteId: number) {
     io.to(`user:${athlete.userId}`).emit("program:changed", payload);
   }
 
-  void sendPushNotification(
-    athlete.userId,
-    "Program Update",
-    "Your training program has been updated by your coach.",
-    { type: "program", url: "/(tabs)/programs" }
-  );
+  void sendPushNotification(athlete.userId, "Program Update", "Your training program has been updated by your coach.", {
+    type: "program",
+    url: "/(tabs)/programs",
+  });
 }
 
 const normalizeLookupValue = (value: string | null | undefined) =>
@@ -53,12 +51,7 @@ async function getPremiumProgramSectionContent() {
   return db
     .select()
     .from(programSectionContentTable)
-    .where(
-      eq(
-        programSectionContentTable.programTier,
-        ProgramType.enumValues.find((value) => value === "PHP_Premium")!,
-      ),
-    )
+    .where(eq(programSectionContentTable.programTier, ProgramType.enumValues.find((value) => value === "PHP_Premium")!))
     .orderBy(programSectionContentTable.order, desc(programSectionContentTable.updatedAt));
 }
 
@@ -83,7 +76,7 @@ function buildPremiumContentLookup(items: PremiumContentItem[]) {
 }
 
 function resolveLinkedPremiumContent(
-  base: (typeof exerciseTable.$inferSelect) | null,
+  base: typeof exerciseTable.$inferSelect | null,
   lookup: ReturnType<typeof buildPremiumContentLookup>,
 ) {
   const normalizedExerciseVideoUrl = normalizeLookupValue(base?.videoUrl);
@@ -100,12 +93,14 @@ export async function getAthletePremiumPlan(input: { athleteId: number; weekNumb
     .select()
     .from(athletePlanSessionTable)
     .where(eq(athletePlanSessionTable.athleteId, input.athleteId))
-    .orderBy(asc(athletePlanSessionTable.weekNumber), asc(athletePlanSessionTable.sessionNumber), desc(athletePlanSessionTable.updatedAt));
+    .orderBy(
+      asc(athletePlanSessionTable.weekNumber),
+      asc(athletePlanSessionTable.sessionNumber),
+      desc(athletePlanSessionTable.updatedAt),
+    );
 
   const filteredSessions =
-    input.weekNumber != null
-      ? sessions.filter((s) => s.weekNumber === input.weekNumber)
-      : sessions;
+    input.weekNumber != null ? sessions.filter((s) => s.weekNumber === input.weekNumber) : sessions;
 
   const sessionIds = filteredSessions.map((s) => s.id);
   const exercises = sessionIds.length
@@ -168,17 +163,11 @@ export async function getAthletePremiumPlan(input: { athleteId: number; weekNumb
   });
 }
 
-export async function getAthletePremiumPlanExerciseDetail(input: {
-  athleteId: number;
-  planExerciseId: number;
-}) {
+export async function getAthletePremiumPlanExerciseDetail(input: { athleteId: number; planExerciseId: number }) {
   const rows = await db
     .select()
     .from(athletePlanExerciseTable)
-    .innerJoin(
-      athletePlanSessionTable,
-      eq(athletePlanExerciseTable.planSessionId, athletePlanSessionTable.id),
-    )
+    .innerJoin(athletePlanSessionTable, eq(athletePlanExerciseTable.planSessionId, athletePlanSessionTable.id))
     .where(
       and(
         eq(athletePlanExerciseTable.id, input.planExerciseId),
@@ -257,10 +246,7 @@ export async function clonePremiumPlanFromAssignedTemplate(input: {
   const templateSessions = await db.select().from(sessionTable).where(eq(sessionTable.programId, templateProgramId));
   const templateSessionIds = templateSessions.map((s) => s.id);
   const templateExercises = templateSessionIds.length
-    ? await db
-        .select()
-        .from(sessionExerciseTable)
-        .where(inArray(sessionExerciseTable.sessionId, templateSessionIds))
+    ? await db.select().from(sessionExerciseTable).where(inArray(sessionExerciseTable.sessionId, templateSessionIds))
     : [];
 
   return db.transaction(async (tx) => {
@@ -271,7 +257,9 @@ export async function clonePremiumPlanFromAssignedTemplate(input: {
         .where(eq(athletePlanSessionTable.athleteId, input.athleteId));
       const existingSessionIds = existingSessions.map((s) => s.id);
       if (existingSessionIds.length) {
-        await tx.delete(athletePlanExerciseTable).where(inArray(athletePlanExerciseTable.planSessionId, existingSessionIds));
+        await tx
+          .delete(athletePlanExerciseTable)
+          .where(inArray(athletePlanExerciseTable.planSessionId, existingSessionIds));
         await tx.delete(athletePlanSessionTable).where(eq(athletePlanSessionTable.athleteId, input.athleteId));
       }
     }
@@ -335,11 +323,11 @@ export async function createPlanSession(input: {
       updatedAt: new Date(),
     })
     .returning();
-    
+
   if (row?.athleteId) {
     void notifyProgramChanged(row.athleteId);
   }
-  
+
   return row ?? null;
 }
 
@@ -355,29 +343,32 @@ export async function updatePlanSession(input: {
     .set({
       weekNumber: input.weekNumber ?? undefined,
       sessionNumber: input.sessionNumber ?? undefined,
-      title: input.title?.trim ? (input.title.trim() || null) : undefined,
-      notes: input.notes?.trim ? (input.notes.trim() || null) : undefined,
+      title: input.title?.trim ? input.title.trim() || null : undefined,
+      notes: input.notes?.trim ? input.notes.trim() || null : undefined,
       updatedAt: new Date(),
     })
     .where(eq(athletePlanSessionTable.id, input.id))
     .returning();
-    
+
   if (updated?.athleteId) {
     void notifyProgramChanged(updated.athleteId);
   }
-  
+
   return updated ?? null;
 }
 
 export async function deletePlanSession(sessionId: number) {
   return db.transaction(async (tx) => {
     await tx.delete(athletePlanExerciseTable).where(eq(athletePlanExerciseTable.planSessionId, sessionId));
-    const [deleted] = await tx.delete(athletePlanSessionTable).where(eq(athletePlanSessionTable.id, sessionId)).returning();
-    
+    const [deleted] = await tx
+      .delete(athletePlanSessionTable)
+      .where(eq(athletePlanSessionTable.id, sessionId))
+      .returning();
+
     if (deleted?.athleteId) {
       void notifyProgramChanged(deleted.athleteId);
     }
-    
+
     return deleted ?? null;
   });
 }
@@ -410,14 +401,18 @@ export async function addExerciseToPlanSession(input: {
       updatedAt: new Date(),
     })
     .returning();
-    
+
   if (row) {
-    const session = await db.select({ athleteId: athletePlanSessionTable.athleteId }).from(athletePlanSessionTable).where(eq(athletePlanSessionTable.id, input.planSessionId)).limit(1);
+    const session = await db
+      .select({ athleteId: athletePlanSessionTable.athleteId })
+      .from(athletePlanSessionTable)
+      .where(eq(athletePlanSessionTable.id, input.planSessionId))
+      .limit(1);
     if (session[0]?.athleteId) {
       void notifyProgramChanged(session[0].athleteId);
     }
   }
-  
+
   return row ?? null;
 }
 
@@ -440,21 +435,25 @@ export async function updatePlanExercise(input: {
       reps: input.reps ?? undefined,
       duration: input.duration ?? undefined,
       restSeconds: input.restSeconds ?? undefined,
-      coachingNotes: input.coachingNotes?.trim ? (input.coachingNotes.trim() || null) : undefined,
-      progressionNotes: input.progressionNotes?.trim ? (input.progressionNotes.trim() || null) : undefined,
-      regressionNotes: input.regressionNotes?.trim ? (input.regressionNotes.trim() || null) : undefined,
+      coachingNotes: input.coachingNotes?.trim ? input.coachingNotes.trim() || null : undefined,
+      progressionNotes: input.progressionNotes?.trim ? input.progressionNotes.trim() || null : undefined,
+      regressionNotes: input.regressionNotes?.trim ? input.regressionNotes.trim() || null : undefined,
       updatedAt: new Date(),
     })
     .where(eq(athletePlanExerciseTable.id, input.id))
     .returning();
-    
+
   if (row) {
-    const session = await db.select({ athleteId: athletePlanSessionTable.athleteId }).from(athletePlanSessionTable).where(eq(athletePlanSessionTable.id, row.planSessionId)).limit(1);
+    const session = await db
+      .select({ athleteId: athletePlanSessionTable.athleteId })
+      .from(athletePlanSessionTable)
+      .where(eq(athletePlanSessionTable.id, row.planSessionId))
+      .limit(1);
     if (session[0]?.athleteId) {
       void notifyProgramChanged(session[0].athleteId);
     }
   }
-  
+
   return row ?? null;
 }
 
@@ -463,15 +462,22 @@ export async function deletePlanExercise(planExerciseId: number) {
     await tx
       .delete(athletePlanExerciseCompletionTable)
       .where(eq(athletePlanExerciseCompletionTable.planExerciseId, planExerciseId));
-    const [deleted] = await tx.delete(athletePlanExerciseTable).where(eq(athletePlanExerciseTable.id, planExerciseId)).returning();
-    
+    const [deleted] = await tx
+      .delete(athletePlanExerciseTable)
+      .where(eq(athletePlanExerciseTable.id, planExerciseId))
+      .returning();
+
     if (deleted) {
-      const session = await tx.select({ athleteId: athletePlanSessionTable.athleteId }).from(athletePlanSessionTable).where(eq(athletePlanSessionTable.id, deleted.planSessionId)).limit(1);
+      const session = await tx
+        .select({ athleteId: athletePlanSessionTable.athleteId })
+        .from(athletePlanSessionTable)
+        .where(eq(athletePlanSessionTable.id, deleted.planSessionId))
+        .limit(1);
       if (session[0]?.athleteId) {
         void notifyProgramChanged(session[0].athleteId);
       }
     }
-    
+
     return deleted ?? null;
   });
 }
@@ -523,10 +529,7 @@ export async function completePlanSession(input: {
   return row ?? null;
 }
 
-export async function listPlanSessionCompletions(input: {
-  athleteId: number;
-  limit?: number;
-}) {
+export async function listPlanSessionCompletions(input: { athleteId: number; limit?: number }) {
   const rows = await db
     .select({
       id: athletePlanSessionCompletionTable.id,
@@ -541,10 +544,7 @@ export async function listPlanSessionCompletions(input: {
       sessionTitle: athletePlanSessionTable.title,
     })
     .from(athletePlanSessionCompletionTable)
-    .innerJoin(
-      athletePlanSessionTable,
-      eq(athletePlanSessionCompletionTable.planSessionId, athletePlanSessionTable.id),
-    )
+    .innerJoin(athletePlanSessionTable, eq(athletePlanSessionCompletionTable.planSessionId, athletePlanSessionTable.id))
     .where(eq(athletePlanSessionCompletionTable.athleteId, input.athleteId))
     .orderBy(desc(athletePlanSessionCompletionTable.completedAt))
     .limit(input.limit ?? 50);

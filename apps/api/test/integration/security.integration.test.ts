@@ -39,9 +39,7 @@ describe("security integration", () => {
   });
 
   test("payment confirmation returns 404 when not owned", async () => {
-    const res = await request(app)
-      .post("/api/billing/payment-sheet/confirm")
-      .send({ paymentIntentId: "pi_1" });
+    const res = await request(app).post("/api/billing/payment-sheet/confirm").send({ paymentIntentId: "pi_1" });
     expect(res.status).toBe(404);
   });
 });

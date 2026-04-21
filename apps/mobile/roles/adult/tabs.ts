@@ -1,3 +1,5 @@
-import { BASE_TEAM_TAB_ROUTES } from "../shared/tabs";
+import type { TabConfig } from "@/components/navigation";
+import { ATHLETE_TAB_ROUTES_WITH_TRACKING } from "../shared/tabs";
 
-export const ADULT_TAB_ROUTES = BASE_TEAM_TAB_ROUTES;
+/** Same tab strip as team athletes — includes Tracking (runs / GPS). */
+export const ADULT_TAB_ROUTES: TabConfig[] = ATHLETE_TAB_ROUTES_WITH_TRACKING;

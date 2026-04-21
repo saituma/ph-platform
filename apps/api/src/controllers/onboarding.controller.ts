@@ -20,32 +20,34 @@ import {
 import { AthleteType, ProgramType } from "../db/schema";
 import { calculateAge, clampYouthAge, parseISODate } from "../lib/age";
 
-const onboardingSchema = z.object({
-  athleteName: z.string().min(1),
-  birthDate: z.string().optional(),
-  age: z.number().int().min(0).optional(),
-  athleteType: z.enum(AthleteType.enumValues).optional(),
-  team: z.string().optional().nullable(),
-  trainingPerWeek: z.number().int().min(0),
-  injuries: z.unknown().optional(),
-  growthNotes: z.string().optional().nullable(),
-  performanceGoals: z.string().optional(),
-  equipmentAccess: z.string().optional(),
-  parentEmail: z.string().email(),
-  parentPhone: z.string().optional(),
-  relationToAthlete: z.string().optional(),
-  /** Legacy / optional. New signups choose and pay for a plan in the app; tier is set via billing, not onboarding. */
-  desiredProgramType: z.enum(ProgramType.enumValues).optional(),
-  termsVersion: z.string().min(1),
-  privacyVersion: z.string().min(1),
-  appVersion: z.string().min(1),
-  extraResponses: z.record(z.string(), z.any()).optional(),
-  createNew: z.boolean().optional(),
-  athleteId: z.number().optional().nullable(),
-}).refine((data) => Boolean(data.birthDate || data.age), {
-  message: "Birth date is required.",
-  path: ["birthDate"],
-});
+const onboardingSchema = z
+  .object({
+    athleteName: z.string().min(1),
+    birthDate: z.string().optional(),
+    age: z.number().int().min(0).optional(),
+    athleteType: z.enum(AthleteType.enumValues).optional(),
+    team: z.string().optional().nullable(),
+    trainingPerWeek: z.number().int().min(0),
+    injuries: z.unknown().optional(),
+    growthNotes: z.string().optional().nullable(),
+    performanceGoals: z.string().optional(),
+    equipmentAccess: z.string().optional(),
+    parentEmail: z.string().email(),
+    parentPhone: z.string().optional(),
+    relationToAthlete: z.string().optional(),
+    /** Legacy / optional. New signups choose and pay for a plan in the app; tier is set via billing, not onboarding. */
+    desiredProgramType: z.enum(ProgramType.enumValues).optional(),
+    termsVersion: z.string().min(1),
+    privacyVersion: z.string().min(1),
+    appVersion: z.string().min(1),
+    extraResponses: z.record(z.string(), z.any()).optional(),
+    createNew: z.boolean().optional(),
+    athleteId: z.number().optional().nullable(),
+  })
+  .refine((data) => Boolean(data.birthDate || data.age), {
+    message: "Birth date is required.",
+    path: ["birthDate"],
+  });
 
 const youthBasicSchema = z.object({
   guardianName: z.string().min(1),
