@@ -7,6 +7,7 @@ import {
   confirmCheckout,
   confirmPaymentSheet,
   createCheckout,
+  createTeamCheckout,
   createPaymentSheet,
   createPlanAdmin,
   downgradePlan,
@@ -26,6 +27,12 @@ router.get("/billing/plans", listPlans);
 router.get("/billing/public-plans", listPlans);
 router.get("/billing/status", requireAuth, getBillingStatus);
 router.post("/billing/checkout", requireAuth, createCheckout);
+router.post(
+  "/billing/team/checkout",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  createTeamCheckout
+);
 router.post("/billing/payment-sheet", requireAuth, createPaymentSheet);
 router.post("/billing/payment-sheet/confirm", requireAuth, confirmPaymentSheet);
 router.post("/billing/revenuecat/verify", requireAuth, verifyRevenueCatPurchase);

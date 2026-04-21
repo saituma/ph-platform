@@ -23,9 +23,11 @@ import { Card } from "#/components/ui/card";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
+import { PortalProvider, usePortal } from "#/portal/PortalContext";
+import { ProtectedLayout } from "#/portal/ProtectedLayout";
 
 export const Route = createFileRoute("/onboarding/dashboard")({
-	component: Dashboard,
+	component: OnboardingDashboardRoute,
 });
 
 function Countdown({ expiryDate }: { expiryDate: string }) {
@@ -78,48 +80,28 @@ function TimeUnit({ value, label }: { value: number; label: string }) {
 	);
 }
 
+function OnboardingDashboardRoute() {
+	return (
+		<ProtectedLayout>
+			<PortalProvider>
+				<Dashboard />
+			</PortalProvider>
+		</ProtectedLayout>
+	);
+}
+
 function Dashboard() {
-	const [userData, setUserData] = useState<any>(null);
-	const [isLoading, setIsLoading] = useState(true);
 	const navigate = useNavigate();
-
-	useEffect(() => {
-		const fetchUserData = async () => {
-			const token = localStorage.getItem("auth_token");
-			if (!token) {
-				navigate({ to: "/login" });
-				return;
-			}
-
-			try {
-				const response = await fetch(`${config.api.baseUrl}/api/auth/me`, {
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				});
-
-				if (!response.ok) throw new Error("Failed to fetch user data");
-				const data = await response.json();
-				setUserData(data.user);
-			} catch (error) {
-				toast.error("Error", { description: "Could not load dashboard data." });
-				navigate({ to: "/login" });
-			} finally {
-				setIsLoading(false);
-			}
-		};
-
-		fetchUserData();
-	}, [navigate]);
+	const { user: userData, loading: isLoading, error, token } = usePortal();
 
 	const handleLogout = () => {
 		localStorage.removeItem("auth_token");
 		localStorage.removeItem("user_type");
 		toast.success("Logged out successfully");
-		navigate({ to: "/login" });
+		window.location.href = "/login";
 	};
 
-	if (isLoading) {
+	if (isLoading && !userData) {
 		return (
 			<div className="flex h-[80vh] items-center justify-center">
 				<CircleNotch className="w-10 h-10 animate-spin text-primary" />

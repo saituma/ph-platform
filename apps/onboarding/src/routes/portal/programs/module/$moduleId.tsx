@@ -6,12 +6,12 @@ import {
 	Clock,
 	Lock,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { usePortal } from "@/portal/PortalContext";
 import {
 	fetchTeamWorkspace,
-	type TrainingContentV2Workspace,
 } from "@/services/programsService";
+import { useQuery } from "@tanstack/react-query";
+import { programKeys } from "../index";
 
 type TrainingSession = {
 	id: number;
@@ -35,17 +35,21 @@ type TrainingModule = {
 };
 
 export const Route = createFileRoute("/portal/programs/module/$moduleId")({
+	loader: async ({ context: { queryClient } }) => {
+		const token = localStorage.getItem("auth_token");
+		if (token) {
+			await queryClient.ensureQueryData({
+				queryKey: programKeys.workspace(token, null),
+				queryFn: () => fetchTeamWorkspace(token, null),
+			});
+		}
+	},
 	component: ModuleDetailPage,
 });
 
 function ModuleDetailPage() {
 	const { moduleId } = Route.useParams();
 	const navigate = useNavigate();
-	const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(
-		null,
-	);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
 	const {
 		token,
 		age,
@@ -55,29 +59,21 @@ function ModuleDetailPage() {
 
 	const moduleIdNumber = Number(moduleId);
 
-	useEffect(() => {
-		const loadData = async () => {
-			try {
-				setLoading(true);
-				if (!token) throw new Error("Not authenticated");
-				const workspaceData = await fetchTeamWorkspace(token, age);
-				setWorkspace(workspaceData);
-			} catch (err) {
-				setError(
-					err instanceof Error ? err.message : "Failed to load module details",
-				);
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		if (!portalLoading) loadData();
-	}, [token, age, portalLoading]);
+	const {
+		data: workspace,
+		isLoading: programsLoading,
+		error: programsError,
+	} = useQuery({
+		queryKey: programKeys.workspace(token, age),
+		queryFn: () => fetchTeamWorkspace(token!, age),
+		enabled: !!token && !portalLoading,
+		staleTime: 1000 * 60 * 15,
+	});
 
 	const modules = (workspace?.modules ?? []) as TrainingModule[];
 	const module = modules.find((m) => m.id === moduleIdNumber);
 
-	if (portalLoading || loading) {
+	if (portalLoading || (token && programsLoading && !workspace)) {
 		return (
 			<div className="flex h-screen items-center justify-center pb-20">
 				<div className="text-center">
@@ -90,12 +86,12 @@ function ModuleDetailPage() {
 		);
 	}
 
-	if (portalError || error || !module) {
+	if (portalError || programsError || !module) {
 		return (
 			<div className="flex h-screen items-center justify-center pb-20 px-4">
 				<div className="text-center">
 					<p className="text-muted-foreground mb-4">
-						{portalError || error || "Module not found"}
+						{portalError || (programsError instanceof Error ? programsError.message : "Module not found")}
 					</p>
 					<Link
 						to="/portal/programs"

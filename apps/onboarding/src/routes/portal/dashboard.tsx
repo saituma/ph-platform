@@ -12,7 +12,7 @@ export const homeKeys = {
 
 export const Route = createFileRoute("/portal/dashboard")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = localStorage.getItem("auth_token");
+		const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
 		if (token) {
 			await queryClient.ensureQueryData({
 				queryKey: homeKeys.content(token),

@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { env } from "#/env";
 import { DatePicker } from "#/components/ui/date-picker";
 import { format, differenceInYears } from "date-fns";
+import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/onboarding/step-2")({
 	component: OnboardingStep2,
@@ -40,7 +41,6 @@ function OnboardingStep2() {
 	});
 	const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
 	const [ageError, setAgeError] = useState<string | null>(null);
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isValidating, setIsValidating] = useState(true);
 	const navigate = useNavigate();
 
@@ -78,22 +78,13 @@ function OnboardingStep2() {
 		setFormData((prev) => ({ ...prev, [field]: value }));
 	};
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (isSubmitting) return;
+	const mutation = useMutation({
+		mutationFn: async () => {
+			const token = localStorage.getItem("auth_token");
+			const email = localStorage.getItem("pending_email");
 
-		const token = localStorage.getItem("auth_token");
-		const email = localStorage.getItem("pending_email");
+			if (!token || !email) throw new Error("Session expired");
 
-		if (!token || !email) {
-			toast.error("Session expired", {
-				description: "Please go back and verify your email again.",
-			});
-			return;
-		}
-
-		setIsSubmitting(true);
-		try {
 			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
 			let endpoint = "";
 			let body = {};
@@ -102,12 +93,10 @@ function OnboardingStep2() {
 				if (!formData.guardianName || !formData.athleteName || !birthDate) {
 					throw new Error("Please fill in all fields");
 				}
-
 				const age = differenceInYears(new Date(), birthDate);
 				if (age < 7 || age > 18) {
 					throw new Error("Youth athletes must be between 7 and 18 years old.");
 				}
-
 				endpoint = "/api/onboarding/youth-basic";
 				body = {
 					guardianName: formData.guardianName,
@@ -151,18 +140,14 @@ function OnboardingStep2() {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({
-					email,
-					...body,
-				}),
+				body: JSON.stringify({ email, ...body }),
 			});
 
 			const data = await response.json();
-
-			if (!response.ok) {
-				throw new Error(data.error || "Failed to save details");
-			}
-
+			if (!response.ok) throw new Error(data.error || "Failed to save details");
+			return data;
+		},
+		onSuccess: (data) => {
 			toast.success("Profile updated!", {
 				description: `Welcome to the platform, ${
 					userType === "youth"
@@ -172,15 +157,33 @@ function OnboardingStep2() {
 							: formData.name
 				}.`,
 			});
-
+			if (userType === "team") {
+				localStorage.setItem(
+					"team_onboarding_basic",
+					JSON.stringify({
+						teamId: (data as any)?.teamId ?? null,
+						teamName: formData.teamName,
+						minAge: Number(formData.minAge),
+						maxAge: Number(formData.maxAge),
+						maxAthletes: Number(formData.maxAthletes),
+					}),
+				);
+				navigate({ to: "/onboarding/step-4" });
+				return;
+			}
 			navigate({ to: "/onboarding/step-3" });
-		} catch (error: any) {
+		},
+		onError: (error) => {
 			toast.error("Error", {
 				description: error.message || "An unexpected error occurred.",
 			});
-		} finally {
-			setIsSubmitting(false);
-		}
+		},
+	});
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (mutation.isPending || !!ageError) return;
+		mutation.mutate();
 	};
 
 	if (isValidating || !userType) return null;
@@ -190,7 +193,7 @@ function OnboardingStep2() {
 			<section className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
 					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
-						Step 2 of 4
+						Step 2 of {userType === "team" ? "3" : "4"}
 					</p>
 					<h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl leading-[1.1]">
 						Basic <span className="text-primary">Information</span>
@@ -406,10 +409,10 @@ function OnboardingStep2() {
 							</Button>
 							<Button
 								type="submit"
-								disabled={isSubmitting || !!ageError}
+								disabled={mutation.isPending || !!ageError}
 								className="flex-[2] h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100"
 							>
-								{isSubmitting ? (
+								{mutation.isPending ? (
 									<CircleNotch className="w-6 h-6 animate-spin text-primary-foreground" />
 								) : (
 									<>

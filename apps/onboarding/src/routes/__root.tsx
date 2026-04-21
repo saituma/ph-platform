@@ -69,7 +69,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 function RootDocument({ children }: { children: React.ReactNode }) {
 	const router = useRouter();
 	const pathname = router.state.location.pathname;
-	const showChrome = !pathname.startsWith("/portal");
+	
+    // Define marketing/home pages where we want to show the chrome
+    const marketingPages = ["/", "/about", "/features", "/education-faq", "/terms-privacy"];
+    const showChrome = marketingPages.includes(pathname);
 
 	return (
 		<html lang="en" suppressHydrationWarning>

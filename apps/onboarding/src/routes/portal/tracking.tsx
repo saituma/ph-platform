@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { env } from "@/env";
 import { usePortal } from "@/portal/PortalContext";
+import { useQuery } from "@tanstack/react-query";
+import { Activity, Clock, MapPin, MessageSquare, Share2, ThumbsUp } from "lucide-react";
 
 type Run = {
 	runLogId: string | number;
@@ -14,57 +15,59 @@ type Run = {
 	likeCount?: number | null;
 };
 
-type TrackingData = {
-	runs: Run[];
-	leaderboard: unknown[];
-	adults: unknown[];
+export const trackingKeys = {
+	all: ["tracking"] as const,
+	runs: (token: string | null) => [...trackingKeys.all, "runs", token] as const,
 };
 
+async function fetchMyRuns(token: string) {
+	const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+	const response = await fetch(`${baseUrl}/api/social/my-runs`, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
+
+	if (response.status === 403) {
+		throw new Error("Access restricted: Social features are only for adult athletes.");
+	}
+
+	if (!response.ok) {
+		throw new Error("Failed to fetch tracking data");
+	}
+
+	const result = await response.json();
+	return (Array.isArray(result.items) ? (result.items as Run[]) : []) as Run[];
+}
+
 export const Route = createFileRoute("/portal/tracking")({
+	loader: async ({ context: { queryClient } }) => {
+		const token = localStorage.getItem("auth_token");
+		if (token) {
+			await queryClient.ensureQueryData({
+				queryKey: trackingKeys.runs(token),
+				queryFn: () => fetchMyRuns(token),
+			});
+		}
+	},
 	component: TrackingPage,
 });
 
 function TrackingPage() {
-	const [data, setData] = useState<TrackingData | null>(null);
-	const [loading, setLoading] = useState(true);
 	const { token, loading: portalLoading } = usePortal();
 
-	useEffect(() => {
-		if (portalLoading || !token) return;
+	const {
+		data: runs = [],
+		isLoading,
+		error,
+	} = useQuery({
+		queryKey: trackingKeys.runs(token),
+		queryFn: () => fetchMyRuns(token!),
+		enabled: !!token && !portalLoading,
+		staleTime: 1000 * 60 * 5,
+	});
 
-		const fetchTrackingData = async () => {
-			try {
-				const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-
-				// Fetch user's social feed data (works for all roles)
-				const response = await fetch(`${baseUrl}/api/social/my-runs`, {
-					headers: { Authorization: `Bearer ${token}` },
-				});
-
-				if (response.status === 403) {
-					throw new Error("Access restricted: Social features are only for adult athletes.");
-				}
-
-				const result = await response.json();
-				const runs = Array.isArray(result.items) ? (result.items as Run[]) : [];
-				setData({
-					runs,
-					leaderboard: [],
-					adults: [],
-				});
-			} catch (error) {
-				console.error("Failed to fetch tracking data:", error);
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		fetchTrackingData();
-	}, [token, portalLoading]);
-
-	if (portalLoading || loading) {
+	if (portalLoading || (token && isLoading && !runs.length)) {
 		return (
-			<div className="flex h-screen items-center justify-center">
+			<div className="flex h-screen items-center justify-center pb-20">
 				<div className="text-center">
 					<div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
 					<p className="mt-4 text-sm text-muted-foreground">
@@ -76,64 +79,106 @@ function TrackingPage() {
 	}
 
 	return (
-		<div className="container mx-auto p-4 pb-20">
-			<h1 className="text-2xl font-bold mb-4">Community Tracking</h1>
+		<div className="container mx-auto p-4 pb-20 space-y-8">
+			<div>
+				<h1 className="text-3xl font-black italic uppercase tracking-tight">
+					Performance <span className="text-primary">Tracking</span>
+				</h1>
+				<p className="text-muted-foreground font-medium mt-1">
+					Monitor your sessions and community progress
+				</p>
+			</div>
 
-			{data?.runs?.length === 0 ? (
-				<div className="text-center py-8">
-					<p className="text-muted-foreground">No public runs found</p>
+			{error ? (
+				<div className="p-12 text-center border-2 border-dashed rounded-[3rem] bg-muted/5">
+					<p className="text-muted-foreground font-medium italic">
+						{error instanceof Error ? error.message : "Social features unavailable."}
+					</p>
+				</div>
+			) : runs.length === 0 ? (
+				<div className="p-12 text-center border-2 border-dashed rounded-[3rem] bg-muted/5">
+					<p className="text-muted-foreground font-medium italic">
+						No tracking data found yet. Start your first session to see progress.
+					</p>
 				</div>
 			) : (
-				<div className="space-y-4">
-					{data?.runs?.slice(0, 5).map((run) => {
-						const km = run.distanceMeters
-							? `${(run.distanceMeters / 1000).toFixed(2)} km`
-							: "N/A";
-						const time = run.durationSeconds
-							? `${Math.floor(run.durationSeconds / 60)}m ${run.durationSeconds % 60}s`
-							: "N/A";
-						const pace = run.avgPace ? `${run.avgPace.toFixed(2)}/km` : "N/A";
+				<div className="space-y-6">
+					<h2 className="text-xl font-bold border-l-4 border-primary pl-3">
+						Recent Activity
+					</h2>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						{runs.map((run) => {
+							const km = run.distanceMeters
+								? `${(run.distanceMeters / 1000).toFixed(2)} km`
+								: "N/A";
+							const time = run.durationSeconds
+								? `${Math.floor(run.durationSeconds / 60)}m ${run.durationSeconds % 60}s`
+								: "N/A";
+							const pace = run.avgPace ? `${run.avgPace.toFixed(2)}/km` : "N/A";
 
-						return (
-							<div key={run.runLogId} className="p-4 border rounded-lg">
-								<div className="flex flex-col gap-2">
-									<div className="flex justify-between items-center">
-										<span className="font-medium">
-											{run.name || "Untitled Run"}
-										</span>
-										<span className="text-sm text-muted-foreground">
-											{new Date(run.date).toLocaleDateString()}
-										</span>
+							return (
+								<div key={run.runLogId} className="group p-6 rounded-[2rem] border bg-card hover:border-primary/50 transition-all hover:shadow-lg space-y-6">
+									<div className="flex justify-between items-start">
+										<div className="flex items-center gap-4">
+											<div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20">
+												<Activity size={24} weight="fill" />
+											</div>
+											<div>
+												<h3 className="font-bold text-lg uppercase italic tracking-tight">
+													{run.name || "Untitled Run"}
+												</h3>
+												<p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+													{new Date(run.date).toLocaleDateString(undefined, {
+														weekday: "short",
+														month: "short",
+														day: "numeric",
+													})}
+												</p>
+											</div>
+										</div>
 									</div>
 
-									<div className="text-sm text-muted-foreground">
-										{km} · {time} · {pace}
+									<div className="grid grid-cols-3 gap-4">
+										<div className="space-y-1">
+											<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Distance</p>
+											<p className="font-black italic text-primary">{km}</p>
+										</div>
+										<div className="space-y-1">
+											<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Time</p>
+											<p className="font-black italic text-primary">{time}</p>
+										</div>
+										<div className="space-y-1">
+											<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Pace</p>
+											<p className="font-black italic text-primary">{pace}</p>
+										</div>
 									</div>
 
-									<div className="flex gap-2 mt-2">
+									<div className="flex gap-2 pt-2">
 										<button
 											type="button"
-											className="text-sm px-3 py-1 border rounded-lg"
+											className="flex items-center gap-2 px-4 py-2 bg-muted/20 border border-transparent rounded-xl text-xs font-bold hover:border-primary/30 transition-all"
 										>
-											Comments ({run.commentCount || 0})
+											<MessageSquare size={14} />
+											{run.commentCount || 0}
 										</button>
 										<button
 											type="button"
-											className="text-sm px-3 py-1 border rounded-lg"
+											className="flex items-center gap-2 px-4 py-2 bg-muted/20 border border-transparent rounded-xl text-xs font-bold hover:border-primary/30 transition-all"
 										>
-											Like ({run.likeCount || 0})
+											<ThumbsUp size={14} />
+											{run.likeCount || 0}
 										</button>
 										<button
 											type="button"
-											className="text-sm px-3 py-1 border rounded-lg"
+											className="flex items-center gap-2 px-4 py-2 bg-muted/20 border border-transparent rounded-xl text-xs font-bold hover:border-primary/30 transition-all ml-auto"
 										>
-											Share
+											<Share2 size={14} />
 										</button>
 									</div>
 								</div>
-							</div>
-						);
-					})}
+							);
+						})}
+					</div>
 				</div>
 			)}
 		</div>

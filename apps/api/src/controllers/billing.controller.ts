@@ -5,10 +5,11 @@ import { eq } from "drizzle-orm";
 
 import { ProgramType } from "../db/schema";
 import { env } from "../config/env";
-import { guardianTable } from "../db/schema";
+import { guardianTable, subscriptionPlanTable, teamTable } from "../db/schema";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { db } from "../db";
 import { getAthleteForUser } from "../services/user.service";
+import { createTeamCheckoutSession } from "../services/billing/stripe.service";
 import {
   approveSubscriptionRequest,
   confirmCheckoutSession,
@@ -39,6 +40,12 @@ const listPlansQuerySchema = z.object({
 
 const confirmSchema = z.object({
   sessionId: z.string().min(1),
+});
+
+const teamCheckoutSchema = z.object({
+  teamId: z.coerce.number().int().min(1),
+  planId: z.coerce.number().int().min(1),
+  billingCycle: z.enum(["monthly", "six_months", "yearly"]).default("monthly"),
 });
 
 const planCreateSchema = z.object({
@@ -195,6 +202,93 @@ export async function createCheckout(req: Request, res: Response) {
       message.startsWith("No Stripe price for ") ||
       message.startsWith("Invalid Stripe price reference ")
     ) {
+      return res.status(400).json({ error: message });
+    }
+
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function createTeamCheckout(req: Request, res: Response) {
+  const parsed = teamCheckoutSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+  }
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const teamRows = await db
+    .select({
+      id: teamTable.id,
+      adminId: teamTable.adminId,
+      maxAthletes: teamTable.maxAthletes,
+    })
+    .from(teamTable)
+    .where(eq(teamTable.id, parsed.data.teamId))
+    .limit(1);
+  const team = teamRows[0];
+  if (!team) {
+    return res.status(404).json({ error: "Team not found" });
+  }
+  if (team.adminId !== req.user.id) {
+    return res.status(403).json({ error: "You do not have access to this team" });
+  }
+
+  const planRows = await db
+    .select()
+    .from(subscriptionPlanTable)
+    .where(eq(subscriptionPlanTable.id, parsed.data.planId))
+    .limit(1);
+  const plan = planRows[0];
+  if (!plan || plan.isActive === false) {
+    return res.status(400).json({ error: "Plan not available" });
+  }
+
+  const billingCycle = parsed.data.billingCycle;
+  const intervalKey = billingCycle === "monthly" ? "monthly" : billingCycle === "six_months" ? "six_months" : "yearly";
+  const lookupKey = `${String(plan.tier).toLowerCase()}_${intervalKey}`;
+  const quantity = Math.max(1, Number(team.maxAthletes ?? 1));
+
+  try {
+    const session = await createTeamCheckoutSession({
+      teamId: team.id,
+      adminId: req.user.id,
+      priceLookupKey: lookupKey,
+      tier: plan.tier as any,
+      interval: intervalKey,
+      quantity,
+      mode: billingCycle === "monthly" ? "subscription" : "payment",
+      customerEmail: req.user.email,
+      metadata: {
+        planId: String(plan.id),
+        billingCycle,
+      },
+    });
+
+    await db
+      .update(teamTable)
+      .set({
+        planId: plan.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(teamTable.id, team.id));
+
+    return res.status(200).json({ checkoutUrl: session.url, sessionId: session.id });
+  } catch (error: any) {
+    const statusCode = typeof error?.statusCode === "number" ? error.statusCode : null;
+    const code = typeof error?.code === "string" ? error.code : null;
+    const param = typeof error?.param === "string" ? error.param : null;
+    const message = typeof error?.message === "string" ? error.message : "Failed to create checkout session";
+
+    if (statusCode === 404 && (code === "resource_missing" || code === "invalid_request_error") && param === "price") {
+      return res.status(400).json({
+        error:
+          "Stripe price not found. Check the plan's Stripe Lookup Key configuration and STRIPE_SECRET_KEY mode (test vs live).",
+      });
+    }
+
+    if (message === "Plan not available" || message === "Stripe is not configured") {
       return res.status(400).json({ error: message });
     }
 

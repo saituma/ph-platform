@@ -19,6 +19,9 @@ import { getAthleteForUser, updateUserProfile } from "../services/user.service";
 import { getOnboardingByUser } from "../services/onboarding.service";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { buildAppCapabilities } from "../services/app-capabilities.service";
+import { db } from "../db";
+import { teamTable } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -168,10 +171,33 @@ export async function getMe(req: Request, res: Response) {
     messagingAccessTiers,
   });
 
+  const team =
+    user.role === "coach" || user.role === "admin" || user.role === "superAdmin"
+      ? (
+          await db
+            .select({
+              id: teamTable.id,
+              name: teamTable.name,
+              minAge: teamTable.minAge,
+              maxAge: teamTable.maxAge,
+              maxAthletes: teamTable.maxAthletes,
+              planId: teamTable.planId,
+              subscriptionStatus: teamTable.subscriptionStatus,
+              planExpiresAt: teamTable.planExpiresAt,
+              createdAt: teamTable.createdAt,
+              updatedAt: teamTable.updatedAt,
+            })
+            .from(teamTable)
+            .where(eq(teamTable.adminId, user.id))
+            .limit(1)
+        )[0] ?? null
+      : null;
+
   return res.status(200).json({
     user: {
       ...user,
       ...athlete, // Spread athlete data to include everything (trainingStats, planExpiresAt, etc.)
+      team,
       programTier,
       athleteType: athlete?.athleteType ?? null,
       athleteName: athlete?.name ?? null,

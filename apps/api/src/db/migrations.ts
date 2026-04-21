@@ -29,6 +29,11 @@ function normalizeConnectionString(raw: string) {
     // due to connection proxy timeouts or dropped TCP packets during DDL statements.
     // We enforce the direct connection endpoint:
     if (url.hostname.includes("-pooler.aws.neon.tech") || url.hostname.includes("-pooler.eu-")) {
+      const match = url.hostname.match(/^(ep-[a-z0-9-]+)-pooler/);
+      if (match && match[1]) {
+        // Neon handles direct connections properly when we explicitly pass the endpoint ID
+        url.searchParams.set("options", `endpoint=${match[1]}`);
+      }
       url.hostname = url.hostname.replace("-pooler", "");
     }
     
@@ -361,6 +366,34 @@ async function assertTrainingContentV2Schema(db: any) {
   }
 }
 
+async function assertTeamsSchema(db: any) {
+  const hasTeams = await tableExists(db, "teams");
+  if (!hasTeams) {
+    throw new Error(`Teams table is still missing after migrations: teams`);
+  }
+
+  const [hasAdminId, hasPlanPaymentType, hasPlanCommitmentMonths] =
+    await Promise.all([
+      columnExists(db, "teams", "adminId"),
+      columnExists(db, "teams", "planPaymentType"),
+      columnExists(db, "teams", "planCommitmentMonths"),
+    ]);
+
+  const missing = [
+    !hasAdminId ? "teams.adminId" : null,
+    !hasPlanPaymentType ? "teams.planPaymentType" : null,
+    !hasPlanCommitmentMonths ? "teams.planCommitmentMonths" : null,
+  ].filter(Boolean);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Teams schema is still missing after migrations: ${missing.join(
+        ", ",
+      )}. If this database existed before Drizzle migration tracking was enabled, the migration history may have been bootstrapped incorrectly—remove the incorrect entries from public.__drizzle_migrations (or drop and recreate the DB) and re-run migrations.`,
+    );
+  }
+}
+
 async function executeMigrationsOnce(options: {
   databaseUrl: string;
   migrationsFolder?: string;
@@ -475,6 +508,8 @@ async function executeMigrationsOnce(options: {
       migrationsSchema,
       migrationsTable,
     });
+
+    await assertTeamsSchema(db);
 
     if (!options?.skipTrainingV2Assertion) {
       await assertTrainingContentV2Schema(db);

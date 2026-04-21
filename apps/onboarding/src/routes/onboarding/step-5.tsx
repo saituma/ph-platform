@@ -22,6 +22,27 @@ export const Route = createFileRoute("/onboarding/step-5")({
 
 type BillingCycle = "monthly" | "six_months" | "yearly";
 
+function parseMoneyToNumber(value: string): number | null {
+	const cleaned = value.replace(/[^\d.,-]/g, "");
+	if (!cleaned) return null;
+	const normalized = cleaned.replace(/,/g, "");
+	const num = Number(normalized);
+	return Number.isFinite(num) ? num : null;
+}
+
+function detectCurrencySymbol(value: string): string {
+	const match = value.match(/[£$€]/);
+	return match?.[0] ?? "£";
+}
+
+function formatMoney(symbol: string, amount: number): string {
+	const formatted = amount.toLocaleString(undefined, {
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 2,
+	});
+	return `${symbol}${formatted}`;
+}
+
 const BILLING_OPTIONS: {
 	id: BillingCycle;
 	title: string;
@@ -142,6 +163,13 @@ function OnboardingStep5() {
 	const [selectedPlan, setSelectedPlan] = useState<string>("");
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [teamCheckout, setTeamCheckout] = useState<{
+		teamId: number;
+		maxAthletes: number;
+		teamName?: string;
+	} | null>(null);
+
+	const isTeam = typeof window !== "undefined" && localStorage.getItem("user_type") === "team";
 
 	const loadPlans = useCallback(async () => {
 		setIsLoading(true);
@@ -184,6 +212,60 @@ function OnboardingStep5() {
 		void loadPlans();
 	}, [loadPlans]);
 
+	useEffect(() => {
+		if (!isTeam) return;
+		const token = localStorage.getItem("auth_token");
+		if (!token) return;
+
+		const hydrate = async () => {
+			const raw = localStorage.getItem("team_onboarding_basic");
+			if (raw) {
+				try {
+					const parsed = JSON.parse(raw) as any;
+					const teamId = Number(parsed?.teamId ?? null);
+					const maxAthletes = Number(parsed?.maxAthletes ?? null);
+					if (Number.isFinite(teamId) && Number.isFinite(maxAthletes) && maxAthletes > 0) {
+						setTeamCheckout({
+							teamId,
+							maxAthletes,
+							teamName: typeof parsed?.teamName === "string" ? parsed.teamName : undefined,
+						});
+						return;
+					}
+				} catch {
+					// ignore
+				}
+			}
+
+			try {
+				const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+				const res = await fetch(`${baseUrl}/api/auth/me`, {
+					headers: { Authorization: `Bearer ${token}` },
+				});
+				const data = await res.json().catch(() => ({}));
+				if (!res.ok) return;
+				const team = (data as any)?.user?.team;
+				const teamId = Number(team?.id ?? null);
+				const maxAthletes = Number(team?.maxAthletes ?? null);
+				if (Number.isFinite(teamId) && Number.isFinite(maxAthletes) && maxAthletes > 0) {
+					const payload = {
+						teamId,
+						maxAthletes,
+						teamName: typeof team?.name === "string" ? team.name : undefined,
+						minAge: team?.minAge ?? null,
+						maxAge: team?.maxAge ?? null,
+					};
+					localStorage.setItem("team_onboarding_basic", JSON.stringify(payload));
+					setTeamCheckout(payload);
+				}
+			} catch {
+				// ignore
+			}
+		};
+
+		void hydrate();
+	}, [isTeam]);
+
 	const handlePayment = async () => {
 		if (!selectedPlan) return;
 		const selectedPlanData = plans.find((p) => p.tier === selectedPlan);
@@ -199,13 +281,34 @@ function OnboardingStep5() {
 				throw new Error("Your session expired. Sign in again to continue.");
 			}
 
-			const response = await fetch(`${baseUrl}/api/billing/checkout`, {
+			let teamId: number | null = isTeam ? (teamCheckout?.teamId ?? null) : null;
+			if (isTeam && (!teamId || !Number.isFinite(teamId))) {
+				try {
+					const res = await fetch(`${baseUrl}/api/auth/me`, {
+						headers: { Authorization: `Bearer ${token}` },
+					});
+					const data = await res.json().catch(() => ({}));
+					if (res.ok) {
+						const maybe = Number((data as any)?.user?.team?.id ?? null);
+						if (Number.isFinite(maybe)) teamId = maybe;
+					}
+				} catch {
+					// ignore
+				}
+			}
+
+			if (isTeam && !teamId) {
+				throw new Error("Missing team id. Please go back and re-submit your team details.");
+			}
+
+			const response = await fetch(`${baseUrl}/api/billing/${isTeam ? "team/checkout" : "checkout"}`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({
+					...(isTeam ? { teamId } : null),
 					planId: selectedPlanData.id,
 					billingCycle,
 				}),
@@ -246,6 +349,19 @@ function OnboardingStep5() {
 		);
 	}
 
+	const selectedPlanData = plans.find((p) => p.tier === selectedPlan);
+	const selectedDisplayPrice =
+		selectedPlanData?.billingQuote?.amount ??
+		selectedPlanData?.pricing?.monthly?.discounted ??
+		selectedPlanData?.pricing?.badge ??
+		selectedPlanData?.displayPrice ??
+		"";
+	const unitPrice = selectedDisplayPrice ? parseMoneyToNumber(String(selectedDisplayPrice)) : null;
+	const currencySymbol = selectedDisplayPrice ? detectCurrencySymbol(String(selectedDisplayPrice)) : "£";
+	const teamSize = teamCheckout?.maxAthletes ?? null;
+	const estimatedTotal =
+		isTeam && unitPrice != null && teamSize != null ? unitPrice * teamSize : null;
+
 	return (
 		<main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
 			<section className="space-y-12 animate-in fade-in duration-700">
@@ -260,6 +376,36 @@ function OnboardingStep5() {
 						Pick how you want to pay, then select the tier that fits your goals.
 					</p>
 				</div>
+
+				{isTeam && (
+					<div className="max-w-3xl mx-auto rounded-3xl border border-primary/20 bg-primary/5 p-6">
+						<p className="text-xs font-black uppercase tracking-widest text-primary">Team Pricing</p>
+						<p className="mt-2 text-sm text-muted-foreground font-medium">
+							Total is calculated as <span className="font-black text-foreground">plan price × athletes</span>.
+						</p>
+						<div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+							<div className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3">
+								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Team</p>
+								<p className="mt-1 text-sm font-bold">{teamCheckout?.teamName ?? "Your team"}</p>
+							</div>
+							<div className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3">
+								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Athletes</p>
+								<p className="mt-1 text-sm font-bold">{teamSize ?? "—"}</p>
+							</div>
+							<div className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3">
+								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Estimated Total</p>
+								<p className="mt-1 text-sm font-bold">
+									{estimatedTotal == null ? "Select a plan" : formatMoney(currencySymbol, estimatedTotal)}
+								</p>
+							</div>
+						</div>
+						{!teamCheckout?.teamId && (
+							<p className="mt-3 text-xs font-semibold text-destructive">
+								Missing team id. Go back to Step 2 and re-submit team details.
+							</p>
+						)}
+					</div>
+				)}
 
 				<div className="max-w-3xl mx-auto space-y-3">
 					<p className="text-center text-xs font-bold uppercase tracking-widest text-muted-foreground">
