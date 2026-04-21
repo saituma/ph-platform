@@ -9,7 +9,12 @@ import { guardianTable, subscriptionPlanTable, teamTable } from "../db/schema";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { db } from "../db";
 import { getAthleteForUser } from "../services/user.service";
-import { createTeamCheckoutSession } from "../services/billing/stripe.service";
+import {
+  createTeamCheckoutSession,
+  getStripeClient,
+  isStripeCheckoutSessionNotFoundError,
+  isStripePriceMissingError,
+} from "../services/billing/stripe.service";
 import {
   approveSubscriptionRequest,
   createCheckoutSession,
@@ -208,7 +213,8 @@ export async function createCheckout(req: Request, res: Response) {
       message.startsWith("Stripe could not find price ") ||
       message.includes("Plan is not configured for Stripe payments") ||
       message.startsWith("No Stripe price for ") ||
-      message.startsWith("Invalid Stripe price reference ")
+      message.startsWith("Invalid Stripe price reference ") ||
+      message.startsWith("Price not found.")
     ) {
       return res.status(400).json({ error: message });
     }
@@ -296,7 +302,12 @@ export async function createTeamCheckout(req: Request, res: Response) {
       });
     }
 
-    if (message === "Plan not available" || message === "Stripe is not configured") {
+    if (
+      message === "Plan not available" ||
+      message === "Stripe is not configured" ||
+      message.startsWith("Stripe could not find price ") ||
+      message.startsWith("Price not found.")
+    ) {
       return res.status(400).json({ error: message });
     }
 
@@ -377,7 +388,7 @@ export async function confirmCheckout(req: Request, res: Response) {
       return res.status(500).json({ error: "Stripe is not configured" });
     }
 
-    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-02-24.acacia" });
+    const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.retrieve(parsed.data.sessionId);
     const paymentStatus = session.payment_status ?? "unpaid";
     const meta = (session.metadata ?? {}) as Record<string, string | undefined>;
@@ -388,9 +399,29 @@ export async function confirmCheckout(req: Request, res: Response) {
       if (!Number.isFinite(adminId) || adminId !== req.user.id) {
         return res.status(403).json({ error: "You do not have access to this checkout session" });
       }
-      await upsertTeamPendingApprovalFromSessionMetadata(session);
-      const teamRequest = await updateTeamRequestFromStripeCheckoutSession(session, paymentStatus);
-      return res.status(200).json({ teamRequest, paymentStatus });
+      try {
+        await upsertTeamPendingApprovalFromSessionMetadata(session);
+        const teamRequest = await updateTeamRequestFromStripeCheckoutSession(session, paymentStatus);
+        return res.status(200).json({ teamRequest, paymentStatus });
+      } catch (inner: unknown) {
+        const err = inner as { name?: string; message?: string; query?: string; cause?: { code?: string }; code?: string };
+        const msg = typeof err?.message === "string" ? err.message : "";
+        if (err?.name === "DrizzleQueryError" || typeof err?.query === "string" || msg.startsWith("Failed query:")) {
+          const pgCode = err?.cause?.code ?? err?.code;
+          if (pgCode === "42P01" || pgCode === "42703") {
+            return res.status(503).json({ error: "Database schema is out of date. Run migrations and try again." });
+          }
+          if (pgCode === "23503") {
+            return res.status(400).json({
+              error:
+                "Could not save subscription request: team, plan, or user no longer matches checkout metadata. Try creating a new checkout session.",
+            });
+          }
+          console.error("[billing] confirmCheckout team_subscription db", inner);
+          return res.status(500).json({ error: "Could not save subscription confirmation. Please contact support." });
+        }
+        throw inner;
+      }
     }
 
     const metaUserId = Number(meta.userId ?? "");
@@ -400,8 +431,24 @@ export async function confirmCheckout(req: Request, res: Response) {
 
     const request = await updateRequestFromStripeSession(session.id, paymentStatus);
     return res.status(200).json({ request, paymentStatus });
-  } catch (error: any) {
-    return res.status(500).json({ error: error?.message || "Failed to confirm payment" });
+  } catch (error: unknown) {
+    const e = error as { message?: string; statusCode?: number; code?: string; param?: string };
+    const message = typeof e?.message === "string" ? e.message : "Failed to confirm payment";
+
+    if (isStripePriceMissingError(error)) {
+      return res.status(400).json({
+        error:
+          "Stripe no longer has the price used for this checkout (it may have been removed or is in a different test/live mode than STRIPE_SECRET_KEY). Create a new checkout session after fixing Stripe prices.",
+      });
+    }
+    if (isStripeCheckoutSessionNotFoundError(error)) {
+      return res.status(404).json({
+        error:
+          "Checkout session not found. Confirm you are using the session id from the redirect URL and the same Stripe mode (test vs live) as the API.",
+      });
+    }
+
+    return res.status(500).json({ error: message });
   }
 }
 
