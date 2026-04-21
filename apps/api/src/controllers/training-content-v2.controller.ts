@@ -197,7 +197,7 @@ export async function getTrainingContentAdminWorkspaceHandler(req: Request, res:
 export async function getTrainingContentMobileWorkspaceHandler(req: Request, res: Response) {
   const parsed = mobileAgeQuerySchema.safeParse(req.query);
   const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
-  const age = parsed.success ? parsed.data.age : athlete?.age ?? null;
+  const age = parsed.success ? parsed.data.age : (athlete?.age ?? null);
   if (!age) {
     return res.status(200).json({ age: null, tabs: ["Modules"], modules: [], others: [] });
   }
@@ -420,14 +420,8 @@ export async function finishTrainingSessionHandler(req: Request, res: Response) 
     return res.status(400).json({ error: "Invalid workout log" });
   }
 
-  const weightsUsed =
-    typeof parsedBody.data.weightsUsed === "string"
-      ? parsedBody.data.weightsUsed.trim()
-      : "";
-  const repsCompleted =
-    typeof parsedBody.data.repsCompleted === "string"
-      ? parsedBody.data.repsCompleted.trim()
-      : "";
+  const weightsUsed = typeof parsedBody.data.weightsUsed === "string" ? parsedBody.data.weightsUsed.trim() : "";
+  const repsCompleted = typeof parsedBody.data.repsCompleted === "string" ? parsedBody.data.repsCompleted.trim() : "";
   const rpe = typeof parsedBody.data.rpe === "number" ? parsedBody.data.rpe : null;
 
   const hasWorkoutLog = Boolean(weightsUsed) || Boolean(repsCompleted) || rpe != null;

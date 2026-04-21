@@ -82,23 +82,27 @@ describe("billing/plan.service", () => {
     });
 
     test("TC-B010: applies percentage discount", () => {
-      expect(applyDiscountToAmount({
-        originalCents,
-        discountType: "percent",
-        discountValue: "20",
-        discountAppliesTo: "monthly",
-        interval: "monthly",
-      })).toBe(8000);
+      expect(
+        applyDiscountToAmount({
+          originalCents,
+          discountType: "percent",
+          discountValue: "20",
+          discountAppliesTo: "monthly",
+          interval: "monthly",
+        }),
+      ).toBe(8000);
     });
 
     test("TC-B011: applies fixed amount discount", () => {
-      expect(applyDiscountToAmount({
-        originalCents,
-        discountType: "amount",
-        discountValue: "£50.00",
-        discountAppliesTo: "yearly",
-        interval: "yearly",
-      })).toBe(5000);
+      expect(
+        applyDiscountToAmount({
+          originalCents,
+          discountType: "amount",
+          discountValue: "£50.00",
+          discountAppliesTo: "yearly",
+          interval: "yearly",
+        }),
+      ).toBe(5000);
     });
 
     test("TC-B012: handles 'both' intervals discount", () => {
@@ -118,13 +122,15 @@ describe("billing/plan.service", () => {
     });
 
     test("TC-B014: ignores discount if interval doesn't match", () => {
-      expect(applyDiscountToAmount({
-        originalCents,
-        discountType: "percent",
-        discountValue: "20",
-        discountAppliesTo: "yearly",
-        interval: "monthly",
-      })).toBe(originalCents);
+      expect(
+        applyDiscountToAmount({
+          originalCents,
+          discountType: "percent",
+          discountValue: "20",
+          discountAppliesTo: "yearly",
+          interval: "monthly",
+        }),
+      ).toBe(originalCents);
     });
   });
 
@@ -150,15 +156,17 @@ describe("billing/plan.service", () => {
 
   describe("listSubscriptionPlans", () => {
     test("TC-B019: maps pricing data correctly", async () => {
-      const mockRows = [{
-        id: 1,
-        name: "Pro",
-        monthlyPrice: "£10",
-        discountType: "percent",
-        discountValue: "20",
-        discountAppliesTo: "monthly",
-        isActive: true,
-      }];
+      const mockRows = [
+        {
+          id: 1,
+          name: "Pro",
+          monthlyPrice: "£10",
+          discountType: "percent",
+          discountValue: "20",
+          discountAppliesTo: "monthly",
+          isActive: true,
+        },
+      ];
 
       (db.select as jest.Mock).mockReturnValue({
         from: jest.fn().mockReturnValue({
@@ -181,12 +189,18 @@ describe("billing/plan.service", () => {
   });
 
   test("TC-B021: applyDiscountToAmount percent <= 0 returns original", () => {
-    expect(applyDiscountToAmount({ originalCents: 100, discountType: "percent", discountValue: "0", interval: "monthly" })).toBe(100);
-    expect(applyDiscountToAmount({ originalCents: 100, discountType: "percent", discountValue: "-10", interval: "monthly" })).toBe(100);
+    expect(
+      applyDiscountToAmount({ originalCents: 100, discountType: "percent", discountValue: "0", interval: "monthly" }),
+    ).toBe(100);
+    expect(
+      applyDiscountToAmount({ originalCents: 100, discountType: "percent", discountValue: "-10", interval: "monthly" }),
+    ).toBe(100);
   });
 
   test("TC-B022: applyDiscountToAmount amount <= 0 returns original", () => {
-    expect(applyDiscountToAmount({ originalCents: 100, discountType: "amount", discountValue: "0", interval: "monthly" })).toBe(100);
+    expect(
+      applyDiscountToAmount({ originalCents: 100, discountType: "amount", discountValue: "0", interval: "monthly" }),
+    ).toBe(100);
   });
 
   test("TC-B023: computePlanPeriodEnd handles invalid string", () => {
@@ -195,13 +209,15 @@ describe("billing/plan.service", () => {
 
   test("TC-B024: parseDiscountConfig handles malformed JSON", () => {
     // This is tested indirectly via applyDiscountToAmount with custom discount and bad JSON
-    expect(applyDiscountToAmount({
-      originalCents: 1000,
-      discountType: "percent",
-      discountValue: "{invalid}",
-      discountAppliesTo: "custom",
-      interval: "monthly"
-    })).toBe(1000);
+    expect(
+      applyDiscountToAmount({
+        originalCents: 1000,
+        discountType: "percent",
+        discountValue: "{invalid}",
+        discountAppliesTo: "custom",
+        interval: "monthly",
+      }),
+    ).toBe(1000);
   });
 
   test("TC-B025: isSubscriptionPlanFree handles 'manual' stripe ID as free if no prices", () => {

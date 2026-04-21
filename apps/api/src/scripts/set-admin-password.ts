@@ -40,20 +40,20 @@ async function setLocalPassword(email: string, password: string) {
   });
 
   try {
-    const { rows } = await pool.query(
-      'select id from "users" where email = $1 and "isDeleted" = false limit 1',
-      [email]
-    );
+    const { rows } = await pool.query('select id from "users" where email = $1 and "isDeleted" = false limit 1', [
+      email,
+    ]);
     const user = rows[0];
     if (!user) {
       throw new Error(`User not found for email: ${email}`);
     }
 
     const { hash, salt } = hashPassword(password);
-    await pool.query(
-      'update "users" set "passwordHash" = $1, "passwordSalt" = $2, "updatedAt" = now() where id = $3',
-      [hash, salt, user.id]
-    );
+    await pool.query('update "users" set "passwordHash" = $1, "passwordSalt" = $2, "updatedAt" = now() where id = $3', [
+      hash,
+      salt,
+      user.id,
+    ]);
   } catch (error: any) {
     const message = error?.message ?? String(error);
     const sslHint = databaseSsl

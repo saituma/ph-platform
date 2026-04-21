@@ -1,18 +1,19 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { usePortal } from "@/portal/PortalContext";
-import {
-	fetchHomeContent,
-} from "@/services/homeService";
 import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ChevronRight, LayoutDashboard } from "lucide-react";
+import { getClientAuthToken } from "@/lib/client-storage";
+import {
+	getCoachTeamPortalPlanSummary,
+	isCoachPortalUser,
+} from "@/lib/portal-access";
+import { usePortal } from "@/portal/PortalContext";
+import { fetchHomeContent, homeQueryKeys } from "@/services/homeService";
 
-export const homeKeys = {
-	all: ["home"] as const,
-	content: (token: string | null) => [...homeKeys.all, "content", token] as const,
-};
+export const homeKeys = homeQueryKeys;
 
 export const Route = createFileRoute("/portal/dashboard")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+		const token = getClientAuthToken();
 		if (token) {
 			await queryClient.ensureQueryData({
 				queryKey: homeKeys.content(token),
@@ -37,7 +38,10 @@ function DashboardPage() {
 		error: homeError,
 	} = useQuery({
 		queryKey: homeKeys.content(token),
-		queryFn: () => fetchHomeContent(token!),
+		queryFn: () => {
+			if (!token) throw new Error("Missing auth token");
+			return fetchHomeContent(token);
+		},
 		enabled: !!token && !portalLoading,
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
@@ -73,11 +77,32 @@ function DashboardPage() {
 		);
 	}
 
-	const name = user.athleteName || user.name || "Athlete";
-	const planType =
+	const isCoach = isCoachPortalUser(user);
+	const coachPlan = isCoach ? getCoachTeamPortalPlanSummary(user) : null;
+	const displayName = isCoach
+		? user.name
+		: user.athleteName || user.name || "Athlete";
+	const athletePlanLabel =
 		user.programTier
 			?.replace(/_+/g, " ")
 			.replace(/\b\w/g, (c) => c.toUpperCase()) || "No Active Plan";
+	const planCardTitle = isCoach ? "Team plan" : "Current Plan";
+	const planPrimaryLabel = isCoach
+		? (coachPlan?.title ?? "Team plan")
+		: athletePlanLabel;
+	const planSecondary = isCoach ? (coachPlan?.subtitle ?? null) : null;
+	const planExpiresAt = isCoach
+		? (user.team?.planExpiresAt ?? null)
+		: (user.planExpiresAt ?? null);
+	const memberSinceLabel = isCoach ? "Team since" : "Member since";
+	const memberSinceDate = isCoach
+		? user.team?.createdAt || user.createdAt || new Date().toISOString()
+		: user.createdAt || new Date().toISOString();
+	const coachTeamActiveWithoutExpiry =
+		isCoach &&
+		Boolean(user.team?.planId) &&
+		String(user.team?.subscriptionStatus ?? "").toLowerCase() === "active" &&
+		!planExpiresAt;
 
 	const formatDate = (dateString: string) => {
 		return new Date(dateString).toLocaleDateString(undefined, {
@@ -91,16 +116,18 @@ function DashboardPage() {
 		<div className="container mx-auto p-4 pb-20 space-y-6">
 			{homeError && (
 				<div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-					{homeError instanceof Error ? homeError.message : "Error loading dashboard"}
+					{homeError instanceof Error
+						? homeError.message
+						: "Error loading dashboard"}
 				</div>
 			)}
 
-			{/* Hero Content from Mobile API */}
-			{homeContent && (
+			{/* Athlete hero from API */}
+			{homeContent && !isCoach && (
 				<div className="relative rounded-3xl overflow-hidden bg-primary/5 border border-primary/10 p-6 md:p-8">
 					<div className="max-w-2xl">
 						<h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tight text-foreground mb-2">
-							{homeContent.headline || `Welcome back, ${name}!`}
+							{homeContent.headline || `Welcome back, ${displayName}!`}
 						</h1>
 						<p className="text-muted-foreground font-medium text-lg leading-relaxed">
 							{homeContent.description || "Your daily performance overview."}
@@ -139,13 +166,48 @@ function DashboardPage() {
 				</div>
 			)}
 
-			{!homeContent && (
+			{/* Coach: card → detail page instead of full-width hero */}
+			{isCoach && (
+				<Link
+					to="/portal/coach-app"
+					className="group flex w-full items-stretch gap-4 rounded-2xl border border-primary/15 bg-card p-5 text-left shadow-sm transition-all hover:border-primary/35 hover:shadow-md md:p-6"
+				>
+					<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary md:h-14 md:w-14">
+						<LayoutDashboard className="h-6 w-6 md:h-7 md:w-7" aria-hidden />
+					</div>
+					<div className="min-w-0 flex-1">
+						<p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+							Coach workspace
+						</p>
+						<h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-foreground md:text-xl">
+							{homeContent?.headline?.trim() ||
+								(user.team?.name?.trim()
+									? `${user.team.name.trim()} — PH App`
+									: "How coaches use this portal")}
+						</h2>
+						<p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+							Programs, schedule, and team tools here are for your squad only.
+							Athletes use the mobile app — tap to read how it works.
+						</p>
+					</div>
+					<div className="flex shrink-0 items-center self-center">
+						<ChevronRight
+							className="h-6 w-6 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
+							aria-hidden
+						/>
+					</div>
+				</Link>
+			)}
+
+			{!homeContent && !isCoach && (
 				<div className="mb-6">
-					<h1 className="text-3xl font-bold mb-2">Welcome back, {name}!</h1>
+					<h1 className="text-3xl font-bold mb-2">
+						Welcome back, {displayName}!
+					</h1>
 					<p className="text-muted-foreground">
 						{user.role && user.role !== "athlete"
 							? `Role: ${user.role}`
-							: "Athlete Dashboard"}
+							: "Athlete dashboard"}
 					</p>
 				</div>
 			)}
@@ -155,24 +217,29 @@ function DashboardPage() {
 				<div className="md:col-span-2 rounded-2xl border bg-card p-6 shadow-sm">
 					<div className="flex items-center justify-between mb-4">
 						<div>
-							<h2 className="text-xl font-semibold">Current Plan</h2>
-							<p className="text-primary font-medium">{planType}</p>
+							<h2 className="text-xl font-semibold">{planCardTitle}</h2>
+							<p className="text-primary font-medium">{planPrimaryLabel}</p>
+							{planSecondary ? (
+								<p className="text-sm text-muted-foreground mt-1">
+									{planSecondary}
+								</p>
+							) : null}
 						</div>
 						<div className="text-right">
-							<p className="text-sm text-muted-foreground">Member since</p>
-							<p className="font-medium">
-								{formatDate(user.createdAt || new Date().toISOString())}
+							<p className="text-sm text-muted-foreground">
+								{memberSinceLabel}
 							</p>
+							<p className="font-medium">{formatDate(memberSinceDate)}</p>
 						</div>
 					</div>
 
-					{user.planExpiresAt ? (
+					{planExpiresAt ? (
 						<div className="pt-4 border-t">
 							<div className="flex justify-between items-center mb-2">
 								<p className="text-sm text-muted-foreground">Time Remaining</p>
 								<p className="font-bold text-primary">
 									{Math.ceil(
-										(new Date(user.planExpiresAt).getTime() - Date.now()) /
+										(new Date(planExpiresAt).getTime() - Date.now()) /
 											(1000 * 60 * 60 * 24),
 									)}{" "}
 									Days
@@ -182,18 +249,27 @@ function DashboardPage() {
 								<div
 									className="h-full bg-primary"
 									style={{
-										width: `${Math.max(0, Math.min(100, ((new Date(user.planExpiresAt).getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)) * 100))}%`,
+										width: `${Math.max(0, Math.min(100, ((new Date(planExpiresAt).getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)) * 100))}%`,
 									}}
 								/>
 							</div>
 							<p className="mt-2 text-xs text-muted-foreground">
-								Expires on {formatDate(user.planExpiresAt)}
+								Expires on {formatDate(planExpiresAt)}
+							</p>
+						</div>
+					) : coachTeamActiveWithoutExpiry ? (
+						<div className="pt-4 border-t">
+							<p className="text-sm text-muted-foreground">
+								Team billing is active. A renewal or period end date is not
+								stored on this team yet; you still have full portal access.
 							</p>
 						</div>
 					) : (
 						<div className="pt-4 border-t">
 							<p className="text-sm text-muted-foreground">
-								No active subscription found. Explore our plans to get started.
+								{isCoach
+									? "No active team subscription on record yet. Complete team checkout (and admin approval if required), or open onboarding to pick a plan."
+									: "No active subscription found. Explore our plans to get started."}
 							</p>
 						</div>
 					)}
@@ -202,8 +278,18 @@ function DashboardPage() {
 				{/* User Quick Info */}
 				<div className="rounded-2xl border bg-card p-6 shadow-sm flex flex-col justify-between">
 					<div className="space-y-4">
-						<h2 className="text-lg font-semibold">Profile Info</h2>
+						<h2 className="text-lg font-semibold">
+							{isCoach ? "Coach account" : "Profile Info"}
+						</h2>
 						<div className="space-y-2">
+							{isCoach && user.team?.id ? (
+								<div className="flex justify-between text-sm gap-2">
+									<span className="text-muted-foreground shrink-0">Team</span>
+									<span className="font-medium text-right">
+										{user.team.name || `Team #${user.team.id}`}
+									</span>
+								</div>
+							) : null}
 							<div className="flex justify-between text-sm">
 								<span className="text-muted-foreground">Email</span>
 								<span className="font-medium">{user.email}</span>
@@ -212,14 +298,14 @@ function DashboardPage() {
 								<span className="text-muted-foreground">User ID</span>
 								<span className="font-medium">#{user.id}</span>
 							</div>
-							{user.birthDate && (
+							{!isCoach && user.birthDate ? (
 								<div className="flex justify-between text-sm">
 									<span className="text-muted-foreground">Birth Date</span>
 									<span className="font-medium">
 										{formatDate(user.birthDate)}
 									</span>
 								</div>
-							)}
+							) : null}
 						</div>
 					</div>
 					<button
@@ -282,7 +368,7 @@ function DashboardPage() {
 					<p className="font-bold">Schedule</p>
 				</Link>
 				<Link
-					to="/portal/tracking"
+					to="/portal/messages"
 					className="p-6 border rounded-2xl bg-card hover:border-primary hover:shadow-md transition-all group text-center"
 				>
 					<div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
@@ -298,10 +384,10 @@ function DashboardPage() {
 							aria-hidden="true"
 							focusable="false"
 						>
-							<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+							<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
 						</svg>
 					</div>
-					<p className="font-bold">Tracking</p>
+					<p className="font-bold">Messages</p>
 				</Link>
 				<Link
 					to="/portal/more"
@@ -328,40 +414,42 @@ function DashboardPage() {
 				</Link>
 			</div>
 
-			{/* Testimonials from Mobile API */}
-			{homeContent?.testimonials && homeContent.testimonials.length > 0 && (
-				<div className="space-y-4">
-					<h2 className="text-xl font-bold px-1">What Athletes Say</h2>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{homeContent.testimonials.slice(0, 2).map((t) => (
-							<div
-								key={t.id}
-								className="p-6 rounded-2xl border bg-card/50 italic text-muted-foreground relative"
-							>
-								<span className="text-4xl absolute top-4 left-4 opacity-10">
-									"
-								</span>
-								<p className="relative z-10 mb-4">{t.quote}</p>
-								<div className="flex items-center gap-3">
-									{t.photoUrl && (
-										<img
-											src={t.photoUrl}
-											alt=""
-											className="w-8 h-8 rounded-full object-cover"
-										/>
-									)}
-									<div>
-										<p className="text-sm font-bold text-foreground not-italic">
-											{t.name}
-										</p>
-										{t.role && <p className="text-xs not-italic">{t.role}</p>}
+			{/* Testimonials: athlete-facing home content; omit on coach workspace */}
+			{!isCoach &&
+				homeContent?.testimonials &&
+				homeContent.testimonials.length > 0 && (
+					<div className="space-y-4">
+						<h2 className="text-xl font-bold px-1">What Athletes Say</h2>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							{homeContent.testimonials.slice(0, 2).map((t) => (
+								<div
+									key={t.id}
+									className="p-6 rounded-2xl border bg-card/50 italic text-muted-foreground relative"
+								>
+									<span className="text-4xl absolute top-4 left-4 opacity-10">
+										"
+									</span>
+									<p className="relative z-10 mb-4">{t.quote}</p>
+									<div className="flex items-center gap-3">
+										{t.photoUrl && (
+											<img
+												src={t.photoUrl}
+												alt=""
+												className="w-8 h-8 rounded-full object-cover"
+											/>
+										)}
+										<div>
+											<p className="text-sm font-bold text-foreground not-italic">
+												{t.name}
+											</p>
+											{t.role && <p className="text-xs not-italic">{t.role}</p>}
+										</div>
 									</div>
 								</div>
-							</div>
-						))}
+							))}
+						</div>
 					</div>
-				</div>
-			)}
+				)}
 		</div>
 	);
 }

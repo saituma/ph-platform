@@ -28,7 +28,10 @@ export async function sendBookingConfirmationEmail(input: {
     : escapeHtml(TBD);
   const rows = [
     labelRow("Service", service),
-    labelRow("When", `${escapeHtml(whenNice)}<br/><span style="font-size:12px;color:${E.muted};font-weight:400;">${whenIso}</span>`),
+    labelRow(
+      "When",
+      `${escapeHtml(whenNice)}<br/><span style="font-size:12px;color:${E.muted};font-weight:400;">${whenIso}</span>`,
+    ),
     labelRow("Location", loc),
     labelRow("Meeting", meet),
   ].join("");
@@ -80,7 +83,10 @@ export async function sendBookingApprovedEmail(input: {
     : escapeHtml(TBD);
   const rows = [
     labelRow("Service", service),
-    labelRow("When", `${escapeHtml(whenNice)}<br/><span style="font-size:12px;color:${E.muted};font-weight:400;">${whenIso}</span>`),
+    labelRow(
+      "When",
+      `${escapeHtml(whenNice)}<br/><span style="font-size:12px;color:${E.muted};font-weight:400;">${whenIso}</span>`,
+    ),
     labelRow("Location", loc),
     labelRow("Meeting", meet),
   ].join("");
@@ -125,7 +131,10 @@ export async function sendBookingDeclinedEmail(input: {
     : escapeHtml(TBD);
   const rows = [
     labelRow("Service", service),
-    labelRow("Requested time", `${escapeHtml(whenNice)}<br/><span style="font-size:12px;color:${E.muted};font-weight:400;">${whenIso}</span>`),
+    labelRow(
+      "Requested time",
+      `${escapeHtml(whenNice)}<br/><span style="font-size:12px;color:${E.muted};font-weight:400;">${whenIso}</span>`,
+    ),
     labelRow("Location", loc),
     labelRow("Meeting", meet),
   ].join("");

@@ -7,4 +7,3 @@ export function isApiReady() {
 export function setApiReady(value: boolean) {
   apiReady = value;
 }
-

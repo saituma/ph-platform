@@ -24,15 +24,21 @@ const ruleBaseSchema = z.object({
   hiddenSections: z.array(z.string().min(1)).optional(),
 });
 
-const ruleSchema = ruleBaseSchema.refine((data) => {
-  if (data.minAge == null || data.maxAge == null) return true;
-  return data.minAge <= data.maxAge;
-}, { message: "Minimum age cannot exceed maximum age.", path: ["minAge"] });
+const ruleSchema = ruleBaseSchema.refine(
+  (data) => {
+    if (data.minAge == null || data.maxAge == null) return true;
+    return data.minAge <= data.maxAge;
+  },
+  { message: "Minimum age cannot exceed maximum age.", path: ["minAge"] },
+);
 
-const ruleUpdateSchema = ruleBaseSchema.partial().refine((data) => {
-  if (data.minAge == null || data.maxAge == null) return true;
-  return data.minAge <= data.maxAge;
-}, { message: "Minimum age cannot exceed maximum age.", path: ["minAge"] });
+const ruleUpdateSchema = ruleBaseSchema.partial().refine(
+  (data) => {
+    if (data.minAge == null || data.maxAge == null) return true;
+    return data.minAge <= data.maxAge;
+  },
+  { message: "Minimum age cannot exceed maximum age.", path: ["minAge"] },
+);
 
 export async function listAgeExperience(req: Request, res: Response) {
   const items = await listAgeExperienceRules();

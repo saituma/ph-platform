@@ -33,7 +33,7 @@ export function createApp() {
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },
-    })
+    }),
   );
 
   const allowedOrigins = new Set<string>();
@@ -55,7 +55,7 @@ export function createApp() {
   addOrigin("http://localhost:3000");
   addOrigin("http://localhost:3001");
   addOrigin("http://127.0.0.1:3000");
-  
+
   (env.corsOrigins ?? "")
     .split(",")
     .map((origin) => origin.trim())
@@ -68,16 +68,16 @@ export function createApp() {
         if (!origin) return callback(null, true);
         if (allowedOrigins.has("*")) return callback(null, true);
         if (allowedOrigins.has(origin)) return callback(null, true);
-        
+
         // Final fallback for any localhost variation
         if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
           return callback(null, true);
         }
-        
+
         return callback(new Error(`Origin ${origin} not allowed by CORS`), false);
       },
       credentials: true,
-    })
+    }),
   );
   app.use(requestLogger);
   const bodyLimit = env.requestBodyLimit ?? "1mb";

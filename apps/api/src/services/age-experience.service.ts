@@ -23,11 +23,7 @@ async function resolveAthleteAge(userId: number) {
   const guardian = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
   const activeAthleteId = guardian[0]?.activeAthleteId ?? null;
   if (!activeAthleteId) return null;
-  const activeAthlete = await db
-    .select()
-    .from(athleteTable)
-    .where(eq(athleteTable.id, activeAthleteId))
-    .limit(1);
+  const activeAthlete = await db.select().from(athleteTable).where(eq(athleteTable.id, activeAthleteId)).limit(1);
   return resolveAgeFromAthlete(activeAthlete[0]);
 }
 
@@ -115,13 +111,15 @@ export async function deleteAgeExperienceRule(id: number) {
 }
 
 function pickDefaultRule(rules: AgeExperienceRule[]) {
-  return rules
-    .filter((rule) => rule.isDefault)
-    .sort((a, b) => {
-      const aTime = a.updatedAt?.getTime?.() ?? 0;
-      const bTime = b.updatedAt?.getTime?.() ?? 0;
-      return bTime - aTime;
-    })[0] ?? null;
+  return (
+    rules
+      .filter((rule) => rule.isDefault)
+      .sort((a, b) => {
+        const aTime = a.updatedAt?.getTime?.() ?? 0;
+        const bTime = b.updatedAt?.getTime?.() ?? 0;
+        return bTime - aTime;
+      })[0] ?? null
+  );
 }
 
 export async function getAgeExperienceForUser(userId: number) {
@@ -133,13 +131,12 @@ export async function getAgeExperienceForUser(userId: number) {
   if (!matches.length) {
     return pickDefaultRule(rules);
   }
-  return matches
-    .sort((a, b) => {
-      const specDiff = ruleSpecificity(a) - ruleSpecificity(b);
-      if (specDiff !== 0) return specDiff;
-      const aMin = a.minAge ?? -1000;
-      const bMin = b.minAge ?? -1000;
-      if (aMin !== bMin) return bMin - aMin;
-      return (b.updatedAt?.getTime?.() ?? 0) - (a.updatedAt?.getTime?.() ?? 0);
-    })[0];
+  return matches.sort((a, b) => {
+    const specDiff = ruleSpecificity(a) - ruleSpecificity(b);
+    if (specDiff !== 0) return specDiff;
+    const aMin = a.minAge ?? -1000;
+    const bMin = b.minAge ?? -1000;
+    if (aMin !== bMin) return bMin - aMin;
+    return (b.updatedAt?.getTime?.() ?? 0) - (a.updatedAt?.getTime?.() ?? 0);
+  })[0];
 }

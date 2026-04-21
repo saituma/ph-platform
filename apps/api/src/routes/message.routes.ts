@@ -1,7 +1,13 @@
 import { Router } from "express";
 
 import { requireAuth } from "../middlewares/auth";
-import { deleteMessage, listMessages, markRead, sendMessageToCoach, toggleReaction } from "../controllers/message.controller";
+import {
+  deleteMessage,
+  listMessages,
+  markRead,
+  sendMessageToCoach,
+  toggleReaction,
+} from "../controllers/message.controller";
 
 const router = Router();
 

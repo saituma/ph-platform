@@ -46,7 +46,9 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
       programSectionTitle: programSectionContentTable.title,
       programSectionType: programSectionContentTable.sectionType,
       trainingSessionTitle: trainingModuleSessionTable.title,
-      sectionTitle: sql<string | null>`COALESCE(${trainingModuleSessionTable.title}, ${programSectionContentTable.title})`,
+      sectionTitle: sql<
+        string | null
+      >`COALESCE(${trainingModuleSessionTable.title}, ${programSectionContentTable.title})`,
     })
     .from(videoUploadTable)
     .leftJoin(athleteTable, eq(videoUploadTable.athleteId, athleteTable.id))

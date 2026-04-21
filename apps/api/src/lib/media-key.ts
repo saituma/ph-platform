@@ -7,18 +7,14 @@ export class MediaKey {
    * Generates a unique, structured S3 key.
    * Format: {folder}/{userId}/{timestamp}-{random}.{ext}
    */
-  static generate(input: {
-    folder: MediaFolder;
-    userId: number;
-    fileName: string;
-  }): string {
+  static generate(input: { folder: MediaFolder; userId: number; fileName: string }): string {
     const timestamp = Date.now();
     const random = crypto.randomBytes(4).toString("hex");
     const ext = input.fileName.split(".").pop()?.toLowerCase() || "bin";
-    
+
     // Sanitize extension to prevent path traversal or weird files
     const safeExt = ext.replace(/[^a-z0-9]/g, "");
-    
+
     return `${input.folder}/${input.userId}/${timestamp}-${random}.${safeExt}`;
   }
 

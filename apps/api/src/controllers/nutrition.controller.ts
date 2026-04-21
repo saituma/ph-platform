@@ -99,11 +99,15 @@ export async function updateReminderSettings(req: Request, res: Response) {
 
 export async function getTargets(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-  
+
   const targetUserId = req.params.userId === "me" ? req.user.id : Number(req.params.userId);
   if (!Number.isFinite(targetUserId)) return res.status(400).json({ error: "Invalid user ID" });
 
-  const [targets] = await db.select().from(nutritionTargetsTable).where(eq(nutritionTargetsTable.userId, targetUserId)).limit(1);
+  const [targets] = await db
+    .select()
+    .from(nutritionTargetsTable)
+    .where(eq(nutritionTargetsTable.userId, targetUserId))
+    .limit(1);
   return res.status(200).json({ targets: targets || null });
 }
 
@@ -118,14 +122,23 @@ export async function updateTargets(req: Request, res: Response) {
 
   const input = targetSchema.parse(req.body);
 
-  const [existingUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.id, targetUserId)).limit(1);
+  const [existingUser] = await db
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(eq(userTable.id, targetUserId))
+    .limit(1);
   if (!existingUser) return res.status(404).json({ error: "User not found" });
 
-  const [existingTarget] = await db.select().from(nutritionTargetsTable).where(eq(nutritionTargetsTable.userId, targetUserId)).limit(1);
+  const [existingTarget] = await db
+    .select()
+    .from(nutritionTargetsTable)
+    .where(eq(nutritionTargetsTable.userId, targetUserId))
+    .limit(1);
 
   let result;
   if (existingTarget) {
-    [result] = await db.update(nutritionTargetsTable)
+    [result] = await db
+      .update(nutritionTargetsTable)
       .set({
         ...input,
         updatedBy: req.user.id,
@@ -134,7 +147,8 @@ export async function updateTargets(req: Request, res: Response) {
       .where(eq(nutritionTargetsTable.id, existingTarget.id))
       .returning();
   } else {
-    [result] = await db.insert(nutritionTargetsTable)
+    [result] = await db
+      .insert(nutritionTargetsTable)
       .values({
         userId: targetUserId,
         ...input,
@@ -150,16 +164,11 @@ export async function listLogs(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
   const userIdRaw = typeof req.query.userId === "string" ? req.query.userId : null;
-  const targetUserId =
-    userIdRaw === "me"
-      ? req.user.id
-      : userIdRaw
-        ? Number(userIdRaw)
-        : req.user.id;
+  const targetUserId = userIdRaw === "me" ? req.user.id : userIdRaw ? Number(userIdRaw) : req.user.id;
   if (!Number.isFinite(targetUserId)) {
     return res.status(400).json({ error: "Invalid user ID" });
   }
-  
+
   if (targetUserId !== req.user.id && !["coach", "admin", "superAdmin"].includes(req.user.role)) {
     // Only coaches can fetch other users' logs directly
     return res.status(403).json({ error: "Forbidden" });
@@ -176,7 +185,9 @@ export async function listLogs(req: Request, res: Response) {
   if (fromKey) whereClauses.push(gte(nutritionLogsTable.dateKey, fromKey));
   if (toKey) whereClauses.push(lte(nutritionLogsTable.dateKey, toKey));
 
-  const logs = await db.select().from(nutritionLogsTable)
+  const logs = await db
+    .select()
+    .from(nutritionLogsTable)
     .where(and(...whereClauses))
     .orderBy(desc(nutritionLogsTable.dateKey))
     .limit(limitRaw);
@@ -186,7 +197,7 @@ export async function listLogs(req: Request, res: Response) {
 
 export async function upsertLog(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-  
+
   // Actually, wait, role check? A guardian logging for a youth? Or the athlete directly.
   // We'll enforce the user is an athlete or guardian. But `req.user.id` is the authenticated user.
   // The system uses guardianId linking to athleteId, but we mapped `nutritionLogsTable.userId` directly.
@@ -197,30 +208,37 @@ export async function upsertLog(req: Request, res: Response) {
   const input = logSchema.parse(req.body);
 
   // Determine athlete type. Is not sent by default, fetch it from DB if needed, or default youth.
-  const [targetUserObj] = await db.select({ role: userTable.role }).from(userTable).where(eq(userTable.id, targetUserId)).limit(1);
+  const [targetUserObj] = await db
+    .select({ role: userTable.role })
+    .from(userTable)
+    .where(eq(userTable.id, targetUserId))
+    .limit(1);
 
-  const [existingLog] = await db.select().from(nutritionLogsTable).where(and(
-    eq(nutritionLogsTable.userId, targetUserId),
-    eq(nutritionLogsTable.dateKey, input.dateKey)
-  )).limit(1);
+  const [existingLog] = await db
+    .select()
+    .from(nutritionLogsTable)
+    .where(and(eq(nutritionLogsTable.userId, targetUserId), eq(nutritionLogsTable.dateKey, input.dateKey)))
+    .limit(1);
 
   let result;
   if (existingLog) {
-    [result] = await db.update(nutritionLogsTable)
+    [result] = await db
+      .update(nutritionLogsTable)
       .set({
         ...input,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(nutritionLogsTable.id, existingLog.id))
       .returning();
   } else {
     // Check if user is adult or youth
-    const athleteRoleType = (targetUserObj && targetUserObj.role === "admin") ? "adult" : "youth"; // Rough fallback, the frontend usually handles this
-    [result] = await db.insert(nutritionLogsTable)
+    const athleteRoleType = targetUserObj && targetUserObj.role === "admin" ? "adult" : "youth"; // Rough fallback, the frontend usually handles this
+    [result] = await db
+      .insert(nutritionLogsTable)
       .values({
         userId: targetUserId,
         athleteType: athleteRoleType,
-        ...input
+        ...input,
       })
       .returning();
   }
@@ -261,15 +279,13 @@ export async function provideFeedback(req: Request, res: Response) {
     userId: existingLog.userId,
     type: "nutrition_feedback",
     content: "Coach responded to your nutrition tracking log.",
-    link: "/programs"
+    link: "/programs",
   });
 
-  void sendPushNotification(
-    existingLog.userId,
-    "Nutrition response",
-    "Coach responded to your nutrition log.",
-    { type: "nutrition_feedback", url: "/programs" },
-  );
+  void sendPushNotification(existingLog.userId, "Nutrition response", "Coach responded to your nutrition log.", {
+    type: "nutrition_feedback",
+    url: "/programs",
+  });
 
   return res.status(200).json({ log: updatedLog });
 }

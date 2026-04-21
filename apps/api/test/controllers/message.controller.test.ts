@@ -12,7 +12,13 @@ jest.mock("../../src/services/reaction.service", () => ({
 }));
 
 import { listMessages, sendMessageToCoach, toggleReaction } from "../../src/controllers/message.controller";
-import { getCoachUser, getLastAdminContact, isUserPremium, listThread, sendMessage } from "../../src/services/message.service";
+import {
+  getCoachUser,
+  getLastAdminContact,
+  isUserPremium,
+  listThread,
+  sendMessage,
+} from "../../src/services/message.service";
 import { toggleDirectMessageReaction } from "../../src/services/reaction.service";
 
 function createRes() {

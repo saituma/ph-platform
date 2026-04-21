@@ -24,8 +24,8 @@ function normalizeConnectionString(raw: string) {
     url.searchParams.delete("sslrootcert");
     url.searchParams.delete("channel_binding");
     url.searchParams.delete("pgbouncer");
-    
-    // Migrating through a Neon pooler often results in ECONNRESET 
+
+    // Migrating through a Neon pooler often results in ECONNRESET
     // due to connection proxy timeouts or dropped TCP packets during DDL statements.
     // We enforce the direct connection endpoint:
     if (url.hostname.includes("-pooler.aws.neon.tech") || url.hostname.includes("-pooler.eu-")) {
@@ -36,7 +36,7 @@ function normalizeConnectionString(raw: string) {
       }
       url.hostname = url.hostname.replace("-pooler", "");
     }
-    
+
     return url.toString();
   } catch {
     return raw;
@@ -47,8 +47,7 @@ function connectionWantsSsl(raw: string): boolean {
   try {
     const u = new URL(raw);
     const mode = (u.searchParams.get("sslmode") ?? "").toLowerCase();
-    if (mode === "require" || mode === "verify-full" || mode === "verify-ca")
-      return true;
+    if (mode === "require" || mode === "verify-full" || mode === "verify-ca") return true;
     if (u.searchParams.get("ssl") === "true") return true;
     const host = u.hostname.toLowerCase();
     return (
@@ -122,11 +121,7 @@ async function tableExists(db: any, tableName: string) {
   });
 }
 
-async function columnExists(
-  db: any,
-  tableName: string,
-  columnName: string,
-) {
+async function columnExists(db: any, tableName: string, columnName: string) {
   return executeWithRetry(async () => {
     const result = await db.execute(sql`
       select exists(
@@ -149,25 +144,11 @@ function isSafePgIdentifier(value: string) {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
 }
 
-async function renameColumnTo(
-  db: any,
-  tableName: string,
-  from: string,
-  to: string,
-) {
-  await db.execute(
-    sql.raw(
-      `ALTER TABLE "${tableName}" RENAME COLUMN "${from}" TO "${to}"`,
-    ),
-  );
+async function renameColumnTo(db: any, tableName: string, from: string, to: string) {
+  await db.execute(sql.raw(`ALTER TABLE "${tableName}" RENAME COLUMN "${from}" TO "${to}"`));
 }
 
-async function renameColumnIfPresent(
-  db: any,
-  tableName: string,
-  fromCandidates: string[],
-  to: string,
-) {
+async function renameColumnIfPresent(db: any, tableName: string, fromCandidates: string[], to: string) {
   const hasTo = await columnExists(db, tableName, to);
   if (hasTo) return;
 
@@ -220,9 +201,9 @@ async function normalizeRunLogsSchema(db: any) {
     if (colSet.has(mapping.to)) continue;
     const found = mapping.from.find((f) => colSet.has(f));
     if (found) {
-      await executeWithRetry(() => db.execute(
-        sql.raw(`ALTER TABLE "run_logs" RENAME COLUMN "${found}" TO "${mapping.to}"`),
-      ));
+      await executeWithRetry(() =>
+        db.execute(sql.raw(`ALTER TABLE "run_logs" RENAME COLUMN "${found}" TO "${mapping.to}"`)),
+      );
     }
   }
 
@@ -256,11 +237,9 @@ async function normalizeRunLogsSchema(db: any) {
     });
     const conname = String(existingFk.rows[0]?.conname ?? "");
     if (conname && conname !== desiredFkName && isSafePgIdentifier(conname)) {
-      await executeWithRetry(() => db.execute(
-        sql.raw(
-          `ALTER TABLE "run_logs" RENAME CONSTRAINT "${conname}" TO "${desiredFkName}"`,
-        ),
-      ));
+      await executeWithRetry(() =>
+        db.execute(sql.raw(`ALTER TABLE "run_logs" RENAME CONSTRAINT "${conname}" TO "${desiredFkName}"`)),
+      );
     }
   }
 }
@@ -274,13 +253,10 @@ async function normalizeLegacyBookingTypes(db: any) {
     if (!hasType) return;
 
     // Make updates robust regardless of prior enum shape.
-    await db.execute(
-      sql.raw(
-        `ALTER TABLE "${tableName}" ALTER COLUMN "type" SET DATA TYPE text USING "type"::text`,
-      ),
-    );
+    await db.execute(sql.raw(`ALTER TABLE "${tableName}" ALTER COLUMN "type" SET DATA TYPE text USING "type"::text`));
 
-    await db.execute(sql.raw(`
+    await db.execute(
+      sql.raw(`
       UPDATE "${tableName}"
       SET "type" = CASE
         WHEN "type" IN ('one_on_one', 'call', 'individual_call', 'lift_lab_1on1') THEN 'one_to_one'
@@ -289,7 +265,8 @@ async function normalizeLegacyBookingTypes(db: any) {
         ELSE "type"
       END
       WHERE "type" IN ('one_on_one', 'call', 'individual_call', 'lift_lab_1on1', 'group_call', 'role_model')
-    `));
+    `),
+    );
   };
 
   if (hasBookings) {
@@ -358,11 +335,7 @@ async function assertTrainingContentV2Schema(db: any) {
   ].filter(Boolean);
 
   if (missing.length > 0) {
-    throw new Error(
-      `Training content v2 schema is still missing after migrations: ${missing.join(
-        ", ",
-      )}`,
-    );
+    throw new Error(`Training content v2 schema is still missing after migrations: ${missing.join(", ")}`);
   }
 }
 
@@ -372,12 +345,11 @@ async function assertTeamsSchema(db: any) {
     throw new Error(`Teams table is still missing after migrations: teams`);
   }
 
-  const [hasAdminId, hasPlanPaymentType, hasPlanCommitmentMonths] =
-    await Promise.all([
-      columnExists(db, "teams", "adminId"),
-      columnExists(db, "teams", "planPaymentType"),
-      columnExists(db, "teams", "planCommitmentMonths"),
-    ]);
+  const [hasAdminId, hasPlanPaymentType, hasPlanCommitmentMonths] = await Promise.all([
+    columnExists(db, "teams", "adminId"),
+    columnExists(db, "teams", "planPaymentType"),
+    columnExists(db, "teams", "planCommitmentMonths"),
+  ]);
 
   const missing = [
     !hasAdminId ? "teams.adminId" : null,
@@ -431,15 +403,12 @@ async function executeMigrationsOnce(options: {
       console.warn("[Migrations] Could not normalize legacy booking types (discovery failed), proceeding...");
     }
 
-    const migrationsFolder =
-      options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
+    const migrationsFolder = options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
 
     const sqlMigrationTags = readSqlMigrationTags(migrationsFolder);
     const journalEntries = readJournalEntries(migrationsFolder);
     const journalTags = new Set(journalEntries.map((entry) => entry.tag));
-    const missingJournalTags = sqlMigrationTags.filter(
-      (tag) => !journalTags.has(tag),
-    );
+    const missingJournalTags = sqlMigrationTags.filter((tag) => !journalTags.has(tag));
     if (missingJournalTags.length > 0) {
       throw new Error(
         `Migration journal is out of sync with SQL files. Missing journal entries for: ${missingJournalTags.join(
@@ -465,9 +434,7 @@ async function executeMigrationsOnce(options: {
         `select id, hash, created_at from "${migrationsSchema}"."${migrationsTable}" order by created_at desc limit 1`,
       ),
     );
-    const latest = existingRows.rows[0] as
-      | { created_at?: number | string }
-      | undefined;
+    const latest = existingRows.rows[0] as { created_at?: number | string } | undefined;
 
     if (!latest) {
       const baselineCheck = await db.execute(
@@ -480,26 +447,18 @@ async function executeMigrationsOnce(options: {
           ) as enrolled_type_exists
         `),
       );
-      const alreadyInitialized = Boolean(
-        baselineCheck.rows[0]?.enrolled_type_exists,
-      );
+      const alreadyInitialized = Boolean(baselineCheck.rows[0]?.enrolled_type_exists);
       if (alreadyInitialized) {
-        const baseline = [...migrations].reverse().find(
-          (entry) => entry.folderMillis <= 1773013000000,
-        );
+        const baseline = [...migrations].reverse().find((entry) => entry.folderMillis <= 1773013000000);
         if (!baseline) {
-          throw new Error(
-            "Could not resolve migration baseline for existing database.",
-          );
+          throw new Error("Could not resolve migration baseline for existing database.");
         }
         await db.execute(
           sql.raw(
             `insert into "${migrationsSchema}"."${migrationsTable}" ("hash", "created_at") values ('${baseline.hash}', ${baseline.folderMillis})`,
           ),
         );
-        console.log(
-          `[Migrations] Bootstrapped drizzle migration history at ${baseline.folderMillis}.`,
-        );
+        console.log(`[Migrations] Bootstrapped drizzle migration history at ${baseline.folderMillis}.`);
       }
     }
 
@@ -539,17 +498,13 @@ export async function runMigrations(options?: {
     } catch (error) {
       const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(rawUrl);
       const target = safeDbTarget(rawUrl);
-      const folder =
-        options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
+      const folder = options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
       const message =
         error instanceof Error
           ? `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ""}`
           : String(error);
 
-      if (
-        attempt < MIGRATION_CONNECTION_ATTEMPTS - 1 &&
-        isTransientMigrationConnectionError(error)
-      ) {
+      if (attempt < MIGRATION_CONNECTION_ATTEMPTS - 1 && isTransientMigrationConnectionError(error)) {
         const delay = Math.min(15_000, 500 * Math.pow(2, attempt));
         console.warn(
           `[Migrations] ${describeMigrationErr(error)} — retry ${attempt + 2}/${MIGRATION_CONNECTION_ATTEMPTS} after ${delay}ms...`,

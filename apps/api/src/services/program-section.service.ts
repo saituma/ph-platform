@@ -5,15 +5,10 @@ import { programSectionContentTable, ProgramType, sessionType } from "../db/sche
 
 function normalizeAgeList(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => Number(item))
-    .filter((item) => Number.isFinite(item));
+  return value.map((item) => Number(item)).filter((item) => Number.isFinite(item));
 }
 
-function matchesAgeList(
-  item: { ageList?: unknown | null },
-  age: number | null,
-) {
+function matchesAgeList(item: { ageList?: unknown | null }, age: number | null) {
   const list = normalizeAgeList(item.ageList);
   if (list.length === 0) return true;
   if (age === null || age === undefined) return false;
@@ -60,11 +55,7 @@ export async function listProgramSectionContent(input: {
 }
 
 export async function getProgramSectionContentById(id: number) {
-  const rows = await db
-    .select()
-    .from(programSectionContentTable)
-    .where(eq(programSectionContentTable.id, id))
-    .limit(1);
+  const rows = await db.select().from(programSectionContentTable).where(eq(programSectionContentTable.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
@@ -80,9 +71,7 @@ export async function createProgramSectionContent(input: {
   order?: number | null;
   createdBy: number;
 }) {
-  const ageList = Array.isArray(input.ageList)
-    ? input.ageList.filter((item) => Number.isFinite(item))
-    : [];
+  const ageList = Array.isArray(input.ageList) ? input.ageList.filter((item) => Number.isFinite(item)) : [];
   const result = await db
     .insert(programSectionContentTable)
     .values({
@@ -114,9 +103,7 @@ export async function updateProgramSectionContent(input: {
   metadata?: Record<string, unknown> | null;
   order?: number | null;
 }) {
-  const ageList = Array.isArray(input.ageList)
-    ? input.ageList.filter((item) => Number.isFinite(item))
-    : [];
+  const ageList = Array.isArray(input.ageList) ? input.ageList.filter((item) => Number.isFinite(item)) : [];
   const result = await db
     .update(programSectionContentTable)
     .set({
@@ -138,9 +125,6 @@ export async function updateProgramSectionContent(input: {
 }
 
 export async function deleteProgramSectionContent(id: number) {
-  const result = await db
-    .delete(programSectionContentTable)
-    .where(eq(programSectionContentTable.id, id))
-    .returning();
+  const result = await db.delete(programSectionContentTable).where(eq(programSectionContentTable.id, id)).returning();
   return result[0] ?? null;
 }

@@ -1,4 +1,6 @@
 import { deliverEmail, emailLayout, escapeHtml, textP, E } from "./base.mailer";
+import type { BillingReceiptEmailBlockInput } from "./billing-receipt-email";
+import { billingReceiptEmailBlock, greetingLine } from "./billing-receipt-email";
 
 function formatProgramTierLabel(tier: string) {
   return tier.replace(/_/g, " ");
@@ -12,27 +14,33 @@ export async function sendSubscriptionPendingUserEmail(input: {
   planTier: string;
   amount?: string | null;
   billingCycle?: "monthly" | "six_months" | "yearly" | null;
+  receipt?: BillingReceiptEmailBlockInput | null;
 }) {
   try {
     const tierLabel = formatProgramTierLabel(input.planTier);
-    const subject = `Payment received · ${input.planName}`;
-    const name = escapeHtml(input.name);
+    const subject = input.receipt
+      ? `Payment received · ${input.planName} · Receipt ${input.receipt.receiptPublicId}`
+      : `Payment received · ${input.planName}`;
     const plan = escapeHtml(input.planName);
     const tier = escapeHtml(tierLabel);
     const amount = input.amount ? escapeHtml(input.amount) : null;
-    const cycle = String(input.billingCycle ?? "").trim().toLowerCase();
+    const cycle = String(input.billingCycle ?? "")
+      .trim()
+      .toLowerCase();
     const cycleLabel =
       cycle === "monthly"
         ? "Monthly"
         : cycle === "six_months"
-        ? "6 months (upfront)"
-        : cycle === "yearly"
-        ? "Yearly (upfront)"
-        : null;
+          ? "6 months (upfront)"
+          : cycle === "yearly"
+            ? "Yearly (upfront)"
+            : null;
+    const receiptHtml = input.receipt ? billingReceiptEmailBlock(input.receipt) : "";
     const bodyHtml = `
-${textP(`Hi ${name},`)}
+${greetingLine(input.name, input.to)}
 ${textP(`We’ve successfully received your payment for <strong>${plan}</strong> <span style="color:${E.muted};">(${tier})</span>.`)}
 ${amount ? textP(`Amount paid: <strong>${amount}</strong>${cycleLabel ? ` <span style="color:${E.muted};">(${escapeHtml(cycleLabel)})</span>` : ""}.`) : ""}
+${receiptHtml}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;margin:0 0 24px;">
   <tr>
     <td style="padding:18px 22px;font-size:14px;color:#166534;line-height:1.6;font-family:${E.font};">
@@ -50,7 +58,8 @@ ${textP(`<span style="color:${E.muted};font-size:14px;">Didn’t make this purch
     });
     await deliverEmail({ to: input.to, subject, html });
   } catch (err) {
-    console.warn("[Mailer] sendSubscriptionPendingUserEmail skipped:", err);
+    const detail = err instanceof Error ? err.message : String(err);
+    console.warn("[Mailer] sendSubscriptionPendingUserEmail skipped:", detail);
   }
 }
 

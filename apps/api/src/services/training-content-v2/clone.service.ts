@@ -41,7 +41,9 @@ export async function copyTrainingModulesFromAudience(input: {
         .where(eq(trainingModuleSessionTable.moduleId, module.id));
 
       for (const session of sessions) {
-        await tx.delete(athleteTrainingSessionCompletionTable).where(eq(athleteTrainingSessionCompletionTable.sessionId, session.id));
+        await tx
+          .delete(athleteTrainingSessionCompletionTable)
+          .where(eq(athleteTrainingSessionCompletionTable.sessionId, session.id));
         await tx.delete(trainingSessionItemTable).where(eq(trainingSessionItemTable.sessionId, session.id));
       }
 

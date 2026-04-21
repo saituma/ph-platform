@@ -13,23 +13,14 @@ import { normalizeStoredMediaUrl } from "./s3.service";
 import { assertSocialEnabled, getPrivacySettings } from "./social-privacy.service";
 
 export class SocialAccessError extends Error {
-  code: "NOT_ADULT" | "NOT_FOUND" | "FORBIDDEN" | "SOCIAL_DISABLED";
+  code: "NOT_ADULT" | "NOT_FOUND" | "FORBIDDEN" | "SOCIAL_DISABLED" | "NOT_TEAM";
   constructor(code: SocialAccessError["code"], message: string) {
     super(message);
     this.code = code;
   }
 }
 
-const ALLOWED_REACTION_EMOJIS = new Set([
-  "👍",
-  "❤️",
-  "🔥",
-  "👏",
-  "😂",
-  "😮",
-  "😢",
-  "😡",
-]);
+const ALLOWED_REACTION_EMOJIS = new Set(["👍", "❤️", "🔥", "👏", "😂", "😮", "😢", "😡"]);
 
 type LatLng = { latitude: number; longitude: number };
 
@@ -80,6 +71,48 @@ export async function assertAdultAthlete(userId: number): Promise<void> {
   }
 }
 
+/** Global `/social/*` feeds are disabled — solo adults track privately; team athletes use `/teams/social/*`. */
+export async function assertGlobalSocialDeprecated(userId: number): Promise<void> {
+  const row = await db
+    .select({
+      athleteType: athleteTable.athleteType,
+      teamId: athleteTable.teamId,
+    })
+    .from(athleteTable)
+    .where(eq(athleteTable.userId, userId))
+    .limit(1);
+
+  if (!row.length || row[0]!.athleteType !== "adult") {
+    throw new SocialAccessError("NOT_ADULT", "Adult athlete access required");
+  }
+  if (row[0]!.teamId != null) {
+    throw new SocialAccessError("FORBIDDEN", "Use /api/teams/social/* for team athletes");
+  }
+  throw new SocialAccessError("FORBIDDEN", "Global social feeds are not available");
+}
+
+export async function assertTeamMemberSocial(userId: number): Promise<{ teamId: number }> {
+  const row = await db
+    .select({
+      teamId: athleteTable.teamId,
+    })
+    .from(athleteTable)
+    .where(eq(athleteTable.userId, userId))
+    .limit(1);
+
+  const teamId = row[0]?.teamId;
+  if (teamId == null) {
+    throw new SocialAccessError("NOT_TEAM", "Team membership required");
+  }
+
+  const settings = await getPrivacySettings(userId);
+  if (!settings.socialEnabled) {
+    throw new SocialAccessError("SOCIAL_DISABLED", "Social features not enabled. Please opt-in in privacy settings.");
+  }
+
+  return { teamId };
+}
+
 export async function ensurePublicAdultRun(runLogId: number): Promise<{ ownerUserId: number }> {
   const row = await db
     .select({
@@ -110,22 +143,48 @@ export async function ensurePublicAdultRun(runLogId: number): Promise<{ ownerUse
   return { ownerUserId: r.ownerUserId };
 }
 
+export async function ensureTeamPublicRun(runLogId: number, viewerTeamId: number): Promise<{ ownerUserId: number }> {
+  const row = await db
+    .select({
+      ownerUserId: runLogTable.userId,
+      visibility: runLogTable.visibility,
+      ownerTeamId: athleteTable.teamId,
+    })
+    .from(runLogTable)
+    .innerJoin(athleteTable, eq(athleteTable.userId, runLogTable.userId))
+    .where(eq(runLogTable.id, runLogId))
+    .limit(1);
+
+  if (!row.length) {
+    throw new SocialAccessError("NOT_FOUND", "Run not found");
+  }
+  const r = row[0]!;
+  if (r.ownerTeamId !== viewerTeamId) {
+    throw new SocialAccessError("FORBIDDEN", "Run not in your team");
+  }
+  if (r.visibility !== "public") {
+    throw new SocialAccessError("FORBIDDEN", "Run not available");
+  }
+
+  const ownerSettings = await getPrivacySettings(r.ownerUserId);
+  if (!ownerSettings.socialEnabled || !ownerSettings.shareRunsPublicly) {
+    throw new SocialAccessError("FORBIDDEN", "Run not available");
+  }
+
+  return { ownerUserId: r.ownerUserId };
+}
+
 export async function getLeaderboard(input: {
   windowDays: number;
   limit: number;
   sort?: "distance_desc" | "distance_asc" | "duration_desc" | "duration_asc";
+  teamId?: number | null;
 }) {
   const windowDays =
-    Number.isFinite(input.windowDays) && input.windowDays > 0
-      ? Math.min(365, Math.floor(input.windowDays))
-      : 7;
-  const limit =
-    Number.isFinite(input.limit) && input.limit > 0
-      ? Math.min(100, Math.floor(input.limit))
-      : 50;
+    Number.isFinite(input.windowDays) && input.windowDays > 0 ? Math.min(365, Math.floor(input.windowDays)) : 7;
+  const limit = Number.isFinite(input.limit) && input.limit > 0 ? Math.min(100, Math.floor(input.limit)) : 50;
 
-  const since =
-    windowDays > 0 ? new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000) : null;
+  const since = windowDays > 0 ? new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000) : null;
   const totalMetersSql = sql<number>`sum(${runLogTable.distanceMeters})`;
   const totalDurationSql = sql<number>`sum(${runLogTable.durationSeconds})`;
 
@@ -138,6 +197,11 @@ export async function getLeaderboard(input: {
         : sort === "duration_asc"
           ? asc(totalDurationSql)
           : desc(totalMetersSql);
+
+  const scopeFilter =
+    input.teamId != null
+      ? eq(athleteTable.teamId, input.teamId)
+      : eq(athleteTable.athleteType, "adult");
 
   const rows = await db
     .select({
@@ -153,7 +217,7 @@ export async function getLeaderboard(input: {
     .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, runLogTable.userId))
     .where(
       and(
-        eq(athleteTable.athleteType, "adult"),
+        scopeFilter,
         eq(runLogTable.visibility, "public"),
         eq(socialPrivacySettingsTable.socialEnabled, true),
         eq(socialPrivacySettingsTable.showInLeaderboard, true),
@@ -174,18 +238,16 @@ export async function getLeaderboard(input: {
   }));
 }
 
-export async function listAdults(input: { limit: number; cursor?: number }) {
-  const limit =
-    Number.isFinite(input.limit) && input.limit > 0
-      ? Math.min(100, Math.floor(input.limit))
-      : 50;
+export async function listAdults(input: { limit: number; cursor?: number; teamId?: number | null }) {
+  const limit = Number.isFinite(input.limit) && input.limit > 0 ? Math.min(100, Math.floor(input.limit)) : 50;
   const cursor =
-    typeof input.cursor === "number" && Number.isFinite(input.cursor)
-      ? Math.floor(input.cursor)
-      : undefined;
+    typeof input.cursor === "number" && Number.isFinite(input.cursor) ? Math.floor(input.cursor) : undefined;
+
+  const scopeFilter =
+    input.teamId != null ? eq(athleteTable.teamId, input.teamId) : eq(athleteTable.athleteType, "adult");
 
   const filters = [
-    eq(athleteTable.athleteType, "adult"),
+    scopeFilter,
     eq(athleteTable.userId, userTable.id),
     eq(socialPrivacySettingsTable.userId, athleteTable.userId),
     eq(socialPrivacySettingsTable.socialEnabled, true),
@@ -223,15 +285,11 @@ export async function listPublicRuns(input: {
   cursor?: number;
   windowDays?: number;
   sort?: string;
+  teamId?: number | null;
 }) {
-  const limit =
-    Number.isFinite(input.limit) && input.limit > 0
-      ? Math.min(50, Math.floor(input.limit))
-      : 20;
+  const limit = Number.isFinite(input.limit) && input.limit > 0 ? Math.min(50, Math.floor(input.limit)) : 20;
   const cursor =
-    typeof input.cursor === "number" && Number.isFinite(input.cursor)
-      ? Math.floor(input.cursor)
-      : undefined;
+    typeof input.cursor === "number" && Number.isFinite(input.cursor) ? Math.floor(input.cursor) : undefined;
 
   const windowDays =
     typeof input.windowDays === "number" && Number.isFinite(input.windowDays) && input.windowDays > 0
@@ -240,6 +298,9 @@ export async function listPublicRuns(input: {
   const since = windowDays > 0 ? new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000) : null;
 
   const sort = typeof input.sort === "string" ? input.sort : "date_desc";
+
+  const scopeFilter =
+    input.teamId != null ? eq(athleteTable.teamId, input.teamId) : eq(athleteTable.athleteType, "adult");
 
   const commentCountSql = (runIdCol: typeof runLogTable.id) =>
     sql<number>`(select count(*) from ${runCommentTable} where ${runCommentTable.runLogId} = ${runIdCol})`;
@@ -279,7 +340,7 @@ export async function listPublicRuns(input: {
     .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, runLogTable.userId))
     .where(
       and(
-        eq(athleteTable.athleteType, "adult"),
+        scopeFilter,
         eq(runLogTable.visibility, "public"),
         eq(socialPrivacySettingsTable.socialEnabled, true),
         eq(socialPrivacySettingsTable.shareRunsPublicly, true),
@@ -313,9 +374,19 @@ export async function listPublicRuns(input: {
   };
 }
 
-export async function getPublicRunDetail(input: { viewerUserId: number; runLogId: number }) {
-  // Validates that the run is adult + public.
-  await ensurePublicAdultRun(input.runLogId);
+export async function getPublicRunDetail(input: {
+  viewerUserId: number;
+  runLogId: number;
+  teamId?: number | null;
+}) {
+  if (input.teamId != null) {
+    await ensureTeamPublicRun(input.runLogId, input.teamId);
+  } else {
+    await ensurePublicAdultRun(input.runLogId);
+  }
+
+  const scopeFilter =
+    input.teamId != null ? eq(athleteTable.teamId, input.teamId) : eq(athleteTable.athleteType, "adult");
 
   const row = await db
     .select({
@@ -332,7 +403,13 @@ export async function getPublicRunDetail(input: { viewerUserId: number; runLogId
     .from(runLogTable)
     .innerJoin(userTable, eq(userTable.id, runLogTable.userId))
     .innerJoin(athleteTable, eq(athleteTable.userId, runLogTable.userId))
-    .where(and(eq(runLogTable.id, input.runLogId), eq(athleteTable.athleteType, "adult"), eq(runLogTable.visibility, "public")))
+    .where(
+      and(
+        eq(runLogTable.id, input.runLogId),
+        scopeFilter,
+        eq(runLogTable.visibility, "public"),
+      ),
+    )
     .limit(1);
 
   if (!row.length) {
@@ -404,8 +481,9 @@ async function getReactionSummary(viewerUserId: number, commentIds: number[]) {
   return mapped;
 }
 
-export async function listRunComments(viewerUserId: number, runLogId: number) {
-  const { ownerUserId } = await ensurePublicAdultRun(runLogId);
+export async function listRunComments(viewerUserId: number, runLogId: number, teamId?: number | null) {
+  const { ownerUserId } =
+    teamId != null ? await ensureTeamPublicRun(runLogId, teamId) : await ensurePublicAdultRun(runLogId);
 
   const rows = await db
     .select({
@@ -431,21 +509,21 @@ export async function listRunComments(viewerUserId: number, runLogId: number) {
     const react = reactions.get(r.commentId) ?? { counts: {}, myReaction: null };
     const isMine = r.userId === viewerUserId;
     const canDelete = isMine || viewerUserId === ownerUserId;
-    return ({
-    commentId: r.commentId,
-    runLogId: r.runLogId,
-    userId: r.userId,
-    name: r.name,
-    avatarUrl: normalizeStoredMediaUrl(r.profilePicture ?? null),
-    content: r.content,
-    parentId: r.parentId ?? null,
-    createdAt: r.createdAt.toISOString(),
-    updatedAt: r.updatedAt.toISOString(),
-    isMine,
-    canDelete,
-    reactionCounts: react.counts,
-    myReaction: react.myReaction,
-  });
+    return {
+      commentId: r.commentId,
+      runLogId: r.runLogId,
+      userId: r.userId,
+      name: r.name,
+      avatarUrl: normalizeStoredMediaUrl(r.profilePicture ?? null),
+      content: r.content,
+      parentId: r.parentId ?? null,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+      isMine,
+      canDelete,
+      reactionCounts: react.counts,
+      myReaction: react.myReaction,
+    };
   });
 }
 
@@ -454,13 +532,16 @@ export async function createRunComment(input: {
   runLogId: number;
   content: string;
   parentId?: number | null;
+  teamId?: number | null;
 }) {
-  await ensurePublicAdultRun(input.runLogId);
+  if (input.teamId != null) {
+    await ensureTeamPublicRun(input.runLogId, input.teamId);
+  } else {
+    await ensurePublicAdultRun(input.runLogId);
+  }
 
   const parentId =
-    typeof input.parentId === "number" && Number.isFinite(input.parentId)
-      ? Math.floor(input.parentId)
-      : null;
+    typeof input.parentId === "number" && Number.isFinite(input.parentId) ? Math.floor(input.parentId) : null;
   if (parentId != null) {
     const parent = await db
       .select({ id: runCommentTable.id, runLogId: runCommentTable.runLogId })
@@ -526,7 +607,12 @@ export async function createRunComment(input: {
   };
 }
 
-export async function editComment(input: { userId: number; commentId: number; content: string }) {
+export async function editComment(input: {
+  userId: number;
+  commentId: number;
+  content: string;
+  teamId?: number | null;
+}) {
   const rows = await db
     .select({
       id: runCommentTable.id,
@@ -550,13 +636,13 @@ export async function editComment(input: { userId: number; commentId: number; co
     .set({ content: input.content, updatedAt: new Date() })
     .where(eq(runCommentTable.id, input.commentId));
 
-  const items = await listRunComments(input.userId, existing.runLogId);
+  const items = await listRunComments(input.userId, existing.runLogId, input.teamId);
   const updated = items.find((c) => c.commentId === input.commentId);
   if (!updated) throw new Error("Failed to load edited comment");
   return updated;
 }
 
-export async function deleteComment(input: { userId: number; commentId: number }) {
+export async function deleteComment(input: { userId: number; commentId: number; teamId?: number | null }) {
   const rows = await db
     .select({
       id: runCommentTable.id,
@@ -572,7 +658,10 @@ export async function deleteComment(input: { userId: number; commentId: number }
     throw new SocialAccessError("NOT_FOUND", "Comment not found");
   }
 
-  const { ownerUserId } = await ensurePublicAdultRun(existing.runLogId);
+  const { ownerUserId } =
+    input.teamId != null
+      ? await ensureTeamPublicRun(existing.runLogId, input.teamId)
+      : await ensurePublicAdultRun(existing.runLogId);
   const canDelete = existing.userId === input.userId || ownerUserId === input.userId;
   if (!canDelete) {
     throw new SocialAccessError("FORBIDDEN", "Not allowed");
@@ -582,11 +671,7 @@ export async function deleteComment(input: { userId: number; commentId: number }
   return { ok: true as const };
 }
 
-export async function reportComment(input: {
-  performedBy: number;
-  commentId: number;
-  reason?: string;
-}) {
+export async function reportComment(input: { performedBy: number; commentId: number; reason?: string }) {
   const rows = await db
     .select({ id: runCommentTable.id })
     .from(runCommentTable)
@@ -598,9 +683,7 @@ export async function reportComment(input: {
   }
 
   const reason = (input.reason ?? "").trim();
-  const action = reason
-    ? `run_comment_reported:${reason}`.slice(0, 500)
-    : "run_comment_reported";
+  const action = reason ? `run_comment_reported:${reason}`.slice(0, 500) : "run_comment_reported";
 
   await db.insert(auditLogsTable).values({
     performedBy: input.performedBy,
@@ -622,7 +705,9 @@ export async function listCommentReactions(commentId: number) {
     ORDER BY r."createdAt" ASC
   `);
 
-  const data = (rows as any).rows as { userId: number; name: string; profilePicture: string | null; emoji: string }[] | undefined;
+  const data = (rows as any).rows as
+    | { userId: number; name: string; profilePicture: string | null; emoji: string }[]
+    | undefined;
   return (data ?? []).map((r) => ({
     userId: Number(r.userId),
     name: r.name,
@@ -631,11 +716,7 @@ export async function listCommentReactions(commentId: number) {
   }));
 }
 
-export async function setCommentReaction(input: {
-  userId: number;
-  commentId: number;
-  emoji: string;
-}) {
+export async function setCommentReaction(input: { userId: number; commentId: number; emoji: string }) {
   await ensureRunCommentReactionTable();
   if (!ALLOWED_REACTION_EMOJIS.has(input.emoji)) {
     throw new SocialAccessError("FORBIDDEN", "Invalid emoji");

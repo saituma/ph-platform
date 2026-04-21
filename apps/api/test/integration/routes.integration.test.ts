@@ -81,7 +81,7 @@ async function insertUser(role: string) {
   const cognitoSub = `it-${role}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const result = await pool.query(
     'insert into "users" ("cognitoSub", "name", "email", "role", "emailVerified") values ($1,$2,$3,$4,$5) returning id',
-    [cognitoSub, name, email, role, true]
+    [cognitoSub, name, email, role, true],
   );
   const id = result.rows[0].id as number;
   testUsers.set(id, { id, role, email, name });
@@ -106,10 +106,10 @@ async function ensureGuardianAndAthlete(userId: number) {
   let guardianId = existing.guardianId;
   if (!guardianId) {
     const email = testUsers.get(userId)?.email ?? `guardian-${userId}@example.com`;
-    const guardianRes = await pool.query(
-      'insert into "guardians" ("userId", "email") values ($1, $2) returning id',
-      [userId, email]
-    );
+    const guardianRes = await pool.query('insert into "guardians" ("userId", "email") values ($1, $2) returning id', [
+      userId,
+      email,
+    ]);
     guardianId = guardianRes.rows[0]?.id as number | undefined;
   }
 
@@ -119,7 +119,7 @@ async function ensureGuardianAndAthlete(userId: number) {
 
   const athleteRes = await pool.query(
     'insert into "athletes" ("userId", "guardianId", "name", "age", "birthDate", "team", "trainingPerWeek", "onboardingCompleted", "onboardingCompletedAt") values ($1,$2,$3,$4,$5,$6,$7,$8,now()) returning id',
-    [userId, guardianId, "Test Athlete", 14, "2010-01-01", "Test Team", 3, true]
+    [userId, guardianId, "Test Athlete", 14, "2010-01-01", "Test Team", 3, true],
   );
   const athleteId = athleteRes.rows[0]?.id as number | undefined;
   return { guardianId, athleteId };
@@ -138,7 +138,7 @@ describe("integration: routes (real DB/Stripe)", () => {
 
   beforeAll(async () => {
     const columnCheck = await pool.query(
-      `select column_name from information_schema.columns where table_name = 'athletes' and column_name = 'birthDate'`
+      `select column_name from information_schema.columns where table_name = 'athletes' and column_name = 'birthDate'`,
     );
     schemaReady = (columnCheck.rowCount ?? 0) > 0;
 
@@ -167,7 +167,7 @@ describe("integration: routes (real DB/Stripe)", () => {
     if (ids.guardian || ids.admin || ids.temp) {
       await pool.query(
         'delete from "message_reactions" where "messageId" in (select id from "messages" where "senderId" = any($1) or "receiverId" = any($1))',
-        [[ids.guardian, ids.admin, ids.temp].filter(Boolean)]
+        [[ids.guardian, ids.admin, ids.temp].filter(Boolean)],
       );
     }
     if (ids.guardian || ids.admin || ids.temp) {
@@ -251,13 +251,13 @@ describe("integration: routes (real DB/Stripe)", () => {
           previousOnboardingConfig.approvalWorkflow,
           previousOnboardingConfig.notes,
           previousOnboardingConfig.id,
-        ]
+        ],
       );
     }
     if (ids.admin) {
       await pool.query(
         'update "onboarding_configs" set "updatedBy" = null, "createdBy" = null where "updatedBy" = $1 or "createdBy" = $1',
-        [ids.admin]
+        [ids.admin],
       );
     }
 
@@ -389,30 +389,23 @@ describe("integration: routes (real DB/Stripe)", () => {
   });
 
   it("GET /api/programs/:programId", async () => {
-    const res = await request(app)
-      .get(`/api/programs/${ctx.programId}`)
-      .set(testHeaders(ctx.guardianUserId!));
+    const res = await request(app).get(`/api/programs/${ctx.programId}`).set(testHeaders(ctx.guardianUserId!));
     expect(res.status).toBe(200);
   });
 
   it("GET /api/programs/:programId/sessions", async () => {
-    const res = await request(app)
-      .get(`/api/programs/${ctx.programId}/sessions`)
-      .set(testHeaders(ctx.guardianUserId!));
+    const res = await request(app).get(`/api/programs/${ctx.programId}/sessions`).set(testHeaders(ctx.guardianUserId!));
     expect(res.status).toBe(200);
   });
 
   it("POST /api/content", async () => {
     if (!schemaReady) return;
-    const res = await request(app)
-      .post("/api/content")
-      .set(testHeaders(ctx.adminUserId!, "admin"))
-      .send({
-        title: "Test Content",
-        content: "Summary",
-        type: "article",
-        surface: "parent_platform",
-      });
+    const res = await request(app).post("/api/content").set(testHeaders(ctx.adminUserId!, "admin")).send({
+      title: "Test Content",
+      content: "Summary",
+      type: "article",
+      surface: "parent_platform",
+    });
     expect(res.status).toBe(201);
     ctx.contentId = res.body.item?.id;
   });
@@ -444,9 +437,7 @@ describe("integration: routes (real DB/Stripe)", () => {
 
   it("GET /api/content/:contentId", async () => {
     if (!schemaReady || !ctx.contentId) return;
-    const res = await request(app)
-      .get(`/api/content/${ctx.contentId}`)
-      .set(testHeaders(ctx.guardianUserId!));
+    const res = await request(app).get(`/api/content/${ctx.contentId}`).set(testHeaders(ctx.guardianUserId!));
     expect(res.status).toBe(200);
   });
 
@@ -539,9 +530,7 @@ describe("integration: routes (real DB/Stripe)", () => {
   });
 
   it("GET /api/chat/groups/:groupId/members", async () => {
-    const res = await request(app)
-      .get(`/api/chat/groups/${ctx.groupId}/members`)
-      .set(testHeaders(ctx.guardianUserId!));
+    const res = await request(app).get(`/api/chat/groups/${ctx.groupId}/members`).set(testHeaders(ctx.guardianUserId!));
     expect(res.status).toBe(200);
   });
 
@@ -598,9 +587,7 @@ describe("integration: routes (real DB/Stripe)", () => {
 
   it("GET /api/bookings/services", async () => {
     if (!schemaReady) return;
-    const res = await request(app)
-      .get("/api/bookings/services")
-      .set(testHeaders(ctx.guardianUserId!));
+    const res = await request(app).get("/api/bookings/services").set(testHeaders(ctx.guardianUserId!));
     expect(res.status).toBe(200);
   });
 
@@ -733,9 +720,7 @@ describe("integration: routes (real DB/Stripe)", () => {
   });
 
   it("GET /api/admin/subscription-plans", async () => {
-    const res = await request(app)
-      .get("/api/admin/subscription-plans")
-      .set(testHeaders(ctx.adminUserId!, "admin"));
+    const res = await request(app).get("/api/admin/subscription-plans").set(testHeaders(ctx.adminUserId!, "admin"));
     expect(res.status).toBe(200);
   });
 
@@ -834,9 +819,7 @@ describe("integration: routes (real DB/Stripe)", () => {
   });
 
   it("GET /api/admin/subscription-requests", async () => {
-    const res = await request(app)
-      .get("/api/admin/subscription-requests")
-      .set(testHeaders(ctx.adminUserId!, "admin"));
+    const res = await request(app).get("/api/admin/subscription-requests").set(testHeaders(ctx.adminUserId!, "admin"));
     expect(res.status).toBe(200);
   });
 
@@ -897,24 +880,19 @@ describe("integration: routes (real DB/Stripe)", () => {
   });
 
   it("PUT /api/admin/preferences", async () => {
-    const res = await request(app)
-      .put("/api/admin/preferences")
-      .set(testHeaders(ctx.adminUserId!, "admin"))
-      .send({
-        timezone: "UTC",
-        notificationSummary: "Weekly",
-        workStartHour: 9,
-        workStartMinute: 0,
-        workEndHour: 17,
-        workEndMinute: 0,
-      });
+    const res = await request(app).put("/api/admin/preferences").set(testHeaders(ctx.adminUserId!, "admin")).send({
+      timezone: "UTC",
+      notificationSummary: "Weekly",
+      workStartHour: 9,
+      workStartMinute: 0,
+      workEndHour: 17,
+      workEndMinute: 0,
+    });
     expect(res.status).toBe(200);
   });
 
   it("GET /api/admin/onboarding-config", async () => {
-    const res = await request(app)
-      .get("/api/admin/onboarding-config")
-      .set(testHeaders(ctx.adminUserId!, "admin"));
+    const res = await request(app).get("/api/admin/onboarding-config").set(testHeaders(ctx.adminUserId!, "admin"));
     expect(res.status).toBe(200);
   });
 

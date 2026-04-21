@@ -26,132 +26,149 @@ import {
 import { ProgramType, contentType } from "../db/schema";
 import { getAthleteForUser } from "../services/user.service";
 
-const contentCreateSchema = z.object({
-  title: z.string().optional().transform((val) => val?.trim() || ""),
-  content: z.string().optional().transform((val) => val?.trim() || ""),
-  type: z.enum(contentType.enumValues),
-  body: z.string().optional(),
-  programTier: z.enum(ProgramType.enumValues).optional(),
-  surface: z.enum(["home", "parent_platform", "legal", "announcements", "testimonial_submissions"]),
-  category: z.string().optional(),
-  ageList: z.array(z.number().int().min(0)).optional(),
-  minAge: z.number().int().min(0).optional(),
-  maxAge: z.number().int().min(0).optional(),
-  announcementAudienceType: z.enum(["all", "age", "team", "group", "athlete_type", "tier"]).optional(),
-  announcementAudienceAge: z.number().int().min(0).optional(),
-  announcementAudienceTeam: z.string().optional(),
-  announcementAudienceGroupId: z.number().int().min(1).optional(),
-  announcementAudienceAthleteType: z.enum(["youth", "adult"]).optional(),
-  announcementAudienceTier: z.enum(ProgramType.enumValues).optional(),
-  announcementStartsAt: z.union([z.coerce.date(), z.null()]).optional(),
-  announcementEndsAt: z.union([z.coerce.date(), z.null()]).optional(),
-  announcementIsActive: z.boolean().optional(),
-}).superRefine((data, ctx) => {
-  if (data.surface !== "announcements") {
-    if (!data.title) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.too_small,
-        minimum: 1,
-        type: "string",
-        inclusive: true,
-        exact: false,
-        message: "Title is required.",
-        path: ["title"],
-      });
+const contentCreateSchema = z
+  .object({
+    title: z
+      .string()
+      .optional()
+      .transform((val) => val?.trim() || ""),
+    content: z
+      .string()
+      .optional()
+      .transform((val) => val?.trim() || ""),
+    type: z.enum(contentType.enumValues),
+    body: z.string().optional(),
+    programTier: z.enum(ProgramType.enumValues).optional(),
+    surface: z.enum(["home", "parent_platform", "legal", "announcements", "testimonial_submissions"]),
+    category: z.string().optional(),
+    ageList: z.array(z.number().int().min(0)).optional(),
+    minAge: z.number().int().min(0).optional(),
+    maxAge: z.number().int().min(0).optional(),
+    announcementAudienceType: z.enum(["all", "age", "team", "group", "athlete_type", "tier"]).optional(),
+    announcementAudienceAge: z.number().int().min(0).optional(),
+    announcementAudienceTeam: z.string().optional(),
+    announcementAudienceGroupId: z.number().int().min(1).optional(),
+    announcementAudienceAthleteType: z.enum(["youth", "adult"]).optional(),
+    announcementAudienceTier: z.enum(ProgramType.enumValues).optional(),
+    announcementStartsAt: z.union([z.coerce.date(), z.null()]).optional(),
+    announcementEndsAt: z.union([z.coerce.date(), z.null()]).optional(),
+    announcementIsActive: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.surface !== "announcements") {
+      if (!data.title) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.too_small,
+          minimum: 1,
+          type: "string",
+          inclusive: true,
+          exact: false,
+          message: "Title is required.",
+          path: ["title"],
+        });
+      }
+      if (!data.content) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.too_small,
+          minimum: 1,
+          type: "string",
+          inclusive: true,
+          exact: false,
+          message: "Content is required.",
+          path: ["content"],
+        });
+      }
     }
-    if (!data.content) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.too_small,
-        minimum: 1,
-        type: "string",
-        inclusive: true,
-        exact: false,
-        message: "Content is required.",
-        path: ["content"],
-      });
+    if (data.surface === "announcements") {
+      const audienceType = data.announcementAudienceType ?? "all";
+      if (audienceType === "age" && data.announcementAudienceAge === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Announcement age is required for age audience.",
+          path: ["announcementAudienceAge"],
+        });
+      }
+      if (audienceType === "team" && !data.announcementAudienceTeam?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Team is required for team audience.",
+          path: ["announcementAudienceTeam"],
+        });
+      }
+      if (audienceType === "group" && data.announcementAudienceGroupId === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Group is required for group audience.",
+          path: ["announcementAudienceGroupId"],
+        });
+      }
+      if (audienceType === "athlete_type" && !data.announcementAudienceAthleteType) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Athlete type is required for athlete-type audience.",
+          path: ["announcementAudienceAthleteType"],
+        });
+      }
+      if (audienceType === "tier" && !data.announcementAudienceTier) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Tier is required for tier audience.",
+          path: ["announcementAudienceTier"],
+        });
+      }
+      if (
+        (data.announcementStartsAt && !data.announcementEndsAt) ||
+        (!data.announcementStartsAt && data.announcementEndsAt)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Start and end time are required together.",
+          path: ["announcementStartsAt"],
+        });
+      }
+      if (
+        data.announcementStartsAt &&
+        data.announcementEndsAt &&
+        data.announcementEndsAt.getTime() < data.announcementStartsAt.getTime()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "End time must be after start time.",
+          path: ["announcementEndsAt"],
+        });
+      }
     }
-  }
-  if (data.surface === "announcements") {
-    const audienceType = data.announcementAudienceType ?? "all";
-    if (audienceType === "age" && data.announcementAudienceAge === undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Announcement age is required for age audience.",
-        path: ["announcementAudienceAge"],
-      });
-    }
-    if (audienceType === "team" && !data.announcementAudienceTeam?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Team is required for team audience.",
-        path: ["announcementAudienceTeam"],
-      });
-    }
-    if (audienceType === "group" && data.announcementAudienceGroupId === undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Group is required for group audience.",
-        path: ["announcementAudienceGroupId"],
-      });
-    }
-    if (audienceType === "athlete_type" && !data.announcementAudienceAthleteType) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Athlete type is required for athlete-type audience.",
-        path: ["announcementAudienceAthleteType"],
-      });
-    }
-    if (audienceType === "tier" && !data.announcementAudienceTier) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Tier is required for tier audience.",
-        path: ["announcementAudienceTier"],
-      });
-    }
-    if ((data.announcementStartsAt && !data.announcementEndsAt) || (!data.announcementStartsAt && data.announcementEndsAt)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Start and end time are required together.",
-        path: ["announcementStartsAt"],
-      });
-    }
-    if (
-      data.announcementStartsAt &&
-      data.announcementEndsAt &&
-      data.announcementEndsAt.getTime() < data.announcementStartsAt.getTime()
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "End time must be after start time.",
-        path: ["announcementEndsAt"],
-      });
-    }
-  }
-}).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
-  message: "Minimum age must be less than or equal to maximum age.",
-  path: ["minAge"],
-}).refine((data) => {
-  if (!data.ageList || data.ageList.length === 0) return true;
-  return data.ageList.every((age) => Number.isFinite(age));
-}, {
-  message: "Age list must be a list of valid ages.",
-  path: ["ageList"],
-});
+  })
+  .refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
+    message: "Minimum age must be less than or equal to maximum age.",
+    path: ["minAge"],
+  })
+  .refine(
+    (data) => {
+      if (!data.ageList || data.ageList.length === 0) return true;
+      return data.ageList.every((age) => Number.isFinite(age));
+    },
+    {
+      message: "Age list must be a list of valid ages.",
+      path: ["ageList"],
+    },
+  );
 
-const contentUpdateSchema = z.object({
-  title: z.string().min(1),
-  content: z.string().min(1),
-  type: z.enum(contentType.enumValues),
-  body: z.string().optional(),
-  programTier: z.enum(ProgramType.enumValues).optional(),
-  category: z.string().optional(),
-  ageList: z.array(z.number().int().min(0)).optional(),
-  minAge: z.number().int().min(0).optional(),
-  maxAge: z.number().int().min(0).optional(),
-  announcementStartsAt: z.union([z.coerce.date(), z.null()]).optional(),
-  announcementEndsAt: z.union([z.coerce.date(), z.null()]).optional(),
-  announcementIsActive: z.boolean().optional(),
-})
+const contentUpdateSchema = z
+  .object({
+    title: z.string().min(1),
+    content: z.string().min(1),
+    type: z.enum(contentType.enumValues),
+    body: z.string().optional(),
+    programTier: z.enum(ProgramType.enumValues).optional(),
+    category: z.string().optional(),
+    ageList: z.array(z.number().int().min(0)).optional(),
+    minAge: z.number().int().min(0).optional(),
+    maxAge: z.number().int().min(0).optional(),
+    announcementStartsAt: z.union([z.coerce.date(), z.null()]).optional(),
+    announcementEndsAt: z.union([z.coerce.date(), z.null()]).optional(),
+    announcementIsActive: z.boolean().optional(),
+  })
   .superRefine((data, ctx) => {
     const start = data.announcementStartsAt ?? null;
     const end = data.announcementEndsAt ?? null;
@@ -171,16 +188,19 @@ const contentUpdateSchema = z.object({
     }
   })
   .refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
-  message: "Minimum age must be less than or equal to maximum age.",
-  path: ["minAge"],
-})
-  .refine((data) => {
-    if (!data.ageList || data.ageList.length === 0) return true;
-    return data.ageList.every((age) => Number.isFinite(age));
-  }, {
-    message: "Age list must be a list of valid ages.",
-    path: ["ageList"],
-  });
+    message: "Minimum age must be less than or equal to maximum age.",
+    path: ["minAge"],
+  })
+  .refine(
+    (data) => {
+      if (!data.ageList || data.ageList.length === 0) return true;
+      return data.ageList.every((age) => Number.isFinite(age));
+    },
+    {
+      message: "Age list must be a list of valid ages.",
+      path: ["ageList"],
+    },
+  );
 
 const parentCourseModuleSchema = z.object({
   id: z.string().min(1),
@@ -202,30 +222,32 @@ const parentCourseModuleSchema = z.object({
   preview: z.boolean().optional().nullable(),
 });
 
-const parentCourseCreateSchema = z.object({
-  title: z.string().min(1),
-  summary: z.string().min(1),
-  description: z.string().optional().nullable(),
-  coverImage: z
-    .string()
-    .transform((val) => val?.trim() || "")
-    .refine((val) => val === "" || z.string().url().safeParse(val).success, {
-      message: "Invalid URL format",
-    })
-    .refine((val) => !val.startsWith("data:"), {
-      message: "Use a URL instead of base64 data.",
-    })
-    .optional()
-    .nullable(),
-  category: z.string().min(1),
-  programTier: z.enum(ProgramType.enumValues).optional().nullable(),
-  minAge: z.number().int().min(0).optional(),
-  maxAge: z.number().int().min(0).optional(),
-  modules: z.array(parentCourseModuleSchema).min(1),
-}).refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
-  message: "Minimum age must be less than or equal to maximum age.",
-  path: ["minAge"],
-});
+const parentCourseCreateSchema = z
+  .object({
+    title: z.string().min(1),
+    summary: z.string().min(1),
+    description: z.string().optional().nullable(),
+    coverImage: z
+      .string()
+      .transform((val) => val?.trim() || "")
+      .refine((val) => val === "" || z.string().url().safeParse(val).success, {
+        message: "Invalid URL format",
+      })
+      .refine((val) => !val.startsWith("data:"), {
+        message: "Use a URL instead of base64 data.",
+      })
+      .optional()
+      .nullable(),
+    category: z.string().min(1),
+    programTier: z.enum(ProgramType.enumValues).optional().nullable(),
+    minAge: z.number().int().min(0).optional(),
+    maxAge: z.number().int().min(0).optional(),
+    modules: z.array(parentCourseModuleSchema).min(1),
+  })
+  .refine((data) => data.minAge === undefined || data.maxAge === undefined || data.minAge <= data.maxAge, {
+    message: "Minimum age must be less than or equal to maximum age.",
+    path: ["minAge"],
+  });
 
 const parentCourseUpdateSchema = parentCourseCreateSchema;
 
@@ -326,7 +348,7 @@ export async function createContentItem(req: Request, res: Response) {
     !isAnnouncement || audienceType !== "tier" ? input.programTier : input.announcementAudienceTier;
   const announcementStartsAt = isAnnouncement ? input.announcementStartsAt : undefined;
   const announcementEndsAt = isAnnouncement ? input.announcementEndsAt : undefined;
-  const announcementIsActive = isAnnouncement ? input.announcementIsActive ?? true : undefined;
+  const announcementIsActive = isAnnouncement ? (input.announcementIsActive ?? true) : undefined;
 
   const item = await createContent({
     title,
@@ -566,10 +588,10 @@ export async function getParentCourseAiInsightController(req: Request, res: Resp
 
 export async function getContentAiInsightController(req: Request, res: Response) {
   const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
-  
+
   // Extract age if provided for better AI context (e.g., U14, U16)
   const ageQuery = req.query.age ? String(req.query.age) : null;
-  
+
   try {
     const { getContentAiInsight } = await import("../services/content.service");
     const insight = await getContentAiInsight(contentId, ageQuery);

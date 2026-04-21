@@ -52,7 +52,7 @@ describe("s3.service - getPublicObjectUrl", () => {
     process.env.MEDIA_PUBLIC_BASE_URL = "cdn.example.com";
     const mod = await import("../../src/services/s3.service");
     const url = mod.normalizeStoredMediaUrl(
-      "https://my-bucket.s3.us-west-2.amazonaws.com/profile-pictures/2026/04/a.jpg"
+      "https://my-bucket.s3.us-west-2.amazonaws.com/profile-pictures/2026/04/a.jpg",
     );
     expect(url).toBe("https://cdn.example.com/profile-pictures/2026/04/a.jpg");
   });

@@ -19,7 +19,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
         message: "Zod Validation Error",
         issues: err.issues,
         ...context,
-      })
+      }),
     );
     return res.status(400).json({ error: "Invalid request", issues: err.issues });
   }
@@ -41,8 +41,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return res.status(status).json({ error: message });
   }
 
-  const cause =
-    typeof err === "object" && err && "cause" in err ? (err as any).cause : undefined;
+  const cause = typeof err === "object" && err && "cause" in err ? (err as any).cause : undefined;
   const dbCause =
     cause && typeof cause === "object"
       ? {
@@ -57,6 +56,13 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       : undefined;
 
   const defaultMessage = err instanceof Error ? err.message : String(err);
+  const dbConnectionHint =
+    process.env.NODE_ENV !== "production" &&
+    dbCause?.code === "ECONNRESET" &&
+    defaultMessage.includes("Failed query")
+      ? "PostgreSQL closed the connection (often invalid/expired DATABASE_URL, paused Neon project, or network). Copy a fresh connection string from the Neon dashboard and run: pnpm --filter api db:psql -c \"select 1\""
+      : undefined;
+
   console.error(
     JSON.stringify({
       level: "error",
@@ -65,13 +71,15 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       message: defaultMessage,
       stack: err instanceof Error ? err.stack : undefined,
       cause: dbCause,
+      ...(dbConnectionHint ? { hint: dbConnectionHint } : {}),
       ...context,
-    })
+    }),
   );
   if (process.env.NODE_ENV !== "production") {
     return res.status(500).json({
       error: "Internal server error",
       details: typeof err === "object" && err ? err : String(err),
+      ...(dbConnectionHint ? { hint: dbConnectionHint } : {}),
     });
   }
   return res.status(500).json({ error: "Internal server error" });

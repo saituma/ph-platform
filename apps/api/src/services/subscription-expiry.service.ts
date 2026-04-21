@@ -27,8 +27,8 @@ async function processExpiredPlans(now: Date) {
       and(
         isNotNull(athleteTable.planExpiresAt),
         lt(athleteTable.planExpiresAt, now),
-        inArray(athleteTable.currentProgramTier, [...PAID_TIERS])
-      )
+        inArray(athleteTable.currentProgramTier, [...PAID_TIERS]),
+      ),
     );
 
   for (const athlete of expired) {
@@ -40,9 +40,7 @@ async function processExpiredPlans(now: Date) {
           .limit(1)
       : [];
     const payerUserId = guardianRows[0]?.userId ?? athlete.userId;
-    const userRows = payerUserId
-      ? await db.select().from(userTable).where(eq(userTable.id, payerUserId)).limit(1)
-      : [];
+    const userRows = payerUserId ? await db.select().from(userTable).where(eq(userTable.id, payerUserId)).limit(1) : [];
     const payer = userRows[0];
 
     await db
@@ -68,7 +66,7 @@ async function processExpiredPlans(now: Date) {
       payerUserId,
       "Plan ended",
       "Your paid plan period has ended. Renew to keep messaging and bookings.",
-      { url: "/plans", type: "plan_expired" }
+      { url: "/plans", type: "plan_expired" },
     );
     void sendPlanExpiredEmail({
       to: payer.email,
@@ -88,8 +86,8 @@ async function processExpiringReminders(now: Date, horizon: Date) {
         gt(athleteTable.planExpiresAt, now),
         lte(athleteTable.planExpiresAt, horizon),
         inArray(athleteTable.currentProgramTier, [...PAID_TIERS]),
-        isNull(athleteTable.planRenewalReminderSentAt)
-      )
+        isNull(athleteTable.planRenewalReminderSentAt),
+      ),
     );
 
   for (const athlete of rows) {
@@ -101,9 +99,7 @@ async function processExpiringReminders(now: Date, horizon: Date) {
           .limit(1)
       : [];
     const payerUserId = guardianRows[0]?.userId ?? athlete.userId;
-    const userRows = payerUserId
-      ? await db.select().from(userTable).where(eq(userTable.id, payerUserId)).limit(1)
-      : [];
+    const userRows = payerUserId ? await db.select().from(userTable).where(eq(userTable.id, payerUserId)).limit(1) : [];
     const payer = userRows[0];
     if (!payerUserId || !payer || payer.isDeleted) continue;
 
@@ -118,7 +114,7 @@ async function processExpiringReminders(now: Date, horizon: Date) {
       payerUserId,
       "Plan renewing soon",
       `Your plan access ends ${expires.toLocaleDateString()}. Renew to avoid losing perks.`,
-      { url: "/plans", type: "plan_expiring" }
+      { url: "/plans", type: "plan_expiring" },
     );
     await db.insert(notificationTable).values({
       userId: payerUserId,

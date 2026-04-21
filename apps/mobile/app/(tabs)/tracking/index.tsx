@@ -13,6 +13,7 @@ import { fonts, radius, spacing, icons } from "@/constants/theme";
 import { getPersonalBests, getRecentRuns, getWeeklySummaries, initSQLiteRuns, RunRecord } from "../../../lib/sqliteRuns";
 import { RunCard } from "../../../components/tracking/RunCard";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAppSelector } from "@/store/hooks";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
 import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
@@ -38,6 +39,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export default function TrackingHomeScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
+  const appRole = useAppSelector((s) => s.user.appRole);
   const insets = useAppSafeAreaInsets();
   const isFocused = useSafeIsFocused(true);
   const [recentRuns, setRecentRuns] = useState<RunRecord[]>([]);
@@ -140,6 +142,7 @@ export default function TrackingHomeScreen() {
           isDark={isDark}
           topInset={insets.top + 12}
           paddingHorizontal={spacing.xl}
+          showTeamTab={appRole === "team"}
         />
         {/* Section 1 - Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xxxl }}>

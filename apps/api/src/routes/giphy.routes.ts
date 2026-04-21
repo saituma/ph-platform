@@ -8,4 +8,3 @@ const router = Router();
 router.get("/giphy/search", requireAuth, searchGiphy);
 
 export default router;
-

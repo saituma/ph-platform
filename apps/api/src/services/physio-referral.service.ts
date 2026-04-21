@@ -106,9 +106,6 @@ export async function updatePhysioReferral(input: {
 }
 
 export async function deletePhysioReferral(id: number) {
-  const result = await db
-    .delete(physioRefferalsTable)
-    .where(eq(physioRefferalsTable.id, id))
-    .returning();
+  const result = await db.delete(physioRefferalsTable).where(eq(physioRefferalsTable.id, id)).returning();
   return result[0] ?? null;
 }

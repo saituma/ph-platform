@@ -11,12 +11,15 @@ export function TrackingHeaderTabs({
   isDark,
   topInset = 0,
   paddingHorizontal = 16,
+  /** Solo adult athletes: tracking only (no team feed tab). */
+  showTeamTab = true,
 }: {
   active: ActiveTab;
   colors: Record<string, string>;
   isDark: boolean;
   topInset?: number;
   paddingHorizontal?: number;
+  showTeamTab?: boolean;
 }) {
   const router = useRouter();
 
@@ -33,8 +36,33 @@ export function TrackingHeaderTabs({
     if (next === active) return;
     router.replace(
       (next === "running" ? "/(tabs)/tracking" : "/(tabs)/tracking/social") as any,
-    );  // file path stays as social.tsx but the UI label says "Team"
+    ); // social.tsx = team feed for org athletes
   };
+
+  if (!showTeamTab) {
+    return (
+      <View
+        style={{
+          paddingTop: topInset,
+          paddingHorizontal,
+          paddingBottom: 10,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            backgroundColor: containerBg,
+            borderRadius: radius.pill,
+            borderWidth: 1,
+            borderColor,
+            overflow: "hidden",
+          }}
+        >
+          <TabPill label="Running" active={true} onPress={() => go("running")} colors={colors} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View

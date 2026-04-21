@@ -66,9 +66,7 @@ export async function createMediaUploadUrl(req: Request, res: Response) {
   const folderLower = input.folder.toLowerCase();
   const contentTypeLower = input.contentType.toLowerCase();
   const isVideo =
-    folderLower.includes("video") ||
-    contentTypeLower.startsWith("video/") ||
-    contentTypeLower.includes("video");
+    folderLower.includes("video") || contentTypeLower.startsWith("video/") || contentTypeLower.includes("video");
   const limitMb = isVideo ? env.videoMaxMb : env.mediaMaxMb;
   const maxBytes = Math.max(1, limitMb) * 1024 * 1024;
   if (input.sizeBytes > maxBytes) {
@@ -97,7 +95,9 @@ export async function uploadMediaByToken(req: Request, res: Response) {
     const { token } = uploadTokenSchema.parse(req.query);
     const claims = await verifyUploadToken(token);
 
-    const contentTypeHeader = String(req.headers["content-type"] ?? "").split(";")[0]?.trim();
+    const contentTypeHeader = String(req.headers["content-type"] ?? "")
+      .split(";")[0]
+      ?.trim();
     if (!contentTypeHeader) {
       return res.status(400).json({ error: "Content-Type header is required" });
     }

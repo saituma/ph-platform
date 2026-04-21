@@ -1,10 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CheckCircle, Lock, Play } from "lucide-react";
+import { getClientAuthToken } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
-import {
-	fetchTeamWorkspace,
-} from "@/services/programsService";
-import { useQuery } from "@tanstack/react-query";
+import { fetchTeamWorkspace } from "@/services/programsService";
 
 export const programKeys = {
 	all: ["programs"] as const,
@@ -39,8 +38,8 @@ type WorkspaceSection = {
 
 export const Route = createFileRoute("/portal/programs/")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = localStorage.getItem("auth_token");
-		// Note: age is not available in localStorage usually, 
+		const token = getClientAuthToken();
+		// Note: age is not available in localStorage usually,
 		// but we can prefetch if we have it or use null as default.
 		if (token) {
 			await queryClient.ensureQueryData({
@@ -90,7 +89,10 @@ function ProgramsPage() {
 			<div className="flex h-screen items-center justify-center pb-20 px-4">
 				<div className="text-center">
 					<p className="text-muted-foreground mb-4">
-						{portalError || (programsError instanceof Error ? programsError.message : "Could not load programs")}
+						{portalError ||
+							(programsError instanceof Error
+								? programsError.message
+								: "Could not load programs")}
 					</p>
 					<button
 						type="button"

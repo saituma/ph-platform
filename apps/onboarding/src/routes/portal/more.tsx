@@ -16,9 +16,11 @@ import {
   FileText, 
   LogOut,
   ChevronRight,
-  Loader2
+  Loader2,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePortal } from "@/portal/PortalContext";
 
 export const Route = createFileRoute("/portal/more")({
   component: MorePage,
@@ -42,7 +44,8 @@ function MorePage() {
 		window.location.href = "/login";
 	};
 
-	const formatTier = (tier: string = "PHP") => {
+	const formatTier = (tier?: string | null) => {
+		if (!tier) return "Standard";
 		const labels: Record<string, string> = {
 			PHP: "PHP Standard",
 			PHP_Premium: "Premium",

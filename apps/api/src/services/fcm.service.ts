@@ -52,9 +52,7 @@ function ensureFirebaseInitialized() {
 
   const creds = tryParseServiceAccountJson(env.firebaseServiceAccountJson);
   if (!creds) {
-    throw new Error(
-      "Missing FIREBASE_SERVICE_ACCOUNT_JSON (raw JSON or base64 JSON).",
-    );
+    throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON (raw JSON or base64 JSON).");
   }
 
   // Avoid double-init in dev/hot reload.
@@ -88,9 +86,7 @@ export async function sendFcmPush(input: SendFcmPushInput) {
     data: input.data,
     android: {
       priority: input.android?.priority ?? "high",
-      notification: input.android?.channelId
-        ? { channelId: input.android.channelId }
-        : undefined,
+      notification: input.android?.channelId ? { channelId: input.android.channelId } : undefined,
     },
   });
 }
@@ -101,9 +97,5 @@ export function isFcmEnabled() {
 
 export function isFcmTokenError(err: unknown) {
   const code = (err as any)?.code ?? (err as any)?.errorInfo?.code;
-  return (
-    code === "messaging/registration-token-not-registered" ||
-    code === "messaging/invalid-registration-token"
-  );
+  return code === "messaging/registration-token-not-registered" || code === "messaging/invalid-registration-token";
 }
-

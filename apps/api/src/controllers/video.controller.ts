@@ -30,7 +30,7 @@ const reviewSchema = z.object({
 export async function createUploadUrl(req: Request, res: Response) {
   const input = presignSchema.parse(req.body);
   const maxBytes = Math.max(1, env.videoMaxMb) * 1024 * 1024;
-  
+
   if (input.sizeBytes > maxBytes) {
     return res.status(413).json({ error: `File exceeds ${env.videoMaxMb}MB limit.` });
   }

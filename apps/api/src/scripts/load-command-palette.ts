@@ -95,9 +95,7 @@ function summarize(results: RequestStat[]) {
   const failures = results.filter((entry) => !entry.ok).length;
   const failRate = total > 0 ? (failures / total) * 100 : 100;
   const latencies = results.map((entry) => entry.elapsedMs).sort((a, b) => a - b);
-  const avgLatency = latencies.length
-    ? latencies.reduce((sum, value) => sum + value, 0) / latencies.length
-    : 0;
+  const avgLatency = latencies.length ? latencies.reduce((sum, value) => sum + value, 0) / latencies.length : 0;
   const p95 = percentile(latencies, 95);
   const p99 = percentile(latencies, 99);
 
@@ -156,9 +154,7 @@ async function main() {
   console.log(`Starting load test against ${BASE_URL}`);
   const endAt = Date.now() + DURATION_SECONDS * 1000;
   const results: RequestStat[] = [];
-  await Promise.all(
-    Array.from({ length: CONCURRENCY }).map((_, index) => worker(index + 1, endAt, results)),
-  );
+  await Promise.all(Array.from({ length: CONCURRENCY }).map((_, index) => worker(index + 1, endAt, results)));
   summarize(results);
 }
 

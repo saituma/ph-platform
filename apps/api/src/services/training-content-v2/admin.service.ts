@@ -77,16 +77,17 @@ export async function getNextSessionOrder(moduleId: number) {
   return (rows.reduce((max, row) => Math.max(max, row.order ?? 0), 0) || 0) + 1;
 }
 
-export async function getNextItemOrder(sessionId: number, blockType: (typeof trainingSessionBlockType.enumValues)[number]) {
+export async function getNextItemOrder(
+  sessionId: number,
+  blockType: (typeof trainingSessionBlockType.enumValues)[number],
+) {
   const rows = await db
     .select({ order: trainingSessionItemTable.order, blockType: trainingSessionItemTable.blockType })
     .from(trainingSessionItemTable)
     .where(eq(trainingSessionItemTable.sessionId, sessionId));
   return (
-    rows
-      .filter((row) => row.blockType === blockType)
-      .reduce((max, row) => Math.max(max, row.order ?? 0), 0) || 0
-  ) + 1;
+    (rows.filter((row) => row.blockType === blockType).reduce((max, row) => Math.max(max, row.order ?? 0), 0) || 0) + 1
+  );
 }
 
 export async function getNextOtherOrder(audienceLabel: string, type: (typeof trainingOtherType.enumValues)[number]) {
@@ -94,11 +95,7 @@ export async function getNextOtherOrder(audienceLabel: string, type: (typeof tra
     .select({ order: trainingOtherContentTable.order, type: trainingOtherContentTable.type })
     .from(trainingOtherContentTable)
     .where(eq(trainingOtherContentTable.audienceLabel, audienceLabel));
-  return (
-    rows
-      .filter((row) => row.type === type)
-      .reduce((max, row) => Math.max(max, row.order ?? 0), 0) || 0
-  ) + 1;
+  return (rows.filter((row) => row.type === type).reduce((max, row) => Math.max(max, row.order ?? 0), 0) || 0) + 1;
 }
 
 export async function getTrainingOtherSettings(audienceLabel: string) {
@@ -122,7 +119,11 @@ export async function getTrainingSessionTierLocks(moduleIds: number[]) {
   const rows = await db
     .select()
     .from(trainingSessionTierLockTable)
-    .orderBy(asc(trainingSessionTierLockTable.moduleId), asc(trainingSessionTierLockTable.programTier), asc(trainingSessionTierLockTable.id));
+    .orderBy(
+      asc(trainingSessionTierLockTable.moduleId),
+      asc(trainingSessionTierLockTable.programTier),
+      asc(trainingSessionTierLockTable.id),
+    );
   const allowedIds = new Set(moduleIds);
   return rows.filter((row) => allowedIds.has(row.moduleId));
 }
@@ -156,7 +157,11 @@ export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
       .select()
       .from(trainingOtherContentTable)
       .where(eq(trainingOtherContentTable.audienceLabel, normalizedAudienceLabel))
-      .orderBy(asc(trainingOtherContentTable.type), asc(trainingOtherContentTable.order), asc(trainingOtherContentTable.id)),
+      .orderBy(
+        asc(trainingOtherContentTable.type),
+        asc(trainingOtherContentTable.order),
+        asc(trainingOtherContentTable.id),
+      ),
     getTrainingOtherSettings(normalizedAudienceLabel),
     getTrainingModuleTierLocks(normalizedAudienceLabel),
   ]);
@@ -208,7 +213,8 @@ export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
     others: trainingOtherType.enumValues.map((type) => ({
       type,
       label: OTHER_LABELS[type],
-      enabled: otherSettings.find((setting) => setting.type === type)?.enabled ?? others.some((item) => item.type === type),
+      enabled:
+        otherSettings.find((setting) => setting.type === type)?.enabled ?? others.some((item) => item.type === type),
       items: others.filter((item) => item.type === type),
     })),
   };
@@ -257,7 +263,9 @@ export async function deleteTrainingModule(id: number) {
     .from(trainingModuleSessionTable)
     .where(eq(trainingModuleSessionTable.moduleId, id));
   for (const session of sessions) {
-    await db.delete(athleteTrainingSessionCompletionTable).where(eq(athleteTrainingSessionCompletionTable.sessionId, session.id));
+    await db
+      .delete(athleteTrainingSessionCompletionTable)
+      .where(eq(athleteTrainingSessionCompletionTable.sessionId, session.id));
     await db.delete(trainingSessionItemTable).where(eq(trainingSessionItemTable.sessionId, session.id));
   }
   await db.delete(trainingModuleSessionTable).where(eq(trainingModuleSessionTable.moduleId, id));
@@ -499,10 +507,12 @@ export async function updateTrainingModuleTierLocks(input: {
     if (input.moduleId == null) {
       await db
         .delete(trainingModuleTierLockTable)
-        .where(and(
-          eq(trainingModuleTierLockTable.audienceLabel, normalizedAudienceLabel),
-          eq(trainingModuleTierLockTable.programTier, programTier),
-        ));
+        .where(
+          and(
+            eq(trainingModuleTierLockTable.audienceLabel, normalizedAudienceLabel),
+            eq(trainingModuleTierLockTable.programTier, programTier),
+          ),
+        );
       continue;
     }
 
@@ -540,7 +550,11 @@ export async function unlockTrainingModuleTierLocks(input: {
   }
 
   const modules = await db
-    .select({ id: trainingModuleTable.id, order: trainingModuleTable.order, audienceLabel: trainingModuleTable.audienceLabel })
+    .select({
+      id: trainingModuleTable.id,
+      order: trainingModuleTable.order,
+      audienceLabel: trainingModuleTable.audienceLabel,
+    })
     .from(trainingModuleTable)
     .where(eq(trainingModuleTable.audienceLabel, normalizedAudienceLabel))
     .orderBy(asc(trainingModuleTable.order), asc(trainingModuleTable.id));
@@ -581,10 +595,7 @@ export async function unlockTrainingModuleTierLocks(input: {
   return listTrainingContentAdminWorkspace(normalizedAudienceLabel);
 }
 
-export async function cleanupTrainingPlaceholderModules(input: {
-  audienceLabel: string;
-  createdBy: number;
-}) {
+export async function cleanupTrainingPlaceholderModules(input: { audienceLabel: string; createdBy: number }) {
   const normalizedAudienceLabel = normalizeAudienceLabel(input.audienceLabel);
   await ensureTrainingAudienceExists(normalizedAudienceLabel, input.createdBy);
 
@@ -614,7 +625,9 @@ export async function cleanupTrainingPlaceholderModules(input: {
   const locks = await getTrainingModuleTierLocks(normalizedAudienceLabel);
 
   const moduleIds = new Set(modules.map((module) => module.id));
-  const modulesWithSessions = new Set(sessionRows.filter((row) => moduleIds.has(row.moduleId)).map((row) => row.moduleId));
+  const modulesWithSessions = new Set(
+    sessionRows.filter((row) => moduleIds.has(row.moduleId)).map((row) => row.moduleId),
+  );
   const lockStartIds = new Set(locks.map((lock) => lock.startModuleId));
 
   const deletableModules = modules.filter((module) => {
@@ -665,10 +678,12 @@ export async function updateTrainingSessionTierLocks(input: {
     if (input.sessionId == null) {
       await db
         .delete(trainingSessionTierLockTable)
-        .where(and(
-          eq(trainingSessionTierLockTable.moduleId, input.moduleId),
-          eq(trainingSessionTierLockTable.programTier, programTier),
-        ));
+        .where(
+          and(
+            eq(trainingSessionTierLockTable.moduleId, input.moduleId),
+            eq(trainingSessionTierLockTable.programTier, programTier),
+          ),
+        );
       continue;
     }
 

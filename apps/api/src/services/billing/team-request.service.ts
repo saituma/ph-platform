@@ -2,14 +2,14 @@ import Stripe from "stripe";
 import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "../../db";
-import {
-  subscriptionPlanTable,
-  teamSubscriptionRequestTable,
-  teamTable,
-  userTable,
-} from "../../db/schema";
+import { subscriptionPlanTable, teamSubscriptionRequestTable, teamTable, userTable } from "../../db/schema";
+import { newReceiptPublicId } from "../../lib/receipt-public-id";
+import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
 import { getStripeClient } from "./stripe.service";
-import { notifyTeamSubscriptionEnteredPendingApproval, notifyTeamSubscriptionApproved } from "../team-subscription-notifications.service";
+import {
+  notifyTeamSubscriptionEnteredPendingApproval,
+  notifyTeamSubscriptionApproved,
+} from "../team-subscription-notifications.service";
 
 function scheduleTeamPendingApprovalEmails(requestId: number, previousStatus: string, newStatus: string) {
   if (newStatus !== "pending_approval" || previousStatus === "pending_approval") return;
@@ -35,6 +35,7 @@ export async function createTeamSubscriptionRequest(input: {
       planBillingCycle: input.planBillingCycle,
       stripeSessionId: input.stripeSessionId,
       stripeSubscriptionId: input.stripeSubscriptionId ?? null,
+      receiptPublicId: newReceiptPublicId(),
       paymentStatus: "unpaid",
       status: "pending_payment",
       updatedAt: new Date(),
@@ -47,7 +48,7 @@ export async function createTeamSubscriptionRequest(input: {
 
 export async function updateTeamRequestFromStripeCheckoutSession(
   session: Stripe.Checkout.Session,
-  paymentStatus: string
+  paymentStatus: string,
 ) {
   const sessionId = String(session.id ?? "").trim();
   if (!sessionId) return null;
@@ -61,18 +62,17 @@ export async function updateTeamRequestFromStripeCheckoutSession(
   if (!request) return null;
 
   const nextStatus =
-    paymentStatus === "paid" || paymentStatus === "no_payment_required"
-      ? "pending_approval"
-      : "pending_payment";
+    paymentStatus === "paid" || paymentStatus === "no_payment_required" ? "pending_approval" : "pending_payment";
 
   const previousStatus = request.status;
 
   const amountCents =
     typeof (session as any).amount_total === "number" ? ((session as any).amount_total as number) : null;
-  const currency =
-    typeof (session as any).currency === "string" ? (((session as any).currency as string) || null) : null;
+  const currency = typeof (session as any).currency === "string" ? ((session as any).currency as string) || null : null;
   const stripeSubscriptionId =
     typeof (session as any).subscription === "string" ? ((session as any).subscription as string) : null;
+  const stripePaymentIntentId = checkoutSessionPaymentIntentId(session);
+  const receiptPublicId = request.receiptPublicId?.trim() || newReceiptPublicId();
 
   const updated = await db
     .update(teamSubscriptionRequestTable)
@@ -82,6 +82,8 @@ export async function updateTeamRequestFromStripeCheckoutSession(
       paymentAmountCents: amountCents,
       paymentCurrency: currency,
       stripeSubscriptionId: stripeSubscriptionId ?? request.stripeSubscriptionId,
+      stripePaymentIntentId: stripePaymentIntentId ?? request.stripePaymentIntentId,
+      receiptPublicId,
       updatedAt: new Date(),
     })
     .where(eq(teamSubscriptionRequestTable.id, request.id))
@@ -151,7 +153,9 @@ export async function listTeamSubscriptionRequestsAdmin() {
 }
 
 function commitmentMonthsForCycle(cycle: string | null | undefined): number {
-  const c = String(cycle ?? "").trim().toLowerCase();
+  const c = String(cycle ?? "")
+    .trim()
+    .toLowerCase();
   if (c === "six_months") return 6;
   if (c === "6months") return 6;
   if (c === "yearly") return 12;
@@ -159,7 +163,9 @@ function commitmentMonthsForCycle(cycle: string | null | undefined): number {
 }
 
 function paymentTypeForCycle(cycle: string | null | undefined): "monthly" | "upfront" {
-  const c = String(cycle ?? "").trim().toLowerCase();
+  const c = String(cycle ?? "")
+    .trim()
+    .toLowerCase();
   return c === "monthly" ? "monthly" : "upfront";
 }
 

@@ -50,7 +50,7 @@ describe("onboarding controller", () => {
       expect.objectContaining({
         userId: 1,
         growthNotes: null,
-      })
+      }),
     );
     expect(res.status).toHaveBeenCalledWith(200);
   });

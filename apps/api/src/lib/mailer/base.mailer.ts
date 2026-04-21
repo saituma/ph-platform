@@ -28,6 +28,15 @@ function getResend(): Resend | null {
   return resendSingleton;
 }
 
+/** True when `deliverEmail` can run: Resend API key, or SMTP auth, plus a usable From (SMTP_FROM or SMTP_USER). */
+export function isMailDeliveryConfigured(): boolean {
+  const from = String(env.smtpFrom || env.smtpUser || "").trim();
+  if (!from) return false;
+  if (String(env.resendApiKey || "").trim()) return true;
+  if (String(env.smtpUser || "").trim() && String(env.smtpPass || "").trim()) return true;
+  return false;
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
@@ -43,15 +52,29 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+export type EmailAttachment = {
+  filename: string;
+  content: string | Buffer;
+  contentType?: string;
+};
+
 /** Sends via Resend when `RESEND_API_KEY` is set; otherwise SMTP. */
-export async function deliverEmail(input: { to: string; subject: string; html: string }) {
+export async function deliverEmail(input: {
+  to: string;
+  subject: string;
+  html: string;
+  attachments?: EmailAttachment[];
+}) {
   const from = env.smtpFrom || env.smtpUser;
   if (!from) {
-    throw new Error(
-      "Set SMTP_FROM (e.g. PH Performance <onboarding@resend.dev>) or SMTP_USER for the sender address.",
-    );
+    throw new Error("Set SMTP_FROM (e.g. PH Performance <onboarding@resend.dev>) or SMTP_USER for the sender address.");
   }
   const resend = getResend();
+  const attachments = input.attachments?.map((a) => ({
+    filename: a.filename,
+    content: a.content,
+    contentType: a.contentType,
+  }));
   if (resend) {
     const { error } = await withTimeout(
       resend.emails.send({
@@ -59,6 +82,7 @@ export async function deliverEmail(input: { to: string; subject: string; html: s
         to: input.to,
         subject: input.subject,
         html: input.html,
+        ...(attachments?.length ? { attachments } : {}),
       }),
       25_000,
       "Resend API",
@@ -67,16 +91,26 @@ export async function deliverEmail(input: { to: string; subject: string; html: s
     return;
   }
   const transporter = getMailer();
-  await transporter.sendMail({ from, to: input.to, subject: input.subject, html: input.html });
+  await transporter.sendMail({
+    from,
+    to: input.to,
+    subject: input.subject,
+    html: input.html,
+    ...(attachments?.length
+      ? {
+          attachments: attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            contentType: a.contentType ?? "application/octet-stream",
+          })),
+        }
+      : {}),
+  });
 }
 
 /** Safe for HTML text nodes and attributes (excluding URLs). */
 export function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 export function escapeAttr(s: string): string {

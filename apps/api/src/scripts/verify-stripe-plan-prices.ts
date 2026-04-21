@@ -41,7 +41,7 @@ async function main() {
             stripePriceIdMonthly: plan.stripePriceIdMonthly,
             stripePriceIdYearly: plan.stripePriceIdYearly,
           },
-          cycle as AthleteBillingCycle
+          cycle as AthleteBillingCycle,
         );
         await stripe.prices.retrieve(priceId);
         console.log(`  ✅ ${cycle}: ${priceId} (lookup key: ${lookupKey})`);
@@ -58,4 +58,3 @@ main().catch((err) => {
   console.error("❌ Failed to verify Stripe plan prices:", err);
   process.exit(1);
 });
-

@@ -75,15 +75,10 @@ const PLAN_LOOKUPS: {
 ];
 
 function appCheckoutLabel(checkout: "subscription" | "payment") {
-  return checkout === "subscription"
-    ? "Monthly recurring (subscription)"
-    : "One-time payment (upfront)";
+  return checkout === "subscription" ? "Monthly recurring (subscription)" : "One-time payment (upfront)";
 }
 
-function stripeMatchesApp(
-  price: Stripe.Price,
-  expected: "subscription" | "payment"
-): boolean {
+function stripeMatchesApp(price: Stripe.Price, expected: "subscription" | "payment"): boolean {
   if (expected === "subscription") return price.type === "recurring";
   return price.type === "one_time";
 }
@@ -211,7 +206,9 @@ async function main() {
 
   console.log("");
   console.log("Column hints:");
-  console.log("  inApp     — Monthly = recurring subscription; 6 months / Yearly = one-time upfront (see team.service.ts).");
+  console.log(
+    "  inApp     — Monthly = recurring subscription; 6 months / Yearly = one-time upfront (see team.service.ts).",
+  );
   console.log("  stripePrice — What the Stripe Price object is (recurring vs one_time).");
   console.log("  ok        — ✓ if Stripe matches the app; ⚠ if you should fix the Price in Stripe Dashboard.");
 }

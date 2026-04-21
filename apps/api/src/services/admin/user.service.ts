@@ -37,13 +37,9 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
   type ProgramTier = (typeof ProgramType.enumValues)[number];
   type AthleteTypeValue = (typeof AthleteType.enumValues)[number];
   const coerceProgramTier = (value?: string | null): ProgramTier | null =>
-    ProgramType.enumValues.includes(value as ProgramTier)
-      ? (value as ProgramTier)
-      : null;
+    ProgramType.enumValues.includes(value as ProgramTier) ? (value as ProgramTier) : null;
   const coerceAthleteType = (value?: string | null): AthleteTypeValue | null =>
-    AthleteType.enumValues.includes(value as AthleteTypeValue)
-      ? (value as AthleteTypeValue)
-      : null;
+    AthleteType.enumValues.includes(value as AthleteTypeValue) ? (value as AthleteTypeValue) : null;
 
   const q = options?.q?.trim() ?? "";
   const requestedLimit = options?.limit;
@@ -239,10 +235,7 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
     if (user.role !== "guardian") return user;
     const resolvedTier = tierByUserId.get(user.id);
     const guardianId = guardianIdByUserId.get(user.id);
-    const activeAthlete =
-      typeof guardianId === "number"
-        ? activeAthleteByGuardianId.get(guardianId)
-        : undefined;
+    const activeAthlete = typeof guardianId === "number" ? activeAthleteByGuardianId.get(guardianId) : undefined;
 
     const next = { ...user };
     if (resolvedTier) {
@@ -312,13 +305,27 @@ export async function softDeleteUser(userId: number) {
         .set({ activeAthleteId: null, updatedAt: now })
         .where(inArray(guardianTable.activeAthleteId, athleteIds));
 
-      await tx.delete(athletePlanExerciseCompletionTable).where(inArray(athletePlanExerciseCompletionTable.athleteId, athleteIds));
-      await tx.delete(athletePlanSessionCompletionTable).where(inArray(athletePlanSessionCompletionTable.athleteId, athleteIds));
-      await tx.delete(athleteTrainingSessionCompletionTable).where(inArray(athleteTrainingSessionCompletionTable.athleteId, athleteIds));
-      await tx.delete(athleteTrainingSessionWorkoutLogTable).where(inArray(athleteTrainingSessionWorkoutLogTable.athleteId, athleteIds));
-      await tx.delete(programSectionCompletionTable).where(inArray(programSectionCompletionTable.athleteId, athleteIds));
-      await tx.delete(athleteTrainingSessionLogTable).where(inArray(athleteTrainingSessionLogTable.athleteId, athleteIds));
-      await tx.delete(athleteAchievementUnlockTable).where(inArray(athleteAchievementUnlockTable.athleteId, athleteIds));
+      await tx
+        .delete(athletePlanExerciseCompletionTable)
+        .where(inArray(athletePlanExerciseCompletionTable.athleteId, athleteIds));
+      await tx
+        .delete(athletePlanSessionCompletionTable)
+        .where(inArray(athletePlanSessionCompletionTable.athleteId, athleteIds));
+      await tx
+        .delete(athleteTrainingSessionCompletionTable)
+        .where(inArray(athleteTrainingSessionCompletionTable.athleteId, athleteIds));
+      await tx
+        .delete(athleteTrainingSessionWorkoutLogTable)
+        .where(inArray(athleteTrainingSessionWorkoutLogTable.athleteId, athleteIds));
+      await tx
+        .delete(programSectionCompletionTable)
+        .where(inArray(programSectionCompletionTable.athleteId, athleteIds));
+      await tx
+        .delete(athleteTrainingSessionLogTable)
+        .where(inArray(athleteTrainingSessionLogTable.athleteId, athleteIds));
+      await tx
+        .delete(athleteAchievementUnlockTable)
+        .where(inArray(athleteAchievementUnlockTable.athleteId, athleteIds));
       await tx.delete(referralGroupMemberTable).where(inArray(referralGroupMemberTable.athleteId, athleteIds));
       await tx.delete(subscriptionRequestTable).where(inArray(subscriptionRequestTable.athleteId, athleteIds));
       await tx.delete(videoUploadTable).where(inArray(videoUploadTable.athleteId, athleteIds));
@@ -345,17 +352,13 @@ export async function softDeleteUser(userId: number) {
           await tx
             .delete(athletePlanExerciseCompletionTable)
             .where(inArray(athletePlanExerciseCompletionTable.planExerciseId, planExerciseIds));
-          await tx
-            .delete(athletePlanExerciseTable)
-            .where(inArray(athletePlanExerciseTable.id, planExerciseIds));
+          await tx.delete(athletePlanExerciseTable).where(inArray(athletePlanExerciseTable.id, planExerciseIds));
         }
 
         await tx
           .delete(athletePlanSessionCompletionTable)
           .where(inArray(athletePlanSessionCompletionTable.planSessionId, planSessionIds));
-        await tx
-          .delete(athletePlanSessionTable)
-          .where(inArray(athletePlanSessionTable.id, planSessionIds));
+        await tx.delete(athletePlanSessionTable).where(inArray(athletePlanSessionTable.id, planSessionIds));
       }
 
       await tx.delete(athleteTable).where(inArray(athleteTable.id, athleteIds));
@@ -367,9 +370,7 @@ export async function softDeleteUser(userId: number) {
       await tx.delete(guardianTable).where(inArray(guardianTable.id, guardianIds));
     }
 
-    const athleteUserIds = athleteRows
-      .map((row) => row.userId)
-      .filter((id) => id !== userId);
+    const athleteUserIds = athleteRows.map((row) => row.userId).filter((id) => id !== userId);
     for (const athleteUserId of athleteUserIds) {
       const athleteStamp = `${athleteUserId}-${Date.now()}`;
       await tx
@@ -779,6 +780,6 @@ export async function resetUserPasswordAdmin(input: { userId: number; temporaryP
     ok: true,
     temporaryPassword: nextPassword,
     emailSent,
-    generated: !((input.temporaryPassword ?? "").trim()),
+    generated: !(input.temporaryPassword ?? "").trim(),
   };
 }

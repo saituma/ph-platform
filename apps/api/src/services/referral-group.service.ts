@@ -42,9 +42,7 @@ async function ensureReferralGroupTables() {
 
 export async function listReferralGroups() {
   await ensureReferralGroupTables();
-  const groups = await db
-    .select()
-    .from(referralGroupTable);
+  const groups = await db.select().from(referralGroupTable);
 
   if (!groups.length) return [];
 
@@ -58,7 +56,12 @@ export async function listReferralGroups() {
     })
     .from(referralGroupMemberTable)
     .innerJoin(athleteTable, eq(referralGroupMemberTable.athleteId, athleteTable.id))
-    .where(inArray(referralGroupMemberTable.groupId, groups.map((group) => group.id)));
+    .where(
+      inArray(
+        referralGroupMemberTable.groupId,
+        groups.map((group) => group.id),
+      ),
+    );
 
   const membersByGroupId = new Map<number, typeof members>();
   members.forEach((member) => {
@@ -94,7 +97,7 @@ export async function createReferralGroup(input: {
       input.athleteIds.map((athleteId) => ({
         groupId: group.id,
         athleteId,
-      }))
+      })),
     );
   }
 

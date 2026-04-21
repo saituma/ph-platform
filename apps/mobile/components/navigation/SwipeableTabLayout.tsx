@@ -206,20 +206,13 @@ export function SwipeableTabLayout({
     });
   }, [handleTabPress]);
 
-  const childrenRef = useRef<React.ReactNode[]>([]);
   const rawChildren = React.Children.toArray(children);
-  if (rawChildren.length !== childrenRef.current.length) {
-    childrenRef.current = rawChildren;
-  } else {
-    const keysChanged = rawChildren.some((child, i) => {
-      const prev = childrenRef.current[i];
-      return (child as any)?.key !== (prev as any)?.key;
-    });
-    if (keysChanged) {
-      childrenRef.current = rawChildren;
-    }
+  const fullSig = `${tabs.map((t) => t.key).join("|")}|${rawChildren.map((c) => String((c as React.ReactElement)?.key ?? "")).join("|")}`;
+  const childrenRef = useRef<{ sig: string; nodes: React.ReactNode[] }>({ sig: "", nodes: [] });
+  if (fullSig !== childrenRef.current.sig || rawChildren.length !== childrenRef.current.nodes.length) {
+    childrenRef.current = { sig: fullSig, nodes: rawChildren };
   }
-  const childrenArray = childrenRef.current;
+  const childrenArray = childrenRef.current.nodes;
 
   const navigationContext = React.useContext(NavigationContext);
   const routeContext = React.useContext(NavigationRouteContext);

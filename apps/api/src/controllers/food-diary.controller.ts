@@ -3,7 +3,13 @@ import { z } from "zod";
 
 import { and, eq, inArray } from "drizzle-orm";
 
-import { createFoodDiaryEntry, getFoodDiaryGuardianUser, listFoodDiaryEntries, listFoodDiaryForGuardian, reviewFoodDiaryEntry } from "../services/food-diary.service";
+import {
+  createFoodDiaryEntry,
+  getFoodDiaryGuardianUser,
+  listFoodDiaryEntries,
+  listFoodDiaryForGuardian,
+  reviewFoodDiaryEntry,
+} from "../services/food-diary.service";
 import { getGuardianAndAthlete } from "../services/user.service";
 import { normalizeDate } from "../lib/age";
 import { db } from "../db";
@@ -25,7 +31,7 @@ const photoUrlSchema = z.preprocess(
     })
     .refine((val) => !val.startsWith("data:"), {
       message: "Use a URL instead of base64 data.",
-    })
+    }),
 );
 
 const createFoodDiarySchema = z.object({
@@ -81,12 +87,7 @@ export async function createFoodDiary(req: Request, res: Response) {
   const coaches = await db
     .select({ id: userTable.id })
     .from(userTable)
-    .where(
-      and(
-        eq(userTable.isDeleted, false),
-        inArray(userTable.role, ["coach", "admin", "superAdmin"])
-      )
-    );
+    .where(and(eq(userTable.isDeleted, false), inArray(userTable.role, ["coach", "admin", "superAdmin"])));
   if (coaches.length) {
     await db.insert(notificationTable).values(
       coaches.map((coach) => ({
@@ -94,17 +95,15 @@ export async function createFoodDiary(req: Request, res: Response) {
         type: "food_diary_submitted",
         content: `${athlete.name} submitted a food diary entry.`,
         link: "/exercise-library?tab=nutrition",
-      }))
+      })),
     );
     await Promise.all(
       coaches.map((coach) =>
-        sendPushNotification(
-          coach.id,
-          "Food diary submitted",
-          `${athlete.name} sent a new food diary entry.`,
-          { type: "food_diary_submitted", url: "/exercise-library?tab=nutrition" },
-        )
-      )
+        sendPushNotification(coach.id, "Food diary submitted", `${athlete.name} sent a new food diary entry.`, {
+          type: "food_diary_submitted",
+          url: "/exercise-library?tab=nutrition",
+        }),
+      ),
     );
   }
 
@@ -152,12 +151,10 @@ export async function reviewFoodDiaryAdmin(req: Request, res: Response) {
       content: `Coach responded to ${athleteName}'s food diary.`,
       link: "/programs",
     });
-    void sendPushNotification(
-      guardianUserId,
-      "Coach feedback",
-      `Coach reviewed ${athleteName}'s food diary.`,
-      { type: "food_diary_feedback", url: "/programs" },
-    );
+    void sendPushNotification(guardianUserId, "Coach feedback", `Coach reviewed ${athleteName}'s food diary.`, {
+      type: "food_diary_feedback",
+      url: "/programs",
+    });
   }
 
   return res.status(200).json({ item: updated });

@@ -16,8 +16,7 @@ import { attachGroupMessageReactions } from "./reaction.service";
 let cachedSupportsGroupLastReadAt: boolean | null = null;
 
 function errorMentionsMissingColumn(error: unknown, columnName: string) {
-  const message =
-    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   return message.toLowerCase().includes(`column`) && message.includes(columnName);
 }
 
@@ -65,7 +64,7 @@ export async function createGroup(input: {
       memberIds.map((userId) => ({
         groupId,
         userId,
-      }))
+      })),
     );
   }
   return group[0];
@@ -80,7 +79,7 @@ export async function addGroupMembers(groupId: number, memberIds: number[]) {
       unique.map((userId) => ({
         groupId,
         userId,
-      }))
+      })),
     )
     .onConflictDoNothing();
   return unique;
@@ -107,16 +106,8 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
           memberLastReadAt: sql<Date | null>`null`,
         })
         .from(chatGroupMemberTable)
-        .innerJoin(
-          chatGroupTable,
-          eq(chatGroupMemberTable.groupId, chatGroupTable.id),
-        )
-        .where(
-          and(
-            eq(chatGroupMemberTable.userId, userId),
-            q ? ilike(chatGroupTable.name, `%${q}%`) : undefined,
-          ),
-        )
+        .innerJoin(chatGroupTable, eq(chatGroupMemberTable.groupId, chatGroupTable.id))
+        .where(and(eq(chatGroupMemberTable.userId, userId), q ? ilike(chatGroupTable.name, `%${q}%`) : undefined))
         .orderBy(desc(chatGroupTable.createdAt))
         .limit(limit);
     }
@@ -132,16 +123,8 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
         memberLastReadAt: chatGroupMemberTable.lastReadAt,
       })
       .from(chatGroupMemberTable)
-      .innerJoin(
-        chatGroupTable,
-        eq(chatGroupMemberTable.groupId, chatGroupTable.id),
-      )
-      .where(
-        and(
-          eq(chatGroupMemberTable.userId, userId),
-          q ? ilike(chatGroupTable.name, `%${q}%`) : undefined,
-        ),
-      )
+      .innerJoin(chatGroupTable, eq(chatGroupMemberTable.groupId, chatGroupTable.id))
+      .where(and(eq(chatGroupMemberTable.userId, userId), q ? ilike(chatGroupTable.name, `%${q}%`) : undefined))
       .orderBy(desc(chatGroupTable.createdAt))
       .limit(limit);
   };
@@ -213,10 +196,7 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
     .from(chatGroupMessageTable)
     .innerJoin(
       chatGroupMemberTable,
-      and(
-        eq(chatGroupMemberTable.groupId, chatGroupMessageTable.groupId),
-        eq(chatGroupMemberTable.userId, userId),
-      ),
+      and(eq(chatGroupMemberTable.groupId, chatGroupMessageTable.groupId), eq(chatGroupMemberTable.userId, userId)),
     )
     .where(
       and(
@@ -238,8 +218,8 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
 
   return groups.map((group) => {
     const id = Number(group.id);
-    const last = Number.isFinite(id) ? lastMessageByGroup.get(id) ?? null : null;
-    const unreadCount = Number.isFinite(id) ? unreadByGroup.get(id) ?? 0 : 0;
+    const last = Number.isFinite(id) ? (lastMessageByGroup.get(id) ?? null) : null;
+    const unreadCount = Number.isFinite(id) ? (unreadByGroup.get(id) ?? 0) : 0;
     return {
       id: group.id,
       name: group.name,
@@ -270,12 +250,7 @@ export async function markGroupRead(input: { groupId: number; userId: number; re
     const result = await db
       .update(chatGroupMemberTable)
       .set({ lastReadAt: readAt })
-      .where(
-        and(
-          eq(chatGroupMemberTable.groupId, input.groupId),
-          eq(chatGroupMemberTable.userId, input.userId),
-        ),
-      )
+      .where(and(eq(chatGroupMemberTable.groupId, input.groupId), eq(chatGroupMemberTable.userId, input.userId)))
       .returning();
     cachedSupportsGroupLastReadAt = true;
     return result[0] ?? null;
@@ -411,11 +386,7 @@ export async function createGroupMessage(input: {
         .from(chatGroupMemberTable)
         .where(eq(chatGroupMemberTable.groupId, input.groupId));
       const memberIds = Array.from(
-        new Set(
-          memberRows
-            .map((row) => Number(row.userId))
-            .filter((id) => Number.isFinite(id) && id > 0),
-        ),
+        new Set(memberRows.map((row) => Number(row.userId)).filter((id) => Number.isFinite(id) && id > 0)),
       );
       for (const memberId of memberIds) {
         io.to(`user:${memberId}`).emit("group:message", enriched);
@@ -443,9 +414,7 @@ export async function deleteGroupMessage(input: { groupId: number; messageId: nu
   if (message.senderId !== input.userId) {
     throw new Error("Forbidden");
   }
-  await db
-    .delete(chatGroupMessageReactionTable)
-    .where(eq(chatGroupMessageReactionTable.messageId, input.messageId));
+  await db.delete(chatGroupMessageReactionTable).where(eq(chatGroupMessageReactionTable.messageId, input.messageId));
   await db
     .delete(chatGroupMessageTable)
     .where(and(eq(chatGroupMessageTable.id, input.messageId), eq(chatGroupMessageTable.groupId, input.groupId)));
@@ -458,11 +427,7 @@ export async function deleteGroupMessage(input: { groupId: number; messageId: nu
         .from(chatGroupMemberTable)
         .where(eq(chatGroupMemberTable.groupId, input.groupId));
       const memberIds = Array.from(
-        new Set(
-          memberRows
-            .map((row) => Number(row.userId))
-            .filter((id) => Number.isFinite(id) && id > 0),
-        ),
+        new Set(memberRows.map((row) => Number(row.userId)).filter((id) => Number.isFinite(id) && id > 0)),
       );
       for (const memberId of memberIds) {
         io.to(`user:${memberId}`).emit("group:message:deleted", payload);

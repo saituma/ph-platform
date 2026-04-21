@@ -1,12 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "../db";
-import {
-  runLikeTable,
-  runLogTable,
-  socialPrivacySettingsTable,
-  userTable,
-} from "../db/schema";
+import { runLikeTable, runLogTable, socialPrivacySettingsTable, userTable } from "../db/schema";
 import { SocialAccessError } from "./social.service";
 import { normalizeStoredMediaUrl } from "./s3.service";
 
@@ -54,7 +49,7 @@ export async function getPrivacySettings(userId: number): Promise<PrivacySetting
 
 export async function updatePrivacySettings(
   userId: number,
-  updates: Partial<PrivacySettings> & { privacyVersionAccepted?: string }
+  updates: Partial<PrivacySettings> & { privacyVersionAccepted?: string },
 ): Promise<PrivacySettings> {
   // Get or create settings
   const existing = await db
@@ -99,10 +94,7 @@ export async function updatePrivacySettings(
   }
 
   if (existing.length > 0) {
-    await db
-      .update(socialPrivacySettingsTable)
-      .set(values)
-      .where(eq(socialPrivacySettingsTable.userId, userId));
+    await db.update(socialPrivacySettingsTable).set(values).where(eq(socialPrivacySettingsTable.userId, userId));
   } else {
     await db.insert(socialPrivacySettingsTable).values({
       userId,
@@ -264,12 +256,7 @@ export async function getMySocialRuns(userId: number, opts?: { limit?: number; c
       visibility: runLogTable.visibility,
     })
     .from(runLogTable)
-    .where(
-      and(
-        eq(runLogTable.userId, userId),
-        cursor ? sql`${runLogTable.id} < ${cursor}` : sql`true`
-      )
-    )
+    .where(and(eq(runLogTable.userId, userId), cursor ? sql`${runLogTable.id} < ${cursor}` : sql`true`))
     .orderBy(sql`${runLogTable.id} DESC`)
     .limit(limit + 1);
 

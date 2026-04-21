@@ -33,7 +33,7 @@ describe("lib/age", () => {
       const birth = new Date(Date.UTC(2020, 1, 29));
       const asOf = new Date(Date.UTC(2023, 1, 28)); // Non-leap year, before birthday
       expect(calculateAge(birth, asOf)).toBe(2);
-      
+
       const onBirthday = new Date(Date.UTC(2024, 1, 29)); // Next leap year
       expect(calculateAge(birth, onBirthday)).toBe(4);
     });

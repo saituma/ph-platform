@@ -31,11 +31,7 @@ export type ProgramTierValue = (typeof ALL_TIERS)[number];
 export async function getMessagingAccessTiers(): Promise<ProgramTierValue[]> {
   const coach = await getPrimaryCoachUser();
   if (!coach) return [...ALL_TIERS];
-  const existing = await db
-    .select()
-    .from(adminSettingsTable)
-    .where(eq(adminSettingsTable.userId, coach.id))
-    .limit(1);
+  const existing = await db.select().from(adminSettingsTable).where(eq(adminSettingsTable.userId, coach.id)).limit(1);
   const raw = existing[0]?.messagingEnabledTiers as unknown;
   if (raw === undefined || raw === null) return [...ALL_TIERS];
   if (!Array.isArray(raw)) return [...ALL_TIERS];

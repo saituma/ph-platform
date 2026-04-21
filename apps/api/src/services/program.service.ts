@@ -13,7 +13,9 @@ import {
 import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 import { getAthleteForUser } from "./user.service";
 
-function resolveAgeFromAthlete(row: { birthDate?: string | null; athleteType?: string | null; age?: number | null } | null | undefined) {
+function resolveAgeFromAthlete(
+  row: { birthDate?: string | null; athleteType?: string | null; age?: number | null } | null | undefined,
+) {
   if (!row) return null;
   const birthDate = normalizeDate(row.birthDate as any);
   if (birthDate) {
@@ -88,7 +90,9 @@ export async function getProgramSessions(programId: number) {
     .where(inArray(sessionExerciseTable.sessionId, sessionIds));
 
   const exerciseIds = sessionExercises.map((se) => se.exerciseId);
-  const exercises = exerciseIds.length ? await db.select().from(exerciseTable).where(inArray(exerciseTable.id, exerciseIds)) : [];
+  const exercises = exerciseIds.length
+    ? await db.select().from(exerciseTable).where(inArray(exerciseTable.id, exerciseIds))
+    : [];
 
   return sessions.map((session) => {
     const items = sessionExercises
@@ -113,6 +117,6 @@ export async function getProgramAiInsight(programId: number) {
 
   const { generateContentSummary } = await import("./ai.service");
   const ageGroup = program.minAge || program.maxAge ? `U${program.maxAge ?? program.minAge}` : "All Ages";
-  
+
   return generateContentSummary(program.name, program.description || "", ageGroup);
 }

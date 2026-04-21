@@ -19,11 +19,7 @@ function signPayload(payload: string) {
   return crypto.createHmac("sha256", env.bookingActionSecret).update(payload).digest("base64url");
 }
 
-export function createBookingActionToken(input: {
-  bookingId: number;
-  action: BookingActionType;
-  expiresAt?: Date;
-}) {
+export function createBookingActionToken(input: { bookingId: number; action: BookingActionType; expiresAt?: Date }) {
   const exp = (input.expiresAt ?? new Date(Date.now() + DEFAULT_TTL_MS)).getTime();
   const payload = `${VERSION}.${input.bookingId}.${input.action}.${exp}`;
   const signature = signPayload(payload);

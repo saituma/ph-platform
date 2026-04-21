@@ -5,8 +5,18 @@ jest.mock("../../src/services/program.service", () => ({
   getExerciseLibrary: jest.fn(),
 }));
 
-import { listPrograms, getProgram, getProgramSessionsById, listProgramExercises } from "../../src/controllers/program.controller";
-import { getExerciseLibrary, getProgramCards, getProgramByIdForUser, getProgramSessions } from "../../src/services/program.service";
+import {
+  listPrograms,
+  getProgram,
+  getProgramSessionsById,
+  listProgramExercises,
+} from "../../src/controllers/program.controller";
+import {
+  getExerciseLibrary,
+  getProgramCards,
+  getProgramByIdForUser,
+  getProgramSessions,
+} from "../../src/services/program.service";
 
 function createRes() {
   const res: any = {};

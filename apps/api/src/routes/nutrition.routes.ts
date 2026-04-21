@@ -2,13 +2,13 @@ import { Router } from "express";
 
 import { requireAuth } from "../middlewares/auth";
 import {
-	getTargets,
-	updateTargets,
-	listLogs,
-	upsertLog,
-	provideFeedback,
-	getReminderSettings,
-	updateReminderSettings,
+  getTargets,
+  updateTargets,
+  listLogs,
+  upsertLog,
+  provideFeedback,
+  getReminderSettings,
+  updateReminderSettings,
 } from "../controllers/nutrition.controller";
 
 const router = Router();

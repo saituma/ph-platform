@@ -1,9 +1,8 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { BottomNav } from "@/components/BottomNav";
-import { PortalProvider } from "@/portal/PortalContext";
+import { hasActivePortalSubscription } from "@/lib/portal-access";
+import { PortalProvider, usePortal } from "@/portal/PortalContext";
 import { ProtectedLayout } from "@/portal/ProtectedLayout";
-import { usePortal } from "@/portal/PortalContext";
-import { useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/portal")({
 	component: PortalLayout,
@@ -28,7 +27,9 @@ function PortalGate() {
 			<div className="flex h-screen items-center justify-center">
 				<div className="text-center">
 					<div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-					<p className="mt-4 text-sm text-muted-foreground">Loading your account...</p>
+					<p className="mt-4 text-sm text-muted-foreground">
+						Loading your account...
+					</p>
 				</div>
 			</div>
 		);
@@ -38,7 +39,9 @@ function PortalGate() {
 		return (
 			<div className="flex h-screen items-center justify-center px-4">
 				<div className="text-center space-y-3">
-					<p className="text-sm text-muted-foreground">{error || "Please log in again."}</p>
+					<p className="text-sm text-muted-foreground">
+						{error || "Please log in again."}
+					</p>
 					<button
 						type="button"
 						onClick={() => navigate({ to: "/login" })}
@@ -58,17 +61,22 @@ function PortalGate() {
 		if (!user.team?.name?.trim()) missing.push("Team / club name");
 		if (!Number.isFinite(Number(user.team?.minAge))) missing.push("Min age");
 		if (!Number.isFinite(Number(user.team?.maxAge))) missing.push("Max age");
-		if (!Number.isFinite(Number(user.team?.maxAthletes))) missing.push("Expected athletes");
+		if (!Number.isFinite(Number(user.team?.maxAthletes)))
+			missing.push("Expected athletes");
 	} else {
 		if (!user.birthDate) missing.push("Birth date");
 		if (!Number(user.trainingPerWeek ?? 0)) missing.push("Training frequency");
-		if (!String(user.performanceGoals ?? "").trim()) missing.push("Performance goals");
+		if (!String(user.performanceGoals ?? "").trim())
+			missing.push("Performance goals");
 		if (!String(user.phoneNumber ?? "").trim()) missing.push("Phone number");
-		if (!String(user.equipmentAccess ?? "").trim()) missing.push("Equipment access");
+		if (!String(user.equipmentAccess ?? "").trim())
+			missing.push("Equipment access");
 	}
 
-	const onboardingIncomplete = isTeam ? !user.team?.id : !user.onboardingCompleted;
-	const needsPlan = isTeam ? !user.team?.planId : !user.programTier;
+	const onboardingIncomplete = isTeam
+		? !user.team?.id
+		: !user.onboardingCompleted;
+	const needsPlan = !hasActivePortalSubscription(user);
 	const isBlocked = onboardingIncomplete || needsPlan;
 
 	if (isBlocked) {
@@ -139,8 +147,8 @@ function PortalGate() {
 					</h1>
 					<p className="mt-2 text-sm text-muted-foreground font-medium leading-relaxed">
 						{isTeam
-							? "Add your team details and choose a plan to unlock Programs, Schedule, Tracking, and Messages."
-							: "Complete onboarding and choose a plan to unlock Programs, Schedule, Tracking, and Messages."}
+							? "Add your team details and choose a plan to unlock Programs, Schedule, and Messages."
+							: "Complete onboarding and choose a plan to unlock Programs, Schedule, and Messages."}
 					</p>
 
 					{onboardingIncomplete && missing.length > 0 && (
@@ -173,7 +181,11 @@ function PortalGate() {
 							onClick={primaryAction}
 							className="flex-1 inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
 						>
-							{onboardingIncomplete ? (isTeam ? "Add Team Details" : "Continue Onboarding") : "Choose a Plan"}
+							{onboardingIncomplete
+								? isTeam
+									? "Add Team Details"
+									: "Continue Onboarding"
+								: "Choose a Plan"}
 						</button>
 						<button
 							type="button"

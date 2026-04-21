@@ -19,18 +19,11 @@ import {
 import { normalizeStoredMediaUrl } from "../s3.service";
 
 async function getOrCreateAdminSettings(userId: number) {
-  const existing = await db
-    .select()
-    .from(adminSettingsTable)
-    .where(eq(adminSettingsTable.userId, userId))
-    .limit(1);
+  const existing = await db.select().from(adminSettingsTable).where(eq(adminSettingsTable.userId, userId)).limit(1);
 
   if (existing[0]) return existing[0];
 
-  const created = await db
-    .insert(adminSettingsTable)
-    .values({ userId })
-    .returning();
+  const created = await db.insert(adminSettingsTable).values({ userId }).returning();
 
   return created[0];
 }
@@ -57,7 +50,7 @@ export async function updateAdminProfile(
     profilePicture?: string | null;
     title?: string | null;
     bio?: string | null;
-  }
+  },
 ) {
   await db
     .update(userTable)
@@ -92,7 +85,7 @@ export async function updateAdminPreferences(
     workStartMinute: number;
     workEndHour: number;
     workEndMinute: number;
-  }
+  },
 ) {
   const existing = await getOrCreateAdminSettings(userId);
 
@@ -114,7 +107,7 @@ export async function updateAdminPreferences(
 
 export async function updateAdminMessagingAccess(
   coachUserId: number,
-  tiers: (typeof ProgramType.enumValues)[number][]
+  tiers: (typeof ProgramType.enumValues)[number][],
 ) {
   const allowed = new Set(ProgramType.enumValues);
   const cleaned = tiers.filter((t) => allowed.has(t));
@@ -144,9 +137,7 @@ export async function getDashboardMetrics(coachId: number) {
   startMonth.setDate(startMonth.getDate() - 29);
   startMonth.setHours(0, 0, 0, 0);
 
-  const [athleteCountRow] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(athleteTable);
+  const [athleteCountRow] = await db.select({ count: sql<number>`count(*)` }).from(athleteTable);
   const totalAthletes = Number(athleteCountRow?.count ?? 0);
 
   const [premiumCountRow] = await db
@@ -355,9 +346,7 @@ export async function getDashboardMetrics(coachId: number) {
   const messagingResponseRate = weeklyTotals.messages
     ? Math.min(100, Math.round((messageCoachCount / weeklyTotals.messages) * 100))
     : 0;
-  const trainingLoad = totalAthletes
-    ? Math.min(100, Math.round((weeklyTotals.bookings / totalAthletes) * 100))
-    : 0;
+  const trainingLoad = totalAthletes ? Math.min(100, Math.round((weeklyTotals.bookings / totalAthletes) * 100)) : 0;
   const availabilityTotal = availabilityCounts.reduce((sum, value) => sum + value, 0);
   const bookingsUtilization = availabilityTotal
     ? Math.min(100, Math.round((weeklyTotals.bookings / availabilityTotal) * 100))

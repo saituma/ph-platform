@@ -17,25 +17,10 @@ import { eq } from "drizzle-orm";
 import { ensureTrainingAudienceExists, normalizeAudienceLabel } from "../services/training-content-v2/audience.service";
 
 type Tier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
-type OtherType =
-  | "warmup"
-  | "cooldown"
-  | "mobility"
-  | "recovery"
-  | "inseason"
-  | "offseason"
-  | "education";
+type OtherType = "warmup" | "cooldown" | "mobility" | "recovery" | "inseason" | "offseason" | "education";
 
 const TIERS: Tier[] = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"];
-const OTHER_TYPES: OtherType[] = [
-  "warmup",
-  "cooldown",
-  "mobility",
-  "recovery",
-  "inseason",
-  "offseason",
-  "education",
-];
+const OTHER_TYPES: OtherType[] = ["warmup", "cooldown", "mobility", "recovery", "inseason", "offseason", "education"];
 
 const YOUTH_AGES = Array.from({ length: 12 }, (_, idx) => 7 + idx);
 const ADULT_AGE = 19;

@@ -9,25 +9,18 @@ import { TEAM_TAB_ROUTES } from "./tabs";
 import TeamMessagesScreen from "./screens/Messages";
 
 export function TeamLayout() {
-  const { token, profile, programTier, messagingAccessTiers, appRole, managedAthletes } = useAppSelector((state) => state.user);
+  const { token, profile, programTier, messagingAccessTiers } = useAppSelector((state) => state.user);
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, hasMessaging, profile.id);
 
-  const firstAthlete = managedAthletes[0];
-  const isYouth = firstAthlete?.athleteType === "youth";
-
   const visibleTabs = useMemo(() => {
-    let tabs = [...TEAM_TAB_ROUTES];
-    if (isYouth) {
-      tabs = tabs.filter((tab) => tab.key !== "tracking");
-    }
-    return tabs.map((tab) => {
+    return TEAM_TAB_ROUTES.map((tab) => {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
       return tab;
     });
-  }, [messagesUnread, isYouth]);
+  }, [messagesUnread]);
 
   const tabComponents = useMemo(
     () => ({

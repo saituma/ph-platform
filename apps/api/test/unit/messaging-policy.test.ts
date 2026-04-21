@@ -56,7 +56,7 @@ describe("messaging-policy.service", () => {
     let callCount = 0;
     mockSelect.mockImplementation(() => {
       callCount++;
-      if (callCount === 1) return createMockChain([{ id: 1 }]); 
+      if (callCount === 1) return createMockChain([{ id: 1 }]);
       return createMockChain([{ messagingEnabledTiers: [] }]);
     });
     const result = await getMessagingAccessTiers();
@@ -67,7 +67,7 @@ describe("messaging-policy.service", () => {
     let callCount = 0;
     mockSelect.mockImplementation(() => {
       callCount++;
-      if (callCount === 1) return createMockChain([{ id: 1 }]); 
+      if (callCount === 1) return createMockChain([{ id: 1 }]);
       return createMockChain([{ messagingEnabledTiers: ["PHP_Premium", "INVALID_TIER"] }]);
     });
     const result = await getMessagingAccessTiers();
@@ -78,7 +78,7 @@ describe("messaging-policy.service", () => {
     let callCount = 0;
     mockSelect.mockImplementation(() => {
       callCount++;
-      if (callCount === 1) return createMockChain([{ id: 1 }]); 
+      if (callCount === 1) return createMockChain([{ id: 1 }]);
       return createMockChain([{ messagingEnabledTiers: "not-an-array" }]);
     });
     const result = await getMessagingAccessTiers();
@@ -88,7 +88,7 @@ describe("messaging-policy.service", () => {
   test("TC-M007: getPrimaryCoachUser filters out blocked coaches", async () => {
     // This is tested indirectly by ensuring getPrimaryCoachUser (which we mock)
     // would skip such users in a real DB. For unit test, we just verify the flow.
-    mockSelect.mockReturnValue(createMockChain([])); 
+    mockSelect.mockReturnValue(createMockChain([]));
     await getMessagingAccessTiers();
     expect(mockSelect).toHaveBeenCalledWith(); // Verifying select called
   });
@@ -108,7 +108,7 @@ describe("messaging-policy.service", () => {
     let callCount = 0;
     mockSelect.mockImplementation(() => {
       callCount++;
-      if (callCount === 1) return createMockChain([{ id: 1 }]); 
+      if (callCount === 1) return createMockChain([{ id: 1 }]);
       return createMockChain([{ messagingEnabledTiers: null }]);
     });
     const result = await getMessagingAccessTiers();
@@ -119,7 +119,7 @@ describe("messaging-policy.service", () => {
     let callCount = 0;
     mockSelect.mockImplementation(() => {
       callCount++;
-      if (callCount === 1) return createMockChain([{ id: 1 }]); 
+      if (callCount === 1) return createMockChain([{ id: 1 }]);
       return createMockChain([{ messagingEnabledTiers: ["BAD", 123] }]);
     });
     const result = await getMessagingAccessTiers();

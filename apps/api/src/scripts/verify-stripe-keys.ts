@@ -13,10 +13,18 @@ async function verifyStripeKeys() {
   });
 
   const expectedKeys = [
-    "php_monthly", "php_six_months", "php_yearly",
-    "php_pro_monthly", "php_pro_six_months", "php_pro_yearly",
-    "php_premium_monthly", "php_premium_six_months", "php_premium_yearly",
-    "php_premium_plus_monthly", "php_premium_plus_six_months", "php_premium_plus_yearly"
+    "php_monthly",
+    "php_six_months",
+    "php_yearly",
+    "php_pro_monthly",
+    "php_pro_six_months",
+    "php_pro_yearly",
+    "php_premium_monthly",
+    "php_premium_six_months",
+    "php_premium_yearly",
+    "php_premium_plus_monthly",
+    "php_premium_plus_six_months",
+    "php_premium_plus_yearly",
   ];
 
   console.log("🔍 Verifying Stripe Lookup Keys...");
@@ -33,11 +41,10 @@ async function verifyStripeKeys() {
       stripe.prices.list({ lookup_keys: batch2, active: true }),
     ]);
 
-    const foundKeys = [
-      ...prices1.data.map(p => p.lookup_key),
-      ...prices2.data.map(p => p.lookup_key)
-    ].filter(Boolean) as string[];
-    
+    const foundKeys = [...prices1.data.map((p) => p.lookup_key), ...prices2.data.map((p) => p.lookup_key)].filter(
+      Boolean,
+    ) as string[];
+
     let allGood = true;
 
     for (const key of expectedKeys) {
@@ -55,7 +62,6 @@ async function verifyStripeKeys() {
     } else {
       console.log("⚠️ WARNING: Some lookup keys are missing. Please add them in the Stripe Dashboard.");
     }
-
   } catch (error: any) {
     console.error("Failed to connect to Stripe or fetch prices:", error.message);
   }

@@ -6,16 +6,8 @@ import {
   athleteTrainingSessionCompletionTable,
   athleteTrainingSessionWorkoutLogTable,
 } from "../../db/schema";
-import {
-  audienceScore,
-  listTrainingAudiences,
-  otherItemMatchesAgeLabel,
-} from "./audience.service";
-import {
-  listTrainingContentAdminWorkspace,
-  PROGRAM_TIER_LABELS,
-  sortItemsByBlockThenOrder,
-} from "./admin.service";
+import { audienceScore, listTrainingAudiences, otherItemMatchesAgeLabel } from "./audience.service";
+import { listTrainingContentAdminWorkspace, PROGRAM_TIER_LABELS, sortItemsByBlockThenOrder } from "./admin.service";
 
 const ADULT_AUDIENCE_PREFIX = "adult::";
 const TEAM_AUDIENCE_PREFIX = "team::";
@@ -35,7 +27,9 @@ function tiersAbove(tier: (typeof ProgramType.enumValues)[number]) {
 }
 
 function hasTeam(team: string | null | undefined) {
-  const normalized = String(team ?? "").trim().toLowerCase();
+  const normalized = String(team ?? "")
+    .trim()
+    .toLowerCase();
   if (!normalized) return false;
   return normalized !== "unknown";
 }
@@ -56,13 +50,13 @@ export async function getTrainingContentMobileWorkspace(input: {
   const resolvedAthleteTier =
     input.programTier ??
     (input.athleteId
-      ? (
+      ? ((
           await db
             .select({ currentProgramTier: athleteTable.currentProgramTier })
             .from(athleteTable)
             .where(eq(athleteTable.id, input.athleteId))
             .limit(1)
-        )[0]?.currentProgramTier ?? null
+        )[0]?.currentProgramTier ?? null)
       : null);
   const isAdult = input.age >= 18;
   const effectiveTier = isAdult ? (resolvedAthleteTier ?? DEFAULT_ADULT_PROGRAM_TIER) : resolvedAthleteTier;
@@ -87,9 +81,7 @@ export async function getTrainingContentMobileWorkspace(input: {
             score: audienceScore(item.label, input.age),
           }));
 
-          const bestAudience = audienceScores
-            .filter((item) => item.score >= 0)
-            .sort((a, b) => b.score - a.score)[0];
+          const bestAudience = audienceScores.filter((item) => item.score >= 0).sort((a, b) => b.score - a.score)[0];
 
           const label = bestAudience?.label ?? "All";
           return listTrainingContentAdminWorkspace(label);
@@ -108,10 +100,7 @@ export async function getTrainingContentMobileWorkspace(input: {
     moduleIdToOrder.set(m.id, m.order ?? null);
   }
 
-  const moduleTierLockStartOrderByTier = new Map<
-    (typeof ProgramType.enumValues)[number],
-    number
-  >();
+  const moduleTierLockStartOrderByTier = new Map<(typeof ProgramType.enumValues)[number], number>();
   for (const lock of workspace.moduleLocks) {
     const startOrder = moduleIdToOrder.get(lock.startModuleId) ?? null;
     if (startOrder == null) continue;
@@ -119,10 +108,10 @@ export async function getTrainingContentMobileWorkspace(input: {
   }
 
   const tierLockStartModuleId = effectiveTier
-    ? workspace.moduleLocks.find((lock) => lock.programTier === effectiveTier)?.startModuleId ?? null
+    ? (workspace.moduleLocks.find((lock) => lock.programTier === effectiveTier)?.startModuleId ?? null)
     : null;
   const tierLockStartOrder = tierLockStartModuleId
-    ? workspace.modules.find((module) => module.id === tierLockStartModuleId)?.order ?? null
+    ? (workspace.modules.find((module) => module.id === tierLockStartModuleId)?.order ?? null)
     : null;
 
   let priorModuleComplete = true;
@@ -146,7 +135,7 @@ export async function getTrainingContentMobileWorkspace(input: {
         sessionLockStartOrderByTier.set(tier, session.order!);
       }
     }
-    const sessionTierLockStartOrder = effectiveTier ? sessionLockStartOrderByTier.get(effectiveTier) ?? null : null;
+    const sessionTierLockStartOrder = effectiveTier ? (sessionLockStartOrderByTier.get(effectiveTier) ?? null) : null;
     let priorSessionComplete = true;
     const sessions = module.sessions.map((session) => {
       const completed = completionSet.has(session.id);
@@ -211,9 +200,7 @@ export async function getTrainingContentMobileWorkspace(input: {
         group.items
           .filter((item) => {
             const metadata =
-              item.metadata && typeof item.metadata === "object"
-                ? (item.metadata as Record<string, unknown>)
-                : null;
+              item.metadata && typeof item.metadata === "object" ? (item.metadata as Record<string, unknown>) : null;
             const kind = typeof metadata?.kind === "string" ? metadata.kind : "";
             if (kind !== "inseason_age_group") return false;
             return otherItemMatchesAgeLabel(item.title, input.age);
@@ -224,9 +211,7 @@ export async function getTrainingContentMobileWorkspace(input: {
         ...group,
         items: group.items.filter((item) => {
           const metadata =
-            item.metadata && typeof item.metadata === "object"
-              ? (item.metadata as Record<string, unknown>)
-              : null;
+            item.metadata && typeof item.metadata === "object" ? (item.metadata as Record<string, unknown>) : null;
           const kind = typeof metadata?.kind === "string" ? metadata.kind : "";
           if (kind === "inseason_age_schedule") {
             return otherItemMatchesAgeLabel(item.title, input.age);
@@ -279,10 +264,7 @@ export async function finishTrainingModuleSessionWithLog(input: {
           updatedAt: now,
         })
         .onConflictDoUpdate({
-          target: [
-            athleteTrainingSessionWorkoutLogTable.athleteId,
-            athleteTrainingSessionWorkoutLogTable.sessionId,
-          ],
+          target: [athleteTrainingSessionWorkoutLogTable.athleteId, athleteTrainingSessionWorkoutLogTable.sessionId],
           set: {
             weightsUsed: input.workoutLog.weightsUsed,
             repsCompleted: input.workoutLog.repsCompleted,
@@ -301,10 +283,7 @@ export async function finishTrainingModuleSessionWithLog(input: {
         updatedAt: now,
       })
       .onConflictDoNothing({
-        target: [
-          athleteTrainingSessionCompletionTable.athleteId,
-          athleteTrainingSessionCompletionTable.sessionId,
-        ],
+        target: [athleteTrainingSessionCompletionTable.athleteId, athleteTrainingSessionCompletionTable.sessionId],
       })
       .returning();
 
@@ -315,14 +294,8 @@ export async function finishTrainingModuleSessionWithLog(input: {
       .from(athleteTrainingSessionCompletionTable)
       .where(
         and(
-          eq(
-            athleteTrainingSessionCompletionTable.athleteId,
-            input.athleteId,
-          ),
-          eq(
-            athleteTrainingSessionCompletionTable.sessionId,
-            input.sessionId,
-          ),
+          eq(athleteTrainingSessionCompletionTable.athleteId, input.athleteId),
+          eq(athleteTrainingSessionCompletionTable.sessionId, input.sessionId),
         ),
       )
       .limit(1);

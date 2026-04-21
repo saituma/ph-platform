@@ -55,15 +55,10 @@ function isTierAllowed(input: {
 
 function normalizeAgeList(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => Number(item))
-    .filter((item) => Number.isFinite(item));
+  return value.map((item) => Number(item)).filter((item) => Number.isFinite(item));
 }
 
-function matchesAgeList(
-  item: { ageList?: unknown | null },
-  age: number | null,
-) {
+function matchesAgeList(item: { ageList?: unknown | null }, age: number | null) {
   const list = normalizeAgeList(item.ageList);
   if (list.length === 0) return true;
   if (age === null || age === undefined) return false;
@@ -76,18 +71,21 @@ const listSchema = z.object({
   age: z.coerce.number().int().optional(),
 });
 
-const exerciseMetadataSchema = z.object({
-  sets: z.number().int().min(0).optional().nullable(),
-  reps: z.number().int().min(0).optional().nullable(),
-  duration: z.number().int().min(0).optional().nullable(),
-  restSeconds: z.number().int().min(0).optional().nullable(),
-  steps: z.string().optional().nullable(),
-  cues: z.string().optional().nullable(),
-  progression: z.string().optional().nullable(),
-  regression: z.string().optional().nullable(),
-  category: z.string().optional().nullable(),
-  equipment: z.string().optional().nullable(),
-}).optional().nullable();
+const exerciseMetadataSchema = z
+  .object({
+    sets: z.number().int().min(0).optional().nullable(),
+    reps: z.number().int().min(0).optional().nullable(),
+    duration: z.number().int().min(0).optional().nullable(),
+    restSeconds: z.number().int().min(0).optional().nullable(),
+    steps: z.string().optional().nullable(),
+    cues: z.string().optional().nullable(),
+    progression: z.string().optional().nullable(),
+    regression: z.string().optional().nullable(),
+    category: z.string().optional().nullable(),
+    equipment: z.string().optional().nullable(),
+  })
+  .optional()
+  .nullable();
 
 const createSchema = z.object({
   sectionType: z.enum(sessionType.enumValues),
@@ -129,7 +127,7 @@ const completeSessionSchema = z.object({
 
 export async function listProgramSectionContentHandler(req: Request, res: Response) {
   const input = listSchema.parse(req.query);
-  
+
   let age = Number.isFinite(input.age) ? input.age! : null;
 
   // If age not provided in query, try to resolve it from the user (athlete or guardian's active athlete)
@@ -139,8 +137,7 @@ export async function listProgramSectionContentHandler(req: Request, res: Respon
 
   const athlete = !isAdmin && req.user ? await getAthleteForUser(req.user.id) : null;
   const allowedTier = normalizeTier(athlete?.currentProgramTier) ?? "PHP";
-  const requestedTier =
-    isAdmin ? (input.programTier ?? null) : (input.programTier ?? allowedTier);
+  const requestedTier = isAdmin ? (input.programTier ?? null) : (input.programTier ?? allowedTier);
 
   if (!isAdmin && requestedTier && !isTierAllowed({ requestedTier, allowedTier })) {
     return res.status(403).json({ error: "Plan locked" });
@@ -295,10 +292,7 @@ export async function completeTrainingSessionHandler(req: Request, res: Response
   const allowedTier = normalizeTier(athlete.currentProgramTier) ?? "PHP";
   const athleteAge = resolveAgeFromAthlete(athlete);
   const ids = [...new Set(input.contentIds)];
-  const rows = await db
-    .select()
-    .from(programSectionContentTable)
-    .where(inArray(programSectionContentTable.id, ids));
+  const rows = await db.select().from(programSectionContentTable).where(inArray(programSectionContentTable.id, ids));
 
   if (rows.length !== ids.length) {
     return res.status(400).json({ error: "One or more exercises are invalid or were removed." });

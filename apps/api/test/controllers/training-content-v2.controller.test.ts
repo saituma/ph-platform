@@ -196,4 +196,3 @@ describe("training-content-v2 controller", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Invalid workout log" });
   });
 });
-

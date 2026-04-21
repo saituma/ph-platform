@@ -1,9 +1,6 @@
 import { and, eq, gte, lte, inArray } from "drizzle-orm";
 import { db } from "../../db";
-import {
-  availabilityBlockTable,
-  bookingTable,
-} from "../../db/schema";
+import { availabilityBlockTable, bookingTable } from "../../db/schema";
 import {
   startOfUtcDay,
   endOfUtcDay,
@@ -112,8 +109,8 @@ export async function listGeneratedAvailability(input: {
   serviceTypeId?: number;
   athlete?: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null;
 }) {
-  const services = await listServiceTypes({ 
-    includeInactive: false, 
+  const services = await listServiceTypes({
+    includeInactive: false,
     viewerProgramTier: input.viewerProgramTier,
     athlete: input.athlete,
   });
@@ -130,7 +127,9 @@ export async function listGeneratedAvailability(input: {
     buildConfiguredOccurrences(service, input.from, input.to, occurrenceCounts, slotCounts),
   );
 
-  const configuredKeys = new Set(configured.map((item: GeneratedOccurrence) => `${item.serviceTypeId}:${item.occurrenceKey}`));
+  const configuredKeys = new Set(
+    configured.map((item: GeneratedOccurrence) => `${item.serviceTypeId}:${item.occurrenceKey}`),
+  );
   const legacyCandidates = (filteredServices as ServiceTypeRecord[]).filter((service) => {
     const hasConfig =
       Boolean(service.oneTimeDate && service.oneTimeTime) ||
@@ -187,16 +186,15 @@ export async function countActiveBookingsForService(serviceTypeId: number) {
   const rows = await db
     .select({ id: bookingTable.id })
     .from(bookingTable)
-    .where(
-      and(
-        eq(bookingTable.serviceTypeId, serviceTypeId),
-        inArray(bookingTable.status, ["pending", "confirmed"]),
-      ),
-    );
+    .where(and(eq(bookingTable.serviceTypeId, serviceTypeId), inArray(bookingTable.status, ["pending", "confirmed"])));
   return rows.length;
 }
 
-export async function countActiveBookingsForOccurrence(serviceTypeId: number, occurrenceKey: string, slotKey?: string | null) {
+export async function countActiveBookingsForOccurrence(
+  serviceTypeId: number,
+  occurrenceKey: string,
+  slotKey?: string | null,
+) {
   const baseFilters = [
     eq(bookingTable.serviceTypeId, serviceTypeId),
     eq(bookingTable.occurrenceKey, occurrenceKey),
@@ -205,11 +203,6 @@ export async function countActiveBookingsForOccurrence(serviceTypeId: number, oc
   const rows = await db
     .select({ id: bookingTable.id })
     .from(bookingTable)
-    .where(
-      and(
-        ...baseFilters,
-        ...(slotKey ? [eq(bookingTable.slotKey, slotKey)] : []),
-      ),
-    );
+    .where(and(...baseFilters, ...(slotKey ? [eq(bookingTable.slotKey, slotKey)] : [])));
   return rows.length;
 }

@@ -610,6 +610,20 @@
       "when": 1777000000000,
       "tag": "0086_team_subscription_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1777100000000,
+      "tag": "0087_payment_receipt_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1777200000000,
+      "tag": "0088_team_email_slug",
+      "breakpoints": true
     }
   ]
 }

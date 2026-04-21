@@ -95,10 +95,7 @@ export async function createFoodDiaryEntry(input: {
   quantity?: number | null;
   photoUrl?: string | null;
 }) {
-  const resolvedDate =
-    typeof input.date === "string"
-      ? input.date
-      : input.date.toISOString().slice(0, 10);
+  const resolvedDate = typeof input.date === "string" ? input.date : input.date.toISOString().slice(0, 10);
   const result = await db
     .insert(foodDiaryTable)
     .values({

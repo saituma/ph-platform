@@ -1,9 +1,6 @@
 import { listGuardianAthletes } from "../services/user.service";
 
-export async function resolveActingUserId(
-  userId: number,
-  actingUserIdHeader?: string | string[] | undefined
-) {
+export async function resolveActingUserId(userId: number, actingUserIdHeader?: string | string[] | undefined) {
   if (!actingUserIdHeader) return userId;
   const raw = Array.isArray(actingUserIdHeader) ? actingUserIdHeader[0] : actingUserIdHeader;
   const actingId = Number(raw);

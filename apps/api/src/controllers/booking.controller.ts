@@ -31,23 +31,25 @@ const weeklyEntrySchema = z.object({
 });
 const slotDefinitionSchema = z.object({
   time: z.string().min(4),
-  capacity: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional(),
+  capacity: z
+    .preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1))
+    .optional(),
 });
 
 const serviceTypeSchema = z.object({
   name: z.string().min(1),
   description: z.string().max(2000).optional().nullable(),
   type: z.enum(["one_to_one", "semi_private", "in_person"]),
-  durationMinutes: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)),
+  durationMinutes: z.preprocess(
+    (val) => (val === "" || val === null ? undefined : Number(val)),
+    z.number().int().min(1),
+  ),
   capacity: z
-    .preprocess(
-      (val) => {
-        if (val === "") return undefined;
-        if (val === null) return null;
-        return Number(val);
-      },
-      z.number().int().min(1).nullable(),
-    )
+    .preprocess((val) => {
+      if (val === "") return undefined;
+      if (val === null) return null;
+      return Number(val);
+    }, z.number().int().min(1).nullable())
     .optional(),
   attendeeVisibility: z.boolean().optional(),
   defaultLocation: z.string().optional().nullable(),
@@ -57,12 +59,18 @@ const serviceTypeSchema = z.object({
   eligibleTargets: z.array(z.string()).optional(),
   schedulePattern: z.enum(["one_time", "weekly_recurring"]).optional(),
   recurrenceEndMode: z.enum(["weeks", "months", "forever"]).optional().nullable(),
-  recurrenceCount: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional().nullable(),
+  recurrenceCount: z
+    .preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1))
+    .optional()
+    .nullable(),
   weeklyEntries: z.array(weeklyEntrySchema).optional(),
   oneTimeDate: z.string().optional().nullable(),
   oneTimeTime: z.string().optional().nullable(),
   slotMode: z.enum(["shared_capacity", "exact_sub_slots", "both"]).optional(),
-  slotIntervalMinutes: z.preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1)).optional().nullable(),
+  slotIntervalMinutes: z
+    .preprocess((val) => (val === "" || val === null ? undefined : Number(val)), z.number().int().min(1))
+    .optional()
+    .nullable(),
   slotDefinitions: z.array(slotDefinitionSchema).optional(),
   isActive: z.boolean().optional(),
 });
@@ -77,19 +85,21 @@ const availabilitySchema = z.object({
   endsAt: z.string().datetime(),
 });
 
-const bookingSchema = z.object({
-  serviceTypeId: z.number().int().min(1),
-  startsAt: z.string().datetime().optional(),
-  endsAt: z.string().datetime().optional(),
-  occurrenceKey: z.string().datetime().optional(),
-  slotKey: z.string().datetime().optional(),
-  location: z.string().optional(),
-  meetingLink: z.string().optional(),
-  notes: z.string().max(2000).optional(),
-  timezoneOffsetMinutes: z.number().int().optional(),
-}).refine((input) => Boolean(input.occurrenceKey || (input.startsAt && input.endsAt)), {
-  message: "Either occurrenceKey or startsAt/endsAt is required",
-});
+const bookingSchema = z
+  .object({
+    serviceTypeId: z.number().int().min(1),
+    startsAt: z.string().datetime().optional(),
+    endsAt: z.string().datetime().optional(),
+    occurrenceKey: z.string().datetime().optional(),
+    slotKey: z.string().datetime().optional(),
+    location: z.string().optional(),
+    meetingLink: z.string().optional(),
+    notes: z.string().max(2000).optional(),
+    timezoneOffsetMinutes: z.number().int().optional(),
+  })
+  .refine((input) => Boolean(input.occurrenceKey || (input.startsAt && input.endsAt)), {
+    message: "Either occurrenceKey or startsAt/endsAt is required",
+  });
 
 const availabilityQuerySchema = z.object({
   serviceTypeId: z.coerce.number().int().min(1),
@@ -105,8 +115,7 @@ const generatedAvailabilityQuerySchema = z.object({
 
 export async function listServices(req: Request, res: Response) {
   const includeInactive =
-    req.query.includeInactive === "true" &&
-    ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "");
+    req.query.includeInactive === "true" && ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "");
   const includeLocked = req.query.includeLocked === "true";
   const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
   const items = await listServiceTypes({
@@ -265,11 +274,7 @@ export async function createBookingForUser(req: Request, res: Response) {
         error: "An approved paid plan is required to book sessions.",
       });
     }
-    const knownErrors = [
-      "Capacity reached",
-      "Service type not found",
-      "Service type not available",
-    ];
+    const knownErrors = ["Capacity reached", "Service type not found", "Service type not available"];
     if (knownErrors.includes(error?.message)) {
       return res.status(400).json({ error: error.message });
     }
@@ -405,7 +410,8 @@ export async function bookingActionPost(req: Request, res: Response) {
 
   const updates = body.data.updates ?? {};
   const nextStartsAt = updates.startsAt ? new Date(updates.startsAt) : existing.startsAt;
-  const nextEndTime = updates.endTime === undefined ? existing.endTime : updates.endTime === null ? null : new Date(updates.endTime);
+  const nextEndTime =
+    updates.endTime === undefined ? existing.endTime : updates.endTime === null ? null : new Date(updates.endTime);
 
   if (!nextStartsAt || !Number.isFinite(nextStartsAt.getTime())) {
     return res.status(400).json({ ok: false, error: "startsAt must be a valid timestamp." });

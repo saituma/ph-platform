@@ -39,12 +39,15 @@ export function CommentsSheet({
   token,
   runLogId,
   runOwnerName,
+  useTeamFeed = false,
 }: {
   open: boolean;
   onClose: () => void;
   token: string;
   runLogId: number;
   runOwnerName?: string | null;
+  /** Use `/teams/social/*` comment endpoints for team athletes. */
+  useTeamFeed?: boolean;
 }) {
   const { colors, isDark } = useAppTheme();
   const [items, setItems] = useState<SocialCommentItem[]>([]);
@@ -75,14 +78,14 @@ export function CommentsSheet({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetchRunComments(token, runLogId);
+      const res = await fetchRunComments(token, runLogId, { useTeamFeed });
       setItems(res.items ?? []);
     } catch (e: any) {
       Alert.alert("Couldn't load comments", String(e?.message ?? "Error"));
     } finally {
       setLoading(false);
     }
-  }, [runLogId, token]);
+  }, [runLogId, token, useTeamFeed]);
 
   useEffect(() => {
     if (!open) return;
@@ -151,7 +154,7 @@ export function CommentsSheet({
     setReactorsOpen(true);
     setReactorsLoading(true);
     try {
-      const res = await listCommentReactions(token, commentId);
+      const res = await listCommentReactions(token, commentId, { useTeamFeed });
       setReactors(res.items ?? []);
     } catch (e: any) {
       Alert.alert("Couldn't load reactions", String(e?.message ?? "Error"));
@@ -159,7 +162,7 @@ export function CommentsSheet({
     } finally {
       setReactorsLoading(false);
     }
-  }, [token]);
+  }, [token, useTeamFeed]);
 
   const onSubmit = useCallback(async () => {
     const trimmed = text.trim();
@@ -168,13 +171,16 @@ export function CommentsSheet({
     setPosting(true);
     try {
       if (editing) {
-        await editComment(token, editing.commentId, trimmed);
+        await editComment(token, editing.commentId, trimmed, { useTeamFeed });
         setEditing(null);
         setText("");
         await load();
         return;
       }
-      await postRunComment(token, runLogId, trimmed, { parentId: replyTo?.parentCommentId ?? null });
+      await postRunComment(token, runLogId, trimmed, {
+        parentId: replyTo?.parentCommentId ?? null,
+        useTeamFeed,
+      });
       setReplyTo(null);
       setText("");
       await load();
@@ -183,7 +189,7 @@ export function CommentsSheet({
     } finally {
       setPosting(false);
     }
-  }, [editing, load, posting, replyTo, runLogId, text, token]);
+  }, [editing, load, posting, replyTo, runLogId, text, token, useTeamFeed]);
 
   const onDelete = useCallback((comment: SocialCommentItem) => {
     Alert.alert("Delete comment?", "This will remove the comment.", [
@@ -193,7 +199,7 @@ export function CommentsSheet({
         style: "destructive",
         onPress: async () => {
           try {
-            await deleteComment(token, comment.commentId);
+            await deleteComment(token, comment.commentId, { useTeamFeed });
             closeMenu();
             await load();
           } catch (e: any) {
@@ -202,7 +208,7 @@ export function CommentsSheet({
         },
       },
     ]);
-  }, [closeMenu, load, token]);
+  }, [closeMenu, load, token, useTeamFeed]);
 
   const onReport = useCallback((comment: SocialCommentItem) => {
     Alert.alert(
@@ -215,7 +221,7 @@ export function CommentsSheet({
           style: "destructive",
           onPress: async () => {
             try {
-              await reportComment(token, comment.commentId);
+              await reportComment(token, comment.commentId, undefined, { useTeamFeed });
               closeMenu();
               Alert.alert("Reported", "Thanks. We'll review it.");
             } catch (e: any) {
@@ -225,7 +231,7 @@ export function CommentsSheet({
         },
       ],
     );
-  }, [closeMenu, token]);
+  }, [closeMenu, token, useTeamFeed]);
 
   const onShare = useCallback(async (comment: SocialCommentItem) => {
     const who = comment.name || "Someone";
@@ -261,15 +267,15 @@ export function CommentsSheet({
   const onToggleReaction = useCallback(async (comment: SocialCommentItem, emoji: string) => {
     try {
       if (comment.myReaction === emoji) {
-        await clearCommentReaction(token, comment.commentId);
+        await clearCommentReaction(token, comment.commentId, { useTeamFeed });
       } else {
-        await setCommentReaction(token, comment.commentId, emoji);
+        await setCommentReaction(token, comment.commentId, emoji, { useTeamFeed });
       }
       await load();
     } catch (e: any) {
       Alert.alert("Couldn't react", String(e?.message ?? "Error"));
     }
-  }, [load, token]);
+  }, [load, token, useTeamFeed]);
 
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>

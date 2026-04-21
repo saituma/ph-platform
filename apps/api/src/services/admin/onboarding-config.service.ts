@@ -1,9 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
-import {
-  onboardingConfigTable,
-  ProgramType,
-} from "../../db/schema";
+import { onboardingConfigTable, ProgramType } from "../../db/schema";
 
 export const defaultOnboardingConfig = {
   version: 1,
@@ -46,9 +43,7 @@ export const defaultOnboardingConfig = {
     { id: "parentEmail", label: "Guardian Email", type: "text", required: true, visible: true },
     { id: "parentPhone", label: "Guardian Phone", type: "text", required: false, visible: true },
   ],
-  requiredDocuments: [
-    { id: "consent", label: "Guardian Consent Form", required: true },
-  ],
+  requiredDocuments: [{ id: "consent", label: "Guardian Consent Form", required: true }],
   welcomeMessage: "Welcome to PH Performance. Let's get your athlete set up.",
   coachMessage: "Need help? Your coach is ready to support you.",
   defaultProgramTier: "PHP" as (typeof ProgramType.enumValues)[number],
@@ -72,9 +67,7 @@ const PHP_PLUS_TABS = new Set(defaultOnboardingConfig.phpPlusProgramTabs);
 
 const normalizePhpPlusTabs = (input: unknown) => {
   if (!Array.isArray(input)) return null;
-  const normalized = input
-    .map((tab) => String(tab))
-    .filter((tab) => PHP_PLUS_TABS.has(tab));
+  const normalized = input.map((tab) => String(tab)).filter((tab) => PHP_PLUS_TABS.has(tab));
   return normalized;
 };
 
@@ -106,10 +99,7 @@ export async function getPhpPlusProgramTabsAdmin() {
   return normalized ?? defaultOnboardingConfig.phpPlusProgramTabs;
 }
 
-export async function setPhpPlusProgramTabsAdmin(
-  userId: number,
-  tabs: unknown
-) {
+export async function setPhpPlusProgramTabsAdmin(userId: number, tabs: unknown) {
   const normalized = normalizePhpPlusTabs(tabs);
   const existing = await db.select().from(onboardingConfigTable).limit(1);
   if (existing[0]) {
@@ -159,7 +149,7 @@ export async function updateOnboardingConfig(
     approvalWorkflow: string;
     notes?: string | null;
     phpPlusProgramTabs?: string[] | null;
-  }
+  },
 ) {
   const normalizedPhpPlusTabs = normalizePhpPlusTabs(input.phpPlusProgramTabs);
   const existing = await db.select().from(onboardingConfigTable).limit(1);

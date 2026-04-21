@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
 	ArrowLeft,
@@ -6,11 +7,9 @@ import {
 	Clock,
 	Lock,
 } from "lucide-react";
+import { getClientAuthToken } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
-import {
-	fetchTeamWorkspace,
-} from "@/services/programsService";
-import { useQuery } from "@tanstack/react-query";
+import { fetchTeamWorkspace } from "@/services/programsService";
 import { programKeys } from "../index";
 
 type TrainingSession = {
@@ -36,7 +35,7 @@ type TrainingModule = {
 
 export const Route = createFileRoute("/portal/programs/module/$moduleId")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = localStorage.getItem("auth_token");
+		const token = getClientAuthToken();
 		if (token) {
 			await queryClient.ensureQueryData({
 				queryKey: programKeys.workspace(token, null),
@@ -91,7 +90,10 @@ function ModuleDetailPage() {
 			<div className="flex h-screen items-center justify-center pb-20 px-4">
 				<div className="text-center">
 					<p className="text-muted-foreground mb-4">
-						{portalError || (programsError instanceof Error ? programsError.message : "Module not found")}
+						{portalError ||
+							(programsError instanceof Error
+								? programsError.message
+								: "Module not found")}
 					</p>
 					<Link
 						to="/portal/programs"

@@ -1,8 +1,5 @@
 import { db } from "../db";
-import {
-  athleteTrainingSessionLogTable,
-  programSectionCompletionTable,
-} from "../db/schema";
+import { athleteTrainingSessionLogTable, programSectionCompletionTable } from "../db/schema";
 import { syncAchievementsForAthlete } from "./achievement.service";
 
 export type CompleteTrainingSessionInput = {
