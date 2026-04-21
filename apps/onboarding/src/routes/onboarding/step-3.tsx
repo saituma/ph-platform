@@ -21,6 +21,7 @@ import { Input } from "#/components/ui/input";
 import { toast } from "sonner";
 import { env } from "#/env";
 import { cn } from "#/lib/utils";
+import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/onboarding/step-3")({
 	component: OnboardingStep3,
@@ -42,13 +43,18 @@ function OnboardingStep3() {
 	const [otherEquipment, setOtherEquipment] = useState("");
 	const [phone, setPhone] = useState("");
 	const [injuries, setInjuries] = useState("");
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isValidating, setIsValidating] = useState(true);
 	const navigate = useNavigate();
 
 	useEffect(() => {
 		const email = localStorage.getItem("pending_email");
 		const token = localStorage.getItem("auth_token");
+		const type = localStorage.getItem("user_type");
+
+		if (type === "team") {
+			navigate({ to: "/onboarding/step-4" });
+			return;
+		}
 
 		if (!email || !token) {
 			toast.error("Session expired", {
@@ -60,30 +66,11 @@ function OnboardingStep3() {
 		setIsValidating(false);
 	}, [navigate]);
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (isSubmitting) return;
+	const mutation = useMutation({
+		mutationFn: async () => {
+			const token = localStorage.getItem("auth_token");
+			if (!token) throw new Error("Session expired");
 
-		if (!performanceGoals.trim()) {
-			toast.error("Please enter your performance goals");
-			return;
-		}
-
-		if (equipmentAccess === "other" && !otherEquipment.trim()) {
-			toast.error("Please specify your equipment access");
-			return;
-		}
-
-		if (!phone.trim()) {
-			toast.error("Please enter your phone number");
-			return;
-		}
-
-		const token = localStorage.getItem("auth_token");
-		if (!token) return;
-
-		setIsSubmitting(true);
-		try {
 			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
 			const response = await fetch(`${baseUrl}/api/onboarding/goals`, {
 				method: "POST",
@@ -101,23 +88,41 @@ function OnboardingStep3() {
 				}),
 			});
 
-			if (!response.ok) {
-				const data = await response.json();
-				throw new Error(data.error || "Failed to save goals");
-			}
-
+			const data = await response.json();
+			if (!response.ok) throw new Error(data.error || "Failed to save goals");
+			return data;
+		},
+		onSuccess: () => {
 			toast.success("Goals saved!", {
 				description: "Your training path is being customized.",
 			});
-
 			navigate({ to: "/onboarding/step-4" });
-		} catch (error: any) {
+		},
+		onError: (error) => {
 			toast.error("Error", {
 				description: error.message || "An unexpected error occurred.",
 			});
-		} finally {
-			setIsSubmitting(false);
+		},
+	});
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (mutation.isPending) return;
+
+		if (!performanceGoals.trim()) {
+			toast.error("Please enter your performance goals");
+			return;
 		}
+		if (equipmentAccess === "other" && !otherEquipment.trim()) {
+			toast.error("Please specify your equipment access");
+			return;
+		}
+		if (!phone.trim()) {
+			toast.error("Please enter your phone number");
+			return;
+		}
+
+		mutation.mutate();
 	};
 
 	if (isValidating) return null;
@@ -303,10 +308,10 @@ function OnboardingStep3() {
 							</Button>
 							<Button
 								type="submit"
-								disabled={isSubmitting}
+								disabled={mutation.isPending}
 								className="flex-[2] h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
 							>
-								{isSubmitting ? (
+								{mutation.isPending ? (
 									<CircleNotch className="w-6 h-6 animate-spin text-primary-foreground" />
 								) : (
 									<>

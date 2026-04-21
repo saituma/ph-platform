@@ -18,6 +18,7 @@ import { Input } from "#/components/ui/input";
 import { cn } from "#/lib/utils";
 import { toast } from "sonner";
 import { env } from "#/env";
+import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/onboarding/step-1")({
 	component: OnboardingStep1,
@@ -52,7 +53,6 @@ function OnboardingStep1() {
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isValidating, setIsValidating] = useState(true);
 	const navigate = useNavigate();
 
@@ -79,23 +79,14 @@ function OnboardingStep1() {
 
 	const isPasswordStrong = Object.values(passwordRequirements).every(Boolean);
 	const passwordsMatch = password === confirmPassword && password !== "";
-	const canContinue = selected && isPasswordStrong && passwordsMatch && !isSubmitting;
+	
+	const mutation = useMutation({
+		mutationFn: async () => {
+			const email = localStorage.getItem("pending_email");
+			const token = localStorage.getItem("auth_token");
 
-	const handleContinue = async () => {
-		if (!canContinue) return;
+			if (!email || !token) throw new Error("Session expired");
 
-		const email = localStorage.getItem("pending_email");
-		const token = localStorage.getItem("auth_token");
-
-		if (!email || !token) {
-			toast.error("Session expired", {
-				description: "Please go back and verify your email again.",
-			});
-			return;
-		}
-
-		setIsSubmitting(true);
-		try {
 			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
 			const response = await fetch(`${baseUrl}/api/auth/onboarding/role`, {
 				method: "POST",
@@ -107,25 +98,24 @@ function OnboardingStep1() {
 			});
 
 			const data = await response.json();
-
-			if (!response.ok) {
-				throw new Error(data.error || "Failed to save selection");
-			}
-
+			if (!response.ok) throw new Error(data.error || "Failed to save selection");
+			return data;
+		},
+		onSuccess: () => {
 			toast.success("Preference saved!", {
 				description: `You've joined as a ${USER_TYPES.find((t) => t.id === selected)?.title}.`,
 			});
-
 			localStorage.setItem("user_type", selected as string);
 			navigate({ to: "/onboarding/step-2" });
-		} catch (error: any) {
+		},
+		onError: (error) => {
 			toast.error("Could not save selection", {
 				description: error.message || "An unexpected error occurred.",
 			});
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
+		},
+	});
+
+	const canContinue = selected && isPasswordStrong && passwordsMatch && !mutation.isPending;
 
 	if (isValidating) return null;
 
@@ -134,7 +124,7 @@ function OnboardingStep1() {
 			<section className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
 					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
-						Step 1 of 4
+						Step 1 of {selected === "team" ? "3" : "4"}
 					</p>
 					<h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl leading-[1.1]">
 						Setup your <span className="text-primary">Account</span>
@@ -164,7 +154,7 @@ function OnboardingStep1() {
 												"h-full transition-all duration-300 border-2 cursor-pointer hover:border-primary/40 group rounded-3xl",
 												isSelected
 													? "border-primary bg-primary/5 shadow-md scale-[1.02]"
-													: "border-border/60 bg-card hover:shadow-sm"
+													: "border-border/80 bg-card hover:shadow-sm"
 											)}
 										>
 											<div className="flex flex-col h-full gap-4 p-6">
@@ -284,12 +274,12 @@ function OnboardingStep1() {
 
 				<div className="flex flex-col items-center pt-4">
 					<Button
-						onClick={handleContinue}
+						onClick={() => mutation.mutate()}
 						disabled={!canContinue}
 						size="lg"
 						className="min-w-[240px] h-16 rounded-[2rem] text-xl font-black uppercase italic shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
 					>
-						{isSubmitting ? (
+						{mutation.isPending ? (
 							<CircleNotch className="w-8 h-8 animate-spin" />
 						) : (
 							<>

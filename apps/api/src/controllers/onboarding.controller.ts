@@ -183,6 +183,24 @@ export async function submitTeamBasic(req: Request, res: Response) {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
   }
+
+  function safeOnboardingErrorMessage(error: unknown, fallback: string) {
+    const err = error as any;
+    const message = typeof err?.message === "string" ? err.message : "";
+
+    // Drizzle's DrizzleQueryError message includes full SQL + params.
+    if (err?.name === "DrizzleQueryError" || typeof err?.query === "string" || message.startsWith("Failed query:")) {
+      const pgCode = err?.cause?.code ?? err?.code;
+      // Missing table / missing column => typically indicates migrations haven't run.
+      if (pgCode === "42P01" || pgCode === "42703") {
+        return "Database schema is out of date. Run migrations and try again.";
+      }
+      return fallback;
+    }
+
+    return message || fallback;
+  }
+
   try {
     const result = await startTeamOnboarding({
       userId: req.user!.id,
@@ -190,11 +208,13 @@ export async function submitTeamBasic(req: Request, res: Response) {
     });
     return res.status(200).json(result);
   } catch (err: any) {
-    const msg = err?.message ?? "Failed to create team";
+    const msg = typeof err?.message === "string" ? err.message : "";
     if (msg.includes("unique") || msg.includes("duplicate") || err?.code === "23505") {
       return res.status(409).json({ error: "A team with that name already exists. Please choose a different name." });
     }
-    return res.status(500).json({ error: msg });
+
+    console.error("[onboarding] submitTeamBasic", err);
+    return res.status(500).json({ error: safeOnboardingErrorMessage(err, "Failed to create team.") });
   }
 }
 

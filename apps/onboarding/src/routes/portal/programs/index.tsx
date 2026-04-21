@@ -1,11 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CheckCircle, Lock, Play } from "lucide-react";
-import { useEffect, useState } from "react";
 import { usePortal } from "@/portal/PortalContext";
 import {
 	fetchTeamWorkspace,
-	type TrainingContentV2Workspace,
 } from "@/services/programsService";
+import { useQuery } from "@tanstack/react-query";
+
+export const programKeys = {
+	all: ["programs"] as const,
+	workspace: (token: string | null, age: number | null) =>
+		[...programKeys.all, "workspace", token, age] as const,
+};
 
 type WorkspaceModule = {
 	id: number;
@@ -33,43 +38,41 @@ type WorkspaceSection = {
 };
 
 export const Route = createFileRoute("/portal/programs/")({
+	loader: async ({ context: { queryClient } }) => {
+		const token = localStorage.getItem("auth_token");
+		// Note: age is not available in localStorage usually, 
+		// but we can prefetch if we have it or use null as default.
+		if (token) {
+			await queryClient.ensureQueryData({
+				queryKey: programKeys.workspace(token, null),
+				queryFn: () => fetchTeamWorkspace(token, null),
+			});
+		}
+	},
 	component: ProgramsPage,
 });
 
 function ProgramsPage() {
-	const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(
-		null,
-	);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const navigate = useNavigate();
 	const {
 		token,
 		age,
 		loading: portalLoading,
 		error: portalError,
 	} = usePortal();
+	const navigate = useNavigate();
 
-	useEffect(() => {
-		const loadData = async () => {
-			try {
-				setLoading(true);
-				if (!token) throw new Error("Not authenticated");
-				const workspaceData = await fetchTeamWorkspace(token, age);
-				setWorkspace(workspaceData);
-			} catch (err) {
-				setError(
-					err instanceof Error ? err.message : "Failed to load programs",
-				);
-			} finally {
-				setLoading(false);
-			}
-		};
+	const {
+		data: workspace,
+		isLoading: programsLoading,
+		error: programsError,
+	} = useQuery({
+		queryKey: programKeys.workspace(token, age),
+		queryFn: () => fetchTeamWorkspace(token!, age),
+		enabled: !!token && !portalLoading,
+		staleTime: 1000 * 60 * 15, // 15 minutes
+	});
 
-		if (!portalLoading) loadData();
-	}, [token, age, portalLoading]);
-
-	if (portalLoading || loading) {
+	if (portalLoading || (token && programsLoading && !workspace)) {
 		return (
 			<div className="flex h-screen items-center justify-center pb-20">
 				<div className="text-center">
@@ -82,12 +85,12 @@ function ProgramsPage() {
 		);
 	}
 
-	if (portalError || error || !workspace) {
+	if (portalError || programsError || !workspace) {
 		return (
 			<div className="flex h-screen items-center justify-center pb-20 px-4">
 				<div className="text-center">
 					<p className="text-muted-foreground mb-4">
-						{portalError || error || "Could not load programs"}
+						{portalError || (programsError instanceof Error ? programsError.message : "Could not load programs")}
 					</p>
 					<button
 						type="button"

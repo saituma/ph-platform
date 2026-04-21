@@ -1,112 +1,115 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
-import { fetchInbox, fetchThreadMessages, sendMessage, type MessageThread, type ApiChatMessage } from "@/services/messagesService";
-import { MessageSquare, Send, Search, Users, Shield, User, Loader2, ArrowLeft } from "lucide-react";
+import {
+	fetchInbox,
+	fetchThreadMessages,
+	sendMessage,
+	type MessageThread,
+	type ApiChatMessage,
+} from "@/services/messagesService";
+import {
+	MessageSquare,
+	Send,
+	Search,
+	Users,
+	Shield,
+	User,
+	Loader2,
+	ArrowLeft,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { config } from "#/lib/config";
+import { usePortal } from "@/portal/PortalContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+export const messageKeys = {
+	all: ["messages"] as const,
+	inbox: (token: string | null) => [...messageKeys.all, "inbox", token] as const,
+	thread: (token: string | null, threadId: string | null) =>
+		[...messageKeys.all, "thread", token, threadId] as const,
+};
 
 export const Route = createFileRoute("/portal/messages")({
-  component: MessagesPage,
+	loader: async ({ context: { queryClient } }) => {
+		const token = localStorage.getItem("auth_token");
+		if (token) {
+			await queryClient.ensureQueryData({
+				queryKey: messageKeys.inbox(token),
+				queryFn: () => fetchInbox(token),
+			});
+		}
+	},
+	component: MessagesPage,
 });
 
 function MessagesPage() {
-  const [threads, setThreads] = useState<MessageThread[]>([]);
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ApiChatMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [newMessage, setNewMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  const token = localStorage.getItem("auth_token");
-  const scrollRef = useRef<HTMLDivElement>(null);
+	const { token, user, loading: portalLoading } = usePortal();
+	const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+	const [newMessage, setNewMessage] = useState("");
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!token) return;
+	const { data: inboxData, isLoading: threadsLoading } = useQuery({
+		queryKey: messageKeys.inbox(token),
+		queryFn: () => fetchInbox(token!),
+		enabled: !!token && !portalLoading,
+		staleTime: 1000 * 60, // 1 minute
+	});
 
-    const loadInbox = async () => {
-      try {
-        setLoading(true);
-        const [inboxData, userRes] = await Promise.all([
-          fetchInbox(token),
-          fetch(`${config.api.baseUrl}/api/auth/me`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        ]);
-        
-        setThreads(inboxData.threads);
-        if (userRes.ok) {
-           const userData = await userRes.json();
-           setCurrentUserId(userData.user.id);
-        }
+	const threads = inboxData?.threads ?? [];
 
-        if (inboxData.threads.length > 0 && !activeThreadId) {
-          setActiveThreadId(inboxData.threads[0].id);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+	useEffect(() => {
+		if (threads.length > 0 && !activeThreadId) {
+			setActiveThreadId(threads[0].id);
+		}
+	}, [threads, activeThreadId]);
 
-    loadInbox();
-  }, [token]);
+	const { data: messages = [], isLoading: messagesLoading } = useQuery({
+		queryKey: messageKeys.thread(token, activeThreadId),
+		queryFn: async () => {
+			const msgs = await fetchThreadMessages(token!, activeThreadId!);
+			return msgs.reverse();
+		},
+		enabled: !!token && !!activeThreadId,
+		staleTime: 1000 * 30, // 30 seconds
+	});
 
-  useEffect(() => {
-    if (!activeThreadId || !token) return;
+	const sendMutation = useMutation({
+		mutationFn: (text: string) => sendMessage(token!, activeThreadId!, text),
+		onSuccess: () => {
+			setNewMessage("");
+			queryClient.invalidateQueries({
+				queryKey: messageKeys.thread(token, activeThreadId),
+			});
+			queryClient.invalidateQueries({ queryKey: messageKeys.inbox(token) });
+		},
+	});
 
-    const loadMessages = async () => {
-      try {
-        setMessagesLoading(true);
-        const msgs = await fetchThreadMessages(token, activeThreadId);
-        setMessages(msgs.reverse()); // Show newest at bottom
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setMessagesLoading(false);
-      }
-    };
+	useEffect(() => {
+		if (scrollRef.current) {
+			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+		}
+	}, [messages]);
 
-    loadMessages();
-  }, [activeThreadId, token]);
+	const handleSendMessage = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!newMessage.trim() || sendMutation.isPending) return;
+		sendMutation.mutate(newMessage);
+	};
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+	const activeThread = threads.find((t) => t.id === activeThreadId);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !activeThreadId || !newMessage.trim() || sending) return;
-
-    setSending(true);
-    try {
-      await sendMessage(token, activeThreadId, newMessage);
-      setNewMessage("");
-      // Reload messages
-      const msgs = await fetchThreadMessages(token, activeThreadId);
-      setMessages(msgs.reverse());
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const activeThread = threads.find(t => t.id === activeThreadId);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center pb-20">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-          <p className="mt-4 text-sm text-muted-foreground font-medium">Connecting to secure chat...</p>
-        </div>
-      </div>
-    );
-  }
+	if (threadsLoading && !threads.length) {
+		return (
+			<div className="flex h-screen items-center justify-center pb-20">
+				<div className="text-center">
+					<Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
+					<p className="mt-4 text-sm text-muted-foreground font-medium">
+						Connecting to secure chat...
+					</p>
+				</div>
+			</div>
+		);
+	}
 
   return (
     <div className="container mx-auto p-4 h-[calc(100vh-140px)] flex flex-col space-y-4">
@@ -210,7 +213,7 @@ function MessagesPage() {
                        </div>
                     ) : (
                        messages.map((msg) => {
-                          const isOwn = msg.senderId === currentUserId;
+                          const isOwn = msg.senderId === user?.id;
                           return (
                              <div key={msg.id} className={cn(
                                 "flex flex-col max-w-[80%] md:max-w-[70%]",
@@ -254,10 +257,10 @@ function MessagesPage() {
                        />
                        <button 
                           type="submit"
-                          disabled={!newMessage.trim() || sending}
+                          disabled={!newMessage.trim() || sendMutation.isPending}
                           className="absolute right-2 w-10 h-10 bg-primary text-primary-foreground rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
                        >
-                          {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                          {sendMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                        </button>
                     </div>
                  </form>

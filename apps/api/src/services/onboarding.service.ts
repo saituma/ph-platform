@@ -242,9 +242,12 @@ export async function startTeamOnboarding(input: {
 	maxAge: number;
 	maxAthletes: number;
 }) {
-	// Get or create team record
+	// Get or create team record.
+	//
+	// Select only what we need (id) to avoid failing when the database is behind on
+	// newer optional columns added to `teams` via migrations.
 	const teams = await db
-		.select()
+		.select({ id: teamTable.id })
 		.from(teamTable)
 		.where(eq(teamTable.adminId, input.userId))
 		.limit(1);
@@ -261,16 +264,20 @@ export async function startTeamOnboarding(input: {
 			})
 			.where(eq(teamTable.id, teams[0].id));
 	} else {
-		await db.insert(teamTable).values({
+		const inserted = await db
+			.insert(teamTable)
+			.values({
 			name: input.name,
 			adminId: input.userId,
 			minAge: input.minAge,
 			maxAge: input.maxAge,
 			maxAthletes: input.maxAthletes,
-		});
+		})
+			.returning({ id: teamTable.id });
+		return { ok: true, teamId: inserted[0]?.id ?? null };
 	}
 
-	return { ok: true };
+	return { ok: true, teamId: teams[0].id };
 }
 
 export async function startPerformanceOnboarding(input: {

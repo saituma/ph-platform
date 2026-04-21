@@ -34,103 +34,89 @@ interface UserProfile {
 }
 
 function MorePage() {
-  const navigate = useNavigate();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const token = localStorage.getItem("auth_token");
+	const navigate = useNavigate();
+	const { user, loading, error, token } = usePortal();
 
-  useEffect(() => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+	const handleLogout = () => {
+		localStorage.removeItem("auth_token");
+		window.location.href = "/login";
+	};
 
-    const loadProfile = async () => {
-      try {
-        const baseUrl = import.meta.env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-        const res = await fetch(`${baseUrl}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setProfile(data.user);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+	const formatTier = (tier: string = "PHP") => {
+		const labels: Record<string, string> = {
+			PHP: "PHP Standard",
+			PHP_Premium: "Premium",
+			PHP_Premium_Plus: "Plus",
+			PHP_Pro: "Pro",
+		};
+		return labels[tier] || tier.replace(/_/g, " ");
+	};
 
-    loadProfile();
-  }, [token]);
+	if (loading && !user) {
+		return (
+			<div className="flex h-screen items-center justify-center pb-20">
+				<Loader2 className="w-10 h-10 animate-spin text-primary" />
+			</div>
+		);
+	}
 
-  const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    navigate({ to: "/login" });
-  };
+	return (
+		<div className="container mx-auto p-4 pb-24 space-y-8 max-w-2xl">
+			<div className="flex items-center gap-3 px-2">
+				<div className="h-8 w-2 rounded-full bg-primary" />
+				<h1 className="text-4xl font-black italic uppercase tracking-tight">
+					More
+				</h1>
+			</div>
 
-  const formatTier = (tier: string = "PHP") => {
-    const labels: Record<string, string> = {
-      PHP: "PHP Standard",
-      PHP_Premium: "Premium",
-      PHP_Premium_Plus: "Plus",
-      PHP_Pro: "Pro",
-    };
-    return labels[tier] || tier.replace(/_/g, " ");
-  };
+			{/* Profile Card */}
+			<div className="relative overflow-hidden rounded-[2.5rem] border bg-card p-8 shadow-sm">
+				<div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/5" />
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center pb-20">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
-      </div>
-    );
-  }
+				<div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
+					<div className="relative">
+						{user?.athleteName ? ( // Check if there's any specific field or just use generic avatar
+							<div className="h-20 w-20 rounded-[1.5rem] bg-primary/10 flex items-center justify-center border-2 border-primary/5">
+								<User className="w-10 h-10 text-primary" />
+							</div>
+						) : (
+							<div className="h-20 w-20 rounded-[1.5rem] bg-primary/10 flex items-center justify-center border-2 border-primary/5">
+								<User className="w-10 h-10 text-primary" />
+							</div>
+						)}
+						<div className="absolute -bottom-1 -right-1 h-5 w-5 bg-green-500 rounded-full border-4 border-card" />
+					</div>
 
-  return (
-    <div className="container mx-auto p-4 pb-24 space-y-8 max-w-2xl">
-      <div className="flex items-center gap-3 px-2">
-        <div className="h-8 w-2 rounded-full bg-primary" />
-        <h1 className="text-4xl font-black italic uppercase tracking-tight">More</h1>
-      </div>
+					<div className="text-center sm:text-left flex-1 space-y-1">
+						<div className="inline-flex px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest mb-1">
+							Account Overview
+						</div>
+						<h2 className="text-2xl font-black italic uppercase tracking-tight">
+							{user?.name || "Athlete Profile"}
+						</h2>
+						<p className="text-muted-foreground font-medium">
+							{user?.email || "Connect your account"}
+						</p>
+					</div>
+				</div>
 
-      {/* Profile Card */}
-      <div className="relative overflow-hidden rounded-[2.5rem] border bg-card p-8 shadow-sm">
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/5" />
-        
-        <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
-          <div className="relative">
-            {profile?.profilePicture ? (
-              <img src={profile.profilePicture} className="h-20 w-20 rounded-[1.5rem] object-cover border-2 border-primary/10 shadow-lg" alt="" />
-            ) : (
-              <div className="h-20 w-20 rounded-[1.5rem] bg-primary/10 flex items-center justify-center border-2 border-primary/5">
-                <User className="w-10 h-10 text-primary" />
-              </div>
-            )}
-            <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-green-500 rounded-full border-4 border-card" />
-          </div>
-
-          <div className="text-center sm:text-left flex-1 space-y-1">
-             <div className="inline-flex px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest mb-1">
-                Account Overview
-             </div>
-             <h2 className="text-2xl font-black italic uppercase tracking-tight">{profile?.name || "Athlete Profile"}</h2>
-             <p className="text-muted-foreground font-medium">{profile?.email || "Connect your account"}</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mt-8">
-           <div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Access Tier</p>
-              <p className="font-bold text-primary">{formatTier(profile?.programTier)}</p>
-           </div>
-           <div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Experience</p>
-              <p className="font-bold">Performance</p>
-           </div>
-        </div>
-      </div>
+				<div className="grid grid-cols-2 gap-4 mt-8">
+					<div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
+						<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
+							Access Tier
+						</p>
+						<p className="font-bold text-primary">
+							{formatTier(user?.programTier)}
+						</p>
+					</div>
+					<div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
+						<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
+							Experience
+						</p>
+						<p className="font-bold">Performance</p>
+					</div>
+				</div>
+			</div>
 
       {/* Menu Groups */}
       <div className="space-y-8">

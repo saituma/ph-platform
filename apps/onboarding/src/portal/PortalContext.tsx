@@ -20,6 +20,24 @@ export type PortalUser = {
 	planExpiresAt?: string;
 	createdAt?: string;
 	birthDate?: string;
+	athleteType?: string | null;
+	onboardingCompleted?: boolean;
+	trainingPerWeek?: number;
+	performanceGoals?: string | null;
+	phoneNumber?: string | null;
+	equipmentAccess?: string | null;
+	team?: {
+		id: number;
+		name: string;
+		minAge: number | null;
+		maxAge: number | null;
+		maxAthletes: number;
+		planId: number | null;
+		subscriptionStatus: string | null;
+		planExpiresAt: string | null;
+		createdAt: string | null;
+		updatedAt: string | null;
+	} | null;
 };
 
 type PortalContextValue = {

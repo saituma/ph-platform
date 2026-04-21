@@ -8,16 +8,25 @@ import {
 	PlayCircle,
 	Video,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { env } from "@/env";
 import { usePortal } from "@/portal/PortalContext";
 import {
 	fetchTeamWorkspace,
-	type TrainingContentV2Workspace,
 } from "@/services/programsService";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { programKeys } from "../index";
+import { toast } from "sonner";
+import { env } from "@/env";
 
 export const Route = createFileRoute("/portal/programs/session/$sessionId")({
+	loader: async ({ context: { queryClient } }) => {
+		const token = localStorage.getItem("auth_token");
+		if (token) {
+			await queryClient.ensureQueryData({
+				queryKey: programKeys.workspace(token, null),
+				queryFn: () => fetchTeamWorkspace(token, null),
+			});
+		}
+	},
 	component: SessionDetailPage,
 });
 
@@ -196,12 +205,7 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
 function SessionDetailPage() {
 	const { sessionId } = Route.useParams();
 	const navigate = useNavigate();
-	const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(
-		null,
-	);
-	const [loading, setLoading] = useState(true);
-	const [finishing, setIsFinishing] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const queryClient = useQueryClient();
 	const {
 		token,
 		age,
@@ -211,24 +215,16 @@ function SessionDetailPage() {
 
 	const sessionIdNumber = Number(sessionId);
 
-	useEffect(() => {
-		const loadData = async () => {
-			try {
-				setLoading(true);
-				if (!token) throw new Error("Not authenticated");
-				const workspaceData = await fetchTeamWorkspace(token, age);
-				setWorkspace(workspaceData);
-			} catch (err) {
-				setError(
-					err instanceof Error ? err.message : "Failed to load session details",
-				);
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		if (!portalLoading) loadData();
-	}, [token, age, portalLoading]);
+	const {
+		data: workspace,
+		isLoading: programsLoading,
+		error: programsError,
+	} = useQuery({
+		queryKey: programKeys.workspace(token, age),
+		queryFn: () => fetchTeamWorkspace(token!, age),
+		enabled: !!token && !portalLoading,
+		staleTime: 1000 * 60 * 15,
+	});
 
 	const modules = (workspace?.modules ?? []) as TrainingModule[];
 	const allSessions = modules.flatMap((m) => m.sessions ?? []);
@@ -237,11 +233,8 @@ function SessionDetailPage() {
 		m.sessions?.some((s) => s.id === sessionIdNumber),
 	);
 
-	const handleFinishSession = async () => {
-		if (!token || finishing || !session) return;
-
-		setIsFinishing(true);
-		try {
+	const finishMutation = useMutation({
+		mutationFn: async () => {
 			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
 			const response = await fetch(
 				`${baseUrl}/api/training-content-v2/mobile/sessions/${sessionId}/finish`,
@@ -258,12 +251,14 @@ function SessionDetailPage() {
 				const data = await response.json();
 				throw new Error(data.error || "Failed to finish session");
 			}
-
+			return response.json();
+		},
+		onSuccess: () => {
 			toast.success("Session completed!", {
 				description: "Your progress has been saved.",
 			});
+			queryClient.invalidateQueries({ queryKey: programKeys.workspace(token, age) });
 
-			// Navigate back to module detail to see updated progress
 			if (parentModule) {
 				navigate({
 					to: "/portal/programs/module/$moduleId",
@@ -272,16 +267,15 @@ function SessionDetailPage() {
 			} else {
 				navigate({ to: "/portal/programs" });
 			}
-		} catch (err: unknown) {
-			const message =
-				err instanceof Error ? err.message : "Failed to finish session";
-			toast.error("Error", { description: message });
-		} finally {
-			setIsFinishing(false);
-		}
-	};
+		},
+		onError: (err) => {
+			toast.error("Error", {
+				description: err instanceof Error ? err.message : "Failed to finish session",
+			});
+		},
+	});
 
-	if (portalLoading || loading) {
+	if (portalLoading || (token && programsLoading && !workspace)) {
 		return (
 			<div className="flex h-screen items-center justify-center pb-20">
 				<div className="text-center">
@@ -294,12 +288,12 @@ function SessionDetailPage() {
 		);
 	}
 
-	if (portalError || error || !session) {
+	if (portalError || programsError || !session) {
 		return (
 			<div className="flex h-screen items-center justify-center pb-20 px-4">
 				<div className="text-center">
 					<p className="text-muted-foreground mb-4">
-						{portalError || error || "Session not found"}
+						{portalError || (programsError instanceof Error ? programsError.message : "Session not found")}
 					</p>
 					<Link
 						to="/portal/programs"
@@ -452,15 +446,15 @@ function SessionDetailPage() {
 				<div className="max-w-4xl mx-auto pointer-events-auto">
 					<button
 						type="button"
-						disabled={session.completed || finishing}
-						onClick={handleFinishSession}
+						disabled={session.completed || finishMutation.isPending}
+						onClick={() => finishMutation.mutate()}
 						className={`w-full h-16 rounded-2xl text-lg font-black uppercase italic tracking-tight transition-all shadow-2xl flex items-center justify-center gap-3 ${
 							session.completed
 								? "bg-green-500 text-white cursor-default"
 								: "bg-primary text-primary-foreground hover:scale-[1.02] active:scale-[0.98] shadow-primary/20"
 						}`}
 					>
-						{finishing ? (
+						{finishMutation.isPending ? (
 							<Loader2 className="w-6 h-6 animate-spin" />
 						) : session.completed ? (
 							<>
