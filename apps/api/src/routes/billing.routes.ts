@@ -4,6 +4,7 @@ import { requireAuth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/roles";
 import {
   approveRequestAdmin,
+  approveTeamRequestAdmin,
   confirmCheckout,
   confirmPaymentSheet,
   createCheckout,
@@ -12,11 +13,14 @@ import {
   createPlanAdmin,
   downgradePlan,
   getBillingStatus,
+  listTeamRequestsAdmin,
   listPlans,
   listPlansAdmin,
   listRequestsAdmin,
   rejectRequestAdmin,
+  rejectTeamRequestAdmin,
   syncRequestPaymentAdmin,
+  syncTeamRequestPaymentAdmin,
   updatePlanAdmin,
   verifyRevenueCatPurchase,
 } from "../controllers/billing.controller";
@@ -63,11 +67,23 @@ router.get(
   requireRole(["coach", "admin", "superAdmin"]),
   listRequestsAdmin
 );
+router.get(
+  "/admin/team-subscription-requests",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  listTeamRequestsAdmin
+);
 router.post(
   "/admin/subscription-requests/:requestId/approve",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
   approveRequestAdmin
+);
+router.post(
+  "/admin/team-subscription-requests/:requestId/approve",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  approveTeamRequestAdmin
 );
 router.post(
   "/admin/subscription-requests/:requestId/reject",
@@ -76,10 +92,22 @@ router.post(
   rejectRequestAdmin
 );
 router.post(
+  "/admin/team-subscription-requests/:requestId/reject",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  rejectTeamRequestAdmin
+);
+router.post(
   "/admin/subscription-requests/:requestId/sync-payment",
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
   syncRequestPaymentAdmin
+);
+router.post(
+  "/admin/team-subscription-requests/:requestId/sync-payment",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  syncTeamRequestPaymentAdmin
 );
 
 export default router;

@@ -12,7 +12,6 @@ import { getAthleteForUser } from "../services/user.service";
 import { createTeamCheckoutSession } from "../services/billing/stripe.service";
 import {
   approveSubscriptionRequest,
-  confirmCheckoutSession,
   createCheckoutSession,
   createPaymentSheetIntent,
   createSubscriptionPlan,
@@ -26,6 +25,15 @@ import {
   updateSubscriptionPlan,
   updateRequestFromStripeSession,
 } from "../services/billing.service";
+import {
+  approveTeamSubscriptionRequest,
+  createTeamSubscriptionRequest,
+  listTeamSubscriptionRequestsAdmin,
+  rejectTeamSubscriptionRequest,
+  syncTeamSubscriptionRequestPaymentFromStripe,
+  updateTeamRequestFromStripeCheckoutSession,
+  upsertTeamPendingApprovalFromSessionMetadata,
+} from "../services/billing/team-request.service";
 import { updateAthleteProgramTier } from "../services/admin/user.service";
 
 const checkoutSchema = z.object({
@@ -365,11 +373,33 @@ export async function confirmCheckout(req: Request, res: Response) {
   }
 
   try {
-    const result = await confirmCheckoutSession({
-      sessionId: parsed.data.sessionId,
-      userId: req.user!.id,
-    });
-    return res.status(200).json({ request: result.request, paymentStatus: result.session.payment_status });
+    if (!env.stripeSecretKey) {
+      return res.status(500).json({ error: "Stripe is not configured" });
+    }
+
+    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-02-24.acacia" });
+    const session = await stripe.checkout.sessions.retrieve(parsed.data.sessionId);
+    const paymentStatus = session.payment_status ?? "unpaid";
+    const meta = (session.metadata ?? {}) as Record<string, string | undefined>;
+
+    const metaType = String(meta.type ?? "").trim().toLowerCase();
+    if (metaType === "team_subscription") {
+      const adminId = Number(meta.adminId ?? "");
+      if (!Number.isFinite(adminId) || adminId !== req.user.id) {
+        return res.status(403).json({ error: "You do not have access to this checkout session" });
+      }
+      await upsertTeamPendingApprovalFromSessionMetadata(session);
+      const teamRequest = await updateTeamRequestFromStripeCheckoutSession(session, paymentStatus);
+      return res.status(200).json({ teamRequest, paymentStatus });
+    }
+
+    const metaUserId = Number(meta.userId ?? "");
+    if (Number.isFinite(metaUserId) && metaUserId !== req.user.id) {
+      return res.status(403).json({ error: "You do not have access to this checkout session" });
+    }
+
+    const request = await updateRequestFromStripeSession(session.id, paymentStatus);
+    return res.status(200).json({ request, paymentStatus });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || "Failed to confirm payment" });
   }
@@ -450,6 +480,42 @@ export async function syncRequestPaymentAdmin(req: Request, res: Response) {
   }
 }
 
+export async function listTeamRequestsAdmin(_req: Request, res: Response) {
+  const requests = await listTeamSubscriptionRequestsAdmin();
+  return res.status(200).json({ requests });
+}
+
+export async function approveTeamRequestAdmin(req: Request, res: Response) {
+  const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
+  const updated = await approveTeamSubscriptionRequest(requestId);
+  if (!updated) {
+    return res.status(404).json({ error: "Request not found" });
+  }
+  return res.status(200).json({ request: updated });
+}
+
+export async function rejectTeamRequestAdmin(req: Request, res: Response) {
+  const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
+  const updated = await rejectTeamSubscriptionRequest(requestId);
+  if (!updated) {
+    return res.status(404).json({ error: "Request not found" });
+  }
+  return res.status(200).json({ request: updated });
+}
+
+export async function syncTeamRequestPaymentAdmin(req: Request, res: Response) {
+  const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
+  try {
+    const updated = await syncTeamSubscriptionRequestPaymentFromStripe(requestId);
+    if (!updated) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+    return res.status(200).json({ request: updated });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || "Failed to sync payment" });
+  }
+}
+
 export async function stripeWebhook(req: Request, res: Response) {
   if (!env.stripeSecretKey || !env.stripeWebhookSecret) {
     return res.status(500).json({ error: "Stripe is not configured" });
@@ -473,25 +539,49 @@ export async function stripeWebhook(req: Request, res: Response) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.id) {
-        await updateRequestFromStripeSession(session.id, session.payment_status ?? "paid");
+        const metaType = String((session.metadata as any)?.type ?? "").trim().toLowerCase();
+        if (metaType === "team_subscription") {
+          await upsertTeamPendingApprovalFromSessionMetadata(session);
+          await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "paid");
+        } else {
+          await updateRequestFromStripeSession(session.id, session.payment_status ?? "paid");
+        }
       }
     }
     if (event.type === "checkout.session.async_payment_succeeded") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.id) {
-        await updateRequestFromStripeSession(session.id, session.payment_status ?? "paid");
+        const metaType = String((session.metadata as any)?.type ?? "").trim().toLowerCase();
+        if (metaType === "team_subscription") {
+          await upsertTeamPendingApprovalFromSessionMetadata(session);
+          await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "paid");
+        } else {
+          await updateRequestFromStripeSession(session.id, session.payment_status ?? "paid");
+        }
       }
     }
     if (event.type === "checkout.session.async_payment_failed") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.id) {
-        await updateRequestFromStripeSession(session.id, session.payment_status ?? "failed");
+        const metaType = String((session.metadata as any)?.type ?? "").trim().toLowerCase();
+        if (metaType === "team_subscription") {
+          await upsertTeamPendingApprovalFromSessionMetadata(session);
+          await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "failed");
+        } else {
+          await updateRequestFromStripeSession(session.id, session.payment_status ?? "failed");
+        }
       }
     }
     if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.id) {
-        await updateRequestFromStripeSession(session.id, session.payment_status ?? "expired");
+        const metaType = String((session.metadata as any)?.type ?? "").trim().toLowerCase();
+        if (metaType === "team_subscription") {
+          await upsertTeamPendingApprovalFromSessionMetadata(session);
+          await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "expired");
+        } else {
+          await updateRequestFromStripeSession(session.id, session.payment_status ?? "expired");
+        }
       }
     }
   } catch (error) {
