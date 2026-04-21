@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { radius, fonts } from "@/constants/theme";
 
-type ActiveTab = "running" | "social";
+type ActiveTab = "running" | "team";
 
 export function TrackingHeaderTabs({
   active,
@@ -33,7 +33,7 @@ export function TrackingHeaderTabs({
     if (next === active) return;
     router.replace(
       (next === "running" ? "/(tabs)/tracking" : "/(tabs)/tracking/social") as any,
-    );
+    );  // file path stays as social.tsx but the UI label says "Team"
   };
 
   return (
@@ -61,9 +61,9 @@ export function TrackingHeaderTabs({
           colors={colors}
         />
         <TabPill
-          label="Social"
-          active={active === "social"}
-          onPress={() => go("social")}
+          label="Team"
+          active={active === "team"}
+          onPress={() => go("team")}
           colors={colors}
         />
       </View>

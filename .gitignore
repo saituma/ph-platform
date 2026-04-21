@@ -53,6 +53,12 @@ out/
 .expo-shared/
 *.expo
 
+# Firebase / FCM (keep local credentials out of git)
+google-services.json
+GoogleService-Info.plist
+apps/mobile/google-services.json
+apps/mobile/GoogleService-Info.plist
+
 # Coverage
 coverage/
 **/coverage/

@@ -19,6 +19,8 @@ export type SocialRunFeedItem = {
   durationSeconds: number;
   avgPace: number | null;
   commentCount: number;
+  likeCount?: number;
+  userLiked?: boolean;
   pathPreview: { latitude: number; longitude: number }[] | null;
 };
 
@@ -53,6 +55,27 @@ export type SocialSort =
   | "duration_desc"
   | "duration_asc"
   | "comments_desc";
+
+export type PrivacySettings = {
+  socialEnabled: boolean;
+  shareRunsPublicly: boolean;
+  allowComments: boolean;
+  showInLeaderboard: boolean;
+  showInDirectory: boolean;
+  privacyVersionAccepted: string | null;
+  optedInAt: string | null;
+};
+
+export type MySocialRunItem = {
+  runLogId: number;
+  date: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  avgPace: number | null;
+  visibility: string;
+  likeCount: number;
+  userLiked: boolean;
+};
 
 export async function fetchLeaderboard(
   token: string,
@@ -210,4 +233,73 @@ export async function clearCommentReaction(token: string, commentId: number) {
     `/social/comments/${encodeURIComponent(String(commentId))}/reaction`,
     { token, method: "DELETE", suppressLog: true },
   );
+}
+
+// Privacy Settings
+export async function fetchPrivacySettings(token: string) {
+  return apiRequest<{ settings: PrivacySettings }>("/social/privacy", {
+    token,
+    suppressLog: true,
+    skipCache: true,
+    forceRefresh: true,
+  });
+}
+
+export async function updatePrivacySettings(
+  token: string,
+  updates: Partial<PrivacySettings>,
+) {
+  return apiRequest<{ settings: PrivacySettings }>("/social/privacy", {
+    token,
+    method: "PATCH",
+    body: updates,
+    suppressLog: true,
+  });
+}
+
+// Run Likes
+export async function likeRun(token: string, runLogId: number) {
+  return apiRequest<{ ok: true }>(
+    `/social/runs/${encodeURIComponent(String(runLogId))}/like`,
+    { token, method: "POST", suppressLog: true },
+  );
+}
+
+export async function unlikeRun(token: string, runLogId: number) {
+  return apiRequest<{ ok: true }>(
+    `/social/runs/${encodeURIComponent(String(runLogId))}/like`,
+    { token, method: "DELETE", suppressLog: true },
+  );
+}
+
+export async function fetchRunLikes(token: string, runLogId: number) {
+  return apiRequest<{
+    items: { userId: number; name: string; avatarUrl: string | null; createdAt: string }[];
+  }>(`/social/runs/${encodeURIComponent(String(runLogId))}/likes`, {
+    token,
+    suppressLog: true,
+    skipCache: true,
+    forceRefresh: true,
+  });
+}
+
+// My Social Runs
+export async function fetchMySocialRuns(
+  token: string,
+  opts?: { limit?: number; cursor?: number | null },
+) {
+  const limit = opts?.limit ?? 20;
+  const cursor = opts?.cursor ?? null;
+  const q = `limit=${encodeURIComponent(String(limit))}${
+    cursor != null ? `&cursor=${encodeURIComponent(String(cursor))}` : ""
+  }`;
+  return apiRequest<{
+    items: MySocialRunItem[];
+    nextCursor: number | null;
+  }>(`/social/my-runs?${q}`, {
+    token,
+    suppressLog: true,
+    skipCache: true,
+    forceRefresh: true,
+  });
 }

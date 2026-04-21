@@ -16,11 +16,12 @@ import {
 	Clock,
 	CheckCircle,
 	Hourglass,
+	EnvelopeSimple,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { toast } from "sonner";
-import { env } from "#/env";
+import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/onboarding/dashboard")({
@@ -84,15 +85,14 @@ function Dashboard() {
 
 	useEffect(() => {
 		const fetchUserData = async () => {
-			const token = sessionStorage.getItem("auth_token");
+			const token = localStorage.getItem("auth_token");
 			if (!token) {
 				navigate({ to: "/login" });
 				return;
 			}
 
 			try {
-				const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-				const response = await fetch(`${baseUrl}/api/auth/me`, {
+				const response = await fetch(`${config.api.baseUrl}/api/auth/me`, {
 					headers: {
 						Authorization: `Bearer ${token}`,
 					},
@@ -113,8 +113,8 @@ function Dashboard() {
 	}, [navigate]);
 
 	const handleLogout = () => {
-		sessionStorage.removeItem("auth_token");
-		sessionStorage.removeItem("user_type");
+		localStorage.removeItem("auth_token");
+		localStorage.removeItem("user_type");
 		toast.success("Logged out successfully");
 		navigate({ to: "/login" });
 	};
@@ -182,7 +182,7 @@ function Dashboard() {
 
 				<div className="grid gap-6 md:grid-cols-3">
 					{/* Status Card */}
-					<Card className="p-8 rounded-[2.5rem] border-border/60 bg-card/50 backdrop-blur-sm shadow-xl flex flex-col items-center text-center space-y-4">
+					<Card className="p-6 sm:p-8 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center space-y-4 group">
 						<div className="p-4 bg-primary/10 rounded-2xl text-primary">
 							<Layout size={32} weight="bold" />
 						</div>
@@ -199,7 +199,7 @@ function Dashboard() {
 					</Card>
 
 					{/* Profile Card */}
-					<Card className="p-8 rounded-[2.5rem] border-border/60 bg-card/50 backdrop-blur-sm shadow-xl flex flex-col items-center text-center space-y-4">
+					<Card className="p-6 sm:p-8 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center space-y-4 group">
 						<div className="p-4 bg-primary/10 rounded-2xl text-primary">
 							<User size={32} weight="bold" />
 						</div>
@@ -213,7 +213,7 @@ function Dashboard() {
 					</Card>
 
 					{/* Program Card */}
-					<Card className="p-8 rounded-[2.5rem] border-border/60 bg-card/50 backdrop-blur-sm shadow-xl flex flex-col items-center text-center space-y-4">
+					<Card className="p-6 sm:p-8 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center space-y-4 group">
 						<div className="p-4 bg-primary/10 rounded-2xl text-primary">
 							<TrendUp size={32} weight="bold" />
 						</div>
@@ -261,7 +261,7 @@ function Dashboard() {
 
 				{/* Plan Countdown Section */}
 				{userData.planExpiresAt && (
-					<Card className="p-8 rounded-[3rem] border-border/60 bg-primary/5 backdrop-blur-md shadow-2xl relative overflow-hidden border-2 border-primary/20">
+					<Card className="p-8 sm:p-10 rounded-[2rem] border border-primary/20 bg-primary/5 backdrop-blur-xl shadow-2xl relative overflow-hidden">
 						<div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full -mr-48 -mt-48 blur-3xl" />
 						
 						<div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -295,7 +295,7 @@ function Dashboard() {
 
 						<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
 							{athletesData.map((athlete: any) => (
-								<Card key={athlete.id} className="p-6 rounded-[2rem] border-border/60 bg-card/40 backdrop-blur-md shadow-xl space-y-4 hover:border-primary/40 transition-colors">
+								<Card key={athlete.id} className="p-6 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl space-y-4 hover:border-primary/40 transition-all duration-300 group">
 									<div className="flex items-center justify-between border-b border-border/40 pb-3">
 										<div className="flex items-center gap-3">
 											<div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -376,7 +376,7 @@ function Dashboard() {
 
 				<div className="grid gap-6 md:grid-cols-2">
 					{/* Detailed Athlete Info */}
-					<Card className="p-10 rounded-[3rem] border-border/60 bg-card/40 backdrop-blur-md shadow-2xl space-y-8">
+					<Card className="p-8 sm:p-10 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl space-y-8">
 						<div className="flex items-center gap-3">
 							<IdentificationCard size={24} weight="bold" className="text-primary" />
 							<h2 className="text-xl font-black uppercase italic">Athlete Profile</h2>
@@ -392,7 +392,7 @@ function Dashboard() {
 					</Card>
 
 					{/* Goals & Access */}
-					<Card className="p-10 rounded-[3rem] border-border/60 bg-card/40 backdrop-blur-md shadow-2xl space-y-8">
+					<Card className="p-8 sm:p-10 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl space-y-8">
 						<div className="flex items-center gap-3">
 							<Target size={24} weight="bold" className="text-primary" />
 							<h2 className="text-xl font-black uppercase italic">Training & Goals</h2>
@@ -419,7 +419,7 @@ function Dashboard() {
 				</div>
 
 				{/* Activity Feed */}
-				<Card className="p-10 rounded-[3rem] border-border/60 bg-card/40 backdrop-blur-md shadow-2xl relative overflow-hidden">
+				<Card className="p-8 sm:p-10 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl relative overflow-hidden">
 					<div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl" />
 					
 					<div className="relative z-10 space-y-6">
@@ -438,10 +438,6 @@ function Dashboard() {
 			</section>
 		</main>
 	);
-}
-
-function EnvelopeSimple(props: any) {
-	return <Layout {...props} />; // Fallback since it wasn't imported
 }
 
 function DetailItem({ 

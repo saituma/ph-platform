@@ -15,7 +15,7 @@ import React, {
   useEffect,
   useMemo,
 } from "react";
-import { StatusBar, View } from "react-native";
+import { Platform, StatusBar, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
@@ -99,9 +99,21 @@ function StartupSplashController() {
 }
 
 export default function RootLayout() {
+  const pathname = usePathname();
+
   useEffect(() => {
     void runStartupSelfTest();
   }, []);
+
+  // Some native transitions/libs can re-show the system status bar.
+  // Force it hidden on every navigation change.
+  useEffect(() => {
+    StatusBar.setHidden(true, "fade");
+    if (Platform.OS === "android") {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor("transparent", true);
+    }
+  }, [pathname]);
 
   // Stable reference: inline `screenOptions={{ ... }}` recreates every render and can
   // churn react-native-screen-transitions blank-stack descriptors → useLocalRoutes

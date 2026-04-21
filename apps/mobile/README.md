@@ -44,6 +44,18 @@ You can start developing by editing the files inside the **app** directory. This
 
 If Android build fails with `Unsupported class file major version 70`, you’re likely running Java 26. Switch to a supported JDK (JDK 17 is the safest default for Android builds) and retry.
 
+## Push notifications (FCM)
+
+This app uses `expo-notifications`. On Android, remote pushes are delivered via **Firebase Cloud Messaging (FCM)**.
+
+- Add your Firebase config file at `apps/mobile/google-services.json` (don’t commit it; it’s gitignored).
+- `apps/mobile/app.config.js` automatically sets `android.googleServicesFile` if that file exists.
+- Push tokens are registered in `apps/mobile/lib/pushRegistration.ts`:
+  - `expoPushToken`: used by the current backend (Expo Push API)
+  - `devicePushToken` (`fcm` on Android): available for direct FCM usage if you later add Firebase Admin on the backend
+
+To test remote push notifications, use an EAS development build or a store build (Expo Go cannot receive remote pushes).
+
 ## Get a fresh project
 
 When you're ready, run:

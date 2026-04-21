@@ -18,11 +18,21 @@ import {
   setCommentReaction,
 } from "../services/social.service";
 
+import {
+  getPrivacySettings,
+  updatePrivacySettings,
+  getRunLikes,
+  likeRun,
+  unlikeRun,
+  getMySocialRuns,
+} from "../services/social-privacy.service";
+
 function handleSocialError(res: Response, err: unknown) {
   if (err instanceof SocialAccessError) {
     if (err.code === "NOT_ADULT") return res.status(403).json({ error: "Forbidden" });
     if (err.code === "FORBIDDEN") return res.status(403).json({ error: "Forbidden" });
     if (err.code === "NOT_FOUND") return res.status(404).json({ error: "Not found" });
+    if (err.code === "SOCIAL_DISABLED") return res.status(403).json({ error: "Social features not enabled", code: "SOCIAL_DISABLED" });
   }
   return res.status(500).json({ error: "Internal error" });
 }
@@ -270,5 +280,96 @@ export async function commentReactionClear(req: Request, res: Response) {
     return res.status(200).json(out);
   } catch (err) {
     return handleSocialError(res, err);
+  }
+}
+
+// Privacy Settings
+export async function privacySettingsGet(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const settings = await getPrivacySettings(req.user.id);
+    return res.status(200).json({ settings });
+  } catch (err) {
+    return res.status(500).json({ error: "Internal error" });
+  }
+}
+
+const privacySettingsUpdateSchema = z.object({
+  socialEnabled: z.boolean().optional(),
+  shareRunsPublicly: z.boolean().optional(),
+  allowComments: z.boolean().optional(),
+  showInLeaderboard: z.boolean().optional(),
+  showInDirectory: z.boolean().optional(),
+  privacyVersionAccepted: z.string().trim().max(20).optional(),
+});
+
+export async function privacySettingsUpdate(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const parsed = privacySettingsUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
+    }
+    const settings = await updatePrivacySettings(req.user.id, parsed.data);
+    return res.status(200).json({ settings });
+  } catch (err) {
+    return res.status(500).json({ error: "Internal error" });
+  }
+}
+
+// Run Likes
+export async function runLikesList(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const runLogId = Number(req.params.runLogId);
+    if (!Number.isFinite(runLogId)) {
+      return res.status(400).json({ error: "Invalid runLogId" });
+    }
+    const items = await getRunLikes(Math.floor(runLogId));
+    return res.status(200).json({ items });
+  } catch (err) {
+    return handleSocialError(res, err);
+  }
+}
+
+export async function runLikeCreate(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    await assertAdultAthlete(req.user.id);
+    const runLogId = Number(req.params.runLogId);
+    if (!Number.isFinite(runLogId)) {
+      return res.status(400).json({ error: "Invalid runLogId" });
+    }
+    const out = await likeRun({ userId: req.user.id, runLogId: Math.floor(runLogId) });
+    return res.status(200).json(out);
+  } catch (err) {
+    return handleSocialError(res, err);
+  }
+}
+
+export async function runLikeDelete(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const runLogId = Number(req.params.runLogId);
+    if (!Number.isFinite(runLogId)) {
+      return res.status(400).json({ error: "Invalid runLogId" });
+    }
+    const out = await unlikeRun({ userId: req.user.id, runLogId: Math.floor(runLogId) });
+    return res.status(200).json(out);
+  } catch (err) {
+    return handleSocialError(res, err);
+  }
+}
+
+// My Social Runs
+export async function mySocialRuns(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const limit = req.query.limit ? Number(req.query.limit) : 20;
+    const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
+    const out = await getMySocialRuns(req.user.id, { limit, cursor });
+    return res.status(200).json(out);
+  } catch (err) {
+    return res.status(500).json({ error: "Internal error" });
   }
 }

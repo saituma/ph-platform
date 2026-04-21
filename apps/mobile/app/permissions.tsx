@@ -95,6 +95,12 @@ export default function PermissionsScreen() {
               ["Permission", pushRegistration.permissionStatus],
               ["Project ID", pushRegistration.projectId || "Missing"],
               ["Expo token", pushRegistration.expoPushToken || "Not available"],
+              [
+                `Device token (${pushRegistration.devicePushTokenType ?? "?"})`,
+                pushRegistration.devicePushToken ||
+                  pushRegistration.devicePushTokenError ||
+                  "Not available",
+              ],
               ["Last error", pushRegistration.lastError || "None"],
             ].map(([label, value]) => (
               <View key={label} className="rounded-2xl border border-app px-4 py-3">

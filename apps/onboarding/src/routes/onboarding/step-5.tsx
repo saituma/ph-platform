@@ -194,7 +194,7 @@ function OnboardingStep5() {
 		setIsSubmitting(true);
 		try {
 			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-			const token = sessionStorage.getItem("auth_token");
+			const token = localStorage.getItem("auth_token");
 			if (!token) {
 				throw new Error("Your session expired. Sign in again to continue.");
 			}

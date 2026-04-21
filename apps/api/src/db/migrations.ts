@@ -24,6 +24,14 @@ function normalizeConnectionString(raw: string) {
     url.searchParams.delete("sslrootcert");
     url.searchParams.delete("channel_binding");
     url.searchParams.delete("pgbouncer");
+    
+    // Migrating through a Neon pooler often results in ECONNRESET 
+    // due to connection proxy timeouts or dropped TCP packets during DDL statements.
+    // We enforce the direct connection endpoint:
+    if (url.hostname.includes("-pooler.aws.neon.tech") || url.hostname.includes("-pooler.eu-")) {
+      url.hostname = url.hostname.replace("-pooler", "");
+    }
+    
     return url.toString();
   } catch {
     return raw;

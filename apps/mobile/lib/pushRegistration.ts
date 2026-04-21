@@ -16,6 +16,9 @@ type RegisterPushTokenResult = {
   support: "supported" | "expo_go" | "unavailable";
   permissionStatus: "granted" | "denied" | "undetermined";
   expoPushToken: string | null;
+  devicePushToken: string | null;
+  devicePushTokenType: "fcm" | "apns" | "unknown" | null;
+  devicePushTokenError: string | null;
   projectId: string | null;
   synced: boolean;
   error: string | null;
@@ -47,6 +50,9 @@ function syncPushState(
       support: payload.support,
       permissionStatus: payload.permissionStatus,
       expoPushToken: payload.expoPushToken,
+      devicePushToken: payload.devicePushToken,
+      devicePushTokenType: payload.devicePushTokenType,
+      devicePushTokenError: payload.devicePushTokenError,
       projectId: payload.projectId,
       lastAttemptAt: payload.lastAttemptAt ?? new Date().toISOString(),
       lastSyncedAt: payload.lastSyncedAt ?? null,
@@ -76,6 +82,9 @@ export async function registerDevicePushToken({
         support: "expo_go",
         permissionStatus: "undetermined",
         expoPushToken: null,
+        devicePushToken: null,
+        devicePushTokenType: null,
+        devicePushTokenError: null,
         projectId: await getProjectId().catch(() => null),
         synced: false,
         error: "Expo Go does not support remote push notifications. Use an EAS dev build or a store build to test.",
@@ -94,6 +103,9 @@ export async function registerDevicePushToken({
       support: "unavailable",
       permissionStatus: "undetermined",
       expoPushToken: null,
+      devicePushToken: null,
+      devicePushTokenType: null,
+      devicePushTokenError: null,
       projectId: null,
       synced: false,
       error: "Push notifications require a native build.",
@@ -118,6 +130,9 @@ export async function registerDevicePushToken({
         support: "supported",
         permissionStatus,
         expoPushToken: null,
+        devicePushToken: null,
+        devicePushTokenType: null,
+        devicePushTokenError: null,
         projectId: await getProjectId(),
         synced: false,
         error: "Notification permission not granted.",
@@ -133,6 +148,9 @@ export async function registerDevicePushToken({
         support: "supported",
         permissionStatus,
         expoPushToken: null,
+        devicePushToken: null,
+        devicePushTokenType: null,
+        devicePushTokenError: null,
         projectId: null,
         synced: false,
         error: "Missing Expo project ID for push token registration.",
@@ -142,6 +160,23 @@ export async function registerDevicePushToken({
       return result;
     }
 
+    let devicePushToken: string | null = null;
+    let devicePushTokenType: "fcm" | "apns" | "unknown" | null = null;
+    let devicePushTokenError: string | null = null;
+
+    if (typeof (Notifications as any).getDevicePushTokenAsync === "function") {
+      try {
+        const resp = await (Notifications as any).getDevicePushTokenAsync();
+        devicePushToken = resp?.data ?? null;
+        if (resp?.type === "android") devicePushTokenType = "fcm";
+        else if (resp?.type === "ios") devicePushTokenType = "apns";
+        else if (devicePushToken) devicePushTokenType = "unknown";
+      } catch (e) {
+        devicePushTokenError =
+          e instanceof Error ? e.message : "Failed to get device push token.";
+      }
+    }
+
     const pushTokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
     const expoPushToken = pushTokenResponse?.data ?? null;
     if (!expoPushToken) {
@@ -149,6 +184,9 @@ export async function registerDevicePushToken({
         support: "supported",
         permissionStatus,
         expoPushToken: null,
+        devicePushToken,
+        devicePushTokenType,
+        devicePushTokenError,
         projectId,
         synced: false,
         error: "Expo push token was empty.",
@@ -165,7 +203,11 @@ export async function registerDevicePushToken({
         try {
           await apiRequest("/users/push-token", {
             method: "POST",
-            body: { token: expoPushToken },
+            body: {
+              token: expoPushToken,
+              devicePushToken,
+              devicePushTokenType: devicePushTokenType ?? undefined,
+            },
             token,
             suppressStatusCodes: [401, 403],
           });
@@ -187,6 +229,9 @@ export async function registerDevicePushToken({
       support: "supported",
       permissionStatus,
       expoPushToken,
+      devicePushToken,
+      devicePushTokenType,
+      devicePushTokenError,
       projectId,
       synced,
       error,
@@ -209,6 +254,9 @@ export async function registerDevicePushToken({
       support: "supported",
       permissionStatus: "undetermined",
       expoPushToken: null,
+      devicePushToken: null,
+      devicePushTokenType: null,
+      devicePushTokenError: null,
       projectId,
       synced: false,
       error: message,

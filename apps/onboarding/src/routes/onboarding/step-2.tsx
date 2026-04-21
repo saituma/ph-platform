@@ -58,9 +58,9 @@ function OnboardingStep2() {
 	}, [birthDate, userType]);
 
 	useEffect(() => {
-		const email = sessionStorage.getItem("pending_email");
-		const token = sessionStorage.getItem("auth_token");
-		const type = sessionStorage.getItem("user_type");
+		const email = localStorage.getItem("pending_email");
+		const token = localStorage.getItem("auth_token");
+		const type = localStorage.getItem("user_type");
 
 		if (!email || !token || !type) {
 			toast.error("Session expired", {
@@ -82,8 +82,8 @@ function OnboardingStep2() {
 		e.preventDefault();
 		if (isSubmitting) return;
 
-		const token = sessionStorage.getItem("auth_token");
-		const email = sessionStorage.getItem("pending_email");
+		const token = localStorage.getItem("auth_token");
+		const email = localStorage.getItem("pending_email");
 
 		if (!token || !email) {
 			toast.error("Session expired", {
