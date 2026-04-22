@@ -1,6 +1,7 @@
 import crypto from "crypto";
-import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
+import { ROLES_ATHLETE } from "../../lib/user-roles";
 import {
   athleteTable,
   guardianTable,
@@ -54,8 +55,7 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
       .select({ athlete: athleteTable, role: userTable.role })
       .from(athleteTable)
       .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
-      // Avoid enum comparison issues by comparing text
-      .where(sql`${userTable.role}::text <> 'athlete'`);
+      .where(notInArray(userTable.role, ROLES_ATHLETE));
     for (const row of staleAthletes) {
       if (row.athlete) {
         await ensureAthleteUserRecord(row.athlete);
@@ -648,7 +648,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
         cognitoSub: `local:${crypto.randomUUID()}`,
         name: athleteName,
         email,
-        role: "athlete",
+        role: "adult_athlete",
         passwordHash: hash,
         passwordSalt: salt,
         emailVerified: true,

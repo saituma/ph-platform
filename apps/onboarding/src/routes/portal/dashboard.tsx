@@ -79,6 +79,8 @@ function DashboardPage() {
 
 	const isCoach = isCoachPortalUser(user);
 	const coachPlan = isCoach ? getCoachTeamPortalPlanSummary(user) : null;
+	const rosterTeamPlan =
+		!isCoach && user.team?.id ? getCoachTeamPortalPlanSummary(user) : null;
 	const displayName = isCoach
 		? user.name
 		: user.athleteName || user.name || "Athlete";
@@ -86,20 +88,32 @@ function DashboardPage() {
 		user.programTier
 			?.replace(/_+/g, " ")
 			.replace(/\b\w/g, (c) => c.toUpperCase()) || "No Active Plan";
-	const planCardTitle = isCoach ? "Team plan" : "Current Plan";
+	const planCardTitle = isCoach
+		? "Team plan"
+		: user.team?.id
+			? "Team & plan"
+			: "Current Plan";
 	const planPrimaryLabel = isCoach
 		? (coachPlan?.title ?? "Team plan")
-		: athletePlanLabel;
-	const planSecondary = isCoach ? (coachPlan?.subtitle ?? null) : null;
+		: rosterTeamPlan?.title
+			? rosterTeamPlan.title
+			: athletePlanLabel;
+	const planSecondary = isCoach
+		? (coachPlan?.subtitle ?? null)
+		: (rosterTeamPlan?.subtitle ??
+			(user.team?.name?.trim() ? `Club: ${user.team.name.trim()}` : null));
 	const planExpiresAt = isCoach
 		? (user.team?.planExpiresAt ?? null)
-		: (user.planExpiresAt ?? null);
-	const memberSinceLabel = isCoach ? "Team since" : "Member since";
+		: (user.team?.planExpiresAt ?? user.planExpiresAt ?? null);
+	const memberSinceLabel = isCoach
+		? "Team since"
+		: user.team?.createdAt
+			? "Club member since"
+			: "Member since";
 	const memberSinceDate = isCoach
 		? user.team?.createdAt || user.createdAt || new Date().toISOString()
-		: user.createdAt || new Date().toISOString();
-	const coachTeamActiveWithoutExpiry =
-		isCoach &&
+		: user.team?.createdAt || user.createdAt || new Date().toISOString();
+	const teamActiveWithoutExpiry =
 		Boolean(user.team?.planId) &&
 		String(user.team?.subscriptionStatus ?? "").toLowerCase() === "active" &&
 		!planExpiresAt;
@@ -132,6 +146,14 @@ function DashboardPage() {
 						<p className="text-muted-foreground font-medium text-lg leading-relaxed">
 							{homeContent.description || "Your daily performance overview."}
 						</p>
+						{user.team?.name?.trim() ? (
+							<p className="mt-3 text-sm font-black uppercase tracking-widest text-primary">
+								Club ·{" "}
+								<span className="text-foreground normal-case font-bold tracking-normal">
+									{user.team.name.trim()}
+								</span>
+							</p>
+						) : null}
 						{homeContent.introVideoUrl && (
 							<a
 								href={homeContent.introVideoUrl}
@@ -208,6 +230,11 @@ function DashboardPage() {
 						{user.role && user.role !== "athlete"
 							? `Role: ${user.role}`
 							: "Athlete dashboard"}
+						{user.team?.name?.trim() ? (
+							<span className="mt-2 block text-sm font-semibold text-primary">
+								Club: {user.team.name.trim()}
+							</span>
+						) : null}
 					</p>
 				</div>
 			)}
@@ -257,11 +284,12 @@ function DashboardPage() {
 								Expires on {formatDate(planExpiresAt)}
 							</p>
 						</div>
-					) : coachTeamActiveWithoutExpiry ? (
+					) : teamActiveWithoutExpiry ? (
 						<div className="pt-4 border-t">
 							<p className="text-sm text-muted-foreground">
-								Team billing is active. A renewal or period end date is not
-								stored on this team yet; you still have full portal access.
+								{isCoach
+									? "Team billing is active. A renewal or period end date is not stored on this team yet; you still have full portal access."
+									: `Team billing is active${user.team?.name?.trim() ? ` for ${user.team.name.trim()}` : ""}. Renewal dates may not show here yet; you still have access through your club.`}
 							</p>
 						</div>
 					) : (
@@ -269,7 +297,9 @@ function DashboardPage() {
 							<p className="text-sm text-muted-foreground">
 								{isCoach
 									? "No active team subscription on record yet. Complete team checkout (and admin approval if required), or open onboarding to pick a plan."
-									: "No active subscription found. Explore our plans to get started."}
+									: user.team?.name?.trim()
+										? `No active subscription on record for ${user.team.name.trim()} or your personal plan. Ask your coach or explore plans to get started.`
+										: "No active subscription found. Explore our plans to get started."}
 							</p>
 						</div>
 					)}
@@ -282,11 +312,13 @@ function DashboardPage() {
 							{isCoach ? "Coach account" : "Profile Info"}
 						</h2>
 						<div className="space-y-2">
-							{isCoach && user.team?.id ? (
+							{user.team?.id ? (
 								<div className="flex justify-between text-sm gap-2">
-									<span className="text-muted-foreground shrink-0">Team</span>
+									<span className="text-muted-foreground shrink-0">
+										{isCoach ? "Team" : "Club"}
+									</span>
 									<span className="font-medium text-right">
-										{user.team.name || `Team #${user.team.id}`}
+										{user.team.name?.trim() || `Team #${user.team.id}`}
 									</span>
 								</div>
 							) : null}
@@ -318,7 +350,7 @@ function DashboardPage() {
 			</div>
 
 			{/* Navigation Grid */}
-			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+			<div className="grid grid-cols-2 md:grid-cols-3 gap-4">
 				<Link
 					to="/portal/programs"
 					className="p-6 border rounded-2xl bg-card hover:border-primary hover:shadow-md transition-all group text-center"
@@ -388,29 +420,6 @@ function DashboardPage() {
 						</svg>
 					</div>
 					<p className="font-bold">Messages</p>
-				</Link>
-				<Link
-					to="/portal/more"
-					className="p-6 border rounded-2xl bg-card hover:border-primary hover:shadow-md transition-all group text-center"
-				>
-					<div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="24"
-							height="24"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="2.5"
-							className="text-primary"
-							aria-hidden="true"
-							focusable="false"
-						>
-							<circle cx="12" cy="12" r="3"></circle>
-							<path d="M12 1v6m0 6v6"></path>
-						</svg>
-					</div>
-					<p className="font-bold">More</p>
 				</Link>
 			</div>
 

@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 
 import routes from "./routes";
+import { healthCheck } from "./controllers/health.controller";
 import { stripeWebhook } from "./controllers/billing.controller";
 import { errorHandler } from "./middlewares/error";
 import { requestLogger } from "./middlewares/request-logger";
@@ -18,6 +19,10 @@ export function createApp() {
   // Returning 200 here avoids noisy 404s and prevents false-negative health checks.
   app.get("/", (_req, res) => res.status(200).json({ ok: true }));
   app.head("/", (_req, res) => res.sendStatus(200));
+
+  // Load balancers / monitors often probe `/health` without the `/api` prefix.
+  app.get("/health", healthCheck);
+  app.head("/health", (_req, res) => res.sendStatus(200));
 
   app.use((req, res, next) => {
     if (!isApiReady()) {
@@ -55,6 +60,9 @@ export function createApp() {
   addOrigin("http://localhost:3000");
   addOrigin("http://localhost:3001");
   addOrigin("http://127.0.0.1:3000");
+  // Vite dev (onboarding / web)
+  addOrigin("http://localhost:5173");
+  addOrigin("http://127.0.0.1:5173");
 
   (env.corsOrigins ?? "")
     .split(",")

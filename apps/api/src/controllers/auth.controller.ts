@@ -22,30 +22,46 @@ import { buildAppCapabilities } from "../services/app-capabilities.service";
 import { db } from "../db";
 import { teamTable } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { isTrainingStaff } from "../lib/user-roles";
 
-/** Roster/admin flows set `athletes.teamId` but may leave varchar `athletes.team` empty — resolve a real label for clients. */
-async function resolveAthleteTeamNameForMe(
+type TeamForMeRow = {
+  id: number;
+  name: string;
+  minAge: number | null;
+  maxAge: number | null;
+  maxAthletes: number;
+  emailSlug: string | null;
+  planId: number | null;
+  subscriptionStatus: string | null;
+  planExpiresAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const teamForMeSelect = {
+  id: teamTable.id,
+  name: teamTable.name,
+  minAge: teamTable.minAge,
+  maxAge: teamTable.maxAge,
+  maxAthletes: teamTable.maxAthletes,
+  emailSlug: teamTable.emailSlug,
+  planId: teamTable.planId,
+  subscriptionStatus: teamTable.subscriptionStatus,
+  planExpiresAt: teamTable.planExpiresAt,
+  createdAt: teamTable.createdAt,
+  updatedAt: teamTable.updatedAt,
+} as const;
+
+/** Athletes rostered on a club need the same `team` billing shape as coaches so portal gating can see team plans. */
+async function resolveAthleteTeamForMe(
   athlete: { team?: unknown; teamId?: number | null } | null | undefined,
-): Promise<string | null> {
+): Promise<TeamForMeRow | null> {
   if (!athlete) return null;
-  const raw = typeof athlete.team === "string" ? athlete.team.trim() : "";
-  if (raw.length > 0 && raw.toLowerCase() !== "unknown") {
-    return raw;
-  }
-  const tid = athlete.teamId;
-  if (typeof tid === "number" && Number.isFinite(tid) && tid > 0) {
-    const [row] = await db
-      .select({ name: teamTable.name })
-      .from(teamTable)
-      .where(eq(teamTable.id, tid))
-      .limit(1);
-    const n = typeof row?.name === "string" ? row.name.trim() : "";
-    if (n.length > 0 && n.toLowerCase() !== "unknown") {
-      return n;
-    }
-    return n.length > 0 ? n : null;
-  }
-  return null;
+  const tid =
+    typeof athlete.teamId === "number" && Number.isFinite(athlete.teamId) && athlete.teamId > 0 ? athlete.teamId : null;
+  if (!tid) return null;
+  const [row] = await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.id, tid)).limit(1);
+  return row ?? null;
 }
 
 const registerSchema = z.object({
@@ -196,35 +212,14 @@ export async function getMe(req: Request, res: Response) {
     messagingAccessTiers,
   });
 
-  const isCoachRole =
-    user.role === "coach" || user.role === "admin" || user.role === "superAdmin";
+  const isCoachRole = isTrainingStaff(user.role);
 
   const coachManagedTeam = isCoachRole
-    ? ((
-        await db
-          .select({
-            id: teamTable.id,
-            name: teamTable.name,
-            minAge: teamTable.minAge,
-            maxAge: teamTable.maxAge,
-            maxAthletes: teamTable.maxAthletes,
-            emailSlug: teamTable.emailSlug,
-            planId: teamTable.planId,
-            subscriptionStatus: teamTable.subscriptionStatus,
-            planExpiresAt: teamTable.planExpiresAt,
-            createdAt: teamTable.createdAt,
-            updatedAt: teamTable.updatedAt,
-          })
-          .from(teamTable)
-          .where(eq(teamTable.adminId, user.id))
-          .limit(1)
-      )[0] ?? null)
+    ? ((await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.adminId, user.id)).limit(1))[0] ?? null)
     : null;
 
-  // Coach/admin: managed team record. Athletes/guardians: team name string (from row and/or teamId join).
-  const teamForUser = isCoachRole
-    ? coachManagedTeam
-    : await resolveAthleteTeamNameForMe(athlete);
+  // Coach/admin: managed team. Athletes/guardians: roster team (same shape) when `athletes.teamId` is set.
+  const teamForUser = isCoachRole ? coachManagedTeam : await resolveAthleteTeamForMe(athlete);
 
   return res.status(200).json({
     user: {
@@ -252,6 +247,10 @@ export async function getMe(req: Request, res: Response) {
       allAthletes: athlete?.allAthletes ?? null,
       capabilities,
       messagingAccessTiers,
+      // Never let merged athlete/guardian payloads override the authenticated account identity.
+      role: user.role,
+      email: user.email,
+      name: user.name,
     },
   });
 }

@@ -4,42 +4,17 @@ import {
 	type ReactNode,
 	useCallback,
 	useContext,
-	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useState,
 } from "react";
-import { env } from "@/env";
-
-export type PortalUser = {
-	id: number;
-	name: string;
-	email: string;
-	athleteName?: string;
-	role?: string;
-	programTier?: string;
-	planExpiresAt?: string;
-	createdAt?: string;
-	birthDate?: string;
-	athleteType?: string | null;
-	onboardingCompleted?: boolean;
-	trainingPerWeek?: number;
-	performanceGoals?: string | null;
-	phoneNumber?: string | null;
-	equipmentAccess?: string | null;
-	team?: {
-		id: number;
-		name: string;
-		minAge: number | null;
-		maxAge: number | null;
-		maxAthletes: number;
-		emailSlug?: string | null;
-		planId: number | null;
-		subscriptionStatus: string | null;
-		planExpiresAt: string | null;
-		createdAt: string | null;
-		updatedAt: string | null;
-	} | null;
-};
+import { fetchPortalUser } from "@/portal/fetch-portal-user";
+import {
+	PORTAL_SERVICE_UNAVAILABLE,
+	PORTAL_UNAUTHORIZED_ERROR,
+} from "@/portal/portal-errors";
+import { portalKeys } from "@/portal/portal-query-keys";
+import type { PortalUser } from "@/portal/portal-types";
 
 type PortalContextValue = {
 	token: string | null;
@@ -51,11 +26,6 @@ type PortalContextValue = {
 };
 
 const PortalContext = createContext<PortalContextValue | null>(null);
-
-export const portalKeys = {
-	all: ["portal"] as const,
-	user: (token: string | null) => [...portalKeys.all, "user", token] as const,
-};
 
 function calculateAge(birthDate: string | undefined): number | null {
 	if (!birthDate) return null;
@@ -71,26 +41,14 @@ function calculateAge(birthDate: string | undefined): number | null {
 	return age;
 }
 
-async function fetchPortalUser(token: string): Promise<PortalUser> {
-	const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-	const res = await fetch(`${baseUrl}/api/auth/me`, {
-		headers: { Authorization: `Bearer ${token}` },
-	});
-
-	if (!res.ok) {
-		throw new Error("Failed to fetch user data");
-	}
-
-	const data = await res.json();
-	return data.user as PortalUser;
-}
-
 export function PortalProvider({ children }: { children: ReactNode }) {
 	const [token, setToken] = useState<string | null>(null);
+	/** False until we read `localStorage` on the client so we never flash “not logged in” before the token exists. */
+	const [authHydrated, setAuthHydrated] = useState(false);
 
-	useEffect(() => {
-		const currentToken = localStorage.getItem("auth_token");
-		setToken(currentToken);
+	useLayoutEffect(() => {
+		setToken(localStorage.getItem("auth_token"));
+		setAuthHydrated(true);
 	}, []);
 
 	const {
@@ -107,6 +65,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 		},
 		enabled: !!token,
 		staleTime: 1000 * 60 * 10, // 10 minutes
+		retry: (failureCount, err) => {
+			if (
+				err instanceof Error &&
+				(err.message === PORTAL_UNAUTHORIZED_ERROR ||
+					err.message === PORTAL_SERVICE_UNAVAILABLE)
+			) {
+				return false;
+			}
+			return failureCount < 1;
+		},
 	});
 
 	const refresh = useCallback(async () => {
@@ -124,11 +92,12 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			token,
 			user: user ?? null,
 			age,
-			loading: token ? userLoading : false,
+			loading:
+				!authHydrated || (!!token && userLoading),
 			error: userError instanceof Error ? userError.message : null,
 			refresh,
 		}),
-		[token, user, age, userLoading, userError, refresh],
+		[token, user, age, authHydrated, userLoading, userError, refresh],
 	);
 
 	return (

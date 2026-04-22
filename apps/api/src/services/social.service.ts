@@ -10,7 +10,11 @@ import {
   userTable,
 } from "../db/schema";
 import { normalizeStoredMediaUrl } from "./s3.service";
-import { assertSocialEnabled, getPrivacySettings } from "./social-privacy.service";
+import {
+  assertSocialEnabled,
+  getPrivacySettings,
+  getRunLikeSummary,
+} from "./social-privacy.service";
 
 export class SocialAccessError extends Error {
   code: "NOT_ADULT" | "NOT_FOUND" | "FORBIDDEN" | "SOCIAL_DISABLED" | "NOT_TEAM";
@@ -286,6 +290,8 @@ export async function listPublicRuns(input: {
   windowDays?: number;
   sort?: string;
   teamId?: number | null;
+  /** When set, each feed item includes `likeCount` and `userLiked` for this viewer. */
+  viewerUserId?: number;
 }) {
   const limit = Number.isFinite(input.limit) && input.limit > 0 ? Math.min(50, Math.floor(input.limit)) : 20;
   const cursor =
@@ -354,22 +360,33 @@ export async function listPublicRuns(input: {
   const page = rows.slice(0, limit);
   const nextCursor = rows.length > limit ? page[page.length - 1]!.runLogId : null;
 
+  const runIds = page.map((r) => r.runLogId);
+  const likeSummaries =
+    input.viewerUserId != null && runIds.length > 0
+      ? await getRunLikeSummary(input.viewerUserId, runIds)
+      : null;
+
   return {
-    items: page.map((r) => ({
-      pathPreview: (() => {
-        const pts = parseLatLngs(r.coordinates);
-        return pts ? downsample(pts, 80) : null;
-      })(),
-      runLogId: r.runLogId,
-      userId: r.userId,
-      name: r.name,
-      avatarUrl: normalizeStoredMediaUrl(r.profilePicture ?? null),
-      date: r.date.toISOString(),
-      distanceMeters: r.distanceMeters,
-      durationSeconds: r.durationSeconds,
-      avgPace: r.avgPace ?? null,
-      commentCount: Number(r.commentCount ?? 0),
-    })),
+    items: page.map((r) => {
+      const likes = likeSummaries?.get(r.runLogId) ?? { count: 0, userLiked: false };
+      return {
+        pathPreview: (() => {
+          const pts = parseLatLngs(r.coordinates);
+          return pts ? downsample(pts, 80) : null;
+        })(),
+        runLogId: r.runLogId,
+        userId: r.userId,
+        name: r.name,
+        avatarUrl: normalizeStoredMediaUrl(r.profilePicture ?? null),
+        date: r.date.toISOString(),
+        distanceMeters: r.distanceMeters,
+        durationSeconds: r.durationSeconds,
+        avgPace: r.avgPace ?? null,
+        commentCount: Number(r.commentCount ?? 0),
+        likeCount: likes.count,
+        userLiked: likes.userLiked,
+      };
+    }),
     nextCursor,
   };
 }
@@ -460,10 +477,14 @@ async function getReactionSummary(viewerUserId: number, commentIds: number[]) {
   if (!commentIds.length) return new Map<number, { counts: Record<string, number>; myReaction: string | null }>();
 
   // Use raw SQL because this table is created dynamically (not in drizzle schema).
+  // `ANY(${array})` does not bind JS arrays correctly with node-pg; use IN + sql.join.
   const rows = await db.execute(sql`
     SELECT "commentId", "userId", "emoji"
     FROM "run_comment_reactions"
-    WHERE "commentId" = ANY(${commentIds})
+    WHERE "commentId" IN (${sql.join(
+      commentIds.map((id) => sql`${id}`),
+      sql`, `,
+    )})
   `);
 
   const mapped = new Map<number, { counts: Record<string, number>; myReaction: string | null }>();

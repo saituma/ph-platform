@@ -3,7 +3,18 @@
  */
 import { boolean, integer, pgEnum, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
-export const Role = pgEnum("role", ["guardian", "athlete", "coach", "admin", "superAdmin"]);
+export const Role = pgEnum("role", [
+  "guardian",
+  "athlete",
+  "coach",
+  "admin",
+  "superAdmin",
+  "team_coach",
+  "program_coach",
+  "team_athlete",
+  "adult_athlete",
+  "youth_athlete",
+]);
 
 export const appUserTable = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),

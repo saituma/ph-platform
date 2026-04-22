@@ -5,9 +5,13 @@ import { athleteTable, messageReactionTable, messageTable, userTable } from "../
 import { env } from "../config/env";
 import { getSocketServer } from "../socket-hub";
 import { attachDirectMessageReactions } from "./reaction.service";
+import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
 import { sendPushNotification } from "./push.service";
 
 const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
+
+/** Cap DM history per request — unbounded scans caused multi-second GET /api/messages. */
+const DIRECT_THREAD_MESSAGE_LIMIT = 500;
 
 export async function getCoachUser() {
   const users = await db
@@ -15,7 +19,7 @@ export async function getCoachUser() {
     .from(userTable)
     .where(
       and(
-        or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
+        inArray(userTable.role, ROLES_TRAINING_STAFF),
         eq(userTable.isDeleted, false),
         eq(userTable.isBlocked, false),
         ne(userTable.email, AI_COACH_EMAIL),
@@ -25,7 +29,8 @@ export async function getCoachUser() {
       desc(sql`length(trim(coalesce(${userTable.profilePicture}, ''))) > 0`),
       desc(sql`lower(trim(coalesce(${userTable.name}, ''))) not in ('admin', 'administrator')`),
       desc(userTable.updatedAt),
-    );
+    )
+    .limit(1);
   return users[0] ?? null;
 }
 
@@ -44,7 +49,7 @@ export async function getAdminCoachIds() {
     .from(userTable)
     .where(
       and(
-        or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
+        inArray(userTable.role, ROLES_TRAINING_STAFF),
         eq(userTable.isDeleted, false),
         eq(userTable.isBlocked, false),
       ),
@@ -84,7 +89,7 @@ export async function listThread(userId: number, options?: { includeVideoRespons
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
   const includeVideoResponses = options?.includeVideoResponses === true;
-  const messages = await db
+  const rows = await db
     .select()
     .from(messageTable)
     .where(
@@ -98,8 +103,10 @@ export async function listThread(userId: number, options?: { includeVideoRespons
           : or(ne(messageTable.contentType, "video"), isNull(messageTable.videoUploadId)),
       ),
     )
-    .orderBy(messageTable.createdAt);
-  return attachDirectMessageReactions(messages);
+    .orderBy(desc(messageTable.createdAt))
+    .limit(DIRECT_THREAD_MESSAGE_LIMIT);
+  rows.reverse();
+  return attachDirectMessageReactions(rows);
 }
 
 export async function sendMessage(input: {

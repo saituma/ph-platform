@@ -624,6 +624,27 @@
       "when": 1777200000000,
       "tag": "0088_team_email_slug",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1777300000000,
+      "tag": "0089_service_types_total_slots",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1777400000000,
+      "tag": "0090_expand_user_role_enum",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1777410000000,
+      "tag": "0091_apply_user_role_enum_data",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import type { Region } from "react-native-maps";
@@ -28,38 +26,6 @@ import type {
 
 type Destination = { latitude: number; longitude: number };
 
-type SearchRow = {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  type: string;
-};
-
-type NominatimHit = {
-  place_id: number | string;
-  display_name: string;
-  lat: string;
-  lon: string;
-  type?: string;
-};
-
-function emojiForPlaceType(type: string): string {
-  const t = (type || "").toLowerCase();
-  if (t.includes("restaurant")) return "🍽️";
-  if (t.includes("cafe") || t.includes("coffee")) return "☕";
-  if (t.includes("gym") || t.includes("fitness")) return "🏋️";
-  if (t.includes("hospital") || t.includes("clinic")) return "🏥";
-  if (t.includes("park") || t.includes("garden")) return "🌳";
-  return "📍";
-}
-
-function splitDisplayName(displayName: string): { title: string; subtitle: string } {
-  const parts = displayName.split(",").map((s) => s.trim()).filter(Boolean);
-  if (parts.length === 0) return { title: displayName, subtitle: "" };
-  return { title: parts[0], subtitle: parts.slice(1).join(", ") };
-}
-
 type RunGoalSheetProps = {
   visible: boolean;
   onClose: () => void;
@@ -74,7 +40,6 @@ export function RunGoalSheet({
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const mapRef = useRef<TrackingMapViewRef | null>(null);
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [step, setStep] = useState<"destination" | "distance">("destination");
   const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
@@ -88,9 +53,6 @@ export function RunGoalSheet({
     longitudeDelta: 0.08,
   });
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchRow[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [routePreview, setRoutePreview] = useState<{ latitude: number; longitude: number }[] | null>(null);
   const [routeMeta, setRouteMeta] = useState<{ durationSec: number; distanceM: number } | null>(null);
 
@@ -132,19 +94,9 @@ export function RunGoalSheet({
     setShowPicker(false);
     setDestination(null);
     setGoalText("");
-    setSearchQuery("");
-    setSearchResults([]);
     setRoutePreview(null);
     setRouteMeta(null);
   }, [visible]);
-
-  useEffect(() => {
-    return () => {
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!showPicker) return;
@@ -179,50 +131,11 @@ export function RunGoalSheet({
     };
   }, [showPicker]);
 
-  const runNominatimSearch = useCallback(async (q: string) => {
-    const query = q.trim();
-    if (query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    setSearchLoading(true);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`;
-      const res = await fetch(url, {
-        headers: { "User-Agent": "PHPerformance/1.0" },
-      });
-      const data = (await res.json()) as NominatimHit[];
-      setSearchResults(
-        data.map((p) => ({
-          id: String(p.place_id),
-          name: p.display_name,
-          latitude: parseFloat(p.lat),
-          longitude: parseFloat(p.lon),
-          type: p.type ?? "",
-        })).filter((r) => Number.isFinite(r.latitude) && Number.isFinite(r.longitude)),
-      );
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
-    }
-  }, []);
-
-  const onSearchChange = (text: string) => {
-    setSearchQuery(text);
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
-    }
-    searchDebounceRef.current = setTimeout(() => {
-      void runNominatimSearch(text);
-    }, 500);
-  };
-
   const fetchDrivingRoute = useCallback(async (dest: Destination) => {
-    setRoutePreview(null);
-    setRouteMeta(null);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+		    setRoutePreview(null);
+		    setRouteMeta(null);
+		    try {
+	      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") return;
       const cur = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
@@ -232,41 +145,21 @@ export function RunGoalSheet({
       if (typeof fromLat !== "number" || typeof fromLng !== "number") return;
 
       const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.routes?.[0]?.geometry?.coordinates) {
-        const coords = data.routes[0].geometry.coordinates as [number, number][];
-        setRoutePreview(coords.map(([lng, lat]) => ({ latitude: lat, longitude: lng })));
-        setRouteMeta({
+	      const res = await fetch(url, { headers: { Accept: "application/json" } });
+	      if (!res.ok) throw new Error(`OSRM HTTP ${res.status}`);
+	      const data = await res.json();
+	      if (data.routes?.[0]?.geometry?.coordinates) {
+	        const coords = data.routes[0].geometry.coordinates as [number, number][];
+	        setRoutePreview(coords.map(([lng, lat]) => ({ latitude: lat, longitude: lng })));
+	        setRouteMeta({
           durationSec: data.routes[0].duration ?? 0,
           distanceM: data.routes[0].distance ?? 0,
         });
       }
     } catch (e) {
       console.warn("OSRM route preview failed", e);
-    }
-  }, []);
-
-  const selectSearchResult = async (row: SearchRow) => {
-    const dest: Destination = { latitude: row.latitude, longitude: row.longitude };
-    setDestination(dest);
-    await fetchDrivingRoute(dest);
-    setRegion({
-      latitude: row.latitude,
-      longitude: row.longitude,
-      latitudeDelta: 0.04,
-      longitudeDelta: 0.04,
-    });
-    mapRef.current?.animateToRegion(
-      {
-        latitude: row.latitude,
-        longitude: row.longitude,
-        latitudeDelta: 0.04,
-        longitudeDelta: 0.04,
-      },
-      500,
-    );
-  };
+	    }
+	  }, []);
 
   const onMapPick = async (coord: Destination) => {
     setDestination(coord);
@@ -412,7 +305,7 @@ export function RunGoalSheet({
                       color: colors.text,
                     }}
                   >
-                    Search or tap the map
+                    Tap the map
                   </Text>
                   {isExpoGoAndroid ? (
                     <Text
@@ -426,91 +319,6 @@ export function RunGoalSheet({
                       Expo Go on Android may not render the map. You can still
                       skip.
                     </Text>
-                  ) : null}
-
-                  <TextInput
-                    value={searchQuery}
-                    onChangeText={onSearchChange}
-                    placeholder="Search for a place…"
-                    placeholderTextColor={colors.textDim}
-                    style={{
-                      marginTop: spacing.md,
-                      height: 48,
-                      borderRadius: radius.lg,
-                      borderColor: colors.borderMid,
-                      borderWidth: 1,
-                      paddingHorizontal: 14,
-                      fontFamily: fonts.bodyMedium,
-                      color: colors.text,
-                      backgroundColor: colors.surfaceHigh,
-                    }}
-                  />
-
-                  {searchLoading ? (
-                    <ActivityIndicator style={{ marginTop: 8 }} color={colors.accent} />
-                  ) : null}
-
-                  {searchResults.length > 0 ? (
-                    <View
-                      style={{
-                        marginTop: spacing.sm,
-                        borderRadius: radius.lg,
-                        borderWidth: 1,
-                        borderColor: colors.borderSubtle,
-                        overflow: "hidden",
-                        maxHeight: 200,
-                      }}
-                    >
-                      <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                        {searchResults.map((row) => {
-                          const { title, subtitle } = splitDisplayName(row.name);
-                          return (
-                            <TouchableOpacity
-                              key={row.id}
-                              onPress={() => void selectSearchResult(row)}
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "flex-start",
-                                paddingVertical: 10,
-                                paddingHorizontal: 12,
-                                borderBottomWidth: 1,
-                                borderBottomColor: colors.borderSubtle,
-                                gap: 8,
-                              }}
-                            >
-                              <Text style={{ fontSize: 18, marginTop: 2 }}>
-                                {emojiForPlaceType(row.type)}
-                              </Text>
-                              <View style={{ flex: 1 }}>
-                                <Text
-                                  style={{
-                                    fontFamily: fonts.heading3,
-                                    fontSize: 15,
-                                    color: colors.textPrimary,
-                                  }}
-                                  numberOfLines={2}
-                                >
-                                  {title}
-                                </Text>
-                                {subtitle ? (
-                                  <Text
-                                    style={{
-                                      fontFamily: fonts.bodyRegular,
-                                      fontSize: 12,
-                                      color: colors.textSecondary,
-                                      marginTop: 2,
-                                    }}
-                                    numberOfLines={3}
-                                  >
-                                    {subtitle}
-                                  </Text>
-                                ) : null}
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
-                    </View>
                   ) : null}
 
                   <View

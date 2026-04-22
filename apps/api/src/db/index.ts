@@ -50,10 +50,10 @@ const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(env.databaseUrl);
 const connectionString = useSsl ? normalizeConnectionString(env.databaseUrl) : env.databaseUrl;
 const sslOption = useSsl ? (env.databaseSsl ?? { rejectUnauthorized: false }) : undefined;
 
-/** Neon pooler (PgBouncer): recycle clients before the proxy closes long-lived sockets (reduces ECONNRESET). */
-const isNeonPoolerHost = (() => {
+/** Neon (pooler or direct): recycle clients before the proxy/server closes idle sockets (reduces ECONNRESET). */
+const isNeonHost = (() => {
   try {
-    return new URL(env.databaseUrl).hostname.includes("-pooler");
+    return new URL(env.databaseUrl).hostname.toLowerCase().includes("neon.tech");
   } catch {
     return false;
   }
@@ -64,7 +64,7 @@ export const pool = new Pool({
   ssl: sslOption,
   connectionTimeoutMillis: 30_000,
   keepAlive: true,
-  ...(isNeonPoolerHost
+  ...(isNeonHost
     ? {
         maxUses: 750,
         maxLifetimeSeconds: 60 * 60,

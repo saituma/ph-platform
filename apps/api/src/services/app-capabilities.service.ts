@@ -1,4 +1,5 @@
 import type { AppRole } from "../types/auth";
+import { isTrainingStaff } from "../lib/user-roles";
 import type { ProgramTierValue } from "./messaging-policy.service";
 
 const TIER_ORDER = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const;
@@ -36,7 +37,7 @@ export function buildAppCapabilities(input: {
   messagingAccessTiers: ProgramTierValue[];
 }): AppCapabilities {
   const { role, programTier, messagingAccessTiers } = input;
-  if (role === "coach" || role === "admin" || role === "superAdmin") {
+  if (isTrainingStaff(role)) {
     return {
       schedule: true,
       messaging: true,

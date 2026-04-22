@@ -192,7 +192,8 @@ export function useRunTrackingEngine(
 
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${destLng},${destLat}?overview=full&geometries=geojson`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`OSRM HTTP ${res.status}`);
       const data = await res.json();
       if (data.routes && data.routes.length > 0) {
         const r = data.routes[0];

@@ -17,7 +17,7 @@ export function useScheduleData(token: string | null, isFocused: boolean) {
     queryKey: ["booking-services"],
     queryFn: async () => {
       const data = await apiRequest<{ items: ServiceType[] }>(
-        "/bookings/services?includeLocked=true",
+        "/bookings/services?includeLocked=true&omitWithoutBookableSlots=true",
         {
         token,
         forceRefresh: true,

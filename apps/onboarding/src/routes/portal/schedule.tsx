@@ -15,6 +15,7 @@ import { useState } from "react";
 import { BookingModal } from "@/components/portal/BookingModal";
 import { getClientAuthToken } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
+import { portalUserMaySelfBookSchedule } from "@/lib/portal-schedule-access";
 import { fetchBookings } from "@/services/scheduleService";
 
 export const scheduleKeys = {
@@ -38,7 +39,8 @@ export const Route = createFileRoute("/portal/schedule")({
 
 function SchedulePage() {
 	const [isBookingOpen, setIsBookingOpen] = useState(false);
-	const { token, loading: portalLoading, error: portalError } = usePortal();
+	const { token, user, loading: portalLoading, error: portalError } = usePortal();
+	const canSelfBook = portalUserMaySelfBookSchedule(user);
 
 	const {
 		data: events = [],
@@ -106,11 +108,11 @@ function SchedulePage() {
 
 	return (
 		<div className="container mx-auto p-4 pb-20 space-y-8">
-			{error && (
+			{error ? (
 				<div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-					{error}
+					{error instanceof Error ? error.message : String(error)}
 				</div>
-			)}
+			) : null}
 
 			<div className="flex items-center justify-between">
 				<div>
@@ -118,17 +120,31 @@ function SchedulePage() {
 						Your <span className="text-primary">Schedule</span>
 					</h1>
 					<p className="text-muted-foreground font-medium mt-1">
-						Manage your training and bookings
+						{canSelfBook
+							? "Manage your training and bookings"
+							: "Sessions your coach books for you appear here."}
 					</p>
 				</div>
-				<button
-					type="button"
-					onClick={() => setIsBookingOpen(true)}
-					className="p-3 bg-primary text-primary-foreground rounded-2xl shadow-xl shadow-primary/20 hover:scale-105 transition-all"
-				>
-					<Plus className="w-6 h-6" />
-				</button>
+				{canSelfBook ? (
+					<button
+						type="button"
+						onClick={() => setIsBookingOpen(true)}
+						className="p-3 bg-primary text-primary-foreground rounded-2xl shadow-xl shadow-primary/20 hover:scale-105 transition-all"
+					>
+						<Plus className="w-6 h-6" />
+					</button>
+				) : null}
 			</div>
+
+			{!canSelfBook ? (
+				<div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+					<p className="font-medium text-foreground">Coach-managed schedule</p>
+					<p className="mt-1 leading-relaxed">
+						You cannot book sessions from this account. When your coach schedules a session for you, it will
+						show up under Upcoming Bookings.
+					</p>
+				</div>
+			) : null}
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 				<div className="lg:col-span-2 space-y-6">
@@ -200,13 +216,15 @@ function SchedulePage() {
 										</div>
 
 										<div className="flex items-center gap-2">
-											<button
-												type="button"
-												onClick={() => setIsBookingOpen(true)}
-												className="px-4 py-2 text-xs font-bold border rounded-xl hover:bg-muted transition-colors"
-											>
-												Reschedule
-											</button>
+											{canSelfBook ? (
+												<button
+													type="button"
+													onClick={() => setIsBookingOpen(true)}
+													className="px-4 py-2 text-xs font-bold border rounded-xl hover:bg-muted transition-colors"
+												>
+													Reschedule
+												</button>
+											) : null}
 											<div className="p-2 text-muted-foreground/30">
 												<ChevronRight className="w-5 h-5" />
 											</div>
@@ -218,13 +236,19 @@ function SchedulePage() {
 									<p className="text-muted-foreground font-medium italic">
 										No upcoming bookings found.
 									</p>
-									<button
-										type="button"
-										onClick={() => setIsBookingOpen(true)}
-										className="mt-4 text-primary font-bold hover:underline"
-									>
-										Book a session
-									</button>
+									{canSelfBook ? (
+										<button
+											type="button"
+											onClick={() => setIsBookingOpen(true)}
+											className="mt-4 text-primary font-bold hover:underline"
+										>
+											Book a session
+										</button>
+									) : (
+										<p className="mt-4 text-sm text-muted-foreground">
+											Your coach will add bookings when they are ready.
+										</p>
+									)}
 								</div>
 							)}
 						</div>
@@ -246,29 +270,34 @@ function SchedulePage() {
 
 					<div className="p-8 rounded-[2.5rem] border bg-primary/5 border-primary/20 space-y-4">
 						<h3 className="font-bold text-primary italic uppercase tracking-tight">
-							Need a session?
+							{canSelfBook ? "Need a session?" : "Team schedule"}
 						</h3>
 						<p className="text-sm text-muted-foreground leading-relaxed">
-							Book discovery calls, assessments, or specialized training
-							directly with your coaches.
+							{canSelfBook
+								? "Book discovery calls, assessments, or specialized training directly with your coaches."
+								: "Ask your coach if you need an extra session. They manage bookings for roster athletes."}
 						</p>
-						<button
-							type="button"
-							onClick={() => setIsBookingOpen(true)}
-							className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase italic tracking-wider text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
-						>
-							Browse Services
-						</button>
+						{canSelfBook ? (
+							<button
+								type="button"
+								onClick={() => setIsBookingOpen(true)}
+								className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase italic tracking-wider text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
+							>
+								Browse Services
+							</button>
+						) : null}
 					</div>
 				</div>
 			</div>
 
-			<BookingModal
-				isOpen={isBookingOpen}
-				onClose={() => setIsBookingOpen(false)}
-				token={token}
-				onSuccess={refetch}
-			/>
+			{canSelfBook ? (
+				<BookingModal
+					isOpen={isBookingOpen}
+					onClose={() => setIsBookingOpen(false)}
+					token={token}
+					onSuccess={refetch}
+				/>
+			) : null}
 		</div>
 	);
 }

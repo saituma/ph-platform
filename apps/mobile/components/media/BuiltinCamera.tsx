@@ -4,10 +4,12 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
-  StatusBar,
   Alert,
   Animated,
+  Platform,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { SystemBars } from "react-native-edge-to-edge";
 import {
   CameraView,
   useCameraPermissions,
@@ -236,7 +238,11 @@ export function BuiltinCamera({
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
       <View style={styles.container}>
-        <StatusBar hidden />
+        {Platform.OS === "web" ? (
+          <StatusBar hidden />
+        ) : (
+          <SystemBars hidden={{ statusBar: true }} style="auto" />
+        )}
 
         <CameraView
           ref={cameraRef}

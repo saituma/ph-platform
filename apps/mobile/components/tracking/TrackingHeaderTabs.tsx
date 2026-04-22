@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { radius, fonts } from "@/constants/theme";
+import { radius, fonts, spacing } from "@/constants/theme";
+import { Map, Users } from "lucide-react-native";
 
 type ActiveTab = "running" | "team";
 
@@ -11,7 +12,6 @@ export function TrackingHeaderTabs({
   isDark,
   topInset = 0,
   paddingHorizontal = 16,
-  /** Solo adult athletes: tracking only (no team feed tab). */
   showTeamTab = true,
 }: {
   active: ActiveTab;
@@ -28,7 +28,11 @@ export function TrackingHeaderTabs({
     [isDark],
   );
   const borderColor = useMemo(
-    () => (isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)"),
+    () => (isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)"),
+    [isDark],
+  );
+  const dividerColor = useMemo(
+    () => (isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)"),
     [isDark],
   );
 
@@ -36,104 +40,166 @@ export function TrackingHeaderTabs({
     if (next === active) return;
     router.replace(
       (next === "running" ? "/(tabs)/tracking" : "/(tabs)/tracking/social") as any,
-    ); // social.tsx = team feed for org athletes
-  };
-
-  if (!showTeamTab) {
-    return (
-      <View
-        style={{
-          paddingTop: topInset,
-          paddingHorizontal,
-          paddingBottom: 10,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            backgroundColor: containerBg,
-            borderRadius: radius.pill,
-            borderWidth: 1,
-            borderColor,
-            overflow: "hidden",
-          }}
-        >
-          <TabPill label="Running" active={true} onPress={() => go("running")} colors={colors} />
-        </View>
-      </View>
     );
-  }
+  };
 
   return (
     <View
       style={{
+        width: "100%",
+        alignSelf: "stretch",
         paddingTop: topInset,
         paddingHorizontal,
-        paddingBottom: 10,
+        paddingBottom: spacing.lg,
       }}
     >
       <View
         style={{
+          width: "100%",
           flexDirection: "row",
+          alignItems: "stretch",
+          height: 60,
+          padding: 4,
           backgroundColor: containerBg,
-          borderRadius: radius.pill,
+          borderRadius: radius.xl,
           borderWidth: 1,
           borderColor,
           overflow: "hidden",
         }}
       >
-        <TabPill
-          label="Running"
-          active={active === "running"}
-          onPress={() => go("running")}
-          colors={colors}
-        />
-        <TabPill
-          label="Team"
-          active={active === "team"}
-          onPress={() => go("team")}
-          colors={colors}
-        />
+        {!showTeamTab ? (
+          <TabSegment
+            label="Running"
+            icon={Map}
+            active
+            onPress={() => go("running")}
+            colors={colors}
+            isDark={isDark}
+            isFirst
+            isLast
+          />
+        ) : (
+          <>
+            <TabSegment
+              label="Running"
+              icon={Map}
+              active={active === "running"}
+              onPress={() => go("running")}
+              colors={colors}
+              isDark={isDark}
+              isFirst
+              isLast={false}
+            />
+            <View
+              style={{
+                width: 1,
+                backgroundColor: dividerColor,
+                marginVertical: 12,
+              }}
+            />
+            <TabSegment
+              label="Community"
+              icon={Users}
+              active={active === "team"}
+              onPress={() => go("team")}
+              colors={colors}
+              isDark={isDark}
+              isFirst={false}
+              isLast
+            />
+          </>
+        )}
       </View>
     </View>
   );
 }
 
-function TabPill({
+function TabSegment({
   label,
+  icon: Icon,
   active,
   onPress,
   colors,
+  isDark,
+  isFirst,
+  isLast,
 }: {
   label: string;
+  icon: any;
   active: boolean;
   onPress: () => void;
   colors: Record<string, string>;
+  isDark: boolean;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
+  const radiusStyle = useMemo(
+    () => ({
+      borderTopLeftRadius: isFirst ? radius.lg - 2 : 0,
+      borderBottomLeftRadius: isFirst ? radius.lg - 2 : 0,
+      borderTopRightRadius: isLast ? radius.lg - 2 : 0,
+      borderBottomRightRadius: isLast ? radius.lg - 2 : 0,
+    }),
+    [isFirst, isLast],
+  );
+
+  const accentFill = colors.accent;
+  const activeContentColor = "#FFFFFF";
+  const inactiveContentColor = isDark ? colors.textPrimary : colors.textSecondary;
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => ({
+    <View
+      style={{
         flex: 1,
-        height: 40,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: active ? colors.accent : "transparent",
-        opacity: pressed ? 0.9 : 1,
-      })}
+        ...radiusStyle,
+        overflow: "hidden",
+        backgroundColor: active ? accentFill : "transparent",
+      }}
     >
-      <Text
-        style={{
-          fontFamily: active ? fonts.heading2 : fonts.bodyMedium,
-          fontSize: 13,
-          letterSpacing: active ? 0.4 : 0.2,
-          color: active ? "#FFFFFF" : colors.textSecondary,
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ selected: active }}
+        onPress={onPress}
+        android_ripple={{
+          color: active
+            ? "rgba(255,255,255,0.2)"
+            : isDark
+              ? "rgba(255,255,255,0.1)"
+              : "rgba(15,23,42,0.08)",
         }}
+        style={({ pressed }) => [
+          StyleSheet.absoluteFillObject,
+          {
+            flexDirection: "row",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: spacing.xs,
+            opacity: pressed && !active ? 0.8 : 1,
+            gap: 8,
+          },
+        ]}
       >
-        {label}
-      </Text>
-    </Pressable>
+        <Icon 
+          size={20} 
+          color={active ? activeContentColor : inactiveContentColor} 
+          strokeWidth={active ? 2.5 : 2} 
+        />
+        <Text
+          maxFontSizeMultiplier={1.2}
+          numberOfLines={1}
+          style={{
+            fontFamily: active ? fonts.clashBold : fonts.bodyBold,
+            fontSize: active ? 17 : 16,
+            lineHeight: 18,
+            letterSpacing: active ? 0.3 : 0.1,
+            textAlign: "center",
+            color: active ? activeContentColor : inactiveContentColor,
+          }}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </View>
   );
 }

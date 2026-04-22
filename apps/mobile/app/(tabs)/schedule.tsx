@@ -20,11 +20,12 @@ import { BookingModal } from "@/components/tracking/schedule/BookingModal";
 import { useGeneratedAvailability, useScheduleData } from "@/components/tracking/schedule/hooks";
 import { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
+import { canSelfBookSchedule } from "@/lib/scheduleBookingAccess";
 
 export default function ScheduleScreen() {
   const { colors, isDark } = useAppTheme();
-  const { token, programTier } = useAppSelector((state) => state.user);
-  const canCreateBookings = true;
+  const { token, programTier, apiUserRole } = useAppSelector((state) => state.user);
+  const canCreateBookings = canSelfBookSchedule(apiUserRole);
   const { isSectionHidden } = useAgeExperience();
   const isFocused = useSafeIsFocused(true);
   const insets = useAppSafeAreaInsets();
@@ -187,7 +188,16 @@ export default function ScheduleScreen() {
           dayEventsCount={upcomingEvents.length}
           nextEventTime={nextEvent?.timeStart ?? null}
           onRequestSession={() => setBookingOpen(true)}
+          showRequestSession={canCreateBookings}
         />
+
+        {canCreateBookings ? null : (
+          <View className="mx-6 mb-2 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
+            <Text className="text-sm font-outfit text-app">
+              Your coach books sessions for you. You will see them here when they are confirmed.
+            </Text>
+          </View>
+        )}
 
         <EventList
           dayEvents={upcomingEvents}
@@ -199,6 +209,7 @@ export default function ScheduleScreen() {
           }}
           getEventTone={getEventTone}
           onRequestForDay={() => setBookingOpen(true)}
+          allowSelfBooking={canCreateBookings}
         />
 
       </ThemedScrollView>

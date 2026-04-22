@@ -1,8 +1,15 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
 import { hasActivePortalSubscription } from "@/lib/portal-access";
+import { isPortalCoachLikeRole } from "@/lib/portal-roles";
 import { PortalProvider, usePortal } from "@/portal/PortalContext";
 import { ProtectedLayout } from "@/portal/ProtectedLayout";
+import {
+	PORTAL_SERVICE_UNAVAILABLE,
+	PORTAL_UNAUTHORIZED_ERROR,
+} from "@/portal/portal-errors";
+import { useRedirectOnPortalUnauthorized } from "@/portal/use-redirect-on-portal-unauthorized";
 
 export const Route = createFileRoute("/portal")({
 	component: PortalLayout,
@@ -19,8 +26,45 @@ function PortalLayout() {
 }
 
 function PortalGate() {
+	useRedirectOnPortalUnauthorized();
 	const navigate = useNavigate();
-	const { user, loading, error } = usePortal();
+	const { user, loading, error, refresh } = usePortal();
+
+	if (error === PORTAL_UNAUTHORIZED_ERROR) {
+		return (
+			<div className="flex h-screen items-center justify-center">
+				<div className="text-center">
+					<div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+					<p className="mt-4 text-sm text-muted-foreground">
+						Redirecting to sign in…
+					</p>
+				</div>
+			</div>
+		);
+	}
+
+	if (error === PORTAL_SERVICE_UNAVAILABLE) {
+		return (
+			<div className="flex h-screen items-center justify-center px-4">
+				<div className="max-w-md space-y-4 text-center">
+					<p className="text-sm font-semibold text-foreground">
+						The service cannot reach the database right now.
+					</p>
+					<p className="text-xs text-muted-foreground leading-relaxed">
+						This is usually temporary (paused Neon project, network blip, or
+						connection pool reset). Try again in a moment.
+					</p>
+					<button
+						type="button"
+						onClick={() => void refresh()}
+						className="inline-flex w-full items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition"
+					>
+						Retry
+					</button>
+				</div>
+			</div>
+		);
+	}
 
 	if (loading) {
 		return (
@@ -54,7 +98,7 @@ function PortalGate() {
 		);
 	}
 
-	const isTeam = user.role === "coach";
+	const isTeam = isPortalCoachLikeRole(user.role);
 
 	const missing: string[] = [];
 	if (isTeam) {
@@ -80,11 +124,41 @@ function PortalGate() {
 	const isBlocked = onboardingIncomplete || needsPlan;
 
 	if (isBlocked) {
+		const ensureSoloOnboardingSession = (): boolean => {
+			const pendingEmail =
+				(user.email ?? "").trim() ||
+				(localStorage.getItem("pending_email") ?? "").trim();
+			if (!pendingEmail) {
+				toast.error("Cannot continue onboarding", {
+					description:
+						"We could not read your account email. Try logging out and signing in again.",
+				});
+				return false;
+			}
+			localStorage.setItem("pending_email", pendingEmail);
+			const athleteKind =
+				user.athleteType === "adult" || user.athleteType === "youth"
+					? user.athleteType
+					: "youth";
+			localStorage.setItem("user_type", athleteKind);
+			return true;
+		};
+
 		const primaryAction = () => {
 			if (onboardingIncomplete) {
 				if (isTeam) {
 					localStorage.setItem("user_type", "team");
-					if (user.email) localStorage.setItem("pending_email", user.email);
+					const pendingEmail =
+						(user.email ?? "").trim() ||
+						(localStorage.getItem("pending_email") ?? "").trim();
+					if (!pendingEmail) {
+						toast.error("Cannot continue team setup", {
+							description:
+								"We could not read your account email. Try logging out and signing in again.",
+						});
+						return;
+					}
+					localStorage.setItem("pending_email", pendingEmail);
 					if (user.team?.id) {
 						localStorage.setItem(
 							"team_onboarding_basic",
@@ -102,6 +176,7 @@ function PortalGate() {
 				}
 
 				if (!user.birthDate) {
+					if (!ensureSoloOnboardingSession()) return;
 					navigate({ to: "/onboarding/step-2" });
 					return;
 				}
@@ -111,9 +186,11 @@ function PortalGate() {
 					!String(user.phoneNumber ?? "").trim() ||
 					!String(user.equipmentAccess ?? "").trim()
 				) {
+					if (!ensureSoloOnboardingSession()) return;
 					navigate({ to: "/onboarding/step-3" });
 					return;
 				}
+				if (!ensureSoloOnboardingSession()) return;
 				navigate({ to: "/onboarding/step-4" });
 				return;
 			}
@@ -121,7 +198,12 @@ function PortalGate() {
 			// Onboarding done, but no plan.
 			if (isTeam && user.team?.id) {
 				localStorage.setItem("user_type", "team");
-				if (user.email) localStorage.setItem("pending_email", user.email);
+				const pendingEmail =
+					(user.email ?? "").trim() ||
+					(localStorage.getItem("pending_email") ?? "").trim();
+				if (pendingEmail) {
+					localStorage.setItem("pending_email", pendingEmail);
+				}
 				localStorage.setItem(
 					"team_onboarding_basic",
 					JSON.stringify({

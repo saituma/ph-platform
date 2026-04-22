@@ -421,6 +421,7 @@ export const apiSlice = createApi({
     getAdminTeams: builder.query<
       {
         teams: Array<{
+          id: number;
           team: string;
           memberCount: number;
           youthCount: number;

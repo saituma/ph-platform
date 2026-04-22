@@ -10,6 +10,7 @@ import {
   userTable,
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
+import { isTrainingStaff } from "../lib/user-roles";
 
 export type MessageReaction = {
   emoji: string;
@@ -20,7 +21,10 @@ export type MessageReaction = {
 type DirectMessageRow = typeof messageTable.$inferSelect;
 type GroupMessageRow = typeof chatGroupMessageTable.$inferSelect;
 
+let reactionTablesEnsured = false;
+
 async function ensureReactionTables() {
+  if (reactionTablesEnsured) return;
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS "message_reactions" (
       "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -47,6 +51,7 @@ async function ensureReactionTables() {
     CREATE UNIQUE INDEX IF NOT EXISTS "chat_group_message_reactions_unique_idx"
     ON "chat_group_message_reactions" ("messageId", "userId", "emoji")
   `);
+  reactionTablesEnsured = true;
 }
 
 function buildReactionMap(rows: { messageId: number; emoji: string; userId: number }[]) {
@@ -128,7 +133,7 @@ export async function toggleDirectMessageReaction(input: { messageId: number; us
     .where(eq(userTable.id, input.userId))
     .limit(1);
   const actorRole = actorRows[0]?.role ?? "";
-  const actorIsStaff = actorRole === "admin" || actorRole === "superAdmin" || actorRole === "coach";
+  const actorIsStaff = isTrainingStaff(actorRole);
 
   if (!actorIsStaff && message.senderId !== input.userId && message.receiverId !== input.userId) {
     throw new Error("Forbidden");

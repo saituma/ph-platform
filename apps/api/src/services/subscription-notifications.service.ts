@@ -1,4 +1,4 @@
-import { and, eq, ne, or } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 
 import { env } from "../config/env";
 import { db } from "../db";
@@ -14,6 +14,7 @@ import {
   sendSubscriptionPendingUserEmail,
 } from "../lib/mailer";
 import { getStripeClient } from "./billing/stripe.service";
+import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
 
 /**
  * When a subscription request first enters pending_approval after payment, notify the payer and staff.
@@ -141,7 +142,7 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
       and(
         eq(userTable.isDeleted, false),
         eq(userTable.isBlocked, false),
-        or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
+        inArray(userTable.role, ROLES_TRAINING_STAFF),
         ne(userTable.email, ""),
       ),
     );

@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 
+import { isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
 import { verifyAccessToken } from "../lib/jwt";
 import { env } from "../config/env";
 import { createUserFromCognito, getAthleteForUser, getUserByCognitoSub, getUserById } from "../services/user.service";
@@ -84,6 +85,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     next();
   } catch (err) {
+    if (isLikelyDatabaseConnectivityFailure(err)) {
+      console.error("[Auth] Database unavailable during auth (not a token rejection):", err);
+      return res.status(503).json({ error: "Service temporarily unavailable" });
+    }
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`[Auth] Bearer token rejected: ${message}`);
     return res.status(401).json({ error: "Unauthorized" });

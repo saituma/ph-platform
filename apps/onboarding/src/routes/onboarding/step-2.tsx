@@ -62,11 +62,29 @@ function OnboardingStep2() {
 		const token = localStorage.getItem("auth_token");
 		const type = localStorage.getItem("user_type");
 
-		if (!email || !token || !type) {
+		if (!token) {
 			toast.error("Session expired", {
-				description: "Please enter your email to continue onboarding.",
+				description: "Please sign in again to continue onboarding.",
 			});
-			navigate({ to: "/" });
+			navigate({ to: "/login" });
+			return;
+		}
+
+		if (!type) {
+			toast.error("Onboarding session incomplete", {
+				description:
+					"Go back to the portal and use “Continue onboarding” so your account type is set, or start from the home page.",
+			});
+			navigate({ to: "/portal/dashboard" });
+			return;
+		}
+
+		if (!email?.trim()) {
+			toast.error("Email missing", {
+				description:
+					"Sign out and sign in again, or continue from the portal so we can store your email for this step.",
+			});
+			navigate({ to: "/login" });
 			return;
 		}
 

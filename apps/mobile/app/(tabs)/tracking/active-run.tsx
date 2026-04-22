@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { Text, View, Pressable } from "react-native";
+import { Text, View, Pressable, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useRouter, Stack } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   useAnimatedStyle,
   withSpring,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
-import { fonts, radius, icons as themeIcons } from "@/constants/theme";
+import { fonts, radius } from "@/constants/theme";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRunStore } from "../../../store/useRunStore";
 import {
@@ -22,20 +22,15 @@ import {
 
 import { useRunTrackingEngine } from "../../../hooks/tracking/useRunTrackingEngine";
 import { LiveMap } from "../../../components/tracking/active-run/LiveMap";
-import { RunPrivacyControls } from "../../../components/tracking/active-run/RunPrivacyControls";
-import { RunStatusOverlay } from "../../../components/tracking/active-run/RunStatusOverlay";
-import { RunActionButtons } from "../../../components/tracking/active-run/RunActionButtons";
-import { RunBottomBar } from "../../../components/tracking/active-run/RunBottomBar";
-import { RunStopSheet } from "../../../components/tracking/active-run/RunStopSheet";
 import { RunToast } from "../../../components/tracking/active-run/RunToast";
 import { mainTabBarTotalHeight } from "../../../lib/tracking/mainTabBarInset";
 import {
   getRunBackgroundTrackingDefault,
-  setRunBackgroundTrackingDefault,
   getOsrmRoutingDefault,
-  setOsrmRoutingDefault,
 } from "../../../lib/runTrackingPreferences";
-import { ensureOsrmConsentOrExplain } from "../../../lib/osrmRoutingConsent";
+import type { TrackingMapStyle } from "../../../components/tracking/trackingMapLayers";
+import { ActiveRunSheet, type ActiveRunSheetIndex } from "../../../components/tracking/active-run/ActiveRunSheet";
+import { ActiveRunMapControls } from "../../../components/tracking/active-run/ActiveRunMapControls";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
@@ -43,23 +38,25 @@ export default function ActiveRunScreen() {
   const insets = useAppSafeAreaInsets();
   const {
     status,
+    startRun,
     pauseRun,
     resumeRun,
     stopRun,
     elapsedSeconds,
     distanceMeters,
     coordinates,
-    goalKm,
     destination,
+    setDestination,
   } = useRunStore();
 
   const [backgroundTrackingEnabled, setBackgroundTrackingEnabled] =
     useState(false);
   const [osrmRoutingEnabled, setOsrmRoutingEnabled] = useState(false);
-  const [showStopSheet, setShowStopSheet] = useState(false);
+  const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
+  const [sheetIndex, setSheetIndex] = useState<ActiveRunSheetIndex>(0);
+  const [pickingDestination, setPickingDestination] = useState(false);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
-  const sheetTranslateY = useSharedValue(800);
   const toastTranslateY = useSharedValue(-120);
 
   const {
@@ -79,32 +76,26 @@ export default function ActiveRunScreen() {
     isWarmedUp,
   } = useRunTrackingEngine(toastTranslateY, insets.top, { osrmRoutingEnabled });
 
-  const bottomBarHeight = 88;
-  const overlayGap = 16;
-  const actionRowHeight = 56;
-  /** Root tab bar (`SwipeableTabLayout`) overlays this screen — lift controls above it. */
   const mainTabBarOverlap = mainTabBarTotalHeight(insets.bottom);
-  /** Map / Satellite control sits just above the pause–stop row (aligned with pause, left: 16). */
-  const mapStyleAnchorBottom =
-    mainTabBarOverlap + bottomBarHeight + overlayGap + 8 + actionRowHeight + 10;
   const showWarmupBanner = !isWarmedUp && status === "running";
   const warmupSecondsLeft = Math.max(0, 8 - elapsedSeconds);
 
-  const glassBg = isDark ? "rgba(20,20,20,0.55)" : "rgba(255,255,255,0.72)";
-  const glassBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
+  // Design Tokens
+  const glassBg = isDark ? "rgba(10,10,10,0.65)" : "rgba(255,255,255,0.78)";
+  const glassBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.10)";
   const glassShadow = isDark
     ? {
         shadowColor: "#000",
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 8,
+        shadowOpacity: 0.35,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 10,
       }
     : {
         shadowColor: "#000",
-        shadowOpacity: 0.12,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.14,
+        shadowRadius: 22,
+        shadowOffset: { width: 0, height: 12 },
         elevation: 8,
       };
 
@@ -133,8 +124,8 @@ export default function ActiveRunScreen() {
   }, [status]);
 
   useEffect(() => {
-    opacity.value = withTiming(1, { duration: 350 });
-    translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+    opacity.value = withTiming(1, { duration: 400 });
+    translateY.value = withSpring(0, { damping: 20, stiffness: 150 });
 
     return () => {
       stopForegroundWatch();
@@ -163,26 +154,9 @@ export default function ActiveRunScreen() {
     stopForegroundWatch,
   ]);
 
-  const openStopDialog = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    pauseRun();
-    setShowStopSheet(true);
-    sheetTranslateY.value = withSpring(0, { damping: 20, stiffness: 200 });
-  };
-
-  const closeStopDialogAndResume = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    sheetTranslateY.value = withSpring(800, { damping: 20, stiffness: 200 });
-    setTimeout(() => {
-      setShowStopSheet(false);
-      resumeRun();
-    }, 300);
-  };
-
   const handleFinishRun = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     stopRun();
-    setShowStopSheet(false);
     router.replace("/(tabs)/tracking/summary" as any);
   };
 
@@ -190,11 +164,7 @@ export default function ActiveRunScreen() {
     opacity: opacity.value,
     transform: [{ translateY: translateY.value }],
     flex: 1,
-    backgroundColor: colors.bg,
-  }));
-
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: sheetTranslateY.value }],
+    backgroundColor: colors.background,
   }));
 
   const toastStyle = useAnimatedStyle(() => ({
@@ -206,43 +176,50 @@ export default function ActiveRunScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: colors.bg,
+          backgroundColor: colors.background,
           alignItems: "center",
           justifyContent: "center",
+          paddingHorizontal: 40
         }}
       >
-        <Ionicons
-          name={themeIcons.gpsSearching.name as any}
-          size={48}
-          color={colors.warning}
-          style={{ marginBottom: 16 }}
-        />
+        <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: isDark ? "rgba(255,200,100,0.1)" : "rgba(255,200,100,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
+           <ActivityIndicator size="large" color={colors.amber} />
+        </View>
         <Text
           style={{
-            fontFamily: fonts.heading2,
-            fontSize: 20,
-            color: colors.textSecondary,
+            fontFamily: fonts.clashBold,
+            fontSize: 22,
+            color: colors.textPrimary,
+            textAlign: "center",
+            marginBottom: 8
           }}
         >
-          {gpsError ?? "Acquiring GPS..."}
+          {gpsError ? "GPS Error" : "Acquiring GPS..."}
+        </Text>
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.textSecondary, textAlign: "center", lineHeight: 22 }}>
+          {gpsError ?? "We need a strong GPS signal to track your run accurately. Please move to an open area."}
         </Text>
         {gpsError && (
           <Pressable
             onPress={() => setupLocationAndPermissions()}
-            style={{
-              marginTop: 16,
-              paddingHorizontal: 16,
-              paddingVertical: 10,
+            style={({ pressed }) => ({
+              marginTop: 32,
+              paddingHorizontal: 24,
+              paddingVertical: 14,
               borderRadius: radius.pill,
-              backgroundColor: colors.surfaceHigh,
-              borderWidth: 1,
-              borderColor: colors.borderSubtle,
-            }}
+              backgroundColor: colors.accent,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              opacity: pressed ? 0.9 : 1,
+            })}
           >
+            <Ionicons name="refresh" size={18} color="#FFF" />
             <Text
               style={{
-                fontFamily: fonts.bodyMedium,
-                color: colors.textPrimary,
+                fontFamily: fonts.clashBold,
+                fontSize: 15,
+                color: "#FFF",
               }}
             >
               Try again
@@ -253,6 +230,25 @@ export default function ActiveRunScreen() {
     );
   }
 
+  const handlePrimaryPress = () => {
+    if (status === "running") {
+      pauseRun();
+      return;
+    }
+    if (status === "paused") {
+      resumeRun();
+      return;
+    }
+    if (status === "idle") {
+      startRun();
+      return;
+    }
+  };
+
+  const controlsBottom =
+    mainTabBarOverlap +
+    (sheetIndex === 0 ? 320 : 540);
+
   return (
     <>
       <Stack.Screen
@@ -262,7 +258,7 @@ export default function ActiveRunScreen() {
           animation: "fade",
         }}
       />
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <Animated.View style={screenStyle}>
         <LiveMap
           activeRegion={activeRegion}
@@ -274,10 +270,58 @@ export default function ActiveRunScreen() {
           followUser={followUser}
           routePolyline={routePolyline}
           onManualMove={() => setFollowUser(false)}
+          mapStyle={mapStyle}
+          onPress={
+            pickingDestination
+              ? (coord) => {
+                  setDestination(coord);
+                  setPickingDestination(false);
+                  setFollowUser(true);
+                  setSheetIndex(0);
+                }
+              : undefined
+          }
+        />
+
+        {/* Top-left exit */}
+        <View style={{ position: "absolute", left: 14, top: insets.top + 6, zIndex: 40 }}>
+          <Pressable
+            onPress={() => {
+              if (status === "running" || status === "paused") {
+                setSheetIndex(1);
+                return;
+              }
+              router.replace("/(tabs)/tracking" as any);
+            }}
+            style={({ pressed }) => ({
+              width: 54,
+              height: 54,
+              borderRadius: 27,
+              backgroundColor: isDark ? "rgba(18,18,18,0.92)" : "rgba(255,255,255,0.94)",
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.9 : 1,
+            })}
+          >
+            <Ionicons name="chevron-down" size={26} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+
+        {/* Map controls stack */}
+        <ActiveRunMapControls
+          colors={colors}
+          isDark={isDark}
+          bottom={controlsBottom}
+          onOpenLayers={() => setSheetIndex(1)}
+          onToggle3D={() => {
+            Alert.alert("Coming soon", "3D map camera will be added later.");
+          }}
           onRecenter={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setFollowUser(true);
           }}
-          mapStyleAnchorBottom={mapStyleAnchorBottom}
         />
 
         {showWarmupBanner && (
@@ -285,136 +329,123 @@ export default function ActiveRunScreen() {
             pointerEvents="none"
             style={{
               position: "absolute",
-              left: 12,
-              top: 12,
-              right: 72,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderRadius: 16,
-              backgroundColor: colors.surfaceHigh,
+              left: 16,
+              top: insets.top + 70,
+              right: 80,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderRadius: radius.xl,
+              backgroundColor: glassBg,
               borderWidth: 1,
-              borderColor: colors.borderSubtle,
+              borderColor: glassBorder,
+              ...glassShadow,
+              flexDirection: "row",
+              gap: 12,
+              alignItems: "center"
             }}
           >
-            <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
-              GPS stabilizing… ({warmupSecondsLeft}s)
-            </Text>
-            <Text style={{ fontFamily: fonts.bodyRegular, color: colors.textSecondary, marginTop: 2 }}>
-              Warmup period, please stand still or stretch.
-            </Text>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)", alignItems: "center", justifyContent: "center" }}>
+               <Ionicons name="time-outline" size={20} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.clashBold, fontSize: 14, color: colors.textPrimary }}>
+                GPS STABILIZING ({warmupSecondsLeft}s)
+              </Text>
+              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>
+                Stand still for best accuracy
+              </Text>
+            </View>
           </View>
         )}
+
+        {pickingDestination ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: 16,
+              right: 16,
+              top: insets.top + 134,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderRadius: radius.xl,
+              backgroundColor: glassBg,
+              borderWidth: 1,
+              borderColor: glassBorder,
+              ...glassShadow,
+              zIndex: 35,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.clashBold, fontSize: 13, color: colors.textPrimary }}>
+              Tap the map to set your route destination
+            </Text>
+            <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>
+              This is optional — you can finish without a destination.
+            </Text>
+          </View>
+        ) : null}
 
         {osrmRoutingEnabled && destination && (isFetchingRoute || routeMetrics) ? (
           <View
             pointerEvents="none"
             style={{
               position: "absolute",
-              left: 12,
-              top: showWarmupBanner ? 80 : 12,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderRadius: 12,
-              backgroundColor: colors.surfaceHigh,
+              left: 16,
+              top: showWarmupBanner ? insets.top + 150 : insets.top + 70,
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderRadius: radius.lg,
+              backgroundColor: glassBg,
               borderWidth: 1,
-              borderColor: colors.borderSubtle,
-              opacity: 0.92,
+              borderColor: glassBorder,
+              opacity: 0.95,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              ...glassShadow
             }}
           >
-            <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary }}>
+            {isFetchingRoute ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Ionicons name="flash" size={14} color={colors.accent} />
+            )}
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.textSecondary }}>
               {isFetchingRoute
-                ? "Calculating route…"
-                : routeMetrics
-                  ? `Driving route ~${Math.max(1, Math.round(routeMetrics.durationSec / 60))} min · ${(routeMetrics.distanceM / 1000).toFixed(2)} km`
-                  : ""}
+                ? "CALCULATING ROUTE..."
+                : `EST. ${Math.max(1, Math.round(routeMetrics!.durationSec / 60))} MIN · ${(routeMetrics!.distanceM / 1000).toFixed(2)} KM`}
             </Text>
           </View>
         ) : null}
 
-        <RunStatusOverlay
+        <ActiveRunSheet
+          index={sheetIndex}
+          setIndex={setSheetIndex}
           status={status}
-          goalKm={goalKm}
-          destination={destination}
-          lastCoordinate={lastCoordinate}
-          distanceMeters={distanceMeters}
-          colors={colors}
-          glassBg={glassBg}
-          glassBorder={glassBorder}
-          glassShadow={glassShadow}
-          insetsTop={insets.top}
-        />
-
-        <RunPrivacyControls
-          colors={colors}
-          glassBg={glassBg}
-          glassBorder={glassBorder}
-          glassShadow={glassShadow}
-          mainTabBarOverlap={mainTabBarOverlap}
-          bottomOffsetFromTabBar={
-            bottomBarHeight + overlayGap + 8 + actionRowHeight + 12
-          }
-          backgroundTrackingEnabled={backgroundTrackingEnabled}
-          onToggleBackgroundTracking={() => {
-            const next = !backgroundTrackingEnabled;
-            setBackgroundTrackingEnabled(next);
-            void setRunBackgroundTrackingDefault(next);
-            // When enabling, the next effect tick will call startLocationTracking() which shows disclosure+permission if needed.
-          }}
-          osrmRoutingEnabled={osrmRoutingEnabled}
-          onToggleOsrmRouting={async () => {
-            if (osrmRoutingEnabled) {
-              setOsrmRoutingEnabled(false);
-              void setOsrmRoutingDefault(false);
-              return;
-            }
-            const ok = await ensureOsrmConsentOrExplain();
-            if (!ok) return;
-            setOsrmRoutingEnabled(true);
-            void setOsrmRoutingDefault(true);
-          }}
-        />
-
-        <RunActionButtons
-          status={status}
-          onPause={pauseRun}
-          onResume={resumeRun}
-          onStop={openStopDialog}
-          colors={colors}
-          glassBg={glassBg}
-          glassBorder={glassBorder}
-          glassShadow={glassShadow}
-          mainTabBarOverlap={mainTabBarOverlap}
-          bottomBarHeight={bottomBarHeight}
-          overlayGap={overlayGap}
-        />
-
-        <RunBottomBar
           elapsedSeconds={elapsedSeconds}
           distanceMeters={distanceMeters}
+          mapStyle={mapStyle}
+          onChangeMapStyle={setMapStyle}
           colors={colors}
-          glassBg={glassBg}
-          glassBorder={glassBorder}
-          glassShadow={glassShadow}
+          isDark={isDark}
           mainTabBarOverlap={mainTabBarOverlap}
-          bottomBarHeight={bottomBarHeight}
+          onPrimaryPress={handlePrimaryPress}
+          onAddRoute={() => {
+            setPickingDestination(true);
+            setSheetIndex(0);
+          }}
+          onShareLiveLocation={() => {
+            setSheetIndex(0);
+            router.push("/(tabs)/tracking/social" as any);
+          }}
+          onFinishRun={handleFinishRun}
+          onIndexChange={(i) => setSheetIndex(i)}
         />
 
         <RunToast
           message={toastMessage}
           toastStyle={toastStyle}
           colors={colors}
-        />
-
-        <RunStopSheet
-          isVisible={showStopSheet}
-          sheetStyle={sheetStyle}
-          distanceMeters={distanceMeters}
-          elapsedSeconds={elapsedSeconds}
-          onFinish={handleFinishRun}
-          onResume={closeStopDialogAndResume}
-          colors={colors}
-          insetsBottom={insets.bottom}
-          mainTabBarOverlap={mainTabBarOverlap}
         />
         </Animated.View>
       </SafeAreaView>

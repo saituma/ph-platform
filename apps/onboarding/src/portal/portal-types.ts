@@ -1,0 +1,30 @@
+export type PortalUser = {
+	id: number;
+	name: string;
+	email: string;
+	athleteName?: string;
+	role?: string;
+	programTier?: string;
+	planExpiresAt?: string;
+	createdAt?: string;
+	birthDate?: string;
+	athleteType?: string | null;
+	onboardingCompleted?: boolean;
+	trainingPerWeek?: number;
+	performanceGoals?: string | null;
+	phoneNumber?: string | null;
+	equipmentAccess?: string | null;
+	team?: {
+		id: number;
+		name: string;
+		minAge: number | null;
+		maxAge: number | null;
+		maxAthletes: number;
+		emailSlug?: string | null;
+		planId: number | null;
+		subscriptionStatus: string | null;
+		planExpiresAt: string | null;
+		createdAt: string | null;
+		updatedAt: string | null;
+	} | null;
+};

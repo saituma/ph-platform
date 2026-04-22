@@ -83,6 +83,7 @@ export async function runs(req: Request, res: Response) {
       cursor,
       windowDays,
       sort,
+      viewerUserId: req.user.id,
     } as any);
     return res.status(200).json(out);
   } catch (err) {
@@ -372,6 +373,7 @@ export async function mySocialRuns(req: Request, res: Response) {
     const out = await getMySocialRuns(req.user.id, { limit, cursor });
     return res.status(200).json(out);
   } catch (err) {
-    return res.status(500).json({ error: "Internal error" });
+    console.error("[social] mySocialRuns", err);
+    return handleSocialError(res, err);
   }
 }

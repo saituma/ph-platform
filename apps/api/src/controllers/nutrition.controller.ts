@@ -5,6 +5,7 @@ import { and, eq, desc, gte, lte } from "drizzle-orm";
 import { db } from "../db";
 import { nutritionTargetsTable, nutritionLogsTable, userTable, notificationTable } from "../db/schema";
 import { sendPushNotification } from "../services/push.service";
+import { isTrainingStaff } from "../lib/user-roles";
 
 const targetSchema = z.object({
   calories: z.number().int().min(0).optional().nullable(),
@@ -31,6 +32,50 @@ const logSchema = z.object({
   pain: z.number().int().min(1).max(5).optional().nullable(),
   foodDiary: z.string().optional().nullable(),
 });
+
+type NutritionLogInput = z.infer<typeof logSchema>;
+type NutritionLogRow = typeof nutritionLogsTable.$inferSelect;
+
+const MEAL_AND_DIARY_TEXT_KEYS = [
+  "breakfast",
+  "lunch",
+  "dinner",
+  "snacks",
+  "snacksMorning",
+  "snacksAfternoon",
+  "snacksEvening",
+  "foodDiary",
+] as const;
+
+/**
+ * Same calendar day can be saved multiple times (e.g. breakfast now, dinner later).
+ * Clients often send cleared meal slots as "" — without merge that would wipe earlier meals.
+ */
+function buildNutritionUpdatePayload(existing: NutritionLogRow, input: NutritionLogInput): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    updatedAt: new Date(),
+  };
+
+  for (const key of MEAL_AND_DIARY_TEXT_KEYS) {
+    const incoming = input[key];
+    const incStr = incoming == null ? "" : String(incoming).trim();
+    const prevRaw = existing[key];
+    const prevStr = prevRaw == null ? "" : String(prevRaw).trim();
+    if (incStr === "" && prevStr !== "") {
+      out[key] = prevRaw;
+    } else {
+      out[key] = incoming ?? null;
+    }
+  }
+
+  const numKeys = ["waterIntake", "steps", "sleepHours", "mood", "energy", "pain"] as const;
+  for (const key of numKeys) {
+    const v = input[key];
+    out[key] = v !== undefined && v !== null ? v : existing[key];
+  }
+
+  return out;
+}
 
 const feedbackSchema = z.object({
   feedback: z.string().max(2000),
@@ -113,7 +158,7 @@ export async function getTargets(req: Request, res: Response) {
 
 export async function updateTargets(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-  if (!["coach", "admin", "superAdmin"].includes(req.user.role)) {
+  if (!isTrainingStaff(req.user.role)) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
@@ -169,7 +214,7 @@ export async function listLogs(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid user ID" });
   }
 
-  if (targetUserId !== req.user.id && !["coach", "admin", "superAdmin"].includes(req.user.role)) {
+  if (targetUserId !== req.user.id && !isTrainingStaff(req.user.role)) {
     // Only coaches can fetch other users' logs directly
     return res.status(403).json({ error: "Forbidden" });
   }
@@ -224,10 +269,7 @@ export async function upsertLog(req: Request, res: Response) {
   if (existingLog) {
     [result] = await db
       .update(nutritionLogsTable)
-      .set({
-        ...input,
-        updatedAt: new Date(),
-      })
+      .set(buildNutritionUpdatePayload(existingLog, input))
       .where(eq(nutritionLogsTable.id, existingLog.id))
       .returning();
   } else {
@@ -248,7 +290,7 @@ export async function upsertLog(req: Request, res: Response) {
 
 export async function provideFeedback(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-  if (!["coach", "admin", "superAdmin"].includes(req.user.role)) {
+  if (!isTrainingStaff(req.user.role)) {
     return res.status(403).json({ error: "Forbidden" });
   }
 

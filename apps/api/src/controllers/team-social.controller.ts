@@ -66,6 +66,7 @@ export async function teamRuns(req: Request, res: Response) {
       windowDays,
       sort,
       teamId,
+      viewerUserId: req.user.id,
     } as any);
     return res.status(200).json(out);
   } catch (err) {

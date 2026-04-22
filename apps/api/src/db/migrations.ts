@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { Client } from "pg";
 
@@ -92,6 +92,54 @@ function readSqlMigrationTags(migrationsFolder: string) {
     .filter((file) => file.endsWith(".sql"))
     .sort()
     .map((file) => file.replace(/\.sql$/, ""));
+}
+
+/**
+ * Drizzle's stock `migrate()` runs every *pending* journal migration inside one DB transaction
+ * (`PgDialect.migrate`). PostgreSQL forbids using new enum labels in the same transaction that
+ * added them (55P04). We apply each migration file in its own transaction so enum `ADD VALUE`
+ * commits before a later migration uses those labels.
+ */
+async function migrateEachJournalEntryInOwnTransaction(
+  db: NodePgDatabase,
+  options: { migrationsFolder: string; migrationsSchema: string; migrationsTable: string },
+): Promise<void> {
+  const { migrationsFolder, migrationsSchema, migrationsTable } = options;
+  const migrations = readMigrationFiles({ migrationsFolder });
+
+  await db.execute(sql`CREATE SCHEMA IF NOT EXISTS ${sql.identifier(migrationsSchema)}`);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS ${sql.identifier(migrationsSchema)}.${sql.identifier(migrationsTable)} (
+      id SERIAL PRIMARY KEY,
+      hash text NOT NULL,
+      created_at bigint
+    )
+  `);
+
+  for (const migration of migrations) {
+    const latestRows = await db.execute(
+      sql`select id, hash, created_at from ${sql.identifier(migrationsSchema)}.${sql.identifier(
+        migrationsTable,
+      )} order by created_at desc limit 1`,
+    );
+    const latest = latestRows.rows[0] as { created_at?: number | string } | undefined;
+    const lastMillis = latest?.created_at != null ? Number(latest.created_at) : null;
+
+    if (lastMillis !== null && lastMillis >= migration.folderMillis) {
+      continue;
+    }
+
+    await db.transaction(async (tx) => {
+      for (const stmt of migration.sql) {
+        const trimmed = stmt.trim();
+        if (!trimmed) continue;
+        await tx.execute(sql.raw(stmt));
+      }
+      await tx.execute(
+        sql`insert into ${sql.identifier(migrationsSchema)}.${sql.identifier(migrationsTable)} ("hash", "created_at") values (${migration.hash}, ${migration.folderMillis})`,
+      );
+    });
+  }
 }
 
 async function executeWithRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
@@ -417,7 +465,6 @@ async function executeMigrationsOnce(options: {
       );
     }
 
-    const migrations = readMigrationFiles({ migrationsFolder });
     const migrationsSchema = "public";
     const migrationsTable = "__drizzle_migrations";
 
@@ -449,7 +496,8 @@ async function executeMigrationsOnce(options: {
       );
       const alreadyInitialized = Boolean(baselineCheck.rows[0]?.enrolled_type_exists);
       if (alreadyInitialized) {
-        const baseline = [...migrations].reverse().find((entry) => entry.folderMillis <= 1773013000000);
+        const journalMigrations = readMigrationFiles({ migrationsFolder });
+        const baseline = [...journalMigrations].reverse().find((entry) => entry.folderMillis <= 1773013000000);
         if (!baseline) {
           throw new Error("Could not resolve migration baseline for existing database.");
         }
@@ -462,7 +510,7 @@ async function executeMigrationsOnce(options: {
       }
     }
 
-    await migrate(db, {
+    await migrateEachJournalEntryInOwnTransaction(db, {
       migrationsFolder,
       migrationsSchema,
       migrationsTable,

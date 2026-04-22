@@ -2,8 +2,9 @@ import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { userLocationTable, userTable } from "../db/schema";
+import { USER_ROLE_VALUES } from "../lib/user-roles";
 
-const ALLOWED_LOCATION_ROLES = ["guardian", "athlete", "coach", "admin", "superAdmin"] as const;
+const ALLOWED_LOCATION_ROLES = USER_ROLE_VALUES;
 
 const getDateKey = (value: Date) => value.toISOString().slice(0, 10);
 

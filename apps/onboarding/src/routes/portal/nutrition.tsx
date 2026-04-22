@@ -1,16 +1,36 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+	Activity,
+	Calendar,
+	ChevronLeft,
+	ChevronRight,
+	Droplets,
+	Footprints,
+	Loader2,
+	Moon,
+	Save,
+	Smile,
+	Utensils,
+	Zap,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { showPortalNutritionNav } from "@/lib/portal-roles";
+import { cn } from "@/lib/utils";
 import { usePortal } from "@/portal/PortalContext";
 import { settingsService } from "@/services/settingsService";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
-import { Calendar, ChevronLeft, ChevronRight, Loader2, Save, Utensils, Droplets, Footprints, Moon, Smile, Zap, Activity } from "lucide-react";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/portal/nutrition")({
 	component: NutritionPage,
@@ -21,7 +41,7 @@ function NutritionPage() {
 	const [date, setDate] = useState(new Date());
 	const [loading, setLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
-	
+
 	const [log, setLog] = useState<any>({
 		breakfast: "",
 		lunch: "",
@@ -41,7 +61,7 @@ function NutritionPage() {
 	const dateKey = date.toISOString().slice(0, 10);
 
 	const fetchData = useCallback(async () => {
-		if (!user) return;
+		if (!user || !showPortalNutritionNav(user.role)) return;
 		setLoading(true);
 		try {
 			const data = await settingsService.getNutritionLogs({
@@ -114,11 +134,45 @@ function NutritionPage() {
 		}));
 	};
 
-	const renderMetric = (label: string, icon: any, value: number, key: string) => (
+	if (user && !showPortalNutritionNav(user.role)) {
+		return (
+			<div className="p-6 max-w-2xl mx-auto space-y-6">
+				<Card className="border-2">
+					<CardHeader>
+						<CardTitle className="text-xl font-black uppercase italic tracking-tight">
+							Nutrition logging
+						</CardTitle>
+						<CardDescription className="text-base">
+							Daily nutrition logs are for athletes. Team coaches review
+							athletes from Team and the staff dashboard rather than logging
+							personal metrics here.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="flex flex-wrap gap-3">
+						<Button asChild className="rounded-xl font-bold">
+							<Link to="/portal/team">Open Team</Link>
+						</Button>
+						<Button asChild variant="outline" className="rounded-xl font-bold">
+							<Link to="/portal/dashboard">Back to dashboard</Link>
+						</Button>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
+
+	const renderMetric = (
+		label: string,
+		icon: any,
+		value: number,
+		key: string,
+	) => (
 		<div className="space-y-3">
 			<div className="flex items-center gap-2">
 				{icon}
-				<span className="text-sm font-bold uppercase tracking-wider">{label}</span>
+				<span className="text-sm font-bold uppercase tracking-wider">
+					{label}
+				</span>
 			</div>
 			<div className="flex justify-between gap-1">
 				{[1, 2, 3, 4, 5].map((val) => (
@@ -127,9 +181,9 @@ function NutritionPage() {
 						onClick={() => setLog((prev: any) => ({ ...prev, [key]: val }))}
 						className={cn(
 							"flex-1 h-10 rounded-lg font-bold transition-all border-2",
-							value === val 
-								? "bg-primary text-primary-foreground border-primary" 
-								: "bg-muted/50 border-transparent hover:border-primary/20"
+							value === val
+								? "bg-primary text-primary-foreground border-primary"
+								: "bg-muted/50 border-transparent hover:border-primary/20",
 						)}
 					>
 						{val}
@@ -143,19 +197,39 @@ function NutritionPage() {
 		<div className="p-6 max-w-4xl mx-auto space-y-6">
 			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 				<div className="flex flex-col gap-1">
-					<h1 className="text-3xl font-black uppercase italic tracking-tighter">Nutrition & Wellness</h1>
-					<p className="text-muted-foreground">Log your daily metrics and track your progress.</p>
+					<h1 className="text-3xl font-black uppercase italic tracking-tighter">
+						Nutrition & Wellness
+					</h1>
+					<p className="text-muted-foreground">
+						Log your daily metrics and track your progress. You can save several
+						times on the same day (for example breakfast now, dinner later) —
+						earlier meals stay on file when you save again.
+					</p>
 				</div>
-				
+
 				<div className="flex items-center bg-card border-2 rounded-xl p-1 shrink-0">
-					<Button variant="ghost" size="icon" onClick={() => changeDate(-1)} className="rounded-lg">
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => changeDate(-1)}
+						className="rounded-lg"
+					>
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
 					<div className="flex items-center gap-2 px-4 min-w-[140px] justify-center font-bold text-sm uppercase">
 						<Calendar className="h-4 w-4 text-primary" />
-						{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+						{date.toLocaleDateString(undefined, {
+							month: "short",
+							day: "numeric",
+							year: "numeric",
+						})}
 					</div>
-					<Button variant="ghost" size="icon" onClick={() => changeDate(1)} className="rounded-lg">
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => changeDate(1)}
+						className="rounded-lg"
+					>
 						<ChevronRight className="h-4 w-4" />
 					</Button>
 				</div>
@@ -172,26 +246,44 @@ function NutritionPage() {
 							<CardHeader className="pb-3">
 								<div className="flex items-center gap-2 text-primary">
 									<Utensils className="h-5 w-5" />
-									<CardTitle className="text-lg font-bold uppercase tracking-tight">Meal Checklist</CardTitle>
+									<CardTitle className="text-lg font-bold uppercase tracking-tight">
+										Meal Checklist
+									</CardTitle>
 								</div>
 							</CardHeader>
 							<CardContent className="space-y-4">
-								{["breakfast", "lunch", "dinner", "snacksMorning", "snacksAfternoon", "snacksEvening"].map((meal) => (
+								{[
+									"breakfast",
+									"lunch",
+									"dinner",
+									"snacksMorning",
+									"snacksAfternoon",
+									"snacksEvening",
+								].map((meal) => (
 									<div key={meal} className="space-y-2">
-										<div 
+										<div
 											className={cn(
 												"flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all",
-												log[meal] ? "border-primary bg-primary/5" : "border-transparent bg-muted/30"
+												log[meal]
+													? "border-primary bg-primary/5"
+													: "border-transparent bg-muted/30",
 											)}
 											onClick={() => toggleMeal(meal)}
 										>
-											<Label className="capitalize font-bold cursor-pointer">{meal.replace(/([A-Z])/g, ' $1')}</Label>
+											<Label className="capitalize font-bold cursor-pointer">
+												{meal.replace(/([A-Z])/g, " $1")}
+											</Label>
 											<Checkbox checked={!!log[meal]} />
 										</div>
 										{!!log[meal] && (
-											<Input 
+											<Input
 												value={log[meal] === "yes" ? "" : log[meal]}
-												onChange={(e) => setLog((prev: any) => ({ ...prev, [meal]: e.target.value || "yes" }))}
+												onChange={(e) =>
+													setLog((prev: any) => ({
+														...prev,
+														[meal]: e.target.value || "yes",
+													}))
+												}
 												placeholder="What did you eat?"
 												className="border-2 rounded-xl h-10"
 											/>
@@ -203,7 +295,9 @@ function NutritionPage() {
 
 						<Card className="border-2">
 							<CardHeader className="pb-3">
-								<CardTitle className="text-lg font-bold uppercase tracking-tight">Daily Habits</CardTitle>
+								<CardTitle className="text-lg font-bold uppercase tracking-tight">
+									Daily Habits
+								</CardTitle>
 							</CardHeader>
 							<CardContent className="space-y-6">
 								<div className="flex items-center justify-between">
@@ -214,19 +308,35 @@ function NutritionPage() {
 										<span className="font-bold">Water Intake</span>
 									</div>
 									<div className="flex items-center gap-3">
-										<Button 
-											variant="outline" 
-											size="icon" 
+										<Button
+											variant="outline"
+											size="icon"
 											className="h-8 w-8 rounded-lg"
-											onClick={() => setLog((prev: any) => ({ ...prev, waterIntake: Math.max(0, prev.waterIntake - 1) }))}
-										>-</Button>
-										<span className="w-8 text-center font-black">{log.waterIntake}</span>
-										<Button 
-											variant="outline" 
-											size="icon" 
+											onClick={() =>
+												setLog((prev: any) => ({
+													...prev,
+													waterIntake: Math.max(0, prev.waterIntake - 1),
+												}))
+											}
+										>
+											-
+										</Button>
+										<span className="w-8 text-center font-black">
+											{log.waterIntake}
+										</span>
+										<Button
+											variant="outline"
+											size="icon"
 											className="h-8 w-8 rounded-lg"
-											onClick={() => setLog((prev: any) => ({ ...prev, waterIntake: prev.waterIntake + 1 }))}
-										>+</Button>
+											onClick={() =>
+												setLog((prev: any) => ({
+													...prev,
+													waterIntake: prev.waterIntake + 1,
+												}))
+											}
+										>
+											+
+										</Button>
 									</div>
 								</div>
 
@@ -237,11 +347,16 @@ function NutritionPage() {
 										</div>
 										<span className="font-bold">Steps</span>
 									</div>
-									<Input 
-										type="number" 
+									<Input
+										type="number"
 										className="w-24 text-right font-bold border-2 rounded-xl"
 										value={log.steps}
-										onChange={(e) => setLog((prev: any) => ({ ...prev, steps: parseInt(e.target.value) || 0 }))}
+										onChange={(e) =>
+											setLog((prev: any) => ({
+												...prev,
+												steps: parseInt(e.target.value) || 0,
+											}))
+										}
 									/>
 								</div>
 
@@ -252,11 +367,16 @@ function NutritionPage() {
 										</div>
 										<span className="font-bold">Sleep (hrs)</span>
 									</div>
-									<Input 
-										type="number" 
+									<Input
+										type="number"
 										className="w-24 text-right font-bold border-2 rounded-xl"
 										value={log.sleepHours}
-										onChange={(e) => setLog((prev: any) => ({ ...prev, sleepHours: parseInt(e.target.value) || 0 }))}
+										onChange={(e) =>
+											setLog((prev: any) => ({
+												...prev,
+												sleepHours: parseInt(e.target.value) || 0,
+											}))
+										}
 									/>
 								</div>
 							</CardContent>
@@ -268,36 +388,64 @@ function NutritionPage() {
 							<CardHeader className="pb-3">
 								<div className="flex items-center gap-2 text-primary">
 									<Activity className="h-5 w-5" />
-									<CardTitle className="text-lg font-bold uppercase tracking-tight">Wellbeing</CardTitle>
+									<CardTitle className="text-lg font-bold uppercase tracking-tight">
+										Wellbeing
+									</CardTitle>
 								</div>
 							</CardHeader>
 							<CardContent className="space-y-8">
-								{renderMetric("Mood Tracker", <Smile className="h-4 w-4 text-amber-500" />, log.mood, "mood")}
-								{renderMetric("Energy Levels", <Zap className="h-4 w-4 text-yellow-500" />, log.energy, "energy")}
-								{renderMetric("Pain Levels", <Activity className="h-4 w-4 text-red-500" />, log.pain, "pain")}
+								{renderMetric(
+									"Mood Tracker",
+									<Smile className="h-4 w-4 text-amber-500" />,
+									log.mood,
+									"mood",
+								)}
+								{renderMetric(
+									"Energy Levels",
+									<Zap className="h-4 w-4 text-yellow-500" />,
+									log.energy,
+									"energy",
+								)}
+								{renderMetric(
+									"Pain Levels",
+									<Activity className="h-4 w-4 text-red-500" />,
+									log.pain,
+									"pain",
+								)}
 							</CardContent>
 						</Card>
 
 						<Card className="border-2">
 							<CardHeader>
-								<CardTitle className="text-lg font-bold uppercase tracking-tight">Food Diary</CardTitle>
+								<CardTitle className="text-lg font-bold uppercase tracking-tight">
+									Food Diary
+								</CardTitle>
 							</CardHeader>
 							<CardContent>
-								<Textarea 
+								<Textarea
 									placeholder="Any additional notes about your nutrition today?"
 									className="min-h-[120px] border-2 rounded-xl resize-none"
 									value={log.foodDiary}
-									onChange={(e) => setLog((prev: any) => ({ ...prev, foodDiary: e.target.value }))}
+									onChange={(e) =>
+										setLog((prev: any) => ({
+											...prev,
+											foodDiary: e.target.value,
+										}))
+									}
 								/>
 							</CardContent>
 						</Card>
 
-						<Button 
-							onClick={handleSave} 
+						<Button
+							onClick={handleSave}
 							disabled={isSaving}
 							className="w-full h-14 rounded-2xl font-black uppercase italic tracking-widest text-lg shadow-xl shadow-primary/20 transition-all active:scale-[0.98]"
 						>
-							{isSaving ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Save className="mr-2 h-6 w-6" />}
+							{isSaving ? (
+								<Loader2 className="mr-2 h-6 w-6 animate-spin" />
+							) : (
+								<Save className="mr-2 h-6 w-6" />
+							)}
 							{isSaving ? "Saving..." : "Save Daily Log"}
 						</Button>
 					</div>

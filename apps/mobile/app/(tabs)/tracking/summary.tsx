@@ -12,9 +12,21 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { 
+  Trophy, 
+  Clock, 
+  Activity, 
+  Zap, 
+  Flame, 
+  Map as MapIcon, 
+  ChevronRight, 
+  Trash2,
+  TrendingUp,
+  MapPin,
+  TrendingDown
+} from "lucide-react-native";
 import * as Crypto from "expo-crypto";
-import { fonts, radius, icons as themeIcons } from "@/constants/theme";
+import { fonts, radius, spacing } from "@/constants/theme";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { calculateRunMetrics, formatDistanceKm, formatDurationClock, estimateCalories } from "../../../lib/tracking/runUtils";
@@ -115,8 +127,8 @@ export default function RunSummaryScreen() {
   const scaleRateBtn = useSharedValue(1);
 
   useEffect(() => {
-    opacity.value = withTiming(1, { duration: 350 });
-    translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+    opacity.value = withTiming(1, { duration: 400 });
+    translateY.value = withSpring(0, { damping: 20, stiffness: 150 });
   }, []);
 
   const handleDiscard = () => {
@@ -256,6 +268,11 @@ export default function RunSummaryScreen() {
     transform: [{ scale: scaleRateBtn.value }],
   }));
 
+  // Design Tokens
+  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
+  const glassBg = isDark ? "rgba(10,10,10,0.65)" : "rgba(255,255,255,0.72)";
+  const accentMuted = `${colors.accent}15`;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {coordinates.length > 0 && initialRegion ? (
@@ -270,7 +287,7 @@ export default function RunSummaryScreen() {
           />
           <BlurView
             pointerEvents="none"
-            intensity={isDark ? 14 : 10}
+            intensity={isDark ? 20 : 15}
             tint={isDark ? "dark" : "light"}
             style={StyleSheet.absoluteFillObject}
           />
@@ -278,7 +295,7 @@ export default function RunSummaryScreen() {
             pointerEvents="none"
             style={[
               StyleSheet.absoluteFillObject,
-              { backgroundColor: isDark ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.06)" },
+              { backgroundColor: isDark ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.1)" },
             ]}
           />
         </>
@@ -288,33 +305,33 @@ export default function RunSummaryScreen() {
         bounces={true} 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: spacing.xl,
           paddingTop: 40,
           paddingBottom: trackingScrollBottomPad(insets),
         }}
         style={animatedScreenStyle}
       >
-        <View style={{ alignItems: 'center', marginBottom: 32 }}>
+        <View style={{ alignItems: 'center', marginBottom: 40 }}>
           <View style={{ 
-            width: 96,
-            height: 96,
-            borderRadius: radius.pill,
-            backgroundColor: colors.accentLight,
-            borderColor: colors.border,
+            width: 100,
+            height: 100,
+            borderRadius: 50,
+            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
+            borderColor: cardBorder,
             borderWidth: 1,
             justifyContent: 'center',
             alignItems: 'center',
-            ...(isDark ? {} : { shadowColor: colors.accent, shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 6 }),
             marginBottom: 20,
           }}>
-            <MaterialCommunityIcons name={themeIcons.medal.name as any} size={56} color={colors.accent} />
+            <Trophy size={48} color={colors.accent} strokeWidth={2} />
           </View>
           <Text
             style={{
-              fontFamily: fonts.heroDisplay,
-              fontSize: 44,
-              color: colors.text,
-              letterSpacing: -1,
+              fontFamily: fonts.clashBold,
+              fontSize: 36,
+              color: colors.textPrimary,
+              textAlign: "center",
+              letterSpacing: -0.5,
             }}
           >
             Run Complete!
@@ -324,145 +341,130 @@ export default function RunSummaryScreen() {
               fontFamily: fonts.bodyMedium,
               fontSize: 16,
               color: colors.textSecondary,
-              marginTop: 4,
+              marginTop: 6,
             }}
           >
-            You crushed it today
+            Excellent effort today
           </Text>
         </View>
 
+        {/* Hero Distance Card */}
         <View style={{ 
-          backgroundColor: isDark ? "rgba(15,15,30,0.72)" : "rgba(255,255,255,0.78)", 
-          borderColor: colors.border, 
+          backgroundColor: glassBg, 
+          borderColor: cardBorder, 
           borderWidth: 1, 
           borderRadius: radius.xxl, 
-          padding: 24, 
+          padding: 32, 
           alignItems: 'center', 
-          marginBottom: 24 
+          marginBottom: 24,
+          ...(isDark ? {} : {
+            shadowColor: "#000",
+            shadowOpacity: 0.05,
+            shadowRadius: 15,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 4
+          })
         }}>
-          <MaterialCommunityIcons name={themeIcons.distance.name as any} size={22} color={colors.accent} style={{ marginBottom: 4 }} />
-          <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2.5, marginBottom: -6 }}>TOTAL DISTANCE</Text>
-          <Text style={{ fontFamily: fonts.heroNumber, fontSize: 80, color: colors.text, letterSpacing: -2, fontVariant: ['tabular-nums'] }}>
-            {distanceMeters === 0 && elapsedSeconds < 2 ? "--" : formatDistanceKm(distanceMeters, 2)}
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: accentMuted, alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+             <MapIcon size={20} color={colors.accent} />
+          </View>
+          <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 3, marginBottom: 4 }}>TOTAL DISTANCE</Text>
+          <Text style={{ fontFamily: fonts.heroNumber, fontSize: 84, color: colors.textPrimary, letterSpacing: -2, fontVariant: ['tabular-nums'] }}>
+            {distanceMeters === 0 && elapsedSeconds < 2 ? "0.00" : formatDistanceKm(distanceMeters, 2)}
           </Text>
           <Text
             style={{
               fontFamily: fonts.labelMedium,
-              fontSize: 13,
+              fontSize: 14,
               color: colors.textSecondary,
               marginTop: -8,
+              letterSpacing: 1
             }}
           >
             KILOMETERS
           </Text>
           
-          <View style={{ marginTop: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: `${metrics.paceZone.color}22`, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center' }}>
-             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: metrics.paceZone.color, marginRight: 6 }} />
-             <Text style={{ color: metrics.paceZone.color, fontFamily: fonts.labelMedium, fontSize: 11, textTransform: 'uppercase' }}>
-               Zone {metrics.paceZone.zone} · {metrics.paceZone.label}
+          <View style={{ marginTop: 24, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: `${metrics.paceZone.color}15`, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: `${metrics.paceZone.color}30` }}>
+             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: metrics.paceZone.color, marginRight: 8 }} />
+             <Text style={{ color: metrics.paceZone.color, fontFamily: fonts.clashBold, fontSize: 12 }}>
+               ZONE {metrics.paceZone.zone} · {metrics.paceZone.label.toUpperCase()}
              </Text>
           </View>
         </View>
 
+        {/* Primary Metrics Grid */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
-          <TrackingMetricTile
-            iconLibrary="Ionicons"
-            iconName={themeIcons.timer.name as any}
-            iconColor={colors.textPrimary}
-            accentColor={colors.textPrimary}
+          <SummaryMetricTile
+            icon={Clock}
+            color={colors.textPrimary}
             value={formatDurationClock(elapsedSeconds)}
-            bottomLabel="TIME"
+            label="TIME"
           />
-          <TrackingMetricTile
-            iconLibrary="MaterialCommunityIcons"
-            iconName={themeIcons.pace.name as any}
-            iconColor={colors.purple}
-            accentColor={colors.purple}
+          <SummaryMetricTile
+            icon={Activity}
+            color={colors.purple}
             value={metrics.paceMinPerKm}
-            valueColor={colors.purple}
-            bottomLabel="MIN/KM"
+            label="MIN/KM"
           />
-          <TrackingMetricTile
-            iconLibrary="Ionicons"
-            iconName={themeIcons.speed.name as any}
-            iconColor={colors.cyan}
-            accentColor={colors.cyan}
+          <SummaryMetricTile
+            icon={Zap}
+            color={colors.cyan}
             value={metrics.speedKmH}
-            valueColor={colors.cyan}
-            bottomLabel="KM/H"
+            label="KM/H"
           />
-          <TrackingMetricTile
-            iconLibrary="MaterialCommunityIcons"
-            iconName={themeIcons.calories.name as any}
-            iconColor={colors.amber}
-            accentColor={colors.amber}
+          <SummaryMetricTile
+            icon={Flame}
+            color={colors.amber}
             value={String(metrics.calories)}
-            valueColor={colors.amber}
-            bottomLabel="KCAL"
+            label="KCAL"
           />
         </View>
         
-        <View style={{ flexDirection: 'row', gap: 16, marginBottom: 32 }}>
+        {/* Secondary Metrics */}
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 32 }}>
           {metrics.vo2max && (
-             <View style={{ flex: 1, backgroundColor: colors.surfaceHigh, padding: 12, borderRadius: radius.xl, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary }}>VO₂ EST</Text>
-                <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary, marginTop: 4 }}>{metrics.vo2max}</Text>
+             <View style={{ flex: 1, backgroundColor: glassBg, padding: 16, borderRadius: radius.xl, alignItems: 'center', borderWidth: 1, borderColor: cardBorder }}>
+                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 10, color: colors.textDim, letterSpacing: 1 }}>VO₂ MAX</Text>
+                <Text style={{ fontFamily: fonts.clashBold, fontSize: 20, color: colors.textPrimary, marginTop: 4 }}>{metrics.vo2max}</Text>
              </View>
           )}
-          <View style={{ flex: 1, backgroundColor: colors.surfaceHigh, padding: 12, borderRadius: radius.xl, alignItems: 'center' }}>
-             <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary }}>EFFICIENCY</Text>
-             <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary, marginTop: 4 }}>{metrics.efficiencyScore}%</Text>
+          <View style={{ flex: 1, backgroundColor: glassBg, padding: 16, borderRadius: radius.xl, alignItems: 'center', borderWidth: 1, borderColor: cardBorder }}>
+             <Text style={{ fontFamily: fonts.labelMedium, fontSize: 10, color: colors.textDim, letterSpacing: 1 }}>EFFICIENCY</Text>
+             <Text style={{ fontFamily: fonts.clashBold, fontSize: 20, color: colors.textPrimary, marginTop: 4 }}>{metrics.efficiencyScore}%</Text>
           </View>
           {elevationData && (
-             <View style={{ flex: 1, backgroundColor: colors.surfaceHigh, padding: 12, borderRadius: radius.xl, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary }}>ELEVATION</Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textPrimary, marginTop: 4 }}>
-                   ↑ {elevationData.gain}m  ↓ {elevationData.loss}m
-                </Text>
+             <View style={{ flex: 1, backgroundColor: glassBg, padding: 16, borderRadius: radius.xl, alignItems: 'center', borderWidth: 1, borderColor: cardBorder }}>
+                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 10, color: colors.textDim, letterSpacing: 1 }}>ELEVATION</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                   <TrendingUp size={12} color={colors.accent} />
+                   <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary }}>{elevationData.gain}m</Text>
+                </View>
              </View>
           )}
         </View>
 
+        {/* Splits */}
         {metrics.splitPaces.length > 0 && (
           <View style={{ marginBottom: 32 }}>
-             <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2.5, marginBottom: 12, marginLeft: 4 }}>KM SPLITS</Text>
+             <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2, marginBottom: 16, marginLeft: 4 }}>KM SPLITS</Text>
              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 4 }}>
                {metrics.splitPaces.map((splitPace, index) => (
-                 <View key={index} style={{ backgroundColor: colors.surfaceHigh, paddingHorizontal: 16, paddingVertical: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderSubtle }}>
-                    <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 4 }}>KM {index + 1}</Text>
-                    <Text style={{ fontFamily: fonts.heading2, fontSize: 18, color: colors.textPrimary }}>{splitPace}</Text>
+                 <View key={index} style={{ backgroundColor: glassBg, paddingHorizontal: 20, paddingVertical: 14, borderRadius: radius.xl, borderWidth: 1, borderColor: cardBorder, minWidth: 100 }}>
+                    <Text style={{ fontFamily: fonts.labelMedium, fontSize: 10, color: colors.textDim, marginBottom: 4 }}>KM {index + 1}</Text>
+                    <Text style={{ fontFamily: fonts.clashBold, fontSize: 18, color: colors.textPrimary }}>{splitPace}</Text>
                  </View>
                ))}
              </ScrollView>
           </View>
         )}
 
-        <View style={{ marginBottom: 32 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 16,
-            }}
-          >
-            <Ionicons
-              name={themeIcons.route.name as any}
-              size={16}
-              color={colors.textSecondary}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={{
-                fontFamily: fonts.labelCaps,
-                fontSize: 11,
-                color: colors.textSecondary,
-                letterSpacing: 2.5,
-              }}
-            >
-              YOUR ROUTE
-            </Text>
+        {/* Route Preview */}
+        <View style={{ marginBottom: 40 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16, marginLeft: 4 }}>
+            <MapPin size={14} color={colors.textSecondary} style={{ marginRight: 8 }} />
+            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>YOUR ROUTE</Text>
           </View>
-          <View style={{ height: 220, borderRadius: radius.xxl, borderColor: colors.border, borderWidth: 1, overflow: 'hidden' }}>
+          <View style={{ height: 240, borderRadius: radius.xxl, borderColor: cardBorder, borderWidth: 1, overflow: 'hidden' }}>
              {coordinates.length > 0 && initialRegion ? (
                <View style={{ flex: 1, position: "relative" }}>
                  <TrackingMapView
@@ -479,8 +481,8 @@ export default function RunSummaryScreen() {
                    value={mapStyle}
                    onChange={setMapStyle}
                    colors={colors}
-                   bottomOffset={8}
-                   left={10}
+                   bottomOffset={10}
+                   left={12}
                  />
                </View>
              ) : (
@@ -489,92 +491,72 @@ export default function RunSummaryScreen() {
           </View>
         </View>
 
+        {/* Action Buttons */}
         <View style={{ gap: 16 }}>
           <AnimatedPressable
             onPress={handleSaveAndRate}
-            onPressIn={() =>
-              (scaleRateBtn.value = withSpring(0.96, {
-                damping: 15,
-                stiffness: 300,
-              }))
-            }
-            onPressOut={() =>
-              (scaleRateBtn.value = withSpring(1, {
-                damping: 15,
-                stiffness: 300,
-              }))
-            }
+            onPressIn={() => (scaleRateBtn.value = withSpring(0.96, { damping: 15, stiffness: 300 }))}
+            onPressOut={() => (scaleRateBtn.value = withSpring(1, { damping: 15, stiffness: 300 }))}
             style={[
               animatedRateBtnStyle,
               {
                 width: "100%",
-                height: 68,
+                height: 72,
                 backgroundColor: colors.accent,
                 borderRadius: radius.xxl,
                 flexDirection: "row",
                 justifyContent: "center",
                 alignItems: "center",
-                ...(isDark
-                  ? {}
-                  : {
-                      shadowColor: colors.accent,
-                      shadowOpacity: 0.18,
-                      shadowRadius: 18,
-                      shadowOffset: { width: 0, height: 10 },
-                      elevation: 6,
-                    }),
+                gap: 12,
+                ...(isDark ? {} : { shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 10 }, elevation: 8 }),
               },
             ]}
           >
-            <Text
-              style={{
-                fontFamily: fonts.heading1,
-                fontSize: 20,
-                color: colors.textInverse,
-                marginRight: 8,
-                marginTop: 4,
-              }}
-            >
-              RATE THIS RUN
-            </Text>
-            <Ionicons
-              name={themeIcons.chevronRight.name as any}
-              size={24}
-              color={colors.textInverse}
-            />
+            <Text style={{ fontFamily: fonts.clashBold, fontSize: 20, color: "#FFF" }}>RATE THIS RUN</Text>
+            <ChevronRight size={24} color="#FFF" strokeWidth={3} />
           </AnimatedPressable>
 
           <Pressable
             onPress={handleDiscard}
-            style={{
+            style={({ pressed }) => ({
               height: 56,
               backgroundColor: "transparent",
               borderRadius: radius.xxl,
-              borderColor: colors.dangerSoft,
+              borderColor: colors.danger,
               borderWidth: 1,
               flexDirection: "row",
               justifyContent: "center",
               alignItems: "center",
-            }}
+              gap: 10,
+              opacity: pressed ? 0.7 : 1,
+              marginBottom: 20
+            })}
           >
-            <Ionicons
-              name={themeIcons.discard.name as any}
-              size={20}
-              color={colors.danger}
-              style={{ marginRight: 8 }}
-            />
-            <Text
-              style={{
-                fontFamily: fonts.heading3,
-                fontSize: 16,
-                color: colors.danger,
-              }}
-            >
-              Discard Run
-            </Text>
+            <Trash2 size={18} color={colors.danger} />
+            <Text style={{ fontFamily: fonts.clashBold, fontSize: 15, color: colors.danger }}>Discard Session</Text>
           </Pressable>
         </View>
-        </Animated.ScrollView>
-      </SafeAreaView>
+      </Animated.ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function SummaryMetricTile({ icon: Icon, color, value, label }: { icon: any; color: string; value: string; label: string }) {
+  const { isDark } = useAppTheme();
+  return (
+    <View style={{ 
+      flex: 1, 
+      minWidth: '45%', 
+      backgroundColor: isDark ? "rgba(10,10,10,0.65)" : "rgba(255,255,255,0.78)", 
+      borderRadius: radius.xl, 
+      padding: 16, 
+      borderWidth: 1, 
+      borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+      alignItems: 'center'
+    }}>
+      <Icon size={18} color={color} style={{ marginBottom: 8 }} strokeWidth={2.5} />
+      <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 22, color: color, fontVariant: ['tabular-nums'] }}>{value}</Text>
+      <Text style={{ fontFamily: fonts.labelCaps, fontSize: 9, color: 'rgba(120,120,130,0.8)', letterSpacing: 1, marginTop: 2 }}>{label}</Text>
+    </View>
   );
 }

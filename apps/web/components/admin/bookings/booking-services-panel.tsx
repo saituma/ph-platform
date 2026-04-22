@@ -24,9 +24,16 @@ export type BookingServiceRow = {
   type: string;
   durationMinutes: number;
   capacity?: number | null;
+  totalSlots?: number | null;
+  remainingTotalSlots?: number | null;
   programTier?: string | null;
   eligiblePlans?: string[] | null;
   eligibleTargets?: string[] | null;
+  schedulePattern?: string | null;
+  weeklyEntries?: { weekday: number; time: string }[] | null;
+  oneTimeDate?: string | null;
+  oneTimeTime?: string | null;
+  slotMode?: string | null;
   isActive?: boolean | null;
 };
 
@@ -131,6 +138,7 @@ export function BookingServicesPanel({
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Duration</th>
                 <th className="px-4 py-3">Capacity</th>
+                <th className="px-4 py-3">Slots left</th>
                 <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Active</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -164,6 +172,18 @@ export function BookingServicesPanel({
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {row.capacity != null ? row.capacity : "∞"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {row.totalSlots != null ? (
+                        <div className="flex flex-col">
+                          <span>
+                            {row.remainingTotalSlots ?? "—"} / {row.totalSlots}
+                          </span>
+                          <span className="text-[10px] uppercase">Bookings</span>
+                        </div>
+                      ) : (
+                        "∞"
+                      )}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground max-w-[150px] truncate" title={tier}>{tier}</td>
                     <td className="px-4 py-3">

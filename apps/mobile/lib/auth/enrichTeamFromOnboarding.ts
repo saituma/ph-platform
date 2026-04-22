@@ -24,10 +24,10 @@ export async function enrichTeamFieldsIfOnboardingHasThem(input: {
   let fields = extractAuthTeamFieldsFromMeUser(input.meUser);
   let athleteType: "youth" | "adult" | null = input.meUser.athleteType ?? null;
 
-  if (
-    hasOrgTeamMembership(fields) ||
-    String(input.meUser.role ?? "").toLowerCase() !== "athlete"
-  ) {
+  const r = String(input.meUser.role ?? "").toLowerCase();
+  const isApiAthleteRole =
+    r === "athlete" || r === "team_athlete" || r === "adult_athlete" || r === "youth_athlete";
+  if (hasOrgTeamMembership(fields) || !isApiAthleteRole) {
     return { fields, athleteType };
   }
 

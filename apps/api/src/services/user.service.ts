@@ -1,33 +1,42 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, guardianTable, userTable, teamTable } from "../db/schema";
+import { withTransientDbRetry } from "../lib/db-connectivity";
+import type { UserRole } from "../lib/user-roles";
+import { isAthleteUserRole, isTrainingStaff } from "../lib/user-roles";
 
 export async function getUserByCognitoSub(sub: string) {
-  const users = await db
-    .select()
-    .from(userTable)
-    .where(and(eq(userTable.cognitoSub, sub), eq(userTable.isDeleted, false)))
-    .limit(1);
-  return users[0] ?? null;
+  return withTransientDbRetry("getUserByCognitoSub", async () => {
+    const users = await db
+      .select()
+      .from(userTable)
+      .where(and(eq(userTable.cognitoSub, sub), eq(userTable.isDeleted, false)))
+      .limit(1);
+    return users[0] ?? null;
+  });
 }
 
 export async function getUserById(id: number) {
-  const users = await db
-    .select()
-    .from(userTable)
-    .where(and(eq(userTable.id, id), eq(userTable.isDeleted, false)))
-    .limit(1);
-  return users[0] ?? null;
+  return withTransientDbRetry("getUserById", async () => {
+    const users = await db
+      .select()
+      .from(userTable)
+      .where(and(eq(userTable.id, id), eq(userTable.isDeleted, false)))
+      .limit(1);
+    return users[0] ?? null;
+  });
 }
 
 export async function getUserByEmail(email: string) {
-  const users = await db
-    .select()
-    .from(userTable)
-    .where(and(eq(userTable.email, email), eq(userTable.isDeleted, false)))
-    .limit(1);
-  return users[0] ?? null;
+  return withTransientDbRetry("getUserByEmail", async () => {
+    const users = await db
+      .select()
+      .from(userTable)
+      .where(and(eq(userTable.email, email), eq(userTable.isDeleted, false)))
+      .limit(1);
+    return users[0] ?? null;
+  });
 }
 
 /**
@@ -38,7 +47,7 @@ export async function reviveSoftDeletedUserForCognito(input: {
   sub: string;
   email: string;
   name: string;
-  role?: "guardian" | "athlete" | "coach" | "admin" | "superAdmin";
+  role?: UserRole;
 }) {
   const rows = await db
     .select()
@@ -75,7 +84,7 @@ export async function createUserFromCognito(input: {
   sub: string;
   email: string;
   name: string;
-  role?: "guardian" | "athlete" | "coach" | "admin" | "superAdmin";
+  role?: UserRole;
 }) {
   const revived = await reviveSoftDeletedUserForCognito(input);
   if (revived) return revived;
@@ -93,7 +102,7 @@ export async function createUserFromCognito(input: {
   return result[0];
 }
 
-export async function updateUserRole(userId: number, role: "guardian" | "athlete" | "coach" | "admin" | "superAdmin") {
+export async function updateUserRole(userId: number, role: UserRole) {
   const result = await db.update(userTable).set({ role }).where(eq(userTable.id, userId)).returning();
 
   return result[0] ?? null;
@@ -113,7 +122,7 @@ export async function updateUserProfile(userId: number, input: { name?: string; 
   const updated = result[0] ?? null;
   if (!updated) return null;
 
-  if (input.profilePicture !== undefined && updated.role === "athlete") {
+  if (input.profilePicture !== undefined && isAthleteUserRole(updated.role)) {
     await syncAthleteProfilePictureForUser(updated.id, input.profilePicture);
   }
 
@@ -270,4 +279,46 @@ export async function ensureGuardianForUser(userId: number) {
     .returning()) as (typeof guardianTable.$inferSelect)[];
 
   return inserted[0] ?? null;
+}
+
+/**
+ * Coaches/admins usually have no `athletes` row keyed by their own `users.id`.
+ * Staff-initiated booking requests still need a real `athleteId` + `guardianId` for the schema,
+ * so we attach to the first roster athlete on the team they administer.
+ */
+export async function resolveDefaultBookingPartyForTrainingStaff(staffUserId: number): Promise<{
+  athlete: NonNullable<Awaited<ReturnType<typeof getAthleteForUser>>>;
+  guardian: typeof guardianTable.$inferSelect;
+} | null> {
+  const user = await getUserById(staffUserId);
+  if (!user || !isTrainingStaff(user.role)) return null;
+
+  const teams = await db.select({ id: teamTable.id }).from(teamTable).where(eq(teamTable.adminId, staffUserId)).limit(1);
+  const team = teams[0];
+  if (!team) return null;
+
+  const rosterRows = await db
+    .select()
+    .from(athleteTable)
+    .where(eq(athleteTable.teamId, team.id))
+    .orderBy(asc(athleteTable.id))
+    .limit(1);
+
+  const rosterAthlete = rosterRows[0];
+  if (!rosterAthlete) return null;
+
+  let guardian: (typeof guardianTable.$inferSelect) | null = null;
+  if (rosterAthlete.guardianId != null) {
+    const [g] = await db.select().from(guardianTable).where(eq(guardianTable.id, rosterAthlete.guardianId)).limit(1);
+    guardian = g ?? null;
+  }
+  if (!guardian) {
+    guardian = await ensureGuardianForUser(rosterAthlete.userId);
+  }
+  if (!guardian) return null;
+
+  const athlete = await getAthleteForUser(rosterAthlete.userId);
+  if (!athlete) return null;
+
+  return { athlete, guardian };
 }

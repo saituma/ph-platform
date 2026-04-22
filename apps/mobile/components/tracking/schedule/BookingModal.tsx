@@ -58,7 +58,15 @@ export function BookingModal({
   const selectedService =
     activeServices.find((s) => s.id === selectedServiceId) ?? null;
 
-  const isSlotFull = selectedService?.capacity != null && selectedService?.remainingCapacity != null && selectedService.remainingCapacity <= 0;
+  const isBookingSlotsFull =
+    selectedService?.totalSlots != null &&
+    selectedService?.remainingTotalSlots != null &&
+    selectedService.remainingTotalSlots <= 0;
+  const isSlotFull =
+    isBookingSlotsFull ||
+    (selectedService?.capacity != null &&
+      selectedService?.remainingCapacity != null &&
+      selectedService.remainingCapacity <= 0);
 
   const tbd = "TBD (coach will confirm)";
   const locationLabel = selectedService?.defaultLocation?.trim() || tbd;
@@ -148,7 +156,11 @@ export function BookingModal({
       return;
     }
     if (isSlotFull) {
-      setBookingError("This session is full.");
+      setBookingError(
+        isBookingSlotsFull
+          ? "No booking slots left for this service."
+          : "This session is full.",
+      );
       return;
     }
     setBookingError(null);
@@ -405,6 +417,106 @@ export function BookingModal({
                     {selectedService.description.trim()}
                   </Text>
                 ) : null}
+
+                {selectedService &&
+                  (() => {
+                    const total = selectedService.totalSlots;
+                    const remT = selectedService.remainingTotalSlots;
+                    if (total != null && remT != null) {
+                      const full = remT <= 0;
+                      return (
+                        <View
+                          className="mt-3 rounded-[22px] border px-4 py-3"
+                          style={{
+                            borderColor: full ? errorColor : borderSoft,
+                            backgroundColor: full
+                              ? isDark
+                                ? "rgba(248,113,113,0.12)"
+                                : "rgba(248,113,113,0.08)"
+                              : mutedSurface,
+                          }}
+                        >
+                          <Text
+                            className="text-xs font-outfit font-semibold uppercase tracking-[1.2px]"
+                            style={{ color: full ? errorColor : colors.accent }}
+                          >
+                            Slots
+                          </Text>
+                          <Text className="text-sm font-outfit text-app mt-1 leading-5">
+                            {full
+                              ? "No booking slots left for this service."
+                              : `${remT} of ${total} booking slot${total === 1 ? "" : "s"} left`}
+                          </Text>
+                        </View>
+                      );
+                    }
+                    const cap = selectedService.capacity;
+                    const rem = selectedService.remainingCapacity;
+                    if (cap != null && rem != null) {
+                      return (
+                        <View
+                          className="mt-3 rounded-[22px] border px-4 py-3"
+                          style={{
+                            borderColor: isSlotFull ? errorColor : borderSoft,
+                            backgroundColor: isSlotFull
+                              ? isDark
+                                ? "rgba(248,113,113,0.12)"
+                                : "rgba(248,113,113,0.08)"
+                              : mutedSurface,
+                          }}
+                        >
+                          <Text
+                            className="text-xs font-outfit font-semibold uppercase tracking-[1.2px]"
+                            style={{ color: isSlotFull ? errorColor : colors.accent }}
+                          >
+                            Availability
+                          </Text>
+                          <Text className="text-sm font-outfit text-app mt-1 leading-5">
+                            {isSlotFull
+                              ? "No spots left for this session."
+                              : `${rem} of ${cap} spot${cap === 1 ? "" : "s"} open`}
+                          </Text>
+                        </View>
+                      );
+                    }
+                    if (cap != null && rem == null) {
+                      return (
+                        <View
+                          className="mt-3 rounded-[22px] border px-4 py-3"
+                          style={{
+                            borderColor: borderSoft,
+                            backgroundColor: mutedSurface,
+                          }}
+                        >
+                          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                            Group size
+                          </Text>
+                          <Text className="text-sm font-outfit text-app mt-1 leading-5">
+                            Up to {cap} athlete{cap === 1 ? "" : "s"} per session — pick a
+                            date to see openings.
+                          </Text>
+                        </View>
+                      );
+                    }
+                    return (
+                      <View
+                        className="mt-3 rounded-[22px] border px-4 py-3"
+                        style={{
+                          borderColor: borderSoft,
+                          backgroundColor: mutedSurface,
+                        }}
+                      >
+                        <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                          Scheduling
+                        </Text>
+                        <Text className="text-sm font-outfit text-app mt-1 leading-5">
+                          You&apos;re requesting this session type — your coach confirms date, time, and
+                          availability after you send the request.
+                        </Text>
+                      </View>
+                    );
+                  })()}
+
                 {selectedService && selectedService.oneTimeDate ? (
                   <View
                     className="mt-4 rounded-2xl border px-3 py-3"

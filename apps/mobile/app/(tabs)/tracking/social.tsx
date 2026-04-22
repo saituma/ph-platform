@@ -7,7 +7,6 @@ import {
   Share,
   View,
   Switch,
-  Modal,
 } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
@@ -32,7 +31,22 @@ import {
 } from "@/services/tracking/socialService";
 import { CommentsSheet } from "@/components/tracking/social/CommentsSheet";
 import { formatDurationClock, formatDistanceKm } from "@/lib/tracking/runUtils";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { 
+  Users, 
+  Activity, 
+  Settings, 
+  Calendar, 
+  SlidersHorizontal, 
+  MessageCircle, 
+  Heart, 
+  Share2, 
+  ShieldCheck, 
+  Lock, 
+  Trophy,
+  User,
+  ChevronRight,
+  RefreshCw
+} from "lucide-react-native";
 import { spacing, radius } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
@@ -48,7 +62,7 @@ export default function TrackingSocialScreen() {
   const appRole = useAppSelector((s) => s.user.appRole);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
-  /** Team athletes use `/api/teams/social/*`; solo adults only track privately (no feed). */
+  
   const useTeamFeed = useMemo(
     () =>
       shouldUseTeamTrackingFeatures({
@@ -85,8 +99,10 @@ export default function TrackingSocialScreen() {
 
   const canLoad = Boolean(token);
 
-  const cardBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)";
+  // Design Tokens (Robi's Best Practice)
+  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
   const cardBg = isDark ? colors.cardElevated : colors.backgroundSecondary;
+  const accentMuted = `${colors.accent}20`; // 12% opacity for backgrounds
 
   const loadSettings = useCallback(async () => {
     if (!token) return;
@@ -149,7 +165,6 @@ export default function TrackingSocialScreen() {
     load();
   }, [canLoad, load]);
 
-  // Solo adults track privately — this screen is team-only (feed APIs).
   useEffect(() => {
     if (!token) return;
     if (useTeamFeed) return;
@@ -210,7 +225,6 @@ export default function TrackingSocialScreen() {
       } else {
         await likeRun(token, run.runLogId, { useTeamFeed });
       }
-      // Refresh feed to update like counts
       const runs = await fetchRunFeed(token, {
         limit: 20,
         cursor: null,
@@ -228,10 +242,9 @@ export default function TrackingSocialScreen() {
     if (!token || !privacySettings) return;
 
     if (value) {
-      // Show confirmation before enabling
       Alert.alert(
         "Enable Team Features?",
-        "This will allow others to see your runs, comment on them, and include you in leaderboards. You can disable this anytime.",
+        "This will allow others to see your runs, comment on them, and include you in leaderboards.",
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -244,7 +257,6 @@ export default function TrackingSocialScreen() {
                   privacyVersionAccepted: "1.0",
                 });
                 setPrivacySettings(res.settings);
-                Alert.alert("Success", "Team features enabled!");
               } catch (e: any) {
                 Alert.alert("Error", String(e?.message ?? "Could not update settings"));
               } finally {
@@ -255,10 +267,9 @@ export default function TrackingSocialScreen() {
         ]
       );
     } else {
-      // Show warning before disabling
       Alert.alert(
         "Disable Team Features?",
-        "This will:\n\n• Make all your runs private\n• Remove you from leaderboards\n• Delete all likes on your runs\n• Hide your profile from the directory\n\nYou can re-enable anytime, but your previous data won't be restored.",
+        "This will make your runs private and remove you from leaderboards.",
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -269,7 +280,6 @@ export default function TrackingSocialScreen() {
               try {
                 const res = await updatePrivacySettings(token, { socialEnabled: false });
                 setPrivacySettings(res.settings);
-                Alert.alert("Success", "Team features disabled.");
               } catch (e: any) {
                 Alert.alert("Error", String(e?.message ?? "Could not update settings"));
               } finally {
@@ -295,82 +305,67 @@ export default function TrackingSocialScreen() {
     }
   }, [token, privacySettings]);
 
-  if (!token) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top + 16, paddingHorizontal: 20 }}>
-        <TrackingHeaderTabs
-          active="team"
-          colors={colors}
-          isDark={isDark}
-          topInset={0}
-          paddingHorizontal={0}
-          showTeamTab={useTeamFeed}
-        />
-        <Text className="text-base font-outfit" style={{ color: colors.textSecondary }}>
-          Sign in to view Team.
-        </Text>
-      </View>
-    );
-  }
-
-  const renderTabButton = (tab: TabType, label: string, icon: string) => (
+  const renderTabButton = (tab: TabType, label: string, IconComponent: any) => (
     <Pressable
       onPress={() => setActiveTab(tab)}
       style={{
         flex: 1,
-        flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        paddingVertical: 10,
-        gap: 6,
+        paddingVertical: 12,
         borderBottomWidth: 2,
         borderBottomColor: activeTab === tab ? colors.accent : "transparent",
       }}
     >
-      <Feather name={icon as any} size={14} color={activeTab === tab ? colors.accent : colors.textSecondary} />
-      <Text
-        className="text-sm font-outfit font-semibold"
-        style={{ color: activeTab === tab ? colors.accent : colors.textSecondary }}
-      >
-        {label}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <IconComponent size={16} color={activeTab === tab ? colors.accent : colors.textSecondary} strokeWidth={activeTab === tab ? 2.5 : 2} />
+        <Text
+          className="text-sm font-clash font-semibold"
+          style={{ color: activeTab === tab ? colors.accent : colors.textSecondary }}
+        >
+          {label}
+        </Text>
+      </View>
     </Pressable>
+  );
+
+  const SectionHeader = ({ title, icon: IconComponent, rightAction }: { title: string; icon: any; rightAction?: React.ReactNode }) => (
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ width: 32, height: 32, borderRadius: radius.md, backgroundColor: accentMuted, alignItems: "center", justifyContent: "center" }}>
+          <IconComponent size={18} color={colors.accent} strokeWidth={2.5} />
+        </View>
+        <Text className="text-base font-clash font-bold" style={{ color: colors.text }}>{title}</Text>
+      </View>
+      {rightAction}
+    </View>
   );
 
   const renderCommunityTab = () => {
     if (!privacySettings?.socialEnabled) {
       return (
-        <View style={{ padding: spacing.xl, alignItems: "center" }}>
-          <View
-            style={{
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              backgroundColor: colors.surfaceHigh,
-              justifyContent: "center",
-              alignItems: "center",
-              marginBottom: spacing.lg,
-            }}
-          >
-            <Feather name="users" size={36} color={colors.textDim} />
+        <View style={{ padding: spacing.xxl, alignItems: "center", justifyContent: "center" }}>
+          <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: cardBg, alignItems: "center", justifyContent: "center", marginBottom: spacing.xl, borderWidth: 1, borderColor: cardBorder }}>
+            <Users size={48} color={colors.textDim} strokeWidth={1.5} />
           </View>
-          <Text className="text-lg font-clash text-center" style={{ color: colors.text, marginBottom: spacing.sm }}>
-            Team Features Disabled
+          <Text className="text-xl font-clash font-bold text-center" style={{ color: colors.text, marginBottom: spacing.sm }}>
+            Team Feed is Private
           </Text>
-          <Text className="text-sm font-outfit text-center" style={{ color: colors.textSecondary, marginBottom: spacing.xl }}>
-            Enable team features in Settings to see the leaderboard and connect with other athletes.
+          <Text className="text-sm font-outfit text-center px-8" style={{ color: colors.textSecondary, marginBottom: spacing.xxl, lineHeight: 20 }}>
+            Enable team features in your settings to connect with other athletes and see the leaderboard.
           </Text>
           <Pressable
             onPress={() => setActiveTab("settings")}
-            style={{
+            style={({ pressed }) => ({
               backgroundColor: colors.accent,
               paddingHorizontal: spacing.xl,
               paddingVertical: spacing.md,
-              borderRadius: radius.xl,
-            }}
+              borderRadius: radius.pill,
+              opacity: pressed ? 0.9 : 1,
+            })}
           >
-            <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textInverse }}>
-              Go to Settings
+            <Text className="text-sm font-clash font-bold" style={{ color: colors.textInverse }}>
+              OPEN SETTINGS
             </Text>
           </Pressable>
         </View>
@@ -379,214 +374,162 @@ export default function TrackingSocialScreen() {
 
     if (loading) {
       return (
-        <View style={{ paddingTop: 40, alignItems: "center" }}>
-          <ActivityIndicator />
+        <View style={{ paddingTop: 60, alignItems: "center" }}>
+          <ActivityIndicator color={colors.accent} />
+          <Text className="text-xs font-outfit mt-4" style={{ color: colors.textDim }}>Loading community data...</Text>
         </View>
       );
     }
 
     return (
-      <View style={{ paddingHorizontal: spacing.xl, gap: 14 }}>
-        {/* Leaderboard */}
-        <View
-          style={{
-            backgroundColor: cardBg,
-            borderColor: cardBorder,
-            borderWidth: 1,
-            borderRadius: radius.xl,
-            padding: 14,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text className="text-sm font-clash font-semibold" style={{ color: colors.text }}>
-              Leaderboard ({rangeDays === 0 ? "All" : `${rangeDays} days`})
-            </Text>
-            <Pressable onPress={pickLeaderboardSort}>
-              <Text className="text-xs font-outfit font-semibold" style={{ color: colors.textSecondary }}>
-                Rank
-              </Text>
-            </Pressable>
-          </View>
-          <View style={{ gap: 10, marginTop: 10 }}>
+      <View style={{ paddingHorizontal: spacing.xl, gap: 20, paddingBottom: 40 }}>
+        {/* Leaderboard Section */}
+        <View style={{ backgroundColor: cardBg, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: cardBorder }}>
+          <SectionHeader 
+            title="Leaderboard" 
+            icon={Trophy} 
+            rightAction={
+              <Pressable onPress={pickLeaderboardSort} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Text className="text-xs font-outfit font-bold" style={{ color: colors.accent }}>RANK</Text>
+                <ChevronRight size={14} color={colors.accent} />
+              </Pressable>
+            }
+          />
+          <View style={{ gap: 12 }}>
             {leaderboard.length === 0 ? (
-              <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                No leaderboard entries yet.
-              </Text>
+              <Text className="text-sm font-outfit italic" style={{ color: colors.textDim }}>No activity this period.</Text>
             ) : null}
-            {leaderboard.slice(0, 10).map((it) => (
-              <View key={it.userId} style={{ flexDirection: "row", alignItems: "center" }}>
-                <Text className="text-xs font-outfit font-semibold" style={{ width: 22, color: colors.textSecondary }}>
-                  {it.rank}
-                </Text>
-                <Text className="text-sm font-outfit font-semibold" style={{ flex: 1, color: colors.text }}>
-                  {it.name}
-                </Text>
-                <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                  {it.kmTotal.toFixed(2)} km
-                </Text>
+            {leaderboard.slice(0, 5).map((it, idx) => (
+              <View key={it.userId} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={{ width: 24, height: 24, borderRadius: radius.sm, backgroundColor: idx < 3 ? colors.accent : colors.surfaceHigh, alignItems: "center", justifyContent: "center" }}>
+                  <Text className="text-xs font-clash font-bold" style={{ color: idx < 3 ? colors.textInverse : colors.textSecondary }}>{it.rank}</Text>
+                </View>
+                <Text className="text-sm font-outfit font-semibold flex-1" style={{ color: colors.text }}>{it.name}</Text>
+                <Text className="text-sm font-outfit font-bold" style={{ color: colors.textPrimary }}>{it.kmTotal.toFixed(1)} <Text className="text-xs font-outfit font-normal" style={{ color: colors.textSecondary }}>km</Text></Text>
               </View>
             ))}
+            {leaderboard.length > 5 && (
+              <Text className="text-xs font-outfit text-center mt-2" style={{ color: colors.textDim }}>+ {leaderboard.length - 5} more athletes</Text>
+            )}
           </View>
         </View>
 
-        {/* Adult Athletes */}
-        <View
-          style={{
-            backgroundColor: cardBg,
-            borderColor: cardBorder,
-            borderWidth: 1,
-            borderRadius: radius.xl,
-            padding: 14,
-          }}
-        >
-          <Text className="text-sm font-clash font-semibold" style={{ color: colors.text }}>
-            Adult athletes
-          </Text>
-          <View style={{ gap: 8, marginTop: 10 }}>
+        {/* Directory Section */}
+        <View style={{ backgroundColor: cardBg, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: cardBorder }}>
+          <SectionHeader title="Active Athletes" icon={Users} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
             {adults.length === 0 ? (
-              <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                No athletes found.
-              </Text>
+              <Text className="text-sm font-outfit italic" style={{ color: colors.textDim }}>No other athletes found.</Text>
             ) : null}
-            {adults.slice(0, 12).map((u) => (
-              <View key={u.userId} style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: colors.accent,
-                    marginRight: 10,
-                    opacity: 0.55,
-                  }}
-                />
-                <Text className="text-sm font-outfit" style={{ color: colors.text }}>
-                  {u.name}
-                </Text>
+            {adults.map((u) => (
+              <View key={u.userId} style={{ alignItems: "center", gap: 6, width: 64 }}>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surfaceHigh, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: cardBorder }}>
+                  <User size={24} color={colors.textDim} />
+                </View>
+                <Text className="text-[10px] font-outfit font-semibold text-center" numberOfLines={1} style={{ color: colors.text }}>{u.name.split(" ")[0]}</Text>
               </View>
             ))}
-          </View>
+          </ScrollView>
         </View>
 
-        {/* Public Runs */}
-        <View
-          style={{
-            backgroundColor: cardBg,
-            borderColor: cardBorder,
-            borderWidth: 1,
-            borderRadius: radius.xl,
-            padding: 14,
-          }}
-        >
-          <Text className="text-sm font-clash font-semibold" style={{ color: colors.text }}>
-            Public runs
-          </Text>
-          <View style={{ gap: 12, marginTop: 10 }}>
+        {/* Feed Section */}
+        <View>
+          <SectionHeader 
+            title="Public Feed" 
+            icon={Activity} 
+            rightAction={
+              <Pressable onPress={pickSort} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <SlidersHorizontal size={14} color={colors.textSecondary} />
+                <Text className="text-xs font-outfit font-bold" style={{ color: colors.textSecondary }}>SORT</Text>
+              </Pressable>
+            }
+          />
+          <View style={{ gap: 16 }}>
             {feed.length === 0 ? (
-              <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                No public runs yet.
-              </Text>
+              <View style={{ padding: spacing.xl, backgroundColor: cardBg, borderRadius: radius.xl, alignItems: "center", borderWidth: 1, borderColor: cardBorder }}>
+                <Activity size={32} color={colors.textDim} strokeWidth={1} />
+                <Text className="text-sm font-outfit text-center mt-4" style={{ color: colors.textDim }}>No public runs in the team feed yet.</Text>
+              </View>
             ) : null}
             {feed.map((r) => {
               const km = formatDistanceKm(r.distanceMeters, 2);
               const time = formatDurationClock(r.durationSeconds);
-              const pace =
-                r.avgPace != null && Number.isFinite(r.avgPace) ? `${r.avgPace.toFixed(2)}/km` : "—";
+              const pace = r.avgPace != null && Number.isFinite(r.avgPace) ? `${r.avgPace.toFixed(2)}/km` : "—";
               return (
-                <View
-                  key={r.runLogId}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: cardBorder,
-                    borderRadius: radius.lg,
-                    padding: 12,
-                  }}
-                >
+                <View key={r.runLogId} style={{ backgroundColor: cardBg, borderRadius: radius.xl, overflow: "hidden", borderWidth: 1, borderColor: cardBorder }}>
                   <Pressable
-                    onPress={() =>
-                      router.push({
-                        pathname: "/(tabs)/tracking/run-path/[runLogId]" as any,
-                        params: { runLogId: String(r.runLogId) },
-                      } as any)
-                    }
-                    style={({ pressed }) => ({
-                      opacity: pressed ? 0.92 : 1,
-                      marginBottom: 10,
-                    })}
+                    onPress={() => router.push({ pathname: "/(tabs)/tracking/run-path/[runLogId]" as any, params: { runLogId: String(r.runLogId) } } as any)}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.95 : 1 })}
                   >
-                    <MiniRunPathPreview
-                      points={r.pathPreview}
-                      height={108}
-                      colors={colors}
-                    />
+                    <MiniRunPathPreview points={r.pathPreview} height={120} colors={colors} />
                   </Pressable>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>
-                      {r.name}
-                    </Text>
-                    <Text className="text-xs font-outfit" style={{ color: colors.textSecondary }}>
-                      {new Date(r.date).toLocaleDateString()}
-                    </Text>
-                  </View>
+                  
+                  <View style={{ padding: spacing.lg }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <Text className="text-base font-clash font-bold" style={{ color: colors.text }}>{r.name}</Text>
+                      <Text className="text-[10px] font-outfit font-bold" style={{ color: colors.textDim, textTransform: "uppercase" }}>{new Date(r.date).toLocaleDateString()}</Text>
+                    </View>
 
-                  <Text className="text-sm font-outfit mt-1" style={{ color: colors.textSecondary }}>
-                    {km} km · {time} · {pace}
-                  </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: spacing.lg }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Text className="text-sm font-outfit font-bold" style={{ color: colors.accent }}>{km}</Text>
+                        <Text className="text-xs font-outfit" style={{ color: colors.textSecondary }}>km</Text>
+                      </View>
+                      <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+                      <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>{time}</Text>
+                      <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+                      <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>{pace}</Text>
+                    </View>
 
-                  <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
-                    <Pressable
-                      onPress={() => openComments(r.runLogId)}
-                      style={({ pressed }) => ({
-                        flex: 1,
-                        height: 40,
-                        borderRadius: radius.pill,
-                        borderWidth: 1,
-                        borderColor: cardBorder,
-                        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: pressed ? 0.9 : 1,
-                        flexDirection: "row",
-                        gap: 8,
-                      })}
-                    >
-                      <Feather name="message-circle" size={16} color={colors.icon} />
-                      <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textSecondary }}>
-                        Comment ({r.commentCount})
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => void toggleLike(r)}
-                      style={({ pressed }) => ({
-                        width: 48,
-                        height: 40,
-                        borderRadius: radius.pill,
-                        borderWidth: 1,
-                        borderColor: cardBorder,
-                        backgroundColor: r.userLiked ? `${colors.accent}22` : isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: pressed ? 0.9 : 1,
-                      })}
-                    >
-                      <Feather name="heart" size={16} color={r.userLiked ? colors.accent : colors.icon} />
-                    </Pressable>
-                    <Pressable
-                      onPress={() => void onShare(r)}
-                      style={({ pressed }) => ({
-                        width: 48,
-                        height: 40,
-                        borderRadius: radius.pill,
-                        borderWidth: 1,
-                        borderColor: cardBorder,
-                        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: pressed ? 0.9 : 1,
-                      })}
-                    >
-                      <Feather name="share-2" size={16} color={colors.icon} />
-                    </Pressable>
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      <Pressable
+                        onPress={() => openComments(r.runLogId)}
+                        style={({ pressed }) => ({
+                          flex: 1,
+                          height: 44,
+                          borderRadius: radius.lg,
+                          backgroundColor: colors.surfaceHigh,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 8,
+                          opacity: pressed ? 0.8 : 1,
+                        })}
+                      >
+                        <MessageCircle size={18} color={colors.textSecondary} />
+                        <Text className="text-xs font-clash font-bold" style={{ color: colors.textSecondary }}>{r.commentCount}</Text>
+                      </Pressable>
+                      
+                      <Pressable
+                        onPress={() => void toggleLike(r)}
+                        style={({ pressed }) => ({
+                          width: 56,
+                          height: 44,
+                          borderRadius: radius.lg,
+                          backgroundColor: r.userLiked ? accentMuted : colors.surfaceHigh,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          opacity: pressed ? 0.8 : 1,
+                        })}
+                      >
+                        <Heart size={20} color={r.userLiked ? colors.accent : colors.textDim} fill={r.userLiked ? colors.accent : "transparent"} strokeWidth={r.userLiked ? 0 : 2} />
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() => void onShare(r)}
+                        style={({ pressed }) => ({
+                          width: 56,
+                          height: 44,
+                          borderRadius: radius.lg,
+                          backgroundColor: colors.surfaceHigh,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          opacity: pressed ? 0.8 : 1,
+                        })}
+                      >
+                        <Share2 size={20} color={colors.textDim} />
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
               );
@@ -597,19 +540,21 @@ export default function TrackingSocialScreen() {
         <Pressable
           onPress={() => void load()}
           style={({ pressed }) => ({
-            height: 48,
+            height: 52,
             borderRadius: radius.xl,
             borderWidth: 1,
             borderColor: cardBorder,
-            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+            backgroundColor: cardBg,
+            flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
-            opacity: pressed ? 0.9 : 1,
+            gap: 10,
+            opacity: pressed ? 0.8 : 1,
+            marginTop: spacing.md,
           })}
         >
-          <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textSecondary }}>
-            Refresh
-          </Text>
+          <RefreshCw size={18} color={colors.textSecondary} />
+          <Text className="text-sm font-clash font-bold" style={{ color: colors.textSecondary }}>REFRESH FEED</Text>
         </Pressable>
       </View>
     );
@@ -618,100 +563,58 @@ export default function TrackingSocialScreen() {
   const renderMyRunsTab = () => {
     if (!privacySettings?.socialEnabled) {
       return (
-        <View style={{ padding: spacing.xl, alignItems: "center" }}>
-          <View
-            style={{
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              backgroundColor: colors.surfaceHigh,
-              justifyContent: "center",
-              alignItems: "center",
-              marginBottom: spacing.lg,
-            }}
-          >
-            <Feather name="lock" size={36} color={colors.textDim} />
+        <View style={{ padding: spacing.xxl, alignItems: "center" }}>
+          <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: cardBg, alignItems: "center", justifyContent: "center", marginBottom: spacing.lg, borderWidth: 1, borderColor: cardBorder }}>
+            <Lock size={36} color={colors.textDim} />
           </View>
-          <Text className="text-lg font-clash text-center" style={{ color: colors.text, marginBottom: spacing.sm }}>
-            Team Features Disabled
-          </Text>
-          <Text className="text-sm font-outfit text-center" style={{ color: colors.textSecondary }}>
-            Enable team features to track your social runs and see likes from other athletes.
+          <Text className="text-lg font-clash font-bold text-center" style={{ color: colors.text }}>Social Features Off</Text>
+          <Text className="text-sm font-outfit text-center mt-2 px-8" style={{ color: colors.textSecondary, lineHeight: 20 }}>
+            Enable team features to see your social activity and engagement from others.
           </Text>
         </View>
       );
     }
 
-    if (loading) {
-      return (
-        <View style={{ paddingTop: 40, alignItems: "center" }}>
-          <ActivityIndicator />
-        </View>
-      );
-    }
+    if (loading) return <ActivityIndicator style={{ marginTop: 40 }} color={colors.accent} />;
 
     if (myRuns.length === 0) {
       return (
-        <View style={{ padding: spacing.xl, alignItems: "center" }}>
-          <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
-            No runs shared yet. Your runs will appear here when you make them public.
-          </Text>
+        <View style={{ padding: spacing.xxl, alignItems: "center" }}>
+          <Text className="text-sm font-outfit text-center" style={{ color: colors.textDim }}>No runs shared yet. Make your runs public to see them here.</Text>
         </View>
       );
     }
 
     return (
-      <View style={{ paddingHorizontal: spacing.xl, gap: 14 }}>
+      <View style={{ paddingHorizontal: spacing.xl, gap: 16, paddingBottom: 40 }}>
         {myRuns.map((r) => {
           const km = formatDistanceKm(r.distanceMeters, 2);
           const time = formatDurationClock(r.durationSeconds);
-          const pace = r.avgPace != null && Number.isFinite(r.avgPace) ? `${r.avgPace.toFixed(2)}/km` : "—";
           return (
-            <View
-              key={r.runLogId}
-              style={{
-                backgroundColor: cardBg,
-                borderColor: cardBorder,
-                borderWidth: 1,
-                borderRadius: radius.xl,
-                padding: 14,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>
-                  {new Date(r.date).toLocaleDateString()}
-                </Text>
-                <View
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: radius.pill,
-                    backgroundColor: r.visibility === "public" ? `${colors.accent}22` : colors.surfaceHigh,
-                  }}
-                >
-                  <Text className="text-xs font-outfit" style={{ color: r.visibility === "public" ? colors.accent : colors.textSecondary }}>
-                    {r.visibility === "public" ? "Public" : "Private"}
+            <View key={r.runLogId} style={{ backgroundColor: cardBg, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: cardBorder }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md }}>
+                <Text className="text-sm font-clash font-bold" style={{ color: colors.text }}>{new Date(r.date).toLocaleDateString()}</Text>
+                <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: r.visibility === "public" ? accentMuted : colors.surfaceHigh }}>
+                  <Text className="text-[10px] font-clash font-bold" style={{ color: r.visibility === "public" ? colors.accent : colors.textSecondary, textTransform: "uppercase" }}>
+                    {r.visibility}
                   </Text>
                 </View>
               </View>
-              <Text className="text-sm font-outfit mt-2" style={{ color: colors.textSecondary }}>
-                {km} km · {time} · {pace}
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10, gap: 16 }}>
+              
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: spacing.lg }}>
+                <Text className="text-lg font-outfit font-bold" style={{ color: colors.textPrimary }}>{km} km</Text>
+                <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+                <Text className="text-base font-outfit" style={{ color: colors.textSecondary }}>{time}</Text>
+              </View>
+
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Feather name="heart" size={14} color={colors.textSecondary} />
-                  <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                    {r.likeCount} likes
-                  </Text>
+                  <Heart size={14} color={colors.accent} fill={colors.accent} />
+                  <Text className="text-xs font-outfit font-bold" style={{ color: colors.textPrimary }}>{r.likeCount}</Text>
                 </View>
-                <Pressable
-                  onPress={() => openComments(r.runLogId)}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
-                  <Feather name="message-circle" size={14} color={colors.textSecondary} />
-                  <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
-                    Comments
-                  </Text>
+                <Pressable onPress={() => openComments(r.runLogId)} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <MessageCircle size={14} color={colors.textSecondary} />
+                  <Text className="text-xs font-outfit font-bold" style={{ color: colors.textSecondary }}>Comments</Text>
                 </Pressable>
               </View>
             </View>
@@ -722,26 +625,13 @@ export default function TrackingSocialScreen() {
   };
 
   const renderSettingsTab = () => (
-    <View style={{ paddingHorizontal: spacing.xl, gap: 14 }}>
-      {/* Main Toggle */}
-      <View
-        style={{
-          backgroundColor: cardBg,
-          borderColor: cardBorder,
-          borderWidth: 1,
-          borderRadius: radius.xl,
-          padding: 16,
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flex: 1, paddingRight: 16 }}>
-            <Text className="text-base font-clash font-semibold" style={{ color: colors.text }}>
-              Enable Team Features
-            </Text>
-            <Text className="text-sm font-outfit mt-1" style={{ color: colors.textSecondary }}>
-              {privacySettings?.socialEnabled
-                ? "Your runs are visible to other athletes"
-                : "Team features are disabled by default for your privacy"}
+    <View style={{ paddingHorizontal: spacing.xl, gap: 16, paddingBottom: 40 }}>
+      <View style={{ backgroundColor: cardBg, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: cardBorder }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <View style={{ flex: 1, paddingRight: spacing.md }}>
+            <Text className="text-lg font-clash font-bold" style={{ color: colors.text }}>Team Features</Text>
+            <Text className="text-xs font-outfit mt-1" style={{ color: colors.textSecondary, lineHeight: 18 }}>
+              Allow teammates to see your runs, comment, and see you on leaderboards.
             </Text>
           </View>
           {settingsLoading ? (
@@ -757,129 +647,47 @@ export default function TrackingSocialScreen() {
         </View>
       </View>
 
-      {/* Privacy Notice */}
-      <View
-        style={{
-          backgroundColor: isDark ? "rgba(255,200,100,0.08)" : "rgba(255,200,100,0.15)",
-          borderColor: isDark ? "rgba(255,200,100,0.2)" : "rgba(255,200,100,0.3)",
-          borderWidth: 1,
-          borderRadius: radius.lg,
-          padding: 14,
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
-          <Feather name="shield" size={18} color={colors.amber} style={{ marginTop: 2 }} />
+      <View style={{ backgroundColor: isDark ? "rgba(255,200,100,0.05)" : "rgba(255,200,100,0.1)", borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: isDark ? "rgba(255,200,100,0.1)" : "rgba(255,200,100,0.2)" }}>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <ShieldCheck size={20} color={colors.amber} />
           <View style={{ flex: 1 }}>
-            <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>
-              Privacy First
-            </Text>
-            <Text className="text-sm font-outfit mt-1" style={{ color: colors.textSecondary }}>
-              Team features are off by default. Your data is only shared when you explicitly opt-in. You can disable anytime and all your social data will be removed.
+            <Text className="text-sm font-clash font-bold" style={{ color: colors.text }}>Privacy Control</Text>
+            <Text className="text-xs font-outfit mt-1" style={{ color: colors.textSecondary, lineHeight: 16 }}>
+              Your data is only shared with your team if you opt-in. You can withdraw consent at any time.
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Granular Settings */}
       {privacySettings?.socialEnabled && (
-        <View
-          style={{
-            backgroundColor: cardBg,
-            borderColor: cardBorder,
-            borderWidth: 1,
-            borderRadius: radius.xl,
-            padding: 16,
-            gap: 16,
-          }}
-        >
-          <Text className="text-sm font-clash font-semibold" style={{ color: colors.text }}>
-            Privacy Preferences
-          </Text>
+        <View style={{ backgroundColor: cardBg, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: cardBorder, gap: 20 }}>
+          <Text className="text-sm font-clash font-bold" style={{ color: colors.text }}>Preferences</Text>
 
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <View style={{ flex: 1, paddingRight: 16 }}>
-              <Text className="text-sm font-outfit" style={{ color: colors.text }}>
-                Share runs publicly
-              </Text>
-              <Text className="text-xs font-outfit mt-1" style={{ color: colors.textSecondary }}>
-                Allow others to see your runs in the feed
-              </Text>
-            </View>
-            <Switch
-              value={privacySettings?.shareRunsPublicly ?? false}
-              onValueChange={(v) => updateSetting("shareRunsPublicly", v)}
-              trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-              thumbColor="#fff"
-              disabled={settingsLoading}
-            />
-          </View>
-
-          <View style={{ height: 1, backgroundColor: colors.border }} />
-
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <View style={{ flex: 1, paddingRight: 16 }}>
-              <Text className="text-sm font-outfit" style={{ color: colors.text }}>
-                Allow comments
-              </Text>
-              <Text className="text-xs font-outfit mt-1" style={{ color: colors.textSecondary }}>
-                Let others comment on your runs
-              </Text>
-            </View>
-            <Switch
-              value={privacySettings?.allowComments ?? true}
-              onValueChange={(v) => updateSetting("allowComments", v)}
-              trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-              thumbColor="#fff"
-              disabled={settingsLoading}
-            />
-          </View>
-
-          <View style={{ height: 1, backgroundColor: colors.border }} />
-
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <View style={{ flex: 1, paddingRight: 16 }}>
-              <Text className="text-sm font-outfit" style={{ color: colors.text }}>
-                Show in leaderboard
-              </Text>
-              <Text className="text-xs font-outfit mt-1" style={{ color: colors.textSecondary }}>
-                Include your stats in public leaderboards
-              </Text>
-            </View>
-            <Switch
-              value={privacySettings?.showInLeaderboard ?? true}
-              onValueChange={(v) => updateSetting("showInLeaderboard", v)}
-              trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-              thumbColor="#fff"
-              disabled={settingsLoading}
-            />
-          </View>
-
-          <View style={{ height: 1, backgroundColor: colors.border }} />
-
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <View style={{ flex: 1, paddingRight: 16 }}>
-              <Text className="text-sm font-outfit" style={{ color: colors.text }}>
-                Show in directory
-              </Text>
-              <Text className="text-xs font-outfit mt-1" style={{ color: colors.textSecondary }}>
-                Appear in the athletes directory
-              </Text>
-            </View>
-            <Switch
-              value={privacySettings?.showInDirectory ?? true}
-              onValueChange={(v) => updateSetting("showInDirectory", v)}
-              trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-              thumbColor="#fff"
-              disabled={settingsLoading}
-            />
-          </View>
+          {[
+            { label: "Share runs publicly", sub: "Visible in the public team feed", key: "shareRunsPublicly" },
+            { label: "Allow comments", sub: "Teammates can comment on your runs", key: "allowComments" },
+            { label: "Show in leaderboard", sub: "Include stats in ranking", key: "showInLeaderboard" },
+            { label: "Show in directory", sub: "Teammates can find your profile", key: "showInDirectory" }
+          ].map((item, idx, arr) => (
+            <React.Fragment key={item.key}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flex: 1, paddingRight: spacing.md }}>
+                  <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>{item.label}</Text>
+                  <Text className="text-[10px] font-outfit mt-0.5" style={{ color: colors.textSecondary }}>{item.sub}</Text>
+                </View>
+                <Switch
+                  value={(privacySettings as any)?.[item.key] ?? true}
+                  onValueChange={(v) => updateSetting(item.key as any, v)}
+                  trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
+                  thumbColor="#fff"
+                  disabled={settingsLoading}
+                />
+              </View>
+              {idx < arr.length - 1 && <View style={{ height: 1, backgroundColor: colors.borderSubtle }} />}
+            </React.Fragment>
+          ))}
         </View>
       )}
-
-      {/* Data Deletion Notice */}
-      <Text className="text-xs font-outfit text-center" style={{ color: colors.textDim, marginTop: spacing.md }}>
-        To request deletion of all your social data, please contact support.
-      </Text>
     </View>
   );
 
@@ -888,10 +696,8 @@ export default function TrackingSocialScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingTop: 0,
           paddingBottom: trackingScrollBottomPad(insets),
         }}
-        refreshControl={undefined}
       >
         <TrackingHeaderTabs
           active="team"
@@ -902,71 +708,37 @@ export default function TrackingSocialScreen() {
           showTeamTab={useTeamFeed}
         />
 
-        {/* Tab Navigation */}
-        <View
-          style={{
-            flexDirection: "row",
-            marginHorizontal: spacing.xl,
-            marginBottom: spacing.md,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          }}
-        >
-          {renderTabButton("community", "Community", "users")}
-          {renderTabButton("my-runs", "My Runs", "activity")}
-          {renderTabButton("settings", "Settings", "settings")}
+        <View style={{ flexDirection: "row", marginHorizontal: spacing.xl, marginBottom: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.borderSubtle }}>
+          {renderTabButton("community", "COMMUNITY", Users)}
+          {renderTabButton("my-runs", "MY RUNS", Activity)}
+          {renderTabButton("settings", "SETTINGS", Settings)}
         </View>
 
-        {/* Filters (only for community tab) */}
         {activeTab === "community" && privacySettings?.socialEnabled && (
-          <View style={{ paddingHorizontal: spacing.xl, paddingBottom: 6, flexDirection: "row", gap: 10 }}>
+          <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg, flexDirection: "row", gap: 10 }}>
             <Pressable
               onPress={pickRange}
               style={({ pressed }) => ({
-                height: 36,
-                paddingHorizontal: 12,
+                height: 38,
+                paddingHorizontal: 16,
                 borderRadius: radius.pill,
+                backgroundColor: cardBg,
                 borderWidth: 1,
                 borderColor: cardBorder,
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
-                alignItems: "center",
-                justifyContent: "center",
                 flexDirection: "row",
+                alignItems: "center",
                 gap: 8,
-                opacity: pressed ? 0.9 : 1,
+                opacity: pressed ? 0.8 : 1,
               })}
             >
-              <Feather name="calendar" size={14} color={colors.icon} />
-              <Text className="text-xs font-outfit font-semibold" style={{ color: colors.textSecondary }}>
-                {rangeDays === 0 ? "All" : `${rangeDays}D`}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={pickSort}
-              style={({ pressed }) => ({
-                height: 36,
-                paddingHorizontal: 12,
-                borderRadius: radius.pill,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "row",
-                gap: 8,
-                opacity: pressed ? 0.9 : 1,
-              })}
-            >
-              <Feather name="sliders" size={14} color={colors.icon} />
-              <Text className="text-xs font-outfit font-semibold" style={{ color: colors.textSecondary }}>
-                Sort
+              <Calendar size={14} color={colors.accent} />
+              <Text className="text-xs font-clash font-bold" style={{ color: colors.textSecondary }}>
+                {rangeDays === 0 ? "ALL TIME" : `${rangeDays} DAYS`}
               </Text>
             </Pressable>
           </View>
         )}
 
-        {/* Tab Content */}
         {activeTab === "community" && renderCommunityTab()}
         {activeTab === "my-runs" && renderMyRunsTab()}
         {activeTab === "settings" && renderSettingsTab()}
@@ -985,3 +757,4 @@ export default function TrackingSocialScreen() {
     </View>
   );
 }
+

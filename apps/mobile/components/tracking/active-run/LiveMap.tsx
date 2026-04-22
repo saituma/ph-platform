@@ -1,13 +1,10 @@
-import React, { useRef, useEffect, useMemo, useState } from "react";
-import { View, Pressable } from "react-native";
+import React, { useRef, useEffect, useMemo } from "react";
+import { View } from "react-native";
 import type { Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { TrackingMapView } from "../TrackingMapView";
 import { MapErrorBoundary } from "../MapErrorBoundary";
-import { MapStyleSwitcher } from "../MapStyleSwitcher";
 import type { TrackingMapLayer, TrackingMapStyle, TrackingMapViewRef } from "../trackingMapLayers";
-import { mainTabBarTotalHeight } from "../../../lib/tracking/mainTabBarInset";
 
 interface LiveMapProps {
   activeRegion: Region | null;
@@ -19,9 +16,8 @@ interface LiveMapProps {
   followUser: boolean;
   routePolyline?: { latitude: number; longitude: number }[] | null;
   onManualMove: () => void;
-  onRecenter: () => void;
-  /** When set, map style control sits this many px from the bottom (e.g. above pause/stop). */
-  mapStyleAnchorBottom?: number;
+  mapStyle: TrackingMapStyle;
+  onPress?: (coord: { latitude: number; longitude: number }) => void;
 }
 
 export function LiveMap({
@@ -34,11 +30,9 @@ export function LiveMap({
   followUser,
   routePolyline,
   onManualMove,
-  onRecenter,
-  mapStyleAnchorBottom,
+  mapStyle,
+  onPress,
 }: LiveMapProps) {
-  const insets = useAppSafeAreaInsets();
-  const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
   const mapRef = useRef<TrackingMapViewRef | null>(null);
   const hasAnimatedToFirstFix = useRef(false);
 
@@ -160,12 +154,25 @@ export function LiveMap({
           scrollEnabled
           zoomEnabled
           onTouchStart={onManualMove}
+          onPress={
+            onPress
+              ? (e: any) => {
+                  const c = e?.nativeEvent?.coordinate;
+                  const lat = c?.latitude;
+                  const lng = c?.longitude;
+                  if (typeof lat !== "number" || typeof lng !== "number" || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+                    return;
+                  }
+                  onPress({ latitude: lat, longitude: lng });
+                }
+              : undefined
+          }
           layers={layers}
           mapStyle={mapStyle}
         />
       </MapErrorBoundary>
 
-      {/* Dim sits under controls so Map / Satellite stays visible (see MapStyleSwitcher). */}
+      {/* Dim the map slightly so controls remain readable. */}
       <View
         pointerEvents="none"
         style={{
@@ -179,37 +186,6 @@ export function LiveMap({
         }}
       />
 
-      <MapStyleSwitcher
-        value={mapStyle}
-        onChange={setMapStyle}
-        colors={colors}
-        left={16}
-        anchorBottom={
-          mapStyleAnchorBottom ??
-          12 + mainTabBarTotalHeight(insets.bottom)
-        }
-      />
-
-      {!followUser && (
-        <View style={{ position: "absolute", top: 12, right: 12, zIndex: 6 }}>
-          <Pressable
-            onPress={onRecenter}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: colors.surfaceHigh,
-              borderWidth: 1,
-              borderColor: colors.borderSubtle,
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: 0.92,
-            }}
-          >
-            <Ionicons name="locate" size={18} color={colors.textPrimary} />
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }

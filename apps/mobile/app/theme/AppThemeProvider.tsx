@@ -3,7 +3,7 @@ import { useAppSelector } from "@/store/hooks";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColorScheme } from "nativewind";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Platform, StatusBar, useColorScheme as useSystemColorScheme } from "react-native";
+import { Platform, useColorScheme as useSystemColorScheme } from "react-native";
 
 const THEME_MODE_KEY = "themeMode";
 
@@ -97,12 +97,7 @@ export default function AppThemeProvider({
   const colors = isDark ? Colors.dark : Colors.light;
 
   useEffect(() => {
-    // Keep the system status bar hidden across theme changes (some OEMs/libs re-apply defaults).
-    StatusBar.setHidden(true, "fade");
-    if (Platform.OS === "android") {
-      StatusBar.setTranslucent(true);
-      StatusBar.setBackgroundColor("transparent", true);
-    }
+    // Theme switching logic (nativewind) is handled by setColorScheme above.
   }, [resolvedScheme]);
 
   const toggleColorScheme = React.useCallback(async () => {
