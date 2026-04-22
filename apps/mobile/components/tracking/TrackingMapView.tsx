@@ -4,6 +4,7 @@ import MapView, {
   MAP_TYPES,
   Marker,
   Polyline,
+  type Region,
   type MapViewProps,
 } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,6 +30,35 @@ type Props = Omit<MapViewProps, "children"> & {
   /** Street map vs satellite imagery (native on iOS; Carto + Esri on Android WebView). */
   mapStyle?: TrackingMapStyle;
 };
+
+const DEFAULT_ANDROID_INITIAL_REGION: Region = {
+  latitude: 20,
+  longitude: 0,
+  latitudeDelta: 60,
+  longitudeDelta: 60,
+};
+
+function coerceAndroidInitialRegion(mapProps: MapViewProps): Region {
+  const candidate = mapProps.initialRegion ?? mapProps.region;
+  const latitude = (candidate as any)?.latitude;
+  const longitude = (candidate as any)?.longitude;
+  const latitudeDelta = (candidate as any)?.latitudeDelta;
+  const longitudeDelta = (candidate as any)?.longitudeDelta;
+
+  if (
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    typeof latitudeDelta === "number" &&
+    typeof longitudeDelta === "number" &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    Number.isFinite(latitudeDelta) &&
+    Number.isFinite(longitudeDelta)
+  ) {
+    return { latitude, longitude, latitudeDelta, longitudeDelta };
+  }
+  return DEFAULT_ANDROID_INITIAL_REGION;
+}
 
 function IosMarkerLayer({ layer }: { layer: Extract<TrackingMapLayer, { type: "marker" }> }) {
   const { coordinate, title, marker } = layer;
@@ -120,10 +150,7 @@ export const TrackingMapView = React.forwardRef<TrackingMapViewRef, Props>(
       : undefined;
 
     if (Platform.OS === "android") {
-      const initialRegion = mapProps.initialRegion;
-      if (!initialRegion) {
-        return <View style={[styles.fill, style]} />;
-      }
+      const initialRegion = coerceAndroidInitialRegion(mapProps);
       return (
         <OsmWebMapView
           ref={ref}

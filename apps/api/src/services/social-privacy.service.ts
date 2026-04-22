@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { runLikeTable, runLogTable, socialPrivacySettingsTable, userTable } from "../db/schema";
@@ -172,7 +172,7 @@ export async function getRunLikeSummary(viewerUserId: number, runLogIds: number[
       userId: runLikeTable.userId,
     })
     .from(runLikeTable)
-    .where(sql`${runLikeTable.runLogId} = ANY(${runLogIds})`);
+    .where(inArray(runLikeTable.runLogId, runLogIds));
 
   const result = new Map<number, { count: number; userLiked: boolean }>();
   for (const row of rows) {
@@ -252,12 +252,15 @@ export async function getMySocialRuns(userId: number, opts?: { limit?: number; c
       distanceMeters: runLogTable.distanceMeters,
       durationSeconds: runLogTable.durationSeconds,
       avgPace: runLogTable.avgPace,
-      coordinates: runLogTable.coordinates,
       visibility: runLogTable.visibility,
     })
     .from(runLogTable)
-    .where(and(eq(runLogTable.userId, userId), cursor ? sql`${runLogTable.id} < ${cursor}` : sql`true`))
-    .orderBy(sql`${runLogTable.id} DESC`)
+    .where(
+      cursor !== undefined
+        ? and(eq(runLogTable.userId, userId), lt(runLogTable.id, cursor))
+        : eq(runLogTable.userId, userId),
+    )
+    .orderBy(desc(runLogTable.id))
     .limit(limit + 1);
 
   const page = rows.slice(0, limit);

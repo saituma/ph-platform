@@ -22,6 +22,7 @@ import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardia
 import { sendPushNotification } from "./push.service";
 import { getActiveSubscriptionPlanByTier, isSubscriptionPlanFree } from "./billing.service";
 import { normalizeStoredMediaUrl } from "./s3.service";
+import { isAthleteUserRole, resolveAthleteUserRoleFromAthleteRow } from "../lib/user-roles";
 
 const defaultPublicConfig = {
   version: 1,
@@ -340,15 +341,15 @@ export async function saveOnboardingGoals(input: {
         updatedAt: new Date(),
       })
       .where(eq(guardianTable.id, guardian[0].id));
-  } else if (user[0].role === "athlete") {
+	} else if (isAthleteUserRole(user[0].role)) {
     // For adult athletes, we can store phone in extraResponses or similar if no column exists
     // Actually, let's check if we can add it to user table if needed, but for now we'll use extraResponses on athleteTable
   }
 
   let athleteId: number | null = null;
 
-  if (user[0].role === "athlete") {
-    const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
+	if (isAthleteUserRole(user[0].role)) {
+		const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
     athleteId = athlete[0]?.id ?? null;
   } else {
     // For guardians/coaches, update their active/primary athlete
@@ -369,7 +370,7 @@ export async function saveOnboardingGoals(input: {
       equipmentAccess: input.equipmentAccess ?? null,
       growthNotes: input.growthNotes ?? null,
       extraResponses:
-        user[0].role === "athlete"
+        isAthleteUserRole(user[0].role)
           ? sql`COALESCE(${athleteTable.extraResponses}, '{}'::jsonb) || ${JSON.stringify({ phone: input.phone })}::jsonb`
           : undefined,
       updatedAt: new Date(),
@@ -383,8 +384,8 @@ export async function getOnboardingByUser(userId: number) {
   const user = await getUserById(userId);
   if (!user) return null;
 
-  if (user.role === "athlete") {
-    const athletes = await db
+	if (isAthleteUserRole(user.role)) {
+		const athletes = await db
       .select()
       .from(athleteTable)
       .where(eq(athleteTable.userId, userId))
@@ -500,7 +501,7 @@ export async function getOnboardingByUser(userId: number) {
 
 export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$inferSelect) {
   const existing = await db.select().from(userTable).where(eq(userTable.id, athlete.userId)).limit(1);
-  if (existing[0]?.role === "athlete") return athlete;
+  if (existing[0] && isAthleteUserRole(existing[0].role)) return athlete;
 
   const slug = athlete.name
     .toLowerCase()
@@ -519,7 +520,10 @@ export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$infe
             cognitoSub,
             name: athlete.name,
             email,
-            role: "athlete",
+            role: resolveAthleteUserRoleFromAthleteRow({
+              teamId: athlete.teamId,
+              athleteType: athlete.athleteType,
+            }),
             emailVerified: true,
             profilePicture: athlete.profilePicture ?? null,
           })

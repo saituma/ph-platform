@@ -10,12 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerificationRouteImport } from './routes/verification'
+import { Route as TestimonialsDemoRouteImport } from './routes/testimonials-demo'
 import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
+import { Route as CtaDemoRouteImport } from './routes/cta-demo'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalTestimonialRouteImport } from './routes/portal/testimonial'
@@ -54,6 +56,11 @@ const VerificationRoute = VerificationRouteImport.update({
   path: '/verification',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TestimonialsDemoRoute = TestimonialsDemoRouteImport.update({
+  id: '/testimonials-demo',
+  path: '/testimonials-demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsPrivacyRoute = TermsPrivacyRouteImport.update({
   id: '/terms-privacy',
   path: '/terms-privacy',
@@ -82,6 +89,11 @@ const FeaturesRoute = FeaturesRouteImport.update({
 const EducationFaqRoute = EducationFaqRouteImport.update({
   id: '/education-faq',
   path: '/education-faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CtaDemoRoute = CtaDemoRouteImport.update({
+  id: '/cta-demo',
+  path: '/cta-demo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -250,12 +262,14 @@ const PortalProgramsModuleModuleIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
   '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
   '/terms-privacy': typeof TermsPrivacyRoute
+  '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
@@ -291,12 +305,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
   '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
   '/terms-privacy': typeof TermsPrivacyRoute
+  '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
@@ -333,12 +349,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
   '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
   '/terms-privacy': typeof TermsPrivacyRoute
+  '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
@@ -376,12 +394,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/cta-demo'
     | '/education-faq'
     | '/features'
     | '/login'
     | '/payment-success'
     | '/portal'
     | '/terms-privacy'
+    | '/testimonials-demo'
     | '/verification'
     | '/onboarding/dashboard'
     | '/onboarding/step-1'
@@ -417,12 +437,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/cta-demo'
     | '/education-faq'
     | '/features'
     | '/login'
     | '/payment-success'
     | '/portal'
     | '/terms-privacy'
+    | '/testimonials-demo'
     | '/verification'
     | '/onboarding/dashboard'
     | '/onboarding/step-1'
@@ -458,12 +480,14 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
+    | '/cta-demo'
     | '/education-faq'
     | '/features'
     | '/login'
     | '/payment-success'
     | '/portal'
     | '/terms-privacy'
+    | '/testimonials-demo'
     | '/verification'
     | '/onboarding/dashboard'
     | '/onboarding/step-1'
@@ -500,12 +524,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  CtaDemoRoute: typeof CtaDemoRoute
   EducationFaqRoute: typeof EducationFaqRoute
   FeaturesRoute: typeof FeaturesRoute
   LoginRoute: typeof LoginRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   PortalRoute: typeof PortalRouteWithChildren
   TermsPrivacyRoute: typeof TermsPrivacyRoute
+  TestimonialsDemoRoute: typeof TestimonialsDemoRoute
   VerificationRoute: typeof VerificationRoute
   OnboardingDashboardRoute: typeof OnboardingDashboardRoute
   OnboardingStep1Route: typeof OnboardingStep1Route
@@ -524,6 +550,13 @@ declare module '@tanstack/react-router' {
       path: '/verification'
       fullPath: '/verification'
       preLoaderRoute: typeof VerificationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/testimonials-demo': {
+      id: '/testimonials-demo'
+      path: '/testimonials-demo'
+      fullPath: '/testimonials-demo'
+      preLoaderRoute: typeof TestimonialsDemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms-privacy': {
@@ -566,6 +599,13 @@ declare module '@tanstack/react-router' {
       path: '/education-faq'
       fullPath: '/education-faq'
       preLoaderRoute: typeof EducationFaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cta-demo': {
+      id: '/cta-demo'
+      path: '/cta-demo'
+      fullPath: '/cta-demo'
+      preLoaderRoute: typeof CtaDemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -851,12 +891,14 @@ const PortalRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  CtaDemoRoute: CtaDemoRoute,
   EducationFaqRoute: EducationFaqRoute,
   FeaturesRoute: FeaturesRoute,
   LoginRoute: LoginRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   PortalRoute: PortalRouteWithChildren,
   TermsPrivacyRoute: TermsPrivacyRoute,
+  TestimonialsDemoRoute: TestimonialsDemoRoute,
   VerificationRoute: VerificationRoute,
   OnboardingDashboardRoute: OnboardingDashboardRoute,
   OnboardingStep1Route: OnboardingStep1Route,

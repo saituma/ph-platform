@@ -1,7 +1,8 @@
-import { and, desc, eq, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { adminSettingsTable, ProgramType, userTable } from "../db/schema";
+import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
 
 const ALL_TIERS = ProgramType.enumValues;
 const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
@@ -12,7 +13,7 @@ async function getPrimaryCoachUser() {
     .from(userTable)
     .where(
       and(
-        or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
+        inArray(userTable.role, ROLES_TRAINING_STAFF),
         eq(userTable.isDeleted, false),
         eq(userTable.isBlocked, false),
         ne(userTable.email, AI_COACH_EMAIL),

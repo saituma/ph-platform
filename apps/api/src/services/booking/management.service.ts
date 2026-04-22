@@ -10,6 +10,8 @@ import {
   serviceAllowsTier,
   serviceAllowsAthlete,
   normalizeEligiblePlans,
+  buildGeneratedOccurrencesInRange,
+  type GeneratedOccurrence,
 } from "./slot.service";
 import {
   resolveGeneratedWindow,
@@ -25,9 +27,35 @@ function errorMentionsMissingColumn(error: unknown, columnName: string) {
   return message.toLowerCase().includes(`column`) && message.includes(columnName);
 }
 
+function occurrenceHasOpenBookings(occ: GeneratedOccurrence): boolean {
+  if (occ.slots?.length) {
+    return occ.slots.some((s) => s.remainingCapacity == null || s.remainingCapacity > 0);
+  }
+  return occ.remainingCapacity == null || occ.remainingCapacity > 0;
+}
+
+function serviceHasBookableSlot(
+  service: ServiceTypeRecord & {
+    isLocked?: boolean;
+    remainingCapacity?: number | null;
+    remainingTotalSlots?: number | null;
+  },
+  allOccurrences: GeneratedOccurrence[],
+): boolean {
+  if (service.isLocked) return true;
+  if (service.remainingTotalSlots != null) {
+    return service.remainingTotalSlots > 0;
+  }
+  if (service.remainingCapacity != null && service.remainingCapacity > 0) return true;
+  if (service.remainingCapacity != null && service.remainingCapacity <= 0) return false;
+  const mine = allOccurrences.filter((o) => o.serviceTypeId === service.id);
+  return mine.some(occurrenceHasOpenBookings);
+}
+
 export async function listServiceTypes(options?: {
   includeInactive?: boolean;
   includeLocked?: boolean;
+  omitWithoutBookableSlots?: boolean;
   viewerProgramTier?: ProgramTier | null;
   athlete?: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null;
 }) {
@@ -48,6 +76,7 @@ export async function listServiceTypes(options?: {
             type: serviceTypeTable.type,
             durationMinutes: serviceTypeTable.durationMinutes,
             capacity: serviceTypeTable.capacity,
+            totalSlots: serviceTypeTable.totalSlots,
             fixedStartTime: serviceTypeTable.fixedStartTime,
             attendeeVisibility: serviceTypeTable.attendeeVisibility,
             defaultLocation: serviceTypeTable.defaultLocation,
@@ -77,6 +106,7 @@ export async function listServiceTypes(options?: {
             type: serviceTypeTable.type,
             durationMinutes: serviceTypeTable.durationMinutes,
             capacity: serviceTypeTable.capacity,
+            totalSlots: serviceTypeTable.totalSlots,
             fixedStartTime: serviceTypeTable.fixedStartTime,
             attendeeVisibility: serviceTypeTable.attendeeVisibility,
             defaultLocation: serviceTypeTable.defaultLocation,
@@ -116,10 +146,60 @@ export async function listServiceTypes(options?: {
     }
   }
 
-  if (options?.includeInactive) return rows;
+  if (options?.includeInactive) {
+    return Promise.all(
+      rows.map(async (service) => {
+        const activeCount = await countActiveBookingsForService(service.id);
+        const remainingTotalSlots =
+          service.totalSlots != null ? Math.max(0, service.totalSlots - activeCount) : null;
+        return {
+          ...service,
+          remainingCapacity: null as number | null,
+          remainingTotalSlots,
+        };
+      }),
+    );
+  }
+
+  const rowsWithCapacity = await Promise.all(
+    rows.map(async (service) => {
+      const activeCount = await countActiveBookingsForService(service.id);
+      // Match slot.service: null pattern + no fixed start → treat as one_time (legacy rows).
+      const pattern =
+        service.schedulePattern ?? (service.fixedStartTime ? "weekly_recurring" : "one_time");
+      const isOneTime = pattern === "one_time";
+      const remainingCapacity =
+        isOneTime && service.capacity != null ? Math.max(0, service.capacity - activeCount) : null;
+      const remainingTotalSlots =
+        service.totalSlots != null ? Math.max(0, service.totalSlots - activeCount) : null;
+
+      return {
+        ...service,
+        remainingCapacity,
+        remainingTotalSlots,
+      };
+    }),
+  );
+
+  const omitEmpty = async (
+    list: (ServiceTypeRecord & {
+      isLocked?: boolean;
+      lockReason?: string | null;
+      remainingCapacity?: number | null;
+      remainingTotalSlots?: number | null;
+    })[],
+  ) => {
+    if (!options?.omitWithoutBookableSlots || !list.length) return list;
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(from);
+    to.setDate(to.getDate() + 21);
+    const occs = await buildGeneratedOccurrencesInRange(list as ServiceTypeRecord[], from, to);
+    return list.filter((s) => serviceHasBookableSlot(s, occs));
+  };
 
   if (options?.includeLocked) {
-    return rows.map((service) => {
+    const mapped = rowsWithCapacity.map((service) => {
       const eligiblePlans = normalizeEligiblePlans(service);
       const allowed = options?.athlete
         ? serviceAllowsAthlete(service, options.athlete)
@@ -131,26 +211,15 @@ export async function listServiceTypes(options?: {
         lockReason: isLocked ? `Requires one of: ${eligiblePlans.join(", ")}` : null,
       };
     });
+    return omitEmpty(mapped);
   }
 
-  const rowsWithCapacity = await Promise.all(
-    rows.map(async (service) => {
-      if (service.capacity == null) {
-        return { ...service, remainingCapacity: null };
-      }
-      const activeCount = await countActiveBookingsForService(service.id);
-      return {
-        ...service,
-        remainingCapacity: Math.max(0, service.capacity - activeCount),
-      };
-    }),
-  );
-
-  return rowsWithCapacity.filter((service) =>
+  const tierFiltered = rowsWithCapacity.filter((service) =>
     options?.athlete
       ? serviceAllowsAthlete(service, options.athlete)
       : serviceAllowsTier(service, options?.viewerProgramTier),
   );
+  return omitEmpty(tierFiltered);
 }
 
 export async function getServiceTypeById(id: number) {
@@ -164,6 +233,7 @@ export async function createServiceType(input: {
   type: ServiceTypeKind;
   durationMinutes: number;
   capacity?: number | null;
+  totalSlots?: number | null;
   attendeeVisibility?: boolean | null;
   defaultLocation?: string | null;
   defaultMeetingLink?: string | null;
@@ -194,6 +264,7 @@ export async function createServiceType(input: {
       type: input.type,
       durationMinutes: input.durationMinutes,
       capacity: input.capacity ?? null,
+      totalSlots: input.totalSlots ?? null,
       fixedStartTime: null,
       attendeeVisibility: input.attendeeVisibility ?? true,
       defaultLocation: input.defaultLocation ?? null,
@@ -226,6 +297,7 @@ export async function updateServiceType(
     type?: ServiceTypeKind | null;
     durationMinutes?: number | null;
     capacity?: number | null;
+    totalSlots?: number | null;
     attendeeVisibility?: boolean | null;
     defaultLocation?: string | null;
     defaultMeetingLink?: string | null;
@@ -267,6 +339,7 @@ export async function updateServiceType(
       type: nextType,
       durationMinutes: input.durationMinutes ?? existing[0].durationMinutes,
       capacity: input.capacity !== undefined ? input.capacity : (existing[0].capacity ?? null),
+      totalSlots: input.totalSlots !== undefined ? input.totalSlots : (existing[0].totalSlots ?? null),
       fixedStartTime: null,
       attendeeVisibility: input.attendeeVisibility ?? existing[0].attendeeVisibility ?? true,
       defaultLocation:
@@ -349,6 +422,13 @@ export async function createBooking(input: {
     throw new Error("Service type not available");
   }
 
+  if (!input.bypassAvailability && serviceType[0].totalSlots != null) {
+    const totalBooked = await countActiveBookingsForService(input.serviceTypeId);
+    if (totalBooked >= serviceType[0].totalSlots) {
+      throw new Error("Service limit reached");
+    }
+  }
+
   let startsAt = input.startsAt ?? null;
   let endsAt = input.endsAt ?? null;
   let occurrenceKey = input.occurrenceKey ?? null;
@@ -413,6 +493,15 @@ export async function createBooking(input: {
     .returning();
 
   if (result[0]) {
+    if (serviceType[0].totalSlots != null) {
+      const totalBookedNow = await countActiveBookingsForService(input.serviceTypeId);
+      if (totalBookedNow >= serviceType[0].totalSlots) {
+        await db
+          .update(serviceTypeTable)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(serviceTypeTable.id, input.serviceTypeId));
+      }
+    }
     await notifyBookingRequested({
       bookingId: result[0].id,
       serviceName: serviceType[0].name,
@@ -429,4 +518,8 @@ export async function createBooking(input: {
 
 export async function listBookingsForUser(guardianId: number) {
   return db.select().from(bookingTable).where(eq(bookingTable.guardianId, guardianId));
+}
+
+export async function listBookingsForAthlete(athleteId: number) {
+  return db.select().from(bookingTable).where(eq(bookingTable.athleteId, athleteId));
 }

@@ -14,7 +14,7 @@ export function useProfileSync(token: string | null, enabled: boolean, hasMessag
     const task = runWhenIdle(() => {
       prefetchApi("/content/home", { token });
       prefetchApi("/bookings", { token });
-      prefetchApi("/bookings/services?includeLocked=true", { token });
+      prefetchApi("/bookings/services?includeLocked=true&omitWithoutBookableSlots=true", { token });
       prefetchApi("/public/plans");
       if (hasMessaging) {
         prefetchApi("/messages", { token });

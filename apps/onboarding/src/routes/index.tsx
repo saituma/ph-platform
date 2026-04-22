@@ -13,20 +13,68 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import CTA from "#/components/shadcn-studio/blocks/cta-section-01/cta-section-01";
+import type { TestimonialItem } from "#/components/shadcn-studio/blocks/testimonials-component-18/testimonials-component-18";
+import TestimonialsComponent from "#/components/shadcn-studio/blocks/testimonials-component-18/testimonials-component-18";
+import { authClient } from "#/lib/auth-client";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { config } from "#/lib/config";
 
-export const Route = createFileRoute("/")({ component: App });
+export const Route = createFileRoute("/")({ component: RouteComponent });
+
+const testimonials: TestimonialItem[] = [
+	{
+		name: "Marcus Thorne",
+		role: "Head Coach",
+		company: "Elite Track Club",
+		avatar:
+			"https://cdn.shadcnstudio.com/ss-assets/avatar/avatar-1.png?width=40&height=40&format=auto",
+		rating: 5,
+		content:
+			"PH Performance has completely revolutionized how we track athlete progress. The video analysis tools are the best in the industry.",
+	},
+	{
+		name: "Elena Rodriguez",
+		role: "Pro Athlete",
+		company: "Global Cycling",
+		avatar:
+			"https://cdn.shadcnstudio.com/ss-assets/avatar/avatar-2.png?width=40&height=40&format=auto",
+		rating: 5,
+		content:
+			"The data-driven insights allowed me to push past my plateaus and set new personal records this season. Highly recommend!",
+	},
+	{
+		name: "David Chen",
+		role: "Performance Director",
+		company: "Titan Athletics",
+		avatar:
+			"https://cdn.shadcnstudio.com/ss-assets/avatar/avatar-3.png?width=40&height=40&format=auto",
+		rating: 5,
+		content:
+			"The UI is incredibly intuitive. My coaches were up and running in minutes, and the team sync features are a game-changer.",
+	},
+	{
+		name: "Sarah Jenkins",
+		role: "Conditioning Coach",
+		company: "Premier League",
+		avatar:
+			"https://cdn.shadcnstudio.com/ss-assets/avatar/avatar-4.png?width=40&height=40&format=auto",
+		rating: 5,
+		content:
+			"It's the ultimate tool for anyone serious about their athletic career. The professional analytics are unmatched.",
+	},
+];
 
 const registrationSchema = z.object({
 	email: z.string().email("Please enter a valid email address"),
 });
 
-function App() {
+function RouteComponent() {
 	const [email, setEmail] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | undefined>();
+	const { data: session } = authClient.useSession();
 	const navigate = useNavigate();
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -101,10 +149,6 @@ function App() {
 					<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 						<div className="text-center lg:text-left space-y-8 animate-in fade-in slide-in-from-left-4 duration-1000 ease-out fill-mode-both">
 							<div className="space-y-6">
-								<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/5 border border-primary/10 text-primary text-[10px] font-bold tracking-widest uppercase">
-									<Lightning weight="fill" className="w-3 h-3" />
-									<span>Version 2.0 is live</span>
-								</div>
 								<h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-foreground leading-[1.05]">
 									Elevate your{" "}
 									<span className="text-primary drop-shadow-[0_0_15px_rgba(var(--primary),0.2)]">
@@ -117,65 +161,67 @@ function App() {
 								</p>
 							</div>
 
-							<div className="w-full max-w-md mx-auto lg:mx-0 space-y-6">
-								<div className="space-y-3">
-									<form
-										onSubmit={handleSubmit}
-										className={`group flex w-full overflow-hidden rounded-[1.25rem] border bg-card dark:bg-card/40 backdrop-blur-2xl focus-within:ring-4 transition-all duration-300 shadow-2xl dark:shadow-primary/5 ${error ? "border-destructive focus-within:ring-destructive/10 focus-within:border-destructive/40" : "border-border/80 dark:border-white/5 focus-within:ring-primary/10 focus-within:border-primary/40"}`}
-									>
-										<Input
-											type="email"
-											placeholder="Enter your email address"
-											aria-label="Email address"
-											value={email}
-											onChange={(e) => {
-												setEmail(e.target.value);
-												if (error) setError(undefined);
-											}}
-											disabled={isLoading}
-											className="flex-1 border-0 h-14 px-6 focus-visible:ring-0 bg-transparent text-base placeholder:text-muted-foreground/80 dark:placeholder:text-muted-foreground/30"
-										/>
-										<Button
-											type="submit"
-											variant="ghost"
-											disabled={isLoading}
-											className="h-14 w-14 p-0 rounded-none border-l border-border/80 dark:border-white/5 hover:bg-primary/10 hover:text-primary transition-all active:scale-[0.95]"
+							{!session?.user && (
+								<div className="w-full max-w-md mx-auto lg:mx-0 space-y-6">
+									<div className="space-y-3">
+										<form
+											onSubmit={handleSubmit}
+											className={`group flex w-full overflow-hidden rounded-[1.25rem] border bg-card dark:bg-card/40 backdrop-blur-2xl focus-within:ring-4 transition-all duration-300 shadow-2xl dark:shadow-primary/5 ${error ? "border-destructive focus-within:ring-destructive/10 focus-within:border-destructive/40" : "border-border/80 dark:border-white/5 focus-within:ring-primary/10 focus-within:border-primary/40"}`}
 										>
-											{isLoading ? (
-												<CircleNotch
-													weight="bold"
-													className="w-5 h-5 animate-spin"
-												/>
-											) : (
-												<ArrowRightIcon weight="bold" className="w-5 h-5" />
-											)}
-										</Button>
-									</form>
-									{error && (
-										<p className="text-xs font-bold text-destructive flex items-center gap-1.5 px-2 animate-in fade-in slide-in-from-top-1">
-											<WarningCircle weight="fill" className="w-4 h-4" />
-											{error}
-										</p>
-									)}
-								</div>
+											<Input
+												type="email"
+												placeholder="Enter your email address"
+												aria-label="Email address"
+												value={email}
+												onChange={(e) => {
+													setEmail(e.target.value);
+													if (error) setError(undefined);
+												}}
+												disabled={isLoading}
+												className="flex-1 border-0 h-14 px-6 focus-visible:ring-0 bg-transparent text-base placeholder:text-muted-foreground/80 dark:placeholder:text-muted-foreground/30"
+											/>
+											<Button
+												type="submit"
+												variant="ghost"
+												disabled={isLoading}
+												className="h-14 w-14 p-0 rounded-none border-l border-border/80 dark:border-white/5 hover:bg-primary/10 hover:text-primary transition-all active:scale-[0.95]"
+											>
+												{isLoading ? (
+													<CircleNotch
+														weight="bold"
+														className="w-5 h-5 animate-spin"
+													/>
+												) : (
+													<ArrowRightIcon weight="bold" className="w-5 h-5" />
+												)}
+											</Button>
+										</form>
+										{error && (
+											<p className="text-xs font-bold text-destructive flex items-center gap-1.5 px-2 animate-in fade-in slide-in-from-top-1">
+												<WarningCircle weight="fill" className="w-4 h-4" />
+												{error}
+											</p>
+										)}
+									</div>
 
-								<div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-[10px] text-muted-foreground/50 uppercase tracking-widest font-bold">
-									<div className="flex items-center gap-2">
-										<CheckCircle
-											weight="fill"
-											className="text-primary w-4 h-4"
-										/>
-										<span>Team Sync</span>
-									</div>
-									<div className="flex items-center gap-2">
-										<CheckCircle
-											weight="fill"
-											className="text-primary w-4 h-4"
-										/>
-										<span>Pro Analytics</span>
+									<div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-[10px] text-muted-foreground/50 uppercase tracking-widest font-bold">
+										<div className="flex items-center gap-2">
+											<CheckCircle
+												weight="fill"
+												className="text-primary w-4 h-4"
+											/>
+											<span>Team Sync</span>
+										</div>
+										<div className="flex items-center gap-2">
+											<CheckCircle
+												weight="fill"
+												className="text-primary w-4 h-4"
+											/>
+											<span>Pro Analytics</span>
+										</div>
 									</div>
 								</div>
-							</div>
+							)}
 						</div>
 
 						{/* Mobile Mockup - Peak Refinement */}
@@ -286,69 +332,27 @@ function App() {
 							</div>
 						</div>
 
-						<div className="md:col-span-2 bg-card dark:bg-card/40 backdrop-blur-3xl border border-border/80 dark:border-white/10 rounded-[2.5rem] p-8 sm:p-10 flex flex-col gap-6 hover:border-primary/40 hover:-translate-y-1 transition-all duration-500 group shadow-2xl dark:shadow-primary/5">
+						<div className="md:col-span-6 bg-card dark:bg-card/40 backdrop-blur-3xl border border-border/80 dark:border-white/10 rounded-[2.5rem] p-8 sm:p-10 flex flex-col gap-6 hover:border-primary/40 hover:-translate-y-1 transition-all duration-500 group shadow-2xl dark:shadow-primary/5">
 							<div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-inner">
 								<Users size={28} weight="fill" />
 							</div>
 							<div className="space-y-2">
 								<h3 className="text-xl font-bold tracking-tight">Team Sync</h3>
 								<p className="text-muted-foreground text-sm leading-relaxed font-medium">
-									Coordinate with your squad in real-time.
+									Coordinate with your squad in real-time. Manage athlete
+									rosters, schedule sessions, and share insights across your
+									organization.
 								</p>
-							</div>
-						</div>
-
-						{/* App Download Section - Refined */}
-						<div className="md:col-span-4 bg-card dark:bg-card/40 backdrop-blur-3xl border border-border/80 dark:border-white/10 rounded-[2.5rem] p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-8 hover:border-primary/40 hover:-translate-y-1 transition-all duration-500 group shadow-2xl dark:shadow-primary/5">
-							<div className="space-y-2 text-center md:text-left">
-								<h3 className="text-2xl font-bold tracking-tight">
-									Download PH Performance
-								</h3>
-								<p className="text-muted-foreground text-sm font-medium">
-									Available now on iOS and Android.
-								</p>
-							</div>
-							<div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-								<a
-									href="#"
-									className="flex items-center gap-4 bg-foreground text-background px-6 py-3 rounded-2xl hover:opacity-90 transition-all active:scale-[0.98] shadow-xl group/btn"
-								>
-									<img
-										src="/apple-app-store.svg"
-										alt="App Store"
-										className="w-7 h-7 dark:invert"
-									/>
-									<div className="text-left">
-										<p className="text-[10px] uppercase font-black leading-none opacity-70">
-											Download on
-										</p>
-										<p className="text-lg font-bold leading-none tracking-tight">
-											App Store
-										</p>
-									</div>
-								</a>
-								<a
-									href="#"
-									className="flex items-center gap-4 bg-foreground text-background px-6 py-3 rounded-2xl hover:opacity-90 transition-all active:scale-[0.98] shadow-xl group/btn"
-								>
-									<img
-										src="/svgs/google.svg"
-										alt="Google Play"
-										className="w-7 h-7"
-									/>
-									<div className="text-left">
-										<p className="text-[10px] uppercase font-black leading-none opacity-70">
-											Get it on
-										</p>
-										<p className="text-lg font-bold leading-none tracking-tight">
-											Google Play
-										</p>
-									</div>
-								</a>
 							</div>
 						</div>
 					</div>
 				</section>
+
+				{/* App Download CTA */}
+				<CTA />
+
+				{/* Testimonials */}
+				<TestimonialsComponent testimonials={testimonials} />
 			</main>
 		</div>
 	);

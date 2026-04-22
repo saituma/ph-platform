@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { userTable } from "../db/schema";
 import { verifyLocalPassword } from "./auth.service";
+import { isTrainingStaff } from "../lib/user-roles";
 
 /**
  * Self-service account removal: invalidates sessions and blocks sign-in.
@@ -14,7 +15,7 @@ export async function deleteOwnAccount(userId: number, password: string) {
   if (!user || user.isDeleted) {
     throw { status: 404, message: "Account not found." };
   }
-  if (user.role === "coach" || user.role === "admin" || user.role === "superAdmin") {
+  if (isTrainingStaff(user.role)) {
     throw { status: 403, message: "Staff accounts cannot be deleted from the app." };
   }
 

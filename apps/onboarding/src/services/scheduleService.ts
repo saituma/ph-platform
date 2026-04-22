@@ -76,11 +76,14 @@ export async function fetchBookings(token: string): Promise<ScheduleEvent[]> {
 export async function fetchBookingServices(token: string) {
   const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
   
-  const response = await fetch(`${baseUrl}/api/bookings/services?includeLocked=true`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const response = await fetch(
+    `${baseUrl}/api/bookings/services?includeLocked=true&omitWithoutBookableSlots=true`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     throw new Error(`Failed to fetch services: ${response.status}`);
@@ -88,6 +91,56 @@ export async function fetchBookingServices(token: string) {
 
   const data = await response.json();
   return data.items ?? [];
+}
+
+/** Coach-published times in a range (same source as the schedule calendar). */
+export async function fetchGeneratedAvailability(
+  token: string,
+  params: { from: Date; to: Date; serviceTypeId: number },
+) {
+  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const qs = new URLSearchParams({
+    from: params.from.toISOString(),
+    to: params.to.toISOString(),
+    serviceTypeId: String(params.serviceTypeId),
+  });
+  const response = await fetch(`${baseUrl}/api/bookings/generated-availability?${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch availability: ${response.status}`);
+  }
+  const data = await response.json();
+  return (data.items ?? []) as GeneratedAvailabilityItem[];
+}
+
+export type GeneratedAvailabilityItem = {
+  serviceTypeId: number;
+  remainingCapacity?: number | null;
+  slots?: { remainingCapacity?: number | null }[];
+};
+
+/** Sum reported openings across occurrences; returns null if any piece is missing a number. */
+export function sumReportedOpeningsForService(
+  items: GeneratedAvailabilityItem[],
+  serviceTypeId: number,
+): { occurrenceCount: number; openingsSum: number | null } {
+  const rows = items.filter((i) => i.serviceTypeId === serviceTypeId);
+  if (!rows.length) return { occurrenceCount: 0, openingsSum: null };
+  let sum = 0;
+  for (const occ of rows) {
+    const subs = occ.slots && occ.slots.length > 0 ? occ.slots : null;
+    if (subs) {
+      for (const sl of subs) {
+        if (sl.remainingCapacity == null) return { occurrenceCount: rows.length, openingsSum: null };
+        sum += sl.remainingCapacity;
+      }
+    } else {
+      if (occ.remainingCapacity == null) return { occurrenceCount: rows.length, openingsSum: null };
+      sum += occ.remainingCapacity;
+    }
+  }
+  return { occurrenceCount: rows.length, openingsSum: sum };
 }
 
 export async function createBooking(token: string, body: any) {

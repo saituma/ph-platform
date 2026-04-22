@@ -1,7 +1,9 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import {
 	Bell,
 	CalendarCheck,
+	ChevronLeft,
+	ChevronRight,
 	Clipboard,
 	Dumbbell,
 	FileText,
@@ -11,16 +13,14 @@ import {
 	Lock,
 	LogOut,
 	MessageCircle,
+	MessageSquare,
+	PanelLeftClose,
+	PanelLeftOpen,
 	Radio,
 	Shield,
 	Star,
 	User,
-	MessageSquare,
 	Users,
-	ChevronLeft,
-	ChevronRight,
-	PanelLeftClose,
-	PanelLeftOpen,
 } from "lucide-react";
 import {
 	Sidebar,
@@ -37,8 +37,37 @@ import {
 	SidebarRail,
 	useSidebar,
 } from "@/components/ui/sidebar";
+import {
+	isPortalCoachLikeRole,
+	showPortalNutritionNav,
+} from "@/lib/portal-roles";
+import { useRouterPathname } from "@/lib/use-router-pathname";
 import { cn } from "@/lib/utils";
 import { usePortal } from "@/portal/PortalContext";
+
+function normalizePortalPathname(pathname: string): string {
+	const pathOnly = pathname.split("?")[0] ?? pathname;
+	if (pathOnly.length > 1 && pathOnly.endsWith("/")) {
+		return pathOnly.slice(0, -1);
+	}
+	return pathOnly;
+}
+
+/** Match exact path or nested routes (e.g. programs/module/…), without prefix false-positives. */
+function portalNavItemIsActive(pathname: string, itemPath: string): boolean {
+	const current = normalizePortalPathname(pathname);
+	const base = itemPath.split("?")[0];
+
+	if (base === "/portal/dashboard") {
+		return (
+			current === "/portal/dashboard" ||
+			current === "/portal" ||
+			current === "/"
+		);
+	}
+
+	return current === base || current.startsWith(`${base}/`);
+}
 
 const mainNavItems = [
 	{ label: "Dashboard", path: "/portal/dashboard", icon: House },
@@ -73,21 +102,11 @@ const legalItems = [
 ];
 
 export function AppSidebar() {
-	const router = useRouter();
-	const currentPath = router.state.location.pathname;
+	const pathname = useRouterPathname();
 	const { user } = usePortal();
 	const { state, toggleSidebar } = useSidebar();
 
-	const isActive = (path: string) => {
-		if (path === "/portal/dashboard") {
-			return (
-				currentPath === "/portal/dashboard" ||
-				currentPath === "/portal" ||
-				currentPath === "/"
-			);
-		}
-		return currentPath.startsWith(path.split("?")[0]);
-	};
+	const isActive = (path: string) => portalNavItemIsActive(pathname, path);
 
 	const handleLogout = () => {
 		localStorage.removeItem("auth_token");
@@ -102,7 +121,9 @@ export function AppSidebar() {
 						<SidebarMenuButton
 							size="lg"
 							asChild={state === "expanded"}
-							onClick={state === "collapsed" ? () => toggleSidebar() : undefined}
+							onClick={
+								state === "collapsed" ? () => toggleSidebar() : undefined
+							}
 							className="group-data-[collapsible=icon]:p-0"
 							tooltip={state === "collapsed" ? "Expand Sidebar" : undefined}
 						>
@@ -132,7 +153,9 @@ export function AppSidebar() {
 						<SidebarMenuAction
 							onClick={() => toggleSidebar()}
 							className="group-data-[collapsible=icon]:hidden hover:bg-accent rounded-md transition-all duration-300"
-							title={state === "expanded" ? "Collapse Sidebar" : "Expand Sidebar"}
+							title={
+								state === "expanded" ? "Collapse Sidebar" : "Expand Sidebar"
+							}
 						>
 							<PanelLeftClose className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
 						</SidebarMenuAction>
@@ -176,7 +199,7 @@ export function AppSidebar() {
 									</SidebarMenuItem>
 								);
 							})}
-							{user?.role === "coach"
+							{isPortalCoachLikeRole(user?.role)
 								? coachOnlyNavItems.map((item) => {
 										const Icon = item.icon;
 										const active = isActive(item.path);
@@ -217,34 +240,40 @@ export function AppSidebar() {
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
-							{accountItems.map((item) => {
-								const active = isActive(item.path);
-								return (
-									<SidebarMenuItem key={item.label}>
-										<SidebarMenuButton
-											asChild
-											isActive={active}
-											tooltip={item.label}
-											className={cn(
-												"transition-all duration-200 h-10",
-												active
-													? "bg-primary text-primary-foreground shadow-md font-bold"
-													: "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-											)}
-										>
-											<Link to={item.path}>
-												<item.icon
-													className={cn(
-														"h-5 w-5",
-														active ? "fill-current" : "",
-													)}
-												/>
-												<span className="font-semibold">{item.label}</span>
-											</Link>
-										</SidebarMenuButton>
-									</SidebarMenuItem>
-								);
-							})}
+							{accountItems
+								.filter(
+									(item) =>
+										item.path !== "/portal/nutrition" ||
+										showPortalNutritionNav(user?.role),
+								)
+								.map((item) => {
+									const active = isActive(item.path);
+									return (
+										<SidebarMenuItem key={item.label}>
+											<SidebarMenuButton
+												asChild
+												isActive={active}
+												tooltip={item.label}
+												className={cn(
+													"transition-all duration-200 h-10",
+													active
+														? "bg-primary text-primary-foreground shadow-md font-bold"
+														: "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+												)}
+											>
+												<Link to={item.path}>
+													<item.icon
+														className={cn(
+															"h-5 w-5",
+															active ? "fill-current" : "",
+														)}
+													/>
+													<span className="font-semibold">{item.label}</span>
+												</Link>
+											</SidebarMenuButton>
+										</SidebarMenuItem>
+									);
+								})}
 						</SidebarMenu>
 					</SidebarGroupContent>
 				</SidebarGroup>
@@ -331,13 +360,17 @@ export function AppSidebar() {
 							<SidebarMenuItem>
 								<SidebarMenuButton
 									onClick={() => toggleSidebar()}
-									tooltip={state === "expanded" ? "Collapse Sidebar" : "Expand Sidebar"}
+									tooltip={
+										state === "expanded" ? "Collapse Sidebar" : "Expand Sidebar"
+									}
 									className="h-10 text-muted-foreground hover:text-foreground transition-all duration-300"
 								>
 									{state === "expanded" ? (
 										<>
 											<ChevronLeft className="h-4 w-4" />
-											<span className="font-bold uppercase italic tracking-wider text-[10px]">Collapse Sidebar</span>
+											<span className="font-bold uppercase italic tracking-wider text-[10px]">
+												Collapse Sidebar
+											</span>
 										</>
 									) : (
 										<ChevronRight className="h-4 w-4 mx-auto text-primary animate-pulse" />

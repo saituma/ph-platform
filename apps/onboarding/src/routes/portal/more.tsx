@@ -20,6 +20,7 @@ import {
   Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { showPortalNutritionNav } from "@/lib/portal-roles";
 import { usePortal } from "@/portal/PortalContext";
 
 export const Route = createFileRoute("/portal/more")({
@@ -126,7 +127,9 @@ function MorePage() {
         <MenuGroup title="Account">
           <MenuItem icon={<User />} label="Profile Information" />
           <MenuItem icon={<Shield />} label="Permissions" />
-          <MenuItem icon={<Clipboard />} label="Nutrition Tracking" />
+          {showPortalNutritionNav(user?.role) ? (
+            <MenuItem icon={<Clipboard />} label="Nutrition Tracking" />
+          ) : null}
           <MenuItem icon={<Bell />} label="Notifications" />
           <MenuItem icon={<Lock />} label="Privacy & Security" isLast />
         </MenuGroup>

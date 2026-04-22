@@ -15,7 +15,10 @@ import React, {
   useEffect,
   useMemo,
 } from "react";
-import { Platform, StatusBar, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { SystemBars } from "react-native-edge-to-edge";
+import { Platform, View } from "react-native";
+
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
@@ -31,7 +34,6 @@ import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { AndroidBackToTabs } from "@/components/navigation/AndroidBackToTabs";
 import { runStartupSelfTest } from "@/lib/startupDiagnostics";
 import { useAppSelector } from "@/store/hooks";
-import { usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
 
@@ -91,21 +93,9 @@ function StartupSplashController() {
 }
 
 export default function RootLayout() {
-  const pathname = usePathname();
-
   useEffect(() => {
     void runStartupSelfTest();
   }, []);
-
-  // Some native transitions/libs can re-show the system status bar.
-  // Force it hidden on every navigation change.
-  useEffect(() => {
-    StatusBar.setHidden(true, "fade");
-    if (Platform.OS === "android") {
-      StatusBar.setTranslucent(true);
-      StatusBar.setBackgroundColor("transparent", true);
-    }
-  }, [pathname]);
 
   // Stable reference: inline `screenOptions={{ ... }}` recreates every render and can
   // churn react-native-screen-transitions blank-stack descriptors → useLocalRoutes
@@ -239,7 +229,11 @@ export default function RootLayout() {
           {/* Standalone route (same pattern as nutrition.tsx) — explicit screen helps blank-stack registration */}
           <Stack.Screen name="progress" options={{ headerShown: false }} />
         </Stack>
-        <StatusBar hidden translucent backgroundColor="transparent" />
+        {Platform.OS === "web" ? (
+          <StatusBar hidden />
+        ) : (
+          <SystemBars hidden={{ statusBar: true }} style="auto" />
+        )}
       </View>
       </RootErrorBoundary>
     </Compose>

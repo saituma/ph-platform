@@ -24,6 +24,8 @@ export type ServiceType = {
   durationMinutes: number;
   capacity?: number | null;
   remainingCapacity?: number | null;
+  totalSlots?: number | null;
+  remainingTotalSlots?: number | null;
   eligiblePlans?: string[] | null;
   eligibleTargets?: string[] | null;
   isLocked?: boolean;
@@ -35,6 +37,8 @@ export type ServiceType = {
   defaultMeetingLink?: string | null;
   programTier?: string | null;
   isActive?: boolean | null;
+  /** one_time | weekly_recurring — from API */
+  schedulePattern?: string | null;
 };
 
 export type GeneratedAvailabilitySlot = {

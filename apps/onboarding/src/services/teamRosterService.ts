@@ -7,7 +7,58 @@ export const rosterQueryKeys = {
 	list: (token: string | null) => [...rosterQueryKeys.all, token] as const,
 	athlete: (token: string | null, athleteId: number) =>
 		[...rosterQueryKeys.all, "athlete", token, athleteId] as const,
+	nutrition: (token: string | null, userId: number) =>
+		[...rosterQueryKeys.all, "nutrition", token, userId] as const,
 };
+
+export type NutritionLogSummary = {
+	id: number;
+	dateKey: string;
+	breakfast?: string | null;
+	lunch?: string | null;
+	dinner?: string | null;
+	snacksMorning?: string | null;
+	snacksAfternoon?: string | null;
+	snacksEvening?: string | null;
+	waterIntake?: number | null;
+	steps?: number | null;
+	sleepHours?: number | null;
+	mood?: number | null;
+	energy?: number | null;
+	pain?: number | null;
+	foodDiary?: string | null;
+	updatedAt?: string | null;
+	coachFeedback?: string | null;
+};
+
+/** Coach/admin: load an athlete’s nutrition rows (same auth as `/api/nutrition/logs`). */
+export async function fetchAthleteNutritionLogs(
+	token: string,
+	athleteUserId: number,
+	lastNDays: number,
+): Promise<{ logs: NutritionLogSummary[] }> {
+	const end = new Date();
+	const start = new Date(end);
+	start.setUTCDate(start.getUTCDate() - (lastNDays - 1));
+	const to = end.toISOString().slice(0, 10);
+	const from = start.toISOString().slice(0, 10);
+	const qs = new URLSearchParams({
+		userId: String(athleteUserId),
+		from,
+		to,
+		limit: String(Math.max(lastNDays + 10, 40)),
+	});
+	const res = await fetch(`${baseUrl()}/api/nutrition/logs?${qs}`, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok) {
+		throw new Error(
+			(data as { error?: string }).error || "Failed to load nutrition logs",
+		);
+	}
+	return { logs: (data as { logs?: NutritionLogSummary[] }).logs ?? [] };
+}
 
 export type TeamRosterResponse = {
 	team: {
@@ -114,9 +165,12 @@ export async function fetchTeamAthleteDetail(
 	token: string,
 	athleteId: number,
 ): Promise<TeamAthleteDetail> {
-	const res = await fetch(`${baseUrl()}/api/team/roster/athletes/${athleteId}`, {
-		headers: { Authorization: `Bearer ${token}` },
-	});
+	const res = await fetch(
+		`${baseUrl()}/api/team/roster/athletes/${athleteId}`,
+		{
+			headers: { Authorization: `Bearer ${token}` },
+		},
+	);
 	const data = await res.json().catch(() => ({}));
 	if (!res.ok) {
 		throw new Error(

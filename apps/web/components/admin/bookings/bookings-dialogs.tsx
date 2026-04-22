@@ -20,6 +20,7 @@ import {
   useCreateAdminBookingMutation,
   useGetAdminTeamsQuery,
 } from "@/lib/apiSlice";
+import { cn } from "@/lib/utils";
 
 export type BookingsDialog =
   | null
@@ -72,6 +73,7 @@ type ServiceType = {
   slotMode?: string | null;
   slotIntervalMinutes?: number | null;
   slotDefinitions?: { time: string; capacity?: number | null }[] | null;
+  totalSlots?: number | null;
   isActive?: boolean | null;
 };
 
@@ -142,6 +144,8 @@ const TARGET_AUDIENCES = [
   { label: "Youth Athletes", value: "youth" },
   { label: "Adult Athletes", value: "adult" },
 ];
+
+type ServiceAudienceMode = "non_team" | "team_all" | "team_specific";
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: "Confirmed",
@@ -218,8 +222,12 @@ export function BookingsDialogs({
   const [serviceType, setServiceType] = useState("one_to_one");
   const [durationMinutes, setDurationMinutes] = useState("");
   const [capacity, setCapacity] = useState("");
+  /** Total booking slots: each pending/confirmed booking uses one; at 0 the service auto-turns off. */
+  const [totalSlots, setTotalSlots] = useState("");
   const [eligiblePlans, setEligiblePlans] = useState<string[]>([]);
   const [eligibleTargets, setEligibleTargets] = useState<string[]>([]);
+  const [audienceMode, setAudienceMode] = useState<ServiceAudienceMode>("non_team");
+  const [selectedTeamIds, setSelectedTeamIds] = useState<number[]>([]);
 
   const { data: teamsData } = useGetAdminTeamsQuery();
   const [bookingUserId, setBookingUserId] = useState("");
@@ -276,8 +284,11 @@ export function BookingsDialogs({
       setServiceType("one_to_one");
       setDurationMinutes(String(DEFAULT_SERVICE_DURATION_MINUTES.one_to_one));
       setCapacity("");
+      setTotalSlots("");
       setEligiblePlans([]);
       setEligibleTargets([]);
+      setAudienceMode("non_team");
+      setSelectedTeamIds([]);
       setError(null);
       return;
     }
@@ -303,11 +314,57 @@ export function BookingsDialogs({
       setServiceType(selectedService.type ?? "one_to_one");
       setDurationMinutes(String(selectedService.durationMinutes ?? 30));
       setCapacity(selectedService.capacity != null ? String(selectedService.capacity) : "");
+      setTotalSlots(selectedService.totalSlots != null ? String(selectedService.totalSlots) : "");
       setEligiblePlans(selectedService.eligiblePlans ?? []);
-      setEligibleTargets(selectedService.eligibleTargets ?? []);
+
+      const targets = selectedService.eligibleTargets ?? [];
+      const teamTokenValues = targets
+        .filter((t) => t.startsWith("team:"))
+        .map((t) => t.slice(5));
+      const nonTeamVals = targets.filter((t) => !t.startsWith("team:"));
+
+      const teams = teamsData?.teams ?? [];
+      const allTeamIds = teams
+        .map((r) => (typeof r.id === "number" && Number.isFinite(r.id) ? r.id : Number(r.id)))
+        .filter((id) => Number.isFinite(id))
+        .sort((a, b) => a - b);
+
+      const resolvedIds: number[] = [];
+      for (const tv of teamTokenValues) {
+        if (/^\d+$/.test(tv)) {
+          resolvedIds.push(Number(tv));
+        } else {
+          const row = teams.find((x) => x.team === tv);
+          const rid = row && typeof row.id === "number" ? row.id : row ? Number(row.id) : NaN;
+          if (Number.isFinite(rid)) resolvedIds.push(rid);
+        }
+      }
+      const uniqSorted = [...new Set(resolvedIds)].sort((a, b) => a - b);
+      const isAllTeams =
+        teamTokenValues.length > 0 &&
+        allTeamIds.length > 0 &&
+        uniqSorted.length === allTeamIds.length &&
+        uniqSorted.every((id, i) => id === allTeamIds[i]);
+
+      if (teamTokenValues.length > 0) {
+        if (isAllTeams) {
+          setAudienceMode("team_all");
+          setEligibleTargets([]);
+          setSelectedTeamIds([]);
+        } else {
+          setAudienceMode("team_specific");
+          setEligibleTargets([]);
+          setSelectedTeamIds(uniqSorted);
+        }
+      } else {
+        setAudienceMode("non_team");
+        setEligibleTargets(nonTeamVals);
+        setSelectedTeamIds([]);
+      }
+
       setError(null);
     }
-  }, [active, selectedService]);
+  }, [active, selectedService, teamsData]);
 
   const filteredGuardians = useMemo(() => {
     const guardians = users.filter((user) => user.role === "guardian");
@@ -328,13 +385,23 @@ export function BookingsDialogs({
     return filteredGuardians.slice(0, 6);
   }, [filteredGuardians, guardianSearch, showGuardianSuggestions]);
 
-  const teamOptions = useMemo(() => {
-    return (teamsData?.teams ?? []).map(t => ({ label: `Team: ${t.team}`, value: `team:${t.team}` }));
+  const teamsWithIds = useMemo(() => {
+    const raw = teamsData?.teams ?? [];
+    return raw
+      .map((row) => {
+        const id =
+          typeof row.id === "number" && Number.isFinite(row.id)
+            ? row.id
+            : Number((row as { id?: unknown }).id);
+        if (!Number.isFinite(id)) return null;
+        return { id, team: row.team };
+      })
+      .filter((r): r is { id: number; team: string } => r !== null)
+      .sort((a, b) => a.team.localeCompare(b.team));
   }, [teamsData]);
 
-  const combinedTargetOptions = useMemo(() => {
-    return [...TARGET_AUDIENCES, ...teamOptions];
-  }, [teamOptions]);
+  const teamAudience =
+    audienceMode === "team_all" || audienceMode === "team_specific";
 
   const calendarDays = useMemo(() => {
     const start = new Date();
@@ -373,25 +440,44 @@ export function BookingsDialogs({
     [calendarDays],
   );
 
+  const isServiceForm = active === "new-service" || active === "edit-service";
+
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent
+        className={cn(
+          isServiceForm &&
+            "max-h-[min(90vh,720px)] gap-0 overflow-hidden p-0 sm:max-w-lg flex flex-col",
+        )}
+      >
+        <DialogHeader
+          className={cn(isServiceForm && "shrink-0 space-y-2 border-b border-border px-6 pb-4 pt-6")}
+        >
           <DialogTitle>
             {active === "new-service" && "Create New Service"}
             {active === "edit-service" && "Edit Service"}
+            {active === "new-booking" && "Create Booking"}
             {active === "calendar" && "Calendar View"}
             {active === "booking-details" && "Booking Details"}
           </DialogTitle>
           <DialogDescription>
-            {selectedBooking
+            {active === "new-service" &&
+              "Set name, who can book, capacity, and total booking slots."}
+            {active === "edit-service" &&
+              "Update who can book, capacity, and total booking slots."}
+            {active === "new-booking" && "Choose a guardian, service, and time."}
+            {active === "calendar" && "Bookings scheduled for the next seven days."}
+            {active === "booking-details" && selectedBooking
               ? `${selectedBooking.name} • ${selectedBooking.athlete}`
-              : "Manage scheduling actions."}
+              : active === "booking-details"
+                ? "Review this booking."
+                : null}
           </DialogDescription>
         </DialogHeader>
-        <div className="mt-6 space-y-4">
-          {active === "new-service" || active === "edit-service" ? (
-            <>
+
+        {isServiceForm ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
               <div className="space-y-1">
                 <Label htmlFor="service-name">Name</Label>
                 <Input
@@ -440,9 +526,154 @@ export function BookingsDialogs({
                   <option value="in_person">In-person session</option>
                 </Select>
               </div>
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+
+              <div className="space-y-2 rounded-lg border border-border p-3">
+                <Label>Audience</Label>
+                <p className="text-xs text-muted-foreground">
+                  Non-team uses program athletes (by age or everyone). Team services apply to rostered team athletes
+                  only; program tier filters are not used for team-only services.
+                </p>
+                <div className="space-y-2 pt-1">
+                  <label className="flex cursor-pointer items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="service-audience"
+                      className="mt-1"
+                      checked={audienceMode === "non_team"}
+                      onChange={() => {
+                        setAudienceMode("non_team");
+                        setSelectedTeamIds([]);
+                        setEligibleTargets((prev) => {
+                          const kept = prev.filter((t) => !t.startsWith("team:"));
+                          return kept.length ? kept : ["all"];
+                        });
+                      }}
+                    />
+                    <span>
+                      <span className="font-medium text-foreground">Non-team</span>
+                      <span className="block text-muted-foreground">
+                        Youth, adult, or all program athletes (not scoped to a team roster).
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="service-audience"
+                      className="mt-1"
+                      checked={audienceMode === "team_all"}
+                      onChange={() => {
+                        setAudienceMode("team_all");
+                        setEligibleTargets([]);
+                        setSelectedTeamIds([]);
+                        setEligiblePlans([]);
+                      }}
+                    />
+                    <span>
+                      <span className="font-medium text-foreground">All teams</span>
+                      <span className="block text-muted-foreground">
+                        Any athlete currently on any team roster can book.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="service-audience"
+                      className="mt-1"
+                      checked={audienceMode === "team_specific"}
+                      onChange={() => {
+                        setAudienceMode("team_specific");
+                        setEligibleTargets([]);
+                        setEligiblePlans([]);
+                      }}
+                    />
+                    <span>
+                      <span className="font-medium text-foreground">Specific teams</span>
+                      <span className="block text-muted-foreground">
+                        Only athletes on the teams you select below.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {audienceMode === "non_team" ? (
+                <div className="space-y-2">
+                  <Label>Who can book (non-team)</Label>
+                  <div className="space-y-2 rounded-lg border border-border p-3">
+                    {TARGET_AUDIENCES.map((target) => (
+                      <label key={target.value} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={eligibleTargets.includes(target.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEligibleTargets([...eligibleTargets, target.value]);
+                            } else {
+                              setEligibleTargets(eligibleTargets.filter((t) => t !== target.value));
+                            }
+                          }}
+                        />
+                        {target.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {audienceMode === "team_specific" ? (
+                <div className="space-y-2">
+                  <Label>Teams</Label>
+                  <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-border p-3">
+                    {teamsWithIds.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No teams yet. Create a team under admin first.</p>
+                    ) : (
+                      teamsWithIds.map((row) => (
+                        <label key={row.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedTeamIds.includes(row.id)}
+                            onChange={() => {
+                              setSelectedTeamIds((prev) =>
+                                prev.includes(row.id) ? prev.filter((x) => x !== row.id) : [...prev, row.id],
+                              );
+                            }}
+                          />
+                          {row.team}
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {!teamAudience ? (
+                <div className="space-y-2">
+                  <Label>Eligible tiers</Label>
+                  <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-3">
+                    {PROGRAM_TIERS.map((tier) => (
+                      <label key={tier.value} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={eligiblePlans.includes(tier.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEligiblePlans([...eligiblePlans, tier.value]);
+                            } else {
+                              setEligiblePlans(eligiblePlans.filter((p) => p !== tier.value));
+                            }
+                          }}
+                        />
+                        {tier.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="space-y-1">
-                <Label htmlFor="capacity">Slots (Capacity)</Label>
+                <Label htmlFor="capacity">Capacity (per session)</Label>
                 <Input
                   id="capacity"
                   type="number"
@@ -452,107 +683,116 @@ export function BookingsDialogs({
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Eligible Tiers</Label>
-                <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-3">
-                  {PROGRAM_TIERS.map((tier) => (
-                    <label key={tier.value} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={eligiblePlans.includes(tier.value)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setEligiblePlans([...eligiblePlans, tier.value]);
-                          } else {
-                            setEligiblePlans(eligiblePlans.filter(p => p !== tier.value));
-                          }
-                        }}
-                      />
-                      {tier.label}
-                    </label>
-                  ))}
-                </div>
+              <div className="space-y-1 rounded-lg border border-border p-3">
+                <Label htmlFor="total-slots">Slots (total bookings)</Label>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  How many athletes can book this service in total. Each booking counts down; when it hits zero the
+                  service turns off for families until you raise this number or turn it back on.
+                </p>
+                <Input
+                  id="total-slots"
+                  type="number"
+                  min={1}
+                  placeholder="Unlimited (leave empty)"
+                  value={totalSlots}
+                  onChange={(e) => setTotalSlots(e.target.value)}
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label>Target Audience</Label>
-                <div className="max-h-40 overflow-y-auto rounded-lg border border-border p-3 space-y-2">
-                  {combinedTargetOptions.map((target) => (
-                    <label key={target.value} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={eligibleTargets.includes(target.value)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setEligibleTargets([...eligibleTargets, target.value]);
-                          } else {
-                            setEligibleTargets(eligibleTargets.filter(t => t !== target.value));
-                          }
-                        }}
-                      />
-                      {target.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
+              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+            </div>
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={async () => {
-                    setError(null);
-                    if (!serviceName.trim()) {
-                      setError("Service name is required.");
-                      return;
+            <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-card px-6 py-4">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  setError(null);
+                  if (!serviceName.trim()) {
+                    setError("Service name is required.");
+                    return;
+                  }
+                  if (audienceMode === "team_specific" && selectedTeamIds.length === 0) {
+                    setError("Select at least one team.");
+                    return;
+                  }
+                  if (audienceMode === "team_all" && teamsWithIds.length === 0) {
+                    setError("No teams exist yet. Use non-team audience or create teams first.");
+                    return;
+                  }
+                  try {
+                    const duration = Number(durationMinutes);
+                    const fallbackDuration =
+                      DEFAULT_SERVICE_DURATION_MINUTES[serviceType] ??
+                      DEFAULT_SERVICE_DURATION_MINUTES.one_to_one;
+                    const schedulePayload =
+                      active === "edit-service" && selectedService
+                        ? {
+                            schedulePattern: selectedService.schedulePattern ?? "one_time",
+                            weeklyEntries: Array.isArray(selectedService.weeklyEntries)
+                              ? selectedService.weeklyEntries
+                              : [],
+                            oneTimeDate: selectedService.oneTimeDate ?? null,
+                            oneTimeTime: selectedService.oneTimeTime ?? null,
+                            slotMode: selectedService.slotMode ?? "shared_capacity",
+                            slotIntervalMinutes: selectedService.slotIntervalMinutes ?? null,
+                            slotDefinitions: Array.isArray(selectedService.slotDefinitions)
+                              ? selectedService.slotDefinitions
+                              : [],
+                          }
+                        : {
+                            schedulePattern: "one_time" as const,
+                            weeklyEntries: [] as { weekday: number; time: string }[],
+                            oneTimeDate: null,
+                            oneTimeTime: null,
+                            slotMode: "shared_capacity",
+                            slotIntervalMinutes: null,
+                            slotDefinitions: [] as { time: string; capacity?: number }[],
+                          };
+                    const eligibleTargetsPayload =
+                      audienceMode === "team_all"
+                        ? teamsWithIds.map((t) => `team:${t.id}`)
+                        : audienceMode === "team_specific"
+                          ? selectedTeamIds.map((id) => `team:${id}`)
+                          : eligibleTargets;
+                    const eligiblePlansPayload = teamAudience ? [] : eligiblePlans;
+                    const payload = {
+                      name: serviceName.trim(),
+                      description: serviceDescription.trim() || null,
+                      type: serviceType,
+                      durationMinutes:
+                        Number.isFinite(duration) && duration > 0 ? duration : fallbackDuration,
+                      capacity: capacity ? Number(capacity) : null,
+                      totalSlots: totalSlots.trim() ? Number(totalSlots) : null,
+                      eligiblePlans: eligiblePlansPayload,
+                      eligibleTargets: eligibleTargetsPayload,
+                      ...schedulePayload,
+                      isActive: active === "edit-service" ? selectedService?.isActive : true,
+                    };
+                    if (active === "new-service") {
+                      await createService(payload).unwrap();
+                    } else if (active === "edit-service" && selectedService) {
+                      await updateService({
+                        id: selectedService.id,
+                        data: payload,
+                      }).unwrap();
                     }
-                    try {
-                      const duration = Number(durationMinutes);
-                      const fallbackDuration =
-                        DEFAULT_SERVICE_DURATION_MINUTES[serviceType] ??
-                        DEFAULT_SERVICE_DURATION_MINUTES.one_to_one;
-                      const payload = {
-                        name: serviceName.trim(),
-                        description: serviceDescription.trim() || null,
-                        type: serviceType,
-                        durationMinutes:
-                          Number.isFinite(duration) && duration > 0
-                            ? duration
-                            : fallbackDuration,
-                        capacity: capacity ? Number(capacity) : null,
-                        eligiblePlans: eligiblePlans,
-                        eligibleTargets: eligibleTargets,
-                        schedulePattern: active === "edit-service" ? selectedService?.schedulePattern : "weekly_recurring",
-                        weeklyEntries: active === "edit-service" ? selectedService?.weeklyEntries : [],
-                        oneTimeDate: active === "edit-service" ? selectedService?.oneTimeDate : null,
-                        oneTimeTime: active === "edit-service" ? selectedService?.oneTimeTime : null,
-                        isActive: active === "edit-service" ? selectedService?.isActive : true,
-                      };
-                      if (active === "new-service") {
-                        await createService(payload).unwrap();
-                      } else if (active === "edit-service" && selectedService) {
-                        await updateService({
-                          id: selectedService.id,
-                          data: payload,
-                        }).unwrap();
-                      }
-                      onRefresh?.();
-                      onClose();
-                    } catch (err: unknown) {
-                      console.error("Service save error:", err);
-                      setError(
-                        getRtkErrorMessage(err, "Failed to save service."),
-                      );
-                    }
-                  }}
-                  disabled={isCreatingService || isUpdatingService}
-                >
-                  {active === "edit-service" ? "Save Changes" : "Create"}
-                </Button>
-              </div>
-            </>
-          ) : null}
+                    onRefresh?.();
+                    onClose();
+                  } catch (err: unknown) {
+                    console.error("Service save error:", err);
+                    setError(getRtkErrorMessage(err, "Failed to save service."));
+                  }
+                }}
+                disabled={isCreatingService || isUpdatingService}
+              >
+                {active === "edit-service" ? "Save Changes" : "Create"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-6 space-y-4">
           {active === "new-booking" ? (
             <>
               <Input
@@ -1029,6 +1269,7 @@ export function BookingsDialogs({
             </>
           ) : null}
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

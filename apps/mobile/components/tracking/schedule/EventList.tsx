@@ -15,6 +15,8 @@ interface EventListProps {
   onReschedule: (event: ScheduleEvent) => void;
   getEventTone: (type: ScheduleEvent["type"]) => any;
   onRequestForDay: () => void;
+  /** When false, hide self-serve booking / reschedule entry points (team roster athletes). */
+  allowSelfBooking?: boolean;
 }
 
 const EventCard = ({
@@ -76,6 +78,7 @@ export function EventList({
   onReschedule,
   getEventTone,
   onRequestForDay,
+  allowSelfBooking = true,
 }: EventListProps) {
   const { colors, isDark } = useAppTheme();
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
@@ -132,13 +135,17 @@ export function EventList({
           </View>
           <Text className="text-base font-clash text-app mt-3">No events scheduled</Text>
           <Text className="text-sm font-outfit text-secondary mt-2 text-center">
-            Request a call or session — the coach confirms before it&apos;s final.
+            {allowSelfBooking
+              ? "Request a call or session — the coach confirms before it's final."
+              : "Your coach adds sessions to your schedule. Nothing upcoming yet."}
           </Text>
-          <Pressable className="mt-4 rounded-full bg-accent px-5 py-2" onPress={onRequestForDay}>
-            <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
-              Book a session
-            </Text>
-          </Pressable>
+          {allowSelfBooking ? (
+            <Pressable className="mt-4 rounded-full bg-accent px-5 py-2" onPress={onRequestForDay}>
+              <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
+                Book a session
+              </Text>
+            </Pressable>
+          ) : null}
           {eventsError ? (
             <Text className="text-xs font-outfit text-red-400 mt-2">{eventsError}</Text>
           ) : null}
@@ -215,28 +222,30 @@ export function EventList({
 
                 <View className="mt-4 flex-row items-center gap-3">
                   <Pressable
-                    className="flex-1 px-4 py-3 rounded-full bg-accent"
+                    className={`flex-1 px-4 py-3 rounded-full bg-accent ${allowSelfBooking ? "" : "w-full"}`}
                     onPress={() => setShowDetails(true)}
                   >
                     <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
                       View details
                     </Text>
                   </Pressable>
-                  <Pressable
-                    className="flex-1 px-4 py-3 rounded-full"
-                    style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
-                    onPress={() => {
-                      if (selectedEvent) {
-                        onReschedule(selectedEvent);
-                      }
-                      setSelectedEvent(null);
-                      setShowDetails(false);
-                    }}
-                  >
-                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
-                      Reschedule
-                    </Text>
-                  </Pressable>
+                  {allowSelfBooking ? (
+                    <Pressable
+                      className="flex-1 px-4 py-3 rounded-full"
+                      style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
+                      onPress={() => {
+                        if (selectedEvent) {
+                          onReschedule(selectedEvent);
+                        }
+                        setSelectedEvent(null);
+                        setShowDetails(false);
+                      }}
+                    >
+                      <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
+                        Reschedule
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               </>
             ) : (

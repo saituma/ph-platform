@@ -1,6 +1,7 @@
+import { env } from "@/env";
 import { getClientAuthToken } from "@/lib/client-storage";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://api.phperformance.uk";
+const API_BASE_URL = (env.VITE_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 
 async function apiRequest<T>(
 	endpoint: string,
@@ -13,7 +14,10 @@ async function apiRequest<T>(
 	const token = getClientAuthToken();
 	const { method = "GET", body, headers = {} } = options;
 
-	const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+	const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+	const url = `${API_BASE_URL}/api${path}`;
+
+	const res = await fetch(url, {
 		method,
 		headers: {
 			"Content-Type": "application/json",

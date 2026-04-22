@@ -2,14 +2,28 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { 
+  User, 
+  Play, 
+  ArrowRight, 
+  Activity, 
+  Trophy, 
+  Timer, 
+  Map as MapIcon, 
+  Zap, 
+  History, 
+  Heart,
+  ChevronRight,
+  TrendingUp,
+  Clock
+} from "lucide-react-native";
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
   withSpring,
   withTiming
 } from "react-native-reanimated";
-import { fonts, radius, spacing, icons } from "@/constants/theme";
+import { fonts, radius, spacing } from "@/constants/theme";
 import { getPersonalBests, getRecentRuns, getWeeklySummaries, initSQLiteRuns, RunRecord } from "../../../lib/sqliteRuns";
 import { RunCard } from "../../../components/tracking/RunCard";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -56,23 +70,15 @@ export default function TrackingHomeScreen() {
   const appRole = useAppSelector((s) => s.user.appRole);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
-  /** Direct `/auth/me` parse for this screen — does not rely on bootstrap having run first. */
+  
   const [directMeTeam, setDirectMeTeam] = useState<{
     team: string | null;
     teamId: number | null;
   } | null | undefined>(undefined);
 
   const loadMeForTeamHeader = useCallback(async () => {
-    if (!token) {
-      if (__DEV__) {
-        console.log("[TrackingTab] loadMeForTeamHeader: no token, skip");
-      }
-      return;
-    }
+    if (!token) return;
     try {
-      if (__DEV__) {
-        console.log("[TrackingTab] GET /auth/me — apiBaseUrl:", getApiBaseUrl());
-      }
       const me = await apiRequest<{
         user?: {
           role?: string | null;
@@ -86,22 +92,8 @@ export default function TrackingHomeScreen() {
         suppressStatusCodes: [401, 403],
       });
       if (!me.user) {
-        if (__DEV__) {
-          console.warn("[TrackingTab] /auth/me: missing user", { me });
-        }
         setDirectMeTeam(null);
         return;
-      }
-      if (__DEV__) {
-        const u = me.user as Record<string, unknown>;
-        console.log("[TrackingTab] /auth/me user (subset)", {
-          id: u.id,
-          role: u.role,
-          team: u.team,
-          teamId: u.teamId,
-          athleteType: u.athleteType,
-          athleteId: u.athleteId,
-        });
       }
 
       const { fields, athleteType: athleteTypeForRole } =
@@ -109,20 +101,6 @@ export default function TrackingHomeScreen() {
           token,
           meUser: me.user,
         });
-
-      if (__DEV__) {
-        console.log("[TrackingTab] team fields (after /onboarding fallback if needed)", fields);
-        console.log(
-          "[TrackingTab] resolveAppRole →",
-          resolveAppRole({
-            userRole: me.user.role ?? "guardian",
-            athlete: {
-              ...fields,
-              athleteType: athleteTypeForRole,
-            },
-          }),
-        );
-      }
 
       setDirectMeTeam(fields);
       dispatch(setAuthTeamMembership(fields));
@@ -139,9 +117,6 @@ export default function TrackingHomeScreen() {
         ),
       );
     } catch (err) {
-      if (__DEV__) {
-        console.warn("[TrackingTab] /auth/me request failed", err);
-      }
       setDirectMeTeam(null);
     }
   }, [token, dispatch]);
@@ -163,32 +138,6 @@ export default function TrackingHomeScreen() {
     return fromDirectFetch || fromRedux;
   }, [directMeTeam, appRole, authTeamMembership, managedAthletes]);
 
-  useEffect(() => {
-    if (!__DEV__) return;
-    const fromDirect =
-      directMeTeam != null && hasOrgTeamMembership(directMeTeam);
-    const fromRedux = shouldUseTeamTrackingFeatures({
-      appRole,
-      authTeamMembership,
-      firstManagedAthlete: managedAthletes[0] ?? null,
-    });
-    console.log("[TrackingTab] Team header gate", {
-      showTeamTab,
-      fromDirect,
-      fromRedux,
-      directMeTeam,
-      appRole,
-      authTeamMembership,
-      managedAthlete0: managedAthletes[0],
-    });
-  }, [
-    showTeamTab,
-    directMeTeam,
-    appRole,
-    authTeamMembership,
-    managedAthletes,
-  ]);
-
   const insets = useAppSafeAreaInsets();
   const isFocused = useSafeIsFocused(true);
   const [recentRuns, setRecentRuns] = useState<RunRecord[]>([]);
@@ -196,40 +145,28 @@ export default function TrackingHomeScreen() {
   const [personalBests, setPersonalBests] = useState(() => getPersonalBests());
   const { resetRun } = useRunStore();
 
-  // Screen entry animation
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
-
-  // START RUN button press animation
   const scaleBtn = useSharedValue(1);
-
-  // Progress bar animation
   const progressWidth = useSharedValue(0);
 
   useEffect(() => {
     initSQLiteRuns();
     loadStats();
-    
-    // Entry animations
-    opacity.value = withTiming(1, { duration: 350 });
-    translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
-
-    // Cloud sync on mount (fire-and-forget)
+    opacity.value = withTiming(1, { duration: 400 });
+    translateY.value = withSpring(0, { damping: 20, stiffness: 150 });
     syncRuns().then(() => loadStats());
   }, []);
 
   useEffect(() => {
     if (!isFocused) return;
-    // Reload local stats and sync with cloud
     syncRuns().then(() => loadStats());
   }, [isFocused]);
 
   useEffect(() => {
-    // Goal animation (assuming 30km goal)
     const goalKm = 30;
     const currentKm = weeklyStats.totalDistance / 1000;
     const percentage = Math.min(Math.max((currentKm / goalKm) * 100, 0), 100);
-    // Animate width later in layout
     progressWidth.value = withSpring(percentage, { damping: 20, stiffness: 100 });
   }, [weeklyStats.totalDistance]);
 
@@ -245,12 +182,12 @@ export default function TrackingHomeScreen() {
 
   const handleStartRun = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    scaleBtn.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+    scaleBtn.value = withSpring(0.96, { damping: 15, stiffness: 300 });
     setTimeout(() => {
       scaleBtn.value = withSpring(1, { damping: 15, stiffness: 300 });
       resetRun();
       router.push("/(tabs)/tracking/run-setup" as any);
-    }, 100);
+    }, 80);
   };
 
   const animatedScreenStyle = useAnimatedStyle(() => ({
@@ -268,10 +205,13 @@ export default function TrackingHomeScreen() {
 
   const formatDistance = (meters: number) => (meters / 1000).toFixed(1);
   const weeklyTime = formatHoursMinutes(weeklyStats.totalTime);
-
   const todayQuote = QUOTES[new Date().getDay()];
   const weeklyRangeLabel = getLastNDaysRangeLabel(7);
   const weeklyRangeShortLabel = getLastNDaysLabel(7);
+
+  // Design Tokens
+  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
+  const accentMuted = `${colors.accent}15`;
 
   return (
     <Animated.View style={[animatedScreenStyle, { flex: 1, backgroundColor: colors.background }]}>
@@ -283,6 +223,7 @@ export default function TrackingHomeScreen() {
           paddingTop: 0,
           paddingBottom: trackingScrollBottomPad(insets),
           flexGrow: 1,
+          alignItems: "stretch",
         }}
       >
         <TrackingHeaderTabs
@@ -290,199 +231,214 @@ export default function TrackingHomeScreen() {
           colors={colors}
           isDark={isDark}
           topInset={insets.top + 12}
-          paddingHorizontal={spacing.xl}
+          paddingHorizontal={0}
           showTeamTab={showTeamTab}
         />
-        {/* Section 1 - Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xxxl }}>
-	          <View>
-	            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.textSecondary }}>
-	              {"Let's"}
-	            </Text>
-	            <Text style={{ fontFamily: fonts.heroNumber, fontSize: 52, color: colors.accent, letterSpacing: -2, lineHeight: 52 }}>Run.</Text>
-	          </View>
-          <View 
-            style={{ 
-              width: 44, 
-              height: 44, 
-              borderRadius: radius.pill, 
-              backgroundColor: colors.surfaceHigh, 
-              borderWidth: 1, 
-              borderColor: colors.borderMid,
-              justifyContent: 'center', 
-              alignItems: 'center' 
-            }}
-          >
-            <Ionicons name={icons.person.name as any} size={28} color={colors.textSecondary} />
+
+        {/* Header Section */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.xl }}>
+          <View>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.textSecondary, marginBottom: -4 }}>
+              READY TO
+            </Text>
+            <Text style={{ fontFamily: fonts.heroNumber, fontSize: 56, color: colors.accent, letterSpacing: -2, lineHeight: 56 }}>
+              Run?
+            </Text>
           </View>
+          <Pressable 
+            style={({ pressed }) => ({ 
+              width: 48, 
+              height: 48, 
+              borderRadius: radius.pill, 
+              backgroundColor: cardBg, 
+              borderWidth: 1, 
+              borderColor: cardBorder,
+              justifyContent: 'center', 
+              alignItems: 'center',
+              opacity: pressed ? 0.8 : 1
+            })}
+          >
+            <User size={24} color={colors.textSecondary} strokeWidth={2} />
+          </Pressable>
         </View>
 
-        {/* Section 2 - START RUN hero button */}
+        {/* Hero START RUN Button */}
         <AnimatedPressable 
           onPress={handleStartRun}
-          onPressIn={() => scaleBtn.value = withSpring(0.97, { damping: 15, stiffness: 300 })}
-          onPressOut={() => scaleBtn.value = withSpring(1, { damping: 15, stiffness: 300 })}
           style={[animatedBtnStyle, {
             width: '100%',
-            height: 90,
+            height: 100,
             borderRadius: radius.xxl,
             backgroundColor: colors.accent,
             flexDirection: 'row',
             alignItems: 'center',
-            paddingHorizontal: spacing.lg,
-            marginBottom: spacing.xxxl,
-            ...(isDark
-              ? {}
-              : {
-                  shadowColor: colors.accent,
-                  shadowOpacity: 0.18,
-                  shadowRadius: 18,
-                  shadowOffset: { width: 0, height: 10 },
-                  elevation: 6,
-                }),
+            paddingHorizontal: spacing.xl,
+            marginBottom: spacing.xxl,
+            overflow: "hidden",
+            ...(isDark ? {} : {
+              shadowColor: colors.accent,
+              shadowOpacity: 0.25,
+              shadowRadius: 20,
+              shadowOffset: { width: 0, height: 12 },
+              elevation: 8,
+            }),
           }]}
         >
+          {/* Subtle background graphic hint */}
+          <View style={{ position: "absolute", right: -20, bottom: -20, opacity: 0.1 }}>
+             <Play size={160} color="#FFF" fill="#FFF" />
+          </View>
+
           <View style={{ 
-            width: 52, 
-            height: 52, 
+            width: 56, 
+            height: 56, 
             borderRadius: radius.pill, 
-            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
             justifyContent: 'center', 
             alignItems: 'center',
-            marginRight: spacing.md
+            marginRight: spacing.lg
           }}>
-            <MaterialCommunityIcons name={icons.startRun.name as any} size={32} color={colors.textInverse} />
+            <Play size={32} color="#FFF" fill="#FFF" strokeWidth={0} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.heading1, fontSize: 22, color: colors.textInverse }}>START RUN</Text>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textInverse, opacity: 0.6 }}>Tap to begin</Text>
+            <Text style={{ fontFamily: fonts.heading1, fontSize: 24, color: "#FFF", letterSpacing: 0.5 }}>START RUN</Text>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: "#FFF", opacity: 0.7 }}>Lace up and hit the road</Text>
           </View>
-          <Ionicons name={icons.arrowRight.name as any} size={24} color={colors.textInverse} />
+          <ArrowRight size={24} color="#FFF" strokeWidth={3} />
         </AnimatedPressable>
 
-        {/* Section 3 - THIS WEEK card */}
+        {/* This Week Stats Card */}
         <View style={{ 
           backgroundColor: colors.surface, 
-          borderColor: colors.borderSubtle, 
+          borderColor: cardBorder, 
           borderWidth: 1, 
-          borderRadius: radius.xl, 
-          padding: spacing.lg, 
+          borderRadius: radius.xxl, 
+          padding: spacing.xl, 
           marginBottom: spacing.xxl 
         }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name={icons.chart.name as any} size={18} color={colors.accent} style={{ marginRight: spacing.xs }} />
-              <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2.5 }}>THIS WEEK</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: accentMuted, alignItems: "center", justifyContent: "center" }}>
+                <Activity size={16} color={colors.accent} strokeWidth={2.5} />
+              </View>
+              <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>WEEKLY PROGRESS</Text>
             </View>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textDim }}>{weeklyRangeLabel}</Text>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textDim }}>{weeklyRangeLabel}</Text>
           </View>
           
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.lg }}>
-            <View style={{ flex: 1, alignItems: 'flex-start' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xl }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textDim, marginBottom: 4 }}>DISTANCE</Text>
               <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 36, color: colors.accent, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 32, color: colors.accent, fontVariant: ['tabular-nums'] }}>
                   {formatDistance(weeklyStats.totalDistance)}
                 </Text>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 13, color: colors.textSecondary, marginLeft: 4 }}>km</Text>
+                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 12, color: colors.textSecondary, marginLeft: 2 }}>km</Text>
               </View>
             </View>
             
-            <View style={{ width: 1, backgroundColor: colors.borderMid, marginHorizontal: spacing.sm }} />
+            <View style={{ width: 1, backgroundColor: colors.borderSubtle, marginHorizontal: spacing.md }} />
             
             <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textDim, marginBottom: 4 }}>TIME</Text>
               <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 36, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 32, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
                   {weeklyTime.h}
                 </Text>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 13, color: colors.textSecondary, marginHorizontal: 2 }}>h</Text>
-                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 36, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 12, color: colors.textSecondary, marginHorizontal: 1 }}>h</Text>
+                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 32, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
                   {weeklyTime.m}
                 </Text>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 13, color: colors.textSecondary, marginLeft: 2 }}>m</Text>
+                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 12, color: colors.textSecondary, marginLeft: 1 }}>m</Text>
               </View>
             </View>
 
-            <View style={{ width: 1, backgroundColor: colors.borderMid, marginHorizontal: spacing.sm }} />
+            <View style={{ width: 1, backgroundColor: colors.borderSubtle, marginHorizontal: spacing.md }} />
             
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
+               <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textDim, marginBottom: 4 }}>RUNS</Text>
                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 36, color: colors.purple, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 32, color: colors.purple, fontVariant: ['tabular-nums'] }}>
                   {weeklyStats.numRuns}
                 </Text>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 13, color: colors.textSecondary, marginLeft: 4 }}>runs</Text>
               </View>
             </View>
           </View>
 
-          {/* Bottom mini progress bar */}
           <View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>{weeklyRangeShortLabel} goal: 30km</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
               <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                Goal: <Text style={{ color: colors.textPrimary }}>30km</Text>
+              </Text>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.accent }}>
                 {Math.min(Math.max(Math.round((weeklyStats.totalDistance / 1000 / 30) * 100), 0), 100)}%
               </Text>
             </View>
-            <View style={{ height: 4, backgroundColor: colors.surfaceHigh, borderRadius: radius.pill, overflow: 'hidden' }}>
+            <View style={{ height: 6, backgroundColor: colors.surfaceHigh, borderRadius: radius.pill, overflow: 'hidden' }}>
               <Animated.View style={[animatedProgressStyle, { height: '100%', backgroundColor: colors.accent, borderRadius: radius.pill }]} />
             </View>
           </View>
         </View>
 
-        {/* Section 4 - Personal Bests strip */}
+        {/* Personal Bests Section */}
         <View style={{ marginBottom: spacing.xxl }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <MaterialCommunityIcons name={icons.trophy.name as any} size={18} color={colors.amber} style={{ marginRight: spacing.xs }} />
-            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2.5 }}>PERSONAL BESTS</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg, gap: 8 }}>
+            <Trophy size={16} color={colors.amber} strokeWidth={2.5} />
+            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>PERSONAL BESTS</Text>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-            <View style={{ width: 130, height: 90, backgroundColor: colors.surface, borderColor: colors.borderMid, borderWidth: 1, borderRadius: radius.xl, padding: spacing.md }}>
-              <View style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, backgroundColor: colors.amber, borderTopRightRadius: radius.pill, borderBottomRightRadius: radius.pill }} />
-              <MaterialCommunityIcons name={icons.timer.name as any} size={20} color={colors.amber} style={{ marginBottom: spacing.xs }} />
-              <Text style={{ fontFamily: fonts.statNumber, fontSize: 22, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
-                {personalBests.best5kSeconds ? formatDurationClock(personalBests.best5kSeconds) : "--"}
-              </Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>5K Best</Text>
-            </View>
-
-            <View style={{ width: 130, height: 90, backgroundColor: colors.surface, borderColor: colors.borderMid, borderWidth: 1, borderRadius: radius.xl, padding: spacing.md }}>
-              <View style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, backgroundColor: colors.purple, borderTopRightRadius: radius.pill, borderBottomRightRadius: radius.pill }} />
-              <MaterialCommunityIcons name={icons.distance.name as any} size={20} color={colors.purple} style={{ marginBottom: spacing.xs }} />
-              <Text style={{ fontFamily: fonts.statNumber, fontSize: 22, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
-                {personalBests.longestRunMeters ? (personalBests.longestRunMeters / 1000).toFixed(1) : "--"}
-              </Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>Longest Run (km)</Text>
-            </View>
-
-            <View style={{ width: 130, height: 90, backgroundColor: colors.surface, borderColor: colors.borderMid, borderWidth: 1, borderRadius: radius.xl, padding: spacing.md }}>
-              <View style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, backgroundColor: colors.cyan, borderTopRightRadius: radius.pill, borderBottomRightRadius: radius.pill }} />
-              <Ionicons name={icons.speed.name as any} size={20} color={colors.cyan} style={{ marginBottom: spacing.xs }} />
-              <Text style={{ fontFamily: fonts.statNumber, fontSize: 22, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
-                {personalBests.bestPaceMinPerKm ? personalBests.bestPaceMinPerKm.toFixed(2) : "--"}
-              </Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>Best Pace (min/km)</Text>
-            </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: spacing.xl }}>
+            <PBItem 
+              label="5K Best" 
+              value={personalBests.best5kSeconds ? formatDurationClock(personalBests.best5kSeconds) : "--"} 
+              icon={Timer} 
+              color={colors.amber} 
+              cardBg={colors.surface} 
+              cardBorder={cardBorder} 
+              textPrimary={colors.textPrimary}
+              textDim={colors.textDim}
+            />
+            <PBItem 
+              label="Longest Run" 
+              value={personalBests.longestRunMeters ? `${(personalBests.longestRunMeters / 1000).toFixed(1)} km` : "--"} 
+              icon={MapIcon} 
+              color={colors.purple} 
+              cardBg={colors.surface} 
+              cardBorder={cardBorder} 
+              textPrimary={colors.textPrimary}
+              textDim={colors.textDim}
+            />
+            <PBItem 
+              label="Best Pace" 
+              value={personalBests.bestPaceMinPerKm ? `${personalBests.bestPaceMinPerKm.toFixed(2)} /km` : "--"} 
+              icon={Zap} 
+              color={colors.cyan} 
+              cardBg={colors.surface} 
+              cardBorder={cardBorder} 
+              textPrimary={colors.textPrimary}
+              textDim={colors.textDim}
+            />
           </ScrollView>
         </View>
 
-        {/* Section 5 - Recent Runs */}
+        {/* Recent Runs Section */}
         <View style={{ marginBottom: spacing.xxl }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name={icons.history.name as any} size={18} color={colors.textSecondary} style={{ marginRight: spacing.xs }} />
-              <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2.5 }}>RECENT RUNS</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <History size={16} color={colors.textSecondary} strokeWidth={2} />
+              <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>RECENT RUNS</Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.accent, marginRight: spacing.xs }}>See all</Text>
-              <Ionicons name={icons.arrowRight.name as any} size={14} color={colors.accent} />
-            </View>
+            <Pressable style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, opacity: pressed ? 0.7 : 1 })}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.accent }}>See all</Text>
+              <ChevronRight size={14} color={colors.accent} strokeWidth={3} />
+            </Pressable>
           </View>
 
           {recentRuns.length === 0 ? (
             <View style={{ 
               backgroundColor: colors.surface, 
-              borderColor: colors.borderSubtle, 
+              borderColor: cardBorder, 
               borderWidth: 1, 
-              borderRadius: radius.xl, 
+              borderRadius: radius.xxl, 
               padding: spacing.xxl, 
               alignItems: 'center', 
               justifyContent: 'center' 
@@ -490,37 +446,33 @@ export default function TrackingHomeScreen() {
               <View style={{ 
                 width: 80, 
                 height: 80, 
-                borderRadius: radius.pill, 
+                borderRadius: 40, 
                 backgroundColor: colors.surfaceHigh, 
-                borderColor: colors.borderSubtle, 
-                borderWidth: 1, 
                 justifyContent: 'center', 
                 alignItems: 'center',
-                marginBottom: spacing.md
+                marginBottom: spacing.lg
               }}>
-                <MaterialCommunityIcons name={icons.startRun.name as any} size={52} color={colors.textDim} />
+                <TrendingUp size={40} color={colors.textDim} strokeWidth={1} />
               </View>
-              <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textSecondary, marginTop: spacing.md }}>No runs yet</Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textDim, marginTop: 4, marginBottom: spacing.lg }}>Lace up and go</Text>
+              <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary }}>No runs yet</Text>
+              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textDim, marginTop: 4, marginBottom: spacing.xl }}>Time to lace up and hit the road!</Text>
               
               <Pressable 
                 onPress={handleStartRun}
-                style={{
-                  backgroundColor: 'transparent',
-                  borderColor: colors.borderMid,
-                  borderWidth: 1,
-                  borderRadius: radius.xxl,
+                style={({ pressed }) => ({
+                  backgroundColor: colors.accent,
+                  borderRadius: radius.pill,
                   paddingHorizontal: spacing.xl,
-                  paddingVertical: spacing.md
-                }}
+                  paddingVertical: spacing.md,
+                  opacity: pressed ? 0.9 : 1
+                })}
               >
-                <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.accent }}>START RUN</Text>
+                <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: "#FFF" }}>START FIRST RUN</Text>
               </Pressable>
             </View>
           ) : (
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: 14 }}>
 	              {recentRuns.map((run) => (
-                  // Note: avg_pace is stored in minutes per km.
 	                <RunCard 
 	                  key={run.id}
 	                  distance={formatDistance(run.distance_meters)}
@@ -534,16 +486,37 @@ export default function TrackingHomeScreen() {
           )}
         </View>
 
-        {/* Section 6 - Motivational quote footer */}
-        <View style={{ alignItems: 'center', paddingVertical: spacing.md }}>
-	          <Ionicons name={icons.heart.name as any} size={14} color={colors.coral} style={{ marginBottom: spacing.sm }} />
-	          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary, fontStyle: 'italic', textAlign: 'center' }}>
+        {/* Motivational Footer */}
+        <View style={{ alignItems: 'center', paddingVertical: spacing.xl, marginBottom: spacing.xl }}>
+	          <Heart size={16} color={colors.coral} fill={colors.coral} style={{ marginBottom: spacing.sm }} />
+	          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textDim, fontStyle: 'italic', textAlign: 'center', paddingHorizontal: spacing.xxl }}>
 	            {`"${todayQuote}"`}
 	          </Text>
 	        </View>
       </ScrollView>
-
-      {/* Run setup is now a full-screen flow at /(tabs)/tracking/run-setup */}
     </Animated.View>
   );
 }
+
+function PBItem({ label, value, icon: Icon, color, cardBg, cardBorder, textPrimary, textDim }: { label: string; value: string; icon: any; color: string; cardBg: string; cardBorder: string; textPrimary: string; textDim: string }) {
+  return (
+    <View style={{ 
+      width: 140, 
+      backgroundColor: cardBg, 
+      borderColor: cardBorder, 
+      borderWidth: 1, 
+      borderRadius: radius.xl, 
+      padding: spacing.lg,
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: color }} />
+      <Icon size={18} color={color} style={{ marginBottom: spacing.sm }} strokeWidth={2.5} />
+      <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: textPrimary, fontVariant: ['tabular-nums'], marginBottom: 2 }}>
+        {value}
+      </Text>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: textDim }}>{label}</Text>
+    </View>
+  );
+}
+

@@ -14,7 +14,18 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
-export const Role = pgEnum("role", ["guardian", "athlete", "coach", "admin", "superAdmin"]);
+export const Role = pgEnum("role", [
+  "guardian",
+  "athlete",
+  "coach",
+  "admin",
+  "superAdmin",
+  "team_coach",
+  "program_coach",
+  "team_athlete",
+  "adult_athlete",
+  "youth_athlete",
+]);
 export const ProgramType = pgEnum("program_type", ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]);
 export const EnrollmentStatus = pgEnum("enrollment_status", ["pending", "active", "completed", "failed"]);
 export const AthleteType = pgEnum("athlete_type", ["youth", "adult"]);
@@ -1084,6 +1095,8 @@ export const serviceTypeTable = pgTable("service_types", {
   type: bookingType(),
   durationMinutes: integer().notNull(),
   capacity: integer(),
+  /** Total booking slots for this service type; each pending/confirmed booking consumes one; at 0 service can auto-deactivate. */
+  totalSlots: integer(),
   fixedStartTime: varchar({ length: 10 }),
   attendeeVisibility: boolean().notNull().default(true),
   defaultLocation: varchar({ length: 500 }),

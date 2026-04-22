@@ -11,8 +11,7 @@ import {
 } from "../../db/schema";
 import { summarizeStripeCheckoutSession } from "../../lib/stripe-checkout-receipt";
 import { getStripeClient } from "./stripe.service";
-
-const staffRoles = ["coach", "admin", "superAdmin"] as const;
+import { ROLES_TRAINING_STAFF } from "../../lib/user-roles";
 
 export type PaymentReceiptDetail =
   | {
@@ -58,7 +57,7 @@ export async function getPaymentReceiptForViewer(input: {
 }): Promise<{ forbidden: true } | PaymentReceiptDetail | null> {
   const rid = String(input.receiptPublicId ?? "").trim();
   if (!rid) return null;
-  const isStaff = (staffRoles as readonly string[]).includes(input.viewerRole);
+  const isStaff = (ROLES_TRAINING_STAFF as readonly string[]).includes(input.viewerRole);
 
   const team = await db
     .select({

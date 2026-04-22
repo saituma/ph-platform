@@ -40,13 +40,13 @@ const LEAFLET_HTML = `<!DOCTYPE html>
     var TILE_LIGHT = ${JSON.stringify(CARTO_LIGHT)};
     var TILE_DARK = ${JSON.stringify(CARTO_DARK)};
     var TILE_SAT = ${JSON.stringify(ESRI_IMAGERY)};
-    var map = L.map('map', { zoomControl: true, attributionControl: true }).setView([20, 0], 2);
-    var layerGroup = L.featureGroup().addTo(map);
-    var base = L.tileLayer(TILE_LIGHT, {
-      subdomains: 'abcd',
-      maxZoom: 19,
-      attribution: '&copy; OSM &copy; CARTO'
-    }).addTo(map);
+	    var map = L.map('map', { zoomControl: true, attributionControl: true }).setView([20, 0], 2);
+	    var layerGroup = L.featureGroup().addTo(map);
+	    var base = L.tileLayer(TILE_LIGHT, {
+	      subdomains: 'abcd',
+	      maxZoom: 19,
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+	    }).addTo(map);
 
     function post(msg) {
       if (window.ReactNativeWebView) {
@@ -67,22 +67,22 @@ const LEAFLET_HTML = `<!DOCTYPE html>
       });
     }
 
-    window.__setMapStyle = function (mode, dark) {
-      map.removeLayer(base);
-      if (mode === 'satellite') {
-        base = L.tileLayer(TILE_SAT, {
-          maxZoom: 19,
-          attribution: 'Esri, Maxar, Earthstar Geographics'
-        }).addTo(map);
-      } else {
-        var u = dark ? TILE_DARK : TILE_LIGHT;
-        base = L.tileLayer(u, {
-          subdomains: 'abcd',
-          maxZoom: 19,
-          attribution: '&copy; OSM &copy; CARTO'
-        }).addTo(map);
-      }
-    };
+	    window.__setMapStyle = function (mode, dark) {
+	      map.removeLayer(base);
+	      if (mode === 'satellite') {
+	        base = L.tileLayer(TILE_SAT, {
+	          maxZoom: 19,
+	          attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> — Source: Esri, Maxar, Earthstar Geographics'
+	        }).addTo(map);
+	      } else {
+	        var u = dark ? TILE_DARK : TILE_LIGHT;
+	        base = L.tileLayer(u, {
+	          subdomains: 'abcd',
+	          maxZoom: 19,
+	          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+	        }).addTo(map);
+	      }
+	    };
 
     window.__setView = function (lat, lng, zoom) {
       map.setView([lat, lng], zoom, { animate: true, duration: 0.35 });

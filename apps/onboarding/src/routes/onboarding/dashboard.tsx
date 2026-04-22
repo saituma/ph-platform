@@ -1,37 +1,47 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { 
-	User, 
-	CircleNotch,
-	Layout,
+import {
 	Calendar,
-	TrendUp,
-	SignOut,
-	Phone,
-	Target,
-	Wrench,
-	Note,
-	Warning,
-	IdentificationCard,
-	Clock,
 	CheckCircle,
-	Hourglass,
+	CircleNotch,
+	Clock,
 	EnvelopeSimple,
+	Hourglass,
+	IdentificationCard,
+	Layout,
+	Note,
+	Phone,
+	SignOut,
+	Target,
+	TrendUp,
+	User,
+	Warning,
+	Wrench,
 } from "@phosphor-icons/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
-import { toast } from "sonner";
 import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
 import { PortalProvider, usePortal } from "#/portal/PortalContext";
 import { ProtectedLayout } from "#/portal/ProtectedLayout";
+import {
+	PORTAL_SERVICE_UNAVAILABLE,
+	PORTAL_UNAUTHORIZED_ERROR,
+} from "#/portal/portal-errors";
+import { useRedirectOnPortalUnauthorized } from "#/portal/use-redirect-on-portal-unauthorized";
 
 export const Route = createFileRoute("/onboarding/dashboard")({
 	component: OnboardingDashboardRoute,
 });
 
 function Countdown({ expiryDate }: { expiryDate: string }) {
-	const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number }>({ d: 0, h: 0, m: 0, s: 0 });
+	const [timeLeft, setTimeLeft] = useState<{
+		d: number;
+		h: number;
+		m: number;
+		s: number;
+	}>({ d: 0, h: 0, m: 0, s: 0 });
 
 	useEffect(() => {
 		const calculate = () => {
@@ -72,10 +82,12 @@ function TimeUnit({ value, label }: { value: number; label: string }) {
 		<div className="flex flex-col items-center">
 			<div className="bg-background/80 backdrop-blur-sm border border-border/60 w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center shadow-lg border-b-2 border-b-primary/40">
 				<span className="text-lg sm:text-2xl font-black tabular-nums tracking-tighter text-primary">
-					{String(value).padStart(2, '0')}
+					{String(value).padStart(2, "0")}
 				</span>
 			</div>
-			<span className="mt-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{label}</span>
+			<span className="mt-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+				{label}
+			</span>
 		</div>
 	);
 }
@@ -91,8 +103,8 @@ function OnboardingDashboardRoute() {
 }
 
 function Dashboard() {
-	const navigate = useNavigate();
-	const { user: userData, loading: isLoading, error, token } = usePortal();
+	useRedirectOnPortalUnauthorized();
+	const { user: userData, loading: isLoading, error, refresh } = usePortal();
 
 	const handleLogout = () => {
 		localStorage.removeItem("auth_token");
@@ -109,6 +121,36 @@ function Dashboard() {
 		);
 	}
 
+	if (error === PORTAL_UNAUTHORIZED_ERROR) {
+		return (
+			<div className="flex h-[80vh] flex-col items-center justify-center gap-3">
+				<CircleNotch className="w-10 h-10 animate-spin text-primary" />
+				<p className="text-sm text-muted-foreground">Redirecting to sign in…</p>
+			</div>
+		);
+	}
+
+	if (error === PORTAL_SERVICE_UNAVAILABLE) {
+		return (
+			<div className="flex h-[80vh] flex-col items-center justify-center gap-4 px-4">
+				<p className="max-w-md text-center text-sm font-semibold text-foreground">
+					The service cannot reach the database right now.
+				</p>
+				<p className="max-w-md text-center text-xs text-muted-foreground leading-relaxed">
+					Try again in a moment, or confirm your API database is running (e.g.
+					Neon not paused).
+				</p>
+				<Button
+					type="button"
+					onClick={() => void refresh()}
+					className="rounded-2xl font-black uppercase"
+				>
+					Retry
+				</Button>
+			</div>
+		);
+	}
+
 	if (!userData) return null;
 
 	const isYouth = userData.athleteType === "youth";
@@ -116,7 +158,8 @@ function Dashboard() {
 	const isTeam = userData.role === "coach";
 	const isGuardian = userData.role === "guardian";
 
-	const athletesData = userData.allAthletes || (userData.athleteId ? [userData] : []);
+	const athletesData =
+		userData.allAthletes || (userData.athleteId ? [userData] : []);
 
 	const formatDate = (dateString: string | null) => {
 		if (!dateString) return "N/A";
@@ -144,17 +187,13 @@ function Dashboard() {
 									<span>Athlete: {userData.athleteName}</span>
 								</>
 							)}
-							{isAdult && (
-								<span>Athlete: {userData.name}</span>
-							)}
-							{isTeam && (
-								<span>Team: {userData.name}</span>
-							)}
+							{isAdult && <span>Athlete: {userData.name}</span>}
+							{isTeam && <span>Team: {userData.name}</span>}
 						</div>
 					</div>
-					<Button 
-						variant="ghost" 
-						size="icon" 
+					<Button
+						variant="ghost"
+						size="icon"
 						onClick={handleLogout}
 						className="rounded-xl hover:bg-destructive/10 hover:text-destructive"
 					>
@@ -172,10 +211,14 @@ function Dashboard() {
 							<h3 className="font-bold text-lg leading-none">Registration</h3>
 							<p className="text-xs text-muted-foreground">Profile Status</p>
 						</div>
-						<div className={cn(
-							"text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full",
-							userData.onboardingCompleted ? "bg-green-500/20 text-green-500" : "bg-primary/20 text-primary"
-						)}>
+						<div
+							className={cn(
+								"text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full",
+								userData.onboardingCompleted
+									? "bg-green-500/20 text-green-500"
+									: "bg-primary/20 text-primary",
+							)}
+						>
 							{userData.onboardingCompleted ? "Active Member" : "In Progress"}
 						</div>
 					</Card>
@@ -187,9 +230,14 @@ function Dashboard() {
 						</div>
 						<div className="space-y-1">
 							<h3 className="font-bold text-lg leading-none">Account</h3>
-							<p className="text-xs text-muted-foreground truncate max-w-[200px]">{userData.email}</p>
+							<p className="text-xs text-muted-foreground truncate max-w-[200px]">
+								{userData.email}
+							</p>
 						</div>
-						<Link to="/profile" className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">
+						<Link
+							to="/profile"
+							className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+						>
 							View Settings
 						</Link>
 					</Card>
@@ -201,7 +249,9 @@ function Dashboard() {
 						</div>
 						<div className="space-y-1">
 							<h3 className="font-bold text-lg leading-none">Current Tier</h3>
-							<p className="text-xs text-muted-foreground">{userData.programTier?.replace(/_/g, ' ') || "No active plan"}</p>
+							<p className="text-xs text-muted-foreground">
+								{userData.programTier?.replace(/_/g, " ") || "No active plan"}
+							</p>
 						</div>
 						{userData.planExpiresAt && (
 							<div className="w-full space-y-2 px-4">
@@ -210,30 +260,52 @@ function Dashboard() {
 										Plan Progress
 									</span>
 									<span className="text-[9px] font-black uppercase text-primary">
-										{Math.max(0, Math.ceil((new Date(userData.planExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} Days Left
+										{Math.max(
+											0,
+											Math.ceil(
+												(new Date(userData.planExpiresAt).getTime() -
+													Date.now()) /
+													(1000 * 60 * 60 * 24),
+											),
+										)}{" "}
+										Days Left
 									</span>
 								</div>
 								<div className="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
-									<div 
+									<div
 										className="h-full bg-primary transition-all duration-1000 ease-out"
-										style={{ 
-											width: `${Math.min(100, Math.max(0, 
-												((new Date(userData.planExpiresAt).getTime() - Date.now()) / 
-												(new Date(userData.planExpiresAt).getTime() - new Date(userData.planCreatedAt || userData.createdAt).getTime() || 1)) * 100
-											))}%` 
+										style={{
+											width: `${Math.min(
+												100,
+												Math.max(
+													0,
+													((new Date(userData.planExpiresAt).getTime() -
+														Date.now()) /
+														(new Date(userData.planExpiresAt).getTime() -
+															new Date(
+																userData.planCreatedAt || userData.createdAt,
+															).getTime() || 1)) *
+														100,
+												),
+											)}%`,
 										}}
 									/>
 								</div>
 								<div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
 									<Clock size={10} weight="bold" className="text-primary" />
-									{userData.planPaymentType === 'monthly' ? 'Next Charge: ' : 'Plan Ends: '}
+									{userData.planPaymentType === "monthly"
+										? "Next Charge: "
+										: "Plan Ends: "}
 									{formatDate(userData.planExpiresAt)}
 								</div>
 							</div>
 						)}
 						{!userData.programTier && (
 							<Link to="/onboarding/step-1">
-								<Button size="sm" className="h-8 px-4 rounded-full text-[10px] font-black uppercase">
+								<Button
+									size="sm"
+									className="h-8 px-4 rounded-full text-[10px] font-black uppercase"
+								>
 									Finish Onboarding
 								</Button>
 							</Link>
@@ -245,23 +317,36 @@ function Dashboard() {
 				{userData.planExpiresAt && (
 					<Card className="p-8 sm:p-10 rounded-[2rem] border border-primary/20 bg-primary/5 backdrop-blur-xl shadow-2xl relative overflow-hidden">
 						<div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full -mr-48 -mt-48 blur-3xl" />
-						
+
 						<div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
 							<div className="space-y-2 text-center md:text-left">
 								<div className="flex items-center justify-center md:justify-start gap-3 text-primary">
-									<Hourglass size={28} weight="fill" className="animate-pulse" />
-									<h2 className="text-2xl font-black uppercase italic tracking-tight">Plan Countdown</h2>
+									<Hourglass
+										size={28}
+										weight="fill"
+										className="animate-pulse"
+									/>
+									<h2 className="text-2xl font-black uppercase italic tracking-tight">
+										Plan Countdown
+									</h2>
 								</div>
 								<p className="text-muted-foreground font-bold uppercase tracking-widest text-[9px]">
-									Time remaining until your {userData.planPaymentType === 'monthly' ? 'next renewal' : 'plan ends'}
+									Time remaining until your{" "}
+									{userData.planPaymentType === "monthly"
+										? "next renewal"
+										: "plan ends"}
 								</p>
 							</div>
 
 							<Countdown expiryDate={userData.planExpiresAt} />
 
 							<div className="hidden lg:block space-y-1 text-right">
-								<p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Final Date</p>
-								<p className="text-sm font-black text-primary uppercase">{formatDate(userData.planExpiresAt)}</p>
+								<p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+									Final Date
+								</p>
+								<p className="text-sm font-black text-primary uppercase">
+									{formatDate(userData.planExpiresAt)}
+								</p>
 							</div>
 						</div>
 					</Card>
@@ -272,12 +357,17 @@ function Dashboard() {
 					<div className="space-y-6">
 						<div className="flex items-center gap-3">
 							<TrendUp size={24} weight="bold" className="text-primary" />
-							<h2 className="text-xl font-black uppercase italic">Performance Stats</h2>
+							<h2 className="text-xl font-black uppercase italic">
+								Performance Stats
+							</h2>
 						</div>
 
 						<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
 							{athletesData.map((athlete: any) => (
-								<Card key={athlete.id} className="p-6 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl space-y-4 hover:border-primary/40 transition-all duration-300 group">
+								<Card
+									key={athlete.id}
+									className="p-6 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl space-y-4 hover:border-primary/40 transition-all duration-300 group"
+								>
 									<div className="flex items-center justify-between border-b border-border/40 pb-3">
 										<div className="flex items-center gap-3">
 											<div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -303,7 +393,11 @@ function Dashboard() {
 												Finished Sessions
 											</span>
 											<div className="flex items-center gap-2">
-												<CheckCircle size={16} weight="bold" className="text-green-500" />
+												<CheckCircle
+													size={16}
+													weight="bold"
+													className="text-green-500"
+												/>
 												<span className="text-lg font-black text-foreground">
 													{athlete.trainingStats?.finishedSessions || 0}
 												</span>
@@ -314,7 +408,11 @@ function Dashboard() {
 												Finished Modules
 											</span>
 											<div className="flex items-center gap-2">
-												<Layout size={16} weight="bold" className="text-primary" />
+												<Layout
+													size={16}
+													weight="bold"
+													className="text-primary"
+												/>
 												<span className="text-lg font-black text-foreground">
 													{athlete.trainingStats?.finishedModules || 0}
 												</span>
@@ -329,23 +427,47 @@ function Dashboard() {
 													Plan Validity
 												</span>
 												<span className="text-[10px] font-black uppercase text-primary">
-													{Math.max(0, Math.ceil((new Date(athlete.planExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} Days Left
+													{Math.max(
+														0,
+														Math.ceil(
+															(new Date(athlete.planExpiresAt).getTime() -
+																Date.now()) /
+																(1000 * 60 * 60 * 24),
+														),
+													)}{" "}
+													Days Left
 												</span>
 											</div>
 											<div className="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
-												<div 
+												<div
 													className="h-full bg-primary transition-all duration-1000 ease-out"
-													style={{ 
-														width: `${Math.min(100, Math.max(0, 
-															((new Date(athlete.planExpiresAt).getTime() - Date.now()) / 
-															(new Date(athlete.planExpiresAt).getTime() - new Date(athlete.planCreatedAt || athlete.createdAt).getTime() || 1)) * 100
-														))}%` 
+													style={{
+														width: `${Math.min(
+															100,
+															Math.max(
+																0,
+																((new Date(athlete.planExpiresAt).getTime() -
+																	Date.now()) /
+																	(new Date(athlete.planExpiresAt).getTime() -
+																		new Date(
+																			athlete.planCreatedAt ||
+																				athlete.createdAt,
+																		).getTime() || 1)) *
+																	100,
+															),
+														)}%`,
 													}}
 												/>
 											</div>
 											<div className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase">
-												<Clock size={10} weight="bold" className="text-primary" />
-												{athlete.planPaymentType === 'monthly' ? 'Next Charge: ' : 'Plan Ends: '}
+												<Clock
+													size={10}
+													weight="bold"
+													className="text-primary"
+												/>
+												{athlete.planPaymentType === "monthly"
+													? "Next Charge: "
+													: "Plan Ends: "}
 												{formatDate(athlete.planExpiresAt)}
 											</div>
 										</div>
@@ -360,16 +482,43 @@ function Dashboard() {
 					{/* Detailed Athlete Info */}
 					<Card className="p-8 sm:p-10 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl space-y-8">
 						<div className="flex items-center gap-3">
-							<IdentificationCard size={24} weight="bold" className="text-primary" />
-							<h2 className="text-xl font-black uppercase italic">Athlete Profile</h2>
+							<IdentificationCard
+								size={24}
+								weight="bold"
+								className="text-primary"
+							/>
+							<h2 className="text-xl font-black uppercase italic">
+								Athlete Profile
+							</h2>
 						</div>
 
 						<div className="grid gap-6 sm:grid-cols-2">
-							<DetailItem label="Full Name" value={userData.athleteName || userData.name} icon={User} />
-							<DetailItem label="Email" value={userData.email} icon={EnvelopeSimple} />
-							<DetailItem label="Phone" value={userData.phoneNumber || "N/A"} icon={Phone} />
-							<DetailItem label="Birth Date" value={formatDate(userData.birthDate)} icon={Calendar} />
-							<DetailItem label="Athlete Type" value={userData.athleteType || "N/A"} icon={Layout} className="capitalize" />
+							<DetailItem
+								label="Full Name"
+								value={userData.athleteName || userData.name}
+								icon={User}
+							/>
+							<DetailItem
+								label="Email"
+								value={userData.email}
+								icon={EnvelopeSimple}
+							/>
+							<DetailItem
+								label="Phone"
+								value={userData.phoneNumber || "N/A"}
+								icon={Phone}
+							/>
+							<DetailItem
+								label="Birth Date"
+								value={formatDate(userData.birthDate)}
+								icon={Calendar}
+							/>
+							<DetailItem
+								label="Athlete Type"
+								value={userData.athleteType || "N/A"}
+								icon={Layout}
+								className="capitalize"
+							/>
 						</div>
 					</Card>
 
@@ -377,23 +526,47 @@ function Dashboard() {
 					<Card className="p-8 sm:p-10 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl space-y-8">
 						<div className="flex items-center gap-3">
 							<Target size={24} weight="bold" className="text-primary" />
-							<h2 className="text-xl font-black uppercase italic">Training & Goals</h2>
+							<h2 className="text-xl font-black uppercase italic">
+								Training & Goals
+							</h2>
 						</div>
 
 						<div className="grid gap-6 sm:grid-cols-2">
-							<DetailItem label="Frequency" value={`${userData.trainingPerWeek || 0} days / week`} icon={Calendar} />
-							<DetailItem label="Equipment" value={userData.equipmentAccess || "N/A"} icon={Wrench} className="capitalize" />
+							<DetailItem
+								label="Frequency"
+								value={`${userData.trainingPerWeek || 0} days / week`}
+								icon={Calendar}
+							/>
+							<DetailItem
+								label="Equipment"
+								value={userData.equipmentAccess || "N/A"}
+								icon={Wrench}
+								className="capitalize"
+							/>
 							<div className="sm:col-span-2">
-								<DetailItem label="Performance Goals" value={userData.performanceGoals || "N/A"} icon={Target} />
+								<DetailItem
+									label="Performance Goals"
+									value={userData.performanceGoals || "N/A"}
+									icon={Target}
+								/>
 							</div>
 							{userData.growthNotes && (
 								<div className="sm:col-span-2">
-									<DetailItem label="Growth Notes" value={userData.growthNotes} icon={Note} />
+									<DetailItem
+										label="Growth Notes"
+										value={userData.growthNotes}
+										icon={Note}
+									/>
 								</div>
 							)}
 							{userData.injuries?.notes && (
 								<div className="sm:col-span-2">
-									<DetailItem label="Injuries" value={userData.injuries.notes} icon={Warning} destructive />
+									<DetailItem
+										label="Injuries"
+										value={userData.injuries.notes}
+										icon={Warning}
+										destructive
+									/>
 								</div>
 							)}
 						</div>
@@ -403,13 +576,15 @@ function Dashboard() {
 				{/* Activity Feed */}
 				<Card className="p-8 sm:p-10 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl relative overflow-hidden">
 					<div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl" />
-					
+
 					<div className="relative z-10 space-y-6">
 						<div className="flex items-center gap-3">
 							<Calendar size={24} weight="bold" className="text-primary" />
-							<h2 className="text-xl font-black uppercase italic">Activity Feed</h2>
+							<h2 className="text-xl font-black uppercase italic">
+								Activity Feed
+							</h2>
 						</div>
-						
+
 						<div className="space-y-4">
 							<div className="p-4 rounded-2xl border border-border/40 bg-background/30 text-sm font-medium text-muted-foreground italic text-center">
 								No recent activity to show.
@@ -422,16 +597,16 @@ function Dashboard() {
 	);
 }
 
-function DetailItem({ 
-	label, 
-	value, 
-	icon: Icon, 
+function DetailItem({
+	label,
+	value,
+	icon: Icon,
 	className,
-	destructive = false 
-}: { 
-	label: string; 
-	value: string; 
-	icon: any; 
+	destructive = false,
+}: {
+	label: string;
+	value: string;
+	icon: any;
 	className?: string;
 	destructive?: boolean;
 }) {
@@ -441,8 +616,18 @@ function DetailItem({
 				{label}
 			</span>
 			<div className="flex items-center gap-2.5">
-				<Icon size={18} weight="bold" className={cn(destructive ? "text-destructive" : "text-primary")} />
-				<span className={cn("text-sm font-bold truncate", destructive && "text-destructive", className)}>
+				<Icon
+					size={18}
+					weight="bold"
+					className={cn(destructive ? "text-destructive" : "text-primary")}
+				/>
+				<span
+					className={cn(
+						"text-sm font-bold truncate",
+						destructive && "text-destructive",
+						className,
+					)}
+				>
 					{value}
 				</span>
 			</div>

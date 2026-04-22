@@ -45,7 +45,7 @@ async function ensureTeamEmailSlugRow(team: typeof teamTable.$inferSelect) {
 type AuthUser = { id: number; role: string };
 
 export async function getManagedTeamForUser(user: AuthUser, teamIdQuery?: number | null) {
-  if (user.role === "coach") {
+  if (user.role === "team_coach" || user.role === "program_coach" || user.role === "coach") {
     const rows = await db.select().from(teamTable).where(eq(teamTable.adminId, user.id)).limit(1);
     return rows[0] ?? null;
   }
@@ -299,7 +299,7 @@ export async function createTeamRosterAthlete(
         cognitoSub: `local:team-athlete:${crypto.randomUUID()}`,
         name: displayName,
         email,
-        role: "athlete",
+        role: "team_athlete",
         passwordHash: hash,
         passwordSalt: salt,
         emailVerified: true,

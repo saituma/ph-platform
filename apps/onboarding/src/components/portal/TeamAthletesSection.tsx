@@ -4,16 +4,6 @@ import { Camera, ChevronRight, UserPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PasswordStrengthPanel } from "@/components/portal/PasswordStrengthPanel";
-import { env } from "@/env";
-import { isStrongPassword } from "@/lib/password-strength";
-import { usePortal } from "@/portal/PortalContext";
-import {
-	createTeamAthlete,
-	fetchTeamRoster,
-	rosterQueryKeys,
-	updateTeamEmailSlug,
-	uploadTeamAthletePhoto,
-} from "@/services/teamRosterService";
 import { Button } from "@/components/ui/button";
 import {
 	Sheet,
@@ -23,6 +13,20 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { env } from "@/env";
+import { isStrongPassword } from "@/lib/password-strength";
+import {
+	isPortalTeamFacingCoachRole,
+	isPortalTeamRosterManagerRole,
+} from "@/lib/portal-roles";
+import { usePortal } from "@/portal/PortalContext";
+import {
+	createTeamAthlete,
+	fetchTeamRoster,
+	rosterQueryKeys,
+	updateTeamEmailSlug,
+	uploadTeamAthletePhoto,
+} from "@/services/teamRosterService";
 
 function emailDomain() {
 	return env.VITE_TEAM_ATHLETE_EMAIL_DOMAIN || "phplatform.com";
@@ -54,7 +58,7 @@ export function TeamAthletesSection({
 
 	const adminBase = env.VITE_PUBLIC_ADMIN_WEB_URL?.replace(/\/$/, "") ?? "";
 
-	const isCoach = user?.role === "coach";
+	const canManageTeam = isPortalTeamRosterManagerRole(user?.role);
 	const isAdmin = user?.role === "admin" || user?.role === "superAdmin";
 
 	const rosterQ = useQuery({
@@ -64,7 +68,7 @@ export function TeamAthletesSection({
 			if (!t) throw new Error("Not authenticated");
 			return fetchTeamRoster(t);
 		},
-		enabled: !!token && isCoach && !!user?.team?.id,
+		enabled: !!token && canManageTeam && !!user?.team?.id,
 	});
 
 	const roster = rosterQ.data;
@@ -114,7 +118,7 @@ export function TeamAthletesSection({
 		}
 	};
 
-	if (isAdmin && !isCoach) {
+	if (isAdmin && !isPortalTeamFacingCoachRole(user?.role)) {
 		return (
 			<div className="rounded-2xl border bg-card p-6 shadow-sm space-y-3">
 				<h2 className="text-lg font-semibold">Team &amp; athletes (admin)</h2>
@@ -142,7 +146,7 @@ export function TeamAthletesSection({
 		);
 	}
 
-	if (!isCoach || !user?.team?.id) return null;
+	if (!canManageTeam || !user?.team?.id) return null;
 
 	const onCreate = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -417,7 +421,9 @@ export function TeamAthletesSection({
 									</label>
 									<PasswordStrengthPanel password={customPassword} />
 									<label className="grid gap-1 text-sm">
-										<span className="text-muted-foreground">Confirm password</span>
+										<span className="text-muted-foreground">
+											Confirm password
+										</span>
 										<input
 											type="password"
 											autoComplete="new-password"

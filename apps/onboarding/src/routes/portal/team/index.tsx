@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { TeamAthletesSection } from "@/components/portal/TeamAthletesSection";
+import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
 import { usePortal } from "@/portal/PortalContext";
 
 export const Route = createFileRoute("/portal/team/")({
@@ -9,7 +10,7 @@ export const Route = createFileRoute("/portal/team/")({
 
 function TeamPage() {
 	const { user } = usePortal();
-	const isCoach = user?.role === "coach";
+	const canManageTeam = isPortalTeamRosterManagerRole(user?.role);
 
 	return (
 		<div className="container mx-auto max-w-3xl space-y-6 p-4 pb-24">
@@ -32,10 +33,10 @@ function TeamPage() {
 				</p>
 			</div>
 
-			{!isCoach ? (
+			{!canManageTeam ? (
 				<div className="rounded-2xl border bg-muted/30 p-6 text-sm text-muted-foreground">
 					<p>
-						Team management is available to coach accounts. If you’re an athlete
+						Team management is for team coaches and admins. If you’re an athlete
 						or guardian, use the dashboard and other sections for your own
 						profile.
 					</p>

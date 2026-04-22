@@ -4,6 +4,7 @@ import { athleteTable, guardianTable, notificationTable, userTable } from "../..
 import { env } from "../../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../../lib/mailer";
 import { createBookingActionToken } from "../../lib/booking-actions";
+import { ROLES_TRAINING_STAFF } from "../../lib/user-roles";
 import { sendPushNotification } from "../push.service";
 import { getSocketServer } from "../../socket-hub";
 
@@ -44,7 +45,7 @@ export async function notifyBookingRequested(input: {
   const adminUsers = await db
     .select({ email: userTable.email })
     .from(userTable)
-    .where(inArray(userTable.role, ["coach", "admin", "superAdmin"]));
+    .where(inArray(userTable.role, ROLES_TRAINING_STAFF));
 
   for (const admin of adminUsers) {
     if (!admin.email) continue;

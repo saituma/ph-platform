@@ -1,18 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   TextInput,
   View,
 } from "react-native";
 import type { Region } from "react-native-maps";
 import * as Location from "expo-location";
 import { Stack, useRouter } from "expo-router";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { 
+  ChevronLeft, 
+  Play, 
+  MapPin, 
+  Target, 
+  Bell, 
+  BellOff,
+  Navigation,
+  Map as MapIcon,
+  Trash2
+} from "lucide-react-native";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
@@ -25,38 +33,6 @@ import { requestRunProgressNotificationPermission } from "@/lib/runProgressNotif
 import { useRunStore } from "../../../store/useRunStore";
 
 type Destination = { latitude: number; longitude: number };
-
-type SearchRow = {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  type: string;
-};
-
-type NominatimHit = {
-  place_id: number | string;
-  display_name: string;
-  lat: string;
-  lon: string;
-  type?: string;
-};
-
-function emojiForPlaceType(type: string): string {
-  const t = (type || "").toLowerCase();
-  if (t.includes("restaurant")) return "🍽️";
-  if (t.includes("cafe") || t.includes("coffee")) return "☕";
-  if (t.includes("gym") || t.includes("fitness")) return "🏋️";
-  if (t.includes("hospital") || t.includes("clinic")) return "🏥";
-  if (t.includes("park") || t.includes("garden")) return "🌳";
-  return "📍";
-}
-
-function splitDisplayName(displayName: string): { title: string; subtitle: string } {
-  const parts = displayName.split(",").map((s) => s.trim()).filter(Boolean);
-  if (parts.length === 0) return { title: displayName, subtitle: "" };
-  return { title: parts[0], subtitle: parts.slice(1).join(", ") };
-}
 
 function parseMetersFromInput(raw: string): number | null {
   const s = raw.trim().toLowerCase();
@@ -71,7 +47,6 @@ export default function RunSetupScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const mapRef = useRef<TrackingMapViewRef | null>(null);
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
   const [region, setRegion] = useState<Region>({
@@ -87,10 +62,6 @@ export default function RunSetupScreen() {
 
   const [notifEveryText, setNotifEveryText] = useState<string>("1km");
   const [notifEnabled, setNotifEnabled] = useState<boolean>(false);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchRow[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
 
   const goalMapLayers = useMemo((): TrackingMapLayer[] => {
     const out: TrackingMapLayer[] = [];
@@ -141,49 +112,6 @@ export default function RunSetupScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    };
-  }, []);
-
-  const runNominatimSearch = useCallback(async (q: string) => {
-    const query = q.trim();
-    if (query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    setSearchLoading(true);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=6&addressdetails=1`;
-      const res = await fetch(url, {
-        headers: { "User-Agent": "PHPerformance/1.0" },
-      });
-      const data = (await res.json()) as NominatimHit[];
-      setSearchResults(
-        data
-          .map((p) => ({
-            id: String(p.place_id),
-            name: p.display_name,
-            latitude: parseFloat(p.lat),
-            longitude: parseFloat(p.lon),
-            type: p.type ?? "",
-          }))
-          .filter((r) => Number.isFinite(r.latitude) && Number.isFinite(r.longitude)),
-      );
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
-    }
-  }, []);
-
-  const onSearchChange = (text: string) => {
-    setSearchQuery(text);
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => void runNominatimSearch(text), 450);
-  };
-
   const selectDestination = useCallback((dest: Destination) => {
     setDestination(dest);
     const next: Region = {
@@ -196,11 +124,6 @@ export default function RunSetupScreen() {
     mapRef.current?.animateToRegion(next, 450);
   }, []);
 
-  const onSelectResult = (row: SearchRow) => {
-    selectDestination({ latitude: row.latitude, longitude: row.longitude });
-    setSearchResults([]);
-  };
-
   const onMapPress = useCallback((e: any) => {
     const c = e?.nativeEvent?.coordinate;
     const lat = c?.latitude;
@@ -212,7 +135,6 @@ export default function RunSetupScreen() {
   const notifEveryMeters = useMemo(() => (notifEnabled ? parseMetersFromInput(notifEveryText) : null), [notifEnabled, notifEveryText]);
 
   const startRun = useCallback(async () => {
-    // Destination mode: goal km is not chosen.
     const goalKm =
       destination
         ? null
@@ -221,7 +143,6 @@ export default function RunSetupScreen() {
             return Number.isFinite(v) && v > 0 ? Math.min(200, v) : null;
           })();
 
-    // Notifications: ask permission only if enabled.
     let every = notifEveryMeters;
     if (every != null) {
       const ok = await requestRunProgressNotificationPermission();
@@ -229,7 +150,7 @@ export default function RunSetupScreen() {
         const proceed = await new Promise<boolean>((resolve) => {
           Alert.alert(
             "Enable notifications?",
-            "To get distance alerts, allow notifications. You can still run without them.",
+            "To get distance alerts, allow notifications.",
             [
               { text: "Run without", style: "cancel", onPress: () => resolve(false) },
               { text: "Try again", onPress: () => resolve(true) },
@@ -252,8 +173,11 @@ export default function RunSetupScreen() {
     router.replace("/(tabs)/tracking/active-run" as any);
   }, [destination, goalText, notifEveryMeters, router]);
 
-  const glassBg = isDark ? "rgba(20,20,20,0.55)" : "rgba(255,255,255,0.78)";
-  const glassBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)";
+  // Design Tokens
+  const glassBg = isDark ? "rgba(10,10,10,0.72)" : "rgba(255,255,255,0.85)";
+  const glassBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.10)";
+  const cardBg = isDark ? colors.cardElevated : colors.background;
+  const accentMuted = `${colors.accent}15`;
 
   return (
     <>
@@ -273,7 +197,7 @@ export default function RunSetupScreen() {
           onPress={onMapPress}
         />
 
-        <MapStyleSwitcher value={mapStyle} onChange={setMapStyle} colors={colors} left={14} anchorBottom={14} />
+        <MapStyleSwitcher value={mapStyle} onChange={setMapStyle} colors={colors} left={14} anchorBottom={20} />
 
         <View
           style={{
@@ -281,7 +205,7 @@ export default function RunSetupScreen() {
             top: 0,
             left: 0,
             right: 0,
-            paddingTop: 10,
+            paddingTop: Platform.OS === "ios" ? 10 : 30,
             paddingHorizontal: spacing.xl,
           }}
         >
@@ -289,44 +213,54 @@ export default function RunSetupScreen() {
             <Pressable
               onPress={() => router.back()}
               style={({ pressed }) => ({
-                height: 40,
-                paddingHorizontal: 10,
+                width: 44,
+                height: 44,
                 borderRadius: radius.pill,
                 backgroundColor: glassBg,
                 borderWidth: 1,
                 borderColor: glassBorder,
-                flexDirection: "row",
                 alignItems: "center",
-                gap: 8,
+                justifyContent: "center",
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Feather name="chevron-left" size={18} color={colors.icon} />
-              <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textSecondary }}>Back</Text>
+              <ChevronLeft size={24} color={colors.textPrimary} strokeWidth={2.5} />
             </Pressable>
 
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ fontFamily: fonts.heading3, color: colors.textPrimary }}>Run setup</Text>
-              <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary }}>
-                Destination or goal (optional)
-              </Text>
+            <View style={{ 
+              backgroundColor: glassBg, 
+              paddingHorizontal: 20, 
+              paddingVertical: 8, 
+              borderRadius: radius.pill, 
+              borderWidth: 1, 
+              borderColor: glassBorder,
+              alignItems: "center" 
+            }}>
+              <Text style={{ fontFamily: fonts.clashBold, fontSize: 15, color: colors.textPrimary }}>RUN SETUP</Text>
             </View>
 
             <Pressable
               onPress={() => void startRun()}
               style={({ pressed }) => ({
-                height: 40,
-                paddingHorizontal: 14,
+                height: 44,
+                paddingHorizontal: 20,
                 borderRadius: radius.pill,
                 backgroundColor: colors.accent,
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 8,
                 opacity: pressed ? 0.9 : 1,
+                ...(isDark ? {} : {
+                  shadowColor: colors.accent,
+                  shadowOpacity: 0.3,
+                  shadowRadius: 10,
+                  shadowOffset: { width: 0, height: 4 },
+                  elevation: 4
+                })
               })}
             >
-              <Ionicons name="play" size={16} color={colors.textInverse} />
-              <Text style={{ fontFamily: fonts.bodyBold, color: colors.textInverse }}>Start</Text>
+              <Play size={18} color="#FFF" fill="#FFF" />
+              <Text style={{ fontFamily: fonts.clashBold, fontSize: 14, color: "#FFF" }}>START</Text>
             </Pressable>
           </View>
         </View>
@@ -338,244 +272,136 @@ export default function RunSetupScreen() {
           <View
             style={{
               paddingHorizontal: spacing.xl,
-              paddingTop: 12,
-              paddingBottom: 16,
+              paddingTop: 20,
+              paddingBottom: Platform.OS === "ios" ? 34 : 24,
               backgroundColor: glassBg,
               borderTopWidth: 1,
               borderTopColor: glassBorder,
+              borderTopLeftRadius: radius.xxl,
+              borderTopRightRadius: radius.xxl,
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <TextInput
-                  value={searchQuery}
-                  onChangeText={onSearchChange}
-                  placeholder="Search destination (optional)"
-                  placeholderTextColor={colors.placeholder}
-                  style={{
-                    height: 44,
-                    borderRadius: 16,
-                    paddingHorizontal: 14,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    backgroundColor: colors.background,
-                    color: colors.text,
-                    fontFamily: fonts.bodyMedium,
-                  }}
-                />
-              </View>
-              <Pressable
-                onPress={() => {
-                  setSearchQuery("");
-                  setSearchResults([]);
-                }}
-                style={({ pressed }) => ({
-                  width: 44,
-                  height: 44,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  backgroundColor: colors.background,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: pressed ? 0.9 : 1,
-                })}
-              >
-                <Feather name="x" size={18} color={colors.icon} />
-              </Pressable>
-            </View>
-
-            {searchLoading ? (
-              <View style={{ paddingTop: 10, alignItems: "center" }}>
-                <ActivityIndicator />
-              </View>
-            ) : searchResults.length ? (
-              <View style={{ marginTop: 10, maxHeight: 160 }}>
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  {searchResults.map((r) => {
-                    const { title, subtitle } = splitDisplayName(r.name);
-                    return (
-                      <Pressable
-                        key={r.id}
-                        onPress={() => onSelectResult(r)}
-                        style={({ pressed }) => ({
-                          paddingVertical: 10,
-                          borderBottomWidth: 1,
-                          borderBottomColor: colors.borderSubtle,
-                          opacity: pressed ? 0.9 : 1,
-                          flexDirection: "row",
-                          gap: 10,
-                          alignItems: "center",
-                        })}
-                      >
-                        <Text style={{ fontSize: 18 }}>{emojiForPlaceType(r.type)}</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }} numberOfLines={1}>
-                            {title}
-                          </Text>
-                          {subtitle ? (
-                            <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>
-                              {subtitle}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            ) : null}
-
-            <View style={{ marginTop: 12, gap: 10 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>
-                  DESTINATION
-                </Text>
-                {destination ? (
-                  <Pressable onPress={() => setDestination(null)}>
-                    <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>Clear</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-
-              {destination ? (
-                <View
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 18,
-                    padding: 12,
-                    backgroundColor: colors.background,
-                  }}
-                >
-                  <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>Destination selected</Text>
-                  <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>
-                    {destinationDistanceMeters != null
-                      ? `Approx. ${(destinationDistanceMeters / 1000).toFixed(2)} km from your current location`
-                      : "Distance unavailable"}
-                  </Text>
-                  <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary, marginTop: 6 }}>
-                    Tap the map to change the destination.
-                  </Text>
+            {/* Configuration Panels */}
+            <View style={{ gap: 16 }}>
+              {/* Destination Section */}
+              <View style={{ backgroundColor: cardBg, borderRadius: radius.xl, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <MapPin size={16} color={colors.accent} strokeWidth={2.5} />
+                    <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 1.5 }}>DESTINATION</Text>
+                  </View>
+                  {destination && (
+                    <Pressable onPress={() => setDestination(null)} style={{ padding: 4 }}>
+                      <Trash2 size={16} color={colors.danger} />
+                    </Pressable>
+                  )}
                 </View>
-              ) : (
-                <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary }}>
-                  Optional. Tap the map or search a place.
-                </Text>
-              )}
 
-              {!destination ? (
-                <View style={{ gap: 8 }}>
-                  <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>
-                    GOAL (OPTIONAL)
-                  </Text>
-                  <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                    <TextInput
-                      keyboardType="decimal-pad"
-                      value={goalText}
-                      onChangeText={setGoalText}
-                      placeholder="e.g. 5"
-                      placeholderTextColor={colors.placeholder}
-                      style={{
-                        flex: 1,
-                        height: 44,
-                        borderRadius: 16,
-                        paddingHorizontal: 14,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                        color: colors.text,
-                        fontFamily: fonts.bodyMedium,
-                      }}
-                    />
-                    <View
-                      style={{
-                        height: 44,
-                        paddingHorizontal: 12,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textSecondary }}>km</Text>
+                {destination ? (
+                  <View>
+                    <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.textPrimary }}>Target Location Set</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                      <Navigation size={12} color={colors.textSecondary} />
+                      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                        {destinationDistanceMeters != null
+                          ? `${(destinationDistanceMeters / 1000).toFixed(2)} km away`
+                          : "Distance calculating..."}
+                      </Text>
                     </View>
                   </View>
-                </View>
-              ) : null}
-
-              <View style={{ gap: 8 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>
-                    DISTANCE NOTIFICATIONS
-                  </Text>
-                  <Pressable onPress={() => setNotifEnabled((v) => !v)}>
-                    <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: notifEnabled ? colors.accent : colors.textSecondary }}>
-                      {notifEnabled ? "ON" : "OFF"}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {notifEnabled ? (
-                  <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                    <TextInput
-                      value={notifEveryText}
-                      onChangeText={setNotifEveryText}
-                      placeholder="e.g. 1km or 500"
-                      placeholderTextColor={colors.placeholder}
-                      style={{
-                        flex: 1,
-                        height: 44,
-                        borderRadius: 16,
-                        paddingHorizontal: 14,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                        color: colors.text,
-                        fontFamily: fonts.bodyMedium,
-                      }}
-                    />
-                    <Pressable
-                      onPress={() => setNotifEveryText("1km")}
-                      style={({ pressed }) => ({
-                        height: 44,
-                        paddingHorizontal: 12,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: pressed ? 0.9 : 1,
-                      })}
-                    >
-                      <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textSecondary }}>1km</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setNotifEveryText("500")}
-                      style={({ pressed }) => ({
-                        height: 44,
-                        paddingHorizontal: 12,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: pressed ? 0.9 : 1,
-                      })}
-                    >
-                      <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textSecondary }}>500m</Text>
-                    </Pressable>
-                  </View>
                 ) : (
-                  <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary }}>
-                    Optional. Get a notification every X meters / km.
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <MapIcon size={14} color={colors.textDim} />
+                    <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textDim }}>
+                      Optional. Tap map to set a finish line.
+                    </Text>
+                  </View>
                 )}
               </View>
+
+              {/* Goal & Notifications Row */}
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                {/* Goal Input */}
+                {!destination && (
+                  <View style={{ flex: 1.2, backgroundColor: cardBg, borderRadius: radius.xl, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                      <Target size={16} color={colors.purple} strokeWidth={2.5} />
+                      <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 1.5 }}>GOAL</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <TextInput
+                        keyboardType="decimal-pad"
+                        value={goalText}
+                        onChangeText={setGoalText}
+                        placeholder="0.0"
+                        placeholderTextColor={colors.placeholder}
+                        style={{
+                          flex: 1,
+                          height: 32,
+                          color: colors.text,
+                          fontFamily: fonts.heroDisplay,
+                          fontSize: 20,
+                          padding: 0,
+                        }}
+                      />
+                      <Text style={{ fontFamily: fonts.labelMedium, color: colors.textDim }}>km</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Notification Toggle */}
+                <Pressable 
+                  onPress={() => setNotifEnabled((v) => !v)}
+                  style={({ pressed }) => ({ 
+                    flex: 1, 
+                    backgroundColor: notifEnabled ? accentMuted : cardBg, 
+                    borderRadius: radius.xl, 
+                    padding: 16, 
+                    borderWidth: 1, 
+                    borderColor: notifEnabled ? colors.accent : colors.border,
+                    opacity: pressed ? 0.9 : 1
+                  })}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    {notifEnabled ? <Bell size={16} color={colors.accent} strokeWidth={2.5} /> : <BellOff size={16} color={colors.textDim} strokeWidth={2} />}
+                    <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: notifEnabled ? colors.accent : colors.textSecondary, letterSpacing: 1.5 }}>ALERTS</Text>
+                  </View>
+                  <Text style={{ fontFamily: fonts.clashBold, fontSize: 16, color: notifEnabled ? colors.accent : colors.textDim }}>
+                    {notifEnabled ? notifEveryText : "OFF"}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Notification Quick Pickers (only if enabled) */}
+              {notifEnabled && (
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  {["500m", "1km", "2km", "5km"].map((val) => (
+                    <Pressable
+                      key={val}
+                      onPress={() => setNotifEveryText(val.replace("m", ""))}
+                      style={({ pressed }) => ({
+                        flex: 1,
+                        height: 36,
+                        borderRadius: radius.lg,
+                        backgroundColor: notifEveryText === val.replace("m", "") || (val === "1km" && notifEveryText === "1000") ? colors.accent : cardBg,
+                        borderWidth: 1,
+                        borderColor: notifEveryText === val.replace("m", "") ? colors.accent : colors.border,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: pressed ? 0.8 : 1,
+                      })}
+                    >
+                      <Text style={{ 
+                        fontFamily: fonts.bodyBold, 
+                        fontSize: 12, 
+                        color: notifEveryText === val.replace("m", "") ? "#FFF" : colors.textSecondary 
+                      }}>
+                        {val}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>

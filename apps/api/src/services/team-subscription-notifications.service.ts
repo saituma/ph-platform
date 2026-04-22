@@ -1,4 +1,4 @@
-import { and, eq, ne, or } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 
 import { env } from "../config/env";
 import { db } from "../db";
@@ -11,6 +11,7 @@ import {
   sendSubscriptionPendingUserEmail,
 } from "../lib/mailer";
 import { getStripeClient } from "./billing/stripe.service";
+import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
 
 function formatStripeAmount(amountCents: number | null, currency: string | null) {
   if (amountCents == null) return null;
@@ -118,7 +119,7 @@ export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId
       and(
         eq(userTable.isDeleted, false),
         eq(userTable.isBlocked, false),
-        or(eq(userTable.role, "coach"), eq(userTable.role, "admin"), eq(userTable.role, "superAdmin")),
+        inArray(userTable.role, ROLES_TRAINING_STAFF),
         ne(userTable.email, ""),
       ),
     );

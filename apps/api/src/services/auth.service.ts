@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { db } from "../db";
 import { userTable } from "../db/schema";
 import { and, desc, eq } from "drizzle-orm";
+import { withTransientDbRetry } from "../lib/db-connectivity";
 import { createLocalToken } from "../lib/jwt";
 import { sendOtpEmail } from "../lib/mailer";
 import { v4 as uuidv4 } from "uuid";
@@ -383,12 +384,14 @@ export async function startEmailRegistration(input: { email: string }) {
 }
 
 export async function loginLocal(input: { email: string; password: string }) {
-  const users = await db
-    .select()
-    .from(userTable)
-    .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
-    .orderBy(desc(userTable.id))
-    .limit(1);
+  const users = await withTransientDbRetry("loginLocal.lookupUser", () =>
+    db
+      .select()
+      .from(userTable)
+      .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+      .orderBy(desc(userTable.id))
+      .limit(1),
+  );
   const user = users[0];
   if (!user || !user.passwordHash || !user.passwordSalt) {
     throw { status: 401, message: "Invalid credentials." };

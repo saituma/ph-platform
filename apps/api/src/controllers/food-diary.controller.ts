@@ -16,6 +16,7 @@ import { db } from "../db";
 import { notificationTable, userTable } from "../db/schema";
 import { env } from "../config/env";
 import { sendPushNotification } from "../services/push.service";
+import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
 
 const mealsSchema = z.union([z.array(z.any()), z.record(z.any())]).optional();
 
@@ -87,7 +88,7 @@ export async function createFoodDiary(req: Request, res: Response) {
   const coaches = await db
     .select({ id: userTable.id })
     .from(userTable)
-    .where(and(eq(userTable.isDeleted, false), inArray(userTable.role, ["coach", "admin", "superAdmin"])));
+    .where(and(eq(userTable.isDeleted, false), inArray(userTable.role, ROLES_TRAINING_STAFF)));
   if (coaches.length) {
     await db.insert(notificationTable).values(
       coaches.map((coach) => ({

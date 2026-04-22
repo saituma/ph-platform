@@ -1,4 +1,10 @@
-import type { PortalUser } from "@/portal/PortalContext";
+import type { PortalUser } from "@/portal/portal-types";
+
+/** Coach accounts (not admins) use team billing — they do not satisfy portal via individual `programTier`. */
+function isCoachBillingRole(role: string | null | undefined): boolean {
+	const r = String(role ?? "").toLowerCase();
+	return r === "coach" || r === "team_coach" || r === "program_coach";
+}
 
 function isFutureExpiry(planExpiresAt: string | null | undefined): boolean {
 	if (!planExpiresAt) return false;
@@ -7,25 +13,39 @@ function isFutureExpiry(planExpiresAt: string | null | undefined): boolean {
 	return t > Date.now();
 }
 
+function teamPortalSubscriptionActive(
+	t:
+		| {
+				id?: number;
+				planId?: number | null;
+				subscriptionStatus?: string | null;
+				planExpiresAt?: string | null;
+		  }
+		| null
+		| undefined,
+): boolean {
+	if (!t?.id || !t.planId) return false;
+	const st = String(t.subscriptionStatus ?? "").toLowerCase();
+	if (st !== "active") return false;
+	if (t.planExpiresAt) {
+		return isFutureExpiry(t.planExpiresAt);
+	}
+	return true;
+}
+
 /**
- * Portal (Programs, Schedule, etc.) requires the same “paid access” signal as the dashboard:
- * a future {@link PortalUser.planExpiresAt} for athletes/guardians, not merely {@link PortalUser.programTier}
- * (tiers can be set for free/starter flows without payment).
- *
- * Coaches need an assigned plan and {@link PortalUser.team.subscriptionStatus} `active` (paid + approved in Stripe flow).
+ * Portal (Programs, Schedule, etc.) requires paid access:
+ * - **Team billing**: coach’s managed team or an athlete rostered on a team with `subscriptionStatus` `active`
+ *   and (if set) a future `team.planExpiresAt`.
+ * - **Individual billing**: athlete/guardian with `programTier` and a future `planExpiresAt` (tiers alone are not enough).
  */
 export function hasActivePortalSubscription(user: PortalUser): boolean {
-	const isTeam = user.role === "coach";
-
-	if (isTeam) {
-		const t = user.team;
-		if (!t?.id || !t.planId) return false;
-		const st = String(t.subscriptionStatus ?? "").toLowerCase();
-		if (st !== "active") return false;
-		if (t.planExpiresAt) {
-			return isFutureExpiry(t.planExpiresAt);
-		}
+	if (teamPortalSubscriptionActive(user.team)) {
 		return true;
+	}
+
+	if (isCoachBillingRole(user.role)) {
+		return false;
 	}
 
 	if (!user.programTier) return false;
@@ -34,7 +54,8 @@ export function hasActivePortalSubscription(user: PortalUser): boolean {
 
 /** True when this login is a team coach using the coach portal (one team), not an athlete/guardian account. */
 export function isCoachPortalUser(user: PortalUser): boolean {
-	return user.role === "coach";
+	const r = String(user.role ?? "").toLowerCase();
+	return r === "coach" || r === "team_coach" || r === "program_coach";
 }
 
 /**

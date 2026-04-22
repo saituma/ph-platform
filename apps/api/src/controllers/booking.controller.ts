@@ -11,18 +11,25 @@ import {
   listAvailabilityBlocks,
   listBookingsForServiceInRange,
   listBookingsForUser,
+  listBookingsForAthlete,
   listServiceTypes,
   updateServiceType,
   deleteServiceType,
 } from "../services/booking.service";
 import { assertUserCanCreateBooking } from "../services/booking-eligibility.service";
-import { ensureGuardianForUser, getAthleteForUser, getGuardianAndAthlete } from "../services/user.service";
+import {
+  ensureGuardianForUser,
+  getAthleteForUser,
+  getGuardianAndAthlete,
+  resolveDefaultBookingPartyForTrainingStaff,
+} from "../services/user.service";
 import { ProgramType } from "../db/schema";
 import { verifyBookingActionToken } from "../lib/booking-actions";
 import { db } from "../db";
 import { athleteTable, bookingTable, serviceTypeTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { updateBookingDetailsAdmin, updateBookingStatusAdmin } from "../services/admin/booking.service";
+import { isTrainingStaff } from "../lib/user-roles";
 
 const planEnum = z.enum(ProgramType.enumValues);
 const weeklyEntrySchema = z.object({
@@ -45,6 +52,13 @@ const serviceTypeSchema = z.object({
     z.number().int().min(1),
   ),
   capacity: z
+    .preprocess((val) => {
+      if (val === "") return undefined;
+      if (val === null) return null;
+      return Number(val);
+    }, z.number().int().min(1).nullable())
+    .optional(),
+  totalSlots: z
     .preprocess((val) => {
       if (val === "") return undefined;
       if (val === null) return null;
@@ -114,17 +128,18 @@ const generatedAvailabilityQuerySchema = z.object({
 });
 
 export async function listServices(req: Request, res: Response) {
-  const includeInactive =
-    req.query.includeInactive === "true" && ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "");
+  const includeInactive = req.query.includeInactive === "true" && isTrainingStaff(req.user?.role);
   const includeLocked = req.query.includeLocked === "true";
+  const omitWithoutBookableSlots = req.query.omitWithoutBookableSlots === "true";
   const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
   const items = await listServiceTypes({
     includeInactive,
     includeLocked,
+    omitWithoutBookableSlots,
     viewerProgramTier: athlete?.currentProgramTier as any,
     athlete,
   });
-  if (includeInactive || ["coach", "admin", "superAdmin"].includes(req.user?.role ?? "")) {
+  if (includeInactive || isTrainingStaff(req.user?.role)) {
     return res.status(200).json({ items });
   }
   return res.status(200).json({ items });
@@ -139,6 +154,7 @@ export async function createService(req: Request, res: Response) {
     type: input.type,
     durationMinutes: input.durationMinutes,
     capacity: input.capacity,
+    totalSlots: input.totalSlots,
     attendeeVisibility: input.attendeeVisibility,
     defaultLocation: input.defaultLocation,
     defaultMeetingLink: input.defaultMeetingLink,
@@ -240,13 +256,28 @@ export async function listGeneratedAvailabilityForUser(req: Request, res: Respon
 
 export async function createBookingForUser(req: Request, res: Response) {
   const input = bookingSchema.parse(req.body);
-  const athlete = await getAthleteForUser(req.user!.id);
-  if (!athlete) {
-    return res.status(400).json({ error: "Onboarding incomplete" });
+  let athlete = await getAthleteForUser(req.user!.id);
+  let guardian = (await getGuardianAndAthlete(req.user!.id)).guardian;
+
+  if (!athlete && isTrainingStaff(req.user!.role)) {
+    const party = await resolveDefaultBookingPartyForTrainingStaff(req.user!.id);
+    if (party) {
+      athlete = party.athlete;
+      guardian = party.guardian;
+    }
   }
 
-  const { guardian: existingGuardian } = await getGuardianAndAthlete(req.user!.id);
-  const guardian = existingGuardian ?? (await ensureGuardianForUser(req.user!.id));
+  if (!athlete) {
+    return res.status(400).json({
+      error: isTrainingStaff(req.user!.role)
+        ? "Add at least one athlete to your team roster before requesting bookings."
+        : "Onboarding incomplete",
+    });
+  }
+
+  if (!guardian) {
+    guardian = await ensureGuardianForUser(athlete.userId);
+  }
   if (!guardian) {
     return res.status(400).json({ error: "Onboarding incomplete" });
   }
@@ -274,7 +305,17 @@ export async function createBookingForUser(req: Request, res: Response) {
         error: "An approved paid plan is required to book sessions.",
       });
     }
-    const knownErrors = ["Capacity reached", "Service type not found", "Service type not available"];
+    if (error?.message === "BOOKING_TEAM_ATHLETE_SELF_SERVE_DISABLED") {
+      return res.status(403).json({
+        error: "Team roster athletes cannot book sessions themselves. Your coach will add sessions to your schedule.",
+      });
+    }
+    const knownErrors = [
+      "Capacity reached",
+      "Service limit reached",
+      "Service type not found",
+      "Service type not available",
+    ];
     if (knownErrors.includes(error?.message)) {
       return res.status(400).json({ error: error.message });
     }
@@ -284,11 +325,16 @@ export async function createBookingForUser(req: Request, res: Response) {
 
 export async function listBookings(req: Request, res: Response) {
   const { guardian } = await getGuardianAndAthlete(req.user!.id);
-  if (!guardian) {
-    return res.status(200).json({ items: [] });
+  if (guardian) {
+    const items = await listBookingsForUser(guardian.id);
+    return res.status(200).json({ items });
   }
-  const items = await listBookingsForUser(guardian.id);
-  return res.status(200).json({ items });
+  const athlete = await getAthleteForUser(req.user!.id);
+  if (athlete) {
+    const items = await listBookingsForAthlete(athlete.id);
+    return res.status(200).json({ items });
+  }
+  return res.status(200).json({ items: [] });
 }
 
 export async function bookingAction(req: Request, res: Response) {

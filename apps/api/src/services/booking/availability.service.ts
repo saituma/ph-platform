@@ -4,10 +4,7 @@ import { availabilityBlockTable, bookingTable } from "../../db/schema";
 import {
   startOfUtcDay,
   endOfUtcDay,
-  loadBookingHoldMaps,
-  buildConfiguredOccurrences,
-  listLegacyOccurrences,
-  GeneratedOccurrence,
+  buildGeneratedOccurrencesInRange,
   ServiceTypeRecord,
   ProgramTier,
 } from "./slot.service";
@@ -92,16 +89,6 @@ export async function listBookingsForServiceInRange(serviceTypeId: number, from:
     );
 }
 
-function uniqByOccurrence(items: GeneratedOccurrence[]) {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    const key = `${item.serviceTypeId}:${item.occurrenceKey}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 export async function listGeneratedAvailability(input: {
   from: Date;
   to: Date;
@@ -117,33 +104,7 @@ export async function listGeneratedAvailability(input: {
   const filteredServices = input.serviceTypeId
     ? services.filter((service: ServiceTypeRecord) => service.id === input.serviceTypeId)
     : services;
-  const { occurrenceCounts, slotCounts } = await loadBookingHoldMaps(
-    filteredServices.map((service: ServiceTypeRecord) => service.id),
-    input.from,
-    input.to,
-  );
-
-  const configured = filteredServices.flatMap((service: ServiceTypeRecord) =>
-    buildConfiguredOccurrences(service, input.from, input.to, occurrenceCounts, slotCounts),
-  );
-
-  const configuredKeys = new Set(
-    configured.map((item: GeneratedOccurrence) => `${item.serviceTypeId}:${item.occurrenceKey}`),
-  );
-  const legacyCandidates = (filteredServices as ServiceTypeRecord[]).filter((service) => {
-    const hasConfig =
-      Boolean(service.oneTimeDate && service.oneTimeTime) ||
-      (Array.isArray(service.weeklyEntries) && service.weeklyEntries.length > 0) ||
-      service.fixedStartTime;
-    return !hasConfig;
-  });
-  const legacy = await listLegacyOccurrences(legacyCandidates, input.from, input.to, occurrenceCounts);
-  const combined = uniqByOccurrence([
-    ...configured,
-    ...legacy.filter((item) => !configuredKeys.has(`${item.serviceTypeId}:${item.occurrenceKey}`)),
-  ]);
-
-  return combined.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  return buildGeneratedOccurrencesInRange(filteredServices, input.from, input.to);
 }
 
 export async function resolveGeneratedWindow(input: {

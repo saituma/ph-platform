@@ -11,6 +11,8 @@ interface ScheduleHeaderProps {
   dayEventsCount: number;
   nextEventTime: string | null;
   onRequestSession: () => void;
+  /** When false, hide the primary “book / request session” action (e.g. team roster athletes). */
+  showRequestSession?: boolean;
 }
 
 export function ScheduleHeader({
@@ -18,6 +20,7 @@ export function ScheduleHeader({
   dayEventsCount,
   nextEventTime,
   onRequestSession,
+  showRequestSession = true,
 }: ScheduleHeaderProps) {
   const { colors, isDark } = useAppTheme();
 
@@ -63,18 +66,20 @@ export function ScheduleHeader({
             </Text>
           </View>
 
-          <Pressable
-            className="rounded-[20px] bg-accent px-4 py-3 justify-center"
-            onPress={onRequestSession}
-            style={isDark ? Shadows.none : Shadows.sm}
-          >
-            <View className="flex-row items-center gap-2">
-              <Feather name="plus" size={16} color="#FFFFFF" />
-              <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
-                Request session
-              </Text>
-            </View>
-          </Pressable>
+          {showRequestSession ? (
+            <Pressable
+              className="rounded-[20px] bg-accent px-4 py-3 justify-center"
+              onPress={onRequestSession}
+              style={isDark ? Shadows.none : Shadows.sm}
+            >
+              <View className="flex-row items-center gap-2">
+                <Feather name="plus" size={16} color="#FFFFFF" />
+                <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px]">
+                  Request session
+                </Text>
+              </View>
+            </Pressable>
+          ) : null}
         </View>
 
         <View className="mt-4 flex-row gap-3">

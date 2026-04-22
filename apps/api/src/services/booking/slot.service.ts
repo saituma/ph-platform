@@ -103,7 +103,13 @@ export function serviceAllowsTier(
 
 export function serviceAllowsAthlete(
   service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "eligibleTargets" | "type">,
-  athlete: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null,
+  athlete: {
+    currentProgramTier?: string | null;
+    athleteType?: string | null;
+    teamId?: number | null;
+    /** Team display name; used to match legacy `team:<name>` targets saved before id-based tokens. */
+    team?: string | null;
+  } | null,
 ) {
   // Check tier
   if (!serviceAllowsTier(service, athlete?.currentProgramTier as ProgramTier)) {
@@ -123,6 +129,10 @@ export function serviceAllowsAthlete(
   }
 
   if (athlete.teamId && eligibleTargets.includes(`team:${athlete.teamId}`)) {
+    return true;
+  }
+
+  if (athlete.team && eligibleTargets.includes(`team:${athlete.team}`)) {
     return true;
   }
 
@@ -295,6 +305,48 @@ export function buildConfiguredOccurrences(
   }
 
   return items;
+}
+
+function uniqGeneratedByOccurrence(items: GeneratedOccurrence[]): GeneratedOccurrence[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.serviceTypeId}:${item.occurrenceKey}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Build calendar occurrences for many service types in one range (no auth / listServiceTypes). */
+export async function buildGeneratedOccurrencesInRange(
+  services: ServiceTypeRecord[],
+  from: Date,
+  to: Date,
+): Promise<GeneratedOccurrence[]> {
+  if (!services.length) return [];
+  const { occurrenceCounts, slotCounts } = await loadBookingHoldMaps(
+    services.map((s) => s.id),
+    from,
+    to,
+  );
+  const configured = services.flatMap((service) =>
+    buildConfiguredOccurrences(service, from, to, occurrenceCounts, slotCounts),
+  );
+  const configuredKeys = new Set(
+    configured.map((item) => `${item.serviceTypeId}:${item.occurrenceKey}`),
+  );
+  const legacyCandidates = services.filter((service) => {
+    const hasConfig =
+      Boolean(service.oneTimeDate && service.oneTimeTime) ||
+      (Array.isArray(service.weeklyEntries) && service.weeklyEntries.length > 0) ||
+      Boolean(service.fixedStartTime);
+    return !hasConfig;
+  });
+  const legacy = await listLegacyOccurrences(legacyCandidates, from, to, occurrenceCounts);
+  return uniqGeneratedByOccurrence([
+    ...configured,
+    ...legacy.filter((item) => !configuredKeys.has(`${item.serviceTypeId}:${item.occurrenceKey}`)),
+  ]).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 }
 
 export async function listLegacyOccurrences(

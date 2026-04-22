@@ -9,10 +9,10 @@ export function useProgramAccess(token: string | null, programId: ProgramId) {
 
   const canMessageCoach = true;
 
-  const isAdminViewer = useMemo(() => 
-    ["admin", "superAdmin", "coach"].includes(String(apiUserRole ?? "")),
-    [apiUserRole]
-  );
+  const isAdminViewer = useMemo(() => {
+    const r = String(apiUserRole ?? "");
+    return ["admin", "superAdmin", "coach", "team_coach", "program_coach"].includes(r);
+  }, [apiUserRole]);
 
   const hasAccess = true;
 

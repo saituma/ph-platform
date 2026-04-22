@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
-import { X, CheckCircle, Loader2, MapPin, Video, Info, Lock } from "lucide-react";
-import { fetchBookingServices, createBooking } from "@/services/scheduleService";
+import { X, CheckCircle, Loader2, MapPin, Video, Info, Lock, Users } from "lucide-react";
+import {
+  fetchBookingServices,
+  createBooking,
+  fetchGeneratedAvailability,
+  sumReportedOpeningsForService,
+} from "@/services/scheduleService";
 import { toast } from "sonner";
 
 interface BookingModalProps {
@@ -17,14 +22,51 @@ export function BookingModal({ isOpen, onClose, token, onSuccess }: BookingModal
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [calPreview, setCalPreview] = useState<{
+    status: "idle" | "loading" | "ready" | "error";
+    occurrenceCount: number;
+    openingsSum: number | null;
+  }>({ status: "idle", occurrenceCount: 0, openingsSum: null });
 
   useEffect(() => {
     if (isOpen && token) {
       setConfirmed(false);
       setNotes("");
+      setSelectedServiceId(null);
+      setCalPreview({ status: "idle", occurrenceCount: 0, openingsSum: null });
       loadServices();
     }
   }, [isOpen, token]);
+
+  useEffect(() => {
+    if (!isOpen || !token || !selectedServiceId) {
+      setCalPreview({ status: "idle", occurrenceCount: 0, openingsSum: null });
+      return;
+    }
+    let cancelled = false;
+    setCalPreview({ status: "loading", occurrenceCount: 0, openingsSum: null });
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(from);
+    to.setDate(to.getDate() + 21);
+    (async () => {
+      try {
+        const items = await fetchGeneratedAvailability(token, {
+          from,
+          to,
+          serviceTypeId: selectedServiceId,
+        });
+        if (cancelled) return;
+        const { occurrenceCount, openingsSum } = sumReportedOpeningsForService(items, selectedServiceId);
+        setCalPreview({ status: "ready", occurrenceCount, openingsSum });
+      } catch {
+        if (!cancelled) setCalPreview({ status: "error", occurrenceCount: 0, openingsSum: null });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, token, selectedServiceId]);
 
   const loadServices = async () => {
     try {
@@ -44,9 +86,100 @@ export function BookingModal({ isOpen, onClose, token, onSuccess }: BookingModal
 
   const selectedService = services.find(s => s.id === selectedServiceId);
 
+  /** Service-level cap + coach-published calendar windows (generated availability). */
+  const availabilityCard = (() => {
+    const s = selectedService;
+    if (!s) return null;
+    const cap = s.capacity;
+    const rem = s.remainingCapacity;
+    const total = s.totalSlots;
+    const remTotal = s.remainingTotalSlots;
+    const lines: string[] = [];
+    let tone: "full" | "ok" | "hint" | "info" = "info";
+
+    if (total != null && remTotal != null) {
+      if (remTotal <= 0) {
+        lines.push("No booking slots left for this service.");
+        tone = "full";
+      } else {
+        lines.push(`${remTotal} of ${total} booking slot${total === 1 ? "" : "s"} left for this service.`);
+        tone = "ok";
+      }
+    }
+
+    if (total == null && cap != null && rem != null) {
+      if (rem <= 0) {
+        lines.push("No spots left for this session type (per-session limit reached).");
+        tone = "full";
+      } else {
+        lines.push(`${rem} of ${cap} spot${cap === 1 ? "" : "s"} open for this type (per session).`);
+        if (tone === "info") tone = "ok";
+      }
+    } else if (total == null && cap != null && rem == null) {
+      lines.push(
+        `Up to ${cap} athlete${cap === 1 ? "" : "s"} per session — pick a date on your schedule to see openings.`,
+      );
+      if (tone === "info") tone = "hint";
+    }
+
+    if (calPreview.status === "loading") {
+      lines.push("Checking published session times on the calendar…");
+    } else if (calPreview.status === "ready") {
+      const { occurrenceCount, openingsSum } = calPreview;
+      if (occurrenceCount > 0 && openingsSum != null) {
+        if (openingsSum <= 0) {
+          lines.push(
+            `All ${occurrenceCount} published time(s) in the next 3 weeks look fully booked from here — you can still send a request and your coach may add more.`,
+          );
+          if (tone !== "full") tone = "full";
+        } else {
+          lines.push(
+            `Up to ${openingsSum} opening(s) across ${occurrenceCount} published time(s) in the next 3 weeks.`,
+          );
+          if (tone === "info") tone = "ok";
+        }
+      } else if (occurrenceCount > 0) {
+        lines.push(
+          `${occurrenceCount} published time(s) on the calendar in the next 3 weeks — capacity isn’t shown for each; your coach confirms your slot.`,
+        );
+        if (tone === "info") tone = "hint";
+      } else if (occurrenceCount === 0) {
+        lines.push(
+          "No coach-published times in the next 3 weeks for this type yet. Send a request and your coach will arrange a slot.",
+        );
+        if (tone === "info") tone = "hint";
+      }
+    } else if (calPreview.status === "error" && lines.length === 0) {
+      lines.push(
+        "You’re requesting this session type — your coach confirms date, time, and space after approval.",
+      );
+    }
+
+    if (lines.length === 0) {
+      lines.push(
+        "You’re requesting this session type — not reserving a calendar slot here. Your coach confirms date, time, and space after approval.",
+      );
+    }
+
+    return { tone, lines };
+  })();
+
+  const isBookingSlotsFull =
+    selectedService?.totalSlots != null &&
+    selectedService?.remainingTotalSlots != null &&
+    selectedService.remainingTotalSlots <= 0;
+
   const handleSubmit = async () => {
     if (!token || !selectedService || submitting) return;
-    
+    const fullCap =
+      selectedService.capacity != null &&
+      selectedService.remainingCapacity != null &&
+      selectedService.remainingCapacity <= 0;
+    if (isBookingSlotsFull || fullCap) {
+      toast.error(isBookingSlotsFull ? "No booking slots left for this service." : "This session is full.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       let startsAt = new Date();
@@ -154,6 +287,34 @@ export function BookingModal({ isOpen, onClose, token, onSuccess }: BookingModal
                     </div>
                   )}
 
+                  {availabilityCard && (
+                    <div
+                      className={`p-4 rounded-2xl border flex gap-3 ${
+                        availabilityCard.tone === "full"
+                          ? "bg-destructive/10 border-destructive/30 text-destructive"
+                          : availabilityCard.tone === "hint"
+                            ? "bg-muted/30 border-dashed border-border"
+                            : availabilityCard.tone === "info"
+                              ? "bg-muted/20 border-border"
+                              : "bg-primary/5 border-primary/20"
+                      }`}
+                    >
+                      <Users className="w-5 h-5 shrink-0 opacity-70 mt-0.5" />
+                      <div className="space-y-2 min-w-0">
+                        {availabilityCard.lines.map((line, i) => (
+                          <p
+                            key={i}
+                            className={`text-xs leading-relaxed ${
+                              availabilityCard.tone === "full" && i === 0 ? "font-semibold" : "text-muted-foreground"
+                            }`}
+                          >
+                            {line}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-4">
                     <div className="p-4 bg-card border rounded-2xl space-y-3">
                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -188,7 +349,14 @@ export function BookingModal({ isOpen, onClose, token, onSuccess }: BookingModal
 
                   <button 
                     onClick={handleSubmit}
-                    disabled={submitting || !selectedServiceId}
+                    disabled={
+                      submitting ||
+                      !selectedServiceId ||
+                      isBookingSlotsFull ||
+                      (selectedService?.capacity != null &&
+                        selectedService?.remainingCapacity != null &&
+                        selectedService.remainingCapacity <= 0)
+                    }
                     className="w-full h-14 bg-primary text-primary-foreground rounded-2xl font-black uppercase italic tracking-wider shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:hover:scale-100"
                   >
                     {submitting ? <Loader2 className="w-6 h-6 animate-spin" /> : "Send Request"}

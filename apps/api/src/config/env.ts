@@ -23,10 +23,10 @@ const phApiScript = process.env.PH_API_SCRIPT === "1";
 const optionalWhenScript = (messageWhenRequired: string) =>
   phApiScript ? z.string().optional() : z.string().min(1, messageWhenRequired);
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  PORT: z.coerce.number().int().positive().default(3000),
-  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+	const envSchema = z.object({
+	  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+	  PORT: z.coerce.number().int().positive().default(3000),
+	  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   DATABASE_SSL: z.string().optional(),
   R2_ACCOUNT_ID: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
@@ -75,9 +75,9 @@ const envSchema = z.object({
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   CORS_ORIGINS: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().optional(),
-  /** Domain for coach-provisioned team athlete logins: `{user}.{teamSlug}@domain` */
-  TEAM_ATHLETE_EMAIL_DOMAIN: z.string().optional(),
-});
+	  /** Domain for coach-provisioned team athlete logins: `{user}.{teamSlug}@domain` */
+	  TEAM_ATHLETE_EMAIL_DOMAIN: z.string().optional(),
+	});
 
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
@@ -91,7 +91,7 @@ const raw = parsed.data;
 
 const scriptPlaceholder = "__ph_api_script_unused__";
 
-export const env = {
+	export const env = {
   port: raw.PORT,
   nodeEnv: raw.NODE_ENV,
   databaseUrl: raw.DATABASE_URL,
@@ -133,6 +133,6 @@ export const env = {
   expoAccessToken: raw.EXPO_ACCESS_TOKEN ?? "",
   firebaseServiceAccountJson: raw.FIREBASE_SERVICE_ACCOUNT_JSON ?? "",
   corsOrigins: raw.CORS_ORIGINS ?? "http://localhost:3000",
-  requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
-  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
-};
+	  requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
+	  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
+	};

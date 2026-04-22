@@ -14,6 +14,7 @@ import {
 	Mail,
 	Shield,
 	User,
+	Utensils,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -23,20 +24,47 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { usePortal } from "@/portal/PortalContext";
 import { isStrongPassword } from "@/lib/password-strength";
+import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
+import { usePortal } from "@/portal/PortalContext";
 import {
+	fetchAthleteNutritionLogs,
 	fetchTeamAthleteDetail,
+	type NutritionLogSummary,
 	resetTeamAthletePassword,
 	rosterQueryKeys,
+	type UpdateTeamAthleteBody,
 	updateTeamAthlete,
 	uploadTeamAthletePhoto,
-	type UpdateTeamAthleteBody,
 } from "@/services/teamRosterService";
 
 export const Route = createFileRoute("/portal/team/$athleteId")({
 	component: TeamAthleteDetailPage,
 });
+
+function formatAthleteNutritionSummary(log: NutritionLogSummary): string {
+	const parts: string[] = [];
+	const slots: [string, string | null | undefined][] = [
+		["Breakfast", log.breakfast],
+		["Lunch", log.lunch],
+		["Dinner", log.dinner],
+		["AM snack", log.snacksMorning],
+		["PM snack", log.snacksAfternoon],
+		["Eve snack", log.snacksEvening],
+	];
+	for (const [label, raw] of slots) {
+		const s = raw == null ? "" : String(raw).trim();
+		if (!s) continue;
+		if (s.toLowerCase() === "yes") parts.push(label);
+		else parts.push(`${label}: ${s}`);
+	}
+	const w = log.waterIntake ?? 0;
+	if (w > 0) parts.push(`Water ×${w}`);
+	const steps = log.steps ?? 0;
+	if (steps > 0) parts.push(`Steps ${steps}`);
+	if (log.foodDiary?.trim()) parts.push("Food diary");
+	return parts.length ? parts.join(" · ") : "No meal slots logged yet";
+}
 
 type ProvisionalState = {
 	provisionalEmail?: string;
@@ -67,7 +95,7 @@ function TeamAthleteDetailPage() {
 	});
 
 	const id = Number(athleteId);
-	const isCoach = user?.role === "coach";
+	const canManageTeam = isPortalTeamRosterManagerRole(user?.role);
 
 	const detailQ = useQuery({
 		queryKey: rosterQueryKeys.athlete(token, id),
@@ -75,7 +103,16 @@ function TeamAthleteDetailPage() {
 			if (!token) throw new Error("Not authenticated");
 			return fetchTeamAthleteDetail(token, id);
 		},
-		enabled: !!token && Number.isFinite(id) && isCoach,
+		enabled: !!token && Number.isFinite(id) && canManageTeam,
+	});
+
+	const nutritionQ = useQuery({
+		queryKey: rosterQueryKeys.nutrition(token, detailQ.data?.userId ?? 0),
+		queryFn: () => {
+			if (!token || !detailQ.data?.userId) throw new Error("Missing context");
+			return fetchAthleteNutritionLogs(token, detailQ.data.userId, 21);
+		},
+		enabled: !!token && !!detailQ.data?.userId && canManageTeam,
 	});
 
 	useEffect(() => {
@@ -129,7 +166,11 @@ function TeamAthleteDetailPage() {
 			if (!Number.isFinite(age) || age < 5 || age > 99) {
 				throw new Error("Age must be between 5 and 99.");
 			}
-			if (!Number.isFinite(trainingPerWeek) || trainingPerWeek < 1 || trainingPerWeek > 14) {
+			if (
+				!Number.isFinite(trainingPerWeek) ||
+				trainingPerWeek < 1 ||
+				trainingPerWeek > 14
+			) {
 				throw new Error("Training sessions per week must be between 1 and 14.");
 			}
 			const body: UpdateTeamAthleteBody = {
@@ -147,8 +188,12 @@ function TeamAthleteDetailPage() {
 		},
 		onSuccess: () => {
 			toast.success("Profile updated.");
-			void queryClient.invalidateQueries({ queryKey: rosterQueryKeys.athlete(token, id) });
-			void queryClient.invalidateQueries({ queryKey: rosterQueryKeys.list(token) });
+			void queryClient.invalidateQueries({
+				queryKey: rosterQueryKeys.athlete(token, id),
+			});
+			void queryClient.invalidateQueries({
+				queryKey: rosterQueryKeys.list(token),
+			});
 		},
 		onError: (e: Error) => toast.error(e.message),
 	});
@@ -161,16 +206,22 @@ function TeamAthleteDetailPage() {
 		},
 		onSuccess: () => {
 			toast.success("Photo updated.");
-			void queryClient.invalidateQueries({ queryKey: rosterQueryKeys.athlete(token, id) });
-			void queryClient.invalidateQueries({ queryKey: rosterQueryKeys.list(token) });
+			void queryClient.invalidateQueries({
+				queryKey: rosterQueryKeys.athlete(token, id),
+			});
+			void queryClient.invalidateQueries({
+				queryKey: rosterQueryKeys.list(token),
+			});
 		},
 		onError: (e: Error) => toast.error(e.message),
 	});
 
-	if (!isCoach) {
+	if (!canManageTeam) {
 		return (
 			<div className="container mx-auto max-w-2xl p-4 pb-24">
-				<p className="text-muted-foreground">This page is for coaches.</p>
+				<p className="text-muted-foreground">
+					This page is for team coaches and admins.
+				</p>
 				<Link
 					to="/portal/dashboard"
 					className="mt-4 inline-block font-bold text-primary"
@@ -420,10 +471,7 @@ function TeamAthleteDetailPage() {
 						</Button>
 					</div>
 					<div className="relative">
-						<div
-							className="absolute inset-0 flex items-center"
-							aria-hidden
-						>
+						<div className="absolute inset-0 flex items-center" aria-hidden>
 							<span className="w-full border-t" />
 						</div>
 						<div className="relative flex justify-center text-xs uppercase">
@@ -438,9 +486,7 @@ function TeamAthleteDetailPage() {
 						disabled={resetM.isPending}
 					>
 						<KeyRound className="h-4 w-4" />
-						{resetM.isPending
-							? "Working…"
-							: "Generate new temporary password"}
+						{resetM.isPending ? "Working…" : "Generate new temporary password"}
 					</Button>
 					{revealedPassword ? (
 						<div className="rounded-xl border border-primary/40 bg-primary/5 p-4 space-y-2">
@@ -522,7 +568,10 @@ function TeamAthleteDetailPage() {
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="athlete-birth" className="flex items-center gap-2">
+							<Label
+								htmlFor="athlete-birth"
+								className="flex items-center gap-2"
+							>
 								<Calendar className="h-4 w-4 text-muted-foreground" />
 								Birth date
 							</Label>
@@ -537,7 +586,10 @@ function TeamAthleteDetailPage() {
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="athlete-training" className="flex items-center gap-2">
+							<Label
+								htmlFor="athlete-training"
+								className="flex items-center gap-2"
+							>
 								<Dumbbell className="h-4 w-4 text-muted-foreground" />
 								Training sessions / week
 							</Label>
@@ -621,6 +673,65 @@ function TeamAthleteDetailPage() {
 						label="Onboarding complete"
 						value={a.onboardingCompleted ? "Yes" : "No"}
 					/>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle className="flex items-center gap-2 text-lg">
+						<Utensils className="h-5 w-5" />
+						Nutrition logs
+					</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-3">
+					<p className="text-sm text-muted-foreground">
+						Daily check-ins from the PH mobile app for this athlete. The same
+						day can be updated multiple times as they log meals or habits — last
+						save wins for fields they change; earlier meals are kept when they
+						send empty slots.
+					</p>
+					{nutritionQ.isLoading ? (
+						<div className="flex justify-center py-6">
+							<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+						</div>
+					) : nutritionQ.error ? (
+						<p className="text-sm text-destructive">
+							{nutritionQ.error instanceof Error
+								? nutritionQ.error.message
+								: "Could not load nutrition logs."}
+						</p>
+					) : !(nutritionQ.data?.logs ?? []).length ? (
+						<p className="text-sm text-muted-foreground">
+							No nutrition rows in the selected window yet.
+						</p>
+					) : (
+						<ul className="divide-y overflow-hidden rounded-xl border">
+							{(nutritionQ.data?.logs ?? []).map((log) => (
+								<li key={log.id} className="space-y-1 px-3 py-3 text-sm">
+									<div className="flex flex-wrap items-baseline justify-between gap-2 font-medium">
+										<span>{log.dateKey}</span>
+										{log.updatedAt ? (
+											<span className="text-xs font-normal text-muted-foreground">
+												Updated{" "}
+												{new Date(log.updatedAt).toLocaleString(undefined, {
+													dateStyle: "short",
+													timeStyle: "short",
+												})}
+											</span>
+										) : null}
+									</div>
+									<p className="text-xs text-muted-foreground">
+										{formatAthleteNutritionSummary(log)}
+									</p>
+									{log.coachFeedback?.trim() ? (
+										<p className="text-xs font-medium text-primary">
+											Coach feedback on file
+										</p>
+									) : null}
+								</li>
+							))}
+						</ul>
+					)}
 				</CardContent>
 			</Card>
 
