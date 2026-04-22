@@ -199,7 +199,7 @@ export default function FeedbackScreen() {
             </View>
             <ScaledText
               style={{
-                fontFamily: fonts.clashBold,
+                fontFamily: fonts.accentBold,
                 fontSize: 34,
                 color: colors.textPrimary,
                 textAlign: "center",
@@ -335,7 +335,7 @@ export default function FeedbackScreen() {
             ]}
           >
             <Save size={22} color="#FFF" strokeWidth={2.5} />
-            <ScaledText style={{ fontFamily: fonts.clashBold, fontSize: 20, color: "#FFF" }}>
+            <ScaledText style={{ fontFamily: fonts.accentBold, fontSize: 20, color: "#FFF" }}>
               SAVE WORKOUT
             </ScaledText>
           </AnimatedPressable>
@@ -369,7 +369,7 @@ export default function FeedbackScreen() {
           <CheckCircle2 size={22} color={colors.accent} strokeWidth={2.5} />
           <ScaledText
             style={{
-              fontFamily: fonts.clashBold,
+              fontFamily: fonts.accentBold,
               fontSize: 16,
               color: colors.textPrimary,
             }}

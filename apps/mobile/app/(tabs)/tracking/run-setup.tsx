@@ -236,7 +236,7 @@ export default function RunSetupScreen() {
               borderColor: glassBorder,
               alignItems: "center" 
             }}>
-              <Text style={{ fontFamily: fonts.clashBold, fontSize: 15, color: colors.textPrimary }}>RUN SETUP</Text>
+              <Text style={{ fontFamily: fonts.accentBold, fontSize: 15, color: colors.textPrimary }}>RUN SETUP</Text>
             </View>
 
             <Pressable
@@ -260,7 +260,7 @@ export default function RunSetupScreen() {
               })}
             >
               <Play size={18} color="#FFF" fill="#FFF" />
-              <Text style={{ fontFamily: fonts.clashBold, fontSize: 14, color: "#FFF" }}>START</Text>
+              <Text style={{ fontFamily: fonts.accentBold, fontSize: 14, color: "#FFF" }}>START</Text>
             </Pressable>
           </View>
         </View>
@@ -366,7 +366,7 @@ export default function RunSetupScreen() {
                     {notifEnabled ? <Bell size={16} color={colors.accent} strokeWidth={2.5} /> : <BellOff size={16} color={colors.textDim} strokeWidth={2} />}
                     <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: notifEnabled ? colors.accent : colors.textSecondary, letterSpacing: 1.5 }}>ALERTS</Text>
                   </View>
-                  <Text style={{ fontFamily: fonts.clashBold, fontSize: 16, color: notifEnabled ? colors.accent : colors.textDim }}>
+                  <Text style={{ fontFamily: fonts.accentBold, fontSize: 16, color: notifEnabled ? colors.accent : colors.textDim }}>
                     {notifEnabled ? notifEveryText : "OFF"}
                   </Text>
                 </Pressable>

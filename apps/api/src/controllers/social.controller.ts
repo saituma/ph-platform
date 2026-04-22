@@ -31,6 +31,7 @@ export function handleSocialError(res: Response, err: unknown) {
   if (err instanceof SocialAccessError) {
     if (err.code === "NOT_ADULT") return res.status(403).json({ error: "Forbidden" });
     if (err.code === "FORBIDDEN") return res.status(403).json({ error: "Forbidden" });
+    if (err.code === "NOT_TEAM") return res.status(403).json({ error: "Team membership required", code: "NOT_TEAM" });
     if (err.code === "NOT_FOUND") return res.status(404).json({ error: "Not found" });
     if (err.code === "SOCIAL_DISABLED")
       return res.status(403).json({ error: "Social features not enabled", code: "SOCIAL_DISABLED" });

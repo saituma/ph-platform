@@ -327,7 +327,7 @@ export default function RunSummaryScreen() {
           </View>
           <Text
             style={{
-              fontFamily: fonts.clashBold,
+              fontFamily: fonts.accentBold,
               fontSize: 36,
               color: colors.textPrimary,
               textAlign: "center",
@@ -386,7 +386,7 @@ export default function RunSummaryScreen() {
           
           <View style={{ marginTop: 24, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: `${metrics.paceZone.color}15`, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: `${metrics.paceZone.color}30` }}>
              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: metrics.paceZone.color, marginRight: 8 }} />
-             <Text style={{ color: metrics.paceZone.color, fontFamily: fonts.clashBold, fontSize: 12 }}>
+             <Text style={{ color: metrics.paceZone.color, fontFamily: fonts.accentBold, fontSize: 12 }}>
                ZONE {metrics.paceZone.zone} · {metrics.paceZone.label.toUpperCase()}
              </Text>
           </View>
@@ -425,12 +425,12 @@ export default function RunSummaryScreen() {
           {metrics.vo2max && (
              <View style={{ flex: 1, backgroundColor: glassBg, padding: 16, borderRadius: radius.xl, alignItems: 'center', borderWidth: 1, borderColor: cardBorder }}>
                 <Text style={{ fontFamily: fonts.labelMedium, fontSize: 10, color: colors.textDim, letterSpacing: 1 }}>VO₂ MAX</Text>
-                <Text style={{ fontFamily: fonts.clashBold, fontSize: 20, color: colors.textPrimary, marginTop: 4 }}>{metrics.vo2max}</Text>
+                <Text style={{ fontFamily: fonts.accentBold, fontSize: 20, color: colors.textPrimary, marginTop: 4 }}>{metrics.vo2max}</Text>
              </View>
           )}
           <View style={{ flex: 1, backgroundColor: glassBg, padding: 16, borderRadius: radius.xl, alignItems: 'center', borderWidth: 1, borderColor: cardBorder }}>
              <Text style={{ fontFamily: fonts.labelMedium, fontSize: 10, color: colors.textDim, letterSpacing: 1 }}>EFFICIENCY</Text>
-             <Text style={{ fontFamily: fonts.clashBold, fontSize: 20, color: colors.textPrimary, marginTop: 4 }}>{metrics.efficiencyScore}%</Text>
+             <Text style={{ fontFamily: fonts.accentBold, fontSize: 20, color: colors.textPrimary, marginTop: 4 }}>{metrics.efficiencyScore}%</Text>
           </View>
           {elevationData && (
              <View style={{ flex: 1, backgroundColor: glassBg, padding: 16, borderRadius: radius.xl, alignItems: 'center', borderWidth: 1, borderColor: cardBorder }}>
@@ -451,7 +451,7 @@ export default function RunSummaryScreen() {
                {metrics.splitPaces.map((splitPace, index) => (
                  <View key={index} style={{ backgroundColor: glassBg, paddingHorizontal: 20, paddingVertical: 14, borderRadius: radius.xl, borderWidth: 1, borderColor: cardBorder, minWidth: 100 }}>
                     <Text style={{ fontFamily: fonts.labelMedium, fontSize: 10, color: colors.textDim, marginBottom: 4 }}>KM {index + 1}</Text>
-                    <Text style={{ fontFamily: fonts.clashBold, fontSize: 18, color: colors.textPrimary }}>{splitPace}</Text>
+                    <Text style={{ fontFamily: fonts.accentBold, fontSize: 18, color: colors.textPrimary }}>{splitPace}</Text>
                  </View>
                ))}
              </ScrollView>
@@ -512,7 +512,7 @@ export default function RunSummaryScreen() {
               },
             ]}
           >
-            <Text style={{ fontFamily: fonts.clashBold, fontSize: 20, color: "#FFF" }}>RATE THIS RUN</Text>
+            <Text style={{ fontFamily: fonts.accentBold, fontSize: 20, color: "#FFF" }}>RATE THIS RUN</Text>
             <ChevronRight size={24} color="#FFF" strokeWidth={3} />
           </AnimatedPressable>
 
@@ -533,7 +533,7 @@ export default function RunSummaryScreen() {
             })}
           >
             <Trash2 size={18} color={colors.danger} />
-            <Text style={{ fontFamily: fonts.clashBold, fontSize: 15, color: colors.danger }}>Discard Session</Text>
+            <Text style={{ fontFamily: fonts.accentBold, fontSize: 15, color: colors.danger }}>Discard Session</Text>
           </Pressable>
         </View>
       </Animated.ScrollView>

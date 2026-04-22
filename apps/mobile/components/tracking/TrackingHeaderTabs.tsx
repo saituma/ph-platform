@@ -189,7 +189,7 @@ function TabSegment({
           maxFontSizeMultiplier={1.2}
           numberOfLines={1}
           style={{
-            fontFamily: active ? fonts.clashBold : fonts.bodyBold,
+            fontFamily: active ? fonts.accentBold : fonts.bodyBold,
             fontSize: active ? 17 : 16,
             lineHeight: 18,
             letterSpacing: active ? 0.3 : 0.1,

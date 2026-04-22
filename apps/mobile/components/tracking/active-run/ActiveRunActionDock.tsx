@@ -46,7 +46,8 @@ export function ActiveRunActionDock({
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "flex-end",
-          paddingHorizontal: 10,
+          paddingHorizontal: 6,
+          gap: 12,
         }}
       >
         <DockButton
@@ -88,7 +89,7 @@ export function ActiveRunActionDock({
         </Pressable>
 
         <DockButton
-          label="Add\nRoute"
+          label="Add Route"
           icon="options-outline"
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -126,16 +127,17 @@ function DockButton({
       onPress={onPress}
       style={({ pressed }) => ({
         alignItems: "center",
-        gap: 12,
+        gap: 10,
         opacity: pressed ? 0.9 : 1,
         transform: [{ scale: pressed ? 0.98 : 1 }],
+        flex: 1,
       })}
     >
       <View
         style={{
-          width: 72,
-          height: 72,
-          borderRadius: 36,
+          width: 74,
+          height: 74,
+          borderRadius: 37,
           backgroundColor: bg,
           alignItems: "center",
           justifyContent: "center",
@@ -161,12 +163,13 @@ function DockButton({
         ) : null}
       </View>
       <Text
+        numberOfLines={1}
         style={{
           fontFamily: fonts.bodyMedium,
-          fontSize: 18,
+          fontSize: 15,
           color: colors.textPrimary,
           textAlign: "center",
-          lineHeight: 22,
+          lineHeight: 18,
         }}
       >
         {label}
