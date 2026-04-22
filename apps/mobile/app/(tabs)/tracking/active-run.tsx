@@ -187,7 +187,7 @@ export default function ActiveRunScreen() {
         </View>
         <Text
           style={{
-            fontFamily: fonts.clashBold,
+            fontFamily: fonts.accentBold,
             fontSize: 22,
             color: colors.textPrimary,
             textAlign: "center",
@@ -217,7 +217,7 @@ export default function ActiveRunScreen() {
             <Ionicons name="refresh" size={18} color="#FFF" />
             <Text
               style={{
-                fontFamily: fonts.clashBold,
+                fontFamily: fonts.accentBold,
                 fontSize: 15,
                 color: "#FFF",
               }}
@@ -247,7 +247,7 @@ export default function ActiveRunScreen() {
 
   const controlsBottom =
     mainTabBarOverlap +
-    (sheetIndex === 0 ? 320 : 540);
+    (sheetIndex === 0 ? 320 : 520);
 
   return (
     <>
@@ -348,7 +348,7 @@ export default function ActiveRunScreen() {
                <Ionicons name="time-outline" size={20} color={colors.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.clashBold, fontSize: 14, color: colors.textPrimary }}>
+              <Text style={{ fontFamily: fonts.accentBold, fontSize: 14, color: colors.textPrimary }}>
                 GPS STABILIZING ({warmupSecondsLeft}s)
               </Text>
               <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>
@@ -376,7 +376,7 @@ export default function ActiveRunScreen() {
               zIndex: 35,
             }}
           >
-            <Text style={{ fontFamily: fonts.clashBold, fontSize: 13, color: colors.textPrimary }}>
+            <Text style={{ fontFamily: fonts.accentBold, fontSize: 13, color: colors.textPrimary }}>
               Tap the map to set your route destination
             </Text>
             <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>

@@ -7,6 +7,7 @@ import {
   runCommentTable,
   runLogTable,
   socialPrivacySettingsTable,
+  teamTable,
   userTable,
 } from "../db/schema";
 import { normalizeStoredMediaUrl } from "./s3.service";
@@ -99,12 +100,29 @@ export async function assertTeamMemberSocial(userId: number): Promise<{ teamId: 
   const row = await db
     .select({
       teamId: athleteTable.teamId,
+      team: athleteTable.team,
     })
     .from(athleteTable)
     .where(eq(athleteTable.userId, userId))
     .limit(1);
 
-  const teamId = row[0]?.teamId;
+  const directTeamId = row[0]?.teamId;
+  let teamId = directTeamId ?? null;
+
+  // Older or partially migrated athlete rows may have the team name populated but not `teamId`.
+  // Mobile already falls back to onboarding/auth team data, so the API should do the same.
+  if (teamId == null) {
+    const teamName = row[0]?.team?.trim();
+    if (teamName) {
+      const [resolvedTeam] = await db
+        .select({ id: teamTable.id })
+        .from(teamTable)
+        .where(eq(teamTable.name, teamName))
+        .limit(1);
+      teamId = resolvedTeam?.id ?? null;
+    }
+  }
+
   if (teamId == null) {
     throw new SocialAccessError("NOT_TEAM", "Team membership required");
   }

@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { Alert, Pressable, View } from "react-native";
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from "@gorhom/bottom-sheet";
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetScrollView,
+  BottomSheetView,
+} from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -60,6 +64,7 @@ export function ActiveRunSheet({
         onIndexChange?.(idx);
       }}
       enablePanDownToClose={false}
+      enableDynamicSizing={false}
       bottomInset={mainTabBarOverlap}
       backdropComponent={(props) => (
         <BottomSheetBackdrop
@@ -76,22 +81,22 @@ export function ActiveRunSheet({
         width: 44,
       }}
     >
-      <BottomSheetView
-        style={{
-          paddingHorizontal: 16,
-          paddingBottom: 18 + mainTabBarOverlap,
-        }}
-      >
-        <View
+      {index === 0 ? (
+        <BottomSheetView
           style={{
-            backgroundColor: cardBg,
-            borderRadius: 28,
-            borderWidth: 1,
-            borderColor: cardBorder,
-            padding: 16,
+            paddingHorizontal: 16,
+            paddingBottom: 18 + mainTabBarOverlap,
           }}
         >
-          {index === 0 ? (
+          <View
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 28,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              padding: 16,
+            }}
+          >
             <View style={{ marginBottom: 16 }}>
               <ActiveRunStatsCard
                 elapsedSeconds={elapsedSeconds}
@@ -100,21 +105,51 @@ export function ActiveRunSheet({
                 isDark={isDark}
               />
             </View>
-          ) : null}
 
-          <ActiveRunActionDock
-            status={status}
-            colors={colors}
-            isDark={isDark}
-            onPrimaryPress={onPrimaryPress}
-            onOpenSheet={() => setIndex(1)}
-            onAddRoute={() => {
-              setIndex(0);
-              onAddRoute();
+            <ActiveRunActionDock
+              status={status}
+              colors={colors}
+              isDark={isDark}
+              onPrimaryPress={onPrimaryPress}
+              onOpenSheet={() => setIndex(1)}
+              onAddRoute={() => {
+                setIndex(0);
+                onAddRoute();
+              }}
+            />
+          </View>
+        </BottomSheetView>
+      ) : (
+        <BottomSheetScrollView
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          overScrollMode="never"
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingBottom: 18 + mainTabBarOverlap,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 28,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              padding: 16,
             }}
-          />
+          >
+            <ActiveRunActionDock
+              status={status}
+              colors={colors}
+              isDark={isDark}
+              onPrimaryPress={onPrimaryPress}
+              onOpenSheet={() => setIndex(1)}
+              onAddRoute={() => {
+                setIndex(0);
+                onAddRoute();
+              }}
+            />
 
-          {index === 1 ? (
             <View style={{ marginTop: 18, gap: 10 }}>
               <View
                 style={{
@@ -199,6 +234,7 @@ export function ActiveRunSheet({
                   alignItems: "center",
                   justifyContent: "center",
                   opacity: pressed ? 0.9 : 1,
+                  marginTop: 8,
                 })}
               >
                 <Text style={{ fontFamily: fonts.heading2, fontSize: 16, color: "#EF4444" }}>
@@ -206,9 +242,9 @@ export function ActiveRunSheet({
                 </Text>
               </Pressable>
             </View>
-          ) : null}
-        </View>
-      </BottomSheetView>
+          </View>
+        </BottomSheetScrollView>
+      )}
     </BottomSheet>
   );
 }

@@ -1,522 +1,952 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Pressable, ScrollView } from "react-native";
+import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import Svg, { Circle, Path } from "react-native-svg";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { 
-  User, 
-  Play, 
-  ArrowRight, 
-  Activity, 
-  Trophy, 
-  Timer, 
-  Map as MapIcon, 
-  Zap, 
-  History, 
-  Heart,
-  ChevronRight,
-  TrendingUp,
-  Clock
-} from "lucide-react-native";
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring,
-  withTiming
-} from "react-native-reanimated";
-import { fonts, radius, spacing } from "@/constants/theme";
-import { getPersonalBests, getRecentRuns, getWeeklySummaries, initSQLiteRuns, RunRecord } from "../../../lib/sqliteRuns";
-import { RunCard } from "../../../components/tracking/RunCard";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { useFocusEffect } from "@react-navigation/native";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
-import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
-import { formatDurationClock, formatHoursMinutes } from "../../../lib/tracking/runUtils";
-import { getLastNDaysLabel, getLastNDaysRangeLabel } from "../../../lib/tracking/dateRange";
-import { useRunStore } from "../../../store/useRunStore";
-import { syncRuns } from "../../../lib/runSync";
-import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
+import { fonts, radius, spacing } from "@/constants/theme";
+import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
-import { apiRequest } from "@/lib/api";
-import { getApiBaseUrl } from "@/lib/apiBaseUrl";
-import { enrichTeamFieldsIfOnboardingHasThem } from "@/lib/auth/enrichTeamFromOnboarding";
-import { resolveAppRole } from "@/lib/appRole";
-import { hasOrgTeamMembership } from "@/lib/teamMembership";
-import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 import {
-  setApiUserRole,
-  setAppRole,
-  setAuthTeamMembership,
-} from "@/store/slices/userSlice";
+  getRecentRuns,
+  getWeeklySummaries,
+  initSQLiteRuns,
+  RunRecord,
+} from "@/lib/sqliteRuns";
+import { formatDurationClock, formatHoursMinutes } from "@/lib/tracking/runUtils";
+import { useRunStore } from "@/store/useRunStore";
+import { useAppSelector } from "@/store/hooks";
+import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 
-const QUOTES = [
-  "Rest is a weapon. Use it wisely.", // Sunday
-  "Never miss a Monday.", // Monday
-  "Discipline eats motivation for breakfast.", // Tuesday
-  "Halfway there. Keep pushing.", // Wednesday
-  "Every run is a step towards a stronger you.", // Thursday
-  "Finish strong.", // Friday
-  "Long run day. Enjoy the miles." // Saturday
-];
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+type HeaderTab = "progress" | "workouts" | "activities";
 
 export default function TrackingHomeScreen() {
   const router = useRouter();
-  const dispatch = useAppDispatch();
+  const insets = useAppSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
-  const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
-  
-  const [directMeTeam, setDirectMeTeam] = useState<{
-    team: string | null;
-    teamId: number | null;
-  } | null | undefined>(undefined);
 
-  const loadMeForTeamHeader = useCallback(async () => {
-    if (!token) return;
+  const [activeTab, setActiveTab] = useState<HeaderTab>("progress");
+  const [runs, setRuns] = useState<RunRecord[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState(() => getWeeklySummaries());
+
+  const reload = useCallback(() => {
     try {
-      const me = await apiRequest<{
-        user?: {
-          role?: string | null;
-          team?: unknown;
-          teamId?: unknown;
-          athleteType?: "youth" | "adult" | null;
-        };
-      }>("/auth/me", {
-        token,
-        forceRefresh: true,
-        suppressStatusCodes: [401, 403],
-      });
-      if (!me.user) {
-        setDirectMeTeam(null);
-        return;
-      }
-
-      const { fields, athleteType: athleteTypeForRole } =
-        await enrichTeamFieldsIfOnboardingHasThem({
-          token,
-          meUser: me.user,
-        });
-
-      setDirectMeTeam(fields);
-      dispatch(setAuthTeamMembership(fields));
-      dispatch(setApiUserRole(me.user.role ?? null));
-      dispatch(
-        setAppRole(
-          resolveAppRole({
-            userRole: me.user.role ?? "guardian",
-            athlete: {
-              ...fields,
-              athleteType: athleteTypeForRole,
-            },
-          }),
-        ),
-      );
-    } catch (err) {
-      setDirectMeTeam(null);
+      setRuns(getRecentRuns(80));
+      setWeeklyStats(getWeeklySummaries());
+    } catch {
+      setRuns([]);
+      setWeeklyStats({ totalDistance: 0, totalTime: 0, numRuns: 0 });
     }
-  }, [token, dispatch]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadMeForTeamHeader();
-    }, [loadMeForTeamHeader]),
-  );
-
-  const showTeamTab = useMemo(() => {
-    const fromDirectFetch =
-      directMeTeam != null && hasOrgTeamMembership(directMeTeam);
-    const fromRedux = shouldUseTeamTrackingFeatures({
-      appRole,
-      authTeamMembership,
-      firstManagedAthlete: managedAthletes[0] ?? null,
-    });
-    return fromDirectFetch || fromRedux;
-  }, [directMeTeam, appRole, authTeamMembership, managedAthletes]);
-
-  const insets = useAppSafeAreaInsets();
-  const isFocused = useSafeIsFocused(true);
-  const [recentRuns, setRecentRuns] = useState<RunRecord[]>([]);
-  const [weeklyStats, setWeeklyStats] = useState({ totalDistance: 0, totalTime: 0, numRuns: 0 });
-  const [personalBests, setPersonalBests] = useState(() => getPersonalBests());
-  const { resetRun } = useRunStore();
-
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(24);
-  const scaleBtn = useSharedValue(1);
-  const progressWidth = useSharedValue(0);
-
-  useEffect(() => {
-    initSQLiteRuns();
-    loadStats();
-    opacity.value = withTiming(1, { duration: 400 });
-    translateY.value = withSpring(0, { damping: 20, stiffness: 150 });
-    syncRuns().then(() => loadStats());
   }, []);
 
   useEffect(() => {
-    if (!isFocused) return;
-    syncRuns().then(() => loadStats());
-  }, [isFocused]);
+    initSQLiteRuns();
+    reload();
+  }, [reload]);
 
-  useEffect(() => {
-    const goalKm = 30;
-    const currentKm = weeklyStats.totalDistance / 1000;
-    const percentage = Math.min(Math.max((currentKm / goalKm) * 100, 0), 100);
-    progressWidth.value = withSpring(percentage, { damping: 20, stiffness: 100 });
-  }, [weeklyStats.totalDistance]);
-
-  const loadStats = () => {
-    try {
-      setRecentRuns(getRecentRuns(3));
-      setWeeklyStats(getWeeklySummaries());
-      setPersonalBests(getPersonalBests());
-    } catch (err) {
-      console.warn("Database empty or error querying", err);
-    }
-  };
-
-  const handleStartRun = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    scaleBtn.value = withSpring(0.96, { damping: 15, stiffness: 300 });
-    setTimeout(() => {
-      scaleBtn.value = withSpring(1, { damping: 15, stiffness: 300 });
-      resetRun();
-      router.push("/(tabs)/tracking/run-setup" as any);
-    }, 80);
-  };
-
-  const animatedScreenStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }]
-  }));
-
-  const animatedBtnStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleBtn.value }]
-  }));
-
-  const animatedProgressStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value}%` as any
-  }));
-
-  const formatDistance = (meters: number) => (meters / 1000).toFixed(1);
   const weeklyTime = formatHoursMinutes(weeklyStats.totalTime);
-  const todayQuote = QUOTES[new Date().getDay()];
-  const weeklyRangeLabel = getLastNDaysRangeLabel(7);
-  const weeklyRangeShortLabel = getLastNDaysLabel(7);
+  const formatKm = (meters: number) => (meters / 1000).toFixed(1);
 
-  // Design Tokens
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
-  const accentMuted = `${colors.accent}15`;
+  const last12WeeksKm = useMemo(() => {
+    const now = new Date();
+    const weekStart = (d: Date) => {
+      const date = new Date(d);
+      const day = date.getDay(); // 0 = Sun
+      const mondayOffset = (day + 6) % 7;
+      date.setDate(date.getDate() - mondayOffset);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    };
+    const thisWeekStart = weekStart(now);
+    const buckets = new Array(12).fill(0);
+
+    runs.forEach((r) => {
+      const d = new Date(r.date);
+      const ws = weekStart(d);
+      const diffWeeks = Math.floor(
+        (thisWeekStart.getTime() - ws.getTime()) / (7 * 24 * 60 * 60 * 1000),
+      );
+      if (diffWeeks >= 0 && diffWeeks < 12) {
+        buckets[11 - diffWeeks] += r.distance_meters / 1000;
+      }
+    });
+
+    return buckets.map((v) => Number(v.toFixed(1)));
+  }, [runs]);
+
+  const monthInfo = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const monthStart = new Date(year, month, 1);
+    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+    const runDays = new Set<number>();
+    let monthActivities = 0;
+
+    runs.forEach((r) => {
+      const d = new Date(r.date);
+      if (d >= monthStart && d <= monthEnd) {
+        runDays.add(d.getDate());
+        monthActivities += 1;
+      }
+    });
+
+    const weeksWithRuns = new Set<string>();
+    runs.forEach((r) => {
+      const d = new Date(r.date);
+      if (d < monthStart || d > monthEnd) return;
+      const key = `${d.getFullYear()}-${d.getMonth()}-${Math.ceil(d.getDate() / 7)}`;
+      weeksWithRuns.add(key);
+    });
+
+    return {
+      title: now.toLocaleString(undefined, { month: "long", year: "numeric" }),
+      year,
+      month,
+      runDays,
+      streakWeeks: weeksWithRuns.size,
+      streakActivities: monthActivities,
+    };
+  }, [runs]);
+
+  const cardBorder = "rgba(255,255,255,0.08)";
+  const cardBg = colors.surface;
+  const showTeamTab = shouldUseTeamTrackingFeatures({
+    appRole,
+    authTeamMembership,
+    firstManagedAthlete: managedAthletes[0] ?? null,
+  });
+
+  const handleStartRun = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const store = useRunStore.getState();
+    store.resetRun();
+    store.setDestination(null);
+    store.setGoalKm(null);
+    store.setProgressNotifyEveryMeters(null);
+    router.push("/(tabs)/tracking/active-run" as any);
+  }, [router]);
 
   return (
-    <Animated.View style={[animatedScreenStyle, { flex: 1, backgroundColor: colors.background }]}>
-      <ScrollView 
-        bounces={true} 
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        bounces
         showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[2]}
         contentContainerStyle={{
-          paddingHorizontal: spacing.xl,
-          paddingTop: 0,
           paddingBottom: trackingScrollBottomPad(insets),
-          flexGrow: 1,
-          alignItems: "stretch",
+          paddingHorizontal: spacing.xl,
         }}
       >
         <TrackingHeaderTabs
           active="running"
           colors={colors}
           isDark={isDark}
-          topInset={insets.top + 12}
+          topInset={insets.top + 6}
           paddingHorizontal={0}
           showTeamTab={showTeamTab}
         />
 
-        {/* Header Section */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.xl }}>
-          <View>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.textSecondary, marginBottom: -4 }}>
-              READY TO
-            </Text>
-            <Text style={{ fontFamily: fonts.heroNumber, fontSize: 56, color: colors.accent, letterSpacing: -2, lineHeight: 56 }}>
-              Run?
-            </Text>
-          </View>
-          <Pressable 
-            style={({ pressed }) => ({ 
-              width: 48, 
-              height: 48, 
-              borderRadius: radius.pill, 
-              backgroundColor: cardBg, 
-              borderWidth: 1, 
-              borderColor: cardBorder,
-              justifyContent: 'center', 
-              alignItems: 'center',
-              opacity: pressed ? 0.8 : 1
-            })}
-          >
-            <User size={24} color={colors.textSecondary} strokeWidth={2} />
-          </Pressable>
-        </View>
+        <TopBar
+          topInset={8}
+          onPressSettings={() => router.push("/(tabs)/more" as any)}
+          onPressSearch={() => {
+            // Placeholder for future activity search (no destination/map search).
+          }}
+          onPressAvatar={() => router.push("/(tabs)/more" as any)}
+        />
 
-        {/* Hero START RUN Button */}
-        <AnimatedPressable 
-          onPress={handleStartRun}
-          style={[animatedBtnStyle, {
-            width: '100%',
-            height: 100,
-            borderRadius: radius.xxl,
-            backgroundColor: colors.accent,
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: spacing.xl,
-            marginBottom: spacing.xxl,
-            overflow: "hidden",
-            ...(isDark ? {} : {
-              shadowColor: colors.accent,
-              shadowOpacity: 0.25,
-              shadowRadius: 20,
-              shadowOffset: { width: 0, height: 12 },
-              elevation: 8,
-            }),
-          }]}
+        <View
+          style={{
+            paddingTop: spacing.md,
+            paddingBottom: spacing.md,
+            backgroundColor: colors.background,
+          }}
         >
-          {/* Subtle background graphic hint */}
-          <View style={{ position: "absolute", right: -20, bottom: -20, opacity: 0.1 }}>
-             <Play size={160} color="#FFF" fill="#FFF" />
-          </View>
-
-          <View style={{ 
-            width: 56, 
-            height: 56, 
-            borderRadius: radius.pill, 
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-            justifyContent: 'center', 
-            alignItems: 'center',
-            marginRight: spacing.lg
-          }}>
-            <Play size={32} color="#FFF" fill="#FFF" strokeWidth={0} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.heading1, fontSize: 24, color: "#FFF", letterSpacing: 0.5 }}>START RUN</Text>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: "#FFF", opacity: 0.7 }}>Lace up and hit the road</Text>
-          </View>
-          <ArrowRight size={24} color="#FFF" strokeWidth={3} />
-        </AnimatedPressable>
-
-        {/* This Week Stats Card */}
-        <View style={{ 
-          backgroundColor: colors.surface, 
-          borderColor: cardBorder, 
-          borderWidth: 1, 
-          borderRadius: radius.xxl, 
-          padding: spacing.xl, 
-          marginBottom: spacing.xxl 
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: accentMuted, alignItems: "center", justifyContent: "center" }}>
-                <Activity size={16} color={colors.accent} strokeWidth={2.5} />
-              </View>
-              <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>WEEKLY PROGRESS</Text>
-            </View>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textDim }}>{weeklyRangeLabel}</Text>
-          </View>
-          
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xl }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textDim, marginBottom: 4 }}>DISTANCE</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 32, color: colors.accent, fontVariant: ['tabular-nums'] }}>
-                  {formatDistance(weeklyStats.totalDistance)}
-                </Text>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 12, color: colors.textSecondary, marginLeft: 2 }}>km</Text>
-              </View>
-            </View>
-            
-            <View style={{ width: 1, backgroundColor: colors.borderSubtle, marginHorizontal: spacing.md }} />
-            
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textDim, marginBottom: 4 }}>TIME</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 32, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
-                  {weeklyTime.h}
-                </Text>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 12, color: colors.textSecondary, marginHorizontal: 1 }}>h</Text>
-                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 32, color: colors.textPrimary, fontVariant: ['tabular-nums'] }}>
-                  {weeklyTime.m}
-                </Text>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 12, color: colors.textSecondary, marginLeft: 1 }}>m</Text>
-              </View>
-            </View>
-
-            <View style={{ width: 1, backgroundColor: colors.borderSubtle, marginHorizontal: spacing.md }} />
-            
-            <View style={{ flex: 1, alignItems: 'flex-end' }}>
-               <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textDim, marginBottom: 4 }}>RUNS</Text>
-               <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 32, color: colors.purple, fontVariant: ['tabular-nums'] }}>
-                  {weeklyStats.numRuns}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
-                Goal: <Text style={{ color: colors.textPrimary }}>30km</Text>
-              </Text>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.accent }}>
-                {Math.min(Math.max(Math.round((weeklyStats.totalDistance / 1000 / 30) * 100), 0), 100)}%
-              </Text>
-            </View>
-            <View style={{ height: 6, backgroundColor: colors.surfaceHigh, borderRadius: radius.pill, overflow: 'hidden' }}>
-              <Animated.View style={[animatedProgressStyle, { height: '100%', backgroundColor: colors.accent, borderRadius: radius.pill }]} />
-            </View>
-          </View>
+          <SegmentedHeaderTabs
+            value={activeTab}
+            onChange={setActiveTab}
+            accent={colors.accent}
+            textPrimary={colors.textPrimary}
+            textSecondary={colors.textSecondary}
+          />
         </View>
 
-        {/* Personal Bests Section */}
-        <View style={{ marginBottom: spacing.xxl }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg, gap: 8 }}>
-            <Trophy size={16} color={colors.amber} strokeWidth={2.5} />
-            <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>PERSONAL BESTS</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: spacing.xl }}>
-            <PBItem 
-              label="5K Best" 
-              value={personalBests.best5kSeconds ? formatDurationClock(personalBests.best5kSeconds) : "--"} 
-              icon={Timer} 
-              color={colors.amber} 
-              cardBg={colors.surface} 
-              cardBorder={cardBorder} 
-              textPrimary={colors.textPrimary}
-              textDim={colors.textDim}
-            />
-            <PBItem 
-              label="Longest Run" 
-              value={personalBests.longestRunMeters ? `${(personalBests.longestRunMeters / 1000).toFixed(1)} km` : "--"} 
-              icon={MapIcon} 
-              color={colors.purple} 
-              cardBg={colors.surface} 
-              cardBorder={cardBorder} 
-              textPrimary={colors.textPrimary}
-              textDim={colors.textDim}
-            />
-            <PBItem 
-              label="Best Pace" 
-              value={personalBests.bestPaceMinPerKm ? `${personalBests.bestPaceMinPerKm.toFixed(2)} /km` : "--"} 
-              icon={Zap} 
-              color={colors.cyan} 
-              cardBg={colors.surface} 
-              cardBorder={cardBorder} 
-              textPrimary={colors.textPrimary}
-              textDim={colors.textDim}
-            />
-          </ScrollView>
-        </View>
-
-        {/* Recent Runs Section */}
-        <View style={{ marginBottom: spacing.xxl }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <History size={16} color={colors.textSecondary} strokeWidth={2} />
-              <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>RECENT RUNS</Text>
+        {activeTab === "progress" ? (
+          <View style={{ gap: spacing.xl }}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Pressable
+                onPress={handleStartRun}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  paddingHorizontal: spacing.lg,
+                  paddingVertical: 10,
+                  borderRadius: radius.pill,
+                  borderWidth: 1.5,
+                  borderColor: colors.accent,
+                  opacity: pressed ? 0.9 : 1,
+                })}
+              >
+                <MaterialCommunityIcons
+                  name="shoe-print"
+                  size={18}
+                  color={colors.accent}
+                />
+                <Text
+                  style={{
+                    fontFamily: fonts.accentBold,
+                    fontSize: 15,
+                    color: colors.accent,
+                  }}
+                >
+                  Run
+                </Text>
+              </Pressable>
             </View>
-            <Pressable style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, opacity: pressed ? 0.7 : 1 })}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.accent }}>See all</Text>
-              <ChevronRight size={14} color={colors.accent} strokeWidth={3} />
-            </Pressable>
-          </View>
 
-          {recentRuns.length === 0 ? (
-            <View style={{ 
-              backgroundColor: colors.surface, 
-              borderColor: cardBorder, 
-              borderWidth: 1, 
-              borderRadius: radius.xxl, 
-              padding: spacing.xxl, 
-              alignItems: 'center', 
-              justifyContent: 'center' 
-            }}>
-              <View style={{ 
-                width: 80, 
-                height: 80, 
-                borderRadius: 40, 
-                backgroundColor: colors.surfaceHigh, 
-                justifyContent: 'center', 
-                alignItems: 'center',
-                marginBottom: spacing.lg
-              }}>
-                <TrendingUp size={40} color={colors.textDim} strokeWidth={1} />
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: cardBorder,
+                borderRadius: radius.xxl,
+                padding: spacing.xl,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.heading2,
+                  fontSize: 28,
+                  color: colors.textPrimary,
+                  marginBottom: spacing.lg,
+                }}
+              >
+                This week
+              </Text>
+
+              <View style={{ flexDirection: "row" }}>
+                <Stat
+                  label="Distance"
+                  value={`${formatKm(weeklyStats.totalDistance)} km`}
+                  textPrimary={colors.textPrimary}
+                  textSecondary={colors.textSecondary}
+                />
+                <Stat
+                  label="Time"
+                  value={`${weeklyTime.h}h ${weeklyTime.m}m`}
+                  textPrimary={colors.textPrimary}
+                  textSecondary={colors.textSecondary}
+                />
+                <Stat
+                  label="Elev Gain"
+                  value="0 m"
+                  textPrimary={colors.textPrimary}
+                  textSecondary={colors.textSecondary}
+                />
               </View>
-              <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary }}>No runs yet</Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textDim, marginTop: 4, marginBottom: spacing.xl }}>Time to lace up and hit the road!</Text>
-              
-              <Pressable 
+
+              <View style={{ marginTop: spacing.xl }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.bodyMedium,
+                    fontSize: 14,
+                    color: colors.textSecondary,
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  Past 12 weeks
+                </Text>
+                <LineChart
+                  width={Math.max(260, screenWidth - spacing.xl * 2 - 10)}
+                  height={160}
+                  points={last12WeeksKm}
+                  color={colors.accent}
+                  gridColor={colors.borderSubtle}
+                />
+              </View>
+            </View>
+
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: cardBorder,
+                borderRadius: radius.xxl,
+                padding: spacing.xl,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.heading2,
+                  fontSize: 28,
+                  color: colors.textPrimary,
+                }}
+              >
+                {monthInfo.title}
+              </Text>
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: spacing.lg,
+                }}
+              >
+                <SmallStat
+                  label="Your Streak"
+                  value={`${monthInfo.streakWeeks} Weeks`}
+                  textPrimary={colors.textPrimary}
+                  textSecondary={colors.textSecondary}
+                />
+                <SmallStat
+                  label="Streak Activities"
+                  value={`${monthInfo.streakActivities}`}
+                  textPrimary={colors.textPrimary}
+                  textSecondary={colors.textSecondary}
+                />
+              </View>
+
+              <View style={{ marginTop: spacing.lg }}>
+                <CalendarMonth
+                  year={monthInfo.year}
+                  month={monthInfo.month}
+                  runDays={monthInfo.runDays}
+                  accent={colors.accent}
+                  textPrimary={colors.textPrimary}
+                  textSecondary={colors.textSecondary}
+                  dotBg={colors.surfaceHigh}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {activeTab === "workouts" ? (
+          <View style={{ gap: spacing.xl }}>
+            <View style={{ flexDirection: "row", gap: spacing.lg }}>
+              <RoundShortcut
+                label="Maintain"
+                icon={<Ionicons name="repeat" size={26} color="#FFF" />}
+                bg="#7C3AED"
+              />
+              <RoundShortcut
+                label="Build"
+                icon={<Ionicons name="barbell-outline" size={26} color="#FFF" />}
+                bg={colors.surfaceHigh}
+              />
+              <RoundShortcut
+                label="Explore"
+                icon={<Ionicons name="shuffle" size={26} color="#FFF" />}
+                bg={colors.surfaceHigh}
+              />
+              <RoundShortcut
+                label="Recover"
+                icon={<Ionicons name="heart-outline" size={26} color="#FFF" />}
+                bg={colors.surfaceHigh}
+              />
+            </View>
+
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: cardBorder,
+                borderRadius: radius.xxl,
+                padding: spacing.xl,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.lg,
+              }}
+            >
+              <Ionicons
+                name="megaphone-outline"
+                size={28}
+                color={colors.textSecondary}
+              />
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: fonts.bodyMedium,
+                  fontSize: 16,
+                  color: colors.textPrimary,
+                }}
+              >
+                Push yourself with longer or harder workouts.
+              </Text>
+            </View>
+
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: cardBorder,
+                borderRadius: radius.xxl,
+                padding: spacing.xl,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.heading2,
+                  fontSize: 20,
+                  color: colors.textPrimary,
+                  marginBottom: spacing.md,
+                }}
+              >
+                Progressive Run
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.bodyMedium,
+                  fontSize: 14,
+                  color: colors.textSecondary,
+                }}
+              >
+                Gradually increase your pace to challenge your endurance.
+              </Text>
+              <View style={{ height: spacing.lg }} />
+              <Pressable
                 onPress={handleStartRun}
                 style={({ pressed }) => ({
                   backgroundColor: colors.accent,
                   borderRadius: radius.pill,
-                  paddingHorizontal: spacing.xl,
-                  paddingVertical: spacing.md,
-                  opacity: pressed ? 0.9 : 1
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  opacity: pressed ? 0.9 : 1,
                 })}
               >
-                <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: "#FFF" }}>START FIRST RUN</Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.heading3,
+                    fontSize: 16,
+                    color: "#07070F",
+                  }}
+                >
+                  Start run
+                </Text>
               </Pressable>
             </View>
-          ) : (
-            <View style={{ gap: 14 }}>
-	              {recentRuns.map((run) => (
-	                <RunCard 
-	                  key={run.id}
-	                  distance={formatDistance(run.distance_meters)}
-	                  date={new Date(run.date).toLocaleDateString()}
-	                  time={formatDurationClock(run.duration_seconds)}
-	                  pace={`${Number.isFinite(run.avg_pace) ? run.avg_pace.toFixed(2) : "0.00"}/km`}
-	                  effortLevel={run.effort_level}
-	                />
-	              ))}
-            </View>
-          )}
-        </View>
+          </View>
+        ) : null}
 
-        {/* Motivational Footer */}
-        <View style={{ alignItems: 'center', paddingVertical: spacing.xl, marginBottom: spacing.xl }}>
-	          <Heart size={16} color={colors.coral} fill={colors.coral} style={{ marginBottom: spacing.sm }} />
-	          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textDim, fontStyle: 'italic', textAlign: 'center', paddingHorizontal: spacing.xxl }}>
-	            {`"${todayQuote}"`}
-	          </Text>
-	        </View>
+        {activeTab === "activities" ? (
+          <View style={{ gap: spacing.lg }}>
+            <Text
+              style={{
+                fontFamily: fonts.heading2,
+                fontSize: 22,
+                color: colors.textPrimary,
+                marginTop: spacing.sm,
+              }}
+            >
+              Activities
+            </Text>
+
+            {runs.length === 0 ? (
+              <View
+                style={{
+                  backgroundColor: cardBg,
+                  borderWidth: 1,
+                  borderColor: cardBorder,
+                  borderRadius: radius.xxl,
+                  padding: spacing.xl,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.bodyMedium,
+                    fontSize: 14,
+                    color: colors.textSecondary,
+                  }}
+                >
+                  No activities yet. Start your first run to see it here.
+                </Text>
+                <View style={{ height: spacing.lg }} />
+                <Pressable
+                  onPress={handleStartRun}
+                  style={({ pressed }) => ({
+                    backgroundColor: colors.accent,
+                    borderRadius: radius.pill,
+                    paddingVertical: 14,
+                    alignItems: "center",
+                    opacity: pressed ? 0.9 : 1,
+                  })}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.heading3,
+                      fontSize: 16,
+                      color: "#07070F",
+                    }}
+                  >
+                    Start run
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={{ gap: 14 }}>
+                {runs.slice(0, 20).map((run) => (
+                  <Pressable
+                    key={run.id}
+                    onPress={() =>
+                      router.push(
+                        `/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any,
+                      )
+                    }
+                    style={({ pressed }) => ({
+                      backgroundColor: cardBg,
+                      borderWidth: 1,
+                      borderColor: cardBorder,
+                      borderRadius: radius.xl,
+                      padding: spacing.lg,
+                      opacity: pressed ? 0.95 : 1,
+                    })}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <View style={{ gap: 4 }}>
+                        <Text
+                          style={{
+                            fontFamily: fonts.heading3,
+                            fontSize: 16,
+                            color: colors.textPrimary,
+                          }}
+                        >
+                          {formatKm(run.distance_meters)} km
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: fonts.bodyMedium,
+                            fontSize: 12,
+                            color: colors.textSecondary,
+                          }}
+                        >
+                          {new Date(run.date).toLocaleDateString()}
+                          {" · "}
+                          {formatDurationClock(run.duration_seconds)}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={colors.textSecondary}
+                      />
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        ) : null}
+
+        <View style={{ height: spacing.xxxl }} />
       </ScrollView>
-    </Animated.View>
-  );
-}
-
-function PBItem({ label, value, icon: Icon, color, cardBg, cardBorder, textPrimary, textDim }: { label: string; value: string; icon: any; color: string; cardBg: string; cardBorder: string; textPrimary: string; textDim: string }) {
-  return (
-    <View style={{ 
-      width: 140, 
-      backgroundColor: cardBg, 
-      borderColor: cardBorder, 
-      borderWidth: 1, 
-      borderRadius: radius.xl, 
-      padding: spacing.lg,
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: color }} />
-      <Icon size={18} color={color} style={{ marginBottom: spacing.sm }} strokeWidth={2.5} />
-      <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: textPrimary, fontVariant: ['tabular-nums'], marginBottom: 2 }}>
-        {value}
-      </Text>
-      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: textDim }}>{label}</Text>
     </View>
   );
 }
 
+function TopBar({
+  topInset,
+  onPressAvatar,
+  onPressSearch,
+  onPressSettings,
+}: {
+  topInset: number;
+  onPressAvatar: () => void;
+  onPressSearch: () => void;
+  onPressSettings: () => void;
+}) {
+  return (
+    <View
+      style={{
+        paddingTop: topInset,
+        paddingBottom: spacing.md,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: fonts.heading1,
+          fontSize: 44,
+          color: "#FFF",
+          letterSpacing: -1,
+        }}
+      >
+        You
+      </Text>
+
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+        <Pressable
+          onPress={onPressAvatar}
+          style={({ pressed }) => ({
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: "rgba(148,163,184,0.25)",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: "#FFF" }}>
+            D
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={onPressSearch}
+          style={({ pressed }) => ({
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pressed ? 0.75 : 1,
+          })}
+          accessibilityLabel="Search activities"
+        >
+          <Ionicons name="search" size={26} color="#FFF" />
+        </Pressable>
+
+        <Pressable
+          onPress={onPressSettings}
+          style={({ pressed }) => ({
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pressed ? 0.75 : 1,
+          })}
+          accessibilityLabel="Settings"
+        >
+          <View style={{ position: "relative" }}>
+            <Ionicons name="settings-outline" size={26} color="#FFF" />
+            <View
+              style={{
+                position: "absolute",
+                right: -1,
+                top: -1,
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: "#FF3B30",
+              }}
+            />
+          </View>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function SegmentedHeaderTabs({
+  value,
+  onChange,
+  accent,
+  textPrimary,
+  textSecondary,
+}: {
+  value: HeaderTab;
+  onChange: (v: HeaderTab) => void;
+  accent: string;
+  textPrimary: string;
+  textSecondary: string;
+}) {
+  const tabs: { key: HeaderTab; label: string }[] = [
+    { key: "progress", label: "Progress" },
+    { key: "workouts", label: "Workouts" },
+    { key: "activities", label: "Activities" },
+  ];
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(255,255,255,0.08)",
+      }}
+    >
+      {tabs.map((t) => {
+        const selected = t.key === value;
+        return (
+          <Pressable
+            key={t.key}
+            onPress={() => onChange(t.key)}
+            style={({ pressed }) => ({
+              flex: 1,
+              paddingVertical: spacing.lg,
+              alignItems: "center",
+              opacity: pressed ? 0.85 : 1,
+              borderBottomWidth: 3,
+              borderBottomColor: selected ? accent : "transparent",
+            })}
+          >
+            <Text
+              style={{
+                fontFamily: selected ? fonts.heading3 : fonts.bodyBold,
+                fontSize: 18,
+                color: selected ? textPrimary : textSecondary,
+              }}
+            >
+              {t.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  textPrimary,
+  textSecondary,
+}: {
+  label: string;
+  value: string;
+  textPrimary: string;
+  textSecondary: string;
+}) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: textSecondary }}>
+        {label}
+      </Text>
+      <Text style={{ fontFamily: fonts.heading2, fontSize: 26, color: textPrimary, marginTop: 6 }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function SmallStat({
+  label,
+  value,
+  textPrimary,
+  textSecondary,
+}: {
+  label: string;
+  value: string;
+  textPrimary: string;
+  textSecondary: string;
+}) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: textSecondary }}>
+        {label}
+      </Text>
+      <Text style={{ fontFamily: fonts.heading2, fontSize: 28, color: textPrimary, marginTop: 6 }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function LineChart({
+  width,
+  height,
+  points,
+  color,
+  gridColor,
+}: {
+  width: number;
+  height: number;
+  points: number[];
+  color: string;
+  gridColor: string;
+}) {
+  const padding = 14;
+  const chartW = width - padding * 2;
+  const chartH = height - padding * 2;
+  const max = Math.max(1, ...points);
+  const stepX = points.length > 1 ? chartW / (points.length - 1) : chartW;
+
+  const toX = (i: number) => padding + i * stepX;
+  const toY = (v: number) => padding + (1 - v / max) * chartH;
+
+  const d = points
+    .map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(2)} ${toY(v).toFixed(2)}`)
+    .join(" ");
+
+  return (
+    <View style={{ width, height }}>
+      <Svg width={width} height={height}>
+        <Path
+          d={`M ${padding} ${padding} L ${padding} ${height - padding}`}
+          stroke={gridColor}
+          strokeWidth={1}
+        />
+        <Path
+          d={`M ${padding} ${height - padding} L ${width - padding} ${height - padding}`}
+          stroke={gridColor}
+          strokeWidth={1}
+        />
+        <Path d={d} stroke={color} strokeWidth={3} fill="none" />
+        {points.map((v, i) => (
+          <Circle
+            key={i}
+            cx={toX(i)}
+            cy={toY(v)}
+            r={4}
+            fill={color}
+            opacity={v === 0 ? 0.35 : 1}
+          />
+        ))}
+      </Svg>
+    </View>
+  );
+}
+
+function CalendarMonth({
+  year,
+  month,
+  runDays,
+  accent,
+  textPrimary,
+  textSecondary,
+  dotBg,
+}: {
+  year: number;
+  month: number; // 0-11
+  runDays: Set<number>;
+  accent: string;
+  textPrimary: string;
+  textSecondary: string;
+  dotBg: string;
+}) {
+  const labels = ["M", "T", "W", "T", "F", "S", "S"];
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay(); // 0 = Sun
+  const offset = (firstDay + 6) % 7; // monday=0
+
+  const cells: Array<number | null> = [];
+  for (let i = 0; i < offset; i += 1) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d += 1) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  return (
+    <View>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: spacing.md,
+        }}
+      >
+        {labels.map((l, idx) => (
+          <Text
+            key={`${l}-${idx}`}
+            style={{
+              width: 38,
+              textAlign: "center",
+              fontFamily: fonts.bodyMedium,
+              fontSize: 13,
+              color: textSecondary,
+            }}
+          >
+            {l}
+          </Text>
+        ))}
+      </View>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+        {cells.map((d, idx) => {
+          const hasRun = d != null && runDays.has(d);
+          return (
+            <View
+              key={idx}
+              style={{
+                width: `${100 / 7}%`,
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              {d == null ? (
+                <View style={{ width: 38, height: 38 }} />
+              ) : (
+                <View
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    backgroundColor: hasRun ? accent : dotBg,
+                    borderWidth: hasRun ? 0 : 1,
+                    borderColor: "rgba(255,255,255,0.10)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.bodyBold,
+                      fontSize: 14,
+                      color: hasRun ? "#07070F" : textPrimary,
+                    }}
+                  >
+                    {d}
+                  </Text>
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function RoundShortcut({
+  label,
+  icon,
+  bg,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  bg: string;
+}) {
+  return (
+    <View style={{ alignItems: "center", flex: 1 }}>
+      <View
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          backgroundColor: bg,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {icon}
+      </View>
+      <Text
+        style={{
+          fontFamily: fonts.bodyBold,
+          fontSize: 16,
+          color: "#FFF",
+          marginTop: spacing.md,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
