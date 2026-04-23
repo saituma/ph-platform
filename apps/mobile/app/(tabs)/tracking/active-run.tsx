@@ -13,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { fonts, radius } from "@/constants/theme";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useTabVisibility } from "@/context/TabVisibilityContext";
 import { useRunStore } from "../../../store/useRunStore";
 import {
   stopLocationTracking,
@@ -23,7 +24,6 @@ import {
 import { useRunTrackingEngine } from "../../../hooks/tracking/useRunTrackingEngine";
 import { LiveMap } from "../../../components/tracking/active-run/LiveMap";
 import { RunToast } from "../../../components/tracking/active-run/RunToast";
-import { mainTabBarTotalHeight } from "../../../lib/tracking/mainTabBarInset";
 import {
   getRunBackgroundTrackingDefault,
   getOsrmRoutingDefault,
@@ -31,11 +31,15 @@ import {
 import type { TrackingMapStyle } from "../../../components/tracking/trackingMapLayers";
 import { ActiveRunSheet, type ActiveRunSheetIndex } from "../../../components/tracking/active-run/ActiveRunSheet";
 import { ActiveRunMapControls } from "../../../components/tracking/active-run/ActiveRunMapControls";
+import { ActiveRunStatsCard } from "../../../components/tracking/active-run/ActiveRunStatsCard";
+import { ActiveRunActionDock } from "../../../components/tracking/active-run/ActiveRunActionDock";
+import { ActiveRunLayersSheet, type ActiveRunLayersSheetIndex } from "../../../components/tracking/active-run/ActiveRunLayersSheet";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
+  const { setIsTabBarVisible } = useTabVisibility();
   const {
     status,
     startRun,
@@ -53,8 +57,11 @@ export default function ActiveRunScreen() {
     useState(false);
   const [osrmRoutingEnabled, setOsrmRoutingEnabled] = useState(false);
   const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
-  const [sheetIndex, setSheetIndex] = useState<ActiveRunSheetIndex>(0);
+  const [sheetIndex, setSheetIndex] = useState<ActiveRunSheetIndex>(-1);
+  const [layersSheetIndex, setLayersSheetIndex] = useState<ActiveRunLayersSheetIndex>(-1);
   const [pickingDestination, setPickingDestination] = useState(false);
+  const [pointsOfInterestEnabled, setPointsOfInterestEnabled] = useState(true);
+  const [showRunSheetHint, setShowRunSheetHint] = useState(true);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   const toastTranslateY = useSharedValue(-120);
@@ -76,7 +83,7 @@ export default function ActiveRunScreen() {
     isWarmedUp,
   } = useRunTrackingEngine(toastTranslateY, insets.top, { osrmRoutingEnabled });
 
-  const mainTabBarOverlap = mainTabBarTotalHeight(insets.bottom);
+  const bottomSafeInset = Math.max(insets.bottom, 12);
   const showWarmupBanner = !isWarmedUp && status === "running";
   const warmupSecondsLeft = Math.max(0, 8 - elapsedSeconds);
 
@@ -98,6 +105,13 @@ export default function ActiveRunScreen() {
         shadowOffset: { width: 0, height: 12 },
         elevation: 8,
       };
+
+  useEffect(() => {
+    setIsTabBarVisible(false);
+    return () => {
+      setIsTabBarVisible(true);
+    };
+  }, [setIsTabBarVisible]);
 
   useEffect(() => {
     let active = true;
@@ -245,9 +259,15 @@ export default function ActiveRunScreen() {
     }
   };
 
+  const isSheetOpen = sheetIndex >= 0 || layersSheetIndex >= 0;
+  const showRunDock = sheetIndex === -1 && layersSheetIndex === -1;
+  const statsBottom = bottomSafeInset + 182;
   const controlsBottom =
-    mainTabBarOverlap +
-    (sheetIndex === 0 ? 320 : 520);
+    layersSheetIndex >= 0
+      ? bottomSafeInset + 336
+      : sheetIndex >= 0
+        ? bottomSafeInset + 336
+        : bottomSafeInset + 392;
 
   return (
     <>
@@ -288,7 +308,8 @@ export default function ActiveRunScreen() {
           <Pressable
             onPress={() => {
               if (status === "running" || status === "paused") {
-                setSheetIndex(1);
+                setSheetIndex(0);
+                setLayersSheetIndex(-1);
                 return;
               }
               router.replace("/(tabs)/tracking" as any);
@@ -314,9 +335,9 @@ export default function ActiveRunScreen() {
           colors={colors}
           isDark={isDark}
           bottom={controlsBottom}
-          onOpenLayers={() => setSheetIndex(1)}
-          onToggle3D={() => {
-            Alert.alert("Coming soon", "3D map camera will be added later.");
+          onOpenLayers={() => {
+            setSheetIndex(-1);
+            setLayersSheetIndex(0);
           }}
           onRecenter={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -332,26 +353,26 @@ export default function ActiveRunScreen() {
               left: 16,
               top: insets.top + 70,
               right: 80,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
               borderRadius: radius.xl,
               backgroundColor: glassBg,
               borderWidth: 1,
               borderColor: glassBorder,
               ...glassShadow,
               flexDirection: "row",
-              gap: 12,
+              gap: 10,
               alignItems: "center"
             }}
           >
-            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)", alignItems: "center", justifyContent: "center" }}>
-               <Ionicons name="time-outline" size={20} color={colors.accent} />
+            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)", alignItems: "center", justifyContent: "center" }}>
+               <Ionicons name="time-outline" size={17} color={colors.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.accentBold, fontSize: 14, color: colors.textPrimary }}>
+              <Text style={{ fontFamily: fonts.accentBold, fontSize: 12, color: colors.textPrimary }}>
                 GPS STABILIZING ({warmupSecondsLeft}s)
               </Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>
+              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>
                 Stand still for best accuracy
               </Text>
             </View>
@@ -382,6 +403,59 @@ export default function ActiveRunScreen() {
             <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>
               This is optional — you can finish without a destination.
             </Text>
+          </View>
+        ) : null}
+
+        {sheetIndex >= 1 && layersSheetIndex === -1 && showRunSheetHint ? (
+          <View
+            style={{
+              position: "absolute",
+              left: 22,
+              right: 22,
+              bottom: bottomSafeInset + 430,
+              zIndex: 45,
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: "100%",
+                backgroundColor: "#F8F6F2",
+                borderRadius: 22,
+                paddingHorizontal: 18,
+                paddingVertical: 16,
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 10,
+              }}
+            >
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: fonts.bodyMedium,
+                  fontSize: 16,
+                  lineHeight: 22,
+                  color: "#18181B",
+                }}
+              >
+                Share location, change sports, and edit settings right here.
+              </Text>
+              <Pressable
+                onPress={() => setShowRunSheetHint(false)}
+                style={{ padding: 2 }}
+              >
+                <Ionicons name="close" size={26} color="#18181B" />
+              </Pressable>
+            </View>
+            <View
+              style={{
+                width: 22,
+                height: 22,
+                backgroundColor: "#F8F6F2",
+                transform: [{ rotate: "45deg" }],
+                marginTop: -11,
+              }}
+            />
           </View>
         ) : null}
 
@@ -418,28 +492,99 @@ export default function ActiveRunScreen() {
           </View>
         ) : null}
 
+        {!isSheetOpen ? (
+          <>
+            <View
+              style={{
+                position: "absolute",
+                left: 18,
+                right: 18,
+                bottom: statsBottom,
+                zIndex: 25,
+              }}
+            >
+              <ActiveRunStatsCard
+                elapsedSeconds={elapsedSeconds}
+                distanceMeters={distanceMeters}
+                colors={colors}
+                isDark={isDark}
+              />
+            </View>
+          </>
+        ) : null}
+
+        {showRunDock ? (
+          <View
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 30,
+              backgroundColor: isDark ? "rgba(18,18,18,0.96)" : "rgba(255,255,255,0.98)",
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
+              paddingTop: 12,
+              paddingHorizontal: 20,
+              paddingBottom: bottomSafeInset,
+            }}
+          >
+            <ActiveRunActionDock
+              status={status}
+              colors={colors}
+              isDark={isDark}
+              onPrimaryPress={handlePrimaryPress}
+              onOpenSheet={() => setSheetIndex(0)}
+              onAddRoute={() => {
+                setPickingDestination(true);
+                setSheetIndex(-1);
+                setLayersSheetIndex(-1);
+              }}
+            />
+          </View>
+        ) : null}
+
         <ActiveRunSheet
           index={sheetIndex}
           setIndex={setSheetIndex}
           status={status}
-          elapsedSeconds={elapsedSeconds}
-          distanceMeters={distanceMeters}
-          mapStyle={mapStyle}
-          onChangeMapStyle={setMapStyle}
           colors={colors}
           isDark={isDark}
-          mainTabBarOverlap={mainTabBarOverlap}
+          mainTabBarOverlap={bottomSafeInset}
           onPrimaryPress={handlePrimaryPress}
           onAddRoute={() => {
             setPickingDestination(true);
-            setSheetIndex(0);
+            setSheetIndex(-1);
+            setLayersSheetIndex(-1);
           }}
           onShareLiveLocation={() => {
-            setSheetIndex(0);
+            setSheetIndex(-1);
+            setLayersSheetIndex(-1);
             router.push("/(tabs)/tracking/social" as any);
           }}
           onFinishRun={handleFinishRun}
           onIndexChange={(i) => setSheetIndex(i)}
+        />
+
+        <ActiveRunLayersSheet
+          index={layersSheetIndex}
+          setIndex={(next) => {
+            setLayersSheetIndex(next);
+            if (next >= 0) {
+              setSheetIndex(-1);
+            }
+          }}
+          mapStyle={mapStyle}
+          onChangeMapStyle={setMapStyle}
+          pointsOfInterestEnabled={pointsOfInterestEnabled}
+          onTogglePointsOfInterest={() =>
+            setPointsOfInterestEnabled((current) => !current)
+          }
+          colors={colors}
+          isDark={isDark}
+          bottomInset={bottomSafeInset}
         />
 
         <RunToast

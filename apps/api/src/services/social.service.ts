@@ -16,6 +16,7 @@ import {
   getPrivacySettings,
   getRunLikeSummary,
 } from "./social-privacy.service";
+import { getAthleteForUser } from "./user.service";
 
 export class SocialAccessError extends Error {
   code: "NOT_ADULT" | "NOT_FOUND" | "FORBIDDEN" | "SOCIAL_DISABLED" | "NOT_TEAM";
@@ -97,22 +98,13 @@ export async function assertGlobalSocialDeprecated(userId: number): Promise<void
 }
 
 export async function assertTeamMemberSocial(userId: number): Promise<{ teamId: number }> {
-  const row = await db
-    .select({
-      teamId: athleteTable.teamId,
-      team: athleteTable.team,
-    })
-    .from(athleteTable)
-    .where(eq(athleteTable.userId, userId))
-    .limit(1);
-
-  const directTeamId = row[0]?.teamId;
-  let teamId = directTeamId ?? null;
+  const athlete = await getAthleteForUser(userId);
+  let teamId = athlete?.teamId ?? null;
 
   // Older or partially migrated athlete rows may have the team name populated but not `teamId`.
-  // Mobile already falls back to onboarding/auth team data, so the API should do the same.
+  // Reuse the broader athlete lookup used by auth/onboarding before falling back to a team-name match.
   if (teamId == null) {
-    const teamName = row[0]?.team?.trim();
+    const teamName = typeof athlete?.team === "string" ? athlete.team.trim() : "";
     if (teamName) {
       const [resolvedTeam] = await db
         .select({ id: teamTable.id })

@@ -44,8 +44,8 @@ export function ActiveRunStatsCard({
         backgroundColor: cardBg,
         borderWidth: 1,
         borderColor: cardBorder,
-        paddingHorizontal: 18,
-        paddingVertical: 14,
+        paddingHorizontal: 22,
+        paddingVertical: 18,
       }}
     >
       <View
@@ -53,16 +53,16 @@ export function ActiveRunStatsCard({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 12,
+          marginBottom: 14,
         }}
       >
-        <Text style={{ fontFamily: fonts.heading2, fontSize: 18, color: valueColor }}>
+        <Text style={{ fontFamily: fonts.heading2, fontSize: 19, color: valueColor }}>
           Run
         </Text>
         <Ionicons name="expand-outline" size={18} color={colors.textSecondary} />
       </View>
 
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
         <StatBlock
           label="Time"
           value={formatDurationClock(elapsedSeconds)}
@@ -102,13 +102,17 @@ function StatBlock({
 
   return (
     <View style={{ flex: 1, alignItems }}>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 30, color: colors.value, fontVariant: ["tabular-nums"] }}>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.72}
+        numberOfLines={1}
+        style={{ fontFamily: fonts.bodyBold, fontSize: 31, color: colors.value, fontVariant: ["tabular-nums"] }}
+      >
         {value}
       </Text>
-      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.label, marginTop: 4 }}>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.label, marginTop: 6 }}>
         {label}
       </Text>
     </View>
   );
 }
-

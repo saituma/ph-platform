@@ -4,6 +4,7 @@ import {
   setGlobalActiveTab,
   subscribeToGlobalTabRequests,
 } from "@/context/ActiveTabContext";
+import { useTabVisibility } from "@/context/TabVisibilityContext";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   NavigationContainerRefContext,
@@ -42,6 +43,7 @@ export function SwipeableTabLayout({
   onIndexChange,
 }: SwipeableTabLayoutProps) {
   const { colors } = useAppTheme();
+  const { isTabBarVisible } = useTabVisibility();
   const pagerRef = useRef<PagerView>(null);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
@@ -235,9 +237,11 @@ export function SwipeableTabLayout({
           })}
         </View>
 
-        <View style={styles.tabBarWrapper}>
-          <TabBar tabs={tabs} activeIndex={activeIndex} onTabPress={handleTabPress} />
-        </View>
+        {isTabBarVisible ? (
+          <View style={styles.tabBarWrapper}>
+            <TabBar tabs={tabs} activeIndex={activeIndex} onTabPress={handleTabPress} />
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -252,21 +256,23 @@ export function SwipeableTabLayout({
         onPageSelected={handlePageSelected}
         onPageScroll={handlePageScroll}
         onPageScrollStateChanged={handlePageScrollStateChanged}
-        scrollEnabled={true}
+        scrollEnabled={isTabBarVisible}
         overdrag={false}
         overScrollMode={Platform.OS === "ios" ? undefined : "never"}
         offscreenPageLimit={Math.min(4, Math.max(1, tabs.length - 1))}
       >
         {pagerChildren}
       </PagerView>
-      
-      <View style={styles.tabBarWrapper}>
-        <TabBar
-          tabs={tabs}
-          activeIndex={activeIndex}
-          onTabPress={handleTabPress}
-        />
-      </View>
+
+      {isTabBarVisible ? (
+        <View style={styles.tabBarWrapper}>
+          <TabBar
+            tabs={tabs}
+            activeIndex={activeIndex}
+            onTabPress={handleTabPress}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

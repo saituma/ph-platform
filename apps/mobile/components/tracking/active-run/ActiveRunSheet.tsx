@@ -7,22 +7,22 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 
 import { Text } from "@/components/ScaledText";
 import { fonts, radius } from "@/constants/theme";
-import { ActiveRunActionDock } from "./ActiveRunActionDock";
-import { ActiveRunStatsCard } from "./ActiveRunStatsCard";
 
-export type ActiveRunSheetIndex = 0 | 1;
+export type ActiveRunSheetIndex = -1 | 0 | 1;
 
 export function ActiveRunSheet({
   index,
   setIndex,
   status,
-  elapsedSeconds,
-  distanceMeters,
-  mapStyle,
-  onChangeMapStyle,
   colors,
   isDark,
   mainTabBarOverlap,
@@ -35,10 +35,6 @@ export function ActiveRunSheet({
   index: ActiveRunSheetIndex;
   setIndex: (index: ActiveRunSheetIndex) => void;
   status: "idle" | "running" | "paused" | "stopped";
-  elapsedSeconds: number;
-  distanceMeters: number;
-  mapStyle: "road" | "satellite";
-  onChangeMapStyle: (next: "road" | "satellite") => void;
   colors: Record<string, string>;
   isDark: boolean;
   mainTabBarOverlap: number;
@@ -48,141 +44,108 @@ export function ActiveRunSheet({
   onFinishRun: () => void;
   onIndexChange?: (index: ActiveRunSheetIndex) => void;
 }) {
-  const snapPoints = useMemo(() => [300, "62%"] as const, []);
+  const snapPoints = useMemo(() => ["62%", "90%"] as const, []);
   const [trackLaps, setTrackLaps] = useState(false);
+  const [shareLiveLocationEnabled] = useState(false);
+  const animatedSheetIndex = useSharedValue<number>(index >= 0 ? index : -1);
 
   const cardBg = isDark ? "rgba(18,18,18,0.94)" : "rgba(255,255,255,0.96)";
   const cardBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)";
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      animatedSheetIndex.value,
+      [0, 0.15, 0.75],
+      [0.75, 0.9, 1],
+      Extrapolation.CLAMP,
+    ),
+    transform: [
+      {
+        translateY: interpolate(
+          animatedSheetIndex.value,
+          [0, 1],
+          [14, 0],
+          Extrapolation.CLAMP,
+        ),
+      },
+    ],
+  }));
 
   return (
     <BottomSheet
       index={index}
+      animatedIndex={animatedSheetIndex}
       snapPoints={snapPoints as any}
       onChange={(next) => {
-        const idx = (next === 1 ? 1 : 0) as ActiveRunSheetIndex;
+        const idx = (next >= 0 ? next : -1) as ActiveRunSheetIndex;
         setIndex(idx);
         onIndexChange?.(idx);
       }}
-      enablePanDownToClose={false}
+      enablePanDownToClose
+      enableOverDrag={false}
       enableDynamicSizing={false}
-      bottomInset={mainTabBarOverlap}
+      bottomInset={0}
       backdropComponent={(props) => (
         <BottomSheetBackdrop
           {...props}
-          appearsOnIndex={1}
-          disappearsOnIndex={0}
+          appearsOnIndex={0}
+          disappearsOnIndex={-1}
           opacity={0.45}
-          pressBehavior="collapse"
+          pressBehavior="close"
         />
       )}
-      backgroundStyle={{ backgroundColor: "transparent" }}
+      backgroundStyle={{
+        backgroundColor: cardBg,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        borderWidth: 1,
+        borderColor: cardBorder,
+      }}
+      style={{ left: 0, right: 0 }}
       handleIndicatorStyle={{
         backgroundColor: isDark ? "rgba(255,255,255,0.30)" : "rgba(15,23,42,0.22)",
         width: 44,
       }}
     >
-      {index === 0 ? (
-        <BottomSheetView
-          style={{
-            paddingHorizontal: 16,
-            paddingBottom: 18 + mainTabBarOverlap,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: cardBg,
-              borderRadius: 28,
-              borderWidth: 1,
-              borderColor: cardBorder,
-              padding: 16,
-            }}
-          >
-            <View style={{ marginBottom: 16 }}>
-              <ActiveRunStatsCard
-                elapsedSeconds={elapsedSeconds}
-                distanceMeters={distanceMeters}
-                colors={colors}
-                isDark={isDark}
-              />
-            </View>
-
-            <ActiveRunActionDock
-              status={status}
-              colors={colors}
-              isDark={isDark}
-              onPrimaryPress={onPrimaryPress}
-              onOpenSheet={() => setIndex(1)}
-              onAddRoute={() => {
-                setIndex(0);
-                onAddRoute();
-              }}
-            />
-          </View>
-        </BottomSheetView>
-      ) : (
+      {index >= 0 ? (
         <BottomSheetScrollView
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
           contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingBottom: 18 + mainTabBarOverlap,
+            flexGrow: 1,
+            paddingHorizontal: 0,
+            paddingBottom: mainTabBarOverlap,
           }}
         >
           <View
             style={{
-              backgroundColor: cardBg,
-              borderRadius: 28,
-              borderWidth: 1,
-              borderColor: cardBorder,
-              padding: 16,
+              paddingTop: 12,
+              paddingHorizontal: 20,
+              paddingBottom: 22,
+              minHeight: 420,
             }}
           >
-            <ActiveRunActionDock
-              status={status}
-              colors={colors}
-              isDark={isDark}
-              onPrimaryPress={onPrimaryPress}
-              onOpenSheet={() => setIndex(1)}
-              onAddRoute={() => {
-                setIndex(0);
-                onAddRoute();
-              }}
-            />
-
-            <View style={{ marginTop: 18, gap: 10 }}>
+            <Animated.View style={[{ gap: 10 }, contentAnimatedStyle]}>
               <View
                 style={{
-                  flexDirection: "row",
-                  gap: 10,
-                  marginBottom: 6,
+                  backgroundColor: "#020202",
+                  borderRadius: 26,
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  marginTop: 10,
                 }}
               >
-                <MapStylePill
-                  label="Standard"
-                  active={mapStyle === "road"}
-                  onPress={() => onChangeMapStyle("road")}
-                  colors={colors}
-                  isDark={isDark}
-                />
-                <MapStylePill
-                  label="Satellite"
-                  active={mapStyle === "satellite"}
-                  onPress={() => onChangeMapStyle("satellite")}
-                  colors={colors}
-                  isDark={isDark}
-                />
-              </View>
               <SheetRow
                 icon="share-social-outline"
                 title="Share live location"
-                subtitle="Team mode"
+                subtitle={shareLiveLocationEnabled ? "On" : "Off"}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onShareLiveLocation();
                 }}
                 colors={colors}
               />
+              <SheetDivider colors={colors} />
               <SheetToggleRow
                 icon="repeat-outline"
                 title="Track laps"
@@ -192,6 +155,7 @@ export function ActiveRunSheet({
                 colors={colors}
                 isDark={isDark}
               />
+              <SheetDivider colors={colors} />
               <SheetRow
                 icon="pulse-outline"
                 title="Add a sensor"
@@ -201,6 +165,7 @@ export function ActiveRunSheet({
                 }}
                 colors={colors}
               />
+              <SheetDivider colors={colors} />
               <SheetRow
                 icon="settings-outline"
                 title="Settings"
@@ -210,8 +175,7 @@ export function ActiveRunSheet({
                 }}
                 colors={colors}
               />
-
-              <View style={{ height: 1, backgroundColor: colors.borderSubtle, opacity: 0.8, marginVertical: 6 }} />
+              </View>
 
               <Pressable
                 onPress={() => {
@@ -234,64 +198,34 @@ export function ActiveRunSheet({
                   alignItems: "center",
                   justifyContent: "center",
                   opacity: pressed ? 0.9 : 1,
-                  marginTop: 8,
+                  marginTop: 16,
                 })}
               >
                 <Text style={{ fontFamily: fonts.heading2, fontSize: 16, color: "#EF4444" }}>
                   Finish run
                 </Text>
               </Pressable>
-            </View>
+            </Animated.View>
           </View>
         </BottomSheetScrollView>
+      ) : (
+        <BottomSheetView style={{ height: 0 }}>
+          <View />
+        </BottomSheetView>
       )}
     </BottomSheet>
   );
 }
 
-function MapStylePill({
-  label,
-  active,
-  onPress,
-  colors,
-  isDark,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  colors: Record<string, string>;
-  isDark: boolean;
-}) {
+function SheetDivider({ colors }: { colors: Record<string, string> }) {
   return (
-    <Pressable
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
+    <View
+      style={{
+        height: 1,
+        backgroundColor: "rgba(255,255,255,0.12)",
+        marginLeft: 50,
       }}
-      style={({ pressed }) => ({
-        flex: 1,
-        height: 44,
-        borderRadius: radius.pill,
-        borderWidth: 1,
-        borderColor: active
-          ? colors.accent
-          : isDark
-            ? "rgba(255,255,255,0.10)"
-            : "rgba(15,23,42,0.10)",
-        backgroundColor: active
-          ? `${colors.accent}22`
-          : isDark
-            ? "rgba(255,255,255,0.06)"
-            : "rgba(15,23,42,0.04)",
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: pressed ? 0.9 : 1,
-      })}
-    >
-      <Text style={{ fontFamily: fonts.heading3, fontSize: 14, color: active ? colors.accent : colors.textPrimary }}>
-        {label}
-      </Text>
-    </Pressable>
+    />
   );
 }
 
@@ -314,10 +248,10 @@ function SheetRow({
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
-        paddingVertical: 14,
-        paddingHorizontal: 14,
+        paddingVertical: 18,
+        paddingHorizontal: 6,
         borderRadius: radius.xl,
-        backgroundColor: pressed ? "rgba(255,255,255,0.06)" : "transparent",
+        backgroundColor: pressed ? "rgba(255,255,255,0.05)" : "transparent",
       })}
     >
       <Ionicons name={icon as any} size={24} color={colors.textPrimary} />
@@ -325,11 +259,11 @@ function SheetRow({
         <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: colors.textPrimary }}>
           {title}
         </Text>
-        <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary }}>
+        <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 13, color: "#D4D4D8" }}>
           {subtitle}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+      <Ionicons name="chevron-forward" size={18} color="#7A7A80" />
     </Pressable>
   );
 }
@@ -363,10 +297,10 @@ function SheetToggleRow({
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
-        paddingVertical: 14,
-        paddingHorizontal: 14,
+        paddingVertical: 18,
+        paddingHorizontal: 6,
         borderRadius: radius.xl,
-        backgroundColor: pressed ? "rgba(255,255,255,0.06)" : "transparent",
+        backgroundColor: pressed ? "rgba(255,255,255,0.05)" : "transparent",
       })}
     >
       <Ionicons name={icon as any} size={24} color={colors.textPrimary} />
@@ -374,7 +308,7 @@ function SheetToggleRow({
         <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: colors.textPrimary }}>
           {title}
         </Text>
-        <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary }}>
+        <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 13, color: "#D4D4D8" }}>
           {subtitle}
         </Text>
       </View>
