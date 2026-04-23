@@ -4,6 +4,7 @@ import { FontScaleProvider } from "@/context/FontScaleContext";
 import { RefreshProvider } from "@/context/RefreshContext";
 import { RoleProvider } from "@/context/RoleContext";
 import { SocketProvider } from "@/context/SocketContext";
+import { TabVisibilityProvider } from "@/context/TabVisibilityContext";
 import { InAppNotificationsProvider } from "@/context/InAppNotificationsContext";
 import { Stack, slideFromRight, Transition } from "@/components/navigation/TransitionStack";
 import { HeroAppProvider } from "@/components/ui/hero";
@@ -120,6 +121,7 @@ export default function RootLayout() {
         HeroAppProvider,
         FontScaleProvider,
         AgeExperienceProvider,
+        TabVisibilityProvider,
         RoleProvider,
         InAppNotificationsProvider,
         SocketProvider,

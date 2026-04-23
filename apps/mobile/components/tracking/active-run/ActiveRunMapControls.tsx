@@ -1,21 +1,21 @@
 import React from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-function ControlButton({
-  icon,
+function BaseControlButton({
   label,
   onPress,
   colors,
   isDark,
+  children,
 }: {
-  icon: string;
   label: string;
   onPress: () => void;
   colors: Record<string, string>;
   isDark: boolean;
+  children: React.ReactNode;
 }) {
-  const bg = isDark ? "rgba(18,18,18,0.90)" : "rgba(255,255,255,0.92)";
+  const bg = isDark ? "rgba(18,18,18,0.92)" : "rgba(255,255,255,0.94)";
   const border = isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)";
 
   return (
@@ -41,8 +41,68 @@ function ControlButton({
         elevation: 10,
       })}
     >
-      <Ionicons name={icon as any} size={24} color={colors.textPrimary} />
+      {children}
     </Pressable>
+  );
+}
+
+function LayersButton({
+  onPress,
+  colors,
+  isDark,
+}: {
+  onPress: () => void;
+  colors: Record<string, string>;
+  isDark: boolean;
+}) {
+  return (
+    <BaseControlButton
+      label="Layers"
+      onPress={onPress}
+      colors={colors}
+      isDark={isDark}
+    >
+      <View style={{ alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="layers" size={24} color={colors.textPrimary} />
+        <View
+          style={{
+            position: "absolute",
+            top: -8,
+            right: -12,
+            minWidth: 24,
+            height: 24,
+            borderRadius: 12,
+            backgroundColor: "#FFFFFF",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: 6,
+          }}
+        >
+          <Text style={{ color: "#111111", fontSize: 13, fontWeight: "700" }}>1</Text>
+        </View>
+      </View>
+    </BaseControlButton>
+  );
+}
+
+function RecenterButton({
+  onPress,
+  colors,
+  isDark,
+}: {
+  onPress: () => void;
+  colors: Record<string, string>;
+  isDark: boolean;
+}) {
+  return (
+    <BaseControlButton
+      label="Recenter"
+      onPress={onPress}
+      colors={colors}
+      isDark={isDark}
+    >
+      <Ionicons name="locate" size={27} color={colors.textPrimary} />
+    </BaseControlButton>
   );
 }
 
@@ -51,14 +111,12 @@ export function ActiveRunMapControls({
   isDark,
   bottom,
   onOpenLayers,
-  onToggle3D,
   onRecenter,
 }: {
   colors: Record<string, string>;
   isDark: boolean;
   bottom: number;
   onOpenLayers: () => void;
-  onToggle3D: () => void;
   onRecenter: () => void;
 }) {
   return (
@@ -73,27 +131,8 @@ export function ActiveRunMapControls({
         zIndex: 30,
       }}
     >
-      <ControlButton
-        icon="layers-outline"
-        label="Layers"
-        onPress={onOpenLayers}
-        colors={colors}
-        isDark={isDark}
-      />
-      <ControlButton
-        icon="cube-outline"
-        label="3D"
-        onPress={onToggle3D}
-        colors={colors}
-        isDark={isDark}
-      />
-      <ControlButton
-        icon="locate-outline"
-        label="Recenter"
-        onPress={onRecenter}
-        colors={colors}
-        isDark={isDark}
-      />
+      <LayersButton onPress={onOpenLayers} colors={colors} isDark={isDark} />
+      <RecenterButton onPress={onRecenter} colors={colors} isDark={isDark} />
     </View>
   );
 }

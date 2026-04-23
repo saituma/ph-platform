@@ -32,22 +32,12 @@ export function ActiveRunActionDock({
     >
       <View
         style={{
-          width: 44,
-          height: 5,
-          borderRadius: radius.pill,
-          backgroundColor: isDark ? "rgba(255,255,255,0.25)" : "rgba(15,23,42,0.20)",
-          marginBottom: 18,
-        }}
-      />
-
-      <View
-        style={{
           width: "100%",
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "flex-end",
-          paddingHorizontal: 6,
-          gap: 12,
+          paddingHorizontal: 16,
+          gap: 10,
         }}
       >
         <DockButton
@@ -70,9 +60,9 @@ export function ActiveRunActionDock({
             onPrimaryPress();
           }}
           style={({ pressed }) => ({
-            width: 92,
-            height: 92,
-            borderRadius: 46,
+            width: 104,
+            height: 104,
+            borderRadius: 52,
             backgroundColor: colors.accent,
             alignItems: "center",
             justifyContent: "center",
@@ -80,12 +70,12 @@ export function ActiveRunActionDock({
             transform: [{ scale: pressed ? 0.98 : 1 }],
             shadowColor: "#000",
             shadowOpacity: 0.25,
-            shadowRadius: 14,
-            shadowOffset: { width: 0, height: 10 },
-            elevation: 12,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: 12 },
+            elevation: 14,
           })}
         >
-          <Ionicons name={primaryIcon as any} size={44} color="#fff" />
+          <Ionicons name={primaryIcon as any} size={50} color="#fff" />
         </Pressable>
 
         <DockButton
@@ -125,40 +115,40 @@ function DockButton({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => ({
-        alignItems: "center",
-        gap: 10,
-        opacity: pressed ? 0.9 : 1,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-        flex: 1,
+          style={({ pressed }) => ({
+            alignItems: "center",
+        gap: 12,
+            opacity: pressed ? 0.9 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+            flex: 1,
       })}
     >
       <View
         style={{
-          width: 74,
-          height: 74,
-          borderRadius: 37,
+          width: 84,
+          height: 84,
+          borderRadius: 42,
           backgroundColor: bg,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Ionicons name={icon as any} size={28} color={fg} />
+        <Ionicons name={icon as any} size={32} color={fg} />
         {selected ? (
           <View
             style={{
               position: "absolute",
-              right: 10,
-              top: 10,
-              width: 18,
-              height: 18,
-              borderRadius: 9,
+              right: 8,
+              top: 8,
+              width: 24,
+              height: 24,
+              borderRadius: 12,
               backgroundColor: colors.accent,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Ionicons name="checkmark" size={12} color="#fff" />
+            <Ionicons name="checkmark" size={14} color="#fff" />
           </View>
         ) : null}
       </View>
@@ -166,10 +156,10 @@ function DockButton({
         numberOfLines={1}
         style={{
           fontFamily: fonts.bodyMedium,
-          fontSize: 15,
+          fontSize: 16,
           color: colors.textPrimary,
           textAlign: "center",
-          lineHeight: 18,
+          lineHeight: 21,
         }}
       >
         {label}
