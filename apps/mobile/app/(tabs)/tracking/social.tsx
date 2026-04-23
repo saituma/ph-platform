@@ -14,11 +14,15 @@ import { Stack, useRouter } from "expo-router";
 
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
+import { AppIcon } from "@/components/ui/app-icon";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { spacing, radius, Shadows, fonts } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
-import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
+import {
+  canAccessTrackingTab,
+  shouldUseTeamTrackingFeatures,
+} from "@/lib/tracking/teamTrackingGate";
 import { MiniRunPathPreview } from "@/components/tracking/social/MiniRunPathPreview";
 import { TeamLiveMap } from "@/components/tracking/social/TeamLiveMap";
 import { CommentsSheet } from "@/components/tracking/social/CommentsSheet";
@@ -58,6 +62,7 @@ export default function TrackingSocialScreen() {
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
+  const programTier = useAppSelector((s) => s.user.programTier);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
 
@@ -69,6 +74,16 @@ export default function TrackingSocialScreen() {
         firstManagedAthlete: managedAthletes[0] ?? null,
       }),
     [appRole, authTeamMembership, managedAthletes],
+  );
+  const canAccessTracking = useMemo(
+    () =>
+      canAccessTrackingTab({
+        appRole,
+        programTier,
+        authTeamMembership,
+        firstManagedAthlete: managedAthletes[0] ?? null,
+      }),
+    [appRole, authTeamMembership, managedAthletes, programTier],
   );
 
   const teamName = (authTeamMembership?.team ?? "Team").trim() || "Team";
@@ -109,6 +124,15 @@ export default function TrackingSocialScreen() {
   const cardBg = isDark ? colors.cardElevated : colors.backgroundSecondary;
 
   const canLoad = token != null;
+
+  useEffect(() => {
+    if (canAccessTracking && useTeamFeed) return;
+    router.replace("/(tabs)/tracking");
+  }, [canAccessTracking, router, useTeamFeed]);
+
+  if (!canAccessTracking || !useTeamFeed) {
+    return null;
+  }
 
   const loadLeaderboard = useCallback(async () => {
     if (!token) return;
@@ -499,22 +523,22 @@ export default function TrackingSocialScreen() {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <RoundIconButton
-                onPress={handleBack}
-                icon={<Ionicons name="arrow-back" size={20} color={colors.textPrimary} />}
-                backgroundColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)"}
-                borderColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)"}
-              />
+                <RoundIconButton
+                  onPress={handleBack}
+                  icon={<AppIcon name="arrow-back" size={20} color={colors.textPrimary} />}
+                  backgroundColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)"}
+                  borderColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)"}
+                />
               <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
                 <RoundIconButton
                   onPress={shareTeam}
-                  icon={<Ionicons name="share-social-outline" size={18} color={colors.textPrimary} />}
+                  icon={<AppIcon name="share" size={18} color={colors.textPrimary} />}
                   backgroundColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)"}
                   borderColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)"}
                 />
                 <RoundIconButton
                   onPress={openSettings}
-                  icon={<Ionicons name="settings-outline" size={18} color={colors.textPrimary} />}
+                  icon={<AppIcon name="settings" size={18} color={colors.textPrimary} />}
                   backgroundColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)"}
                   borderColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)"}
                 />
@@ -1451,8 +1475,8 @@ function PostComposerRow({
               Share with the team
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Ionicons name="image-outline" size={18} color={colors.textSecondary} />
-              <Ionicons name="add-circle" size={18} color={colors.accent} />
+              <AppIcon name="image" size={18} color={colors.textSecondary} />
+              <AppIcon name="add-circle" size={18} color={colors.accent} />
             </View>
           </View>
         </View>
@@ -1551,9 +1575,10 @@ const TeamRunPostCard = memo(({
             })}
             accessibilityLabel="Kudos"
           >
-            <Ionicons
-              name={item.userLiked ? "heart" : "heart-outline"}
-              size={26}
+            <AppIcon
+              name="heart"
+              filled={item.userLiked}
+              size={24}
               color={item.userLiked ? colors.accent : colors.textPrimary}
             />
           </Pressable>
@@ -1571,7 +1596,7 @@ const TeamRunPostCard = memo(({
             })}
             accessibilityLabel="Comments"
           >
-            <Ionicons name="chatbubble-outline" size={24} color={colors.textPrimary} />
+            <AppIcon name="chat" size={22} color={colors.textPrimary} />
           </Pressable>
 
           <View style={{ flex: 1 }} />
@@ -1595,7 +1620,7 @@ const TeamRunPostCard = memo(({
             <Text style={{ fontFamily: fonts.bodyBold, color: colors.textPrimary }}>
               Open
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.accent} />
+            <AppIcon name="chevron-right" size={18} color={colors.accent} />
           </Pressable>
         </View>
       </View>

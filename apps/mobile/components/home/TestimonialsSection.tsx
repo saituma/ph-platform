@@ -13,6 +13,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { Ionicons } from "@expo/vector-icons";
 import { Shadows } from "@/constants/theme";
+import { radius, spacing } from "@/constants/theme";
 
 const AUTO_SCROLL_INTERVAL = 6000;
 
@@ -50,64 +51,37 @@ function TestimonialCard({
   return (
     <View style={{ width: cardWidth, paddingHorizontal: 8 }}>
       <View
-        className="rounded-[32px] p-6 border"
+        className="border"
         style={{
+          borderRadius: radius.xxl,
+          padding: spacing.xl,
           backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
           borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
           ...(isDark ? Shadows.none : Shadows.sm),
-          minHeight: 264,
+          minHeight: 220,
         }}
       >
-        <View className="flex-row items-start justify-between mb-4">
-          <View className="flex-row items-center gap-2">
-            <View
-              className="rounded-full px-3 py-1 border"
-              style={{
-                backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.08)",
-                borderColor: isDark ? "rgba(34,197,94,0.20)" : "rgba(34,197,94,0.16)",
-              }}
-            >
-              <View className="flex-row items-center gap-1.5">
-                <Ionicons name="star" size={12} color="#F59E0B" />
-                <Text
-                  className="text-[11px] font-outfit font-bold"
-                  style={{ color: isDark ? "#E2E8F0" : "#0F172A" }}
-                >
-                  {rating.toFixed(1)}
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row gap-0.5">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Ionicons
-                  key={i}
-                  name="star"
-                  size={13}
-                  color={
-                    i <= rating
-                      ? "#F59E0B"
-                      : isDark
-                        ? "rgba(255,255,255,0.12)"
-                        : "rgba(15,23,42,0.07)"
-                  }
-                />
-              ))}
-            </View>
-          </View>
-
-          <Ionicons
-            name="chatbubble-ellipses"
-            size={22}
-            color={colors.accent}
-            style={{ opacity: isDark ? 0.22 : 0.16 }}
-          />
+        <View className="mb-4 flex-row items-center gap-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Ionicons
+              key={i}
+              name="star"
+              size={13}
+              color={
+                i <= rating
+                  ? "#F59E0B"
+                  : isDark
+                    ? "rgba(255,255,255,0.12)"
+                    : "rgba(15,23,42,0.07)"
+              }
+            />
+          ))}
         </View>
 
         <Text
-          className="font-outfit text-[16px] leading-[26px] flex-1"
+          className="font-outfit flex-1"
           style={{ color: isDark ? "#E2E8F0" : "#334155" }}
-          numberOfLines={6}
+          numberOfLines={5}
         >
           {quote ? `“${quote}”` : "“Great experience.”"}
         </Text>
@@ -201,13 +175,6 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
       <View className="flex-row items-end justify-between px-6 mb-4">
         <View className="flex-1 pr-4">
           <Text className="text-lg font-clash font-bold text-app">Testimonials</Text>
-          <Text
-            className="mt-1 text-[12px] font-outfit"
-            style={{ color: isDark ? "rgba(226,232,240,0.72)" : "rgba(71,85,105,0.82)" }}
-            numberOfLines={1}
-          >
-            Real feedback from athletes & parents
-          </Text>
         </View>
 
         <View className="items-end">

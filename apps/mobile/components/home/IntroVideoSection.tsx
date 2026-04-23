@@ -6,7 +6,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useActiveTabIndex } from "@/context/ActiveTabContext";
 import { Text } from "@/components/ScaledText";
 import { VideoPlayer, isYoutubeUrl, YouTubeEmbed } from "@/components/media/VideoPlayer";
-import { Shadows } from "@/constants/theme";
+import { Shadows, radius, spacing } from "@/constants/theme";
 
 type IntroVideoSectionProps = {
   introVideoUrl?: string | null;
@@ -50,89 +50,97 @@ export function IntroVideoSection({
   if (!introVideoUrl) return null;
 
   return (
-    <View
-      className="overflow-hidden rounded-[32px] border"
-      style={{
-        backgroundColor: "#000",
-        width: "100%",
-        aspectRatio,
-        borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.06)",
-        ...(isDark ? Shadows.none : Shadows.lg),
-      }}
-    >
-      {hasUserStarted ? (
-        isYoutubeUrl(introVideoUrl) ? (
-          <View style={{ flex: 1 }}>
-            <YouTubeEmbed url={introVideoUrl} shouldPlay={shouldPlay} initialMuted={false} />
-          </View>
-        ) : (
-          <VideoPlayer
-            uri={introVideoUrl}
-            posterUri={posterUrl ?? null}
-            autoPlay
-            shouldPlay={shouldPlay}
-            initialMuted={false}
-            ignoreTabFocus
-            useVideoResolution={false}
-            contentFitOverride="cover"
-            immersive
-          />
-        )
-      ) : (
-        <Pressable
-          onPress={() => setHasUserStarted(true)}
-          style={{ flex: 1 }}
-        >
-          {posterUrl ? (
-            <Image
-              source={{ uri: posterUrl }}
-              style={{ width: "100%", height: "100%" }}
-              resizeMode="cover"
-            />
+    <View style={{ gap: spacing.md }}>
+      <View style={{ paddingHorizontal: 2 }}>
+        <Text style={{ color: isDark ? "#fff" : "#0F172A", fontSize: 20, fontWeight: "700" }}>
+          Intro video
+        </Text>
+      </View>
+
+      <View
+        className="overflow-hidden border"
+        style={{
+          backgroundColor: "#000",
+          width: "100%",
+          aspectRatio,
+          borderRadius: radius.xxl,
+          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+          ...(isDark ? Shadows.none : Shadows.md),
+        }}
+      >
+        {hasUserStarted ? (
+          isYoutubeUrl(introVideoUrl) ? (
+            <View style={{ flex: 1 }}>
+              <YouTubeEmbed url={introVideoUrl} shouldPlay={shouldPlay} initialMuted={false} />
+            </View>
           ) : (
-            <View style={{ flex: 1, backgroundColor: "#0B0E12" }} />
-          )}
-          
-          <View
-            style={{
-              position: "absolute",
-              inset: 0,
-              backgroundColor: "rgba(0,0,0,0.35)",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
+            <VideoPlayer
+              uri={introVideoUrl}
+              posterUri={posterUrl ?? null}
+              autoPlay
+              shouldPlay={shouldPlay}
+              initialMuted={false}
+              ignoreTabFocus
+              useVideoResolution={false}
+              contentFitOverride="cover"
+              immersive
+            />
+          )
+        ) : (
+          <Pressable onPress={() => setHasUserStarted(true)} style={{ flex: 1 }}>
+            {posterUrl ? (
+              <Image
+                source={{ uri: posterUrl }}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={{ flex: 1, backgroundColor: "#0B0E12" }} />
+            )}
+
             <View
-              className="h-20 w-20 rounded-full items-center justify-center border-2"
               style={{
-                backgroundColor: "rgba(255,255,255,0.15)",
-                borderColor: "rgba(255,255,255,0.3)",
+                position: "absolute",
+                inset: 0,
+                backgroundColor: "rgba(0,0,0,0.28)",
+                justifyContent: "space-between",
+                padding: spacing.lg,
               }}
             >
-              <View className="h-14 w-14 rounded-full bg-white items-center justify-center shadow-2xl">
-                <Feather name="play" size={24} color="#000" style={{ marginLeft: 4 }} />
+              <View
+                style={{
+                  alignSelf: "flex-start",
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: radius.pill,
+                  backgroundColor: "rgba(0,0,0,0.46)",
+                }}
+              >
+                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>Featured</Text>
+              </View>
+
+              <View style={{ alignItems: "center", justifyContent: "center" }}>
+                <View
+                  style={{
+                    width: 68,
+                    height: 68,
+                    borderRadius: 34,
+                    backgroundColor: "rgba(255,255,255,0.92)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Feather name="play" size={22} color="#000" style={{ marginLeft: 3 }} />
+                </View>
+              </View>
+
+              <View>
+                <Text style={{ color: "#fff", fontSize: 19, fontWeight: "700" }}>Watch intro</Text>
               </View>
             </View>
-            
-            <View className="mt-6 items-center">
-              <Text className="text-white font-clash text-xl font-bold">Watch Introduction</Text>
-              <Text className="text-white/70 font-outfit text-sm mt-1">Start your journey here</Text>
-            </View>
-          </View>
-
-          <View
-            className="absolute top-5 left-5 rounded-full px-3 py-1.5"
-            style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-          >
-            <View className="flex-row items-center gap-2">
-              <View className="h-1.5 w-1.5 rounded-full bg-accent" />
-              <Text className="text-[10px] font-outfit font-bold text-white uppercase tracking-widest">
-                Featured
-              </Text>
-            </View>
-          </View>
-        </Pressable>
-      )}
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }

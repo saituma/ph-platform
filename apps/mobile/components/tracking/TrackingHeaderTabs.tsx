@@ -70,7 +70,7 @@ export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
                 {
                     paddingTop: topInset,
                     paddingHorizontal,
-                    paddingBottom: spacing.lg || 24,
+                    paddingBottom: spacing.md,
                 },
             ]}
         >
@@ -147,22 +147,24 @@ const HeaderTabButton = memo(function HeaderTabButton({
                     pressed && !selected && styles.pressedTabButton,
                 ]}
             >
-                <Text
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    maxFontSizeMultiplier={1.2}
-                    style={[
-                        styles.tabLabel,
-                        {
-                            color: selected ? activeTextColor : inactiveTextColor,
-                            fontFamily: selected ? fonts.heading2 : fonts.bodyBold,
-                            fontSize: selected ? 20 : 18,
-                            lineHeight: selected ? 24 : 22,
-                        },
-                    ]}
-                >
-                    {label}
-                </Text>
+                <View style={styles.tabLabelWrap}>
+                    <Text
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        maxFontSizeMultiplier={1.2}
+                        style={[
+                            styles.tabLabel,
+                            {
+                                color: selected ? activeTextColor : inactiveTextColor,
+                                fontFamily: selected ? fonts.heading2 : fonts.bodyBold,
+                                fontSize: selected ? 16 : 15,
+                                lineHeight: selected ? 18 : 17,
+                            },
+                        ]}
+                    >
+                        {label}
+                    </Text>
+                </View>
             </Pressable>
         </View>
     );
@@ -178,12 +180,14 @@ const styles = StyleSheet.create({
         alignItems: "stretch", // Ensures tabs stretch to fill the height equally
         padding: 4,
         borderWidth: 1,
-        borderRadius: 20,
-        minHeight: 64,
+        borderRadius: 18,
+        minHeight: 52,
     },
     tabContainer: {
         flex: 1,
-        borderRadius: 16,
+        borderRadius: 14,
+        alignSelf: "stretch",
+        justifyContent: "center",
     },
     activeTabContainer: {
         // Shadow is applied to the wrapper so overflow:hidden on the button doesn't clip it on iOS
@@ -200,10 +204,13 @@ const styles = StyleSheet.create({
     },
     tabButton: {
         flex: 1,
+        height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: 16,
+        borderRadius: 14,
+        minHeight: 0,
         paddingHorizontal: 12,
+        paddingVertical: 0,
         overflow: "hidden", // Keeps Android ripple inside the border radius
     },
     pressedTabButton: {
@@ -212,7 +219,13 @@ const styles = StyleSheet.create({
     tabLabel: {
         width: "100%",
         textAlign: "center",
-        letterSpacing: 0.1,
+        letterSpacing: 0,
         includeFontPadding: false, // Helps center text vertically on Android
+    },
+    tabLabelWrap: {
+        flex: 1,
+        width: "100%",
+        alignItems: "center",
+        justifyContent: "center",
     },
 });

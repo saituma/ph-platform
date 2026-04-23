@@ -16,7 +16,10 @@ export default function NutritionScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const { appRole, programTier } = useAppSelector((state) => state.user);
-  const canLog = hasPremiumPlanFeatures(programTier);
+  const canLog =
+    hasPremiumPlanFeatures(programTier) ||
+    appRole === "team" ||
+    appRole === "adult_athlete_team";
 
   if (!canLog) {
     return (

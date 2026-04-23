@@ -7,20 +7,35 @@ import { useBaseLayoutLogic } from "../shared/useBaseLayoutLogic";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { TEAM_TAB_ROUTES } from "./tabs";
 import TeamMessagesScreen from "./screens/Messages";
+import { canAccessTrackingTab } from "@/lib/tracking/teamTrackingGate";
 
 export function TeamLayout() {
-  const { token, profile, programTier, messagingAccessTiers } = useAppSelector((state) => state.user);
+  const {
+    token,
+    profile,
+    programTier,
+    messagingAccessTiers,
+    appRole,
+    authTeamMembership,
+    managedAthletes,
+  } = useAppSelector((state) => state.user);
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, hasMessaging, profile.id);
+  const canUseTracking = canAccessTrackingTab({
+    appRole,
+    programTier,
+    authTeamMembership,
+    firstManagedAthlete: managedAthletes[0] ?? null,
+  });
 
   const visibleTabs = useMemo(() => {
-    return TEAM_TAB_ROUTES.map((tab) => {
+    return TEAM_TAB_ROUTES.filter((tab) => canUseTracking || tab.key !== "tracking").map((tab) => {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
       return tab;
     });
-  }, [messagesUnread]);
+  }, [canUseTracking, messagesUnread]);
 
   const tabComponents = useMemo(
     () => ({
