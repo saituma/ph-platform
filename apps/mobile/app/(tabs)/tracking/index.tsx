@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
-import { fonts, radius, spacing } from "@/constants/theme";
+import { fonts, radius, Shadows, spacing } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
 import {
@@ -21,8 +21,6 @@ import { useRunStore } from "@/store/useRunStore";
 import { useAppSelector } from "@/store/hooks";
 import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 
-type HeaderTab = "progress" | "workouts" | "activities";
-
 export default function TrackingHomeScreen() {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
@@ -32,7 +30,6 @@ export default function TrackingHomeScreen() {
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
 
-  const [activeTab, setActiveTab] = useState<HeaderTab>("progress");
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [weeklyStats, setWeeklyStats] = useState(() => getWeeklySummaries());
 
@@ -81,42 +78,6 @@ export default function TrackingHomeScreen() {
     return buckets.map((v) => Number(v.toFixed(1)));
   }, [runs]);
 
-  const monthInfo = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const monthStart = new Date(year, month, 1);
-    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
-
-    const runDays = new Set<number>();
-    let monthActivities = 0;
-
-    runs.forEach((r) => {
-      const d = new Date(r.date);
-      if (d >= monthStart && d <= monthEnd) {
-        runDays.add(d.getDate());
-        monthActivities += 1;
-      }
-    });
-
-    const weeksWithRuns = new Set<string>();
-    runs.forEach((r) => {
-      const d = new Date(r.date);
-      if (d < monthStart || d > monthEnd) return;
-      const key = `${d.getFullYear()}-${d.getMonth()}-${Math.ceil(d.getDate() / 7)}`;
-      weeksWithRuns.add(key);
-    });
-
-    return {
-      title: now.toLocaleString(undefined, { month: "long", year: "numeric" }),
-      year,
-      month,
-      runDays,
-      streakWeeks: weeksWithRuns.size,
-      streakActivities: monthActivities,
-    };
-  }, [runs]);
-
   const cardBorder = "rgba(255,255,255,0.08)";
   const cardBg = colors.surface;
   const showTeamTab = shouldUseTeamTrackingFeatures({
@@ -124,6 +85,16 @@ export default function TrackingHomeScreen() {
     authTeamMembership,
     firstManagedAthlete: managedAthletes[0] ?? null,
   });
+  const latestRun = runs[0] ?? null;
+  const weeklyRunCountLabel = `${weeklyStats.numRuns} ${weeklyStats.numRuns === 1 ? "run" : "runs"} this week`;
+  const averageRunDistanceKm =
+    weeklyStats.numRuns > 0 ? (weeklyStats.totalDistance / weeklyStats.numRuns / 1000).toFixed(1) : "0.0";
+  const runStreakLabel = latestRun
+    ? `Last activity ${new Date(latestRun.date).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      })}`
+    : "No runs logged yet";
 
   const handleStartRun = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -140,316 +111,226 @@ export default function TrackingHomeScreen() {
       <ScrollView
         bounces
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[2]}
         contentContainerStyle={{
           paddingBottom: trackingScrollBottomPad(insets),
-          paddingHorizontal: spacing.xl,
         }}
       >
-        <TrackingHeaderTabs
-          active="running"
-          colors={colors}
-          isDark={isDark}
-          topInset={insets.top + 6}
-          paddingHorizontal={0}
-          showTeamTab={showTeamTab}
-        />
-
-        <TopBar
-          topInset={8}
-          onPressSettings={() => router.push("/(tabs)/more" as any)}
-          onPressSearch={() => {
-            // Placeholder for future activity search (no destination/map search).
-          }}
-          onPressAvatar={() => router.push("/(tabs)/more" as any)}
-        />
-
-        <View
-          style={{
-            paddingTop: spacing.md,
-            paddingBottom: spacing.md,
-            backgroundColor: colors.background,
-          }}
-        >
-          <SegmentedHeaderTabs
-            value={activeTab}
-            onChange={setActiveTab}
-            accent={colors.accent}
-            textPrimary={colors.textPrimary}
-            textSecondary={colors.textSecondary}
+        <View style={{ paddingHorizontal: spacing.xl }}>
+          <TrackingHeaderTabs
+            active="running"
+            colors={colors}
+            isDark={isDark}
+            topInset={insets.top + 6}
+            paddingHorizontal={0}
+            showTeamTab={showTeamTab}
           />
-        </View>
 
-        {activeTab === "progress" ? (
-          <View style={{ gap: spacing.xl }}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Pressable
-                onPress={handleStartRun}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 10,
-                  paddingHorizontal: spacing.lg,
-                  paddingVertical: 10,
-                  borderRadius: radius.pill,
-                  borderWidth: 1.5,
-                  borderColor: colors.accent,
-                  opacity: pressed ? 0.9 : 1,
-                })}
-              >
-                <MaterialCommunityIcons
-                  name="shoe-print"
-                  size={18}
-                  color={colors.accent}
-                />
-                <Text
-                  style={{
-                    fontFamily: fonts.accentBold,
-                    fontSize: 15,
-                    color: colors.accent,
-                  }}
-                >
-                  Run
-                </Text>
-              </Pressable>
-            </View>
-
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                borderRadius: radius.xxl,
-                padding: spacing.xl,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: fonts.heading2,
-                  fontSize: 28,
-                  color: colors.textPrimary,
-                  marginBottom: spacing.lg,
-                }}
-              >
-                This week
-              </Text>
-
-              <View style={{ flexDirection: "row" }}>
-                <Stat
-                  label="Distance"
-                  value={`${formatKm(weeklyStats.totalDistance)} km`}
-                  textPrimary={colors.textPrimary}
-                  textSecondary={colors.textSecondary}
-                />
-                <Stat
-                  label="Time"
-                  value={`${weeklyTime.h}h ${weeklyTime.m}m`}
-                  textPrimary={colors.textPrimary}
-                  textSecondary={colors.textSecondary}
-                />
-                <Stat
-                  label="Elev Gain"
-                  value="0 m"
-                  textPrimary={colors.textPrimary}
-                  textSecondary={colors.textSecondary}
-                />
-              </View>
-
-              <View style={{ marginTop: spacing.xl }}>
-                <Text
-                  style={{
-                    fontFamily: fonts.bodyMedium,
-                    fontSize: 14,
-                    color: colors.textSecondary,
-                    marginBottom: spacing.sm,
-                  }}
-                >
-                  Past 12 weeks
-                </Text>
-                <LineChart
-                  width={Math.max(260, screenWidth - spacing.xl * 2 - 10)}
-                  height={160}
-                  points={last12WeeksKm}
-                  color={colors.accent}
-                  gridColor={colors.borderSubtle}
-                />
-              </View>
-            </View>
-
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                borderRadius: radius.xxl,
-                padding: spacing.xl,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: fonts.heading2,
-                  fontSize: 28,
-                  color: colors.textPrimary,
-                }}
-              >
-                {monthInfo.title}
-              </Text>
-
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginTop: spacing.lg,
-                }}
-              >
-                <SmallStat
-                  label="Your Streak"
-                  value={`${monthInfo.streakWeeks} Weeks`}
-                  textPrimary={colors.textPrimary}
-                  textSecondary={colors.textSecondary}
-                />
-                <SmallStat
-                  label="Streak Activities"
-                  value={`${monthInfo.streakActivities}`}
-                  textPrimary={colors.textPrimary}
-                  textSecondary={colors.textSecondary}
-                />
-              </View>
-
-              <View style={{ marginTop: spacing.lg }}>
-                <CalendarMonth
-                  year={monthInfo.year}
-                  month={monthInfo.month}
-                  runDays={monthInfo.runDays}
-                  accent={colors.accent}
-                  textPrimary={colors.textPrimary}
-                  textSecondary={colors.textSecondary}
-                  dotBg={colors.surfaceHigh}
-                />
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {activeTab === "workouts" ? (
-          <View style={{ gap: spacing.xl }}>
-            <View style={{ flexDirection: "row", gap: spacing.lg }}>
-              <RoundShortcut
-                label="Maintain"
-                icon={<Ionicons name="repeat" size={26} color="#FFF" />}
-                bg="#7C3AED"
-              />
-              <RoundShortcut
-                label="Build"
-                icon={<Ionicons name="barbell-outline" size={26} color="#FFF" />}
-                bg={colors.surfaceHigh}
-              />
-              <RoundShortcut
-                label="Explore"
-                icon={<Ionicons name="shuffle" size={26} color="#FFF" />}
-                bg={colors.surfaceHigh}
-              />
-              <RoundShortcut
-                label="Recover"
-                icon={<Ionicons name="heart-outline" size={26} color="#FFF" />}
-                bg={colors.surfaceHigh}
-              />
-            </View>
-
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                borderRadius: radius.xxl,
-                padding: spacing.xl,
+          <View
+            style={{
+              marginTop: spacing.xs,
+              marginBottom: spacing.md,
+              width: "100%",
+              minHeight: 52,
+              alignSelf: "stretch",
+              backgroundColor: "#16A34A",
+              borderRadius: radius.pill,
+              borderWidth: 1,
+              borderColor: "#15803D",
+              overflow: "hidden",
+              alignItems: "center",
+              justifyContent: "center",
+              ...Shadows.sm,
+            }}
+          >
+            <Pressable
+              onPress={handleStartRun}
+              style={({ pressed }) => ({
+                width: "100%",
+                minHeight: 52,
+                paddingHorizontal: spacing.lg,
                 flexDirection: "row",
                 alignItems: "center",
-                gap: spacing.lg,
-              }}
+                justifyContent: "center",
+                opacity: pressed ? 0.9 : 1,
+              })}
+              accessibilityRole="button"
+              accessibilityLabel="Start run"
             >
-              <Ionicons
-                name="megaphone-outline"
-                size={28}
-                color={colors.textSecondary}
-              />
               <Text
                 style={{
-                  flex: 1,
-                  fontFamily: fonts.bodyMedium,
+                  fontFamily: fonts.heading3,
                   fontSize: 16,
                   color: colors.textPrimary,
+                  textAlign: "center",
                 }}
               >
-                Push yourself with longer or harder workouts.
+                Run
               </Text>
-            </View>
-
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                borderRadius: radius.xxl,
-                padding: spacing.xl,
-              }}
-            >
+            </Pressable>
+          </View>
+        </View>
+        <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.lg }}>
+          <View
+            style={{
+              backgroundColor: "#0D140F",
+              borderRadius: radius.xxl,
+              padding: spacing.xl,
+              borderWidth: 1,
+              borderColor: "rgba(34,197,94,0.18)",
+              gap: spacing.lg,
+            }}
+          >
+            <View style={{ gap: 8 }}>
               <Text
                 style={{
-                  fontFamily: fonts.heading2,
-                  fontSize: 20,
-                  color: colors.textPrimary,
-                  marginBottom: spacing.md,
+                  fontFamily: fonts.labelCaps,
+                  fontSize: 11,
+                  color: "#6EE7B7",
+                  letterSpacing: 0.8,
                 }}
               >
-                Progressive Run
+                THIS WEEK
               </Text>
+              <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.heroDisplay,
+                    fontSize: 56,
+                    color: colors.textPrimary,
+                    lineHeight: 58,
+                  }}
+                >
+                  {formatKm(weeklyStats.totalDistance)}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.labelBold,
+                    fontSize: 16,
+                    color: "#D1FAE5",
+                    marginBottom: 10,
+                  }}
+                >
+                  km
+                </Text>
+              </View>
               <Text
                 style={{
                   fontFamily: fonts.bodyMedium,
                   fontSize: 14,
-                  color: colors.textSecondary,
+                  color: "#A7F3D0",
                 }}
               >
-                Gradually increase your pace to challenge your endurance.
+                {weeklyRunCountLabel}
               </Text>
-              <View style={{ height: spacing.lg }} />
-              <Pressable
-                onPress={handleStartRun}
-                style={({ pressed }) => ({
-                  backgroundColor: colors.accent,
-                  borderRadius: radius.pill,
-                  paddingVertical: 14,
-                  alignItems: "center",
-                  opacity: pressed ? 0.9 : 1,
-                })}
-              >
+            </View>
+
+            <View
+              style={{
+                flexDirection: "row",
+                gap: spacing.md,
+              }}
+            >
+              <SummaryMetric
+                label="Time"
+                value={`${weeklyTime.h}h ${weeklyTime.m}m`}
+                tone="#FFFFFF"
+              />
+              <SummaryMetric
+                label="Avg / run"
+                value={`${averageRunDistanceKm} km`}
+                tone="#FFFFFF"
+              />
+              <SummaryMetric
+                label="Status"
+                value={weeklyStats.numRuns > 0 ? "Active" : "Ready"}
+                tone="#86EFAC"
+              />
+            </View>
+          </View>
+
+          <View
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: radius.xxl,
+              padding: spacing.xl,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              gap: spacing.md,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+              }}
+            >
+              <View style={{ gap: 4 }}>
                 <Text
                   style={{
                     fontFamily: fonts.heading3,
-                    fontSize: 16,
-                    color: "#07070F",
+                    fontSize: 18,
+                    color: colors.textPrimary,
                   }}
                 >
-                  Start run
+                  Weekly distance
                 </Text>
-              </Pressable>
+                <Text
+                  style={{
+                    fontFamily: fonts.bodyMedium,
+                    fontSize: 13,
+                    color: colors.textSecondary,
+                  }}
+                >
+                  Your last 12 weeks
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontFamily: fonts.labelBold,
+                  fontSize: 12,
+                  color: colors.textDim,
+                }}
+              >
+                {runStreakLabel}
+              </Text>
             </View>
+            <LineChart
+              width={Math.max(260, screenWidth - spacing.xl * 4)}
+              height={112}
+              points={last12WeeksKm}
+              color="#22C55E"
+              gridColor="rgba(148,163,184,0.18)"
+            />
           </View>
-        ) : null}
 
-        {activeTab === "activities" ? (
-          <View style={{ gap: spacing.lg }}>
-            <Text
+          <View style={{ gap: spacing.md }}>
+            <View
               style={{
-                fontFamily: fonts.heading2,
-                fontSize: 22,
-                color: colors.textPrimary,
-                marginTop: spacing.sm,
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              Activities
-            </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.heading3,
+                  fontSize: 18,
+                  color: colors.textPrimary,
+                }}
+              >
+                Recent runs
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.labelBold,
+                  fontSize: 12,
+                  color: colors.textDim,
+                }}
+              >
+                {runs.length} total
+              </Text>
+            </View>
 
             {runs.length === 0 ? (
               <View
@@ -459,42 +340,26 @@ export default function TrackingHomeScreen() {
                   borderColor: cardBorder,
                   borderRadius: radius.xxl,
                   padding: spacing.xl,
+                  alignItems: "center",
+                  gap: spacing.md,
                 }}
               >
+                <Ionicons name="footsteps-outline" size={40} color={colors.textDim} />
                 <Text
                   style={{
                     fontFamily: fonts.bodyMedium,
-                    fontSize: 14,
+                    fontSize: 15,
                     color: colors.textSecondary,
+                    textAlign: "center",
+                    lineHeight: 22,
                   }}
                 >
-                  No activities yet. Start your first run to see it here.
+                  Your runs will show up here once you record your first activity.
                 </Text>
-                <View style={{ height: spacing.lg }} />
-                <Pressable
-                  onPress={handleStartRun}
-                  style={({ pressed }) => ({
-                    backgroundColor: colors.accent,
-                    borderRadius: radius.pill,
-                    paddingVertical: 14,
-                    alignItems: "center",
-                    opacity: pressed ? 0.9 : 1,
-                  })}
-                >
-                  <Text
-                    style={{
-                      fontFamily: fonts.heading3,
-                      fontSize: 16,
-                      color: "#07070F",
-                    }}
-                  >
-                    Start run
-                  </Text>
-                </Pressable>
               </View>
             ) : (
-              <View style={{ gap: 14 }}>
-                {runs.slice(0, 20).map((run) => (
+              <View style={{ gap: 10 }}>
+                {runs.slice(0, 6).map((run) => (
                   <Pressable
                     key={run.id}
                     onPress={() =>
@@ -507,254 +372,138 @@ export default function TrackingHomeScreen() {
                       borderWidth: 1,
                       borderColor: cardBorder,
                       borderRadius: radius.xl,
-                      padding: spacing.lg,
-                      opacity: pressed ? 0.95 : 1,
+                      paddingHorizontal: spacing.lg,
+                      paddingVertical: spacing.md,
+                      opacity: pressed ? 0.96 : 1,
                     })}
                   >
                     <View
                       style={{
                         flexDirection: "row",
-                        justifyContent: "space-between",
                         alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: spacing.md,
                       }}
                     >
-                      <View style={{ gap: 4 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, flex: 1 }}>
+                        <View
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 21,
+                            backgroundColor: "rgba(34,197,94,0.14)",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Ionicons name="walk-outline" size={18} color="#4ADE80" />
+                        </View>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
+                            <Text
+                              style={{
+                                fontFamily: fonts.heading3,
+                                fontSize: 20,
+                                color: colors.textPrimary,
+                              }}
+                            >
+                              {formatKm(run.distance_meters)}
+                            </Text>
+                            <Text
+                              style={{
+                                fontFamily: fonts.labelBold,
+                                fontSize: 12,
+                                color: colors.textSecondary,
+                              }}
+                            >
+                              km
+                            </Text>
+                          </View>
+                          <Text
+                            style={{
+                              fontFamily: fonts.bodyMedium,
+                              fontSize: 13,
+                              color: colors.textSecondary,
+                            }}
+                          >
+                            {new Date(run.date).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ alignItems: "flex-end", gap: 2 }}>
                         <Text
                           style={{
-                            fontFamily: fonts.heading3,
-                            fontSize: 16,
+                            fontFamily: fonts.bodyBold,
+                            fontSize: 15,
                             color: colors.textPrimary,
                           }}
                         >
-                          {formatKm(run.distance_meters)} km
+                          {formatDurationClock(run.duration_seconds)}
                         </Text>
                         <Text
                           style={{
-                            fontFamily: fonts.bodyMedium,
+                            fontFamily: fonts.labelMedium,
                             fontSize: 12,
-                            color: colors.textSecondary,
+                            color: colors.textDim,
                           }}
                         >
-                          {new Date(run.date).toLocaleDateString()}
-                          {" · "}
-                          {formatDurationClock(run.duration_seconds)}
+                          Activity
                         </Text>
                       </View>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={18}
-                        color={colors.textSecondary}
-                      />
                     </View>
                   </Pressable>
                 ))}
               </View>
             )}
           </View>
-        ) : null}
-
+        </View>
         <View style={{ height: spacing.xxxl }} />
       </ScrollView>
     </View>
   );
 }
 
-function TopBar({
-  topInset,
-  onPressAvatar,
-  onPressSearch,
-  onPressSettings,
+function SummaryMetric({
+  label,
+  value,
+  tone,
 }: {
-  topInset: number;
-  onPressAvatar: () => void;
-  onPressSearch: () => void;
-  onPressSettings: () => void;
+  label: string;
+  value: string;
+  tone: string;
 }) {
   return (
     <View
       style={{
-        paddingTop: topInset,
-        paddingBottom: spacing.md,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
+        flex: 1,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderRadius: radius.lg,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
+        gap: 4,
       }}
     >
       <Text
         style={{
-          fontFamily: fonts.heading1,
-          fontSize: 44,
-          color: "#FFF",
-          letterSpacing: -1,
+          fontFamily: fonts.labelCaps,
+          fontSize: 10,
+          color: "#86EFAC",
+          letterSpacing: 0.5,
         }}
       >
-        You
-      </Text>
-
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-        <Pressable
-          onPress={onPressAvatar}
-          style={({ pressed }) => ({
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: "rgba(148,163,184,0.25)",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pressed ? 0.85 : 1,
-          })}
-        >
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: "#FFF" }}>
-            D
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onPressSearch}
-          style={({ pressed }) => ({
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pressed ? 0.75 : 1,
-          })}
-          accessibilityLabel="Search activities"
-        >
-          <Ionicons name="search" size={26} color="#FFF" />
-        </Pressable>
-
-        <Pressable
-          onPress={onPressSettings}
-          style={({ pressed }) => ({
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pressed ? 0.75 : 1,
-          })}
-          accessibilityLabel="Settings"
-        >
-          <View style={{ position: "relative" }}>
-            <Ionicons name="settings-outline" size={26} color="#FFF" />
-            <View
-              style={{
-                position: "absolute",
-                right: -1,
-                top: -1,
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: "#FF3B30",
-              }}
-            />
-          </View>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-function SegmentedHeaderTabs({
-  value,
-  onChange,
-  accent,
-  textPrimary,
-  textSecondary,
-}: {
-  value: HeaderTab;
-  onChange: (v: HeaderTab) => void;
-  accent: string;
-  textPrimary: string;
-  textSecondary: string;
-}) {
-  const tabs: { key: HeaderTab; label: string }[] = [
-    { key: "progress", label: "Progress" },
-    { key: "workouts", label: "Workouts" },
-    { key: "activities", label: "Activities" },
-  ];
-
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        borderBottomWidth: 1,
-        borderBottomColor: "rgba(255,255,255,0.08)",
-      }}
-    >
-      {tabs.map((t) => {
-        const selected = t.key === value;
-        return (
-          <Pressable
-            key={t.key}
-            onPress={() => onChange(t.key)}
-            style={({ pressed }) => ({
-              flex: 1,
-              paddingVertical: spacing.lg,
-              alignItems: "center",
-              opacity: pressed ? 0.85 : 1,
-              borderBottomWidth: 3,
-              borderBottomColor: selected ? accent : "transparent",
-            })}
-          >
-            <Text
-              style={{
-                fontFamily: selected ? fonts.heading3 : fonts.bodyBold,
-                fontSize: 18,
-                color: selected ? textPrimary : textSecondary,
-              }}
-            >
-              {t.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  textPrimary,
-  textSecondary,
-}: {
-  label: string;
-  value: string;
-  textPrimary: string;
-  textSecondary: string;
-}) {
-  return (
-    <View style={{ flex: 1 }}>
-      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: textSecondary }}>
         {label}
       </Text>
-      <Text style={{ fontFamily: fonts.heading2, fontSize: 26, color: textPrimary, marginTop: 6 }}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function SmallStat({
-  label,
-  value,
-  textPrimary,
-  textSecondary,
-}: {
-  label: string;
-  value: string;
-  textPrimary: string;
-  textSecondary: string;
-}) {
-  return (
-    <View style={{ flex: 1 }}>
-      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: textSecondary }}>
-        {label}
-      </Text>
-      <Text style={{ fontFamily: fonts.heading2, fontSize: 28, color: textPrimary, marginTop: 6 }}>
+      <Text
+        style={{
+          fontFamily: fonts.bodyBold,
+          fontSize: 15,
+          color: tone,
+        }}
+      >
         {value}
       </Text>
     </View>
@@ -812,141 +561,6 @@ function LineChart({
           />
         ))}
       </Svg>
-    </View>
-  );
-}
-
-function CalendarMonth({
-  year,
-  month,
-  runDays,
-  accent,
-  textPrimary,
-  textSecondary,
-  dotBg,
-}: {
-  year: number;
-  month: number; // 0-11
-  runDays: Set<number>;
-  accent: string;
-  textPrimary: string;
-  textSecondary: string;
-  dotBg: string;
-}) {
-  const labels = ["M", "T", "W", "T", "F", "S", "S"];
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDay = new Date(year, month, 1).getDay(); // 0 = Sun
-  const offset = (firstDay + 6) % 7; // monday=0
-
-  const cells: Array<number | null> = [];
-  for (let i = 0; i < offset; i += 1) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d += 1) cells.push(d);
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  return (
-    <View>
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          marginBottom: spacing.md,
-        }}
-      >
-        {labels.map((l, idx) => (
-          <Text
-            key={`${l}-${idx}`}
-            style={{
-              width: 38,
-              textAlign: "center",
-              fontFamily: fonts.bodyMedium,
-              fontSize: 13,
-              color: textSecondary,
-            }}
-          >
-            {l}
-          </Text>
-        ))}
-      </View>
-
-      <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-        {cells.map((d, idx) => {
-          const hasRun = d != null && runDays.has(d);
-          return (
-            <View
-              key={idx}
-              style={{
-                width: `${100 / 7}%`,
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              {d == null ? (
-                <View style={{ width: 38, height: 38 }} />
-              ) : (
-                <View
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 19,
-                    backgroundColor: hasRun ? accent : dotBg,
-                    borderWidth: hasRun ? 0 : 1,
-                    borderColor: "rgba(255,255,255,0.10)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: fonts.bodyBold,
-                      fontSize: 14,
-                      color: hasRun ? "#07070F" : textPrimary,
-                    }}
-                  >
-                    {d}
-                  </Text>
-                </View>
-              )}
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-function RoundShortcut({
-  label,
-  icon,
-  bg,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  bg: string;
-}) {
-  return (
-    <View style={{ alignItems: "center", flex: 1 }}>
-      <View
-        style={{
-          width: 72,
-          height: 72,
-          borderRadius: 36,
-          backgroundColor: bg,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {icon}
-      </View>
-      <Text
-        style={{
-          fontFamily: fonts.bodyBold,
-          fontSize: 16,
-          color: "#FFF",
-          marginTop: spacing.md,
-        }}
-      >
-        {label}
-      </Text>
     </View>
   );
 }

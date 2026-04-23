@@ -232,6 +232,117 @@ export async function getTrainingContentMobileWorkspace(input: {
   };
 }
 
+function summarizeWorkoutSessionItems(
+  items: Array<{ title: string; body: string; blockType?: string | null }> | undefined,
+) {
+  const list = Array.isArray(items) ? items : [];
+  const preferred =
+    list.find((item) => item.blockType === "main" && (item.body || item.title)) ??
+    list.find((item) => item.body || item.title) ??
+    null;
+  if (!preferred) return "";
+
+  const source = String(preferred.body || preferred.title || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!source) return "";
+  return source.length > 160 ? `${source.slice(0, 157).trimEnd()}...` : source;
+}
+
+function collectWorkoutTags(
+  items: Array<{ title: string; metadata?: Record<string, unknown> | null }> | undefined,
+  sessionTitle: string,
+) {
+  const tags = new Set<string>();
+  const lowerTitle = sessionTitle.toLowerCase();
+
+  if (lowerTitle.includes("recovery")) tags.add("Recovery");
+  if (lowerTitle.includes("tempo")) tags.add("Tempo");
+  if (lowerTitle.includes("interval")) tags.add("Intervals");
+  if (lowerTitle.includes("progressive")) tags.add("Progressive");
+  if (lowerTitle.includes("long")) tags.add("Endurance");
+  if (lowerTitle.includes("speed")) tags.add("Speed");
+
+  for (const item of items ?? []) {
+    const metadata =
+      item.metadata && typeof item.metadata === "object"
+        ? (item.metadata as Record<string, unknown>)
+        : null;
+    const category = typeof metadata?.category === "string" ? metadata.category.trim() : "";
+    const equipment = typeof metadata?.equipment === "string" ? metadata.equipment.trim() : "";
+    if (category) tags.add(category);
+    if (equipment) tags.add(equipment);
+    if (tags.size >= 3) break;
+  }
+
+  return Array.from(tags).slice(0, 3);
+}
+
+export async function getTrainingContentMobileWorkouts(input: {
+  age: number;
+  athleteId: number;
+  programTier?: (typeof ProgramType.enumValues)[number] | null;
+  team?: string | null;
+}) {
+  const workspace = await getTrainingContentMobileWorkspace(input);
+  const workoutLogs = await db
+    .select()
+    .from(athleteTrainingSessionWorkoutLogTable)
+    .where(eq(athleteTrainingSessionWorkoutLogTable.athleteId, input.athleteId));
+
+  const workoutLogBySessionId = new Map(workoutLogs.map((row) => [row.sessionId, row]));
+  const workouts = workspace.modules.flatMap((module) =>
+    module.sessions.map((session) => {
+      const items = Array.isArray(session.items) ? session.items : [];
+      const blockCounts = items.reduce(
+        (acc, item) => {
+          if (item.blockType === "warmup") acc.warmup += 1;
+          else if (item.blockType === "cooldown") acc.cooldown += 1;
+          else acc.main += 1;
+          return acc;
+        },
+        { warmup: 0, main: 0, cooldown: 0 },
+      );
+      const workoutLog = workoutLogBySessionId.get(session.id) ?? null;
+      return {
+        sessionId: session.id,
+        moduleId: module.id,
+        moduleTitle: module.title,
+        moduleOrder: module.order,
+        title: session.title,
+        dayLength: session.dayLength,
+        order: session.order,
+        completed: session.completed,
+        locked: session.locked,
+        lockedReason: session.lockedReason ?? null,
+        unlockTiers: Array.isArray(session.unlockTiers) ? session.unlockTiers : [],
+        summary: summarizeWorkoutSessionItems(items),
+        tags: collectWorkoutTags(items as any[], session.title),
+        itemCount: items.length,
+        blockCounts,
+        workoutLog: workoutLog
+          ? {
+              weightsUsed: workoutLog.weightsUsed,
+              repsCompleted: workoutLog.repsCompleted,
+              rpe: workoutLog.rpe,
+              updatedAt: workoutLog.updatedAt,
+            }
+          : null,
+      };
+    }),
+  );
+
+  const nextWorkout = workouts.find((item) => !item.locked && !item.completed) ?? null;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    nextWorkoutSessionId: nextWorkout?.sessionId ?? null,
+    completedCount: workouts.filter((item) => item.completed).length,
+    totalCount: workouts.length,
+    workouts,
+  };
+}
+
 export async function finishTrainingModuleSession(input: { athleteId: number; sessionId: number }) {
   return finishTrainingModuleSessionWithLog({
     athleteId: input.athleteId,

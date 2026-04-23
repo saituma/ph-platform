@@ -260,23 +260,34 @@ export async function listAdults(input: { limit: number; cursor?: number; teamId
   const scopeFilter =
     input.teamId != null ? eq(athleteTable.teamId, input.teamId) : eq(athleteTable.athleteType, "adult");
 
-  const filters = [
-    scopeFilter,
-    eq(athleteTable.userId, userTable.id),
-    eq(socialPrivacySettingsTable.userId, athleteTable.userId),
-    eq(socialPrivacySettingsTable.socialEnabled, true),
-    eq(socialPrivacySettingsTable.showInDirectory, true),
-  ];
+  const filters = [scopeFilter, eq(athleteTable.userId, userTable.id)];
 
-  const rows = await db
+  // If NOT a team view, enforce strict privacy opt-in
+  if (input.teamId == null) {
+    filters.push(
+      eq(socialPrivacySettingsTable.userId, athleteTable.userId),
+      eq(socialPrivacySettingsTable.socialEnabled, true),
+      eq(socialPrivacySettingsTable.showInDirectory, true),
+    );
+  }
+
+  const query = db
     .select({
       userId: userTable.id,
       name: userTable.name,
       profilePicture: userTable.profilePicture,
     })
     .from(athleteTable)
-    .innerJoin(userTable, eq(userTable.id, athleteTable.userId))
-    .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, athleteTable.userId))
+    .innerJoin(userTable, eq(userTable.id, athleteTable.userId));
+
+  // If it's a team view, we include everyone regardless of privacy settings
+  if (input.teamId != null) {
+    query.leftJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, athleteTable.userId));
+  } else {
+    query.innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, athleteTable.userId));
+  }
+
+  const rows = await query
     .where(cursor != null ? and(...filters, gt(userTable.id, cursor)) : and(...filters))
     .orderBy(userTable.id)
     .limit(limit + 1);

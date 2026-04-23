@@ -4,8 +4,13 @@ import { useRunStore } from "../store/useRunStore";
 import { Alert, Platform } from "react-native";
 import { NOTIFICATION_CHANNELS } from "@/lib/notificationSetup";
 import { getNotifications } from "@/lib/notifications";
+import { store } from "@/store";
+import { sendLiveLocation } from "@/services/tracking/locationService";
 
 export const BACKGROUND_LOCATION_TASK = "BACKGROUND_LOCATION_TASK";
+
+let lastLocationSentAt = 0;
+const LOCATION_SEND_INTERVAL_MS = 10000; // Send at most every 10 seconds
 
 const formatTime = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
@@ -50,8 +55,11 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     const addCoordinate = useRunStore.getState().addCoordinate;
     const tick = useRunStore.getState().tick;
     const consumeProgressMilestones = useRunStore.getState().consumeProgressMilestones;
+    const { shareLiveLocationEnabled } = useRunStore.getState();
 
     let changed = false;
+    let latestCoord: { latitude: number; longitude: number; accuracy: number | null } | null = null;
+
     locations.forEach((loc) => {
       const lat = loc?.coords?.latitude;
       const lng = loc?.coords?.longitude;
@@ -68,11 +76,30 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         loc.coords?.accuracy ?? null,
       );
       changed = true;
+      latestCoord = {
+        latitude: lat,
+        longitude: lng,
+        accuracy: loc.coords?.accuracy ?? null,
+      };
     });
 
     if (changed) {
       tick();
       void refreshRunNotification();
+
+      // Send live location if enabled and enough time has passed
+      if (shareLiveLocationEnabled && latestCoord) {
+        const now = Date.now();
+        if (now - lastLocationSentAt > LOCATION_SEND_INTERVAL_MS) {
+          const token = store.getState().user.token;
+          if (token) {
+            lastLocationSentAt = now;
+            void sendLiveLocation(token, latestCoord).catch(() => {
+              // silent failure for live updates
+            });
+          }
+        }
+      }
 
       try {
         const Notifications = await getNotifications();

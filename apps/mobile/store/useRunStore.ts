@@ -35,6 +35,7 @@ interface RunStore {
   nextProgressNotifyAtMeters: number | null;
   warmupUntil: number | null;
   currentRunId: string | null;
+  shareLiveLocationEnabled: boolean;
 
   startRun: () => void;
   pauseRun: () => void;
@@ -51,6 +52,7 @@ interface RunStore {
   markGoalReached: () => void;
   markDestinationReached: () => void;
   getIsWarmedUp: () => boolean;
+  setShareLiveLocationEnabled: (enabled: boolean) => void;
 }
 
 const MIN_RUN_SEGMENT_METERS = 12;
@@ -73,6 +75,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
   nextProgressNotifyAtMeters: null,
   warmupUntil: null,
   currentRunId: null,
+  shareLiveLocationEnabled: false,
 
   startRun: () => {
     const every = get().progressNotifyEveryMeters;
@@ -133,6 +136,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
       nextProgressNotifyAtMeters: null,
       warmupUntil: null,
       currentRunId: null,
+      shareLiveLocationEnabled: false,
     });
   },
 
@@ -232,4 +236,6 @@ export const useRunStore = create<RunStore>((set, get) => ({
     if (!warmupUntil) return false;
     return Date.now() >= warmupUntil;
   },
+
+  setShareLiveLocationEnabled: (enabled) => set({ shareLiveLocationEnabled: enabled }),
 }));

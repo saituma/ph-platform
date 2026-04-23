@@ -15,7 +15,9 @@ import {
   deleteTrainingSessionHandler,
   deleteTrainingSessionItemHandler,
   finishTrainingSessionHandler,
+  completeTrainingWorkoutHandler,
   getTrainingContentAdminWorkspaceHandler,
+  getTrainingContentMobileWorkoutsHandler,
   getTrainingContentMobileWorkspaceHandler,
   listTrainingAudiencesHandler,
   updateTrainingModuleTierLocksHandler,
@@ -55,7 +57,9 @@ router.get(
   getTrainingContentAdminWorkspaceHandler,
 );
 router.get("/training-content-v2/mobile", requireAuth, getTrainingContentMobileWorkspaceHandler);
+router.get("/training-content-v2/mobile/workouts", requireAuth, getTrainingContentMobileWorkoutsHandler);
 router.post("/training-content-v2/mobile/sessions/:sessionId/finish", requireAuth, finishTrainingSessionHandler);
+router.post("/training-content-v2/mobile/workouts/:sessionId/complete", requireAuth, completeTrainingWorkoutHandler);
 
 router.post(
   "/training-content-v2/modules",

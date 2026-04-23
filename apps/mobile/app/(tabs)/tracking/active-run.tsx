@@ -560,9 +560,9 @@ export default function ActiveRunScreen() {
             setLayersSheetIndex(-1);
           }}
           onShareLiveLocation={() => {
-            setSheetIndex(-1);
-            setLayersSheetIndex(-1);
-            router.push("/(tabs)/tracking/social" as any);
+            const current = useRunStore.getState().shareLiveLocationEnabled;
+            useRunStore.getState().setShareLiveLocationEnabled(!current);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           }}
           onFinishRun={handleFinishRun}
           onIndexChange={(i) => setSheetIndex(i)}

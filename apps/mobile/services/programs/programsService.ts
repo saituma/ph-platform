@@ -30,6 +30,61 @@ export type FinishTrainingSessionWorkoutLog = {
   rpe?: number;
 };
 
+export type TrackingWorkout = {
+  sessionId: number;
+  moduleId: number;
+  moduleTitle: string;
+  moduleOrder: number;
+  title: string;
+  dayLength: number;
+  order: number;
+  completed: boolean;
+  locked: boolean;
+  lockedReason: "tier" | "sequence" | null;
+  unlockTiers: Array<{ tier: string; label: string }>;
+  summary: string;
+  tags: string[];
+  itemCount: number;
+  blockCounts: {
+    warmup: number;
+    main: number;
+    cooldown: number;
+  };
+  workoutLog: {
+    weightsUsed: string | null;
+    repsCompleted: string | null;
+    rpe: number | null;
+    updatedAt: string;
+  } | null;
+};
+
+export type TrackingWorkoutFeed = {
+  generatedAt: string;
+  nextWorkoutSessionId: number | null;
+  completedCount: number;
+  totalCount: number;
+  workouts: TrackingWorkout[];
+};
+
+export async function fetchTrackingWorkouts(
+  token: string,
+  age: number | null,
+  forceRefresh = false,
+) {
+  const ageQ = age != null ? `?age=${age}` : "";
+  return apiRequest<TrackingWorkoutFeed>(
+    `/training-content-v2/mobile/workouts${ageQ}`,
+    { token, forceRefresh },
+  );
+}
+
+export async function completeTrackingWorkout(token: string, sessionId: number) {
+  return apiRequest<{ item: any }>(
+    `/training-content-v2/mobile/workouts/${encodeURIComponent(String(sessionId))}/complete`,
+    { token, method: "POST" },
+  );
+}
+
 export async function finishTrainingContentV2Session(
   token: string,
   sessionId: number,

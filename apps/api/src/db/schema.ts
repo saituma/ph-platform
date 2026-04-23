@@ -1337,3 +1337,65 @@ export const runLikeTable = pgTable(
     userIdx: index("run_likes_user_idx").on(table.userId),
   }),
 );
+
+export const socialPostTable = pgTable(
+  "social_posts",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    mediaUrl: varchar("media_url", { length: 500 }),
+    mediaType: varchar("media_type", { length: 20 }), // 'image', 'video'
+    visibility: varchar("visibility", { length: 20 }).notNull().default("public"), // 'public' | 'private'
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdx: index("social_posts_user_idx").on(table.userId),
+    createdAtIdx: index("social_posts_created_at_idx").on(table.createdAt),
+  }),
+);
+
+export const socialPostCommentTable = pgTable(
+  "social_post_comments",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    postId: integer("post_id")
+      .notNull()
+      .references(() => socialPostTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    parentId: integer("parent_id").references((): AnyPgColumn => socialPostCommentTable.id, {
+      onDelete: "cascade",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    postIdx: index("social_post_comments_post_idx").on(table.postId),
+    parentIdx: index("social_post_comments_parent_idx").on(table.parentId),
+  }),
+);
+
+export const socialPostLikeTable = pgTable(
+  "social_post_likes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    postId: integer("post_id")
+      .notNull()
+      .references(() => socialPostTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    postUserUnique: uniqueIndex("social_post_likes_post_user_unique").on(table.postId, table.userId),
+    postIdx: index("social_post_likes_post_idx").on(table.postId),
+    userIdx: index("social_post_likes_user_idx").on(table.userId),
+  }),
+);

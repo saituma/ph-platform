@@ -1,9 +1,31 @@
 const appJson = require("./app.json");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
+function getLocalIP() {
+  try {
+    const interfaces = os.networkInterfaces();
+    for (const interfaceName in interfaces) {
+      const addresses = interfaces[interfaceName] || [];
+      for (const iface of addresses) {
+        if (iface.family === "IPv4" && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+  } catch {
+    // Fall back to localhost when interface discovery is unavailable.
+  }
+
+  return "localhost";
+}
+
+const localIP = getLocalIP();
 /** Same default as eas.json — used when env is missing during prebuild (e.g. local gradle). */
-const DEFAULT_API_BASE_URL = "https://ph-platform.onrender.com/api";
+const DEFAULT_API_BASE_URL = process.env.NODE_ENV === "development" || !process.env.EAS_BUILD
+  ? `http://${localIP}:3001/api`
+  : "https://ph-platform.onrender.com/api";
 
 function normalizePlugins(plugins) {
   if (!Array.isArray(plugins)) return [];

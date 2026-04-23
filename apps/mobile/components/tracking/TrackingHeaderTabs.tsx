@@ -1,205 +1,218 @@
-import React, { useMemo } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { memo, useCallback, useMemo } from "react";
+import { Pressable, StyleSheet, Text, View, Platform } from "react-native";
 import { useRouter } from "expo-router";
-import { radius, fonts, spacing } from "@/constants/theme";
-import { Map, Users } from "lucide-react-native";
+
+// Assuming these exist in your project
+import { fonts, spacing } from "@/constants/theme";
 
 type ActiveTab = "running" | "team";
 
-export function TrackingHeaderTabs({
-  active,
-  colors,
-  isDark,
-  topInset = 0,
-  paddingHorizontal = 16,
-  showTeamTab = true,
-}: {
-  active: ActiveTab;
-  colors: Record<string, string>;
-  isDark: boolean;
-  topInset?: number;
-  paddingHorizontal?: number;
-  showTeamTab?: boolean;
-}) {
-  const router = useRouter();
+type TrackingHeaderTabsProps = {
+    active: ActiveTab;
+    colors: Record<string, string>;
+    isDark: boolean;
+    topInset?: number;
+    paddingHorizontal?: number;
+    showTeamTab?: boolean;
+};
 
-  const containerBg = useMemo(
-    () => (isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)"),
-    [isDark],
-  );
-  const borderColor = useMemo(
-    () => (isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)"),
-    [isDark],
-  );
-  const dividerColor = useMemo(
-    () => (isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)"),
-    [isDark],
-  );
+type TabItem = {
+    key: ActiveTab;
+    label: string;
+    route: string;
+};
 
-  const go = (next: ActiveTab) => {
-    if (next === active) return;
-    router.replace(
-      (next === "running" ? "/(tabs)/tracking" : "/(tabs)/tracking/social") as any,
+const TAB_ITEMS: TabItem[] = [
+    { key: "running", label: "Running", route: "/(tabs)/tracking" },
+    { key: "team", label: "Team", route: "/(tabs)/tracking/social" },
+];
+
+export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
+    active,
+    colors,
+    isDark,
+    topInset = 0,
+    paddingHorizontal = 16,
+    showTeamTab = true,
+}: TrackingHeaderTabsProps) {
+    const router = useRouter();
+
+    const visibleTabs = useMemo(
+        () => (showTeamTab ? TAB_ITEMS : TAB_ITEMS.filter((tab) => tab.key === "running")),
+        [showTeamTab],
     );
-  };
 
-  return (
-    <View
-      style={{
+    const theme = useMemo(() => {
+        return {
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+            containerBackground: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+            activeBackground: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)",
+            inactiveText: isDark ? "rgba(255,255,255,0.60)" : colors.textSecondary,
+            activeText: colors.textPrimary,
+            shadowColor: isDark ? "#000" : "#0F172A",
+            ripple: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+        };
+    }, [colors.textPrimary, colors.textSecondary, isDark]);
+
+    const handleTabPress = useCallback(
+        (tab: TabItem) => {
+            if (tab.key === active) return;
+            // @ts-ignore - Expo router types can be strict depending on config
+            router.replace(tab.route);
+        },
+        [active, router],
+    );
+
+    return (
+        <View
+            style={[
+                styles.outer,
+                {
+                    paddingTop: topInset,
+                    paddingHorizontal,
+                    paddingBottom: spacing.lg || 24,
+                },
+            ]}
+        >
+            <View
+                accessibilityRole="tablist"
+                style={[
+                    styles.segmentedControl,
+                    {
+                        backgroundColor: theme.containerBackground,
+                        borderColor: theme.borderColor,
+                    },
+                ]}
+            >
+                {visibleTabs.map((tab) => {
+                    const selected = tab.key === active;
+
+                    return (
+                        <HeaderTabButton
+                            key={tab.key}
+                            label={tab.label}
+                            selected={selected}
+                            activeBackground={theme.activeBackground}
+                            activeTextColor={theme.activeText}
+                            inactiveTextColor={theme.inactiveText}
+                            shadowColor={theme.shadowColor}
+                            rippleColor={theme.ripple}
+                            onPress={() => handleTabPress(tab)}
+                        />
+                    );
+                })}
+            </View>
+        </View>
+    );
+});
+
+type HeaderTabButtonProps = {
+    label: string;
+    selected: boolean;
+    activeBackground: string;
+    activeTextColor: string;
+    inactiveTextColor: string;
+    shadowColor: string;
+    rippleColor: string;
+    onPress: () => void;
+};
+
+const HeaderTabButton = memo(function HeaderTabButton({
+    label,
+    selected,
+    activeBackground,
+    activeTextColor,
+    inactiveTextColor,
+    shadowColor,
+    rippleColor,
+    onPress,
+}: HeaderTabButtonProps) {
+    return (
+        <View
+            style={[
+                styles.tabContainer,
+                selected && styles.activeTabContainer,
+                selected && { shadowColor },
+            ]}
+        >
+            <Pressable
+                accessibilityRole="tab"
+                accessibilityLabel={label}
+                accessibilityState={{ selected }}
+                onPress={onPress}
+                android_ripple={{ color: rippleColor, borderless: false }}
+                style={({ pressed }) => [
+                    styles.tabButton,
+                    selected && { backgroundColor: activeBackground },
+                    pressed && !selected && styles.pressedTabButton,
+                ]}
+            >
+                <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    maxFontSizeMultiplier={1.2}
+                    style={[
+                        styles.tabLabel,
+                        {
+                            color: selected ? activeTextColor : inactiveTextColor,
+                            fontFamily: selected ? fonts.heading2 : fonts.bodyBold,
+                            fontSize: selected ? 20 : 18,
+                            lineHeight: selected ? 24 : 22,
+                        },
+                    ]}
+                >
+                    {label}
+                </Text>
+            </Pressable>
+        </View>
+    );
+});
+
+const styles = StyleSheet.create({
+    outer: {
         width: "100%",
         alignSelf: "stretch",
-        paddingTop: topInset,
-        paddingHorizontal,
-        paddingBottom: spacing.lg,
-      }}
-    >
-      <View
-        style={{
-          width: "100%",
-          flexDirection: "row",
-          alignItems: "stretch",
-          height: 60,
-          padding: 4,
-          backgroundColor: containerBg,
-          borderRadius: radius.xl,
-          borderWidth: 1,
-          borderColor,
-          overflow: "hidden",
-        }}
-      >
-        {!showTeamTab ? (
-          <TabSegment
-            label="Running"
-            icon={Map}
-            active
-            onPress={() => go("running")}
-            colors={colors}
-            isDark={isDark}
-            isFirst
-            isLast
-          />
-        ) : (
-          <>
-            <TabSegment
-              label="Running"
-              icon={Map}
-              active={active === "running"}
-              onPress={() => go("running")}
-              colors={colors}
-              isDark={isDark}
-              isFirst
-              isLast={false}
-            />
-            <View
-              style={{
-                width: 1,
-                backgroundColor: dividerColor,
-                marginVertical: 12,
-              }}
-            />
-            <TabSegment
-              label="Community"
-              icon={Users}
-              active={active === "team"}
-              onPress={() => go("team")}
-              colors={colors}
-              isDark={isDark}
-              isFirst={false}
-              isLast
-            />
-          </>
-        )}
-      </View>
-    </View>
-  );
-}
-
-function TabSegment({
-  label,
-  icon: Icon,
-  active,
-  onPress,
-  colors,
-  isDark,
-  isFirst,
-  isLast,
-}: {
-  label: string;
-  icon: any;
-  active: boolean;
-  onPress: () => void;
-  colors: Record<string, string>;
-  isDark: boolean;
-  isFirst: boolean;
-  isLast: boolean;
-}) {
-  const radiusStyle = useMemo(
-    () => ({
-      borderTopLeftRadius: isFirst ? radius.lg - 2 : 0,
-      borderBottomLeftRadius: isFirst ? radius.lg - 2 : 0,
-      borderTopRightRadius: isLast ? radius.lg - 2 : 0,
-      borderBottomRightRadius: isLast ? radius.lg - 2 : 0,
-    }),
-    [isFirst, isLast],
-  );
-
-  const accentFill = colors.accent;
-  const activeContentColor = "#FFFFFF";
-  const inactiveContentColor = isDark ? colors.textPrimary : colors.textSecondary;
-
-  return (
-    <View
-      style={{
+    },
+    segmentedControl: {
+        flexDirection: "row",
+        alignItems: "stretch", // Ensures tabs stretch to fill the height equally
+        padding: 4,
+        borderWidth: 1,
+        borderRadius: 20,
+        minHeight: 64,
+    },
+    tabContainer: {
         flex: 1,
-        ...radiusStyle,
-        overflow: "hidden",
-        backgroundColor: active ? accentFill : "transparent",
-      }}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ selected: active }}
-        onPress={onPress}
-        android_ripple={{
-          color: active
-            ? "rgba(255,255,255,0.2)"
-            : isDark
-              ? "rgba(255,255,255,0.1)"
-              : "rgba(15,23,42,0.08)",
-        }}
-        style={({ pressed }) => [
-          StyleSheet.absoluteFillObject,
-          {
-            flexDirection: "row",
-            justifyContent: "center",
-            alignItems: "center",
-            paddingHorizontal: spacing.xs,
-            opacity: pressed && !active ? 0.8 : 1,
-            gap: 8,
-          },
-        ]}
-      >
-        <Icon 
-          size={20} 
-          color={active ? activeContentColor : inactiveContentColor} 
-          strokeWidth={active ? 2.5 : 2} 
-        />
-        <Text
-          maxFontSizeMultiplier={1.2}
-          numberOfLines={1}
-          style={{
-            fontFamily: active ? fonts.accentBold : fonts.bodyBold,
-            fontSize: active ? 17 : 16,
-            lineHeight: 18,
-            letterSpacing: active ? 0.3 : 0.1,
-            textAlign: "center",
-            color: active ? activeContentColor : inactiveContentColor,
-          }}
-        >
-          {label}
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
+        borderRadius: 16,
+    },
+    activeTabContainer: {
+        // Shadow is applied to the wrapper so overflow:hidden on the button doesn't clip it on iOS
+        ...Platform.select({
+            ios: {
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 3,
+            },
+        }),
+    },
+    tabButton: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        overflow: "hidden", // Keeps Android ripple inside the border radius
+    },
+    pressedTabButton: {
+        opacity: 0.82,
+    },
+    tabLabel: {
+        width: "100%",
+        textAlign: "center",
+        letterSpacing: 0.1,
+        includeFontPadding: false, // Helps center text vertically on Android
+    },
+});

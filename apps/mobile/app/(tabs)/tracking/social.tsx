@@ -1,15 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, memo } from "react";
 import {
   ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
   Share,
-  Switch,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -20,29 +20,37 @@ import { spacing, radius, Shadows, fonts } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 import { MiniRunPathPreview } from "@/components/tracking/social/MiniRunPathPreview";
+import { TeamLiveMap } from "@/components/tracking/social/TeamLiveMap";
 import { CommentsSheet } from "@/components/tracking/social/CommentsSheet";
+import { PostCommentsSheet } from "@/components/tracking/social/PostCommentsSheet";
+import { PostComposerSheet } from "@/components/tracking/social/PostComposerSheet";
 import {
   fetchAdultDirectory,
   fetchLeaderboard,
   fetchRunFeed,
+  fetchPostFeed,
   fetchPrivacySettings,
   likeRun,
   unlikeRun,
+  likeSocialPost,
+  unlikeSocialPost,
   updatePrivacySettings,
   type PrivacySettings,
   type SocialLeaderboardItem,
   type SocialRunFeedItem,
+  type SocialPostItem,
   type SocialSort,
 } from "@/services/tracking/socialService";
+import { fetchTeamLocations, type UserLocation } from "@/services/tracking/locationService";
 import { formatDurationClock, formatDistanceKm } from "@/lib/tracking/runUtils";
 
-type SectionKey =
-  | "overview"
-  | "events"
-  | "activities"
-  | "stats"
-  | "posts"
-  | "settings";
+type SectionKey = "overview" | "live" | "events" | "activities" | "stats" | "posts";
+
+const TEAM_SECTIONS: Array<{ key: SectionKey; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  { key: "posts", label: "Posts", icon: "chatbubbles-outline" },
+  { key: "activities", label: "Runs", icon: "pulse-outline" },
+  { key: "stats", label: "Squad", icon: "bar-chart-outline" },
+];
 
 export default function TrackingSocialScreen() {
   const router = useRouter();
@@ -65,10 +73,12 @@ export default function TrackingSocialScreen() {
 
   const teamName = (authTeamMembership?.team ?? "Team").trim() || "Team";
   const teamInitial = teamName.slice(0, 1).toUpperCase();
-
-  const [section, setSection] = useState<SectionKey>("overview");
+  const safeTop = Math.max(insets.top, 18);
 
   const [loading, setLoading] = useState(true);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [postLoading, setPostLoading] = useState(false);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
 
   const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
@@ -76,6 +86,8 @@ export default function TrackingSocialScreen() {
     { userId: number; name: string; avatarUrl: string | null }[]
   >([]);
   const [feed, setFeed] = useState<SocialRunFeedItem[]>([]);
+  const [postFeed, setPostFeed] = useState<SocialPostItem[]>([]);
+  const [teamLocations, setTeamLocations] = useState<UserLocation[]>([]);
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings | null>(
     null,
   );
@@ -87,12 +99,60 @@ export default function TrackingSocialScreen() {
   >("distance_desc");
 
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [postCommentsOpen, setPostCommentsOpen] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [activeRunLogId, setActiveRunLogId] = useState<number | null>(null);
+  const [activePostId, setActivePostId] = useState<number | null>(null);
+  const [section, setSection] = useState<SectionKey>("posts");
 
   const cardBorder = isDark ? "rgba(255,255,255,0.08)" : colors.border;
   const cardBg = isDark ? colors.cardElevated : colors.backgroundSecondary;
 
   const canLoad = token != null;
+
+  const loadLeaderboard = useCallback(async () => {
+    if (!token) return;
+    setLeaderboardLoading(true);
+    try {
+      const res = await fetchLeaderboard(token, {
+        windowDays: rangeDays === 0 ? 0 : rangeDays,
+        limit: 25,
+        sort: leaderboardSort,
+        useTeamFeed,
+      });
+      setLeaderboard(res.items ?? []);
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  }, [leaderboardSort, rangeDays, token, useTeamFeed]);
+
+  const loadFeed = useCallback(async () => {
+    if (!token) return;
+    setFeedLoading(true);
+    try {
+      const res = await fetchRunFeed(token, {
+        limit: 25,
+        cursor: null,
+        windowDays: rangeDays,
+        sort,
+        useTeamFeed,
+      });
+      setFeed(res.items ?? []);
+    } finally {
+      setFeedLoading(false);
+    }
+  }, [rangeDays, sort, token, useTeamFeed]);
+
+  const loadPosts = useCallback(async () => {
+    if (!token) return;
+    setPostLoading(true);
+    try {
+      const res = await fetchPostFeed(token, { limit: 25, cursor: null, useTeamFeed });
+      setPostFeed(res.items ?? []);
+    } finally {
+      setPostLoading(false);
+    }
+  }, [token, useTeamFeed]);
 
   const loadSettings = useCallback(async () => {
     if (!token) return;
@@ -104,35 +164,92 @@ export default function TrackingSocialScreen() {
     }
   }, [token]);
 
+  const loadTeamLocations = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetchTeamLocations(token);
+      setTeamLocations(res.locations ?? []);
+    } catch {
+      // silent
+    }
+  }, [token]);
+
   const loadCommunity = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const [lb, dir, runs] = await Promise.all([
-        fetchLeaderboard(token, {
-          windowDays: rangeDays === 0 ? 0 : rangeDays,
-          limit: 25,
-          sort: leaderboardSort,
-          useTeamFeed,
-        }),
-        fetchAdultDirectory(token, { limit: 24, cursor: null, useTeamFeed }),
-        fetchRunFeed(token, {
-          limit: 25,
-          cursor: null,
-          windowDays: rangeDays,
-          sort,
-          useTeamFeed,
-        }),
+      // Fetch core overview data in parallel
+      await Promise.all([
+        loadLeaderboard(),
+        loadFeed(),
+        loadPosts(),
+        fetchAdultDirectory(token, { limit: 24, cursor: null, useTeamFeed }).then(d => setAdults(d.items ?? [])),
+        fetchTeamLocations(token).then(l => setTeamLocations(l.locations ?? [])),
       ]);
-      setLeaderboard(lb.items ?? []);
-      setAdults(dir.items ?? []);
-      setFeed(runs.items ?? []);
     } catch (e: any) {
       Alert.alert("Couldn't load team", String(e?.message ?? "Error"));
     } finally {
       setLoading(false);
     }
-  }, [leaderboardSort, rangeDays, sort, token, useTeamFeed]);
+  }, [loadFeed, loadLeaderboard, loadPosts, token, useTeamFeed]);
+
+  const toggleLike = useCallback(
+    async (r: SocialRunFeedItem) => {
+      if (!token) return;
+      // Optimistic update
+      const oldFeed = [...feed];
+      setFeed(feed.map(item =>
+        item.runLogId === r.runLogId
+          ? {
+              ...item,
+              userLiked: !item.userLiked,
+              likeCount: (item.likeCount ?? 0) + (item.userLiked ? -1 : 1)
+            }
+          : item
+      ));
+
+      try {
+        if (r.userLiked) {
+          await unlikeRun(token, r.runLogId, { useTeamFeed });
+        } else {
+          await likeRun(token, r.runLogId, { useTeamFeed });
+        }
+      } catch (e: any) {
+        setFeed(oldFeed); // Rollback
+        Alert.alert("Error", String(e?.message ?? "Error"));
+      }
+    },
+    [feed, token, useTeamFeed],
+  );
+
+  const onTogglePostLike = useCallback(
+    async (post: SocialPostItem) => {
+      if (!token) return;
+      // Optimistic update
+      const oldPostFeed = [...postFeed];
+      setPostFeed(postFeed.map(item =>
+        item.id === post.id
+          ? {
+              ...item,
+              userLiked: !item.userLiked,
+              likeCount: item.likeCount + (item.userLiked ? -1 : 1)
+            }
+          : item
+      ));
+
+      try {
+        if (post.userLiked) {
+          await unlikeSocialPost(token, post.id, { useTeamFeed });
+        } else {
+          await likeSocialPost(token, post.id, { useTeamFeed });
+        }
+      } catch (e: any) {
+        setPostFeed(oldPostFeed); // Rollback
+        Alert.alert("Error", String(e?.message ?? "Error"));
+      }
+    },
+    [postFeed, token, useTeamFeed],
+  );
 
   const load = useCallback(() => {
     void loadSettings();
@@ -149,6 +266,14 @@ export default function TrackingSocialScreen() {
     if (useTeamFeed) return;
     router.replace("/(tabs)/tracking" as any);
   }, [router, token, useTeamFeed]);
+
+  useEffect(() => {
+    if (!token) return;
+    const interval = setInterval(() => {
+      void loadTeamLocations();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [loadTeamLocations, token]);
 
   const pickSort = useCallback(() => {
     Alert.alert("Sort", "Choose how to sort the feed.", [
@@ -188,29 +313,10 @@ export default function TrackingSocialScreen() {
     setCommentsOpen(true);
   }, []);
 
-  const toggleLike = useCallback(
-    async (run: SocialRunFeedItem) => {
-      if (!token) return;
-      try {
-        if (run.userLiked) {
-          await unlikeRun(token, run.runLogId, { useTeamFeed });
-        } else {
-          await likeRun(token, run.runLogId, { useTeamFeed });
-        }
-        const runs = await fetchRunFeed(token, {
-          limit: 25,
-          cursor: null,
-          windowDays: rangeDays,
-          sort,
-          useTeamFeed,
-        });
-        setFeed(runs.items ?? []);
-      } catch (e: any) {
-        Alert.alert("Error", String(e?.message ?? "Could not update like"));
-      }
-    },
-    [rangeDays, sort, token, useTeamFeed],
-  );
+  const openPostComments = useCallback((postId: number) => {
+    setActivePostId(postId);
+    setPostCommentsOpen(true);
+  }, []);
 
   const handleToggleSocialEnabled = useCallback(
     async (value: boolean) => {
@@ -297,6 +403,14 @@ export default function TrackingSocialScreen() {
     const n = Math.max(adults.length, leaderboard.length);
     return n > 0 ? n : 0;
   }, [adults.length, leaderboard.length]);
+  const liveCount = teamLocations.length;
+  const latestLeaderboard = leaderboard[0] ?? null;
+  const previewMembers = useMemo(() => adults.slice(0, 5), [adults]);
+  const photoPostCount = useMemo(
+    () => postFeed.filter((post) => post.mediaType === "image" && !!post.mediaUrl).length,
+    [postFeed],
+  );
+  const latestPoster = postFeed[0]?.name?.split(" ")[0] ?? "You";
 
   const events = useMemo(() => {
     const nextSunday = (() => {
@@ -336,6 +450,10 @@ export default function TrackingSocialScreen() {
     router.replace("/(tabs)/tracking" as any);
   }, [router]);
 
+  const openSettings = useCallback(() => {
+    router.push("/(tabs)/tracking/team-settings" as any);
+  }, [router]);
+
   if (!token) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -355,196 +473,159 @@ export default function TrackingSocialScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Stack.Screen
         options={{
-          headerShown: true,
-          title: "Team",
-          headerTransparent: true,
-          headerBackVisible: false,
-          headerTitleStyle: {
-            fontFamily: fonts.heading3,
-            fontSize: 18,
-            color: "#FFFFFF",
-          },
-          headerLeft: () => (
-            <Pressable
-              onPress={handleBack}
-              style={({ pressed }) => ({
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: pressed ? 0.8 : 1,
-              })}
-            >
-              <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-            </Pressable>
-          ),
+          headerShown: false,
         }}
       />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
+          paddingTop: safeTop,
           paddingBottom: trackingScrollBottomPad(insets),
         }}
       >
-        <View style={{ marginHorizontal: -spacing.xl }}>
+        <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg }}>
           <LinearGradient
-            colors={["#FF3D00", "#7B61FF", "#00E5FF"]}
-            start={{ x: 0.1, y: 0.1 }}
-            end={{ x: 0.9, y: 0.9 }}
+            colors={isDark ? ["#10161A", "#14142A", "#0A0A12"] : ["#F4FFF7", "#EFF6FF", "#FFFFFF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
-              height: 240 + insets.top,
-              paddingTop: insets.top + spacing.lg,
-              paddingHorizontal: spacing.xl,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <RoundIconButton
-                onPress={handleBack}
-                icon={<Ionicons name="arrow-back" size={22} color="#FFF" />}
-              />
-              <RoundIconButton
-                onPress={() => setSection("settings")}
-                icon={<Ionicons name="settings-outline" size={22} color="#FFF" />}
-              />
-            </View>
-
-            <View style={{ height: spacing.xxxl }} />
-            <View style={{ alignItems: "flex-end", opacity: 0.25 }}>
-              <MaterialCommunityIcons name="run-fast" size={140} color="#FFF" />
-            </View>
-          </LinearGradient>
-        </View>
-
-        <View style={{ marginTop: -72, paddingHorizontal: spacing.xl }}>
-          <View
-            style={{
-              backgroundColor: isDark ? "rgba(15,15,30,0.96)" : cardBg,
-              borderRadius: radius.xxl,
+              borderBottomLeftRadius: radius.xxl,
+              borderBottomRightRadius: radius.xxl,
               borderWidth: 1,
               borderColor: cardBorder,
               padding: spacing.xl,
-              ...(isDark ? Shadows.none : Shadows.lg),
+              gap: spacing.lg,
+              overflow: "hidden",
             }}
           >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <RoundIconButton
+                onPress={handleBack}
+                icon={<Ionicons name="arrow-back" size={20} color={colors.textPrimary} />}
+                backgroundColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)"}
+                borderColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)"}
+              />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+                <RoundIconButton
+                  onPress={shareTeam}
+                  icon={<Ionicons name="share-social-outline" size={18} color={colors.textPrimary} />}
+                  backgroundColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)"}
+                  borderColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)"}
+                />
+                <RoundIconButton
+                  onPress={openSettings}
+                  icon={<Ionicons name="settings-outline" size={18} color={colors.textPrimary} />}
+                  backgroundColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)"}
+                  borderColor={isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)"}
+                />
+              </View>
+            </View>
+
             <View style={{ flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" }}>
               <View
                 style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 14,
-                  backgroundColor: "rgba(148,163,184,0.25)",
+                  width: 60,
+                  height: 60,
+                  borderRadius: 20,
+                  backgroundColor: "rgba(34,197,94,0.14)",
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.12)",
+                  borderColor: "rgba(34,197,94,0.18)",
                 }}
               >
-                <Text style={{ fontFamily: fonts.heading2, fontSize: 22, color: "#FFF" }}>
+                <Text style={{ fontFamily: fonts.heading2, fontSize: 24, color: colors.textPrimary }}>
                   {teamInitial}
                 </Text>
               </View>
 
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, gap: spacing.sm }}>
+                <View
+                  style={{
+                    alignSelf: "flex-start",
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: radius.pill,
+                    backgroundColor: isDark ? "rgba(200,241,53,0.12)" : "#DCFCE7",
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: colors.accent }}>
+                    TEAM FEED
+                  </Text>
+                </View>
                 <Text
                   style={{
-                    fontFamily: fonts.heading1,
-                    fontSize: 34,
+                    fontFamily: fonts.heading2,
+                    fontSize: 28,
                     color: colors.textPrimary,
-                    lineHeight: 36,
                   }}
                 >
                   {teamName}
                 </Text>
-
-                <View style={{ height: 10 }} />
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
-                  <MetaPill
-                    icon="run"
-                    label="Running"
-                    colors={colors}
-                    isDark={isDark}
-                  />
-                  <MetaPill
-                    icon="account-group-outline"
-                    label={`${memberCount} Members`}
-                    colors={colors}
-                    isDark={isDark}
-                  />
-                  <MetaPill
-                    icon="earth"
-                    label="Public"
-                    colors={colors}
-                    isDark={isDark}
-                  />
-                </View>
-
-                <Text
-                  style={{
-                    marginTop: spacing.lg,
-                    fontFamily: fonts.bodyMedium,
-                    fontSize: 14,
-                    color: colors.textSecondary,
-                  }}
-                >
-                  Just for fun
+                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textSecondary }}>
+                  Posts, photos, and team energy.
                 </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 2 }}>
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textPrimary }}>
+                    {memberCount} members
+                  </Text>
+                  <View
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: colors.textDim,
+                    }}
+                  />
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary }}>
+                    {liveCount} live
+                  </Text>
+                </View>
               </View>
             </View>
 
-            <View style={{ height: spacing.xl }} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: "row", gap: 18 }}>
-                <ClubAction
-                  label="Share"
-                  icon={<Ionicons name="share-social-outline" size={22} color="#FFF" />}
-                  onPress={shareTeam}
-                />
-                <ClubAction
-                  label="Overview"
-                  icon={<Ionicons name="information-circle-outline" size={22} color="#FFF" />}
-                  onPress={() => setSection("overview")}
-                  active={section === "overview"}
-                />
-                <ClubAction
-                  label="Events"
-                  icon={<Ionicons name="calendar-outline" size={22} color="#FFF" />}
-                  onPress={() => setSection("events")}
-                  active={section === "events"}
-                />
-                <ClubAction
-                  label="Activities"
-                  icon={<Ionicons name="pulse-outline" size={22} color="#FFF" />}
-                  onPress={() => setSection("activities")}
-                  active={section === "activities"}
-                />
-                <ClubAction
-                  label="Stats"
-                  icon={<Ionicons name="bar-chart-outline" size={22} color="#FFF" />}
-                  onPress={() => setSection("stats")}
-                  active={section === "stats"}
-                />
-                <ClubAction
-                  label="Posts"
-                  icon={<Ionicons name="newspaper-outline" size={22} color="#FFF" />}
-                  onPress={() => setSection("posts")}
-                  active={section === "posts"}
+            <View
+              style={{
+                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.86)",
+                borderRadius: radius.xxl,
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+                padding: spacing.lg,
+                gap: spacing.lg,
+              }}
+            >
+              <View style={{ flexDirection: "row", gap: spacing.md }}>
+                <TeamSummaryMetric label="Posts" value={`${postFeed.length}`} sublabel="feed" />
+                <TeamSummaryMetric label="Photos" value={`${photoPostCount}`} sublabel="media" />
+                <TeamSummaryMetric
+                  label="Last"
+                  value={latestPoster}
+                  sublabel={postFeed.length > 0 ? "posted" : "empty"}
                 />
               </View>
-            </ScrollView>
-          </View>
-        </View>
 
-        <View style={{ height: spacing.xl }} />
+              {previewMembers.length > 0 ? (
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {previewMembers.map((member, index) => (
+                      <View key={member.userId} style={{ marginLeft: index === 0 ? 0 : -10 }}>
+                        <InitialAvatar
+                          initial={member.name.slice(0, 1).toUpperCase()}
+                          url={member.avatarUrl}
+                          size={34}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                    Active now
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </LinearGradient>
 
-        {privacySettings?.socialEnabled === false && section !== "settings" ? (
-          <View style={{ paddingHorizontal: spacing.xl }}>
+          {privacySettings?.socialEnabled === false ? (
             <View
               style={{
                 backgroundColor: cardBg,
@@ -552,17 +633,17 @@ export default function TrackingSocialScreen() {
                 borderColor: cardBorder,
                 borderRadius: radius.xxl,
                 padding: spacing.xl,
+                gap: spacing.lg,
               }}
             >
               <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary }}>
                 Team feed is private
               </Text>
-              <Text style={{ marginTop: 8, color: colors.textSecondary }}>
+              <Text style={{ color: colors.textSecondary }}>
                 Enable team features to post, see activities, and join leaderboards.
               </Text>
-              <View style={{ height: spacing.lg }} />
               <Pressable
-                onPress={() => setSection("settings")}
+                onPress={() => handleToggleSocialEnabled(true)}
                 style={({ pressed }) => ({
                   height: 48,
                   borderRadius: radius.pill,
@@ -571,385 +652,385 @@ export default function TrackingSocialScreen() {
                   justifyContent: "center",
                   opacity: pressed ? 0.9 : 1,
                 })}
-              >
-                <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: "#07070F" }}>
-                  Open settings
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
-
-        {section === "overview" ? (
-          <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
-            <RowHeader
-              title="Upcoming Events"
-              right={
-                <Pressable
-                  onPress={() => setSection("events")}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1, flexDirection: "row", alignItems: "center", gap: 6 })}
                 >
-                  <Text style={{ color: colors.textSecondary, fontFamily: fonts.bodyBold }}>
-                    See all
+                  <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: "#07070F" }}>
+                    Enable team features
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
                 </Pressable>
-              }
-              colors={colors}
-            />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: "row", gap: 16 }}>
-                {events.map((e, idx) => (
-                  <EventCard key={idx} event={e} colors={colors} cardBg={cardBg} cardBorder={cardBorder} />
-                ))}
               </View>
-            </ScrollView>
+          ) : null}
 
-            <RowHeader
-              title="Recent"
-              right={
-                <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-                  <Pressable onPress={pickRange} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1, flexDirection: "row", alignItems: "center", gap: 6 })}>
-                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                    <Text style={{ color: colors.textSecondary, fontFamily: fonts.bodyBold }}>
-                      {rangeDays === 0 ? "All time" : `${rangeDays} days`}
-                    </Text>
-                  </Pressable>
-                  <Pressable onPress={pickSort} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
-                    <Ionicons name="options-outline" size={18} color={colors.textSecondary} />
-                  </Pressable>
-                </View>
-              }
-              colors={colors}
-            />
-
-            {loading ? (
-              <View style={{ paddingTop: 40, alignItems: "center" }}>
-                <ActivityIndicator color={colors.accent} />
-              </View>
-            ) : (
-              <View style={{ gap: 16 }}>
-                {feed.slice(0, 4).map((r) => (
-                  <TeamRunPostCard
-                    key={r.runLogId}
-                    item={r}
-                    colors={colors}
-                    cardBg={cardBg}
-                    cardBorder={cardBorder}
-                    onPressComment={() => openComments(r.runLogId)}
-                    onToggleLike={() => void toggleLike(r)}
-                    onPressOpen={() =>
-                      router.push({
-                        pathname:
-                          "/(tabs)/tracking/run-path/[runLogId]" as any,
-                        params: { runLogId: String(r.runLogId) },
-                      } as any)
-                    }
-                  />
-                ))}
-                {feed.length === 0 ? (
-                  <EmptyState title="No activity yet" subtitle="When teammates record runs, they will show up here." colors={colors} cardBg={cardBg} cardBorder={cardBorder} />
-                ) : null}
-              </View>
-            )}
-          </View>
-        ) : null}
-
-        {section === "events" ? (
-          <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
-            <RowHeader title="Upcoming Events" colors={colors} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: "row", gap: 16 }}>
-                {events.map((e, idx) => (
-                  <EventCard key={idx} event={e} colors={colors} cardBg={cardBg} cardBorder={cardBorder} />
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-        ) : null}
-
-        {section === "activities" ? (
-          <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg }}>
-            <RowHeader
-              title="Activities"
-              right={
-                <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-                  <Pressable onPress={pickRange} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1, flexDirection: "row", alignItems: "center", gap: 6 })}>
-                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                    <Text style={{ color: colors.textSecondary, fontFamily: fonts.bodyBold }}>
-                      {rangeDays === 0 ? "All time" : `${rangeDays} days`}
-                    </Text>
-                  </Pressable>
-                  <Pressable onPress={pickSort} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
-                    <Ionicons name="options-outline" size={18} color={colors.textSecondary} />
-                  </Pressable>
-                </View>
-              }
-              colors={colors}
-            />
-
-            {loading ? (
-              <View style={{ paddingTop: 40, alignItems: "center" }}>
-                <ActivityIndicator color={colors.accent} />
-              </View>
-            ) : (
-              <View style={{ gap: 16 }}>
-                {feed.map((r) => (
-                  <TeamRunPostCard
-                    key={r.runLogId}
-                    item={r}
-                    colors={colors}
-                    cardBg={cardBg}
-                    cardBorder={cardBorder}
-                    onPressComment={() => openComments(r.runLogId)}
-                    onToggleLike={() => void toggleLike(r)}
-                    onPressOpen={() =>
-                      router.push({
-                        pathname:
-                          "/(tabs)/tracking/run-path/[runLogId]" as any,
-                        params: { runLogId: String(r.runLogId) },
-                      } as any)
-                    }
-                  />
-                ))}
-                {feed.length === 0 ? (
-                  <EmptyState title="No activity yet" subtitle="When teammates record runs, they will show up here." colors={colors} cardBg={cardBg} cardBorder={cardBorder} />
-                ) : null}
-              </View>
-            )}
-
-            <View style={{ height: spacing.xl }} />
-          </View>
-        ) : null}
-
-        {section === "posts" ? (
-          <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg }}>
-            <RowHeader
-              title="Posts"
-              right={
-                <Pressable
-                  onPress={() =>
-                    Alert.alert("Coming soon", "Posting will be added next.")
-                  }
-                  style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-                >
-                  <Ionicons name="add-circle-outline" size={22} color={colors.textSecondary} />
-                </Pressable>
-              }
-              colors={colors}
-            />
-
+          {privacySettings?.socialEnabled !== false ? (
             <PostComposerRow
               initial={teamInitial}
-              onPress={() =>
-                Alert.alert("Coming soon", "Posting will be added next.")
-              }
+              onPress={() => setComposerOpen(true)}
               colors={colors}
               cardBg={cardBg}
               cardBorder={cardBorder}
             />
+          ) : null}
 
-            {loading ? (
-              <View style={{ paddingTop: 40, alignItems: "center" }}>
-                <ActivityIndicator color={colors.accent} />
-              </View>
-            ) : (
-              <View style={{ gap: 16 }}>
-                {feed.map((r) => (
-                  <TeamRunPostCard
-                    key={r.runLogId}
-                    item={r}
-                    colors={colors}
+          <TeamSectionTabs
+            items={TEAM_SECTIONS}
+            activeKey={section}
+            onChange={setSection}
+            colors={colors}
+            cardBg={cardBg}
+            cardBorder={cardBorder}
+          />
+
+          <View style={{ gap: spacing.lg }}>
+            {section === "overview" ? (
+              <>
+                <View
+                  style={{
+                    backgroundColor: cardBg,
+                    borderRadius: radius.xxl,
+                    borderWidth: 1,
+                    borderColor: cardBorder,
+                    padding: spacing.xl,
+                    gap: spacing.lg,
+                  }}
+                >
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.accent }}>
+                      CLUB THIS WEEK
+                    </Text>
+                    <Text style={{ fontFamily: fonts.heading2, fontSize: 28, color: colors.textPrimary }}>
+                      {leaderboard.reduce((sum, entry) => sum + entry.kmTotal, 0).toFixed(1)} km together
+                    </Text>
+                    <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textSecondary }}>
+                      {feed.length} shared runs in the last {rangeDays === 0 ? "all time" : `${rangeDays} days`}.
+                    </Text>
+                  </View>
+
+                  <View
+                    style={{
+                      borderRadius: radius.xl,
+                      backgroundColor: colors.surfaceHigh,
+                      borderWidth: 1,
+                      borderColor: cardBorder,
+                      padding: spacing.lg,
+                      gap: spacing.lg,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <View style={{ gap: 4 }}>
+                        <Text style={{ fontFamily: fonts.heading3, fontSize: 18, color: colors.textPrimary }}>
+                          Live club map
+                        </Text>
+                        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary }}>
+                          Last 2 hours of shared activity
+                        </Text>
+                      </View>
+                      <Pressable onPress={loadTeamLocations} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+                        <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
+                      </Pressable>
+                    </View>
+
+                    {teamLocations.length > 0 ? (
+                      <TeamLiveMap locations={teamLocations} colors={colors} isDark={isDark} />
+                    ) : (
+                      <EmptyState
+                        title="No one live right now"
+                        subtitle="Teammates appear here when they start a run with live sharing enabled."
+                        colors={colors}
+                        cardBg={colors.background}
+                        cardBorder={cardBorder}
+                      />
+                    )}
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: "row", gap: spacing.lg }}>
+                  <OverviewStatCard
+                    title="Next up"
+                    lines={
+                      events[0]
+                        ? [events[0].title, events[0].timeLabel, events[0].note]
+                        : ["No events planned yet."]
+                    }
                     cardBg={cardBg}
                     cardBorder={cardBorder}
-                    onPressComment={() => openComments(r.runLogId)}
-                    onToggleLike={() => void toggleLike(r)}
-                    onPressOpen={() =>
-                      router.push({
-                        pathname:
-                          "/(tabs)/tracking/run-path/[runLogId]" as any,
-                        params: { runLogId: String(r.runLogId) },
-                      } as any)
+                    colors={colors}
+                  />
+                  <OverviewStatCard
+                    title="Leaderboard"
+                    lines={
+                      latestLeaderboard
+                        ? [
+                            latestLeaderboard.name,
+                            `${latestLeaderboard.kmTotal.toFixed(1)} km · ${latestLeaderboard.durationMinutesTotal} min`,
+                            `#${latestLeaderboard.rank}`,
+                          ]
+                        : ["No leaderboard data yet."]
                     }
+                    cardBg={cardBg}
+                    cardBorder={cardBorder}
+                    colors={colors}
+                    accentLastLine={Boolean(latestLeaderboard)}
+                    loading={leaderboardLoading}
                   />
-                ))}
-                {feed.length === 0 ? (
-                  <EmptyState title="No posts yet" subtitle="Start an activity to share it here." colors={colors} cardBg={cardBg} cardBorder={cardBorder} />
-                ) : null}
-              </View>
-            )}
-
-            <View style={{ height: spacing.xl }} />
-          </View>
-        ) : null}
-
-        {section === "stats" ? (
-          <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg }}>
-            <RowHeader
-              title="Stats"
-              right={
-                <Pressable onPress={pickLeaderboardSort} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1, flexDirection: "row", alignItems: "center", gap: 6 })}>
-                  <Ionicons name="swap-vertical" size={18} color={colors.textSecondary} />
-                  <Text style={{ color: colors.textSecondary, fontFamily: fonts.bodyBold }}>
-                    Sort
-                  </Text>
-                </Pressable>
-              }
-              colors={colors}
-            />
-
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                borderRadius: radius.xxl,
-                padding: spacing.xl,
-              }}
-            >
-              {loading ? (
-                <View style={{ paddingVertical: 20, alignItems: "center" }}>
-                  <ActivityIndicator color={colors.accent} />
                 </View>
-              ) : leaderboard.length === 0 ? (
-                <Text style={{ color: colors.textSecondary }}>
-                  No leaderboard data yet.
-                </Text>
-              ) : (
-                <View style={{ gap: 12 }}>
-                  {leaderboard.map((u) => (
-                    <View
-                      key={u.userId}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        paddingVertical: 10,
-                        borderBottomWidth: 1,
-                        borderBottomColor: "rgba(255,255,255,0.06)",
-                      }}
-                    >
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                        <InitialAvatar initial={u.name.slice(0, 1).toUpperCase()} />
-                        <View>
-                          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.textPrimary }}>
-                            {u.name}
-                          </Text>
-                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
-                            {u.kmTotal.toFixed(1)} km · {u.durationMinutesTotal} min
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={{ fontFamily: fonts.heading3, color: colors.accent }}>
-                        #{u.rank}
-                      </Text>
-                    </View>
+
+                <SectionPreviewCard
+                  title="Recent activity"
+                  actionLabel="See all"
+                  onPressAction={() => setSection("activities")}
+                  colors={colors}
+                  cardBg={cardBg}
+                  cardBorder={cardBorder}
+                >
+                  {feed.slice(0, 2).map((r) => (
+                    <CompactListRow
+                      key={r.runLogId}
+                      title={r.name}
+                      subtitle={`${formatDistanceKm(r.distanceMeters, 2)} km · ${formatDurationClock(r.durationSeconds ?? 0)}`}
+                      rightLabel={new Date(r.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      colors={colors}
+                    />
                   ))}
-                </View>
-              )}
-            </View>
-          </View>
-        ) : null}
+                  {!feedLoading && feed.length === 0 ? (
+                    <Text style={{ color: colors.textSecondary }}>No activity yet.</Text>
+                  ) : null}
+                </SectionPreviewCard>
 
-        {section === "settings" ? (
-          <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg }}>
-            <RowHeader title="Settings" colors={colors} />
+                <SectionPreviewCard
+                  title="Posts"
+                  actionLabel="Open posts"
+                  onPressAction={() => setSection("posts")}
+                  colors={colors}
+                  cardBg={cardBg}
+                  cardBorder={cardBorder}
+                >
+                  {postFeed.slice(0, 2).map((post) => (
+                    <CompactListRow
+                      key={post.id}
+                      title={post.name}
+                      subtitle={post.content}
+                      rightLabel={new Date(post.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      colors={colors}
+                      truncateSubtitle
+                    />
+                  ))}
+                  {!postLoading && postFeed.length === 0 ? (
+                    <Text style={{ color: colors.textSecondary }}>No posts yet.</Text>
+                  ) : null}
+                </SectionPreviewCard>
+              </>
+            ) : null}
 
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderRadius: radius.xxl,
-                padding: spacing.xl,
-                borderWidth: 1,
-                borderColor: cardBorder,
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                }}
-              >
-                <View style={{ flex: 1, paddingRight: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.heading2, fontSize: 18, color: colors.textPrimary }}>
-                    Team Features
-                  </Text>
-                  <Text style={{ marginTop: 6, color: colors.textSecondary }}>
-                    Allow teammates to see your runs and comment.
-                  </Text>
-                </View>
-
-                {settingsLoading ? (
-                  <ActivityIndicator size="small" color={colors.accent} />
-                ) : (
-                  <Switch
-                    value={privacySettings?.socialEnabled ?? false}
-                    onValueChange={handleToggleSocialEnabled}
-                    trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-                    thumbColor="#fff"
-                  />
-                )}
-              </View>
-            </View>
-
-            {privacySettings?.socialEnabled ? (
+            {section === "live" ? (
               <View
                 style={{
                   backgroundColor: cardBg,
                   borderRadius: radius.xxl,
-                  padding: spacing.xl,
                   borderWidth: 1,
                   borderColor: cardBorder,
-                  gap: 18,
+                  padding: spacing.xl,
+                  gap: spacing.lg,
                 }}
               >
-                <Text style={{ fontFamily: fonts.bodyBold, color: colors.textPrimary }}>
-                  Preferences
-                </Text>
-
-                <SettingRow
-                  label="Share runs publicly"
-                  subtitle="Visible in the team feed"
-                  value={privacySettings.shareRunsPublicly}
-                  onChange={(v) => void updateSetting("shareRunsPublicly", v)}
+                <RowHeader
+                  title="Live team map"
+                  right={
+                    <Pressable onPress={loadTeamLocations} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+                      <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
+                    </Pressable>
+                  }
                   colors={colors}
-                  disabled={settingsLoading}
                 />
-                <Divider color={colors.borderSubtle} />
-                <SettingRow
-                  label="Allow comments"
-                  subtitle="Teammates can comment on your runs"
-                  value={privacySettings.allowComments}
-                  onChange={(v) => void updateSetting("allowComments", v)}
-                  colors={colors}
-                  disabled={settingsLoading}
-                />
-                <Divider color={colors.borderSubtle} />
-                <SettingRow
-                  label="Show in leaderboard"
-                  subtitle="Include your stats in ranking"
-                  value={privacySettings.showInLeaderboard}
-                  onChange={(v) => void updateSetting("showInLeaderboard", v)}
-                  colors={colors}
-                  disabled={settingsLoading}
-                />
-                <Divider color={colors.borderSubtle} />
-                <SettingRow
-                  label="Show in directory"
-                  subtitle="Teammates can find your profile"
-                  value={privacySettings.showInDirectory}
-                  onChange={(v) => void updateSetting("showInDirectory", v)}
-                  colors={colors}
-                  disabled={settingsLoading}
-                />
+                {teamLocations.length > 0 ? (
+                  <>
+                    <TeamLiveMap locations={teamLocations} colors={colors} isDark={isDark} />
+                    <View style={{ gap: spacing.md }}>
+                      {teamLocations.map((location) => (
+                        <CompactListRow
+                          key={location.userId}
+                          title={location.name}
+                          subtitle="Live location shared"
+                          rightLabel="Now"
+                          colors={colors}
+                        />
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <EmptyState
+                    title="No one live right now"
+                    subtitle="Teammates appear here when they start a run with live sharing enabled."
+                    colors={colors}
+                    cardBg={colors.surfaceHigh}
+                    cardBorder={cardBorder}
+                  />
+                )}
               </View>
             ) : null}
 
-            <View style={{ height: spacing.xl }} />
-          </View>
-        ) : null}
+            {section === "events" ? (
+              <View style={{ gap: spacing.lg }}>
+                {events.map((event) => (
+                  <InfoCard
+                    key={event.title}
+                    title={event.title}
+                    subtitle={`${event.km} · ${event.timeLabel}`}
+                    note={event.note}
+                    colors={colors}
+                    cardBg={cardBg}
+                    cardBorder={cardBorder}
+                  />
+                ))}
+              </View>
+            ) : null}
 
+            {section === "activities" ? (
+              <>
+                <RowHeader
+                  title="Activity"
+                  right={
+                    <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                      <Pressable onPress={pickRange} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1, flexDirection: "row", alignItems: "center", gap: 6 })}>
+                        <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                        <Text style={{ color: colors.textSecondary, fontFamily: fonts.bodyBold }}>
+                          {rangeDays === 0 ? "All time" : `${rangeDays} days`}
+                        </Text>
+                      </Pressable>
+                      <Pressable onPress={pickSort} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+                        <Ionicons name="options-outline" size={18} color={colors.textSecondary} />
+                      </Pressable>
+                    </View>
+                  }
+                  colors={colors}
+                />
+
+                {feedLoading && feed.length === 0 ? (
+                  <ActivityIndicator color={colors.accent} style={{ marginVertical: 20 }} />
+                ) : (
+                  <View style={{ gap: 16 }}>
+                    {feed.map((r) => (
+                      <TeamRunPostCard
+                        key={r.runLogId}
+                        item={r}
+                        colors={colors}
+                        cardBg={cardBg}
+                        cardBorder={cardBorder}
+                        onPressComment={() => openComments(r.runLogId)}
+                        onToggleLike={() => void toggleLike(r)}
+                        onPressOpen={() =>
+                          router.push({
+                            pathname: "/(tabs)/tracking/run-path/[runLogId]" as any,
+                            params: { runLogId: String(r.runLogId) },
+                          } as any)
+                        }
+                      />
+                    ))}
+                    {!feedLoading && feed.length === 0 ? (
+                      <EmptyState title="No activity yet" subtitle="When teammates record runs, they will show up here." colors={colors} cardBg={cardBg} cardBorder={cardBorder} />
+                    ) : null}
+                  </View>
+                )}
+              </>
+            ) : null}
+
+            {section === "stats" ? (
+              <>
+                <RowHeader
+                  title="Leaderboard"
+                  right={
+                    <Pressable onPress={pickLeaderboardSort} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+                      <Ionicons name="swap-vertical-outline" size={18} color={colors.textSecondary} />
+                    </Pressable>
+                  }
+                  colors={colors}
+                />
+                <View style={{ gap: spacing.md }}>
+                  {leaderboardLoading && leaderboard.length === 0 ? (
+                    <ActivityIndicator color={colors.accent} style={{ marginVertical: 20 }} />
+                  ) : leaderboard.length > 0 ? (
+                    leaderboard.map((entry) => (
+                      <LeaderboardRow
+                        key={entry.userId}
+                        item={entry}
+                        colors={colors}
+                        cardBg={cardBg}
+                        cardBorder={cardBorder}
+                      />
+                    ))
+                  ) : (
+                    <EmptyState
+                      title="No leaderboard data yet"
+                      subtitle="Ranking will show up once teammates share runs."
+                      colors={colors}
+                      cardBg={cardBg}
+                      cardBorder={cardBorder}
+                    />
+                  )}
+                </View>
+              </>
+            ) : null}
+
+            {section === "posts" ? (
+              <>
+                <RowHeader
+                  title="Team posts"
+                  right={
+                    <Pressable
+                      onPress={() => setComposerOpen(true)}
+                      style={({ pressed }) => ({
+                        opacity: pressed ? 0.75 : 1,
+                        height: 34,
+                        paddingHorizontal: 12,
+                        borderRadius: radius.pill,
+                        backgroundColor: colors.surfaceHigh,
+                        borderWidth: 1,
+                        borderColor: cardBorder,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexDirection: "row",
+                        gap: 6,
+                      })}
+                    >
+                      <Ionicons name="add" size={16} color={colors.textPrimary} />
+                      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textPrimary }}>
+                        New
+                      </Text>
+                    </Pressable>
+                  }
+                  colors={colors}
+                />
+
+                {postLoading && postFeed.length === 0 ? (
+                  <ActivityIndicator color={colors.accent} style={{ marginVertical: 30 }} />
+                ) : (
+                  <View style={{ gap: 16 }}>
+                    {postFeed.length === 0 && !postLoading ? (
+                      <EmptyState
+                        title="No posts yet"
+                        subtitle="Be the first to share something with the team!"
+                        colors={colors}
+                        cardBg={cardBg}
+                        cardBorder={cardBorder}
+                      />
+                    ) : (
+                      postFeed.map((post) => (
+                        <TeamPostCard
+                          key={post.id}
+                          item={post}
+                          colors={colors}
+                          cardBg={cardBg}
+                          cardBorder={cardBorder}
+                          onPressComment={() => openPostComments(post.id)}
+                          onToggleLike={() => void onTogglePostLike(post)}
+                          onPressOpen={() => {}}
+                        />
+                      ))
+                    )}
+                  </View>
+                )}
+              </>
+            ) : null}
+          </View>
+        </View>
         <View style={{ height: spacing.xxxl }} />
       </ScrollView>
 
@@ -963,6 +1044,28 @@ export default function TrackingSocialScreen() {
           useTeamFeed={useTeamFeed}
         />
       )}
+
+      {activePostId != null && token != null && (
+        <PostCommentsSheet
+          open={postCommentsOpen}
+          onClose={() => setPostCommentsOpen(false)}
+          token={token}
+          postId={activePostId}
+          postOwnerName={postFeed.find((post) => post.id === activePostId)?.name ?? null}
+          useTeamFeed={useTeamFeed}
+          onChanged={loadPosts}
+        />
+      )}
+
+      {token != null && (
+        <PostComposerSheet
+          open={composerOpen}
+          onClose={() => setComposerOpen(false)}
+          token={token}
+          useTeamFeed={useTeamFeed}
+          onPostCreated={loadCommunity}
+        />
+      )}
     </View>
   );
 }
@@ -970,9 +1073,13 @@ export default function TrackingSocialScreen() {
 function RoundIconButton({
   onPress,
   icon,
+  backgroundColor = "rgba(0,0,0,0.35)",
+  borderColor = "transparent",
 }: {
   onPress: () => void;
   icon: React.ReactNode;
+  backgroundColor?: string;
+  borderColor?: string;
 }) {
   return (
     <Pressable
@@ -981,7 +1088,9 @@ function RoundIconButton({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: "rgba(0,0,0,0.35)",
+        backgroundColor,
+        borderWidth: 1,
+        borderColor,
         alignItems: "center",
         justifyContent: "center",
         opacity: pressed ? 0.85 : 1,
@@ -992,78 +1101,276 @@ function RoundIconButton({
   );
 }
 
-function MetaPill({
-  icon,
+function TeamSummaryMetric({
   label,
-  colors,
-  isDark,
+  value,
+  sublabel,
 }: {
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
   label: string;
-  colors: any;
-  isDark: boolean;
+  value: string;
+  sublabel?: string;
 }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-      <MaterialCommunityIcons
-        name={icon}
-        size={18}
-        color={isDark ? "rgba(255,255,255,0.9)" : colors.textSecondary}
-      />
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "rgba(34,197,94,0.05)",
+        borderRadius: radius.xl,
+        borderWidth: 1,
+        borderColor: "rgba(34,197,94,0.08)",
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
+        gap: 4,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: fonts.labelCaps,
+          fontSize: 10,
+          color: "#86EFAC",
+          letterSpacing: 0.5,
+        }}
+      >
         {label}
+      </Text>
+      <Text
+        style={{
+          fontFamily: fonts.bodyBold,
+          fontSize: 15,
+          color: "#F4F6F4",
+        }}
+      >
+        {value}
+      </Text>
+      {sublabel ? (
+        <Text
+          style={{
+            fontFamily: fonts.bodyMedium,
+            fontSize: 11,
+            color: "rgba(244,246,244,0.72)",
+          }}
+        >
+          {sublabel}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function OverviewStatCard({
+  title,
+  lines,
+  cardBg,
+  cardBorder,
+  colors,
+  accentLastLine = false,
+  loading = false,
+}: {
+  title: string;
+  lines: string[];
+  cardBg: string;
+  cardBorder: string;
+  colors: any;
+  accentLastLine?: boolean;
+  loading?: boolean;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: cardBg,
+        borderRadius: radius.xxl,
+        borderWidth: 1,
+        borderColor: cardBorder,
+        padding: spacing.xl,
+        gap: spacing.md,
+      }}
+    >
+      <Text style={{ fontFamily: fonts.heading3, fontSize: 18, color: colors.textPrimary }}>
+        {title}
+      </Text>
+      {loading ? (
+        <ActivityIndicator color={colors.accent} />
+      ) : (
+        lines.map((line, index) => (
+          <Text
+            key={`${title}-${index}`}
+            style={{
+              fontFamily: index === 0 ? fonts.bodyBold : fonts.bodyMedium,
+              fontSize: index === 2 ? 16 : 13,
+              color:
+                accentLastLine && index === lines.length - 1
+                  ? colors.accent
+                  : index === 0
+                    ? colors.textPrimary
+                    : index === lines.length - 1
+                      ? colors.textDim
+                      : colors.textSecondary,
+            }}
+          >
+            {line}
+          </Text>
+        ))
+      )}
+    </View>
+  );
+}
+
+function SectionPreviewCard({
+  title,
+  actionLabel,
+  onPressAction,
+  colors,
+  cardBg,
+  cardBorder,
+  children,
+}: {
+  title: string;
+  actionLabel: string;
+  onPressAction: () => void;
+  colors: any;
+  cardBg: string;
+  cardBorder: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: cardBg,
+        borderRadius: radius.xxl,
+        borderWidth: 1,
+        borderColor: cardBorder,
+        padding: spacing.xl,
+        gap: spacing.lg,
+      }}
+    >
+      <RowHeader
+        title={title}
+        right={
+          <Pressable onPress={onPressAction} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+            <Text style={{ fontFamily: fonts.bodyBold, color: colors.accent }}>{actionLabel}</Text>
+          </Pressable>
+        }
+        colors={colors}
+      />
+      <View style={{ gap: spacing.md }}>{children}</View>
+    </View>
+  );
+}
+
+function CompactListRow({
+  title,
+  subtitle,
+  rightLabel,
+  colors,
+  truncateSubtitle = false,
+}: {
+  title: string;
+  subtitle: string;
+  rightLabel: string;
+  colors: any;
+  truncateSubtitle?: boolean;
+}) {
+  return (
+    <View style={{ flexDirection: "row", gap: spacing.md, alignItems: "flex-start" }}>
+      <View style={{ flex: 1, gap: 4 }}>
+        <Text style={{ fontFamily: fonts.bodyBold, color: colors.textPrimary }}>{title}</Text>
+        <Text
+          numberOfLines={truncateSubtitle ? 2 : undefined}
+          style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary }}
+        >
+          {subtitle}
+        </Text>
+      </View>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textDim }}>
+        {rightLabel}
       </Text>
     </View>
   );
 }
 
-function ClubAction({
-  label,
-  icon,
-  onPress,
-  active,
+function InfoCard({
+  title,
+  subtitle,
+  note,
+  colors,
+  cardBg,
+  cardBorder,
 }: {
-  label: string;
-  icon: React.ReactNode;
-  onPress: () => void;
-  active?: boolean;
+  title: string;
+  subtitle: string;
+  note: string;
+  colors: any;
+  cardBg: string;
+  cardBorder: string;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        width: 86,
+    <View
+      style={{
+        backgroundColor: cardBg,
+        borderRadius: radius.xxl,
+        borderWidth: 1,
+        borderColor: cardBorder,
+        padding: spacing.xl,
+        gap: spacing.sm,
+      }}
+    >
+      <Text style={{ fontFamily: fonts.heading3, fontSize: 18, color: colors.textPrimary }}>
+        {title}
+      </Text>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textSecondary }}>
+        {subtitle}
+      </Text>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textDim }}>
+        {note}
+      </Text>
+    </View>
+  );
+}
+
+function LeaderboardRow({
+  item,
+  colors,
+  cardBg,
+  cardBorder,
+}: {
+  item: SocialLeaderboardItem;
+  colors: any;
+  cardBg: string;
+  cardBorder: string;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: cardBg,
+        borderRadius: radius.xxl,
+        borderWidth: 1,
+        borderColor: cardBorder,
+        padding: spacing.lg,
+        flexDirection: "row",
         alignItems: "center",
-        opacity: pressed ? 0.85 : 1,
-      })}
+        gap: spacing.md,
+      }}
     >
       <View
         style={{
-          width: 64,
-          height: 64,
-          borderRadius: 32,
-          backgroundColor: active ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.10)",
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          backgroundColor: "rgba(34,197,94,0.14)",
           alignItems: "center",
           justifyContent: "center",
-          borderWidth: 1,
-          borderColor: active ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)",
         }}
       >
-        {icon}
+        <Text style={{ fontFamily: fonts.bodyBold, color: colors.accent }}>#{item.rank}</Text>
       </View>
-      <Text
-        style={{
-          marginTop: spacing.md,
-          fontFamily: fonts.bodyBold,
-          fontSize: 14,
-          color: "#FFF",
-          opacity: active ? 1 : 0.92,
-          textAlign: "center",
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bodyBold, color: colors.textPrimary }}>{item.name}</Text>
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary }}>
+          {item.kmTotal.toFixed(1)} km · {item.durationMinutesTotal} min
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -1086,78 +1393,6 @@ function RowHeader({
   );
 }
 
-function EventCard({
-  event,
-  colors,
-  cardBg,
-  cardBorder,
-}: {
-  event: { title: string; km: string; date: Date; timeLabel: string; note: string };
-  colors: any;
-  cardBg: string;
-  cardBorder: string;
-}) {
-  const month = event.date.toLocaleString(undefined, { month: "short" }).toUpperCase();
-  const day = String(event.date.getDate());
-  const weekday = event.date.toLocaleString(undefined, { weekday: "short" }).toUpperCase();
-
-  return (
-    <View
-      style={{
-        width: 340,
-        backgroundColor: cardBg,
-        borderRadius: radius.xxl,
-        borderWidth: 1,
-        borderColor: cardBorder,
-        padding: spacing.xl,
-      }}
-    >
-      <View style={{ flexDirection: "row", gap: spacing.lg, alignItems: "center" }}>
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 14,
-            overflow: "hidden",
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.10)",
-            backgroundColor: "#0F0F1E",
-          }}
-        >
-          <View style={{ height: 22, backgroundColor: "#FF3D00", alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: "#FFF" }}>
-              {month}
-            </Text>
-          </View>
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.heading1, fontSize: 28, color: "#FFF" }}>
-              {day}
-            </Text>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.textSecondary }}>
-              {weekday}
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary }}>
-            {event.title}
-          </Text>
-          <View style={{ height: 6 }} />
-          <Text style={{ fontFamily: fonts.bodyMedium, color: colors.textSecondary }}>
-            {event.timeLabel}
-          </Text>
-          <Text style={{ marginTop: 6, fontFamily: fonts.bodyMedium, color: colors.textDim }}>
-            {event.note}
-          </Text>
-        </View>
-
-        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-      </View>
-    </View>
-  );
-}
-
 function PostComposerRow({
   initial,
   onPress,
@@ -1175,28 +1410,58 @@ function PostComposerRow({
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: cardBg,
-        borderWidth: 1,
-        borderColor: cardBorder,
         borderRadius: radius.xxl,
-        paddingVertical: 14,
-        paddingHorizontal: spacing.lg,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: spacing.lg,
         opacity: pressed ? 0.92 : 1,
       })}
     >
-      <InitialAvatar initial={initial} size={46} />
-      <Text style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.textSecondary }}>
-        Post something...
-      </Text>
-      <Ionicons name="image-outline" size={22} color={colors.textSecondary} />
+      <LinearGradient
+        colors={["rgba(200,241,53,0.16)", "rgba(123,97,255,0.12)", "rgba(255,255,255,0.02)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          borderRadius: radius.xxl,
+          padding: 1,
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: cardBg,
+            borderRadius: radius.xxl,
+            paddingVertical: 12,
+            paddingHorizontal: spacing.lg,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.md,
+          }}
+        >
+          <InitialAvatar initial={initial} size={38} />
+          <View
+            style={{
+              flex: 1,
+              minHeight: 44,
+              borderRadius: radius.xl,
+              backgroundColor: colors.surfaceHigh,
+              paddingHorizontal: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textSecondary }}>
+              Share with the team
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Ionicons name="image-outline" size={18} color={colors.textSecondary} />
+              <Ionicons name="add-circle" size={18} color={colors.accent} />
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
     </Pressable>
   );
 }
 
-function TeamRunPostCard({
+const TeamRunPostCard = memo(({
   item,
   colors,
   cardBg,
@@ -1212,7 +1477,7 @@ function TeamRunPostCard({
   onPressComment: () => void;
   onToggleLike: () => void;
   onPressOpen: () => void;
-}) {
+}) => {
   const km = formatDistanceKm(item.distanceMeters, 2);
   const time = formatDurationClock(item.durationSeconds ?? 0);
   const pace =
@@ -1221,9 +1486,8 @@ function TeamRunPostCard({
       : "—";
   const likeCount = item.likeCount ?? 0;
   const dateLabel = new Date(item.date).toLocaleString(undefined, {
-    month: "long",
+    month: "short",
     day: "numeric",
-    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -1238,11 +1502,11 @@ function TeamRunPostCard({
         overflow: "hidden",
       }}
     >
-      <View style={{ padding: spacing.xl, paddingBottom: spacing.lg }}>
+      <View style={{ padding: spacing.xl, paddingBottom: spacing.md }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.lg }}>
-          <InitialAvatar initial={item.name.slice(0, 1).toUpperCase()} />
+          <InitialAvatar initial={item.name.slice(0, 1).toUpperCase()} url={item.avatarUrl} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 18, color: colors.textPrimary }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 17, color: colors.textPrimary }}>
               {item.name}
             </Text>
             <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
@@ -1256,15 +1520,13 @@ function TeamRunPostCard({
         <MiniRunPathPreview points={item.pathPreview} height={220} colors={colors} />
       </Pressable>
 
-      <View style={{ padding: spacing.xl, paddingTop: spacing.lg }}>
-        <Text style={{ fontFamily: fonts.heading2, fontSize: 22, color: colors.textPrimary }}>
-          Run
+      <View style={{ padding: spacing.xl, paddingTop: spacing.lg, gap: spacing.md }}>
+        <Text style={{ fontFamily: fonts.heading3, fontSize: 20, color: colors.textPrimary }}>
+          {km} km
         </Text>
-        <Text style={{ marginTop: 6, fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textSecondary }}>
-          {km} km · {pace} · {time}
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textSecondary }}>
+          {time} · {pace}
         </Text>
-
-        <View style={{ height: spacing.xl }} />
 
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -1275,14 +1537,12 @@ function TeamRunPostCard({
           </View>
         </View>
 
-        <View style={{ height: spacing.lg }} />
-
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: spacing.sm }}>
           <Pressable
             onPress={onToggleLike}
             style={({ pressed }) => ({
-              width: 68,
-              height: 52,
+              width: 60,
+              height: 48,
               borderRadius: radius.xl,
               backgroundColor: colors.surfaceHigh,
               alignItems: "center",
@@ -1301,8 +1561,8 @@ function TeamRunPostCard({
           <Pressable
             onPress={onPressComment}
             style={({ pressed }) => ({
-              width: 68,
-              height: 52,
+              width: 60,
+              height: 48,
               borderRadius: radius.xl,
               backgroundColor: colors.surfaceHigh,
               alignItems: "center",
@@ -1319,9 +1579,11 @@ function TeamRunPostCard({
           <Pressable
             onPress={onPressOpen}
             style={({ pressed }) => ({
-              height: 52,
+              height: 48,
               borderRadius: radius.xl,
-              backgroundColor: colors.surfaceHigh,
+              backgroundColor: "rgba(34,197,94,0.14)",
+              borderWidth: 1,
+              borderColor: "rgba(34,197,94,0.18)",
               alignItems: "center",
               justifyContent: "center",
               paddingHorizontal: spacing.xl,
@@ -1333,15 +1595,253 @@ function TeamRunPostCard({
             <Text style={{ fontFamily: fonts.bodyBold, color: colors.textPrimary }}>
               Open
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            <Ionicons name="chevron-forward" size={18} color={colors.accent} />
           </Pressable>
         </View>
       </View>
     </View>
   );
-}
+});
 
-function InitialAvatar({ initial, size = 42 }: { initial: string; size?: number }) {
+const TeamPostCard = memo(({
+  item,
+  colors,
+  cardBg,
+  cardBorder,
+  onPressComment,
+  onToggleLike,
+  onPressOpen,
+}: {
+  item: SocialPostItem;
+  colors: any;
+  cardBg: string;
+  cardBorder: string;
+  onPressComment: () => void;
+  onToggleLike: () => void;
+  onPressOpen: () => void;
+}) => {
+  const likeCount = item.likeCount ?? 0;
+  const commentCount = item.commentCount ?? 0;
+  const dateLabel = new Date(item.date).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const interactionTone =
+    likeCount + commentCount > 0
+      ? `${likeCount + commentCount} interactions`
+      : "Start the conversation";
+
+  return (
+    <View
+      style={{
+        backgroundColor: cardBg,
+        borderWidth: 1,
+        borderColor: cardBorder,
+        borderRadius: radius.xxl,
+        overflow: "hidden",
+      }}
+    >
+      <View style={{ padding: spacing.lg, paddingBottom: 14, gap: 14 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <InitialAvatar initial={item.name.slice(0, 1).toUpperCase()} url={item.avatarUrl} size={44} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: colors.textPrimary }}>
+              {item.name}
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                {dateLabel}
+              </Text>
+              <View
+                style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: colors.textDim,
+                }}
+              />
+              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                Team
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {item.content ? (
+          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.textPrimary, lineHeight: 24 }}>
+            {item.content}
+          </Text>
+        ) : null}
+      </View>
+
+      {item.mediaUrl ? (
+        <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
+          <View
+            style={{
+              borderRadius: radius.xl,
+              overflow: "hidden",
+              backgroundColor: colors.surfaceHigh,
+              borderWidth: 1,
+              borderColor: cardBorder,
+            }}
+          >
+            {item.mediaType === "video" ? (
+              <View
+                style={{
+                  height: 180,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  backgroundColor: colors.surfaceHigh,
+                }}
+              >
+                <View
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 23,
+                    backgroundColor: colors.accentLight,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="play" size={20} color={colors.accent} />
+                </View>
+                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textPrimary }}>
+                  Video post
+                </Text>
+              </View>
+            ) : (
+              <View>
+                <Image
+                  source={{ uri: item.mediaUrl }}
+                  style={{ width: "100%", height: 320 }}
+                  contentFit="cover"
+                  transition={200}
+                />
+                <LinearGradient
+                  colors={["transparent", "rgba(7,7,15,0.55)"]}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 96,
+                  }}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    left: 14,
+                    bottom: 14,
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: radius.pill,
+                    backgroundColor: "rgba(7,7,15,0.56)",
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: "#fff" }}>
+                    Photo
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      ) : null}
+
+      <View style={{ paddingHorizontal: spacing.lg, paddingBottom: 14, gap: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable
+            onPress={onToggleLike}
+            hitSlop={10}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: radius.pill,
+              backgroundColor: item.userLiked ? colors.accentLight : colors.surfaceHigh,
+              opacity: pressed ? 0.82 : 1,
+            })}
+            accessibilityLabel={item.userLiked ? "Unlike post" : "Like post"}
+          >
+            <Ionicons
+              name={item.userLiked ? "heart" : "heart-outline"}
+              size={18}
+              color={item.userLiked ? colors.accent : colors.textSecondary}
+            />
+            <Text
+              style={{
+                fontFamily: fonts.bodyBold,
+                fontSize: 13,
+                color: item.userLiked ? colors.textPrimary : colors.textSecondary,
+              }}
+            >
+              {likeCount} Like{likeCount === 1 ? "" : "s"}
+            </Text>
+          </Pressable>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingHorizontal: 10,
+              paddingVertical: 7,
+              borderRadius: radius.pill,
+              backgroundColor: colors.surfaceHigh,
+            }}
+          >
+            <Ionicons name="chatbubble-outline" size={14} color={colors.textSecondary} />
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.textSecondary }}>
+              {commentCount}
+            </Text>
+          </View>
+          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+            {interactionTone}
+          </Text>
+        </View>
+
+        <Pressable
+          onPress={onPressComment}
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.82 : 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            borderRadius: radius.xl,
+            backgroundColor: isColorDark(cardBg) ? "rgba(255,255,255,0.05)" : colors.surfaceHigh,
+          })}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View
+                style={{
+                  width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: colors.background,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={15} color={colors.textSecondary} />
+            </View>
+              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textPrimary }}>
+                {commentCount > 0 ? "Open comments" : "Add a comment"}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      </View>
+  );
+});
+
+const InitialAvatar = memo(({ initial, size = 42, url }: { initial: string; size?: number; url?: string | null }) => {
   return (
     <View
       style={{
@@ -1353,16 +1853,25 @@ function InitialAvatar({ initial, size = 42 }: { initial: string; size?: number 
         borderColor: "rgba(255,255,255,0.10)",
         alignItems: "center",
         justifyContent: "center",
+        overflow: "hidden",
       }}
     >
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: Math.max(14, size * 0.36), color: "#FFF" }}>
-        {initial}
-      </Text>
+      {url ? (
+        <Image source={{ uri: url }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
+      ) : (
+        <Text style={{ fontFamily: fonts.bodyBold, fontSize: Math.max(14, size * 0.36), color: "#FFF" }}>
+          {initial}
+        </Text>
+      )}
     </View>
   );
+});
+
+function isColorDark(value: string) {
+  return value.startsWith("#0") || value.startsWith("rgba(255,255,255") === false;
 }
 
-function StackedAvatars() {
+const StackedAvatars = memo(() => {
   return (
     <View style={{ flexDirection: "row" }}>
       <View style={{ marginRight: -8 }}>
@@ -1374,7 +1883,7 @@ function StackedAvatars() {
       <InitialAvatar initial="C" size={26} />
     </View>
   );
-}
+});
 
 function EmptyState({
   title,
@@ -1407,42 +1916,106 @@ function EmptyState({
   );
 }
 
-function Divider({ color }: { color: string }) {
-  return <View style={{ height: 1, backgroundColor: color, opacity: 0.9 }} />;
-}
-
-function SettingRow({
-  label,
-  subtitle,
-  value,
+function TeamSectionTabs({
+  items,
+  activeKey,
   onChange,
   colors,
-  disabled,
+  cardBg,
+  cardBorder,
 }: {
-  label: string;
-  subtitle: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
+  items: Array<{ key: SectionKey; label: string; icon: keyof typeof Ionicons.glyphMap }>;
+  activeKey: SectionKey;
+  onChange: (key: SectionKey) => void;
   colors: any;
-  disabled: boolean;
+  cardBg: string;
+  cardBorder: string;
 }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-      <View style={{ flex: 1, paddingRight: spacing.md }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.textPrimary }}>
+    <View
+      style={{
+        backgroundColor: cardBg,
+        borderWidth: 1,
+        borderColor: cardBorder,
+        borderRadius: radius.xxl,
+        padding: 6,
+      }}
+    >
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 6, paddingRight: spacing.xs }}
+      >
+        {items.map((item) => (
+          <TeamSectionTabButton
+            key={item.key}
+            label={item.label}
+            icon={item.icon}
+            active={activeKey === item.key}
+            colors={colors}
+            onPress={() => onChange(item.key)}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function TeamSectionTabButton({
+  label,
+  icon,
+  active,
+  colors,
+  onPress,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  active: boolean;
+  colors: any;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 46,
+        paddingHorizontal: spacing.lg,
+        borderRadius: radius.xl,
+        borderWidth: 1,
+        borderColor: active ? `${colors.accent}44` : "transparent",
+        backgroundColor: active ? colors.surfaceHigh : "transparent",
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: pressed ? 0.88 : 1,
+      })}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: active ? colors.accentLight : colors.surfaceHigh,
+          }}
+        >
+          <Ionicons
+            name={icon}
+            size={13}
+            color={active ? colors.accent : colors.textSecondary}
+          />
+        </View>
+        <Text
+          style={{
+            fontFamily: active ? fonts.bodyBold : fonts.bodyMedium,
+            fontSize: 14,
+            color: active ? colors.textPrimary : colors.textSecondary,
+          }}
+        >
           {label}
         </Text>
-        <Text style={{ marginTop: 4, fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
-          {subtitle}
-        </Text>
       </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-        thumbColor="#fff"
-        disabled={disabled}
-      />
-    </View>
+    </Pressable>
   );
 }

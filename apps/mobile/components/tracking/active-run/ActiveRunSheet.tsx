@@ -16,6 +16,7 @@ import Animated, {
 
 import { Text } from "@/components/ScaledText";
 import { fonts, radius } from "@/constants/theme";
+import { useRunStore } from "@/store/useRunStore";
 
 export type ActiveRunSheetIndex = -1 | 0 | 1;
 
@@ -46,7 +47,7 @@ export function ActiveRunSheet({
 }) {
   const snapPoints = useMemo(() => ["62%", "90%"] as const, []);
   const [trackLaps, setTrackLaps] = useState(false);
-  const [shareLiveLocationEnabled] = useState(false);
+  const shareLiveLocationEnabled = useRunStore((s) => s.shareLiveLocationEnabled);
   const animatedSheetIndex = useSharedValue<number>(index >= 0 ? index : -1);
 
   const cardBg = isDark ? "rgba(18,18,18,0.94)" : "rgba(255,255,255,0.96)";
