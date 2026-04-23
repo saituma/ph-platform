@@ -1,12 +1,18 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-import { listLatestUserLocations, listUserLocationHistory, recordUserLocation } from "../services/location.service";
+import {
+  listLatestUserLocations,
+  listTeamLocations,
+  listUserLocationHistory,
+  recordUserLocation,
+} from "../services/location.service";
+import { assertTeamMemberSocial } from "../services/social.service";
 
 const locationSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
-  accuracy: z.number().int().positive().optional(),
+  accuracy: z.number().int().positive().optional().nullable(),
 });
 
 export async function recordLocation(req: Request, res: Response) {
@@ -26,4 +32,19 @@ export async function listUserLocations(req: Request, res: Response) {
   const latest = await listLatestUserLocations();
   const history = days ? await listUserLocationHistory(days) : [];
   return res.status(200).json({ latest, history, rangeDays: days ?? null });
+}
+
+export async function listTeamLocationsHandler(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const locations = await listTeamLocations(teamId);
+    return res.status(200).json({ locations });
+  } catch (err: any) {
+    if (err.name === "SocialAccessError" && err.code === "NOT_TEAM") {
+      return res.status(403).json({ error: "Team membership required", code: "NOT_TEAM" });
+    }
+    return res.status(500).json({ error: "Internal error" });
+  }
 }

@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { db } from "../db";
-import { userLocationTable, userTable } from "../db/schema";
+import { athleteTable, userLocationTable, userTable } from "../db/schema";
 import { USER_ROLE_VALUES } from "../lib/user-roles";
 
 const ALLOWED_LOCATION_ROLES = USER_ROLE_VALUES;
@@ -81,6 +81,43 @@ export async function listLatestUserLocations() {
     )
     .innerJoin(userTable, eq(userTable.id, userLocationTable.userId))
     .where(and(eq(userTable.isDeleted, false), inArray(userTable.role, [...ALLOWED_LOCATION_ROLES])))
+    .orderBy(userTable.name);
+}
+
+export async function listTeamLocations(teamId: number) {
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+  const latestSubquery = db
+    .select({
+      userId: userLocationTable.userId,
+      latestAt: sql<Date>`max(${userLocationTable.recordedAt})`.as("latestAt"),
+    })
+    .from(userLocationTable)
+    .where(gte(userLocationTable.recordedAt, twoHoursAgo))
+    .groupBy(userLocationTable.userId)
+    .as("latest_team_locations");
+
+  return db
+    .select({
+      userId: userTable.id,
+      name: userTable.name,
+      role: userTable.role,
+      latitude: userLocationTable.latitude,
+      longitude: userLocationTable.longitude,
+      accuracy: userLocationTable.accuracy,
+      recordedAt: userLocationTable.recordedAt,
+    })
+    .from(userLocationTable)
+    .innerJoin(
+      latestSubquery,
+      and(
+        eq(userLocationTable.userId, latestSubquery.userId),
+        eq(userLocationTable.recordedAt, latestSubquery.latestAt),
+      ),
+    )
+    .innerJoin(userTable, eq(userTable.id, userLocationTable.userId))
+    .innerJoin(athleteTable, eq(athleteTable.userId, userTable.id))
+    .where(and(eq(athleteTable.teamId, teamId), eq(userTable.isDeleted, false)))
     .orderBy(userTable.name);
 }
 

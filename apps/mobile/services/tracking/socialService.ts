@@ -33,6 +33,20 @@ export type SocialRunFeedItem = {
   pathPreview: { latitude: number; longitude: number }[] | null;
 };
 
+export type SocialPostItem = {
+  id: number;
+  userId: number;
+  name: string;
+  avatarUrl: string | null;
+  content: string;
+  mediaUrl: string | null;
+  mediaType?: "image" | "video";
+  date: string;
+  likeCount: number;
+  commentCount: number;
+  userLiked: boolean;
+};
+
 export type SocialCommentItem = {
   commentId: number;
   runLogId: number;
@@ -47,6 +61,20 @@ export type SocialCommentItem = {
   canDelete: boolean;
   reactionCounts: Record<string, number>;
   myReaction: string | null;
+};
+
+export type SocialPostCommentItem = {
+  commentId: number;
+  postId: number;
+  userId: number;
+  name: string;
+  avatarUrl: string | null;
+  content: string;
+  parentId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  isMine: boolean;
+  canDelete: boolean;
 };
 
 export type SocialCommentReactionUser = {
@@ -163,6 +191,62 @@ export async function fetchRunFeed(
   );
 }
 
+export async function fetchPostFeed(
+  token: string,
+  opts?: { limit?: number; cursor?: number | null; useTeamFeed?: boolean },
+) {
+  const limit = opts?.limit ?? 20;
+  const cursor = opts?.cursor ?? null;
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
+  const q = `limit=${encodeURIComponent(String(limit))}${
+    cursor != null ? `&cursor=${encodeURIComponent(String(cursor))}` : ""
+  }`;
+  return apiRequest<{ items: SocialPostItem[]; nextCursor: number | null }>(
+    `${base}/posts?${q}`,
+    { token, suppressLog: true, skipCache: true, forceRefresh: true },
+  );
+}
+
+export async function createSocialPost(
+  token: string,
+  data: { content: string; mediaUrl?: string; mediaType?: string },
+  opts?: { useTeamFeed?: boolean },
+) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
+  return apiRequest<{ item: SocialPostItem }>(`${base}/posts`, {
+    token,
+    method: "POST",
+    body: data,
+    suppressLog: true,
+  });
+}
+
+export async function likeSocialPost(
+  token: string,
+  postId: number,
+  opts?: { useTeamFeed?: boolean },
+) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
+  return apiRequest<{ ok: true }>(`${base}/posts/${encodeURIComponent(String(postId))}/like`, {
+    token,
+    method: "POST",
+    suppressLog: true,
+  });
+}
+
+export async function unlikeSocialPost(
+  token: string,
+  postId: number,
+  opts?: { useTeamFeed?: boolean },
+) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
+  return apiRequest<{ ok: true }>(`${base}/posts/${encodeURIComponent(String(postId))}/like`, {
+    token,
+    method: "DELETE",
+    suppressLog: true,
+  });
+}
+
 export async function fetchRunDetail(token: string, runLogId: number, opts?: { useTeamFeed?: boolean }) {
   const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{
@@ -228,6 +312,48 @@ export async function deleteComment(token: string, commentId: number, opts?: { u
   const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ ok: true }>(
     `${base}/comments/${encodeURIComponent(String(commentId))}`,
+    { token, method: "DELETE", suppressLog: true, suppressStatusCodes: [404] },
+  );
+}
+
+export async function fetchPostComments(
+  token: string,
+  postId: number,
+  opts?: { useTeamFeed?: boolean },
+) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
+  return apiRequest<{ items: SocialPostCommentItem[] }>(
+    `${base}/posts/${encodeURIComponent(String(postId))}/comments`,
+    { token, suppressLog: true, skipCache: true, forceRefresh: true },
+  );
+}
+
+export async function postSocialPostComment(
+  token: string,
+  postId: number,
+  content: string,
+  opts?: { parentId?: number | null; useTeamFeed?: boolean },
+) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
+  return apiRequest<{ item: SocialPostCommentItem }>(
+    `${base}/posts/${encodeURIComponent(String(postId))}/comments`,
+    {
+      token,
+      method: "POST",
+      body: { content, ...(opts?.parentId != null ? { parentId: opts.parentId } : {}) },
+      suppressLog: true,
+    },
+  );
+}
+
+export async function deletePostComment(
+  token: string,
+  commentId: number,
+  opts?: { useTeamFeed?: boolean },
+) {
+  const base = socialFeedBase(Boolean(opts?.useTeamFeed));
+  return apiRequest<{ ok: true }>(
+    `${base}/posts/comments/${encodeURIComponent(String(commentId))}`,
     { token, method: "DELETE", suppressLog: true, suppressStatusCodes: [404] },
   );
 }

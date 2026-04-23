@@ -15,6 +15,7 @@ import {
   deleteTrainingOtherContent,
   deleteTrainingSessionItem,
   finishTrainingModuleSessionWithLog,
+  getTrainingContentMobileWorkouts,
   getTrainingContentMobileWorkspace,
   listTrainingAudiences,
   listTrainingContentAdminWorkspace,
@@ -210,6 +211,29 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
   return res.status(200).json(workspace);
 }
 
+export async function getTrainingContentMobileWorkoutsHandler(req: Request, res: Response) {
+  const parsed = mobileAgeQuerySchema.safeParse(req.query);
+  const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
+  const age = parsed.success ? parsed.data.age : (athlete?.age ?? null);
+  if (!athlete || !age) {
+    return res.status(200).json({
+      generatedAt: new Date().toISOString(),
+      nextWorkoutSessionId: null,
+      completedCount: 0,
+      totalCount: 0,
+      workouts: [],
+    });
+  }
+
+  const payload = await getTrainingContentMobileWorkouts({
+    age,
+    athleteId: athlete.id,
+    programTier: athlete.currentProgramTier ?? null,
+    team: athlete.team ?? null,
+  });
+  return res.status(200).json(payload);
+}
+
 export async function createTrainingModuleHandler(req: Request, res: Response) {
   const input = createModuleSchema.parse(req.body);
   const item = await createTrainingModule({
@@ -389,7 +413,7 @@ export async function deleteTrainingOtherContentHandler(req: Request, res: Respo
   return res.status(200).json({ item });
 }
 
-export async function finishTrainingSessionHandler(req: Request, res: Response) {
+async function completeTrainingSessionRequest(req: Request, res: Response) {
   const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
   const athlete = await getAthleteForUser(req.user!.id);
   if (!athlete) {
@@ -437,4 +461,12 @@ export async function finishTrainingSessionHandler(req: Request, res: Response) 
       : null,
   });
   return res.status(201).json({ item });
+}
+
+export async function finishTrainingSessionHandler(req: Request, res: Response) {
+  return completeTrainingSessionRequest(req, res);
+}
+
+export async function completeTrainingWorkoutHandler(req: Request, res: Response) {
+  return completeTrainingSessionRequest(req, res);
 }

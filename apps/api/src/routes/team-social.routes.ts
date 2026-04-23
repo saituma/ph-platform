@@ -18,8 +18,18 @@ import {
   teamRunLikeCreate,
   teamRunLikeDelete,
 } from "../controllers/team-social.controller";
+import {
+  teamPostsList,
+  teamPostsCreate,
+  teamPostLikeCreate,
+  teamPostLikeDelete,
+  teamPostCommentsList,
+  teamPostCommentsCreate,
+  teamPostCommentDelete,
+} from "../controllers/social-posts.controller";
 
 const router = Router();
+// ... (rest of imports or code if needed, but I will target the block)
 
 router.get("/teams/social/leaderboard", requireAuth, teamLeaderboard);
 router.get("/teams/social/directory", requireAuth, teamDirectory);
@@ -30,6 +40,16 @@ router.post("/teams/social/runs/:runLogId/like", requireAuth, teamRunLikeCreate)
 router.delete("/teams/social/runs/:runLogId/like", requireAuth, teamRunLikeDelete);
 router.get("/teams/social/runs/:runLogId/comments", requireAuth, teamCommentsList);
 router.post("/teams/social/runs/:runLogId/comments", requireAuth, teamCommentsCreate);
+
+// Team Posts
+router.get("/teams/social/posts", requireAuth, teamPostsList);
+router.post("/teams/social/posts", requireAuth, teamPostsCreate);
+router.post("/teams/social/posts/:postId/like", requireAuth, teamPostLikeCreate);
+router.delete("/teams/social/posts/:postId/like", requireAuth, teamPostLikeDelete);
+router.get("/teams/social/posts/:postId/comments", requireAuth, teamPostCommentsList);
+router.post("/teams/social/posts/:postId/comments", requireAuth, teamPostCommentsCreate);
+router.delete("/teams/social/posts/comments/:commentId", requireAuth, teamPostCommentDelete);
+
 router.delete("/teams/social/comments/:commentId", requireAuth, teamCommentDelete);
 router.patch("/teams/social/comments/:commentId", requireAuth, teamCommentEdit);
 router.post("/teams/social/comments/:commentId/report", requireAuth, teamCommentReport);
