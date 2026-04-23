@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, guardianTable, userTable, teamTable } from "../db/schema";
@@ -173,7 +173,7 @@ export async function getAthleteForUser(userId: number) {
       age: athleteTable.age,
       birthDate: athleteTable.birthDate,
       teamId: athleteTable.teamId,
-      team: teamTable.name,
+      team: sql<string | null>`coalesce(${teamTable.name}, ${athleteTable.team})`,
       trainingPerWeek: athleteTable.trainingPerWeek,
       injuries: athleteTable.injuries,
       growthNotes: athleteTable.growthNotes,
@@ -211,7 +211,7 @@ export async function getAthleteForUser(userId: number) {
       age: athleteTable.age,
       birthDate: athleteTable.birthDate,
       teamId: athleteTable.teamId,
-      team: teamTable.name,
+      team: sql<string | null>`coalesce(${teamTable.name}, ${athleteTable.team})`,
       trainingPerWeek: athleteTable.trainingPerWeek,
       injuries: athleteTable.injuries,
       growthNotes: athleteTable.growthNotes,

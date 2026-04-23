@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
@@ -328,6 +328,14 @@ export default function TrackingSocialScreen() {
     await Share.share({ message }).catch(() => {});
   }, [teamName]);
 
+  const handleBack = useCallback(() => {
+    if (typeof router.canGoBack === "function" && router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)/tracking" as any);
+  }, [router]);
+
   if (!token) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -345,6 +353,34 @@ export default function TrackingSocialScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: "Team",
+          headerTransparent: true,
+          headerBackVisible: false,
+          headerTitleStyle: {
+            fontFamily: fonts.heading3,
+            fontSize: 18,
+            color: "#FFFFFF",
+          },
+          headerLeft: () => (
+            <Pressable
+              onPress={handleBack}
+              style={({ pressed }) => ({
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+            </Pressable>
+          ),
+        }}
+      />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
@@ -370,7 +406,7 @@ export default function TrackingSocialScreen() {
               }}
             >
               <RoundIconButton
-                onPress={() => router.back()}
+                onPress={handleBack}
                 icon={<Ionicons name="arrow-back" size={22} color="#FFF" />}
               />
               <RoundIconButton
@@ -1410,4 +1446,3 @@ function SettingRow({
     </View>
   );
 }
-

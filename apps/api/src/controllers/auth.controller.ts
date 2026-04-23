@@ -59,8 +59,16 @@ async function resolveAthleteTeamForMe(
   if (!athlete) return null;
   const tid =
     typeof athlete.teamId === "number" && Number.isFinite(athlete.teamId) && athlete.teamId > 0 ? athlete.teamId : null;
-  if (!tid) return null;
-  const [row] = await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.id, tid)).limit(1);
+  const [row] = tid
+    ? await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.id, tid)).limit(1)
+    : [];
+  if (row) return row;
+
+  const teamName = typeof athlete.team === "string" ? athlete.team.trim() : "";
+  if (!teamName) return null;
+  const [fallback] = await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.name, teamName)).limit(1);
+  if (fallback) return fallback;
+
   return row ?? null;
 }
 
