@@ -3,12 +3,17 @@ import { useRefreshContext, usePullToRefresh } from "@/context/RefreshContext";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { TouchableOpacity, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Text } from "@/components/ScaledText";
-import { UIButton, UICard, UIChip } from "@/components/ui/hero";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Shadows, radius, spacing } from "@/constants/theme";
+import { useRouter } from "expo-router";
+
 export function AthleteDashboard() {
   const { isLoading, setIsLoading } = useRefreshContext();
   const { token } = useAppSelector((state) => state.user);
+  const { colors, isDark } = useAppTheme();
+  const router = useRouter();
   const [athlete, setAthlete] = useState<any | null>(null);
   const birthdayNotified = useRef(false);
 
@@ -39,14 +44,16 @@ export function AthleteDashboard() {
 
   usePullToRefresh(loadAthlete);
 
-  // Birthday UI still shows, but notifications are handled via push server-side.
   useEffect(() => {
     if (!athlete?.isBirthday || birthdayNotified.current) return;
     birthdayNotified.current = true;
   }, [athlete]);
 
   const extraResponses = athlete?.extraResponses ?? {};
-  const level = typeof extraResponses === "object" && extraResponses !== null ? extraResponses.level : null;
+  const level =
+    typeof extraResponses === "object" && extraResponses !== null
+      ? extraResponses.level
+      : null;
   const injuriesCount = useMemo(() => {
     if (!athlete?.injuries) return 0;
     if (Array.isArray(athlete.injuries)) return athlete.injuries.length;
@@ -54,185 +61,178 @@ export function AthleteDashboard() {
     return 1;
   }, [athlete]);
   const programTier = athlete?.currentProgramTier ?? "Pending";
+  const trainingDays = athlete?.trainingPerWeek ?? 0;
+  const athleteName = athlete?.name ?? "Your";
+  const heading = athleteName === "Your" ? "This week" : `${athleteName}'s week`;
 
   return (
-    <View className="gap-8">
-      <View>
-        {athlete?.isBirthday ? (
-          <UICard className="mb-4 border-accent/20 px-4 py-4">
-            <Text className="text-accent font-outfit text-sm uppercase tracking-[1.4px] mb-1">
-              Celebration
+    <View style={{ gap: spacing.lg }}>
+      {athlete?.isBirthday ? (
+        <View
+          style={{
+            borderRadius: radius.lg,
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.md,
+            backgroundColor: colors.accentLight,
+          }}
+        >
+          <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700" }}>
+            Happy Birthday{athlete?.name ? `, ${athlete.name}` : ""}
+          </Text>
+        </View>
+      ) : null}
+
+      <View
+        style={{
+          borderRadius: radius.xxl,
+          padding: spacing.xl,
+          backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+          borderWidth: 1,
+          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)",
+          ...(isDark ? Shadows.none : Shadows.md),
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <View style={{ flex: 1, paddingRight: spacing.lg }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "700" }}>
+              WEEKLY RUN STATUS
             </Text>
-            <Text className="text-app font-clash text-2xl">
-              Happy Birthday{athlete?.name ? `, ${athlete.name}` : ""}!
+            <Text
+              style={{
+                marginTop: 6,
+                color: colors.textPrimary,
+                fontSize: 26,
+                fontWeight: "700",
+              }}
+            >
+              {heading}
             </Text>
-            <Text className="text-sm font-outfit text-secondary mt-1">
-              New age, new training content unlocked today.
-            </Text>
-          </UICard>
-        ) : null}
-        <UICard className="relative min-h-[220px] overflow-hidden rounded-[40px] border-white/20 bg-input p-8">
-          <View className="absolute -right-20 -top-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-          <View className="absolute -left-20 -bottom-20 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
-
-          {isLoading ? (
-            <View className="h-44 justify-center">
-              <View className="h-4 w-24 rounded-full bg-white/30 mb-4" />
-              <View className="h-10 w-40 rounded-2xl bg-white/20 mb-2" />
-              <View className="h-10 w-32 rounded-2xl bg-white/20" />
-            </View>
-          ) : (
-            <>
-              <View className="flex-row items-center justify-between mb-6">
-                <View className="bg-white/20 px-4 py-1.5 rounded-full border border-white/20 backdrop-blur-sm">
-                  <Text className="text-white font-bold font-outfit text-[0.625rem] uppercase tracking-widest">
-                    Profile Snapshot
-                  </Text>
-                </View>
-                <View className="flex-row gap-1">
-                  {[1, 2, 3].map((i) => (
-                    <View
-                      key={i}
-                      className={`w-1.5 h-1.5 rounded-full ${i === 1 ? "bg-white" : "bg-white/40"}`}
-                    />
-                  ))}
-                </View>
-              </View>
-
-              <View className="mb-8">
-                <Text className="dark:text-white/80 text-app font-outfit text-sm mb-1 font-medium">
-                  {athlete?.team ? `${athlete.team}${level ? ` • ${level}` : ""}` : "Athlete Overview"}
-                </Text>
-                <Text className="dark:text-white text-app font-telma-bold text-4xl leading-[0.95] tracking-tight">
-                  {athlete?.name ?? "Your"}{"\n"}Progress
-                </Text>
-              </View>
-
-              <View className="flex-row gap-2 mb-8">
-                <MissionTag icon="calendar" label={`${athlete?.trainingPerWeek ?? 0} days/week`} />
-                <MissionTag icon="user" label={programTier} />
-                <MissionTag icon="activity" label={athlete?.age ? `${athlete.age} yrs` : "Age —"} />
-              </View>
-
-              <UIButton
-                variant="secondary"
-                className="h-16 flex-row items-center justify-center gap-2 rounded-2xl border-white/20 bg-white"
-                textClassName="text-lg font-bold"
-              >
-                <Text className="text-accent font-bold font-outfit text-lg">
-                  View Profile
-                </Text>
-                <Feather name="arrow-right" size={20} className="text-accent" />
-              </UIButton>
-            </>
-          )}
-        </UICard>
-      </View>
-
-      {/* 📊 High-Performance Metrics */}
-      <View>
-        <View className="flex-row justify-between items-center mb-5 px-1">
-          <View className="flex-row items-center gap-3">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text className="text-xl font-bold font-clash text-app">
-              Live Feed <Text className="text-accent">Stats</Text>
+            <Text style={{ marginTop: 4, color: colors.textSecondary, fontSize: 14 }}>
+              Training rhythm, current plan, and readiness.
             </Text>
           </View>
-          <TouchableOpacity>
-            <Text className="text-accent font-medium text-xs font-outfit">
-              Detailed Analysis
-            </Text>
-          </TouchableOpacity>
+
+          <Pressable
+            onPress={() => router.push("/(tabs)/programs")}
+            style={({ pressed }) => ({
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: colors.surfaceHigh,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.82 : 1,
+            })}
+          >
+            <Feather name="arrow-right" size={18} color={colors.accent} />
+          </Pressable>
         </View>
 
-        <View className="flex-row flex-wrap gap-3">
-          <MetricCard
-            label="Program Tier"
-            value={programTier}
-            trend={athlete?.currentProgramTier ? "Active" : "Pending"}
-            good={Boolean(athlete?.currentProgramTier)}
-            icon="zap"
-          />
-          <StatusTile
-            label="Training Days"
-            value={athlete?.trainingPerWeek ?? 0}
-            icon="calendar"
-            color="bg-success"
-            suffix=""
-          />
-          <StatusTile
-            label="Injuries"
-            value={injuriesCount}
-            icon="alert-circle"
-            color="bg-warning"
-            suffix=""
-          />
-          <StatusTile
-            label="Level"
-            value={level ?? "—"}
-            icon="target"
-            color="bg-danger"
-            suffix=""
-          />
-        </View>
+        {isLoading ? (
+          <View style={{ marginTop: spacing.xl, gap: spacing.md }}>
+            <View style={{ height: 80, borderRadius: radius.xl, backgroundColor: colors.surfaceHigh }} />
+            <View style={{ flexDirection: "row", gap: spacing.md }}>
+              <View style={{ flex: 1, height: 88, borderRadius: radius.xl, backgroundColor: colors.surfaceHigh }} />
+              <View style={{ flex: 1, height: 88, borderRadius: radius.xl, backgroundColor: colors.surfaceHigh }} />
+            </View>
+          </View>
+        ) : (
+          <>
+            <View
+              style={{
+                marginTop: spacing.xl,
+                borderRadius: radius.xl,
+                padding: spacing.lg,
+                backgroundColor: colors.surfaceHigh,
+              }}
+            >
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "700" }}>
+                PRIMARY METRIC
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginTop: 8 }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 44, fontWeight: "800", lineHeight: 48 }}>
+                  {trainingDays}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 16, marginBottom: 6 }}>
+                  days / week
+                </Text>
+              </View>
+              <Text style={{ marginTop: 8, color: colors.textSecondary, fontSize: 13 }}>
+                Current target from your training setup.
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: spacing.md, marginTop: spacing.md }}>
+              <MetricTile
+                title="Plan"
+                value={programTier}
+                icon="zap"
+                colors={colors}
+                isDark={isDark}
+              />
+              <MetricTile
+                title="Level"
+                value={level ?? "—"}
+                icon="target"
+                colors={colors}
+                isDark={isDark}
+              />
+              <MetricTile
+                title="Injuries"
+                value={String(injuriesCount)}
+                icon="alert-circle"
+                colors={colors}
+                isDark={isDark}
+              />
+            </View>
+          </>
+        )}
       </View>
     </View>
   );
 }
 
-function MissionTag({ icon, label }: { icon: any; label: string }) {
+function MetricTile({
+  title,
+  value,
+  icon,
+  colors,
+  isDark,
+}: {
+  title: string;
+  value: string;
+  icon: any;
+  colors: any;
+  isDark: boolean;
+}) {
   return (
-    <UIChip
-      label=""
-      className="flex-row items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-2.5"
+    <View
+      style={{
+        flex: 1,
+        borderRadius: radius.xl,
+        padding: spacing.md,
+        backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
+        borderWidth: 1,
+        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+      }}
     >
-      <Feather name={icon} size={14} color="white" />
-      <Text className="text-white font-bold font-outfit text-xs">{label}</Text>
-    </UIChip>
-  );
-}
-
-function MetricCard({ label, value, trend, good, icon }: any) {
-  return (
-    <UICard className="min-h-[140px] w-[48%] justify-between rounded-[28px] bg-input p-5">
-      <View className="flex-row justify-between items-start">
-        <View className="bg-accent/10 p-2.5 rounded-xl">
-          <Feather name={icon} size={18} className="text-accent" />
-        </View>
-        <UIChip
-          label={trend}
-          color={good ? "success" : "danger"}
-          className="rounded-lg px-2 py-0.5"
-          textClassName={`text-[0.625rem] ${good ? "text-success" : "text-danger"}`}
-        />
-      </View>
-      <View>
-        <Text className="text-2xl font-bold font-clash text-app">{value}</Text>
-        <Text className="text-muted text-[0.625rem] font-outfit uppercase tracking-widest mt-1">
-          {label}
-        </Text>
-      </View>
-    </UICard>
-  );
-}
-
-function StatusTile({ label, value, icon, color, suffix = "%" }: any) {
-  return (
-    <UICard className="h-[96px] w-[48%] items-center justify-between rounded-[24px] bg-input p-4">
       <View
-        className={`${color} w-10 h-10 rounded-2xl items-center justify-center shadow-lg shadow-app/5`}
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.accentLight,
+          marginBottom: 10,
+        }}
       >
-        <Feather name={icon} size={20} color="white" />
+        <Feather name={icon} size={16} color={colors.accent} />
       </View>
-      <View className="items-center">
-        <Text className="text-lg font-bold font-clash text-app">
-          {value}
-          {suffix}
-        </Text>
-        <Text className="text-muted text-[0.5rem] font-outfit uppercase tracking-tighter">
-          {label}
-        </Text>
-      </View>
-    </UICard>
+      <Text numberOfLines={1} style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "700" }}>
+        {value}
+      </Text>
+      <Text style={{ marginTop: 2, color: colors.textSecondary, fontSize: 11 }}>{title}</Text>
+    </View>
   );
 }

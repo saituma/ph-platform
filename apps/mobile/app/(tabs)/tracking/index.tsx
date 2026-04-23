@@ -19,7 +19,10 @@ import {
 import { formatDurationClock, formatHoursMinutes } from "@/lib/tracking/runUtils";
 import { useRunStore } from "@/store/useRunStore";
 import { useAppSelector } from "@/store/hooks";
-import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
+import {
+  canAccessTrackingTab,
+  shouldUseTeamTrackingFeatures,
+} from "@/lib/tracking/teamTrackingGate";
 
 export default function TrackingHomeScreen() {
   const router = useRouter();
@@ -27,6 +30,7 @@ export default function TrackingHomeScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
   const appRole = useAppSelector((s) => s.user.appRole);
+  const programTier = useAppSelector((s) => s.user.programTier);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
 
@@ -45,7 +49,11 @@ export default function TrackingHomeScreen() {
 
   useEffect(() => {
     initSQLiteRuns();
-    reload();
+    const task = requestAnimationFrame(() => {
+      reload();
+    });
+
+    return () => cancelAnimationFrame(task);
   }, [reload]);
 
   const weeklyTime = formatHoursMinutes(weeklyStats.totalTime);
@@ -80,6 +88,12 @@ export default function TrackingHomeScreen() {
 
   const cardBorder = "rgba(255,255,255,0.08)";
   const cardBg = colors.surface;
+  const canAccessTracking = canAccessTrackingTab({
+    appRole,
+    programTier,
+    authTeamMembership,
+    firstManagedAthlete: managedAthletes[0] ?? null,
+  });
   const showTeamTab = shouldUseTeamTrackingFeatures({
     appRole,
     authTeamMembership,
@@ -106,6 +120,15 @@ export default function TrackingHomeScreen() {
     router.push("/(tabs)/tracking/active-run" as any);
   }, [router]);
 
+  useEffect(() => {
+    if (canAccessTracking) return;
+    router.replace("/(tabs)");
+  }, [canAccessTracking, router]);
+
+  if (!canAccessTracking) {
+    return null;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
@@ -116,14 +139,18 @@ export default function TrackingHomeScreen() {
         }}
       >
         <View style={{ paddingHorizontal: spacing.xl }}>
-          <TrackingHeaderTabs
-            active="running"
-            colors={colors}
-            isDark={isDark}
-            topInset={insets.top + 6}
-            paddingHorizontal={0}
-            showTeamTab={showTeamTab}
-          />
+          {showTeamTab ? (
+            <TrackingHeaderTabs
+              active="running"
+              colors={colors}
+              isDark={isDark}
+              topInset={insets.top}
+              paddingHorizontal={0}
+              showTeamTab
+            />
+          ) : (
+            <View style={{ paddingTop: insets.top, paddingBottom: spacing.md }} />
+          )}
 
           <View
             style={{

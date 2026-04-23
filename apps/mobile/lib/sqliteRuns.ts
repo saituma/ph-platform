@@ -22,6 +22,8 @@ const db = SQLite.openDatabaseSync("tracking_premium.db"); // new db name to pre
 let isInitialized = false;
 
 export function initSQLiteRuns() {
+  if (isInitialized) return;
+
   db.execSync(`
     CREATE TABLE IF NOT EXISTS runs (
       id TEXT PRIMARY KEY,
@@ -100,28 +102,31 @@ export function getRecentRuns(limit: number = 3): RunRecord[] {
  */
 export function getWeeklySummaries(now: Date = new Date()) {
   ensureInitialized();
-  const runs = db.getAllSync<RunRecord>("SELECT * FROM runs");
-
   const windowEnd = new Date(now);
   windowEnd.setHours(23, 59, 59, 999);
   const windowStart = new Date(now);
   windowStart.setDate(windowStart.getDate() - 6);
   windowStart.setHours(0, 0, 0, 0);
 
-  let totalDistance = 0;
-  let totalTime = 0;
-  let numRuns = 0;
+  const summary = db.getFirstSync<{
+    totalDistance: number | null;
+    totalTime: number | null;
+    numRuns: number | null;
+  }>(
+    `SELECT
+      COALESCE(SUM(distance_meters), 0) AS totalDistance,
+      COALESCE(SUM(duration_seconds), 0) AS totalTime,
+      COUNT(*) AS numRuns
+     FROM runs
+     WHERE date >= ? AND date <= ?`,
+    [windowStart.toISOString(), windowEnd.toISOString()],
+  );
 
-  runs.forEach((r) => {
-    const runDate = new Date(r.date);
-    if (runDate >= windowStart && runDate <= windowEnd) {
-      totalDistance += r.distance_meters;
-      totalTime += r.duration_seconds;
-      numRuns += 1;
-    }
-  });
-
-  return { totalDistance, totalTime, numRuns };
+  return {
+    totalDistance: summary?.totalDistance ?? 0,
+    totalTime: summary?.totalTime ?? 0,
+    numRuns: summary?.numRuns ?? 0,
+  };
 }
 
 export function getPersonalBests(): PersonalBests {

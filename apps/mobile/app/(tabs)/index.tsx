@@ -1,9 +1,11 @@
 import { AdminStorySection } from "@/components/home/AdminStorySection";
+import { AthleteDashboard } from "@/components/dashboard/AthleteDashboard";
+import { GuardianDashboard } from "@/components/dashboard/GuardianDashboard";
 import { IntroVideoSection } from "@/components/home/IntroVideoSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
-import { Feather } from "@/components/ui/theme-icons";
+import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { Shadows, radius, spacing } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import React, { useMemo, useState } from "react";
 import {
@@ -23,7 +25,6 @@ import { useRouter } from "expo-router";
 import Animated, {
   Easing,
   FadeInDown,
-  FadeInRight,
 } from "react-native-reanimated";
 import { useHomeContent } from "@/hooks/home/useHomeContent";
 import { isAdultAthleteAppRole } from "@/lib/appRole";
@@ -39,40 +40,57 @@ const QuickLink = ({
   index,
   colors,
   isDark,
-}: any) => {
+}: {
+  icon: AppIconName;
+  label: string;
+  sublabel?: string;
+  onPress: () => void;
+  index: number;
+  colors: any;
+  isDark: boolean;
+}) => {
   return (
     <AnimatedTouchableOpacity
-      entering={FadeInRight.delay(400 + index * 100)
-        .duration(380)
+      entering={FadeInDown.delay(180 + index * 70)
+        .duration(260)
         .easing(Easing.out(Easing.cubic))}
       onPress={onPress}
       activeOpacity={0.8}
-      className="flex-1 rounded-[32px] p-5 h-[160px] justify-between border"
+      className="flex-1 border"
       style={{
+        minHeight: 116,
+        borderRadius: radius.xl,
+        padding: spacing.lg,
+        justifyContent: "space-between",
         backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
         borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)",
         ...(isDark ? Shadows.none : Shadows.md),
       }}
     >
       <View
-        className="h-12 w-12 rounded-[20px] items-center justify-center"
+        className="items-center justify-center"
         style={{
+          width: 42,
+          height: 42,
+          borderRadius: 16,
           backgroundColor: isDark ? "rgba(34,197,94,0.12)" : "#F0FDF4",
         }}
       >
-        <Feather name={icon} size={22} color={colors.accent} />
+        <AppIcon name={icon} size={20} color={colors.accent} />
       </View>
-      <View>
+      <View style={{ gap: 4 }}>
         <Text
-          className="text-[16px] font-clash font-bold text-app mb-0.5"
+          className="font-clash font-bold text-app"
+          style={{ fontSize: 16 }}
           numberOfLines={1}
         >
           {label}
         </Text>
         {sublabel ? (
           <Text
-            className="text-[11px] font-outfit text-secondary"
-            numberOfLines={1}
+            className="font-outfit text-secondary"
+            style={{ fontSize: 12 }}
+            numberOfLines={2}
           >
             {sublabel}
           </Text>
@@ -177,6 +195,10 @@ export default function HomeScreen() {
   }
 
   const showSkeleton = welcomeHeroState === "loading";
+  const showAthleteDashboard =
+    appRole === "team" ||
+    appRole === "adult_athlete_team" ||
+    appRole === "adult_athlete";
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
@@ -195,43 +217,35 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Modern Hero Header */}
         <Animated.View
-          entering={FadeInDown.duration(420).easing(Easing.out(Easing.cubic))}
-          className="px-6 mb-8"
+          entering={FadeInDown.duration(280).easing(Easing.out(Easing.cubic))}
+          className="px-6 mb-6"
         >
           <View
-            className="rounded-[36px] border p-5"
+            className="border"
             style={{
-              backgroundColor: isDark ? colors.heroSurfaceStrong : colors.card,
+              borderRadius: radius.xxl,
+              padding: spacing.xl,
+              backgroundColor: isDark ? colors.cardElevated : colors.card,
               borderColor: isDark
                 ? "rgba(255,255,255,0.08)"
                 : "rgba(34,197,94,0.12)",
-              ...(isDark ? Shadows.none : Shadows.lg),
+              ...(isDark ? Shadows.none : Shadows.md),
             }}
           >
-            <View
-              className="absolute right-0 top-0 h-40 w-40 rounded-full"
-              style={{
-                backgroundColor: isDark
-                  ? "rgba(34,197,94,0.12)"
-                  : "rgba(34,197,94,0.10)",
-                transform: [{ translateX: 44 }, { translateY: -40 }],
-              }}
-            />
             <View className="flex-row items-start justify-between">
               <View className="flex-1 pr-4">
-                <Text className="font-clash text-[34px] font-bold leading-tight text-app">
+                <Text className="font-clash font-bold leading-tight text-app" style={{ fontSize: 28 }}>
                   Welcome back, {firstName}
                 </Text>
 
                 {teamName ? (
                   <Text
-                    className="mt-2 text-[12px] font-outfit"
-                    style={{ color: colors.textSecondary }}
+                    className="mt-2 font-outfit"
+                    style={{ fontSize: 13, color: colors.textSecondary }}
                     numberOfLines={1}
                   >
-                    Team: {teamName}
+                    {teamName}
                   </Text>
                 ) : null}
 
@@ -245,8 +259,8 @@ export default function HomeScreen() {
                   <>
                     {resolvedWelcomeMessage ? (
                       <Text
-                        className="mt-4 text-[16px] font-outfit leading-7"
-                        style={{ color: colors.textSecondary }}
+                        className="mt-3 font-outfit"
+                        style={{ fontSize: 15, lineHeight: 22, color: colors.textSecondary }}
                       >
                         {resolvedWelcomeMessage}
                       </Text>
@@ -267,11 +281,7 @@ export default function HomeScreen() {
                         }}
                       >
                         <View className="flex-row items-center gap-2">
-                          <Feather
-                            name="refresh-cw"
-                            size={15}
-                            color={colors.accent}
-                          />
+                          <AppIcon name="refresh" size={15} color={colors.accent} />
                           <Text
                             className="text-[12px] font-outfit font-bold uppercase tracking-[1.2px]"
                             style={{ color: colors.accent }}
@@ -288,8 +298,11 @@ export default function HomeScreen() {
               <TouchableOpacity
                 onPress={() => router.push("/profile-settings")}
                 activeOpacity={0.85}
-                className="h-16 w-16 rounded-[24px] overflow-hidden border p-1"
+                className="overflow-hidden border p-1"
                 style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 22,
                   backgroundColor: isDark
                     ? colors.heroSurfaceMuted
                     : colors.backgroundSecondary,
@@ -308,7 +321,7 @@ export default function HomeScreen() {
                     className="h-full w-full items-center justify-center rounded-[20px]"
                     style={{ backgroundColor: colors.accentLight }}
                   >
-                    <Feather name="user" size={24} color={colors.accent} />
+                    <AppIcon name="user" size={24} color={colors.accent} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -316,12 +329,18 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        <View className="mb-10 px-6">
+        <View className="mb-8 px-6">
+          <View className="mb-3 flex-row items-center justify-between">
+            <Text className="font-clash font-bold text-app" style={{ fontSize: 18 }}>
+              Quick links
+            </Text>
+          </View>
           <View className="flex-row gap-4">
             <QuickLink
               index={0}
-              icon="edit-3"
+              icon="programs"
               label="Nutrition"
+              sublabel="Meals and habits"
               onPress={() => router.push("/nutrition")}
               colors={colors}
               isDark={isDark}
@@ -329,8 +348,9 @@ export default function HomeScreen() {
             {isAdultAthleteAppRole(appRole) ? (
               <QuickLink
                 index={1}
-                icon="activity"
+                icon="tracking"
                 label="Run Tracking"
+                sublabel="Start or review runs"
                 onPress={() => router.push("/(tabs)/tracking")}
                 colors={colors}
                 isDark={isDark}
@@ -338,8 +358,9 @@ export default function HomeScreen() {
             ) : (
               <QuickLink
                 index={1}
-                icon="users"
+                icon="user"
                 label="Parent Platform"
+                sublabel="Family progress"
                 onPress={() => router.push("/parent-platform")}
                 colors={colors}
                 isDark={isDark}
@@ -348,8 +369,13 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Dynamic Content Sections */}
-        <View className="px-6 gap-12">
+        <View className="px-6 gap-8">
+          <Animated.View
+            entering={FadeInDown.delay(260).duration(260).easing(Easing.out(Easing.cubic))}
+          >
+            {showAthleteDashboard ? <AthleteDashboard /> : <GuardianDashboard />}
+          </Animated.View>
+
           {showSkeleton ? (
             <View className="gap-8">
               <Skeleton width="100%" height={200} borderRadius={32} />
@@ -359,8 +385,8 @@ export default function HomeScreen() {
             <>
               {resolvedIntroVideoUrl && (
                 <Animated.View
-                  entering={FadeInDown.delay(600)
-                    .duration(400)
+                  entering={FadeInDown.delay(320)
+                    .duration(280)
                     .easing(Easing.out(Easing.cubic))}
                 >
                   <IntroVideoSection
@@ -372,8 +398,8 @@ export default function HomeScreen() {
 
               {homeContent?.adminStory && (
                 <Animated.View
-                  entering={FadeInDown.delay(800)
-                    .duration(400)
+                  entering={FadeInDown.delay(380)
+                    .duration(280)
                     .easing(Easing.out(Easing.cubic))}
                 >
                   <AdminStorySection
@@ -385,8 +411,8 @@ export default function HomeScreen() {
 
               {homeContent?.testimonials && (
                 <Animated.View
-                  entering={FadeInDown.delay(900)
-                    .duration(400)
+                  entering={FadeInDown.delay(440)
+                    .duration(280)
                     .easing(Easing.out(Easing.cubic))}
                   className="mb-10"
                 >

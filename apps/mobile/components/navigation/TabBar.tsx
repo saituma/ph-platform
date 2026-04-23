@@ -1,6 +1,5 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useAnimatedStyle,
@@ -11,14 +10,13 @@ import * as Haptics from "expo-haptics";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
-
-const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
+import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 
 export interface TabConfig {
   key: string;
   label?: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconOutline?: keyof typeof Ionicons.glyphMap;
+  icon: string;
+  iconOutline?: string;
   badgeCount?: number;
   hidden?: boolean;
 }
@@ -33,6 +31,31 @@ interface TabLayoutConfig {
   pillWidth: number;
   pillHeight: number;
   iconSize: number;
+}
+
+function resolveTabIcon(icon: string): AppIconName {
+  switch (icon) {
+    case "home":
+    case "home-outline":
+      return "home";
+    case "pulse":
+    case "pulse-outline":
+      return "programs";
+    case "chatbox-ellipses":
+    case "chatbox-ellipses-outline":
+      return "chat-detail";
+    case "calendar":
+    case "calendar-outline":
+      return "calendar";
+    case "walk":
+    case "walk-outline":
+      return "tracking";
+    case "menu":
+    case "menu-outline":
+      return "menu";
+    default:
+      return "menu";
+  }
 }
 
 const TabItem = React.memo(
@@ -57,11 +80,11 @@ const TabItem = React.memo(
     const inactiveIconColor = colors.icon ?? colors.textDim;
     const activeBgColor = colors.accentLight ?? (isDark ? colors.surfaceHigher : colors.limeGlow);
 
-    const iconName =
-      activeIndex === index ? tab.icon : (tab.iconOutline ?? tab.icon);
+    const iconName = activeIndex === index ? tab.icon : (tab.iconOutline ?? tab.icon);
+    const resolvedIcon = resolveTabIcon(iconName);
+    const isActive = activeIndex === index;
 
     const pillStyle = useAnimatedStyle(() => {
-      const isActive = activeIndex === index;
       const scale = withTiming(isActive ? 1 : 0.88, { duration: 180 });
       const opacity = withTiming(isActive ? 1 : 0, { duration: 160 });
 
@@ -107,12 +130,15 @@ const TabItem = React.memo(
             ]}
           />
 
-          <AnimatedIcon
-            name={iconName}
-            size={layout.iconSize}
-            color={activeIndex === index ? activeIconColor : inactiveIconColor}
-            style={{ zIndex: 2 }}
-          />
+          <View style={{ zIndex: 2 }}>
+            <AppIcon
+              name={resolvedIcon}
+              size={layout.iconSize - 3}
+              color={isActive ? activeIconColor : inactiveIconColor}
+              filled={isActive && resolvedIcon === "home"}
+              strokeWidth={isActive ? 2.3 : 2}
+            />
+          </View>
 
           {tab.badgeCount && tab.badgeCount > 0 ? (
             <View

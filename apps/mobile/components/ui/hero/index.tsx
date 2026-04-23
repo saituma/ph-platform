@@ -100,17 +100,17 @@ export function UISurface({
 
   return (
     <View
-      className={twMerge("rounded-[28px]", className)}
+      className={twMerge("rounded-[24px]", className)}
       style={[
         {
           backgroundColor: elevated ? colors.cardElevated : colors.card,
-          borderWidth: elevated ? 0 : 1,
+          borderWidth: 1,
           borderColor: colors.border,
-          shadowColor: isDark ? "#00000000" : "#0f172a",
-          shadowOpacity: isDark ? 0 : elevated ? 0.12 : 0.06,
-          shadowRadius: elevated ? 22 : 14,
-          shadowOffset: { width: 0, height: elevated ? 12 : 6 },
-          elevation: isDark ? 0 : elevated ? 10 : 4,
+          shadowColor: isDark ? "#00000000" : "#101914",
+          shadowOpacity: isDark ? 0 : elevated ? 0.06 : 0.03,
+          shadowRadius: elevated ? 14 : 8,
+          shadowOffset: { width: 0, height: elevated ? 6 : 3 },
+          elevation: isDark ? 0 : elevated ? 4 : 2,
         },
         style,
       ]}
@@ -131,8 +131,8 @@ export function UICard({
   return (
     <UISurface
       className={twMerge(
-        "overflow-hidden rounded-[30px]",
-        padded ? "px-6 py-5" : "",
+        "overflow-hidden rounded-[24px]",
+        padded ? "px-5 py-4" : "",
         className,
       )}
       elevated
@@ -159,11 +159,11 @@ export function UIButton({
   const finalDisabled = disabled ?? isDisabled ?? false;
 
   const palette: Record<string, { bg: string; border: string; text: string }> = {
-    primary: { bg: colors.accent, border: colors.accent, text: "#ffffff" },
-    secondary: { bg: colors.backgroundSecondary, border: "transparent", text: colors.text },
+    primary: { bg: colors.accent, border: colors.accent, text: colors.textInverse },
+    secondary: { bg: colors.backgroundSecondary, border: colors.border, text: colors.text },
     ghost: { bg: "transparent", border: "transparent", text: colors.text },
     outline: { bg: "transparent", border: colors.border, text: colors.text },
-    danger: { bg: colors.danger, border: colors.danger, text: "#ffffff" },
+    danger: { bg: colors.danger, border: colors.danger, text: colors.textInverse },
     "danger-soft": { bg: colors.dangerSoft, border: colors.danger, text: colors.danger },
     tertiary: { bg: colors.cardElevated, border: colors.border, text: colors.text },
   };
@@ -174,14 +174,14 @@ export function UIButton({
     <Pressable
       disabled={finalDisabled}
       className={twMerge(
-        "min-h-14 rounded-[24px] px-4 py-3 active:scale-[0.98]",
+        "min-h-12 rounded-[18px] px-4 py-3 active:scale-[0.98]",
         className,
       )}
       style={(state: PressableStateCallbackType) => [
         {
           backgroundColor: current.bg,
           borderColor: current.border,
-          borderWidth: variant === "outline" ? 1 : 0,
+          borderWidth: variant === "primary" || variant === "ghost" ? 0 : 1,
           opacity: finalDisabled ? 0.6 : state.pressed ? 0.92 : 1,
         },
         typeof style === "function" ? style(state) : style,
@@ -191,7 +191,7 @@ export function UIButton({
       {children ?? (
         <Text
           className={twMerge(
-            "text-center font-outfit text-sm font-bold uppercase tracking-[1.2px]",
+            "text-center font-outfit text-sm font-semibold",
             textClassName,
           )}
           style={{ color: current.text } as TextStyle}
@@ -254,7 +254,7 @@ export function UIChip({
         {
           backgroundColor: current.bg,
           borderColor: current.border,
-          borderWidth: color === "default" ? 0 : 1,
+          borderWidth: 1,
           opacity: disabled ? 0.7 : 1,
         },
         resolvedStyle,
@@ -264,7 +264,7 @@ export function UIChip({
       {children ?? (
         <Text
           className={twMerge(
-            "font-outfit text-[10px] font-bold uppercase tracking-[1.1px]",
+            "font-outfit text-[12px] font-semibold",
             textClassName,
           )}
           style={{ color: current.text } as TextStyle}
@@ -285,7 +285,7 @@ export function UITextArea({ className, style, ...props }: UITextAreaProps) {
       textAlignVertical="top"
       placeholderTextColor={colors.placeholder}
       className={twMerge(
-        "min-h-[120px] rounded-[24px] px-4 py-3 font-outfit text-base",
+        "min-h-[120px] rounded-[20px] px-4 py-3 font-outfit text-base",
         className,
       )}
       style={[
@@ -317,14 +317,14 @@ export function UISectionHeader({
       <View className="flex-1">
         {eyebrow ? (
           <Text
-            className="font-outfit text-[11px] font-semibold uppercase tracking-[1.6px]"
+            className="font-outfit text-[11px] font-medium"
             style={{ color: colors.textSecondary }}
           >
             {eyebrow}
           </Text>
         ) : null}
         <Text
-          className="mt-1 font-telma-bold text-3xl font-bold tracking-tight"
+          className="mt-1 font-satoshi-bold text-[28px] font-bold tracking-tight"
           style={{ color: colors.text }}
         >
           {title}
@@ -353,7 +353,7 @@ export function UIEmptyState({
 
   return (
     <UICard className={twMerge("items-center px-5 py-8", className)}>
-      <Text className="font-clash text-xl font-bold text-app">{title}</Text>
+      <Text className="font-satoshi-bold text-xl font-bold text-app">{title}</Text>
       <Text
         className="mt-2 text-center font-outfit text-sm leading-6"
         style={{ color: colors.textSecondary }}
@@ -402,17 +402,19 @@ export function UIListItem({
   return (
     <View
       className={twMerge(
-        "flex-row items-center justify-between rounded-[24px] px-4 py-4",
+        "flex-row items-center justify-between rounded-[20px] px-4 py-4",
         className,
       )}
       style={[
         {
           backgroundColor: colors.cardElevated,
-          shadowColor: isDark ? "#00000000" : "#0f172a",
-          shadowOpacity: isDark ? 0 : 0.06,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: isDark ? 0 : 3,
+          borderWidth: 1,
+          borderColor: colors.border,
+          shadowColor: isDark ? "#00000000" : "#101914",
+          shadowOpacity: isDark ? 0 : 0.03,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 3 },
+          elevation: isDark ? 0 : 2,
         },
         style,
       ]}

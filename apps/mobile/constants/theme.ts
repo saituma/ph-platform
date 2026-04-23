@@ -1,96 +1,84 @@
 export const fonts = {
-  // Hero numbers — distance, time, big stats
-  // Britney Ultra is the chunkiest, most impactful font in the project
-  heroNumber:    'Britney-Ultra',         // size 80-96, the BIG numbers
-  heroDisplay:   'Britney-Bold',          // size 36-48, section heroes
-  
-  // Headers and titles — Panchang is bold and geometric
-  heading1:      'Panchang-Extrabold',    // size 28-32, screen titles
-  heading2:      'Panchang-Bold',         // size 22-26, card titles
-  heading3:      'Panchang-Semibold',     // size 18-20, sub-headers
+  // Keep one expressive family for major moments only.
+  heroNumber:    'Outfit-Black',
+  heroDisplay:   'Outfit-ExtraBold',
 
-  // UI labels — CabinetGrotesk is clean and modern
-  labelBold:     'CabinetGrotesk-Bold',   // size 14-16, metric labels
-  labelMedium:   'CabinetGrotesk-Medium', // size 13-14, secondary labels
-  labelCaps:     'CabinetGrotesk-Black',  // size 11-12, ALL CAPS labels
+  // Use a calmer heading family across the app.
+  heading1:      'Satoshi-Bold',
+  heading2:      'Satoshi-Bold',
+  heading3:      'Satoshi-Medium',
 
-  // Body and tags — Satoshi is versatile and readable
-  bodyBold:      'Satoshi-Bold',          // size 15-17, list items
-  bodyMedium:    'Satoshi-Medium',        // size 14-15, body text
-  bodyRegular:   'Satoshi-Regular',       // size 13-14, captions
+  // Labels and metadata should stay clean and restrained.
+  labelBold:     'Satoshi-Bold',
+  labelMedium:   'Satoshi-Medium',
+  labelCaps:     'Satoshi-Bold',
 
-  // Accent / decorative — ClashDisplay for special moments
-  accent:        'ClashDisplay-Semibold', // size 13-16, tags, chips
-  accentBold:    'ClashDisplay-Bold',     // size 16-20, highlighted text
+  // Body defaults.
+  bodyBold:      'Satoshi-Bold',
+  bodyMedium:    'Satoshi-Medium',
+  bodyRegular:   'Satoshi-Regular',
 
-  // Numbers in lists / secondary stats — Outfit is clean for numbers
-  statNumber:    'Outfit-Black',          // size 24-32, secondary stats
-  statLabel:     'Outfit-SemiBold',       // size 11-13, stat labels
+  // Accent and emphasis.
+  accent:        'Outfit-SemiBold',
+  accentBold:    'Outfit-Bold',
+
+  // Stats.
+  statNumber:    'Outfit-Bold',
+  statLabel:     'Outfit-SemiBold',
 } as const;
 
 export const colors = {
-  // Backgrounds
-  bg:              '#07070F',  // deepest dark, near black with blue tint
-  surface:         '#0F0F1E',  // card background
-  surfaceHigh:     '#161628',  // elevated card / input background
-  surfaceHigher:   '#1E1E38',  // pressed / selected states
-
-  // Borders — ZERO black borders, EVER
-  borderSubtle:    '#1A1A30',  // default resting border
-  borderMid:       '#252540',  // slightly visible border  
-  borderStrong:    '#303058',  // prominent border
-  borderLime:      'rgba(200, 241, 53, 0.16)', // lime at 16% opacity — glow border
-  borderPurple:    'rgba(123, 97, 255, 0.16)', // purple at 16% opacity
-  borderCoral:     'rgba(255, 107, 107, 0.16)', // coral at 16% opacity
-  borderCyan:      'rgba(0, 229, 255, 0.16)',  // cyan at 16% opacity
-
-  // Accent colors
-  lime:            '#C8F135',  // primary CTA — electric lime
-  limeDark:        '#9DB82A',  // pressed lime
-  limeGlow:        'rgba(200, 241, 53, 0.20)', // lime background glow
-  purple:          '#7B61FF',  // secondary accent
-  purpleGlow:      'rgba(123, 97, 255, 0.20)',
-  coral:           '#FF6B6B',  // effort / warning / stop
-  coralGlow:       'rgba(255, 107, 107, 0.20)',
-  cyan:            '#00E5FF',  // speed / GPS active
-  cyanGlow:        'rgba(0, 229, 255, 0.20)',
-  amber:           '#FFB800',  // calories / personal bests
-  amberGlow:       'rgba(255, 184, 0, 0.20)',
-
-  // Text
-  textPrimary:     '#FFFFFF',
-  textSecondary:   '#9090B8',
-  textDim:         '#55556A',
-  textInverse:     '#07070F',  // dark text on lime buttons
-
-  // Semantic aliases used across non-tracking screens
-  accent:          '#C8F135',
-  accentLight:     'rgba(200, 241, 53, 0.16)',
-  background:      '#07070F',
-  backgroundSecondary: '#121224',
-  card:            '#0F0F1E',
-  cardElevated:    '#161628',
-  border:          '#252540',
-  text:            '#FFFFFF',
-  placeholder:     '#6B7280',
+  bg:              '#000000',
+  surface:         '#0A0B0A',
+  surfaceHigh:     '#111311',
+  surfaceHigher:   '#181B18',
+  borderSubtle:    'rgba(255,255,255,0.05)',
+  borderMid:       'rgba(255,255,255,0.09)',
+  borderStrong:    'rgba(255,255,255,0.14)',
+  borderLime:      'rgba(52,199,89,0.18)',
+  borderPurple:    'rgba(123,97,255,0.14)',
+  borderCoral:     'rgba(255,107,107,0.16)',
+  borderCyan:      'rgba(0,229,255,0.14)',
+  lime:            '#34C759',
+  limeDark:        '#248A3D',
+  limeGlow:        'rgba(52,199,89,0.12)',
+  purple:          '#7B61FF',
+  purpleGlow:      'rgba(123,97,255,0.16)',
+  coral:           '#FF6B6B',
+  coralGlow:       'rgba(255,107,107,0.16)',
+  cyan:            '#30B0C7',
+  cyanGlow:        'rgba(48,176,199,0.16)',
+  amber:           '#FFB020',
+  amberGlow:       'rgba(255,176,32,0.16)',
+  textPrimary:     '#F5F7F5',
+  textSecondary:   '#9BA79E',
+  textDim:         '#667268',
+  textInverse:     '#07110A',
+  accent:          '#34C759',
+  accentLight:     'rgba(52,199,89,0.10)',
+  background:      '#000000',
+  backgroundSecondary: '#090B09',
+  card:            '#0A0B0A',
+  cardElevated:    '#111311',
+  border:          'rgba(255,255,255,0.08)',
+  text:            '#F5F7F5',
+  placeholder:     '#748074',
   warning:         '#F59E0B',
-  warningSoft:     'rgba(245,158,11,0.20)',
+  warningSoft:     'rgba(245,158,11,0.16)',
   danger:          '#FF6B6B',
-  dangerSoft:      'rgba(255,107,107,0.20)',
-  success:         '#22C55E',
-  successSoft:     'rgba(34,197,94,0.20)',
-  icon:            '#94A3B8',
-  tint:            '#C8F135',
-  separator:       'rgba(148,163,184,0.20)',
-  inputBackground: '#1E1E38',
-  themeToggleIcon: '#CBD5E1',
-  heroSurfaceMuted: '#10101D',
-  heroSurfaceStrong: '#161628',
-
-  // Map
-  mapRoute:        '#7B61FF',  // purple route polyline
-  mapStart:        '#00E5FF',  // cyan start marker
-  mapEnd:          '#FF6B6B',  // coral end marker
+  dangerSoft:      'rgba(255,107,107,0.16)',
+  success:         '#34C759',
+  successSoft:     'rgba(52,199,89,0.16)',
+  icon:            '#A7B2AA',
+  tint:            '#34C759',
+  separator:       'rgba(255,255,255,0.10)',
+  inputBackground: '#121412',
+  themeToggleIcon: '#D3DBD4',
+  heroSurfaceMuted: '#070807',
+  heroSurfaceStrong: '#111311',
+  mapRoute:        '#34C759',
+  mapStart:        '#34C759',
+  mapEnd:          '#FF6B6B',
 } as const;
 
 export const Shadows = {
@@ -202,120 +190,114 @@ export const icons = {
 } as const;
 
 const light = {
-  // Legacy app-wide semantic tokens
-  text: '#0F172A',
+  text: '#101914',
   background: '#FFFFFF',
   tint: '#16A34A',
-  icon: '#64748B',
-  tabIconDefault: '#94A3B8',
+  icon: '#738276',
+  tabIconDefault: '#9AA59C',
   tabIconSelected: '#16A34A',
   card: '#FFFFFF',
-  cardElevated: '#F7FFF9',
-  border: 'rgba(15,23,42,0.10)',
-  backgroundSecondary: '#F1F5F9',
+  cardElevated: '#F7FAF7',
+  border: 'rgba(16,25,20,0.08)',
+  backgroundSecondary: '#F3F6F3',
   accent: '#16A34A',
-  accentLight: '#DCFCE7',
-  textSecondary: '#475569',
-  placeholder: '#94A3B8',
+  accentLight: 'rgba(22,163,74,0.12)',
+  textSecondary: '#5F6F63',
+  placeholder: '#97A39A',
   warning: '#F59E0B',
   warningSoft: 'rgba(245,158,11,0.16)',
   danger: '#EF4444',
   dangerSoft: 'rgba(239,68,68,0.14)',
-  success: '#22C55E',
-  successSoft: 'rgba(34,197,94,0.16)',
-  themeToggleIcon: '#334155',
-  inputBackground: '#F8FAFC',
-  separator: 'rgba(15,23,42,0.08)',
+  success: '#16A34A',
+  successSoft: 'rgba(22,163,74,0.14)',
+  themeToggleIcon: '#324136',
+  inputBackground: '#F6F8F6',
+  separator: 'rgba(16,25,20,0.08)',
   heroSurfaceStrong: '#FFFFFF',
-  heroSurfaceMuted: '#F8FAFC',
-
-  // Tracking palette compatibility tokens
-  bg: '#F8FAFC',
+  heroSurfaceMuted: '#F5F7F5',
+  bg: '#FFFFFF',
   surface: '#FFFFFF',
-  surfaceHigh: '#F8FAFC',
-  surfaceHigher: '#EEF2FF',
-  borderSubtle: 'rgba(15,23,42,0.08)',
-  borderMid: 'rgba(15,23,42,0.14)',
-  borderStrong: 'rgba(15,23,42,0.20)',
+  surfaceHigh: '#F6F8F6',
+  surfaceHigher: '#EDF2EE',
+  borderSubtle: 'rgba(16,25,20,0.06)',
+  borderMid: 'rgba(16,25,20,0.10)',
+  borderStrong: 'rgba(16,25,20,0.16)',
   borderLime: 'rgba(22,163,74,0.24)',
-  borderPurple: 'rgba(123,97,255,0.22)',
-  borderCoral: 'rgba(255,107,107,0.22)',
-  borderCyan: 'rgba(0,229,255,0.22)',
-  lime: '#84CC16',
-  limeDark: '#65A30D',
-  limeGlow: 'rgba(132,204,22,0.18)',
+  borderPurple: 'rgba(123,97,255,0.16)',
+  borderCoral: 'rgba(255,107,107,0.18)',
+  borderCyan: 'rgba(48,176,199,0.18)',
+  lime: '#16A34A',
+  limeDark: '#106B30',
+  limeGlow: 'rgba(22,163,74,0.16)',
   purple: '#7B61FF',
   purpleGlow: 'rgba(123,97,255,0.16)',
   coral: '#FF6B6B',
   coralGlow: 'rgba(255,107,107,0.16)',
-  cyan: '#0891B2',
-  cyanGlow: 'rgba(8,145,178,0.16)',
+  cyan: '#30B0C7',
+  cyanGlow: 'rgba(48,176,199,0.16)',
   amber: '#F59E0B',
   amberGlow: 'rgba(245,158,11,0.16)',
-  textPrimary: '#0F172A',
-  textDim: '#94A3B8',
+  textPrimary: '#101914',
+  textDim: '#9AA59C',
   textInverse: '#FFFFFF',
-  mapRoute: '#7B61FF',
-  mapStart: '#06B6D4',
+  mapRoute: '#16A34A',
+  mapStart: '#16A34A',
   mapEnd: '#FB7185',
 } as const;
 
 const dark = {
-  // Legacy app-wide semantic tokens
-  text: '#F8FAFC',
-  background: '#07070F',
-  tint: '#C8F135',
-  icon: '#94A3B8',
-  tabIconDefault: '#64748B',
-  tabIconSelected: '#C8F135',
-  card: '#0F0F1E',
-  cardElevated: '#161628',
-  border: '#252540',
-  backgroundSecondary: '#121224',
-  accent: '#C8F135',
-  accentLight: 'rgba(200,241,53,0.16)',
-  textSecondary: '#9090B8',
-  placeholder: '#6B7280',
+  text: '#F5F7F5',
+  background: '#000000',
+  tint: '#34C759',
+  icon: '#A7B2AA',
+  tabIconDefault: '#69746D',
+  tabIconSelected: '#34C759',
+  card: '#0A0B0A',
+  cardElevated: '#111311',
+  border: 'rgba(255,255,255,0.08)',
+  backgroundSecondary: '#090B09',
+  accent: '#34C759',
+  accentLight: 'rgba(52,199,89,0.10)',
+  textSecondary: '#9BA79E',
+  placeholder: '#748074',
   warning: '#F59E0B',
-  warningSoft: 'rgba(245,158,11,0.20)',
+  warningSoft: 'rgba(245,158,11,0.16)',
   danger: '#FF6B6B',
-  dangerSoft: 'rgba(255,107,107,0.20)',
-  success: '#22C55E',
-  successSoft: 'rgba(34,197,94,0.20)',
-  themeToggleIcon: '#CBD5E1',
-  inputBackground: '#1E1E38',
-  separator: 'rgba(148,163,184,0.20)',
-  heroSurfaceStrong: '#161628',
-  heroSurfaceMuted: '#10101D',
-
-  // Tracking palette compatibility tokens
-  bg: '#07070F',
-  surface: '#0F0F1E',
-  surfaceHigh: '#161628',
-  surfaceHigher: '#1E1E38',
-  borderSubtle: '#1A1A30',
-  borderMid: '#252540',
-  borderStrong: '#303058',
-  borderLime: 'rgba(200,241,53,0.16)',
-  borderPurple: 'rgba(123,97,255,0.16)',
+  dangerSoft: 'rgba(255,107,107,0.16)',
+  success: '#34C759',
+  successSoft: 'rgba(52,199,89,0.16)',
+  themeToggleIcon: '#D3DBD4',
+  inputBackground: '#121412',
+  separator: 'rgba(255,255,255,0.10)',
+  heroSurfaceStrong: '#111311',
+  heroSurfaceMuted: '#070807',
+  bg: '#000000',
+  surface: '#0A0B0A',
+  surfaceHigh: '#111311',
+  surfaceHigher: '#181B18',
+  borderSubtle: 'rgba(255,255,255,0.05)',
+  borderMid: 'rgba(255,255,255,0.09)',
+  borderStrong: 'rgba(255,255,255,0.14)',
+  borderLime: 'rgba(52,199,89,0.18)',
+  borderPurple: 'rgba(123,97,255,0.14)',
   borderCoral: 'rgba(255,107,107,0.16)',
-  borderCyan: 'rgba(0,229,255,0.16)',
-  lime: '#C8F135',
-  limeDark: '#9DB82A',
-  limeGlow: 'rgba(200,241,53,0.20)',
+  borderCyan: 'rgba(48,176,199,0.14)',
+  lime: '#34C759',
+  limeDark: '#248A3D',
+  limeGlow: 'rgba(52,199,89,0.12)',
   purple: '#7B61FF',
-  purpleGlow: 'rgba(123,97,255,0.20)',
+  purpleGlow: 'rgba(123,97,255,0.16)',
   coral: '#FF6B6B',
-  coralGlow: 'rgba(255,107,107,0.20)',
-  cyan: '#00E5FF',
-  cyanGlow: 'rgba(0,229,255,0.20)',
-  amber: '#FFB800',
-  amberGlow: 'rgba(255,184,0,0.20)',
-  textPrimary: '#FFFFFF',
-  textDim: '#55556A',
-  textInverse: '#07070F',
-  mapRoute: '#7B61FF',
-  mapStart: '#00E5FF',
+  coralGlow: 'rgba(255,107,107,0.16)',
+  cyan: '#30B0C7',
+  cyanGlow: 'rgba(48,176,199,0.16)',
+  amber: '#FFB020',
+  amberGlow: 'rgba(255,176,32,0.16)',
+  textPrimary: '#F5F7F5',
+  textDim: '#667268',
+  textInverse: '#07110A',
+  mapRoute: '#34C759',
+  mapStart: '#34C759',
   mapEnd: '#FF6B6B',
 } as const;
 
