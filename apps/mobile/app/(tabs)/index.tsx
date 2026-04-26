@@ -1,12 +1,10 @@
-import React, { memo, useCallback, useRef } from "react";
+import React, { memo, useCallback } from "react";
 import {
-  InteractionManager,
   Pressable,
   RefreshControl,
   StyleSheet,
   View,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -31,7 +29,7 @@ import { useAppSelector } from "@/store/hooks";
 import { Text } from "@/components/ScaledText";
 import { SkeletonHomeScreen } from "@/components/ui/Skeleton";
 import { useWatchHistoryStore } from "@/lib/mmkv";
-import { getRecentRuns, getWeeklySummaries, type RunRecord } from "@/lib/sqliteRuns";
+import { getWeeklySummaries } from "@/lib/sqliteRuns";
 
 import { AdminStorySection } from "@/components/home/AdminStorySection";
 import { IntroVideoSection } from "@/components/home/IntroVideoSection";
@@ -64,10 +62,6 @@ function formatTime(sec: number): string {
   return hrs >= 1 ? `${hrs.toFixed(1)}` : `${Math.round(sec / 60)}m`;
 }
 
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
 // ── Data hooks ───────────────────────────────────────────────────────
 
 function useWeeklyStats(userId: string | null) {
@@ -78,112 +72,6 @@ function useWeeklyStats(userId: string | null) {
   });
 }
 
-function useRecentActivity(userId: string | null) {
-  return useQuery({
-    queryKey: ["home", "recentActivity", userId],
-    queryFn: () => getRecentRuns(20, userId),
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
-// ── Activity row ─────────────────────────────────────────────────────
-
-interface ActivityItemProps {
-  item: RunRecord;
-  index: number;
-  isLast: boolean;
-  shouldAnimate: boolean;
-  onPress: (id: string) => void;
-}
-
-const ActivityItem = memo(function ActivityItem({
-  item,
-  index,
-  isLast,
-  shouldAnimate,
-  onPress,
-}: ActivityItemProps) {
-  const { colors, isDark } = useAppTheme();
-  const reduceMotion = useReducedMotion();
-  const handlePress = useCallback(() => onPress(item.id), [item.id, onPress]);
-
-  // Robis: tinted not pure — icon bg
-  const iconBg = isDark ? "hsl(220, 8%, 16%)" : "hsl(220, 8%, 94%)";
-  // Robis: explicit colors instead of opacity hack
-  const dateColor = isDark ? "hsl(220, 5%, 48%)" : "hsl(220, 5%, 52%)";
-  const timeColor = isDark ? "hsl(220, 5%, 44%)" : "hsl(220, 5%, 56%)";
-  const chevronColor = isDark ? "hsl(220, 5%, 36%)" : "hsl(220, 5%, 64%)";
-  const separatorColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
-
-  const entering =
-    shouldAnimate && !reduceMotion
-      ? FadeInDown.delay(index * 60).duration(300).springify()
-      : undefined;
-
-  return (
-    <Animated.View entering={entering}>
-      <Pressable
-        onPress={handlePress}
-        style={({ pressed }) => ({
-          flexDirection: "row",
-          alignItems: "center",
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-          gap: 12,
-          backgroundColor: pressed
-            ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
-            : "transparent",
-        })}
-        accessibilityRole="button"
-        accessibilityLabel={`Run on ${formatDate(Date.parse(item.date))}`}
-      >
-        {/* Icon — outer padding 16, wrap radius = card_r(24) - 16 = 8 → use 10 */}
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 10,
-            backgroundColor: iconBg,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons name="walk-outline" size={19} color={colors.accent} />
-        </View>
-
-        {/* Text */}
-        <View style={{ flex: 1, gap: 3 }}>
-          <Text style={{ fontFamily: "Outfit-Medium", fontSize: 15, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)", letterSpacing: -0.1 }}>
-            {formatKm(item.distance_meters)} km run
-          </Text>
-          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: dateColor }}>
-            {formatDate(Date.parse(item.date))}
-          </Text>
-        </View>
-
-        {/* Right */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: timeColor }}>
-            {formatTime(item.duration_seconds)}
-          </Text>
-          <Ionicons name="chevron-forward" size={15} color={chevronColor} />
-        </View>
-      </Pressable>
-
-      {/* Separator — not last */}
-      {!isLast && (
-        <View
-          style={{
-            height: 1,
-            marginLeft: 68,
-            marginRight: 16,
-            backgroundColor: separatorColor,
-          }}
-        />
-      )}
-    </Animated.View>
-  );
-});
 
 // ── Main screen ──────────────────────────────────────────────────────
 
@@ -193,7 +81,6 @@ const HomeScreen = memo(function HomeScreen() {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const queryClient = useQueryClient();
-  const hasAnimatedRef = useRef(false);
 
   const { token, profile, appRole } = useAppSelector((s) => s.user);
   const bootstrapReady = useAppSelector(selectBootstrapReady);
@@ -203,26 +90,18 @@ const HomeScreen = memo(function HomeScreen() {
   const userId = profile?.id ?? null;
 
   const statsQuery = useWeeklyStats(userId);
-  const activityQuery = useRecentActivity(userId);
   const watchHistory = useWatchHistoryStore((s) => s.history);
   const runStatus = useRunStore((s) => s.status);
   const isRunActive = runStatus === "running" || runStatus === "paused";
 
-  const isLoading = statsQuery.isLoading || activityQuery.isLoading;
-  const runs = activityQuery.data ?? [];
+  const isLoading = statsQuery.isLoading;
   const stats = statsQuery.data;
 
   useFocusEffect(
     useCallback(() => {
       queryClient.prefetchQuery({ queryKey: ["home", "weeklyStats", userId], queryFn: () => getWeeklySummaries(new Date(), userId) });
-      queryClient.prefetchQuery({ queryKey: ["home", "recentActivity", userId], queryFn: () => getRecentRuns(20, userId) });
     }, [queryClient, userId]),
   );
-
-  const shouldAnimate = !hasAnimatedRef.current;
-  if (!isLoading && !hasAnimatedRef.current) {
-    InteractionManager.runAfterInteractions(() => { hasAnimatedRef.current = true; });
-  }
 
   const scrollY = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((e) => { scrollY.value = e.contentOffset.y; });
@@ -233,15 +112,9 @@ const HomeScreen = memo(function HomeScreen() {
   const handleRefresh = useCallback(async () => {
     await Promise.all([
       queryClient.refetchQueries({ queryKey: ["home", "weeklyStats"] }),
-      queryClient.refetchQueries({ queryKey: ["home", "recentActivity"] }),
       reloadHomeContent(true),
     ]);
   }, [queryClient, reloadHomeContent]);
-
-  const handleRunPress = useCallback(
-    (id: string) => router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(id)}` as any),
-    [router],
-  );
 
   const navigateToTracking = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -261,21 +134,6 @@ const HomeScreen = memo(function HomeScreen() {
   const statStyle = useAnimatedStyle(() => ({ transform: [{ scale: statScale.value }] }));
   const statPressIn = useCallback(() => { statScale.value = withSpring(0.97, { damping: 18, stiffness: 350 }); }, [statScale]);
   const statPressOut = useCallback(() => { statScale.value = withSpring(1.0, { damping: 20, stiffness: 400 }); }, [statScale]);
-
-  const renderItem = useCallback(
-    ({ item, index }: { item: RunRecord; index: number }) => (
-      <ActivityItem
-        item={item}
-        index={index}
-        isLast={index === Math.min(runs.length, 6) - 1}
-        shouldAnimate={shouldAnimate}
-        onPress={handleRunPress}
-      />
-    ),
-    [shouldAnimate, handleRunPress, runs.length],
-  );
-  const keyExtractor = useCallback((item: RunRecord) => String(item.id), []);
-  const getItemType = useCallback(() => "activity", []);
 
   if (isLoading) {
     return (
@@ -470,33 +328,6 @@ const HomeScreen = memo(function HomeScreen() {
         <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(140).duration(300).springify()}>
           <QuickLinksSection appRole={appRole} />
         </Animated.View>
-
-        {/* ── Recent activity ──────────────────────────────────── */}
-        {runs.length > 0 ? (
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(300).springify()}>
-            <Text style={[styles.sectionHeader, { color: primaryText }]}>
-              Recent activity
-            </Text>
-            {/* Robis: wrap rows in a card surface */}
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderRadius: 24,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                overflow: "hidden",
-              }}
-            >
-              <FlashList
-                data={runs.slice(0, 6)}
-                renderItem={renderItem}
-                keyExtractor={keyExtractor}
-                getItemType={getItemType}
-                scrollEnabled={false}
-              />
-            </View>
-          </Animated.View>
-        ) : null}
 
         {/* ── Intro video ──────────────────────────────────────── */}
         <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(220).duration(300).springify()}>

@@ -715,6 +715,13 @@
       "when": 1777636400000,
       "tag": "0101_user_last_seen_at",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1777236411950,
+      "tag": "0102_glossy_shockwave",
+      "breakpoints": true
     }
   ]
 }

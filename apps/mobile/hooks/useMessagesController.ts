@@ -742,11 +742,12 @@ export function useMessagesController() {
     if (Platform.OS !== "android" || !currentThreadId) return;
     const handler = () => {
       clearThread();
+      if (router.canGoBack()) router.back();
       return true;
     };
     const sub = BackHandler.addEventListener("hardwareBackPress", handler);
     return () => sub.remove();
-  }, [clearThread, currentThreadId]);
+  }, [clearThread, currentThreadId, router]);
 
   const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(
     null,

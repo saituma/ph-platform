@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Text, View, Pressable, ActivityIndicator } from "react-native";
 import * as Crypto from "expo-crypto";
 import { initSQLiteRuns, saveRunRecord } from "../../../lib/sqliteRuns";
@@ -8,7 +8,7 @@ import { RunShareCard } from "../../../components/tracking/RunShareCard";
 import { useAppSelector } from "@/store/hooks";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import { useRouter, Stack } from "expo-router";
+import { useRouter, Stack, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
@@ -124,6 +124,17 @@ export default function ActiveRunScreen() {
       setIsTabBarVisible(true);
     };
   }, [setIsTabBarVisible]);
+
+  // If this screen gains focus but there's no active run, go back to the
+  // tracking home. This prevents the screen from re-appearing when the user
+  // leaves the tab and comes back after stopping a run.
+  useFocusEffect(
+    useCallback(() => {
+      if (status !== "running" && status !== "paused") {
+        router.replace("/(tabs)/tracking" as any);
+      }
+    }, [status, router]),
+  );
 
   useEffect(() => {
     let active = true;
