@@ -207,7 +207,7 @@ function OnboardingStep2() {
 	if (isValidating || !userType) return null;
 
 	return (
-		<main className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+		<main className="mx-auto max-w-2xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
 					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
@@ -225,7 +225,7 @@ function OnboardingStep2() {
 					</p>
 				</div>
 
-				<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-8 rounded-3xl ring-1 ring-border/50">
+				<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-5 sm:p-8 rounded-3xl ring-1 ring-border/50">
 					<form onSubmit={handleSubmit} className="space-y-8">
 						<div className="space-y-6">
 							{userType === "youth" ? (

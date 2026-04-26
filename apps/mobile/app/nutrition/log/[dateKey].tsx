@@ -156,6 +156,32 @@ export default function NutritionLogDetailScreen() {
           <View className="items-center py-10">
             <ActivityIndicator size="large" color={colors.accent} />
           </View>
+        ) : error === "Log not found." ? (
+          <View
+            className="rounded-3xl border px-5 py-6 gap-4 items-center"
+            style={{
+              backgroundColor: colors.card,
+              borderColor: isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(15,23,42,0.06)",
+            }}
+          >
+            <Text className="text-sm font-outfit text-secondary text-center">
+              No nutrition log for this day yet.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.replace("/nutrition" as any)}
+              className="rounded-2xl px-6 py-3"
+              style={{ backgroundColor: colors.accent }}
+            >
+              <Text
+                className="text-sm font-outfit font-semibold text-center"
+                style={{ color: "#fff" }}
+              >
+                Log today's nutrition
+              </Text>
+            </TouchableOpacity>
+          </View>
         ) : error ? (
           <View
             className="rounded-3xl border px-5 py-5"

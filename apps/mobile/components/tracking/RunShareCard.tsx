@@ -273,20 +273,20 @@ export function RunShareCard({
         </View>
       </View>
 
-      {/* Route path — pure RN Views, always captured on Android + iOS */}
+      {/* Branding — anchored at fixed bottom so route never overlaps it */}
+      <View style={styles.brandWrap}>
+        <Text style={styles.brandName}>PH PERFORMANCE</Text>
+      </View>
+
+      {/* Route path — above brand, pure RN Views, always captured on Android + iOS */}
       {routePts.length > 1 && (
-        <View style={[styles.routeWrap, { bottom: SH * 0.18 }]}>
+        <View style={styles.routeWrap}>
           {/* glow layer */}
           <RouteLines pts={routePts} color={`${GREEN}38`} width={7} />
           {/* solid line */}
           <RouteLines pts={routePts} color={GREEN} width={2.5} />
         </View>
       )}
-
-      {/* Branding */}
-      <View style={[styles.brandWrap, { bottom: SH * 0.13 }]}>
-        <Text style={styles.brandName}>PH PERFORMANCE</Text>
-      </View>
     </>
   );
 
@@ -505,9 +505,14 @@ const styles = StyleSheet.create({
   routeWrap: {
     position: "absolute",
     left: 24,
+    bottom: 112,
+    width: ROUTE_W,
+    height: ROUTE_H,
+    overflow: "hidden",
   },
   brandWrap: {
     position: "absolute",
+    bottom: 52,
     left: 0,
     right: 0,
     alignItems: "center",

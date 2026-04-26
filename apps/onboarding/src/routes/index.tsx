@@ -183,16 +183,16 @@ function RouteComponent() {
 	};
 
 	return (
-		<div className="relative min-h-screen bg-background selection:bg-primary/20 overflow-x-hidden">
-			<main className="pt-24 pb-20">
+		<div className="relative min-h-[100dvh] bg-background selection:bg-primary/20 overflow-x-hidden">
+			<main className="pt-20 sm:pt-24 pb-12 sm:pb-20">
 				{/* Hero Section */}
-				<section className="relative px-6 max-w-7xl mx-auto mb-32 pt-12">
+				<section className="relative px-6 max-w-7xl mx-auto mb-16 sm:mb-32 pt-6 sm:pt-12">
 					<div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-primary/5 rounded-full blur-[120px] pointer-events-none -z-10" />
 
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-20 items-center">
 						<div className="text-center lg:text-left space-y-8 animate-in fade-in slide-in-from-left-4 duration-1000 ease-out fill-mode-both">
 							<div className="space-y-6">
-								<h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-foreground leading-[1.05]">
+								<h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-foreground leading-[1.05]">
 									Elevate your{" "}
 									<span className="text-primary drop-shadow-[0_0_15px_rgba(var(--primary),0.2)]">
 										Performance
@@ -316,9 +316,9 @@ function RouteComponent() {
 								<div className="absolute inset-0 z-10 bg-background flex flex-col">
 									<div className="flex-1 overflow-hidden relative group">
 										<img
-											src="/ph.jpg"
+											src="/home.png"
 											alt="App Screenshot"
-											className="w-full h-full object-cover grayscale-[0.1] transition-all duration-1000"
+											className="w-full h-full object-cover object-top transition-all duration-1000"
 											onError={(e) => {
 												e.currentTarget.style.display = "none";
 												e.currentTarget.parentElement!.classList.add(
@@ -333,15 +333,15 @@ function RouteComponent() {
 								</div>
 							</div>
 
-							{/* Decorative Floating Elements - Purposed Interactions */}
-							<div className="absolute -left-6 top-16 w-14 h-14 bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-center text-primary transition-all duration-500 hover:-translate-y-2 hover:border-primary/40 group cursor-default">
+							{/* Decorative Floating Elements - hidden on small screens to avoid overflow */}
+							<div className="absolute -left-6 top-16 w-14 h-14 bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl hidden sm:flex items-center justify-center text-primary transition-all duration-500 hover:-translate-y-2 hover:border-primary/40 group cursor-default">
 								<ChartLineUp
 									weight="fill"
 									size={24}
 									className="drop-shadow-[0_0_8px_rgba(var(--primary),0.3)]"
 								/>
 							</div>
-							<div className="absolute -right-4 bottom-32 w-12 h-12 bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-center text-primary transition-all duration-500 hover:translate-y-2 hover:border-primary/40 group cursor-default">
+							<div className="absolute -right-4 bottom-32 w-12 h-12 bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl hidden sm:flex items-center justify-center text-primary transition-all duration-500 hover:translate-y-2 hover:border-primary/40 group cursor-default">
 								<Users
 									weight="fill"
 									size={22}
@@ -353,7 +353,7 @@ function RouteComponent() {
 				</section>
 
 				{/* Bento Grid Features - Refined */}
-				<section id="features" className="max-w-7xl mx-auto px-6 mb-32">
+				<section id="features" className="max-w-7xl mx-auto px-6 mb-16 sm:mb-32">
 					<div className="text-center space-y-4 mb-16">
 						<h2 className="text-3xl md:text-4xl font-black italic tracking-tighter uppercase">
 							Everything you need

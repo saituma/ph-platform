@@ -135,7 +135,7 @@ function OnboardingStep4() {
 	const isYouth = !isTeam && athlete.athleteType === "youth";
 
 	return (
-		<main className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+		<main className="mx-auto max-w-3xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
 					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
@@ -153,7 +153,7 @@ function OnboardingStep4() {
 
 				<div className={cn("grid gap-6", isTeam ? "md:grid-cols-1" : "md:grid-cols-2")}>
 					{/* Personal Information */}
-					<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-8 rounded-3xl ring-1 ring-border/50">
+					<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-5 sm:p-8 rounded-3xl ring-1 ring-border/50">
 						<div className="space-y-6">
 							<div className="flex items-center gap-3 border-b border-border/40 pb-4">
 								<User size={24} weight="bold" className="text-primary" />
@@ -227,7 +227,7 @@ function OnboardingStep4() {
 
 					{/* Training & Goals */}
 					{!isTeam && (
-						<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-8 rounded-3xl ring-1 ring-border/50">
+						<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-5 sm:p-8 rounded-3xl ring-1 ring-border/50">
 							<div className="space-y-6">
 								<div className="flex items-center gap-3 border-b border-border/40 pb-4">
 									<Target size={24} weight="bold" className="text-primary" />

@@ -91,7 +91,7 @@ function Login() {
 	};
 
 	return (
-		<main className="relative min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 overflow-hidden">
+		<main className="relative min-h-[100dvh] flex flex-col items-center justify-center p-4 sm:p-8 overflow-hidden">
 			<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] bg-primary/5 rounded-full blur-[140px] pointer-events-none -z-10" />
 
 			<section className="w-full max-w-md space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000 ease-out">
@@ -107,7 +107,7 @@ function Login() {
 					</p>
 				</div>
 
-				<Card className="w-full p-8 sm:p-12 rounded-[2.5rem] border border-border/80 dark:border-white/10 bg-card dark:bg-card/40 backdrop-blur-3xl shadow-2xl dark:shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)]">
+				<Card className="w-full p-6 sm:p-12 rounded-[2.5rem] border border-border/80 dark:border-white/10 bg-card dark:bg-card/40 backdrop-blur-3xl shadow-2xl dark:shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)]">
 					<form onSubmit={handleLogin} className="space-y-8">
 						<div className="space-y-6">
 							<div className="space-y-2.5">

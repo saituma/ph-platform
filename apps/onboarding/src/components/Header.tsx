@@ -226,7 +226,7 @@ export default function Header() {
 								variant="ghost"
 								size="sm"
 								asChild
-								className="hidden sm:flex font-black uppercase tracking-widest text-[10px] text-muted-foreground/50 hover:text-primary transition-all active:scale-[0.95]"
+								className="flex font-black uppercase tracking-widest text-[10px] text-muted-foreground/50 hover:text-primary transition-all active:scale-[0.95]"
 							>
 								<Link to="/login">Log In</Link>
 							</Button>
