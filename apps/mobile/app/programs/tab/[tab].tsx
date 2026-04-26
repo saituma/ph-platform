@@ -101,7 +101,7 @@ export default function ProgramTabDetailScreen() {
     setIsLoading(true);
     setError(null);
     try {
-      const responses = await Promise.all(
+      const results = await Promise.allSettled(
         types.map((type) =>
           apiRequest<{ items: ProgramSectionContent[] }>(
             `/program-section-content?sectionType=${encodeURIComponent(String(type))}&programTier=${encodeURIComponent(tier)}${ageQ}`,
@@ -109,8 +109,8 @@ export default function ProgramTabDetailScreen() {
           ),
         ),
       );
-      const merged = responses
-        .flatMap((res) => res.items ?? [])
+      const merged = results
+        .flatMap((r) => (r.status === "fulfilled" ? (r.value.items ?? []) : []))
         .filter((item) => item && item.id);
       merged.sort((a, b) => {
         const orderA = Number.isFinite(a.order) ? (a.order as number) : 9999;

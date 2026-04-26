@@ -61,7 +61,7 @@ export default function ProgramSessionDetailScreen() {
   const { sessionId, programId, moduleId, backToModule } =
     useLocalSearchParams<{
       sessionId: string;
-      programId: ProgramId;
+      programId?: ProgramId;
       moduleId: string;
       backToModule?: string;
     }>();
@@ -99,7 +99,7 @@ export default function ProgramSessionDetailScreen() {
   }, [managedAthletes, athleteUserId]);
   const activeAge = activeAthlete?.age ?? null;
 
-  const { workspace, isLoading, load, findModuleAndSession } = useSessionData(
+  const { workspace, isLoading, error: workspaceError, load, findModuleAndSession } = useSessionData(
     token,
     activeAge,
   );
@@ -271,15 +271,15 @@ export default function ProgramSessionDetailScreen() {
   );
 
   const warmupItems = useMemo(
-    () => session?.items.filter((i) => i.blockType === "warmup") ?? [],
+    () => session?.items?.filter((i) => i.blockType === "warmup") ?? [],
     [session],
   );
   const mainItems = useMemo(
-    () => session?.items.filter((i) => i.blockType === "main") ?? [],
+    () => session?.items?.filter((i) => i.blockType === "main") ?? [],
     [session],
   );
   const cooldownItems = useMemo(
-    () => session?.items.filter((i) => i.blockType === "cooldown") ?? [],
+    () => session?.items?.filter((i) => i.blockType === "cooldown") ?? [],
     [session],
   );
 
@@ -296,7 +296,8 @@ export default function ProgramSessionDetailScreen() {
 
   const moduleHref = useMemo(() => {
     if (!moduleId) return "/(tabs)/programs";
-    return `/programs/module/${encodeURIComponent(String(moduleId))}?programId=${encodeURIComponent(String(programId))}`;
+    const pid = programId ? `?programId=${encodeURIComponent(String(programId))}` : "";
+    return `/programs/module/${encodeURIComponent(String(moduleId))}${pid}`;
   }, [moduleId, programId]);
 
   const shouldBackToModule = backToModule === "1" || backToModule === "true";
@@ -326,17 +327,20 @@ export default function ProgramSessionDetailScreen() {
       );
       const sIdx = sortedSessions.findIndex((s: any) => s.id === sessionIdNum);
 
+      const pidParam = programId ? `&programId=${encodeURIComponent(String(programId))}` : "";
+      const pidQuery = programId ? `?programId=${encodeURIComponent(String(programId))}` : "";
+
       if (sIdx >= 0 && sIdx < sortedSessions.length - 1) {
         const nextSession = sortedSessions[sIdx + 1];
         if (nextSession && !nextSession.locked) {
-          return `/programs/session/${nextSession.id}?programId=${programId}&moduleId=${effectiveModule.id}`;
+          return `/programs/session/${nextSession.id}?moduleId=${effectiveModule.id}${pidParam}`;
         }
       }
 
       for (let i = mIdx + 1; i < sortedModules.length; i++) {
         const nextM = sortedModules[i];
         if (!nextM || nextM.locked) continue;
-        return `/programs/module/${nextM.id}?programId=${programId}`;
+        return `/programs/module/${nextM.id}${pidQuery}`;
       }
 
       return null;
@@ -369,11 +373,14 @@ export default function ProgramSessionDetailScreen() {
       );
       const sIdx = sortedSessions.findIndex((s: any) => s.id === sessionIdNum);
 
+      const pidParam = programId ? `&programId=${encodeURIComponent(String(programId))}` : "";
+      const pidQuery = programId ? `?programId=${encodeURIComponent(String(programId))}` : "";
+
       if (sIdx > 0) {
         for (let i = sIdx - 1; i >= 0; i--) {
           const prevSession = sortedSessions[i];
           if (prevSession && !prevSession.locked) {
-            return `/programs/session/${prevSession.id}?programId=${programId}&moduleId=${effectiveModule.id}`;
+            return `/programs/session/${prevSession.id}?moduleId=${effectiveModule.id}${pidParam}`;
           }
         }
       }
@@ -387,13 +394,13 @@ export default function ProgramSessionDetailScreen() {
         for (let j = prevSessions.length - 1; j >= 0; j--) {
           const candidate = prevSessions[j];
           if (candidate && !candidate.locked) {
-            return `/programs/session/${candidate.id}?programId=${programId}&moduleId=${prevModule.id}`;
+            return `/programs/session/${candidate.id}?moduleId=${prevModule.id}${pidParam}`;
           }
         }
-        return `/programs/module/${prevModule.id}?programId=${programId}`;
+        return `/programs/module/${prevModule.id}${pidQuery}`;
       }
 
-      return `/programs/module/${effectiveModule.id}?programId=${programId}`;
+      return `/programs/module/${effectiveModule.id}${pidQuery}`;
     },
     [moduleIdNum, programId, sessionIdNum],
   );
@@ -641,6 +648,26 @@ export default function ProgramSessionDetailScreen() {
       <View className="flex-1 items-center justify-center bg-app">
         <ActivityIndicator color={colors.accent} />
       </View>
+    );
+
+  if (!isLoading && !workspace && workspaceError)
+    return (
+      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+        <View className="flex-1 items-center justify-center px-8 gap-4">
+          <Text className="text-sm font-outfit text-secondary text-center">
+            {workspaceError}
+          </Text>
+          <Pressable
+            onPress={() => void load(true)}
+            className="rounded-2xl px-6 py-3"
+            style={{ backgroundColor: colors.accent }}
+          >
+            <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textInverse }}>
+              Retry
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
 
   return (

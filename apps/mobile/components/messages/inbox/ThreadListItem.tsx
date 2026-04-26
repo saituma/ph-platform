@@ -86,6 +86,7 @@ export const ThreadListItem = React.memo(function ThreadListItem({
   const sharedAvatarTag = `thread-avatar-${thread.id}`;
   const unreadBadge = formatUnreadBadge(thread.unread);
   const isUnread = !!unreadBadge;
+  const isOnline = thread.channelType === "direct" && thread.lastSeen === "Online";
   const previewLabel = getPreviewText(thread);
   const isOpening = openingThreadId === thread.id;
   const isTeamThread =
@@ -210,6 +211,13 @@ export const ThreadListItem = React.memo(function ThreadListItem({
                       >
                         <Ionicons name="people" size={10} color={colors.accent} />
                       </View>
+                    ) : isOnline ? (
+                      <View
+                        style={[
+                          styles.onlineDot,
+                          { borderColor: isUnread ? (isDark ? "rgba(52,199,89,0.08)" : "rgba(52,199,89,0.07)") : rowSurface },
+                        ]}
+                      />
                     ) : null}
                   </View>
                 </Transition.View>
@@ -357,6 +365,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 2,
+  },
+  onlineDot: {
+    position: "absolute",
+    right: 1,
+    bottom: 1,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    backgroundColor: "#22c55e",
     borderWidth: 2,
   },
   initialsText: {

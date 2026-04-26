@@ -266,22 +266,40 @@ export default function ProgramContentDetailScreen() {
 
             {isLoading ? (
               <View
-                className="rounded-3xl bg-[#2F8F57] px-6 py-6 items-center"
-                style={isDark ? Shadows.none : Shadows.sm}
+                className="rounded-3xl px-6 py-6 items-center"
+                style={[{ backgroundColor: colors.accent }, isDark ? Shadows.none : Shadows.sm]}
               >
-                <ActivityIndicator color="#FFFFFF" />
-                <Text className="text-sm font-outfit text-white mt-2">
+                <ActivityIndicator color={colors.textInverse} />
+                <Text className="text-sm font-outfit mt-2" style={{ color: colors.textInverse }}>
                   Loading content...
                 </Text>
               </View>
             ) : error ? (
               <View
-                className="rounded-3xl bg-[#2F8F57] px-6 py-6"
-                style={isDark ? Shadows.none : Shadows.sm}
+                className="rounded-3xl px-6 py-6"
+                style={[{ backgroundColor: colors.accent }, isDark ? Shadows.none : Shadows.sm]}
               >
-                <Text className="text-sm font-outfit text-white text-center">
+                <Text className="text-sm font-outfit text-center" style={{ color: colors.textInverse }}>
                   {error}
                 </Text>
+              </View>
+            ) : !item ? (
+              <View
+                className="rounded-3xl border px-6 py-6 items-center gap-3"
+                style={{ backgroundColor: colors.card, borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)" }}
+              >
+                <Text className="text-sm font-outfit text-secondary text-center">
+                  Content not found.
+                </Text>
+                <Pressable
+                  onPress={() => load(true)}
+                  className="rounded-2xl px-5 py-2.5"
+                  style={{ backgroundColor: colors.accent }}
+                >
+                  <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textInverse }}>
+                    Retry
+                  </Text>
+                </Pressable>
               </View>
             ) : item ? (
               <View className="gap-4">
