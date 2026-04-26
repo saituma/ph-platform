@@ -385,6 +385,14 @@ export function useMessagesRealtime({
   useEffect(() => {
     if (!socket || !currentThread) return;
 
+    const stopTypingOnThread = (threadId: string) => {
+      if (threadId.startsWith("group:")) {
+        socket.emit("typing:stop", { groupId: Number(threadId.replace("group:", "")) });
+      } else {
+        socket.emit("typing:stop", { toUserId: Number(threadId) });
+      }
+    };
+
     if (draft.trim().length > 0) {
       if (!typingRef.current.active) {
         typingRef.current.active = true;
@@ -398,24 +406,24 @@ export function useMessagesRealtime({
       if (typingRef.current.timer) clearTimeout(typingRef.current.timer);
       typingRef.current.timer = setTimeout(() => {
         typingRef.current.active = false;
-        if (currentThread.id.startsWith("group:")) {
-          const groupId = Number(currentThread.id.replace("group:", ""));
-          socket.emit("typing:stop", { groupId });
-        } else {
-          socket.emit("typing:stop", { toUserId: Number(currentThread.id) });
-        }
+        stopTypingOnThread(currentThread.id);
       }, 1200);
-      return;
+      // Cleanup: if thread changes while timer is pending, stop on this thread
+      return () => {
+        if (typingRef.current.timer) {
+          clearTimeout(typingRef.current.timer);
+          typingRef.current.timer = null;
+        }
+        if (typingRef.current.active) {
+          typingRef.current.active = false;
+          stopTypingOnThread(currentThread.id);
+        }
+      };
     }
 
     if (typingRef.current.active) {
       typingRef.current.active = false;
-      if (currentThread.id.startsWith("group:")) {
-        const groupId = Number(currentThread.id.replace("group:", ""));
-        socket.emit("typing:stop", { groupId });
-      } else {
-        socket.emit("typing:stop", { toUserId: Number(currentThread.id) });
-      }
+      stopTypingOnThread(currentThread.id);
     }
   }, [currentThread, draft, socket]);
 

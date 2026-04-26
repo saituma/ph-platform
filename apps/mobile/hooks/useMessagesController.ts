@@ -164,7 +164,7 @@ export function useMessagesController() {
     setSelectedThread(null);
     setOpeningThreadId(null);
     setPendingAttachment(null);
-  }, [messagesTabHref, setPendingAttachment, setSelectedThread]);
+  }, [setPendingAttachment, setSelectedThread]);
 
   const openThread = useCallback(
     (
@@ -599,7 +599,7 @@ export function useMessagesController() {
 
   useMessagesRealtime({
     token,
-    role: "Guardian",
+    role: appRole ?? apiUserRole ?? "athlete",
     profileId: effectiveProfileId,
     draft,
     currentThread,

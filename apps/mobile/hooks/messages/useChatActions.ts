@@ -167,7 +167,16 @@ export function useChatActions({
         const sortedThreads = [...inboxThreads].sort(
           (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
         );
-        setThreads(sortedThreads);
+        // Preserve real-time "Online" status that presence:update wrote before this
+        // fetch completed — a full array replace would wipe it.
+        setThreads((prev) => {
+          const onlineIds = new Set(
+            prev.filter((t) => t.lastSeen === "Online").map((t) => t.id),
+          );
+          return sortedThreads.map((t) =>
+            onlineIds.has(t.id) ? { ...t, lastSeen: "Online" } : t,
+          );
+        });
         const deletedIds = pendingDeleteIds.current;
         setMessages((prev) => {
           const groupMessages = prev.filter((m) =>
@@ -385,10 +394,14 @@ export function useChatActions({
       if (!token) return;
       if (id.startsWith("group:")) return;
       try {
+        const peerUserId = Number(id);
         await apiRequest("/messages/read", {
           method: "POST",
           token,
           headers: actingHeaders,
+          body: Number.isFinite(peerUserId) && peerUserId > 0
+            ? { peerUserId }
+            : undefined,
         });
         setThreads((prev) =>
           prev.map((t) => (t.id === id ? { ...t, unread: 0 } : t)),
