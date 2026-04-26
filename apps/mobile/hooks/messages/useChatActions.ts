@@ -188,16 +188,25 @@ export function useChatActions({
               typeof m.id === "string" &&
               m.id.startsWith("client-"),
           );
+          // Preserve confirmed direct messages already in state that may not be
+          // in the server response yet (race: sent just before this fetch fired).
+          const confirmedDirect = prev.filter(
+            (m) =>
+              !String(m.threadId ?? "").startsWith("group:") &&
+              !(typeof m.id === "string" && m.id.startsWith("client-")) &&
+              !deletedIds.has(m.id),
+          );
           const seen = new Set<string>();
           const next: ChatMessage[] = [];
           for (const msg of [
             ...groupMessages,
             ...mappedMessages.filter((m) => !deletedIds.has(m.id)),
+            ...confirmedDirect,
             ...optimisticDirect,
           ]) {
             if (!msg?.id) continue;
-            if (seen.has(msg.id)) continue;
-            seen.add(msg.id);
+            if (seen.has(String(msg.id))) continue;
+            seen.add(String(msg.id));
             next.push(msg);
           }
           return next;

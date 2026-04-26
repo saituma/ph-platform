@@ -338,8 +338,16 @@ const TeamBanner = memo(function TeamBanner() {
 export default memo(function ScheduleScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
-  const { token, programTier, apiUserRole } = useAppSelector((s) => s.user);
+  const { token, programTier, apiUserRole, managedAthletes, athleteUserId, authTeamMembership } = useAppSelector((s) => s.user);
   const canBook = canSelfBookSchedule(apiUserRole);
+  const userTeamId = authTeamMembership?.teamId ?? null;
+  const userAthleteType = useMemo(() => {
+    const active =
+      managedAthletes.find((a) => a.userId === athleteUserId || a.id === athleteUserId) ??
+      managedAthletes[0] ??
+      null;
+    return active?.athleteType ?? null;
+  }, [managedAthletes, athleteUserId]);
   const { isSectionHidden } = useAgeExperience();
   const isFocused = useSafeIsFocused(true);
   const queryClient = useQueryClient();
@@ -381,9 +389,22 @@ export default memo(function ScheduleScreen() {
           refreshEvents, refreshServices } = useScheduleData(token, isFocused);
 
   const bookingServices = useMemo(() => {
-    if (hasPhpPlusPlanFeatures(programTier)) return services;
-    return services.filter((s) => String(s.type).toLowerCase() !== "semi_private");
-  }, [services, programTier]);
+    const base = hasPhpPlusPlanFeatures(programTier)
+      ? services
+      : services.filter((s) => String(s.type).toLowerCase() !== "semi_private");
+
+    return base.filter((s) => {
+      const targets = s.eligibleTargets;
+      // No restriction set — visible to everyone
+      if (!Array.isArray(targets) || targets.length === 0) return true;
+      // Check youth/adult audience match
+      if (userAthleteType && targets.includes(userAthleteType)) return true;
+      // Check team membership match (format: "team:123")
+      if (userTeamId && targets.some((t) => t === `team:${userTeamId}`)) return true;
+      // Has restrictions but none match this user
+      return false;
+    });
+  }, [services, programTier, userAthleteType, userTeamId]);
 
   // ── Partition events ─────────────────────────────────────────
   const nowMs = Date.now();

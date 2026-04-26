@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { ActivityIndicator, Linking, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -127,15 +127,21 @@ export default function ProgramContentDetailScreen() {
    * Router's persisted navigation state — redirect to the correct entry screen.
    * Runs on mount without waiting for bootstrapReady so logged-out users are also covered.
    */
-  useLayoutEffect(() => {
-    if (router.canGoBack()) return;
+  useEffect(() => {
     let cancelled = false;
-    Linking.getInitialURL().then((url) => {
+    const timer = setTimeout(() => {
       if (cancelled) return;
-      if (url && url.includes("/programs/content/")) return;
-      router.replace("/(tabs)");
-    });
-    return () => { cancelled = true; };
+      if (router.canGoBack()) return;
+      Linking.getInitialURL().then((url) => {
+        if (cancelled) return;
+        if (url && url.includes("/programs/content/")) return;
+        router.replace("/(tabs)");
+      });
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
