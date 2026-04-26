@@ -1,7 +1,9 @@
 import { env } from "@/env";
 
 function resolveApiBaseUrl(): string {
-  const configured = env.VITE_PUBLIC_API_URL;
+  const configured =
+    env.VITE_PUBLIC_API_URL ||
+    (typeof process !== "undefined" ? process.env.VITE_PUBLIC_API_URL : undefined);
   if (configured) return configured;
 
   // Client: same-origin is safe (Vite proxy handles /api in dev)
