@@ -24,6 +24,7 @@ async function proxyToWorker(request: Request) {
   const url = new URL(request.url);
   const target = `${base}${url.pathname}${url.search}`;
   const headers = new Headers(request.headers);
+  headers.delete("accept-encoding");
 
   const payload =
     request.method !== "GET" && request.method !== "HEAD"
@@ -31,11 +32,19 @@ async function proxyToWorker(request: Request) {
       : undefined;
 
   try {
-    return await fetch(target, {
+    const upstream = await fetch(target, {
       method: request.method,
       headers,
       body: payload,
       redirect: "manual",
+    });
+    const responseHeaders = new Headers(upstream.headers);
+    responseHeaders.delete("content-encoding");
+    responseHeaders.delete("content-length");
+    return new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: responseHeaders,
     });
   } catch {
     return new Response(
