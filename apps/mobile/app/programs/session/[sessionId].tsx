@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -71,15 +71,21 @@ export default function ProgramSessionDetailScreen() {
   /**
    * Cold start protection: ghost restore guard — see content/[contentId].tsx for rationale.
    */
-  useLayoutEffect(() => {
-    if (router.canGoBack()) return;
+  useEffect(() => {
     let cancelled = false;
-    Linking.getInitialURL().then((url) => {
+    const timer = setTimeout(() => {
       if (cancelled) return;
-      if (url && url.includes("/programs/session/")) return;
-      router.replace("/(tabs)");
-    });
-    return () => { cancelled = true; };
+      if (router.canGoBack()) return;
+      Linking.getInitialURL().then((url) => {
+        if (cancelled) return;
+        if (url && url.includes("/programs/session/")) return;
+        router.replace("/(tabs)");
+      });
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

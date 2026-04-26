@@ -14,6 +14,7 @@ import { z } from "zod";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
+import { authClient } from "#/lib/auth-client";
 import { config } from "#/lib/config";
 
 export const Route = createFileRoute("/login")({
@@ -67,21 +68,21 @@ function Login() {
 
 		setIsLoading(true);
 		try {
-			const response = await fetch(`${config.api.baseUrl}/api/auth/login`, {
+			const signInResult = await authClient.signIn.email({ email, password });
+			if (signInResult.error) {
+				throw new Error(signInResult.error.message || "Invalid email or password");
+			}
+
+			// Exchange Better Auth session for app JWT
+			const tokenResponse = await fetch(`${config.api.baseUrl}/api/app/token`, {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ email, password }),
+				credentials: "include",
 			});
-
-			const data = await response.json();
-
-			if (!response.ok) {
+			const data = await tokenResponse.json();
+			if (!tokenResponse.ok) {
 				throw new Error(data.error || "Login failed");
 			}
 
-			// Store token and user data
 			localStorage.setItem("auth_token", data.accessToken);
 			localStorage.setItem("pending_email", email);
 

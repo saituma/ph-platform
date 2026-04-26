@@ -1,7 +1,6 @@
 import React, {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -58,18 +57,25 @@ export default function ProgramModuleDetailScreen() {
     programId?: ProgramId | string;
   }>();
 
-  /**
-   * Cold start protection: ghost restore guard — see content/[contentId].tsx for rationale.
-   */
-  useLayoutEffect(() => {
-    if (router.canGoBack()) return;
+  // Ghost-restore guard: if the app cold-starts directly onto this screen with no
+  // back stack and no deep-link pointing here, send the user to tabs.
+  // useEffect + setTimeout lets the navigation stack fully commit before we check
+  // canGoBack(), avoiding false-positive redirects on normal push navigation.
+  useEffect(() => {
     let cancelled = false;
-    Linking.getInitialURL().then((url) => {
+    const timer = setTimeout(() => {
       if (cancelled) return;
-      if (url && url.includes("/programs/module/")) return;
-      router.replace("/(tabs)");
-    });
-    return () => { cancelled = true; };
+      if (router.canGoBack()) return;
+      Linking.getInitialURL().then((url) => {
+        if (cancelled) return;
+        if (url && url.includes("/programs/module/")) return;
+        router.replace("/(tabs)");
+      });
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

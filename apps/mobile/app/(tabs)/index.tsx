@@ -39,6 +39,7 @@ import { QuickLinksSection } from "@/components/home/QuickLinksSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { useHomeContent } from "@/hooks/home/useHomeContent";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
+import { useRunStore } from "@/store/useRunStore";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -204,6 +205,8 @@ const HomeScreen = memo(function HomeScreen() {
   const statsQuery = useWeeklyStats(userId);
   const activityQuery = useRecentActivity(userId);
   const watchHistory = useWatchHistoryStore((s) => s.history);
+  const runStatus = useRunStore((s) => s.status);
+  const isRunActive = runStatus === "running" || runStatus === "paused";
 
   const isLoading = statsQuery.isLoading || activityQuery.isLoading;
   const runs = activityQuery.data ?? [];
@@ -417,7 +420,7 @@ const HomeScreen = memo(function HomeScreen() {
                 accessibilityLabel="Start session"
               >
                 <Text style={[styles.ctaText, { fontFamily: "Outfit-Bold", color: isDark ? "hsl(220,8%,10%)" : "hsl(0,0%,98%)" }]}>
-                  {watchHistory.length > 0 ? "Resume watching" : "Start session"}
+                  {isRunActive ? "Running" : watchHistory.length > 0 ? "Resume watching" : "Start session"}
                 </Text>
               </Pressable>
             </Animated.View>

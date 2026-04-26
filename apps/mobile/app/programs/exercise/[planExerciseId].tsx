@@ -191,14 +191,20 @@ export default function PremiumExerciseDetailScreen() {
    * Cold start protection: ghost restore guard — see content/[contentId].tsx for rationale.
    */
   useEffect(() => {
-    if (router.canGoBack()) return;
     let cancelled = false;
-    Linking.getInitialURL().then((url) => {
+    const timer = setTimeout(() => {
       if (cancelled) return;
-      if (url && url.includes("/programs/exercise/")) return;
-      router.replace("/(tabs)");
-    });
-    return () => { cancelled = true; };
+      if (router.canGoBack()) return;
+      Linking.getInitialURL().then((url) => {
+        if (cancelled) return;
+        if (url && url.includes("/programs/exercise/")) return;
+        router.replace("/(tabs)");
+      });
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
