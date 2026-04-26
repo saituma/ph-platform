@@ -30,12 +30,23 @@ async function proxyToWorker(request: Request) {
       ? await request.text()
       : undefined;
 
-  return fetch(target, {
-    method: request.method,
-    headers,
-    body: payload,
-    redirect: "manual",
-  });
+  try {
+    return await fetch(target, {
+      method: request.method,
+      headers,
+      body: payload,
+      redirect: "manual",
+    });
+  } catch {
+    return new Response(
+      JSON.stringify({
+        error:
+          "Failed to reach BETTER_AUTH_URL upstream. Check Vercel Production env BETTER_AUTH_URL.",
+        upstream: base,
+      }),
+      { status: 502, headers: { "Content-Type": "application/json" } },
+    );
+  }
 }
 
 export const Route = createFileRoute("/api/auth/$")({
