@@ -85,7 +85,14 @@ export function useVideoPlayerEngine({
   }, [player]);
 
   const safePlay = useCallback(() => {
-    try { player.play(); } catch {}
+    try {
+      const dur = player.duration ?? 0;
+      const cur = player.currentTime ?? 0;
+      if (dur > 0 && cur >= dur - 0.5) {
+        player.seekBy(-cur);
+      }
+      player.play();
+    } catch {}
   }, [player]);
 
   useEffect(() => {

@@ -21,6 +21,12 @@ import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/onboarding/step-4")({
+	head: () => ({
+		meta: [
+			{ title: "Review & Confirm — PH Performance" },
+			{ name: "robots", content: "noindex, nofollow" },
+		],
+	}),
 	component: OnboardingStep4,
 });
 

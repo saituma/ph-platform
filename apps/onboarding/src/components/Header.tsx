@@ -122,7 +122,7 @@ export default function Header() {
 								className="w-full h-full object-cover"
 							/>
 						</div>
-						<span className="text-xl font-black uppercase italic tracking-tighter text-foreground sm:inline-block">
+						<span className="hidden sm:inline-block text-xl font-black uppercase italic tracking-tighter text-foreground">
 							PH{" "}
 							<span className="text-primary drop-shadow-[0_0_8px_rgba(var(--primary),0.2)]">
 								Performance

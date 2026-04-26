@@ -1,3 +1,8 @@
-# https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /verification
+Disallow: /api/
+
+Sitemap: https://ph-platform-onboarding.vercel.app/sitemap.xml

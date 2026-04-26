@@ -9,6 +9,27 @@ import {
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/about")({
+	head: () => ({
+		meta: [
+			{ title: "About PH Performance — Our Mission & Vision" },
+			{
+				name: "description",
+				content:
+					"Learn about PH Performance's mission to democratize elite athletic training. We build professional tools for athletes, coaches, and teams of every level.",
+			},
+			{ property: "og:title", content: "About PH Performance — Our Mission & Vision" },
+			{
+				property: "og:description",
+				content:
+					"We're building the professional performance platform that makes elite training accessible to every athlete and team.",
+			},
+			{
+				property: "og:url",
+				content: "https://ph-platform-onboarding.vercel.app/about",
+			},
+		],
+		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/about" }],
+	}),
 	component: About,
 });
 

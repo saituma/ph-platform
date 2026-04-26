@@ -17,6 +17,12 @@ import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/onboarding/step-5")({
+	head: () => ({
+		meta: [
+			{ title: "Choose Your Plan — PH Performance" },
+			{ name: "robots", content: "noindex, nofollow" },
+		],
+	}),
 	component: OnboardingStep5,
 });
 

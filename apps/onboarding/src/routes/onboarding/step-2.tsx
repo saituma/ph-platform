@@ -21,6 +21,12 @@ import { format, differenceInYears } from "date-fns";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/onboarding/step-2")({
+	head: () => ({
+		meta: [
+			{ title: "Basic Information — PH Performance" },
+			{ name: "robots", content: "noindex, nofollow" },
+		],
+	}),
 	component: OnboardingStep2,
 });
 

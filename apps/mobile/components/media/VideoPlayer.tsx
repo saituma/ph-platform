@@ -772,7 +772,8 @@ function VideoPlayerExpoNativeMode({
     if (w > 0) setContainerWidth(w);
   }, []);
 
-  const showPoster = !isPlaying && position < 0.5 && !error && !previewOnly;
+  const isEnded = !isLooping && duration > 0 && position >= duration - 0.5;
+  const showPoster = !isPlaying && (position < 0.5 || isEnded) && !error && !previewOnly;
 
   const openFullscreen = useCallback(() => {
     if (pauseOthers) pauseOthers();

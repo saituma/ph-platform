@@ -12,6 +12,9 @@ import {
 import { useRedirectOnPortalUnauthorized } from "@/portal/use-redirect-on-portal-unauthorized";
 
 export const Route = createFileRoute("/portal")({
+	head: () => ({
+		meta: [{ name: "robots", content: "noindex, nofollow" }],
+	}),
 	component: PortalLayout,
 });
 
