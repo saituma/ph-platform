@@ -9,7 +9,6 @@ import { Feather } from "@/components/ui/theme-icons";
 
 import { HeaderTabKey } from "@/types/admin-messages";
 import { AdminDmSection } from "@/components/admin/messages/AdminDmSection";
-import { AdminStatsSection } from "@/components/admin/messages/AdminStatsSection";
 import { useAdminDms } from "@/hooks/admin/useAdminDms";
 import { useAdminGroups } from "@/hooks/admin/useAdminGroups";
 import { safeNumber } from "@/lib/admin-messages-utils";
@@ -28,7 +27,6 @@ const TAB_CONFIG: {
   { key: "inbox", label: "Inbox", icon: "mail", color: "#30B0C7" },
   { key: "announcement", label: "Announcements", icon: "bell", color: "#7B61FF" },
   { key: "teams", label: "Teams", icon: "users", color: "#34C759" },
-  { key: "stats", label: "Stats", icon: "bar-chart-2", color: "#FFB020" },
 ];
 
 export default function AdminMessagesScreen() {
@@ -63,25 +61,6 @@ export default function AdminMessagesScreen() {
       0,
     );
   }, [groups.groups]);
-
-  const stats = useMemo(
-    () => ({
-      directThreads: dms.threads.length,
-      directUnread: dmUnreadTotal,
-      groups: groups.groups.length,
-      groupUnread: groupUnreadTotal,
-      announcements: announcements.items.length,
-      teams: teams.teams.length,
-    }),
-    [
-      announcements.items.length,
-      dmUnreadTotal,
-      dms.threads.length,
-      groupUnreadTotal,
-      groups.groups.length,
-      teams.teams.length,
-    ],
-  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
@@ -128,7 +107,7 @@ export default function AdminMessagesScreen() {
       {/* Tab Switcher */}
       <Animated.View
         entering={FadeInDown.delay(120).duration(360)}
-        style={{ paddingHorizontal: 24, marginBottom: 20 }}
+        style={{ marginBottom: 20 }}
       >
         <View
           style={{
@@ -246,7 +225,6 @@ export default function AdminMessagesScreen() {
             {activeTab === "teams" && (
               <AdminTeamsListSection controller={teams} canLoad={canLoad} />
             )}
-            {activeTab === "stats" && <AdminStatsSection stats={stats} />}
           </View>
         )}
       </Animated.View>

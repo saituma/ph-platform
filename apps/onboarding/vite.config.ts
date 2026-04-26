@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => {
 			neon,
 			tailwindcss(),
 			tanstackStart(),
-			nitro({ preset: "vercel" }),
+			nitro({ preset: "vercel", serverDir: "./server" }),
 			viteReact(),
 		],
 	};
