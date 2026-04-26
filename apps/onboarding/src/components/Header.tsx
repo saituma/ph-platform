@@ -106,47 +106,45 @@ export default function Header() {
 
 	return (
 		<header
-			className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700 ${
+			className={`fixed top-0 left-0 right-0 z-50 transition-all ${
 				scrolled
-					? "bg-background/40 backdrop-blur-3xl border-b border-white/10 py-3 shadow-2xl"
+					? "bg-background/80 backdrop-blur-md border-b border-border py-3"
 					: "bg-transparent py-5"
 			}`}
+			style={{ transitionDuration: "var(--duration-standard)", transitionTimingFunction: "var(--ease)" }}
 		>
-			<div className="mx-auto flex max-max-w-7xl items-center justify-between px-6 md:px-8">
-				<div className="flex items-center gap-2">
-					<Link to="/" className="flex items-center gap-3 group">
-						<div className="w-10 h-10 rounded-2xl overflow-hidden border border-white/10 transition-all duration-500 group-hover:rounded-xl group-hover:scale-105 shadow-lg">
-							<img
-								src="/ph.jpg"
-								alt="PH Performance"
-								className="w-full h-full object-cover"
-							/>
-						</div>
-						<span className="hidden sm:inline-block text-xl font-black uppercase italic tracking-tighter text-foreground">
-							PH{" "}
-							<span className="text-primary drop-shadow-[0_0_8px_rgba(var(--primary),0.2)]">
-								Performance
-							</span>
-						</span>
-					</Link>
-				</div>
+			<div className="mx-auto flex max-w-6xl items-center justify-between px-6">
+				<Link to="/" className="flex items-center gap-3 group">
+					<div className="w-9 h-9 rounded-lg overflow-hidden">
+						<img
+							src="/ph.jpg"
+							alt="PH Performance"
+							className="w-full h-full object-cover"
+						/>
+					</div>
+					<span className="hidden sm:inline-block text-lg font-bold tracking-tight text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+						PH <span className="text-primary">Performance</span>
+					</span>
+				</Link>
 
-				<nav className="hidden md:flex items-center gap-10 text-xs font-black uppercase tracking-widest text-muted-foreground/60">
+				<nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
 					<Link
 						to="/features"
-						className="hover:text-primary transition-all hover:tracking-[0.15em]"
+						className="hover:text-foreground transition-colors"
+						style={{ transitionDuration: "var(--duration-micro)" }}
 					>
 						Features
 					</Link>
 					<Link
 						to="/about"
-						className="hover:text-primary transition-all hover:tracking-[0.15em]"
+						className="hover:text-foreground transition-colors"
+						style={{ transitionDuration: "var(--duration-micro)" }}
 					>
 						About
 					</Link>
 				</nav>
 
-				<div className="flex items-center gap-4">
+				<div className="flex items-center gap-3">
 					<ThemeToggle />
 
 					{isPending ? (
@@ -156,14 +154,15 @@ export default function Header() {
 							<DropdownMenuTrigger asChild>
 								<Button
 									variant="ghost"
-									className="relative h-10 w-10 rounded-full p-0 border border-white/10 hover:border-primary/40 transition-all active:scale-95 shadow-lg"
+									className="relative h-9 w-9 rounded-full p-0 hover:ring-2 hover:ring-primary/20 transition-all"
+									style={{ transitionDuration: "var(--duration-micro)" }}
 								>
-									<Avatar className="h-9 w-9 border-none">
+									<Avatar className="h-9 w-9">
 										<AvatarImage
 											src={sessionUser.image || ""}
 											alt={sessionUser.name || "User"}
 										/>
-										<AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black uppercase">
+										<AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
 											{sessionUser.name
 												?.split(" ")
 												.map((n) => n[0])
@@ -173,49 +172,49 @@ export default function Header() {
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent
-								className="w-56 mt-2 bg-background/60 backdrop-blur-3xl border-white/10 rounded-2xl shadow-2xl"
+								className="w-56 mt-2 rounded-xl"
 								align="end"
 								forceMount
 							>
 								<DropdownMenuLabel className="font-normal p-4">
 									<div className="flex flex-col space-y-1">
-										<p className="text-xs font-black uppercase tracking-widest leading-none">
+										<p className="text-sm font-semibold leading-none">
 											{sessionUser.name}
 										</p>
-										<p className="text-[10px] leading-none text-muted-foreground font-bold uppercase tracking-wider truncate">
+										<p className="text-xs leading-none text-muted-foreground truncate">
 											{sessionUser.email}
 										</p>
 									</div>
 								</DropdownMenuLabel>
-								<DropdownMenuSeparator className="bg-white/5" />
-								<div className="p-2">
+								<DropdownMenuSeparator />
+								<div className="p-1">
 									<DropdownMenuItem
 										asChild
-										className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary transition-all cursor-pointer gap-3"
+										className="rounded-lg px-3 py-2 text-sm cursor-pointer gap-2"
 									>
 										<Link to="/portal/dashboard">
 											<Layout weight="bold" size={16} />
-											<span>Dashboard</span>
+											Dashboard
 										</Link>
 									</DropdownMenuItem>
 									<DropdownMenuItem
 										asChild
-										className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary focus:bg-primary/10 focus:text-primary transition-all cursor-pointer gap-3"
+										className="rounded-lg px-3 py-2 text-sm cursor-pointer gap-2"
 									>
 										<Link to="/portal/profile">
 											<UserIcon weight="bold" size={16} />
-											<span>Profile</span>
+											Profile
 										</Link>
 									</DropdownMenuItem>
 								</div>
-								<DropdownMenuSeparator className="bg-white/5" />
-								<div className="p-2">
+								<DropdownMenuSeparator />
+								<div className="p-1">
 									<DropdownMenuItem
 										onClick={handleSignOut}
-										className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive transition-all cursor-pointer gap-3"
+										className="rounded-lg px-3 py-2 text-sm text-destructive cursor-pointer gap-2"
 									>
 										<SignOut weight="bold" size={16} />
-										<span>Sign Out</span>
+										Sign Out
 									</DropdownMenuItem>
 								</div>
 							</DropdownMenuContent>
@@ -226,13 +225,15 @@ export default function Header() {
 								variant="ghost"
 								size="sm"
 								asChild
-								className="flex font-black uppercase tracking-widest text-[10px] text-muted-foreground/50 hover:text-primary transition-all active:scale-[0.95]"
+								className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+								style={{ transitionDuration: "var(--duration-micro)" }}
 							>
 								<Link to="/login">Log In</Link>
 							</Button>
 							<Button
 								size="sm"
-								className="bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase italic tracking-tighter px-6 rounded-2xl shadow-xl shadow-primary/10 transition-all hover:-translate-y-0.5 active:scale-[0.95]"
+								className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 rounded-lg transition-colors"
+								style={{ transitionDuration: "var(--duration-micro)" }}
 								asChild
 							>
 								<Link to="/">Get Started</Link>

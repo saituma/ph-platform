@@ -36,7 +36,7 @@ interface MyRouterContext {
 	queryClient: QueryClient;
 }
 
-const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark')?stored:'light';var root=document.documentElement;var style=document.createElement('style');style.appendChild(document.createTextNode('*{-webkit-transition:none!important;-moz-transition:none!important;-o-transition:none!important;-ms-transition:none!important;transition:none!important}'));document.head.appendChild(style);root.classList.remove('light','dark');root.classList.add(mode);root.setAttribute('data-theme',mode);root.style.colorScheme=mode;window.getComputedStyle(style).opacity;document.head.removeChild(style);}catch(e){}})();`;
+const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark')?stored:'dark';var root=document.documentElement;var style=document.createElement('style');style.appendChild(document.createTextNode('*{-webkit-transition:none!important;-moz-transition:none!important;-o-transition:none!important;-ms-transition:none!important;transition:none!important}'));document.head.appendChild(style);root.classList.remove('light','dark');root.classList.add(mode);root.setAttribute('data-theme',mode);root.style.colorScheme=mode;window.getComputedStyle(style).opacity;document.head.removeChild(style);}catch(e){}})();`;
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	head: () => ({
@@ -87,14 +87,15 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				content: "https://ph-platform-onboarding.vercel.app/home.png",
 			},
 			// Theme colour for browser chrome
-			{ name: "theme-color", content: "#22c55e" },
+			{ name: "theme-color", content: "#0A0A0F" },
 		],
 		links: [
 			{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/" },
-			{ rel: "preconnect", href: "https://api.fontshare.com" },
+			{ rel: "preconnect", href: "https://fonts.googleapis.com" },
+			{ rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" as any },
 			{
 				rel: "stylesheet",
-				href: "https://api.fontshare.com/v2/css?f[]=telma@400,500,600,700&display=swap",
+				href: "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap",
 			},
 			{ rel: "stylesheet", href: appCss },
 		],

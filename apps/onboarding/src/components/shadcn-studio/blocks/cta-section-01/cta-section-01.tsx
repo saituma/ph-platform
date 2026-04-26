@@ -1,62 +1,64 @@
-import { Card, CardContent } from "#/components/ui/card";
-
 const CTA = () => {
 	return (
-		<section className="bg-muted py-8 sm:py-16 lg:py-24">
-			<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-				<Card className="rounded-[2.5rem] border border-white/10 py-8 shadow-2xl dark:shadow-primary/5 sm:py-16 lg:py-24 overflow-hidden relative group">
-					<div className="absolute top-0 left-0 w-full h-full bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10" />
-					<CardContent className="flex flex-wrap items-center justify-between gap-8 px-8 sm:flex-nowrap sm:px-16 lg:px-24">
-						<div className="max-w-xs lg:max-w-lg space-y-4">
-							<h2 className="text-3xl font-black italic tracking-tighter uppercase leading-none">
-								Download PH Performance
-							</h2>
-							<p className="text-muted-foreground text-lg font-medium leading-relaxed">
-								Track your progress, sync with your team, and access elite
-								coaching tools on the go. Available now for iOS and Android.
-							</p>
-						</div>
-						<div className="flex flex-wrap items-center gap-6 max-md:w-full max-md:flex-col md:justify-end">
-							<a
-								href="#"
-								className="bg-foreground text-background flex w-50 items-center gap-4 rounded-2xl px-6 py-3 hover:opacity-90 transition-all active:scale-[0.98] shadow-xl group/btn"
-							>
-								<img
-									src="/apple-app-store.svg"
-									alt="App Store"
-									className="size-8.5 dark:invert"
-								/>
-								<div className="flex flex-col items-start">
-									<p className="text-[10px] uppercase font-black leading-none opacity-70">
-										Download on
-									</p>
-									<p className="text-lg font-bold leading-none tracking-tight">
-										App Store
-									</p>
-								</div>
-							</a>
+		<section className="bg-background py-28 sm:py-40 border-t border-border/40">
+			<div className="mx-auto max-w-4xl px-6 text-center hero-stagger">
+				<h2
+					className="font-bold text-foreground leading-[1.05]"
+					style={{
+						fontSize: "clamp(2.5rem, 5vw, 5rem)",
+						letterSpacing: "-0.02em",
+					}}
+				>
+					Start tracking everything.
+				</h2>
+				<p
+					className="mt-6 text-muted-foreground max-w-xl mx-auto"
+					style={{ fontSize: "clamp(1rem, 1.5vw, 1.125rem)", lineHeight: 1.6 }}
+				>
+					Join the elite teams and athletes who rely on PH Performance. Download the mobile app to get started.
+				</p>
 
-							<a
-								href="#"
-								className="bg-foreground text-background flex w-50 items-center gap-4 rounded-2xl px-6 py-3 hover:opacity-90 transition-all active:scale-[0.98] shadow-xl group/btn"
-							>
-								<img
-									src="/svgs/google.svg"
-									alt="Google Play"
-									className="size-8.5"
-								/>
-								<div className="flex flex-col items-start">
-									<p className="text-[10px] uppercase font-black leading-none opacity-70">
-										Get it on
-									</p>
-									<p className="text-lg font-bold leading-none tracking-tight">
-										Google Play
-									</p>
-								</div>
-							</a>
+				<div className="mt-12 flex flex-wrap items-center justify-center gap-4">
+					<a
+						href="#"
+						className="inline-flex items-center gap-4 rounded-xl border border-[rgba(255,255,255,0.12)] bg-card text-foreground px-6 py-3 transition-colors hover:bg-card/60 active:scale-[0.98]"
+						style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
+					>
+						<img
+							src="/apple-app-store.svg"
+							alt="App Store"
+							className="size-8"
+						/>
+						<div className="flex flex-col items-start">
+							<span className="text-[10px] uppercase font-semibold leading-none opacity-60">
+								Download on
+							</span>
+							<span className="text-sm font-bold leading-tight tracking-tight mt-1" style={{ fontFamily: "var(--font-sans)" }}>
+								App Store
+							</span>
 						</div>
-					</CardContent>
-				</Card>
+					</a>
+
+					<a
+						href="#"
+						className="inline-flex items-center gap-4 rounded-xl border border-[rgba(255,255,255,0.12)] bg-card text-foreground px-6 py-3 transition-colors hover:bg-card/60 active:scale-[0.98]"
+						style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
+					>
+						<img
+							src="/svgs/google.svg"
+							alt="Google Play"
+							className="size-8"
+						/>
+						<div className="flex flex-col items-start">
+							<span className="text-[10px] uppercase font-semibold leading-none opacity-60">
+								Get it on
+							</span>
+							<span className="text-sm font-bold leading-tight tracking-tight mt-1" style={{ fontFamily: "var(--font-sans)" }}>
+								Google Play
+							</span>
+						</div>
+					</a>
+				</div>
 			</div>
 		</section>
 	);

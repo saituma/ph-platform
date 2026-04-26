@@ -4,17 +4,16 @@ import { Sun, Moon } from "@phosphor-icons/react";
 type ThemeMode = "light" | "dark";
 
 function getInitialMode(): ThemeMode {
-	if (typeof window === "undefined") return "light";
+	if (typeof window === "undefined") return "dark";
 	const stored = window.localStorage.getItem("theme");
 	if (stored === "light" || stored === "dark") return stored;
-	return "light";
+	return "dark";
 }
 
 function applyThemeMode(mode: ThemeMode) {
 	if (typeof window === "undefined") return;
 	const root = document.documentElement;
 
-	// Temporarily disable transitions to avoid lag during switch
 	const css = document.createElement("style");
 	css.appendChild(
 		document.createTextNode(
@@ -28,17 +27,15 @@ function applyThemeMode(mode: ThemeMode) {
 	root.setAttribute("data-theme", mode);
 	root.style.colorScheme = mode;
 
-	// Force repaint to ensure theme is applied before re-enabling transitions
 	window.getComputedStyle(css).opacity;
 
-	// Remove the style tag after a short delay
 	setTimeout(() => {
 		document.head.removeChild(css);
 	}, 10);
 }
 
 export default function ThemeToggle() {
-	const [mode, setMode] = useState<ThemeMode>("light");
+	const [mode, setMode] = useState<ThemeMode>("dark");
 	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
@@ -65,11 +62,10 @@ export default function ThemeToggle() {
 		window.localStorage.setItem("theme", nextMode);
 	}
 
-	// Use stable values for SSR to prevent hydration mismatch
-	const Icon = !mounted ? Sun : mode === "light" ? Sun : Moon;
+	const Icon = !mounted ? Moon : mode === "dark" ? Moon : Sun;
 	const label = !mounted
 		? "Switch theme"
-		: `Switch to ${mode === "light" ? "dark" : "light"} mode`;
+		: `Switch to ${mode === "dark" ? "light" : "dark"} mode`;
 
 	return (
 		<button
@@ -77,14 +73,13 @@ export default function ThemeToggle() {
 			onClick={toggleMode}
 			aria-label={label}
 			title={label}
-			className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-background/40 backdrop-blur-3xl text-muted-foreground/50 shadow-lg transition-all duration-300 hover:bg-primary/10 hover:text-primary hover:border-primary/20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+			className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+			style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
 		>
 			<Icon
-				size={20}
+				size={18}
 				weight="bold"
-				className="transition-transform duration-500 ease-spring"
 			/>
 		</button>
 	);
 }
-
