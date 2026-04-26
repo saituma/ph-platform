@@ -37,6 +37,7 @@ import { MiniRunPathPreview } from "@/components/tracking/social/MiniRunPathPrev
 import { CommentsSheet } from "@/components/tracking/social/CommentsSheet";
 import { PostCommentsSheet } from "@/components/tracking/social/PostCommentsSheet";
 import { PostComposerSheet } from "@/components/tracking/social/PostComposerSheet";
+import { LeaderboardCommentSheet } from "@/components/tracking/social/LeaderboardCommentSheet";
 import {
   fetchAdultDirectory,
   fetchLeaderboard,
@@ -141,6 +142,8 @@ export default function TrackingSocialScreen() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [activeRunLogId, setActiveRunLogId] = useState<number | null>(null);
   const [activePostId, setActivePostId] = useState<number | null>(null);
+  const [lbCommentItem, setLbCommentItem] = useState<SocialLeaderboardItem | null>(null);
+  const [lbCommentOpen, setLbCommentOpen] = useState(false);
 
   const cardBorder = isDark ? "rgba(255,255,255,0.08)" : colors.border;
   const cardBg = isDark ? colors.cardElevated : colors.backgroundSecondary;
@@ -608,15 +611,16 @@ export default function TrackingSocialScreen() {
           </View>
         </View>
 
-        {/* Pill tabs */}
-        <PillTabs
-          tabs={TABS}
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          colors={colors}
-          isDark={isDark}
-        />
       </View>
+
+      {/* Full-width tab cards */}
+      <PillTabs
+        tabs={TABS}
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        colors={colors}
+        isDark={isDark}
+      />
 
       {/* Privacy disabled gate */}
       {socialDisabled ? (
@@ -758,6 +762,11 @@ export default function TrackingSocialScreen() {
               onPickRange={pickRange}
               onPickSort={pickLeaderboardSort}
               bottomPad={trackingScrollBottomPad(insets) + 72}
+              postFeed={postFeed}
+              onPressComment={(item) => {
+                setLbCommentItem(item);
+                setLbCommentOpen(true);
+              }}
             />
           ) : null}
 
@@ -809,6 +818,18 @@ export default function TrackingSocialScreen() {
           token={token}
           useTeamFeed={useTeamFeed}
           onPostCreated={loadCommunity}
+        />
+      ) : null}
+
+      {lbCommentItem != null && token != null ? (
+        <LeaderboardCommentSheet
+          open={lbCommentOpen}
+          onClose={() => setLbCommentOpen(false)}
+          item={lbCommentItem}
+          token={token}
+          useTeamFeed={useTeamFeed}
+          postFeed={postFeed}
+          onPosted={(post) => setPostFeed((prev) => [post, ...prev])}
         />
       ) : null}
 
@@ -874,16 +895,26 @@ function PillTabs<K extends string>({
   colors: any;
   isDark: boolean;
 }) {
+  // Robi: tinted, low-saturation backgrounds — no pure black/white
+  const barBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.05)";
+  const activeBg = isDark ? "rgba(255,255,255,0.10)" : "#FFFFFF";
+  // Dark mode: border for elevation instead of shadow
+  const activeBorder = isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.08)";
+  const activeText = isDark ? "rgba(245,245,250,0.98)" : "rgba(15,23,42,0.95)";
+  const inactiveText = isDark ? "rgba(255,255,255,0.38)" : "rgba(15,23,42,0.38)";
+  const activeIcon = isDark ? "rgba(245,245,250,0.95)" : colors.accent;
+
   return (
     <View
       style={{
         flexDirection: "row",
-        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-        borderRadius: 16,
-        padding: 4,
-        marginTop: spacing.sm,
-        marginBottom: spacing.xs ?? 4,
-        gap: 3,
+        backgroundColor: barBg,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.07)",
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        gap: 8,
       }}
     >
       {tabs.map((tab) => {
@@ -896,44 +927,41 @@ function PillTabs<K extends string>({
             accessibilityState={{ selected: active }}
             style={({ pressed }) => ({
               flex: 1,
-              height: 46,
-              borderRadius: 13,
-              backgroundColor: active
-                ? isDark
-                  ? "rgba(255,255,255,0.13)"
-                  : "#FFFFFF"
-                : "transparent",
+              height: 60,
+              borderRadius: 12,
+              backgroundColor: active ? activeBg : "transparent",
+              borderWidth: 1,
+              borderColor: active
+                ? activeBorder
+                : isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.07)",
               alignItems: "center",
               justifyContent: "center",
               gap: 4,
-              opacity: pressed ? 0.75 : 1,
-              ...(active
+              opacity: pressed ? 0.7 : 1,
+              // Light mode only: subtle shadow on active card
+              ...(!isDark && active
                 ? {
-                    shadowColor: "#000",
+                    shadowColor: "rgba(15,23,42,0.12)",
                     shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: isDark ? 0.25 : 0.1,
-                    shadowRadius: 6,
-                    elevation: 3,
+                    shadowOpacity: 1,
+                    shadowRadius: 8,
+                    elevation: 2,
                   }
                 : {}),
             })}
           >
             <Ionicons
               name={active ? tab.iconActive : tab.icon}
-              size={18}
-              color={active ? (isDark ? "#FFFFFF" : "#000000") : colors.textSecondary}
+              size={20}
+              color={active ? activeIcon : inactiveText}
             />
             <Text
               style={{
                 fontFamily: active ? fonts.bodyBold : fonts.bodyMedium,
                 fontSize: 11,
-                lineHeight: 13,
-                color: active
-                  ? isDark
-                    ? "#FFFFFF"
-                    : "#000000"
-                  : colors.textSecondary,
-                letterSpacing: 0.1,
+                lineHeight: 14,
+                color: active ? activeText : inactiveText,
+                letterSpacing: 0.2,
               }}
             >
               {tab.label}
@@ -1193,6 +1221,8 @@ function LeaderboardTab({
   onPickRange,
   onPickSort,
   bottomPad,
+  postFeed,
+  onPressComment,
 }: {
   leaderboard: SocialLeaderboardItem[];
   loading: boolean;
@@ -1206,6 +1236,8 @@ function LeaderboardTab({
   onPickRange: () => void;
   onPickSort: () => void;
   bottomPad: number;
+  postFeed: SocialPostItem[];
+  onPressComment: (item: SocialLeaderboardItem) => void;
 }) {
   type ListItem =
     | { _listType: "filters" }
@@ -1265,16 +1297,21 @@ function LeaderboardTab({
           />
         );
       }
+      const commentCount = postFeed.filter(
+        (p) => p.content.startsWith(`[lb:${item.data.userId}] `),
+      ).length;
       return (
         <LeaderboardRow
           item={item.data}
           colors={colors}
           cardBg={cardBg}
           cardBorder={cardBorder}
+          commentCount={commentCount}
+          onPressComment={() => onPressComment(item.data)}
         />
       );
     },
-    [cardBg, cardBorder, colors, isDark, onPickRange, onPickSort, rangeDays],
+    [cardBg, cardBorder, colors, isDark, onPickRange, onPickSort, onPressComment, postFeed, rangeDays],
   );
 
   const keyExtractor = useCallback((item: ListItem) => {
@@ -1971,11 +2008,15 @@ function LeaderboardRow({
   colors,
   cardBg,
   cardBorder,
+  commentCount,
+  onPressComment,
 }: {
   item: SocialLeaderboardItem;
   colors: any;
   cardBg: string;
   cardBorder: string;
+  commentCount: number;
+  onPressComment: () => void;
 }) {
   const rankColor =
     item.rank === 1
@@ -2003,49 +2044,75 @@ function LeaderboardRow({
         borderWidth: 1,
         borderColor: cardBorder,
         padding: spacing.lg,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
+        gap: 10,
       }}
     >
-      <View
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          backgroundColor: rankBg,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: rankColor }}>
-          #{item.rank}
-        </Text>
-      </View>
-      <InitialAvatar
-        initial={item.name.slice(0, 1).toUpperCase()}
-        url={item.avatarUrl}
-        size={38}
-      />
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary }}>
-          {item.name}
-        </Text>
-        <Text
+      {/* Main row */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View
           style={{
-            fontFamily: fonts.bodyMedium,
-            fontSize: 12,
-            color: colors.textSecondary,
-            marginTop: 1,
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: rankBg,
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {item.kmTotal.toFixed(1)} km · {item.durationMinutesTotal} min
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: rankColor }}>
+            #{item.rank}
+          </Text>
+        </View>
+        <InitialAvatar
+          initial={item.name.slice(0, 1).toUpperCase()}
+          url={item.avatarUrl}
+          size={38}
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary }}>
+            {item.name}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.bodyMedium,
+              fontSize: 12,
+              color: colors.textSecondary,
+              marginTop: 1,
+            }}
+          >
+            {item.kmTotal.toFixed(1)} km · {item.durationMinutesTotal} min
+          </Text>
+        </View>
+        <Text style={{ fontFamily: fonts.statNumber, fontSize: 16, color: rankColor }}>
+          {item.kmTotal.toFixed(1)}
+          <Text style={{ fontSize: 11, color: colors.textSecondary }}> km</Text>
         </Text>
       </View>
-      <Text style={{ fontFamily: fonts.statNumber, fontSize: 16, color: rankColor }}>
-        {item.kmTotal.toFixed(1)}
-        <Text style={{ fontSize: 11, color: colors.textSecondary }}> km</Text>
-      </Text>
+
+      {/* Comment bar */}
+      <Pressable
+        onPress={onPressComment}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingVertical: 7,
+          paddingHorizontal: 12,
+          borderRadius: 10,
+          backgroundColor: "transparent",
+          borderWidth: 1,
+          borderColor: cardBorder,
+          opacity: pressed ? 0.7 : 1,
+          alignSelf: "flex-start",
+        })}
+      >
+        <Ionicons name="chatbubble-outline" size={14} color={colors.textSecondary} />
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+          {commentCount > 0
+            ? `${commentCount} ${commentCount === 1 ? "comment" : "comments"}`
+            : "Leave a comment"}
+        </Text>
+      </Pressable>
     </View>
   );
 }

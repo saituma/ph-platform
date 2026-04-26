@@ -25,7 +25,6 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
-import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
 import { canAccessTier } from "@/lib/planAccess";
 import { isAdultAthleteAppRole } from "@/lib/appRole";
@@ -69,32 +68,20 @@ export default function ProgramSessionDetailScreen() {
   const { token, programTier, athleteUserId, managedAthletes, appRole, capabilities } =
     useAppSelector((state) => state.user);
 
-  const bootstrapReady = useAppSelector(selectBootstrapReady);
-
   /**
-   * Cold start protection against Expo Go restoring ghost routes from AsyncStorage.
+   * Cold start protection: ghost restore guard — see content/[contentId].tsx for rationale.
    */
   useLayoutEffect(() => {
-    if (!bootstrapReady) return;
     if (router.canGoBack()) return;
-    
     let cancelled = false;
     Linking.getInitialURL().then((url) => {
       if (cancelled) return;
-      
-      const role = String(appRole ?? "");
-      const isYouth = role === "youth_athlete" || role === "youth_athlete_guardian_only";
-      if (isYouth) {
-        router.replace("/" as any);
-        return;
-      }
-      
-      if (url && url.includes("/programs/session/")) {
-        return;
-      }
+      if (url && url.includes("/programs/session/")) return;
+      router.replace("/(tabs)");
     });
     return () => { cancelled = true; };
-  }, [bootstrapReady, router, appRole]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const canUploadVideoResponse = useMemo(() => {
     if (capabilities?.coachVideoUpload === true) return true;
