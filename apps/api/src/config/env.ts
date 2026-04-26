@@ -138,7 +138,7 @@ const scriptPlaceholder = "__ph_api_script_unused__";
   // Onboarding/portal (Vite) + web often run on 5173; allow socket + fetch in local dev.
   corsOrigins:
     raw.CORS_ORIGINS ??
-    "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173",
+    "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,https://ph-platform-onboarding.vercel.app",
 	  requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
 	  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
 	};

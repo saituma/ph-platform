@@ -322,8 +322,8 @@ export interface FileRoutesByFullPath {
   '/portal/schedule': typeof PortalScheduleRoute
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/app/$': typeof ApiAppSplatRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
   '/portal/team/': typeof PortalTeamIndexRoute
@@ -369,8 +369,8 @@ export interface FileRoutesByTo {
   '/portal/schedule': typeof PortalScheduleRoute
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/app/$': typeof ApiAppSplatRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs': typeof PortalProgramsIndexRoute
   '/portal/team': typeof PortalTeamIndexRoute
@@ -417,8 +417,8 @@ export interface FileRoutesById {
   '/portal/schedule': typeof PortalScheduleRoute
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/app/$': typeof ApiAppSplatRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
   '/portal/team/': typeof PortalTeamIndexRoute
@@ -466,8 +466,8 @@ export interface FileRouteTypes {
     | '/portal/schedule'
     | '/portal/terms'
     | '/portal/testimonial'
-    | '/api/auth/$'
     | '/api/app/$'
+    | '/api/auth/$'
     | '/portal/team/$athleteId'
     | '/portal/programs/'
     | '/portal/team/'
@@ -513,8 +513,8 @@ export interface FileRouteTypes {
     | '/portal/schedule'
     | '/portal/terms'
     | '/portal/testimonial'
-    | '/api/auth/$'
     | '/api/app/$'
+    | '/api/auth/$'
     | '/portal/team/$athleteId'
     | '/portal/programs'
     | '/portal/team'
@@ -560,8 +560,8 @@ export interface FileRouteTypes {
     | '/portal/schedule'
     | '/portal/terms'
     | '/portal/testimonial'
-    | '/api/auth/$'
     | '/api/app/$'
+    | '/api/auth/$'
     | '/portal/team/$athleteId'
     | '/portal/programs/'
     | '/portal/team/'
@@ -588,8 +588,8 @@ export interface RootRouteChildren {
   OnboardingStep4Route: typeof OnboardingStep4Route
   OnboardingStep5Route: typeof OnboardingStep5Route
   OnboardingSuccessRoute: typeof OnboardingSuccessRoute
-  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAppSplatRoute: typeof ApiAppSplatRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -990,8 +990,8 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingStep4Route: OnboardingStep4Route,
   OnboardingStep5Route: OnboardingStep5Route,
   OnboardingSuccessRoute: OnboardingSuccessRoute,
-  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAppSplatRoute: ApiAppSplatRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
