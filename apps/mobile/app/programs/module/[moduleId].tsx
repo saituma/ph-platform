@@ -16,7 +16,6 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
-import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { apiRequest } from "@/lib/api";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
 import { Shadows } from "@/constants/theme";
@@ -54,38 +53,25 @@ type TrainingContentV2Workspace = {
 export default function ProgramModuleDetailScreen() {
   const router = useRouter();
   const isFocused = useSafeIsFocused(true);
-  const appRole = useAppSelector((state) => state.user.appRole);
   const { moduleId, programId } = useLocalSearchParams<{
     moduleId?: string | string[];
     programId?: ProgramId | string;
   }>();
 
-  const bootstrapReady = useAppSelector(selectBootstrapReady);
-
   /**
-   * Cold start protection against Expo Go restoring ghost routes from AsyncStorage.
+   * Cold start protection: ghost restore guard — see content/[contentId].tsx for rationale.
    */
   useLayoutEffect(() => {
-    if (!bootstrapReady) return;
     if (router.canGoBack()) return;
-    
     let cancelled = false;
     Linking.getInitialURL().then((url) => {
       if (cancelled) return;
-      
-      const role = String(appRole ?? "");
-      const isYouth = role === "youth_athlete" || role === "youth_athlete_guardian_only";
-      if (isYouth) {
-        router.replace("/" as any);
-        return;
-      }
-      
-      if (url && url.includes("/programs/module/")) {
-        return;
-      }
+      if (url && url.includes("/programs/module/")) return;
+      router.replace("/(tabs)");
     });
     return () => { cancelled = true; };
-  }, [bootstrapReady, router, appRole]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const moduleIdValue = useMemo(() => {
     const raw = Array.isArray(moduleId) ? moduleId[0] : moduleId;

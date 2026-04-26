@@ -14,7 +14,6 @@ import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { useAppSelector } from "@/store/hooks";
-import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
@@ -115,40 +114,30 @@ export default function ProgramContentDetailScreen() {
       index?: string;
     }>();
   const router = useRouter();
-  const { token, programTier, athleteUserId, managedAthletes, appRole } = useAppSelector(
+  const { token, athleteUserId, managedAthletes } = useAppSelector(
     (state) => state.user,
   );
-  const bootstrapReady = useAppSelector(selectBootstrapReady);
   const { isDark, colors } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
 
   /**
-   * Cold start protection against Expo Go restoring ghost routes from AsyncStorage.
+   * Cold start protection: if this screen is at the root of the stack (no back history)
+   * and there is no real incoming deep link for it, it is a ghost restore from Expo
+   * Router's persisted navigation state — redirect to the correct entry screen.
+   * Runs on mount without waiting for bootstrapReady so logged-out users are also covered.
    */
   useLayoutEffect(() => {
-    if (!bootstrapReady) return;
     if (router.canGoBack()) return;
-    
     let cancelled = false;
     Linking.getInitialURL().then((url) => {
       if (cancelled) return;
-      
-      const role = String(appRole ?? "");
-      const isYouth = role === "youth_athlete" || role === "youth_athlete_guardian_only";
-      if (isYouth) {
-        router.replace("/" as any);
-        return;
-      }
-      
-      // If it's not a real deep link matching this content, it's a ghost restore
-      if (url && url.includes("/programs/content/")) {
-        return; 
-      }
+      if (url && url.includes("/programs/content/")) return;
       router.replace("/(tabs)");
     });
     return () => { cancelled = true; };
-  }, [bootstrapReady, router, appRole]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     item,

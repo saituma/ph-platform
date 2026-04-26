@@ -7,6 +7,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
+import { nitro } from "nitro/vite";
 import neon from "./neon-vite-plugin.ts";
 
 const onboardingRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -45,6 +46,13 @@ export default defineConfig(({ mode }) => {
 				},
 			},
 		},
-		plugins: [devtools(), neon, tailwindcss(), tanstackStart(), viteReact()],
+		plugins: [
+			devtools(),
+			neon,
+			tailwindcss(),
+			tanstackStart(),
+			nitro({ preset: "vercel" }),
+			viteReact(),
+		],
 	};
 });

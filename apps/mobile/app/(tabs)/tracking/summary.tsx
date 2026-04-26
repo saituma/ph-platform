@@ -32,6 +32,7 @@ import {
   TrendingUp,
   Save,
 } from "lucide-react-native";
+import { RunShareCard } from "../../../components/tracking/RunShareCard";
 import * as Crypto from "expo-crypto";
 import { fonts, radius, spacing } from "@/constants/theme";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -89,6 +90,12 @@ export default function RunSummaryScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [notesFocused, setNotesFocused] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
+  const [savedRunSnapshot, setSavedRunSnapshot] = useState<{
+    distanceMeters: number;
+    elapsedSeconds: number;
+    coordinates: typeof coordinates;
+  } | null>(null);
 
   const mapCoordinates = useMemo(
     () => thinRoutePointsForDisplay(coordinates, 22),
@@ -205,6 +212,14 @@ export default function RunSummaryScreen() {
       console.warn("[summary] failed to save run", e);
     }
 
+    // Snapshot run data then show share card before navigating
+    setSavedRunSnapshot({ distanceMeters: finalDistanceMeters, elapsedSeconds, coordinates });
+    setShowShareCard(true);
+  };
+
+  const handleShareCardClose = () => {
+    setShowShareCard(false);
+    setSavedRunSnapshot(null);
     resetRun();
     router.replace("/(tabs)/tracking" as any);
   };
@@ -564,6 +579,16 @@ export default function RunSummaryScreen() {
           </BottomSheet>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {savedRunSnapshot && (
+        <RunShareCard
+          visible={showShareCard}
+          distanceMeters={savedRunSnapshot.distanceMeters}
+          elapsedSeconds={savedRunSnapshot.elapsedSeconds}
+          coordinates={savedRunSnapshot.coordinates}
+          onClose={handleShareCardClose}
+        />
+      )}
     </>
   );
 }

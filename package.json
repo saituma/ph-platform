@@ -43,7 +43,8 @@
     },
     "patchedDependencies": {
       "react-native-youtube-iframe@2.4.1": "patches/react-native-youtube-iframe@2.4.1.patch",
-      "uniwind@1.6.2": "patches/uniwind@1.6.2.patch"
+      "uniwind@1.6.2": "patches/uniwind@1.6.2.patch",
+      "@react-native-community/progress-bar-android@1.0.5": "patches/@react-native-community__progress-bar-android@1.0.5.patch"
     }
   }
 }

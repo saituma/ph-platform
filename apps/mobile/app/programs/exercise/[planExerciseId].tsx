@@ -188,16 +188,19 @@ export default function PremiumExerciseDetailScreen() {
   const lastLoadedRef = useRef<string | null>(null);
 
   /**
-   * Youth users should land on the Home tab on cold start.
-   * If this deep program route becomes the root screen (no back stack), redirect to Home.
+   * Cold start protection: ghost restore guard — see content/[contentId].tsx for rationale.
    */
   useEffect(() => {
-    const role = String(appRole ?? "");
-    const isYouth = role === "youth_athlete" || role === "youth_athlete_guardian_only";
-    if (!isYouth) return;
     if (router.canGoBack()) return;
-    router.replace("/" as any);
-  }, [appRole, router]);
+    let cancelled = false;
+    Linking.getInitialURL().then((url) => {
+      if (cancelled) return;
+      if (url && url.includes("/programs/exercise/")) return;
+      router.replace("/(tabs)");
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const load = useCallback(
     async (force = false) => {

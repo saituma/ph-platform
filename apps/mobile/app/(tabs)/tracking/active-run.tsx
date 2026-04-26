@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Text, View, Pressable, ActivityIndicator, Alert } from "react-native";
+import { Text, View, Pressable, ActivityIndicator } from "react-native";
+import * as Crypto from "expo-crypto";
+import { initSQLiteRuns, saveRunRecord } from "../../../lib/sqliteRuns";
+import { estimateCalories } from "../../../lib/tracking/runUtils";
+import { pushRunsToCloud } from "../../../lib/runSync";
+import { RunShareCard } from "../../../components/tracking/RunShareCard";
+import { useAppSelector } from "@/store/hooks";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useRouter, Stack } from "expo-router";
@@ -40,12 +46,14 @@ export default function ActiveRunScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const { setIsTabBarVisible } = useTabVisibility();
+  const userId = useAppSelector((s) => s.user.profile.id ?? null);
   const {
     status,
     startRun,
     pauseRun,
     resumeRun,
     stopRun,
+    resetRun,
     elapsedSeconds,
     distanceMeters,
     coordinates,
@@ -61,6 +69,11 @@ export default function ActiveRunScreen() {
   const [layersSheetIndex, setLayersSheetIndex] = useState<ActiveRunLayersSheetIndex>(-1);
   const [pointsOfInterestEnabled, setPointsOfInterestEnabled] = useState(true);
   const [showRunSheetHint, setShowRunSheetHint] = useState(true);
+  const [shareCardData, setShareCardData] = useState<{
+    distanceMeters: number;
+    elapsedSeconds: number;
+    coordinates: typeof coordinates;
+  } | null>(null);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   const toastTranslateY = useSharedValue(-120);
@@ -170,7 +183,43 @@ export default function ActiveRunScreen() {
   const handleFinishRun = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     stopRun();
-    router.replace("/(tabs)/tracking/summary" as any);
+
+    const finalDistance = distanceMeters;
+    const finalSeconds = elapsedSeconds;
+    const finalCoords = coordinates;
+
+    const distanceKm = finalDistance / 1000;
+    const avg_speed = distanceKm > 0 && finalSeconds > 0 ? distanceKm / (finalSeconds / 3600) : 0;
+    const avg_pace = distanceKm > 0 && finalSeconds > 0 ? finalSeconds / 60 / distanceKm : 0;
+
+    try {
+      initSQLiteRuns();
+      saveRunRecord({
+        id: Crypto.randomUUID(),
+        date: new Date().toISOString(),
+        distance_meters: finalDistance,
+        duration_seconds: finalSeconds,
+        avg_pace: Number.isFinite(avg_pace) ? avg_pace : 0,
+        avg_speed: Number.isFinite(avg_speed) ? avg_speed : 0,
+        calories: estimateCalories(finalDistance),
+        coordinates: JSON.stringify(finalCoords),
+        effort_level: 0,
+        feel_tags: "[]",
+        notes: "",
+        user_id: userId,
+      });
+      pushRunsToCloud();
+    } catch (e) {
+      console.warn("[active-run] failed to save run", e);
+    }
+
+    setShareCardData({ distanceMeters: finalDistance, elapsedSeconds: finalSeconds, coordinates: finalCoords });
+  };
+
+  const handleShareCardClose = () => {
+    setShareCardData(null);
+    resetRun();
+    router.replace("/(tabs)/tracking" as any);
   };
 
   const screenStyle = useAnimatedStyle(() => ({
@@ -552,6 +601,16 @@ export default function ActiveRunScreen() {
         />
         </Animated.View>
       </SafeAreaView>
+
+      {shareCardData && (
+        <RunShareCard
+          visible={!!shareCardData}
+          distanceMeters={shareCardData.distanceMeters}
+          elapsedSeconds={shareCardData.elapsedSeconds}
+          coordinates={shareCardData.coordinates}
+          onClose={handleShareCardClose}
+        />
+      )}
     </>
   );
 }

@@ -7,6 +7,7 @@ import { SocketProvider } from "@/context/SocketContext";
 import { TabVisibilityProvider } from "@/context/TabVisibilityContext";
 import { InAppNotificationsProvider } from "@/context/InAppNotificationsContext";
 import { Stack, slideFromRight, Transition } from "@/components/navigation/TransitionStack";
+import { useRouter } from "expo-router";
 import { HeroAppProvider } from "@/components/ui/hero";
 import { AuthPersist } from "@/store/AuthPersist";
 import { ReduxProvider } from "@/store/Provider";
@@ -15,6 +16,7 @@ import React, {
   ReactElement,
   useEffect,
   useMemo,
+  useRef,
 } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SystemBars } from "react-native-edge-to-edge";
@@ -83,17 +85,28 @@ function StartupSplashController() {
   const hydrated = useAppSelector((state) => state.user.hydrated);
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
   const bootstrapReady = useAppSelector(selectBootstrapReady);
+  const router = useRouter();
+  const did = useRef(false);
 
   useEffect(() => {
     if (!hydrated) return;
     if (isAuthenticated && !bootstrapReady) return;
+    if (did.current) return;
+    did.current = true;
 
-    // Program detail (`/programs/[id]`) handles cold-start redirect / blank frame internally;
-    // do not gate splash on pathname here — a broad `/programs` check would block hideAsync
-    // forever when the user cold-opens a legitimate program deep link.
+    // Always navigate to the canonical entry screen before revealing the app so
+    // Expo Router's persisted navigation state (e.g. a program detail from a
+    // previous session) is never shown on cold start.
+    if (!isAuthenticated) {
+      router.replace("/(auth)/login");
+    } else {
+      router.replace("/(tabs)");
+    }
 
-    void SplashScreen.hideAsync().catch(() => {});
-  }, [bootstrapReady, hydrated, isAuthenticated]);
+    // Small delay lets the replace() navigation settle before the splash disappears,
+    // preventing a single-frame flash of the stale restored route.
+    setTimeout(() => void SplashScreen.hideAsync().catch(() => {}), 80);
+  }, [bootstrapReady, hydrated, isAuthenticated, router]);
 
   return null;
 }
