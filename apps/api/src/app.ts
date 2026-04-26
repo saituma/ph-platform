@@ -42,10 +42,18 @@ export function createApp() {
   );
 
   const allowedOrigins = new Set<string>();
+  const allowedWildcards: string[] = [];
+
   const addOrigin = (value?: string) => {
     if (!value) return;
     if (value === "*") {
       allowedOrigins.add("*");
+      return;
+    }
+    // Wildcard pattern e.g. *.vercel.app or https://*.vercel.app
+    if (value.includes("*")) {
+      const escaped = value.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+      allowedWildcards.push(escaped);
       return;
     }
     try {
@@ -55,6 +63,12 @@ export function createApp() {
       allowedOrigins.add(value);
     }
   };
+
+  const originAllowed = (origin: string) => {
+    if (allowedOrigins.has(origin)) return true;
+    return allowedWildcards.some((pattern) => new RegExp(`^${pattern}$`).test(origin));
+  };
+
   addOrigin(env.adminWebUrl);
   // Always allow localhost for onboarding/web dev
   addOrigin("http://localhost:3000");
@@ -75,7 +89,7 @@ export function createApp() {
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
         if (allowedOrigins.has("*")) return callback(null, true);
-        if (allowedOrigins.has(origin)) return callback(null, true);
+        if (originAllowed(origin)) return callback(null, true);
 
         // Final fallback for any localhost variation
         if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
