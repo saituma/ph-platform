@@ -10,6 +10,27 @@ import {
 } from "@phosphor-icons/react";
 
 export const Route = createFileRoute("/features")({
+	head: () => ({
+		meta: [
+			{ title: "Platform Features — PH Performance" },
+			{
+				name: "description",
+				content:
+					"Explore PH Performance's full feature set: deep analytics, video coaching with automated tagging, team sync, programme scheduling, and nutrition logging for athletes and coaches.",
+			},
+			{ property: "og:title", content: "Platform Features — PH Performance" },
+			{
+				property: "og:description",
+				content:
+					"Deep analytics, video coaching, team sync, and programme scheduling. Everything elite athletes and coaches need in one professional platform.",
+			},
+			{
+				property: "og:url",
+				content: "https://ph-platform-onboarding.vercel.app/features",
+			},
+		],
+		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/features" }],
+	}),
 	component: Features,
 });
 

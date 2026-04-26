@@ -19,6 +19,12 @@ import { toast } from "sonner";
 import { config } from "#/lib/config";
 
 export const Route = createFileRoute("/verification")({
+	head: () => ({
+		meta: [
+			{ title: "Verify Your Email — PH Performance" },
+			{ name: "robots", content: "noindex, nofollow" },
+		],
+	}),
     component: VerificationComponent,
 });
 

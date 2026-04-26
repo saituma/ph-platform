@@ -23,6 +23,12 @@ import { cn } from "#/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/onboarding/step-3")({
+	head: () => ({
+		meta: [
+			{ title: "Training & Goals — PH Performance" },
+			{ name: "robots", content: "noindex, nofollow" },
+		],
+	}),
 	component: OnboardingStep3,
 });
 

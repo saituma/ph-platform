@@ -43,9 +43,54 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		meta: [
 			{ charSet: "utf-8" },
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
-			{ title: "PH Platform Onboarding" },
+			{ title: "PH Performance — Elite Athlete & Team Training Platform" },
+			{
+				name: "description",
+				content:
+					"PH Performance is the professional platform for athletes and teams to track progress, optimize training, and achieve more. Deep analytics, video coaching, and team sync.",
+			},
+			// Open Graph defaults
+			{ property: "og:site_name", content: "PH Performance" },
+			{ property: "og:type", content: "website" },
+			{
+				property: "og:title",
+				content: "PH Performance — Elite Athlete & Team Training Platform",
+			},
+			{
+				property: "og:description",
+				content:
+					"Professional performance tracking for athletes and teams. Deep analytics, video coaching, and real-time team sync — all in one platform.",
+			},
+			{
+				property: "og:image",
+				content: "https://ph-platform-onboarding.vercel.app/home.png",
+			},
+			{ property: "og:image:width", content: "1200" },
+			{ property: "og:image:height", content: "630" },
+			{
+				property: "og:url",
+				content: "https://ph-platform-onboarding.vercel.app/",
+			},
+			// Twitter / X Card defaults
+			{ name: "twitter:card", content: "summary_large_image" },
+			{
+				name: "twitter:title",
+				content: "PH Performance — Elite Athlete & Team Training Platform",
+			},
+			{
+				name: "twitter:description",
+				content:
+					"Professional performance tracking for athletes and teams. Deep analytics, video coaching, and real-time team sync.",
+			},
+			{
+				name: "twitter:image",
+				content: "https://ph-platform-onboarding.vercel.app/home.png",
+			},
+			// Theme colour for browser chrome
+			{ name: "theme-color", content: "#22c55e" },
 		],
 		links: [
+			{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/" },
 			{ rel: "preconnect", href: "https://api.fontshare.com" },
 			{
 				rel: "stylesheet",

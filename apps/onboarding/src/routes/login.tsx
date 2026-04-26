@@ -17,6 +17,18 @@ import { Input } from "#/components/ui/input";
 import { config } from "#/lib/config";
 
 export const Route = createFileRoute("/login")({
+	head: () => ({
+		meta: [
+			{ title: "Sign In — PH Performance" },
+			{
+				name: "description",
+				content:
+					"Sign in to your PH Performance account to access your training dashboard, coaching feedback, schedule, and team management.",
+			},
+			{ name: "robots", content: "noindex, follow" },
+		],
+		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/login" }],
+	}),
 	component: Login,
 });
 

@@ -57,6 +57,12 @@ function formatMoney(
 }
 
 export const Route = createFileRoute("/onboarding/success")({
+	head: () => ({
+		meta: [
+			{ title: "Welcome to PH Performance" },
+			{ name: "robots", content: "noindex, nofollow" },
+		],
+	}),
 	component: OnboardingSuccess,
 });
 

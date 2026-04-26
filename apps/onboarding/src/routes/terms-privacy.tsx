@@ -1,6 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/terms-privacy")({
+	head: () => ({
+		meta: [
+			{ title: "Terms & Privacy Policy — PH Performance" },
+			{
+				name: "description",
+				content:
+					"Read the PH Performance Terms of Service and Privacy Policy. We are committed to protecting your data and providing a transparent, fair service.",
+			},
+			{ name: "robots", content: "noindex, follow" },
+		],
+		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/terms-privacy" }],
+	}),
 	component: TermsPrivacy,
 });
 

@@ -2,7 +2,78 @@ import { MinusIcon, PlusIcon } from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
+const faqSchema = {
+	"@context": "https://schema.org",
+	"@type": "FAQPage",
+	mainEntity: [
+		{
+			"@type": "Question",
+			name: "Who is the PH Platform for?",
+			acceptedAnswer: {
+				"@type": "Answer",
+				text: "PH Platform is designed for everyone committed to performance improvement. While we have deep roots in youth football development, our platform has evolved to support adult fitness, professional sports preparation, and general athletic longevity for all age groups.",
+			},
+		},
+		{
+			"@type": "Question",
+			name: "Do I need any special equipment to start?",
+			acceptedAnswer: {
+				"@type": "Answer",
+				text: "Many of our foundation programs (PHP and PHP Plus) are designed to be performed with minimal equipment—often just some space, a ball, or light weights.",
+			},
+		},
+		{
+			"@type": "Question",
+			name: "How do the different membership tiers work?",
+			acceptedAnswer: {
+				"@type": "Answer",
+				text: "We offer four primary tiers: PHP (Base), PHP Plus, PHP Premium, and PHP Pro. The base tier provides structured training, while higher tiers add group bookings, 1-on-1 messaging, and personalized video feedback from our elite coaching staff.",
+			},
+		},
+		{
+			"@type": "Question",
+			name: "Can I use this for professional sports preparation?",
+			acceptedAnswer: {
+				"@type": "Answer",
+				text: "Yes. Our PHP Pro and Premium tiers are frequently used by athletes preparing for trials, college recruitment, or professional seasons.",
+			},
+		},
+		{
+			"@type": "Question",
+			name: "Is the training safe for young children?",
+			acceptedAnswer: {
+				"@type": "Answer",
+				text: "Athlete safety is our number one priority. All youth movements are vetted by sports scientists to be age-appropriate, focusing on proper mechanics and body control before adding intensity or weight.",
+			},
+		},
+	],
+};
+
 export const Route = createFileRoute("/education-faq")({
+	head: () => ({
+		meta: [
+			{ title: "Athlete Education FAQ — PH Performance" },
+			{
+				name: "description",
+				content:
+					"Answers to common questions about PH Performance: membership tiers, equipment requirements, youth safety, adult programming, and professional sports preparation.",
+			},
+			{ property: "og:title", content: "Athlete Education FAQ — PH Performance" },
+			{
+				property: "og:description",
+				content:
+					"Everything you need to know about getting started with PH Performance — from choosing the right plan to training safely at any age.",
+			},
+			{
+				property: "og:url",
+				content: "https://ph-platform-onboarding.vercel.app/education-faq",
+			},
+		],
+		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/education-faq" }],
+		scripts: [
+			{ type: "application/ld+json", children: JSON.stringify(faqSchema) },
+		],
+	}),
 	component: EducationFAQ,
 });
 

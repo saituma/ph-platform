@@ -19,7 +19,80 @@ import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { config } from "#/lib/config";
 
+const SITE_URL = "https://ph-platform-onboarding.vercel.app";
+
+const organizationSchema = {
+	"@context": "https://schema.org",
+	"@type": "Organization",
+	name: "PH Performance",
+	url: SITE_URL,
+	logo: `${SITE_URL}/ph.jpg`,
+	description:
+		"Professional athlete and team performance tracking platform with deep analytics, video coaching, and team sync.",
+	sameAs: [],
+};
+
+const websiteSchema = {
+	"@context": "https://schema.org",
+	"@type": "WebSite",
+	name: "PH Performance",
+	url: SITE_URL,
+	potentialAction: {
+		"@type": "SearchAction",
+		target: `${SITE_URL}/?q={search_term_string}`,
+		"query-input": "required name=search_term_string",
+	},
+};
+
+const softwareAppSchema = {
+	"@context": "https://schema.org",
+	"@type": "SoftwareApplication",
+	name: "PH Performance",
+	applicationCategory: "SportsApplication",
+	operatingSystem: "iOS, Android",
+	offers: {
+		"@type": "Offer",
+		price: "0",
+		priceCurrency: "GBP",
+	},
+	description:
+		"Elite performance tracking for athletes and teams — analytics, video coaching, team sync, and scheduling.",
+};
+
 export const Route = createFileRoute("/")({
+	head: () => ({
+		meta: [
+			{ title: "PH Performance — Elite Athlete & Team Training Platform" },
+			{
+				name: "description",
+				content:
+					"Track performance, optimize training, and manage your team with PH Performance. Deep analytics, video coaching, and real-time team sync for elite athletes.",
+			},
+			{ property: "og:title", content: "PH Performance — Elite Athlete & Team Training Platform" },
+			{
+				property: "og:description",
+				content:
+					"Professional performance tracking for athletes and teams. Deep analytics, video coaching, and real-time team sync — all in one platform.",
+			},
+			{ property: "og:url", content: SITE_URL },
+			{ property: "og:type", content: "website" },
+		],
+		links: [{ rel: "canonical", href: SITE_URL }],
+		scripts: [
+			{
+				type: "application/ld+json",
+				children: JSON.stringify(organizationSchema),
+			},
+			{
+				type: "application/ld+json",
+				children: JSON.stringify(websiteSchema),
+			},
+			{
+				type: "application/ld+json",
+				children: JSON.stringify(softwareAppSchema),
+			},
+		],
+	}),
 	component: RouteComponent,
 });
 
