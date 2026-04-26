@@ -127,10 +127,17 @@ export default function TrackingHomeScreen() {
 
   const runStatus = useRunStore((s) => s.status);
 
+  // When a run is already active, jump straight to the live stats screen.
+  useEffect(() => {
+    if (runStatus === "running" || runStatus === "paused") {
+      router.replace("/(tabs)/tracking/active-run" as any);
+    }
+  }, [runStatus, router]);
+
   const handleStartRun = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (runStatus === "running" || runStatus === "paused") {
-      router.push("/(tabs)/tracking/active-run" as any);
+      router.replace("/(tabs)/tracking/active-run" as any);
       return;
     }
     const store = useRunStore.getState();

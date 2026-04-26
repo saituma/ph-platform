@@ -127,7 +127,7 @@ function OnboardingStep3() {
 	if (isValidating) return null;
 
 	return (
-		<main className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+		<main className="mx-auto max-w-2xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
 					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
@@ -141,7 +141,7 @@ function OnboardingStep3() {
 					</p>
 				</div>
 
-				<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-8 rounded-3xl ring-1 ring-border/50">
+				<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-5 sm:p-8 rounded-3xl ring-1 ring-border/50">
 					<form onSubmit={handleSubmit} className="space-y-10">
 						<div className="space-y-8">
 							{/* Training Frequency */}
@@ -150,14 +150,14 @@ function OnboardingStep3() {
 									<Lightning size={18} className="text-primary" />
 									Training Frequency (Days per week)
 								</label>
-								<div className="flex justify-between gap-2">
+								<div className="grid grid-cols-7 gap-1 sm:gap-2">
 									{[1, 2, 3, 4, 5, 6, 7].map((num) => (
 										<button
 											key={num}
 											type="button"
 											onClick={() => setTrainingPerWeek(num)}
 											className={cn(
-												"flex-1 h-12 rounded-xl border-2 transition-all font-bold text-sm",
+												"h-10 sm:h-12 rounded-xl border-2 transition-all font-bold text-xs sm:text-sm",
 												trainingPerWeek === num
 													? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
 													: "border-border/60 bg-background/50 text-muted-foreground hover:border-primary/40",

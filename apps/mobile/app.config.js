@@ -40,11 +40,13 @@ function maybeAttachGoogleServicesFiles(expoConfig) {
     androidOverride,
     "./google-services.json",
     "../google-services.json",
+    "../../google-services.json",
   ].filter(Boolean);
   const iosCandidates = [
     iosOverride,
     "./GoogleService-Info.plist",
     "../GoogleService-Info.plist",
+    "../../GoogleService-Info.plist",
   ].filter(Boolean);
 
   const pickExisting = (candidates) => {

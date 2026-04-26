@@ -127,7 +127,7 @@ function OnboardingSuccess() {
 	}, []);
 
 	return (
-		<main className="mx-auto max-w-2xl px-4 py-20 sm:px-6 lg:px-8">
+		<main className="mx-auto max-w-2xl px-4 py-10 sm:py-20 sm:px-6 lg:px-8">
 			<section className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="flex flex-col items-center text-center space-y-6">
 					<div className="relative">
@@ -149,7 +149,7 @@ function OnboardingSuccess() {
 				</div>
 
 				{receipt ? (
-					<Card className="border-primary/30 bg-card/80 p-8 rounded-3xl ring-1 ring-primary/20 text-left space-y-4">
+					<Card className="border-primary/30 bg-card/80 p-5 sm:p-8 rounded-3xl ring-1 ring-primary/20 text-left space-y-4">
 						<p className="text-xs font-bold uppercase tracking-widest text-primary">
 							PH Performance · receipt
 						</p>
@@ -262,7 +262,7 @@ function OnboardingSuccess() {
 					</Card>
 				) : null}
 
-				<Card className="border-border/60 bg-card/50 backdrop-blur-md shadow-2xl p-10 rounded-[2.5rem] ring-1 ring-border/50 overflow-hidden relative">
+				<Card className="border-border/60 bg-card/50 backdrop-blur-md shadow-2xl p-6 sm:p-10 rounded-[2.5rem] ring-1 ring-border/50 overflow-hidden relative">
 					{/* Decorative background accent */}
 					<div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl" />
 

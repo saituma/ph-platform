@@ -120,7 +120,7 @@ function OnboardingStep1() {
 	if (isValidating) return null;
 
 	return (
-		<main className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+		<main className="mx-auto max-w-4xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
 					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
@@ -186,7 +186,7 @@ function OnboardingStep1() {
 
 					{selected && (
 						<div className="max-w-md mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-500">
-							<div className="space-y-6 bg-card/50 backdrop-blur-sm p-8 rounded-[2.5rem] border border-border/60 shadow-xl">
+							<div className="space-y-6 bg-card/50 backdrop-blur-sm p-5 sm:p-8 rounded-[2.5rem] border border-border/60 shadow-xl">
 								<div className="space-y-4">
 									<div className="space-y-2">
 										<label className="text-sm font-bold flex items-center gap-2">
@@ -277,7 +277,7 @@ function OnboardingStep1() {
 						onClick={() => mutation.mutate()}
 						disabled={!canContinue}
 						size="lg"
-						className="min-w-[240px] h-16 rounded-[2rem] text-xl font-black uppercase italic shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+						className="w-full sm:w-auto sm:min-w-[240px] h-14 sm:h-16 rounded-[2rem] text-lg sm:text-xl font-black uppercase italic shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
 					>
 						{mutation.isPending ? (
 							<CircleNotch className="w-8 h-8 animate-spin" />

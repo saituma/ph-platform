@@ -363,7 +363,7 @@ function OnboardingStep5() {
 		isTeam && unitPrice != null && teamSize != null ? unitPrice * teamSize : null;
 
 	return (
-		<main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+		<main className="mx-auto max-w-7xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-12 animate-in fade-in duration-700">
 				<div className="space-y-4 text-center max-w-2xl mx-auto">
 					<p className="text-sm font-bold uppercase tracking-widest text-primary">
@@ -482,7 +482,7 @@ function OnboardingStep5() {
 								key={plan.id}
 								onClick={() => setSelectedPlan(plan.tier)}
 								className={cn(
-									"relative p-8 flex flex-col h-full rounded-3xl border-2 transition-all duration-300 cursor-pointer",
+									"relative p-5 sm:p-8 flex flex-col h-full rounded-3xl border-2 transition-all duration-300 cursor-pointer",
 									isSelected
 										? "border-primary bg-primary/[0.02] shadow-xl ring-4 ring-primary/5 scale-[1.02]"
 										: "border-border/60 bg-card/50 hover:border-primary/40",

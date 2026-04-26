@@ -279,7 +279,7 @@ export default function LoginScreen() {
             onPress={() => {
               const url =
                 (process.env.EXPO_PUBLIC_ONBOARDING_URL ?? "").trim() ||
-                "https://register.phperformance.ca";
+                "https://ph-platform-onboarding.vercel.app/";
               void Linking.openURL(url);
             }}
           >

@@ -13,11 +13,23 @@ export const BACKGROUND_LOCATION_TASK = "BACKGROUND_LOCATION_TASK";
 let lastLocationSentAt = 0;
 const LOCATION_SEND_INTERVAL_MS = 10000; // Send at most every 10 seconds
 
+// Deep forest green — low saturation, professional (avoids neon eye strain).
+const NOTIF_COLOR = "#1A7848";
+
 const formatTime = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
-  return `${h > 0 ? `${h}:` : ""}${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`}`;
+};
+
+const formatPace = (distanceMeters: number, elapsedSeconds: number): string => {
+  const km = distanceMeters / 1000;
+  if (km < 0.05 || elapsedSeconds < 5) return "--";
+  const secPerKm = elapsedSeconds / km;
+  const mins = Math.floor(secPerKm / 60);
+  const secs = Math.floor(secPerKm % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
 
 export const refreshRunNotification = async () => {
@@ -26,6 +38,8 @@ export const refreshRunNotification = async () => {
 
   const kms = (distanceMeters / 1000).toFixed(2);
   const time = formatTime(elapsedSeconds);
+  const pace = formatPace(distanceMeters, elapsedSeconds);
+  const paceStr = pace !== "--" ? ` · ${pace} /km` : "";
 
   try {
     // Re-calling startLocationUpdatesAsync with updated foregroundService settings
@@ -36,9 +50,9 @@ export const refreshRunNotification = async () => {
       distanceInterval: 5,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
-        notificationTitle: `Run Tracking: ${kms}km`,
-        notificationBody: `Time: ${time} • Tap to return to app`,
-        notificationColor: "#00FF87",
+        notificationTitle: `${kms} km${paceStr}`,
+        notificationBody: `${time} elapsed  ·  Tap to return`,
+        notificationColor: NOTIF_COLOR,
       },
     });
   } catch (e) {
@@ -121,8 +135,8 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
           const milestones = consumeProgressMilestones();
           for (const meters of milestones) {
             const km = meters >= 1000 ? (meters / 1000).toFixed(1) : null;
-            const title = km ? `Distance: ${km} km` : `Distance: ${Math.round(meters)} m`;
-            const body = "Keep going.";
+            const title = km ? `${km} km reached` : `${Math.round(meters)} m reached`;
+            const body = "Keep going — you're doing great.";
             const content: any = { title, body, sound: "default", data: { type: "run_progress" } };
             if (Platform.OS === "android") {
               content.channelId = NOTIFICATION_CHANNELS.system;
@@ -181,9 +195,9 @@ export async function startLocationTracking() {
       distanceInterval: 5,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
-        notificationTitle: "Run Tracking Active",
-        notificationBody: "Tracking your distance and pace.",
-        notificationColor: "#00FF87",
+        notificationTitle: "PH Performance · Running",
+        notificationBody: "Tracking your distance and pace",
+        notificationColor: NOTIF_COLOR,
       },
     });
   } catch (e) {

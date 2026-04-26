@@ -13,8 +13,6 @@ import {
   messagesThreadHref,
   type MessagesRolePrefix,
 } from "@/lib/messages/roleMessageRoutes";
-import { getDateKey } from "@/lib/notificationPresentation";
-
 /** Map web-only or legacy push `url` values to Expo Router paths (esp. coach/admin). */
 function resolveNavigationPathFromPushData(
   rolePrefix: MessagesRolePrefix,
@@ -22,15 +20,9 @@ function resolveNavigationPathFromPushData(
 ): string | null {
   if (!data) return null;
   const type = typeof data.type === "string" ? data.type : undefined;
-  const dateKeyRaw = data.dateKey;
-  const dateKey =
-    typeof dateKeyRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateKeyRaw)
-      ? dateKeyRaw
-      : null;
-
   if (type === "nutrition_reminder") {
-    const dk = dateKey ?? getDateKey(new Date());
-    return `/nutrition/log/${encodeURIComponent(dk)}`;
+    // Reminder → open the logging form, not the (empty) detail view.
+    return "/nutrition";
   }
 
   if (type === "progress_reminder") {
@@ -52,8 +44,8 @@ function resolveNavigationPathFromPushData(
   }
 
   if (pathOnly === "/nutrition") {
-    const dk = dateKey ?? getDateKey(new Date());
-    return `/nutrition/log/${encodeURIComponent(dk)}`;
+    // Generic nutrition push → open the logging form.
+    return "/nutrition";
   }
 
   return rawUrl;
