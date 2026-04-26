@@ -7,20 +7,21 @@ import { useBaseLayoutLogic } from "../shared/useBaseLayoutLogic";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { ADULT_TAB_ROUTES } from "./tabs";
 import AdultMessagesScreen from "./screens/Messages";
+import { filterTabsByCapabilities } from "../shared/capabilityTabs";
 
 export function AdultLayout() {
-  const { token, profile, programTier, messagingAccessTiers } = useAppSelector((state) => state.user);
+  const { token, profile, programTier, messagingAccessTiers, capabilities } = useAppSelector((state) => state.user);
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, hasMessaging, profile.id);
 
   const visibleTabs = useMemo(() => {
-    return ADULT_TAB_ROUTES.map((tab) => {
+    return filterTabsByCapabilities(ADULT_TAB_ROUTES, capabilities).map((tab) => {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
       return tab;
     });
-  }, [messagesUnread]);
+  }, [capabilities, messagesUnread]);
 
   const tabComponents = useMemo(
     () => ({

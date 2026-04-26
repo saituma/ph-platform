@@ -10,13 +10,24 @@ import { setAdminMessagesNavTarget } from "@/lib/admin/adminMessagesNav";
 import { useAppSelector } from "@/store/hooks";
 import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
 import type { PendingAttachment } from "@/types/admin-messages";
+import { BuiltinCamera } from "@/components/media/BuiltinCamera";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { NavigationRecoveryBoundary } from "@/components/NavigationRecoveryBoundary";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  InteractionManager,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { Feather } from "@/components/ui/theme-icons";
 
 import { ADMIN_TAB_ROUTES } from "../tabs";
@@ -35,6 +46,8 @@ const VIDEO_SECTION_TABS = [
   { value: "inseason", label: "In Season" },
   { value: "nutrition", label: "Athlete Platform" },
 ] as const;
+const ADMIN_RESPONSE_MAX_DURATION_SECONDS = 60;
+const ADMIN_RESPONSE_MAX_BYTES = 90 * 1024 * 1024;
 
 type AdminVideoItem = Record<string, any> & {
   id?: number | string;
@@ -142,6 +155,7 @@ export default function AdminVideosScreen() {
   const [feedbackDraft, setFeedbackDraft] = useState("");
 
   const [responseVideoAttachment, setResponseVideoAttachment] = useState<PendingAttachment | null>(null);
+  const [builtinCameraVisible, setBuiltinCameraVisible] = useState(false);
 
   const [selectedAthleteId, setSelectedAthleteId] = useState<number | null>(null);
   const [athleteSearch, setAthleteSearch] = useState("");
@@ -285,31 +299,82 @@ export default function AdminVideosScreen() {
 
   const pickResponseVideo = useCallback(
     async (source: "camera" | "library") => {
-      const permission =
-        source === "camera"
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (source === "camera") {
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(() => setBuiltinCameraVisible(true), 80);
+        });
+        return;
+      }
+
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) return;
 
-      const result =
-        source === "camera"
-          ? await ImagePicker.launchCameraAsync({
-              ...VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,
-              cameraType: ImagePicker.CameraType.front,
-            })
-          : await ImagePicker.launchImageLibraryAsync(
-              VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,
-            );
+      const result = await ImagePicker.launchImageLibraryAsync(
+        VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,
+      );
 
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
+
+      const durationSeconds =
+        typeof asset.duration === "number" && Number.isFinite(asset.duration)
+          ? Math.round(asset.duration / 1000)
+          : null;
+      if (durationSeconds != null && durationSeconds > ADMIN_RESPONSE_MAX_DURATION_SECONDS) {
+        setVideoDetailError(
+          `Video is ${durationSeconds}s. Keep response clips at ${ADMIN_RESPONSE_MAX_DURATION_SECONDS}s or less.`,
+        );
+        return;
+      }
+
+      const info = await FileSystem.getInfoAsync(asset.uri);
+      const sizeBytes = info.exists ? info.size : (asset.fileSize ?? 0);
+      if (info.exists && sizeBytes > ADMIN_RESPONSE_MAX_BYTES) {
+        setVideoDetailError("Response video exceeds 90MB limit. Please pick a shorter clip.");
+        return;
+      }
 
       setResponseVideoAttachment({
         uri: asset.uri,
         fileName: asset.fileName ?? "response-video.mp4",
         mimeType: asset.mimeType ?? "video/mp4",
-        sizeBytes: asset.fileSize ?? 0,
+        sizeBytes,
+        isImage: false,
+      });
+    },
+    [],
+  );
+
+  const handleBuiltinCameraRecorded = useCallback(
+    async (asset: { uri: string; duration: number; width: number; height: number }) => {
+      setBuiltinCameraVisible(false);
+
+      if (
+        Number.isFinite(asset.duration) &&
+        asset.duration > ADMIN_RESPONSE_MAX_DURATION_SECONDS
+      ) {
+        setVideoDetailError(
+          `Video is ${asset.duration}s. Keep clips at ${ADMIN_RESPONSE_MAX_DURATION_SECONDS}s or less.`,
+        );
+        return;
+      }
+
+      const info = await FileSystem.getInfoAsync(asset.uri);
+      const sizeBytes = info.exists ? info.size : 0;
+      if (info.exists && sizeBytes > ADMIN_RESPONSE_MAX_BYTES) {
+        setVideoDetailError(
+          "Response video exceeds 90MB limit. Please record a shorter clip.",
+        );
+        return;
+      }
+
+      const uriLower = asset.uri.toLowerCase();
+      setResponseVideoAttachment({
+        uri: asset.uri,
+        fileName: asset.uri.split("/").pop() ?? "response-video.mp4",
+        mimeType: uriLower.endsWith(".mov") ? "video/quicktime" : "video/mp4",
+        sizeBytes,
         isImage: false,
       });
     },
@@ -1032,6 +1097,14 @@ export default function AdminVideosScreen() {
           </SafeAreaView>
         </View>
       )}
+      <BuiltinCamera
+        visible={builtinCameraVisible}
+        maxDurationSeconds={ADMIN_RESPONSE_MAX_DURATION_SECONDS}
+        onCancel={() => setBuiltinCameraVisible(false)}
+        onRecorded={(asset) => {
+          void handleBuiltinCameraRecorded(asset);
+        }}
+      />
       </View>
     </NavigationRecoveryBoundary>
   );

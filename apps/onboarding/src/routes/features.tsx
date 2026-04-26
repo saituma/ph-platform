@@ -6,8 +6,7 @@ import {
     AppWindow, 
     Lightning, 
     ShieldCheck, 
-    Globe, 
-    Heartbeat 
+    Globe 
 } from "@phosphor-icons/react";
 
 export const Route = createFileRoute("/features")({

@@ -8,6 +8,8 @@ import { apiRequest } from "@/lib/api";
 import { VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION } from "@/lib/media/videoPickerNativeResolution";
 import { useAdminUsers } from "@/hooks/admin/useAdminUsers";
 import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
+import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
+import { isAdminRole } from "@/lib/isAdminRole";
 import { useAppSelector } from "@/store/hooks";
 import type { PendingAttachment } from "@/types/admin-messages";
 import type { AdminUser } from "@/types/admin";
@@ -15,11 +17,9 @@ import * as ImagePicker from "expo-image-picker";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BackHandler,
-  Modal,
   Platform,
   Pressable,
   View,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
@@ -31,6 +31,8 @@ type NutritionLog = {
   id: number;
   userId: number;
   dateKey: string;
+  mealType?: string | null;
+  loggedAt?: string | null;
   athleteType: string;
   breakfast?: string | null;
   snacks?: string | null;
@@ -74,8 +76,8 @@ function ActionButton({
   loading?: boolean;
   icon?: any;
 }) {
-  const { colors, isDark } = useAppTheme();
-  
+  const { isDark } = useAppTheme();
+
   // Use solid green (#22C55E) for accent/success with white text
   const bg = tone === "accent" || tone === "success" ? "#22C55E" : 
              tone === "danger" ? "#EF4444" : 
@@ -265,15 +267,20 @@ function SmallAction({
 export default function AdminNutritionScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
-  const token = useAppSelector((state) => state.user.token);
+  const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
+
+  const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
+  if (!canAccess) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   const [listTab, setListTab] = useState<"adult" | "youth">("adult");
   const [searchQuery, setSearchQuery] = useState("");
   const {
     users,
     loading: usersLoading,
-    error: usersError,
+    error: _usersError,
     load: loadUsers,
   } = useAdminUsers(token, Boolean(bootstrapReady));
 
@@ -288,8 +295,8 @@ export default function AdminNutritionScreen() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
 
-  const [targets, setTargets] = useState<NutritionTargets | null>(null);
-  const [targetsLoading, setTargetsLoading] = useState(false);
+  const [_targets, setTargets] = useState<NutritionTargets | null>(null);
+  const [_targetsLoading, setTargetsLoading] = useState(false);
   const [targetsDraft, setTargetsDraft] = useState({
     calories: "",
     protein: "",
@@ -310,7 +317,7 @@ export default function AdminNutritionScreen() {
   const [feedbackDraft, setFeedbackDraft] = useState("");
   const [responseVideo, setResponseVideo] = useState<PendingAttachment | null>(null);
   const [savingFeedback, setSavingFeedback] = useState(false);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [_feedbackError, setFeedbackError] = useState<string | null>(null);
 
   useEffect(() => {
     void loadUsers(searchQuery);
@@ -537,122 +544,286 @@ export default function AdminNutritionScreen() {
     const displayedAthletes = listTab === "adult" ? adultAthletes : youthAthletes;
 
     return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
         <ThemedScrollView showsVerticalScrollIndicator={false}>
-          <View className="pt-10 mb-6 px-6">
-            <View className="flex-row items-center gap-3 mb-2">
-              <View className="h-8 w-1.5 rounded-full bg-accent" />
-              <Text className="text-5xl font-telma-bold text-app tracking-tight">
-                Nutrition
-              </Text>
+          {/* Header */}
+          <View style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
+              <View
+                style={{
+                  width: 5,
+                  height: 36,
+                  borderRadius: 3,
+                  backgroundColor: colors.accent,
+                }}
+              />
+              <View>
+                <Text
+                  style={{
+                    fontFamily: "Telma-Bold",
+                    fontSize: 44,
+                    color: colors.textPrimary,
+                    letterSpacing: -1,
+                    lineHeight: 48,
+                  }}
+                >
+                  Nutrition
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Regular",
+                    fontSize: 13,
+                    color: colors.textSecondary,
+                    marginTop: 2,
+                  }}
+                >
+                  Review athlete logs and provide coach responses.
+                </Text>
+              </View>
             </View>
-            <Text className="text-base font-outfit text-secondary leading-relaxed">
-              Review athlete logs and provide coach responses.
-            </Text>
           </View>
 
-          {/* Adult / Youth Header Tabs */}
-          <View className="px-6 mb-8">
-            <View 
-              className="flex-row p-1.5 rounded-[26px] border"
+          {/* Adult / Youth Tab Switcher */}
+          <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+            <View
               style={{
+                flexDirection: "row",
+                padding: 5,
+                borderRadius: 24,
+                borderWidth: 1,
                 backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+                borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
+                gap: 4,
               }}
             >
-              <Pressable
-                onPress={() => setListTab("adult")}
-                className="flex-1 h-12 rounded-[20px] items-center justify-center"
-                style={{
-                  backgroundColor: listTab === "adult" 
-                    ? (isDark ? `${colors.accent}20` : `${colors.accent}15`) 
-                    : "transparent",
-                }}
-              >
-                <Text 
-                  className="font-outfit-bold text-[14px] uppercase tracking-wider"
-                  style={{ color: listTab === "adult" ? colors.accent : colors.textSecondary }}
-                >
-                  Adult
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setListTab("youth")}
-                className="flex-1 h-12 rounded-[20px] items-center justify-center"
-                style={{
-                  backgroundColor: listTab === "youth" 
-                    ? (isDark ? `${colors.accent}20` : `${colors.accent}15`) 
-                    : "transparent",
-                }}
-              >
-                <Text 
-                  className="font-outfit-bold text-[14px] uppercase tracking-wider"
-                  style={{ color: listTab === "youth" ? colors.accent : colors.textSecondary }}
-                >
-                  Youth
-                </Text>
-              </Pressable>
+              {(["adult", "youth"] as const).map((t) => {
+                const isActive = listTab === t;
+                const tabIcon = t === "adult" ? "user" : "users";
+                return (
+                  <Pressable
+                    key={t}
+                    onPress={() => setListTab(t)}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      height: 50,
+                      borderRadius: 18,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "row",
+                      gap: 7,
+                      backgroundColor: isActive
+                        ? isDark ? `${colors.accent}20` : `${colors.accent}14`
+                        : "transparent",
+                      borderWidth: isActive ? 1 : 0,
+                      borderColor: isActive
+                        ? isDark ? `${colors.accent}32` : `${colors.accent}26`
+                        : "transparent",
+                      opacity: pressed ? 0.82 : 1,
+                    })}
+                  >
+                    <Feather
+                      name={tabIcon as any}
+                      size={15}
+                      color={isActive ? colors.accent : colors.textSecondary}
+                    />
+                    <Text
+                      style={{
+                        fontFamily: "Outfit-Bold",
+                        fontSize: 13,
+                        letterSpacing: 0.6,
+                        textTransform: "uppercase",
+                        color: isActive ? colors.accent : colors.textSecondary,
+                      }}
+                    >
+                      {t === "adult" ? "Adult" : "Youth"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 
-          <View className="px-6 mb-8">
-            <View 
-              className="flex-row items-center rounded-2xl border px-4 h-14"
+          {/* Search */}
+          <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+            <View
               style={{
+                flexDirection: "row",
+                alignItems: "center",
+                borderRadius: 16,
+                borderWidth: 1,
+                paddingHorizontal: 16,
+                height: 52,
                 backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
               }}
             >
-              <Feather name="search" size={20} color={colors.textSecondary} />
+              <Feather name="search" size={18} color={colors.textSecondary} />
               <TextInput
                 placeholder={`Search ${listTab} athletes...`}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                className="flex-1 ml-3 font-outfit text-[16px] text-app"
+                style={{
+                  flex: 1,
+                  marginLeft: 10,
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 16,
+                  color: colors.textPrimary,
+                }}
                 placeholderTextColor={colors.placeholder}
               />
             </View>
           </View>
 
           {usersLoading && users.length === 0 ? (
-            <View className="px-6 gap-6">
-              <Skeleton width="100%" height={120} borderRadius={32} />
-              <Skeleton width="100%" height={120} borderRadius={32} />
+            <View style={{ paddingHorizontal: 24, gap: 12 }}>
+              <Skeleton width="100%" height={88} borderRadius={20} />
+              <Skeleton width="100%" height={88} borderRadius={20} />
+              <Skeleton width="100%" height={88} borderRadius={20} />
             </View>
           ) : (
-            <View className="px-6 pb-32">
-              <View>
-                <View className="flex-row items-center gap-2 mb-4">
-                  <View className="h-4 w-1 rounded-full bg-accent" />
-                  <Text className="text-sm font-bold font-outfit text-textSecondary uppercase tracking-wider">
-                    {listTab === "adult" ? "Adult Athletes" : "Youth Athletes"}
+            <View style={{ paddingHorizontal: 24, paddingBottom: 60 }}>
+              {/* Section label */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <View
+                  style={{
+                    width: 3,
+                    height: 14,
+                    borderRadius: 2,
+                    backgroundColor: colors.accent,
+                  }}
+                />
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Bold",
+                    fontSize: 11,
+                    letterSpacing: 1.6,
+                    textTransform: "uppercase",
+                    color: colors.textSecondary,
+                  }}
+                >
+                  {listTab === "adult" ? "Adult Athletes" : "Youth Athletes"}
+                  {" "}
+                  <Text
+                    style={{
+                      fontFamily: "Outfit-Bold",
+                      fontSize: 11,
+                      color: colors.accent,
+                    }}
+                  >
+                    ({displayedAthletes.length})
+                  </Text>
+                </Text>
+              </View>
+
+              {displayedAthletes.length === 0 ? (
+                <View
+                  style={{
+                    padding: 32,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderStyle: "dashed",
+                    borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.12)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Feather name="users" size={28} color={colors.textSecondary} style={{ marginBottom: 12 }} />
+                  <Text
+                    style={{
+                      fontFamily: "Outfit-Regular",
+                      fontSize: 14,
+                      color: colors.textSecondary,
+                      fontStyle: "italic",
+                      textAlign: "center",
+                    }}
+                  >
+                    No {listTab} athletes found.
                   </Text>
                 </View>
-                {displayedAthletes.length === 0 ? (
-                  <View className="p-8 rounded-[32px] border border-dashed border-app/20 items-center justify-center">
-                    <Text className="text-sm font-outfit text-textSecondary italic">No {listTab} athletes found.</Text>
-                  </View>
-                ) : (
-                  <View className="gap-4">
-                    {displayedAthletes.map(u => (
-                      <Pressable
-                        key={u.id}
-                        onPress={() => u.id && setSelectedUserId(u.id)}
-                        className="rounded-[32px] border p-6 flex-row items-center"
-                        style={cardStyle}
+              ) : (
+                <View style={{ gap: 10 }}>
+                  {displayedAthletes.map((u, idx) => (
+                    <Pressable
+                      key={u.id}
+                      onPress={() => u.id && setSelectedUserId(u.id)}
+                      style={({ pressed }) => ({
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        backgroundColor: isDark ? colors.cardElevated : colors.card,
+                        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+                        paddingHorizontal: 18,
+                        paddingVertical: 16,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        opacity: pressed ? 0.8 : 1,
+                        transform: [{ scale: pressed ? 0.99 : 1 }],
+                        overflow: "hidden",
+                      })}
+                    >
+                      {/* Left accent bar with index number */}
+                      <View
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
+                          borderWidth: 1,
+                          borderColor: isDark ? `${colors.accent}28` : `${colors.accent}20`,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: 14,
+                        }}
                       >
-                        <View className="flex-1">
-                          <Text className="text-xl font-clash font-bold text-app mb-1">{u.name}</Text>
-                          <Text className="text-sm font-outfit text-textSecondary">{u.email}</Text>
-                        </View>
-                        <View className="h-10 w-10 rounded-full items-center justify-center bg-accent/10">
-                          <Feather name="chevron-right" size={20} color={colors.accent} />
-                        </View>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-              </View>
+                        <Text
+                          style={{
+                            fontFamily: "Outfit-Bold",
+                            fontSize: 14,
+                            color: colors.accent,
+                            fontVariant: ["tabular-nums"] as any,
+                          }}
+                        >
+                          {idx + 1}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontFamily: "Outfit-Bold",
+                            fontSize: 16,
+                            color: colors.textPrimary,
+                            marginBottom: 3,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {u.name}
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: "Outfit-Regular",
+                            fontSize: 13,
+                            color: colors.textSecondary,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {u.email}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: 10,
+                          backgroundColor: isDark ? `${colors.accent}14` : `${colors.accent}10`,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Feather name="chevron-right" size={18} color={colors.accent} />
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
           )}
         </ThemedScrollView>
@@ -662,143 +833,262 @@ export default function AdminNutritionScreen() {
 
   const renderAthleteDetails = () => (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View 
-        className="px-6 pb-6 flex-row items-center justify-between"
-        style={{ paddingTop: insets.top + 24 }}
+      {/* Detail Header */}
+      <View
+        style={{
+          paddingTop: insets.top + 16,
+          paddingHorizontal: 20,
+          paddingBottom: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          borderBottomWidth: 1,
+          borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)",
+        }}
       >
-        <Pressable 
+        <Pressable
           onPress={() => setSelectedUserId(null)}
-          className="h-12 w-12 items-center justify-center rounded-full border"
-          style={{ 
+          style={({ pressed }) => ({
+            width: 44,
+            height: 44,
+            borderRadius: 13,
             backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
-            borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)"
-          }}
+            borderWidth: 1,
+            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pressed ? 0.7 : 1,
+          })}
         >
-          <Feather name="chevron-left" size={24} color={colors.text} />
+          <Feather name="chevron-left" size={22} color={colors.textPrimary} />
         </Pressable>
-        <View className="flex-1 items-center px-4">
-          <Text className="text-2xl font-clash font-bold text-app" numberOfLines={1}>
+        <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 14 }}>
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 20,
+              color: colors.textPrimary,
+              letterSpacing: -0.3,
+            }}
+            numberOfLines={1}
+          >
             {selectedUser?.name}
           </Text>
+          <Text
+            style={{
+              fontFamily: "Outfit-Regular",
+              fontSize: 12,
+              color: colors.textSecondary,
+              marginTop: 2,
+            }}
+            numberOfLines={1}
+          >
+            {selectedUser?.email}
+          </Text>
         </View>
-        <View className="w-12" />
+        <View style={{ width: 44 }} />
       </View>
 
       <ThemedScrollView showsVerticalScrollIndicator={false}>
-        <View className="px-6 pb-40">
+        <View style={{ paddingHorizontal: 20, paddingBottom: 80, paddingTop: 20 }}>
           {(selectedUser as any)?.athleteType === "adult" && (
-            <View className="mb-10 rounded-[36px] border p-8" style={cardStyle}>
-              <View className="flex-row items-center gap-3 mb-4">
-                <View className="h-6 w-1.5 rounded-full bg-accent" />
-                <Text className="text-xl font-clash font-bold text-app">Nutrition Targets</Text>
-              </View>
-              <Text className="text-sm font-outfit text-textSecondary mb-8 leading-relaxed">
-                Configure suggested daily caloric and macronutrient targets for this athlete.
-              </Text>
-              
-              <View className="flex-row flex-wrap gap-x-4">
-                <View className="w-[47%]">
-                  <FormInput
-                    label="Calories"
-                    value={targetsDraft.calories}
-                    onChangeText={v => setTargetsDraft(prev => ({ ...prev, calories: v }))}
-                    keyboardType="numeric"
-                    placeholder="2600"
-                  />
-                </View>
-                <View className="w-[47%]">
-                  <FormInput
-                    label="Protein"
-                    value={targetsDraft.protein}
-                    onChangeText={v => setTargetsDraft(prev => ({ ...prev, protein: v }))}
-                    keyboardType="numeric"
-                    placeholder="180"
-                    prefix="g"
-                  />
-                </View>
-                <View className="w-[47%]">
-                  <FormInput
-                    label="Carbs"
-                    value={targetsDraft.carbs}
-                    onChangeText={v => setTargetsDraft(prev => ({ ...prev, carbs: v }))}
-                    keyboardType="numeric"
-                    placeholder="280"
-                    prefix="g"
-                  />
-                </View>
-                <View className="w-[47%]">
-                  <FormInput
-                    label="Fats"
-                    value={targetsDraft.fats}
-                    onChangeText={v => setTargetsDraft(prev => ({ ...prev, fats: v }))}
-                    keyboardType="numeric"
-                    placeholder="80"
-                    prefix="g"
-                  />
-                </View>
-              </View>
-
-              <FormInput
-                label="Micronutrient Guidance"
-                value={targetsDraft.micronutrientsGuidance}
-                onChangeText={v => setTargetsDraft(prev => ({ ...prev, micronutrientsGuidance: v }))}
-                multiline
-                placeholder="e.g. Focus on iron-rich foods like spinach and lean red meat..."
-              />
-
-              <View className="flex-row items-center gap-5 mt-2">
-                <View className="flex-1">
-                  <ActionButton
-                    label={savingTargets ? "Saving..." : "Save Targets"}
-                    onPress={() => void saveTargets()}
-                    loading={savingTargets}
-                    icon="save"
-                  />
-                </View>
-                {targetsStatus && (
-                  <View className="px-4 py-2 rounded-full bg-accent/10">
-                    <Text className="text-xs font-outfit-bold text-accent uppercase tracking-wider">{targetsStatus}</Text>
+            <View
+              style={{
+                marginBottom: 24,
+                borderRadius: 22,
+                borderWidth: 1,
+                backgroundColor: isDark ? colors.cardElevated : colors.card,
+                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+                overflow: "hidden",
+              }}
+            >
+              {/* Accent top bar */}
+              <View style={{ height: 3, backgroundColor: colors.accent, opacity: 0.7 }} />
+              <View style={{ padding: 20 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <View
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 11,
+                      backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
+                      borderWidth: 1,
+                      borderColor: isDark ? `${colors.accent}28` : `${colors.accent}20`,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather name="target" size={18} color={colors.accent} />
                   </View>
-                )}
+                  <Text
+                    style={{
+                      fontFamily: "Outfit-Bold",
+                      fontSize: 17,
+                      color: colors.textPrimary,
+                      letterSpacing: -0.2,
+                    }}
+                  >
+                    Nutrition Targets
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Regular",
+                    fontSize: 13,
+                    color: colors.textSecondary,
+                    marginBottom: 20,
+                    lineHeight: 19,
+                  }}
+                >
+                  Configure daily caloric and macronutrient targets for this athlete.
+                </Text>
+
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 4 }}>
+                  <View style={{ width: "47%" }}>
+                    <FormInput
+                      label="Calories"
+                      value={targetsDraft.calories}
+                      onChangeText={v => setTargetsDraft(prev => ({ ...prev, calories: v }))}
+                      keyboardType="numeric"
+                      placeholder="2600"
+                    />
+                  </View>
+                  <View style={{ width: "47%" }}>
+                    <FormInput
+                      label="Protein"
+                      value={targetsDraft.protein}
+                      onChangeText={v => setTargetsDraft(prev => ({ ...prev, protein: v }))}
+                      keyboardType="numeric"
+                      placeholder="180"
+                      prefix="g"
+                    />
+                  </View>
+                  <View style={{ width: "47%" }}>
+                    <FormInput
+                      label="Carbs"
+                      value={targetsDraft.carbs}
+                      onChangeText={v => setTargetsDraft(prev => ({ ...prev, carbs: v }))}
+                      keyboardType="numeric"
+                      placeholder="280"
+                      prefix="g"
+                    />
+                  </View>
+                  <View style={{ width: "47%" }}>
+                    <FormInput
+                      label="Fats"
+                      value={targetsDraft.fats}
+                      onChangeText={v => setTargetsDraft(prev => ({ ...prev, fats: v }))}
+                      keyboardType="numeric"
+                      placeholder="80"
+                      prefix="g"
+                    />
+                  </View>
+                </View>
+
+                <FormInput
+                  label="Micronutrient Guidance"
+                  value={targetsDraft.micronutrientsGuidance}
+                  onChangeText={v => setTargetsDraft(prev => ({ ...prev, micronutrientsGuidance: v }))}
+                  multiline
+                  placeholder="e.g. Focus on iron-rich foods like spinach and lean red meat..."
+                />
+
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 4 }}>
+                  <View style={{ flex: 1 }}>
+                    <ActionButton
+                      label={savingTargets ? "Saving..." : "Save Targets"}
+                      onPress={() => void saveTargets()}
+                      loading={savingTargets}
+                      icon="save"
+                    />
+                  </View>
+                  {targetsStatus && (
+                    <View
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 20,
+                        backgroundColor: isDark ? `${colors.accent}16` : `${colors.accent}10`,
+                        borderWidth: 1,
+                        borderColor: isDark ? `${colors.accent}28` : `${colors.accent}20`,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "Outfit-Bold",
+                          fontSize: 11,
+                          color: colors.accent,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.8,
+                        }}
+                      >
+                        {targetsStatus}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
           )}
 
-          <View className="flex-row items-center gap-3 mb-8">
-            <Pressable 
-              onPress={() => setActiveTab("logs")}
-              className="flex-1 h-14 rounded-[22px] items-center justify-center border"
+          {/* Logs / Feedback Tab Switcher */}
+          <View style={{ marginBottom: 24 }}>
+            <View
               style={{
-                backgroundColor: activeTab === "logs" 
-                  ? (isDark ? `${colors.accent}20` : `${colors.accent}15`) 
-                  : "transparent",
-                borderColor: activeTab === "logs" ? colors.accent : isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.1)",
+                flexDirection: "row",
+                padding: 5,
+                borderRadius: 22,
+                borderWidth: 1,
+                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+                borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
+                gap: 4,
               }}
             >
-              <Text 
-                className="font-outfit-bold text-[15px] uppercase tracking-wider"
-                style={{ color: activeTab === "logs" ? colors.accent : colors.text }}
-              >
-                Logs
-              </Text>
-            </Pressable>
-            <Pressable 
-              onPress={() => setActiveTab("coach")}
-              className="flex-1 h-14 rounded-[22px] items-center justify-center border"
-              style={{
-                backgroundColor: activeTab === "coach" 
-                  ? (isDark ? `${colors.accent}20` : `${colors.accent}15`) 
-                  : "transparent",
-                borderColor: activeTab === "coach" ? colors.accent : isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.1)",
-              }}
-            >
-              <Text 
-                className="font-outfit-bold text-[15px] uppercase tracking-wider"
-                style={{ color: activeTab === "coach" ? colors.accent : colors.text }}
-              >
-                Feedback
-              </Text>
-            </Pressable>
+              {(["logs", "coach"] as const).map((t) => {
+                const isActive = activeTab === t;
+                const tabIcon = t === "logs" ? "file-text" : "message-circle";
+                const tabLabel = t === "logs" ? "Logs" : "Feedback";
+                return (
+                  <Pressable
+                    key={t}
+                    onPress={() => setActiveTab(t)}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      height: 50,
+                      borderRadius: 16,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "row",
+                      gap: 7,
+                      backgroundColor: isActive
+                        ? isDark ? `${colors.accent}20` : `${colors.accent}14`
+                        : "transparent",
+                      borderWidth: isActive ? 1 : 0,
+                      borderColor: isActive
+                        ? isDark ? `${colors.accent}32` : `${colors.accent}26`
+                        : "transparent",
+                      opacity: pressed ? 0.82 : 1,
+                    })}
+                  >
+                    <Feather
+                      name={tabIcon as any}
+                      size={15}
+                      color={isActive ? colors.accent : colors.textSecondary}
+                    />
+                    <Text
+                      style={{
+                        fontFamily: "Outfit-Bold",
+                        fontSize: 13,
+                        letterSpacing: 0.6,
+                        textTransform: "uppercase",
+                        color: isActive ? colors.accent : colors.textSecondary,
+                      }}
+                    >
+                      {tabLabel}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           {logsLoading ? (
@@ -985,7 +1275,7 @@ export default function AdminNutritionScreen() {
 }
 
 function StatBox({ icon, label, value, color }: { icon: any, label: string, value: string, color: string }) {
-  const { isDark, colors } = useAppTheme();
+  const { isDark } = useAppTheme();
   return (
     <View 
       className="flex-1 min-w-[100px] p-5 rounded-[26px] border"
@@ -1002,7 +1292,7 @@ function StatBox({ icon, label, value, color }: { icon: any, label: string, valu
 }
 
 function MealRow({ label, value }: { label: string, value: string | null | undefined }) {
-  const { isDark, colors } = useAppTheme();
+  const { isDark } = useAppTheme();
   return (
     <View 
       className="flex-row items-center p-5 rounded-[22px] border"

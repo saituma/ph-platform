@@ -6,20 +6,21 @@ import { SHARED_TAB_COMPONENTS } from "../shared/tabComponents";
 import { useBaseLayoutLogic } from "../shared/useBaseLayoutLogic";
 import { YOUTH_TAB_ROUTES } from "./tabs";
 import YouthMessagesScreen from "./screens/Messages";
+import { filterTabsByCapabilities } from "../shared/capabilityTabs";
 
 export function YouthLayout() {
-  const { token, profile } = useAppSelector((state) => state.user);
+  const { token, profile, capabilities } = useAppSelector((state) => state.user);
   /** Always show Messages like adult/team; eligibility is enforced server-side. Hiding the tab stranded users when tier/API lists lagged. */
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, true, profile.id);
 
   const visibleTabs = useMemo(() => {
-    return YOUTH_TAB_ROUTES.map((tab) => {
+    return filterTabsByCapabilities(YOUTH_TAB_ROUTES, capabilities).map((tab) => {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
       return tab;
     });
-  }, [messagesUnread]);
+  }, [capabilities, messagesUnread]);
 
   const tabComponents = useMemo(
     () => ({

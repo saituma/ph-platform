@@ -1,5 +1,6 @@
 import { getR2S3Client } from "../lib/r2-minio";
 import { env } from "../config/env";
+import { Readable } from "stream";
 
 export async function getPresignedUploadUrl(input: { key: string; contentType: string }) {
   const bucket = env.r2Bucket.trim();
@@ -32,6 +33,30 @@ function publicBaseUrl(): string | null {
   const raw = String(env.mediaPublicBaseUrl ?? "").trim();
   if (!raw) return null;
   return raw.startsWith("http") ? raw : `https://${raw}`;
+}
+
+function isPublicMediaUrl(url: URL) {
+  const base = publicBaseUrl();
+  if (!base) return false;
+  try {
+    const publicHost = new URL(base).hostname;
+    return url.hostname === publicHost;
+  } catch {
+    return false;
+  }
+}
+
+export function getMediaObjectKeyFromPublicUrl(inputUrl: string): string | null {
+  const trimmed = String(inputUrl ?? "").trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (!isPublicMediaUrl(url)) return null;
+    const key = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+    return key || null;
+  } catch {
+    return null;
+  }
 }
 
 export function normalizeStoredMediaUrl(value: string | null): string | null {
@@ -92,4 +117,30 @@ export function getPublicObjectUrl(key: string) {
     throw new Error("MEDIA_PUBLIC_BASE_URL (or R2_PUBLIC_BASE_URL) must be set for public media URLs.");
   }
   return `${base.replace(/\/+$/, "")}/${normalizedKey}`;
+}
+
+export async function getObjectBuffer(input: { key: string }) {
+  const bucket = env.r2Bucket.trim();
+  if (!bucket) {
+    throw new Error("R2_BUCKET is not configured");
+  }
+  const client = getR2S3Client();
+  const stream = await client.getObject(bucket, input.key);
+  const chunks: Buffer[] = [];
+  await new Promise<void>((resolve, reject) => {
+    (stream as Readable)
+      .on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
+      .once("error", reject)
+      .once("end", () => resolve());
+  });
+  return Buffer.concat(chunks);
+}
+
+export async function deleteObject(input: { key: string }) {
+  const bucket = env.r2Bucket.trim();
+  if (!bucket) {
+    throw new Error("R2_BUCKET is not configured");
+  }
+  const client = getR2S3Client();
+  await client.removeObject(bucket, input.key);
 }

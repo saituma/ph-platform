@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
-import { env } from "#/env";
+import { config } from "#/lib/config";
 
 type CheckoutReceiptPayload = {
 	kind: "team" | "athlete";
@@ -79,7 +79,7 @@ function OnboardingSuccess() {
 		if (prev === "pending") return;
 		sessionStorage.setItem(storageKey, "pending");
 
-		const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+		const baseUrl = config.api.baseUrl;
 		void fetch(`${baseUrl}/api/billing/confirm`, {
 			method: "POST",
 			headers: {

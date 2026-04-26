@@ -2,7 +2,6 @@ import React, { memo, useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View, Platform } from "react-native";
 import { useRouter } from "expo-router";
 
-// Assuming these exist in your project
 import { fonts, spacing } from "@/constants/theme";
 
 type ActiveTab = "running" | "team";
@@ -44,15 +43,14 @@ export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
 
     const theme = useMemo(() => {
         return {
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
-            containerBackground: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
-            activeBackground: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)",
-            inactiveText: isDark ? "rgba(255,255,255,0.60)" : colors.textSecondary,
-            activeText: colors.textPrimary,
-            shadowColor: isDark ? "#000" : "#0F172A",
-            ripple: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+            containerBg: isDark ? "rgba(255,255,255,0.06)" : "rgba(120,120,128,0.12)",
+            activeBg: isDark ? "rgba(255,255,255,0.14)" : "#FFFFFF",
+            inactiveText: isDark ? "rgba(255,255,255,0.55)" : "rgba(60,60,67,0.6)",
+            activeText: isDark ? "#FFFFFF" : "#000000",
+            shadowColor: isDark ? "#000" : "rgba(0,0,0,0.04)",
+            ripple: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
         };
-    }, [colors.textPrimary, colors.textSecondary, isDark]);
+    }, [isDark]);
 
     const handleTabPress = useCallback(
         (tab: TabItem) => {
@@ -63,14 +61,41 @@ export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
         [active, router],
     );
 
+    // Single tab → render a plain title, not a lonely segmented control
+    if (!showTeamTab) {
+        return (
+            <View
+                style={[
+                    styles.outer,
+                    {
+                        paddingTop: topInset + 8,
+                        paddingHorizontal,
+                        paddingBottom: spacing.sm,
+                    },
+                ]}
+            >
+                <Text
+                    style={{
+                        fontFamily: fonts.heading1,
+                        fontSize: 28,
+                        color: colors.textPrimary,
+                        letterSpacing: -0.3,
+                    }}
+                >
+                    Running
+                </Text>
+            </View>
+        );
+    }
+
     return (
         <View
             style={[
                 styles.outer,
                 {
-                    paddingTop: topInset,
+                    paddingTop: topInset + 6,
                     paddingHorizontal,
-                    paddingBottom: spacing.md,
+                    paddingBottom: spacing.sm,
                 },
             ]}
         >
@@ -78,10 +103,7 @@ export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
                 accessibilityRole="tablist"
                 style={[
                     styles.segmentedControl,
-                    {
-                        backgroundColor: theme.containerBackground,
-                        borderColor: theme.borderColor,
-                    },
+                    { backgroundColor: theme.containerBg },
                 ]}
             >
                 {visibleTabs.map((tab) => {
@@ -92,7 +114,7 @@ export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
                             key={tab.key}
                             label={tab.label}
                             selected={selected}
-                            activeBackground={theme.activeBackground}
+                            activeBg={theme.activeBg}
                             activeTextColor={theme.activeText}
                             inactiveTextColor={theme.inactiveText}
                             shadowColor={theme.shadowColor}
@@ -109,7 +131,7 @@ export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
 type HeaderTabButtonProps = {
     label: string;
     selected: boolean;
-    activeBackground: string;
+    activeBg: string;
     activeTextColor: string;
     inactiveTextColor: string;
     shadowColor: string;
@@ -120,7 +142,7 @@ type HeaderTabButtonProps = {
 const HeaderTabButton = memo(function HeaderTabButton({
     label,
     selected,
-    activeBackground,
+    activeBg,
     activeTextColor,
     inactiveTextColor,
     shadowColor,
@@ -132,7 +154,7 @@ const HeaderTabButton = memo(function HeaderTabButton({
             style={[
                 styles.tabContainer,
                 selected && styles.activeTabContainer,
-                selected && { shadowColor },
+                selected && { shadowColor, backgroundColor: activeBg },
             ]}
         >
             <Pressable
@@ -143,28 +165,22 @@ const HeaderTabButton = memo(function HeaderTabButton({
                 android_ripple={{ color: rippleColor, borderless: false }}
                 style={({ pressed }) => [
                     styles.tabButton,
-                    selected && { backgroundColor: activeBackground },
                     pressed && !selected && styles.pressedTabButton,
                 ]}
             >
-                <View style={styles.tabLabelWrap}>
-                    <Text
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                        maxFontSizeMultiplier={1.2}
-                        style={[
-                            styles.tabLabel,
-                            {
-                                color: selected ? activeTextColor : inactiveTextColor,
-                                fontFamily: selected ? fonts.heading2 : fonts.bodyBold,
-                                fontSize: selected ? 16 : 15,
-                                lineHeight: selected ? 18 : 17,
-                            },
-                        ]}
-                    >
-                        {label}
-                    </Text>
-                </View>
+                <Text
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={1.2}
+                    style={[
+                        styles.tabLabel,
+                        {
+                            color: selected ? activeTextColor : inactiveTextColor,
+                            fontFamily: selected ? fonts.heading3 : fonts.bodyMedium,
+                        },
+                    ]}
+                >
+                    {label}
+                </Text>
             </Pressable>
         </View>
     );
@@ -177,28 +193,26 @@ const styles = StyleSheet.create({
     },
     segmentedControl: {
         flexDirection: "row",
-        alignItems: "stretch", // Ensures tabs stretch to fill the height equally
-        padding: 4,
-        borderWidth: 1,
-        borderRadius: 18,
-        minHeight: 52,
+        alignItems: "stretch",
+        padding: 3,
+        borderRadius: 10,
+        minHeight: 36,
     },
     tabContainer: {
         flex: 1,
-        borderRadius: 14,
+        borderRadius: 8,
         alignSelf: "stretch",
         justifyContent: "center",
     },
     activeTabContainer: {
-        // Shadow is applied to the wrapper so overflow:hidden on the button doesn't clip it on iOS
         ...Platform.select({
             ios: {
-                shadowOffset: { width: 0, height: 4 },
+                shadowOffset: { width: 0, height: 1 },
                 shadowOpacity: 0.12,
-                shadowRadius: 8,
+                shadowRadius: 4,
             },
             android: {
-                elevation: 3,
+                elevation: 2,
             },
         }),
     },
@@ -207,25 +221,20 @@ const styles = StyleSheet.create({
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: 14,
+        borderRadius: 8,
         minHeight: 0,
-        paddingHorizontal: 12,
+        paddingHorizontal: 10,
         paddingVertical: 0,
-        overflow: "hidden", // Keeps Android ripple inside the border radius
+        overflow: "hidden",
     },
     pressedTabButton: {
-        opacity: 0.82,
+        opacity: 0.7,
     },
     tabLabel: {
-        width: "100%",
+        fontSize: 13,
+        lineHeight: 18,
         textAlign: "center",
         letterSpacing: 0,
-        includeFontPadding: false, // Helps center text vertically on Android
-    },
-    tabLabelWrap: {
-        flex: 1,
-        width: "100%",
-        alignItems: "center",
-        justifyContent: "center",
+        includeFontPadding: false,
     },
 });

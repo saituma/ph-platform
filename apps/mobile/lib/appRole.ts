@@ -2,6 +2,7 @@ import { hasOrgTeamMembership } from "@/lib/teamMembership";
 
 export type AppRole =
   | "coach"
+  | "team_manager"
   | "adult_athlete"
   | "adult_athlete_team"
   | "youth_athlete"
@@ -45,7 +46,6 @@ export function resolveAppRole(input: ResolveAppRoleInput): AppRole {
 
   if (
     role === "coach" ||
-    role === "team_coach" ||
     role === "program_coach" ||
     role === "admin" ||
     role === "superadmin"
@@ -53,7 +53,14 @@ export function resolveAppRole(input: ResolveAppRoleInput): AppRole {
     return "coach";
   }
 
+  if (role === "team_coach") {
+    return "team_manager";
+  }
+
   if (role === "team_athlete" || inTeam) {
+    const at = input.athlete?.athleteType;
+    if (at === "youth") return "youth_athlete_team_guardian";
+    if (at === "adult") return "adult_athlete_team";
     return "team";
   }
 

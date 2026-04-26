@@ -311,7 +311,7 @@ function TeamAthleteDetailPage() {
 								params: { athleteId },
 								replace: true,
 								state: {} as ProvisionalState,
-							});
+							} as any);
 						}}
 					>
 						Dismiss (clears from browser history state)

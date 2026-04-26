@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
-import { athleteTable, guardianTable, notificationTable, userTable } from "../../db/schema";
+import { athleteTable, bookingTable, guardianTable, notificationTable, serviceTypeTable, userTable } from "../../db/schema";
 import { env } from "../../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../../lib/mailer";
 import { createBookingActionToken } from "../../lib/booking-actions";
@@ -117,6 +117,69 @@ export async function notifyBookingRequested(input: {
       });
     } catch (error) {
       console.error("Failed to send push notification", error);
+    }
+  }
+}
+
+export async function notifyBookingCancelled(bookingId: number) {
+  const [row] = await db
+    .select({
+      guardianId: bookingTable.guardianId,
+      athleteId: bookingTable.athleteId,
+      serviceTypeId: bookingTable.serviceTypeId,
+    })
+    .from(bookingTable)
+    .where(eq(bookingTable.id, bookingId))
+    .limit(1);
+
+  if (!row) return;
+
+  const [guardian] = await db
+    .select({ userId: guardianTable.userId })
+    .from(guardianTable)
+    .where(eq(guardianTable.id, row.guardianId))
+    .limit(1);
+
+  const [athlete] = await db
+    .select({ name: athleteTable.name })
+    .from(athleteTable)
+    .where(eq(athleteTable.id, row.athleteId))
+    .limit(1);
+
+  const [serviceType] = row.serviceTypeId
+    ? await db
+        .select({ name: serviceTypeTable.name })
+        .from(serviceTypeTable)
+        .where(eq(serviceTypeTable.id, row.serviceTypeId))
+        .limit(1)
+    : [];
+
+  const serviceName = serviceType?.name ?? "Session";
+  const athleteName = athlete?.name ?? "Athlete";
+
+  const adminUsers = await db
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(inArray(userTable.role, ROLES_TRAINING_STAFF));
+
+  for (const admin of adminUsers) {
+    void sendPushNotification(
+      admin.id,
+      "Booking cancelled",
+      `${athleteName} cancelled their ${serviceName} request`,
+      { type: "booking", screen: "schedule", url: "/schedule" },
+    );
+  }
+
+  const io = getSocketServer();
+  if (io) {
+    io.to("admin:all").emit("schedule:changed", {
+      message: `Booking cancelled: ${serviceName} by ${athleteName}`,
+    });
+    if (guardian) {
+      io.to(`user:${guardian.userId}`).emit("schedule:changed", {
+        message: "Booking cancelled",
+      });
     }
   }
 }

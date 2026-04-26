@@ -5,6 +5,8 @@ export type MessageThread = {
   name: string;
   role: string;
   channelType?: "announcement" | "coach_group" | "direct" | "team";
+  groupLabel?: string;
+  senderName?: string;
   preview: string;
   time: string;
   pinned: boolean;
@@ -15,6 +17,7 @@ export type MessageThread = {
   responseTime?: string;
   updatedAtMs?: number;
   isAi?: boolean;
+  lastSeenAt?: string | null;
 };
 
 export type TypingStatus = Record<string, { name: string; isTyping: boolean }>;

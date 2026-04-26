@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { and, desc, eq } from "drizzle-orm";
 
 import { getPresignedUploadUrl } from "../services/s3.service";
 import { env } from "../config/env";
@@ -8,6 +9,13 @@ import { getAthleteForUser } from "../services/user.service";
 import { getProgramSectionContentById } from "../services/program-section.service";
 import { getTrainingSessionItemById } from "../services/training-content-v2.service";
 import { MediaKey, MediaFolder } from "../lib/media-key";
+import { db } from "../db";
+import {
+  ProgramType,
+  subscriptionPlanTable,
+  teamSubscriptionRequestTable,
+  teamTable,
+} from "../db/schema";
 
 const presignSchema = z.object({
   folder: z.enum(["profile-photos", "training-videos", "chat-media"] as [MediaFolder, ...MediaFolder[]]),
@@ -26,6 +34,57 @@ const reviewSchema = z.object({
   uploadId: z.number().int().min(1),
   feedback: z.string().min(1),
 });
+
+async function resolveTeamPlanTierForAthlete(athlete: {
+  teamId?: number | null;
+  team?: string | null;
+}): Promise<(typeof ProgramType.enumValues)[number] | null> {
+  const teamId =
+    typeof athlete.teamId === "number" && Number.isFinite(athlete.teamId) && athlete.teamId > 0
+      ? athlete.teamId
+      : null;
+  const [team] = teamId
+    ? await db
+        .select({
+          id: teamTable.id,
+          planId: teamTable.planId,
+          subscriptionStatus: teamTable.subscriptionStatus,
+        })
+        .from(teamTable)
+        .where(eq(teamTable.id, teamId))
+        .limit(1)
+    : [];
+  if (!team) return null;
+
+  if (team.planId) {
+    const [plan] = await db
+      .select({ tier: subscriptionPlanTable.tier })
+      .from(subscriptionPlanTable)
+      .where(eq(subscriptionPlanTable.id, team.planId))
+      .limit(1);
+    if (plan?.tier) return plan.tier;
+  }
+
+  const [fallback] = await db
+    .select({ tier: subscriptionPlanTable.tier })
+    .from(teamSubscriptionRequestTable)
+    .innerJoin(
+      subscriptionPlanTable,
+      eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id),
+    )
+    .where(
+      and(
+        eq(teamSubscriptionRequestTable.teamId, team.id),
+        eq(teamSubscriptionRequestTable.status, "approved"),
+      ),
+    )
+    .orderBy(
+      desc(teamSubscriptionRequestTable.updatedAt),
+      desc(teamSubscriptionRequestTable.id),
+    )
+    .limit(1);
+  return fallback?.tier ?? null;
+}
 
 export async function createUploadUrl(req: Request, res: Response) {
   const input = presignSchema.parse(req.body);
@@ -52,8 +111,10 @@ export async function createVideo(req: Request, res: Response) {
   if (!athlete) {
     return res.status(400).json({ error: "Onboarding incomplete" });
   }
+  const teamTierFallback = await resolveTeamPlanTierForAthlete(athlete);
+  const effectiveTier = athlete.currentProgramTier ?? teamTierFallback;
   const eligibleTiers = new Set(["PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]);
-  if (!athlete.currentProgramTier || !eligibleTiers.has(athlete.currentProgramTier)) {
+  if (!effectiveTier || !eligibleTiers.has(effectiveTier)) {
     return res.status(403).json({ error: "Video uploads are available for Premium members only." });
   }
   if (!input.programSectionContentId) {

@@ -8,7 +8,6 @@ import {
 	Target,
 	Warning,
 	Lightning,
-	ChartLineUp,
 	NotePencil,
 	Trophy,
 	Wrench,
@@ -19,7 +18,7 @@ import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
 import { toast } from "sonner";
-import { env } from "#/env";
+import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 
@@ -71,7 +70,7 @@ function OnboardingStep3() {
 			const token = localStorage.getItem("auth_token");
 			if (!token) throw new Error("Session expired");
 
-			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+			const baseUrl = config.api.baseUrl;
 			const response = await fetch(`${baseUrl}/api/onboarding/goals`, {
 				method: "POST",
 				headers: {

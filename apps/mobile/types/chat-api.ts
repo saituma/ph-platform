@@ -15,6 +15,9 @@ export type ApiChatMessage = {
   read: boolean;
   createdAt: string;
   reactions?: ApiChatReaction[];
+  // Present for group chat endpoints (`/chat/groups/:id/messages`).
+  senderName?: string | null;
+  senderProfilePicture?: string | null;
 };
 
 export type ApiCoach = {
@@ -35,12 +38,15 @@ export type ApiChatGroup = {
     content: string;
     contentType?: string;
     createdAt: string;
+    senderName?: string | null;
+    senderProfilePicture?: string | null;
   } | null;
 };
 
 export type ApiGroupMember = {
   userId: number;
   name: string;
+  displayName?: string;
   email: string;
   profilePicture?: string | null;
 };
@@ -61,4 +67,30 @@ export type GroupMessagesResponse = {
 
 export type GroupMembersResponse = {
   members: ApiGroupMember[];
+};
+
+export type ApiInboxThread = {
+  id: string;
+  type: "direct" | "group";
+  peerUserId?: number;
+  groupId?: number;
+  groupCategory?: string;
+  name: string;
+  role: string;
+  avatarUrl?: string | null;
+  preview: string;
+  unread: number;
+  updatedAt: string;
+  lastSeenAt?: string | null;
+  lastMessageId?: number | null;
+  lastMessageSenderId?: number | null;
+  lastMessageSenderName?: string | null;
+  lastMessageSenderProfilePicture?: string | null;
+  lastMessageContent?: string | null;
+  lastMessageContentType?: string | null;
+  lastMessageCreatedAt?: string | null;
+};
+
+export type InboxResponse = {
+  threads: ApiInboxThread[];
 };

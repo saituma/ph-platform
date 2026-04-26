@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/tanstackstart-react";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -8,12 +9,28 @@ import {
 	useRouter,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import React from "react";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { Toaster } from "../components/ui/sonner";
 import { TooltipProvider } from "../components/ui/tooltip";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
+import { env } from "../env";
 import appCss from "../styles.css?url";
+
+// Init Sentry client-side once (SSR: runs on server too, but instrument.server.mjs
+// handles server init — this guard prevents double-init in SSR).
+if (typeof window !== "undefined" && env.VITE_SENTRY_DSN) {
+	Sentry.init({
+		dsn: env.VITE_SENTRY_DSN,
+		sendDefaultPii: false,
+		tracesSampleRate: import.meta.env.PROD ? 0.2 : 1.0,
+		replaysSessionSampleRate: 0.1,
+		replaysOnErrorSampleRate: 1.0,
+		environment: import.meta.env.PROD ? "production" : "development",
+	});
+}
 
 interface MyRouterContext {
 	queryClient: QueryClient;
@@ -24,61 +41,41 @@ const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getIte
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	head: () => ({
 		meta: [
-			{
-				charSet: "utf-8",
-			},
-			{
-				name: "viewport",
-				content: "width=device-width, initial-scale=1",
-			},
-			{
-				title: "PH Platform Onboarding",
-			},
+			{ charSet: "utf-8" },
+			{ name: "viewport", content: "width=device-width, initial-scale=1" },
+			{ title: "PH Platform Onboarding" },
 		],
 		links: [
-			// Fontshare (Telma) Preconnect & Load
 			{ rel: "preconnect", href: "https://api.fontshare.com" },
 			{
 				rel: "stylesheet",
 				href: "https://api.fontshare.com/v2/css?f[]=telma@400,500,600,700&display=swap",
 			},
-			{
-				rel: "stylesheet",
-				href: appCss,
-			},
+			{ rel: "stylesheet", href: appCss },
 		],
 	}),
 	shellComponent: RootDocument,
-	notFoundComponent: () => {
-		return (
-			<div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
-				<h1 className="text-4xl font-bold mb-4">404 - Not Found</h1>
-				<p className="text-muted-foreground mb-8">
-					The page you are looking for does not exist.
-				</p>
-				<Link
-					to="/"
-					className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold"
-				>
-					Go Home
-				</Link>
-			</div>
-		);
-	},
+	notFoundComponent: () => (
+		<div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
+			<h1 className="text-4xl font-bold mb-4">404 - Not Found</h1>
+			<p className="text-muted-foreground mb-8">
+				The page you are looking for does not exist.
+			</p>
+			<Link
+				to="/"
+				className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold"
+			>
+				Go Home
+			</Link>
+		</div>
+	),
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	const router = useRouter();
 	const pathname = router.state.location.pathname;
 
-	// Define marketing/home pages where we want to show the chrome
-	const marketingPages = [
-		"/",
-		"/about",
-		"/features",
-		"/education-faq",
-		"/terms-privacy",
-	];
+	const marketingPages = ["/", "/about", "/features", "/education-faq", "/terms-privacy"];
 	const showChrome = marketingPages.includes(pathname);
 
 	return (
@@ -90,37 +87,33 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</head>
 			<body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
 				<TooltipProvider>
-					{showChrome && <Header />}
-					{children}
-					{showChrome && <Footer />}
+					<ErrorBoundary>
+						{showChrome && <Header />}
+						{children}
+						{showChrome && <Footer />}
+					</ErrorBoundary>
 					<Toaster
 						closeButton
 						position="top-center"
 						toastOptions={{
 							className:
 								"bg-card/40 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl",
-							style: {
-								fontFamily: "var(--font-sans)",
-							},
+							style: { fontFamily: "var(--font-sans)" },
 						}}
 					/>
 
-					<TanStackDevtools
-						config={{
-							position: "bottom-right",
-						}}
-						plugins={[
-							{
-								name: "Tanstack Router",
-								render: <TanStackRouterDevtoolsPanel />,
-							},
-							TanStackQueryDevtools,
-						]}
-					/>
+					{import.meta.env.DEV && (
+						<TanStackDevtools
+							config={{ position: "bottom-right" }}
+							plugins={[
+								{ name: "Tanstack Router", render: <TanStackRouterDevtoolsPanel /> },
+								TanStackQueryDevtools,
+							]}
+						/>
+					)}
 				</TooltipProvider>
 				<Scripts />
 			</body>
 		</html>
 	);
 }
-

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { Image } from "expo-image";
 import { BackHandler, Platform } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
@@ -7,6 +9,8 @@ import { useMessagesRealtime } from "@/hooks/useMessagesRealtime";
 import { getNotifications } from "@/lib/notifications";
 import { apiRequest } from "@/lib/api";
 import { parseReplyPrefix } from "@/lib/messages/reply";
+import { resolveMediaType } from "@/lib/messages/mediaType";
+import { mapApiDirectMessageToChatMessage } from "@/lib/messages/mappers/messageMapper";
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread } from "@/types/messages";
 import { ApiChatMessage } from "@/types/chat-api";
@@ -36,6 +40,7 @@ export function useMessagesController() {
   const { token, profile, programTier, appRole, apiUserRole } = useAppSelector(
     (state) => state.user,
   );
+  const profileName = profile.name;
   const { socket, setActiveThreadId } = useSocket();
   const rolePrefix = useMemo(
     () => getMessagesRolePrefix({ appRole, apiUserRole }),
@@ -102,7 +107,7 @@ export function useMessagesController() {
     actingUserId,
     effectiveProfileId,
     effectiveProfileName,
-    profileName: profile.name,
+    profileName,
     programTier,
     socket,
     setThreads,
@@ -114,6 +119,7 @@ export function useMessagesController() {
 
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
   const draftConsumedRef = useRef<string | null>(null);
+  const lastLoadedGroupThreadRef = useRef<string | null>(null);
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
@@ -150,7 +156,11 @@ export function useMessagesController() {
   }, [draftQuery, threadId, currentThread?.id, setDraft, draftRef]);
 
   const clearThread = useCallback(() => {
-    routerRef.current.replace(messagesTabHref);
+    if (routerRef.current.canGoBack()) {
+      routerRef.current.back();
+    } else {
+      routerRef.current.replace(messagesTabHref);
+    }
     setSelectedThread(null);
     setOpeningThreadId(null);
     setPendingAttachment(null);
@@ -165,17 +175,70 @@ export function useMessagesController() {
       if (openingThreadId === thread.id && threadId === thread.id) return;
       setOpeningThreadId(thread.id);
       setSelectedThread(thread);
+
+      const threadHasLocalMessages = messages.some(
+        (message) => message.threadId === thread.id,
+      );
+      if (!threadHasLocalMessages) {
+        if (thread.id.startsWith("group:")) {
+          const groupId = Number(thread.id.replace("group:", ""));
+          if (Number.isFinite(groupId)) {
+            void loadGroupMessages(groupId, { silent: true });
+          }
+        } else {
+          void loadMessages({ silent: true });
+        }
+      }
+
       routerRef.current.push({
         pathname: `/${rolePrefix}/messages/[id]`,
         params: { id: thread.id, sharedBoundTag, sharedAvatarTag },
       } as any);
     },
-    [openingThreadId, rolePrefix, threadId, setSelectedThread],
+    [
+      openingThreadId,
+      threadId,
+      messages,
+      loadGroupMessages,
+      loadMessages,
+      rolePrefix,
+      setSelectedThread,
+    ],
   );
 
   const resetOpeningThread = useCallback(() => {
     setOpeningThreadId(null);
   }, []);
+
+  const getMediaPreviewLabel = useCallback(
+    (contentType?: "text" | "image" | "video", hasMedia?: boolean) => {
+      if (!hasMedia) return "";
+      if (contentType === "image") return "Photo";
+      if (contentType === "video") return "Video";
+      return "File";
+    },
+    [],
+  );
+
+  const resolveOutgoingAttachmentType = useCallback(
+    (attachment: {
+      mimeType?: string;
+      fileName?: string;
+      uri?: string;
+      isImage?: boolean;
+    } | null): "text" | "image" | "video" => {
+      if (!attachment) return "text";
+      const mime = String(attachment.mimeType ?? "").toLowerCase().trim();
+      if (mime.startsWith("image/") || mime.includes("image")) return "image";
+      if (mime.startsWith("video/") || mime.includes("video")) return "video";
+      if (attachment.isImage) return "image";
+      const combined = `${String(attachment.fileName ?? "")} ${String(attachment.uri ?? "")}`.toLowerCase();
+      if (/\.(jpg|jpeg|png|gif|webp|bmp|heic|heif|avif)\b/.test(combined)) return "image";
+      if (/\.(mp4|mov|webm|m4v|avi|mkv)\b/.test(combined)) return "video";
+      return "text";
+    },
+    [],
+  );
 
   const sendMessagePayload = useCallback(
     async (payload: {
@@ -189,13 +252,17 @@ export function useMessagesController() {
       if (currentThread.id.startsWith("group:")) {
         const groupId = Number(currentThread.id.replace("group:", ""));
         const clientId = `client-${Date.now()}`;
+        const previewLabel =
+          trimmed ||
+          getMediaPreviewLabel(payload.contentType, Boolean(payload.mediaUrl));
         setMessages((prev) => [
           ...prev,
           {
             id: clientId,
             threadId: `group:${groupId}`,
             from: "user",
-            text: trimmed || "Attachment",
+            senderId: effectiveProfileId,
+            text: trimmed,
             replyToMessageId: replyTarget?.messageId,
             replyPreview: replyTarget?.preview,
             contentType: payload.contentType ?? "text",
@@ -215,29 +282,21 @@ export function useMessagesController() {
             t.id === `group:${groupId}`
               ? {
                   ...t,
-                  preview: trimmed || "Attachment",
+                  preview: previewLabel
+                    ? `${effectiveProfileName}: ${previewLabel}`
+                    : t.preview,
                   time: new Date().toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   }),
                   updatedAtMs: Date.now(),
+                  senderName: effectiveProfileName || t.senderName,
                 }
               : t,
           ),
         );
 
-        if (socket?.connected) {
-          socket.emit("group:send", {
-            groupId,
-            content: trimmed || "Attachment",
-            contentType: payload.contentType ?? "text",
-            mediaUrl: payload.mediaUrl,
-            replyToMessageId: replyTarget?.messageId,
-            replyPreview: replyTarget?.preview,
-            clientId,
-            actingUserId: actingUserId ?? undefined,
-          });
-        } else {
+        try {
           const created = await apiRequest<{ message?: ApiChatMessage }>(
             `/chat/groups/${groupId}/messages`,
             {
@@ -245,26 +304,37 @@ export function useMessagesController() {
               token,
               headers: actingHeaders,
               body: {
-                content: trimmed || "Attachment",
+                content: trimmed,
                 contentType: payload.contentType ?? "text",
                 mediaUrl: payload.mediaUrl,
                 replyToMessageId: replyTarget?.messageId,
                 replyPreview: replyTarget?.preview,
+                clientId,
               },
             },
           );
           const serverMsg = created?.message;
           if (serverMsg?.id) {
             const parsed = parseReplyPrefix(serverMsg.content);
+            const serverText =
+              serverMsg.mediaUrl &&
+              String(parsed.text ?? "")
+                .trim()
+                .toLowerCase() === "attachment"
+                ? ""
+                : parsed.text;
             const mapped: ChatMessage = {
               id: `group-${serverMsg.id}`,
               threadId: `group:${groupId}`,
               from: "user",
-              text: parsed.text,
+              senderId: serverMsg.senderId ?? effectiveProfileId,
+              text: serverText,
               replyToMessageId: parsed.replyToMessageId ?? undefined,
               replyPreview: parsed.replyPreview || undefined,
-              contentType:
-                serverMsg.contentType ?? payload.contentType ?? "text",
+              contentType: resolveMediaType({
+                contentType: serverMsg.contentType ?? payload.contentType ?? "text",
+                mediaUrl: serverMsg.mediaUrl ?? payload.mediaUrl,
+              }),
               mediaUrl: serverMsg.mediaUrl ?? payload.mediaUrl,
               time: serverMsg.createdAt
                 ? new Date(serverMsg.createdAt).toLocaleTimeString([], {
@@ -283,14 +353,28 @@ export function useMessagesController() {
             };
             setMessages((prev) => {
               const withoutTemp = prev.filter((m) => m.clientId !== clientId);
-              return [...withoutTemp, mapped];
+              const withoutDuplicateId = withoutTemp.filter(
+                (m) => String(m.id) !== String(mapped.id),
+              );
+              return [...withoutDuplicateId, mapped];
             });
+            if (serverMsg.mediaUrl && String(serverMsg.contentType ?? "") === "image") {
+              void Image.prefetch(serverMsg.mediaUrl);
+            }
+          } else {
+            setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
+            void loadGroupMessages(groupId, { silent: true });
           }
+        } catch (err) {
+          setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
+          void loadGroupMessages(groupId, { silent: true });
+          throw err;
         }
         return;
       }
 
       const toUserId = Number(currentThread.id);
+      if (!Number.isFinite(toUserId) || toUserId <= 0) return;
       const clientId = `client-${Date.now()}`;
       setMessages((prev) => [
         ...prev,
@@ -298,7 +382,9 @@ export function useMessagesController() {
           id: clientId,
           threadId: String(toUserId),
           from: "user",
-          text: trimmed || "Attachment",
+          senderId: effectiveProfileId,
+          receiverId: toUserId,
+          text: trimmed,
           replyToMessageId: replyTarget?.messageId,
           replyPreview: replyTarget?.preview,
           contentType: payload.contentType ?? "text",
@@ -317,7 +403,10 @@ export function useMessagesController() {
           t.id === String(toUserId)
             ? {
                 ...t,
-                preview: trimmed || "Attachment",
+                preview:
+                  trimmed ||
+                  getMediaPreviewLabel(payload.contentType, Boolean(payload.mediaUrl)) ||
+                  t.preview,
                 time: new Date().toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -328,24 +417,14 @@ export function useMessagesController() {
         ),
       );
 
-      if (socket?.connected) {
-        socket.emit("message:send", {
-          toUserId,
-          content: trimmed || "Attachment",
-          contentType: payload.contentType ?? "text",
-          mediaUrl: payload.mediaUrl,
-          replyToMessageId: replyTarget?.messageId,
-          replyPreview: replyTarget?.preview,
-          clientId,
-          actingUserId: actingUserId ?? undefined,
-        });
-      } else {
-        await apiRequest("/messages", {
+      try {
+        const created = await apiRequest<{ message?: ApiChatMessage }>("/messages", {
           method: "POST",
           token,
           headers: actingHeaders,
           body: {
-            content: trimmed || "Attachment",
+            content: trimmed,
+            receiverId: toUserId,
             contentType: payload.contentType ?? "text",
             mediaUrl: payload.mediaUrl,
             replyToMessageId: replyTarget?.messageId,
@@ -353,19 +432,54 @@ export function useMessagesController() {
             clientId,
           },
         });
+        const serverMsg = created?.message;
+        if (serverMsg?.id) {
+          const mapped = mapApiDirectMessageToChatMessage(
+            serverMsg,
+            String(effectiveProfileId),
+            [],
+            profileName,
+          );
+          setMessages((prev) => {
+            const withoutTemp = prev.filter((m) => m.clientId !== clientId);
+            const nextMapped = { ...mapped, clientId };
+            const withoutDuplicateId = withoutTemp.filter(
+              (m) => String(m.id) !== String(nextMapped.id),
+            );
+            return [...withoutDuplicateId, nextMapped];
+          });
+        } else {
+          setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
+          void loadMessages({ silent: true });
+        }
+        if (payload.mediaUrl && payload.contentType === "image") {
+          void Image.prefetch(payload.mediaUrl);
+        } else if (
+          serverMsg?.mediaUrl &&
+          String(serverMsg.contentType ?? payload.contentType ?? "") === "image"
+        ) {
+          void Image.prefetch(serverMsg.mediaUrl);
+        }
+      } catch (err) {
+        setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
+        void loadMessages({ silent: true });
+        throw err;
       }
     },
     [
       actingHeaders,
-      actingUserId,
       currentThread,
+      effectiveProfileId,
       effectiveProfileName,
+      loadGroupMessages,
+      loadMessages,
+      profileName,
       replyTarget?.messageId,
       replyTarget?.preview,
-      socket,
       token,
       setMessages,
       setThreads,
+      getMediaPreviewLabel,
     ],
   );
 
@@ -387,9 +501,16 @@ export function useMessagesController() {
         setIsUploadingAttachment(true);
         upload = await uploadAttachment(attachmentToSend);
       }
+      const attachmentType = resolveOutgoingAttachmentType(attachmentToSend);
+      const resolvedContentType =
+        upload?.contentType && upload.contentType !== "text"
+          ? upload.contentType
+          : attachmentToSend
+            ? attachmentType
+            : "text";
       await sendMessagePayload({
-        text: trimmed || (attachmentToSend ? "Attachment" : ""),
-        contentType: upload?.contentType ?? "text",
+        text: trimmed,
+        contentType: resolvedContentType,
         mediaUrl: upload?.mediaUrl,
       });
       setReplyTarget(null);
@@ -405,6 +526,7 @@ export function useMessagesController() {
     pendingAttachment,
     sendMessagePayload,
     uploadAttachment,
+    resolveOutgoingAttachmentType,
     setDraft,
     draftRef,
     setPendingAttachment,
@@ -421,7 +543,7 @@ export function useMessagesController() {
       setPendingAttachment(null);
       try {
         await sendMessagePayload({
-          text: caption || "GIF",
+          text: caption,
           contentType: "image",
           mediaUrl: gifUrl,
         });
@@ -471,7 +593,7 @@ export function useMessagesController() {
     const id = setInterval(() => {
       if (socket?.connected) return;
       void loadMessages({ silent: true });
-    }, 20000);
+    }, 10000);
     return () => clearInterval(id);
   }, [token, threadId, socket?.connected, loadMessages]);
 
@@ -509,18 +631,34 @@ export function useMessagesController() {
     }
   }, [threadId, openingThreadId]);
 
+  // ── Prefetch on tab focus (silent refresh) ─────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      if (!token) return;
+      void loadMessages({ silent: true });
+    }, [token, loadMessages]),
+  );
+
   useEffect(() => {
-    void loadMessages();
+    void loadMessages({ silent: false });
   }, [loadMessages]);
 
   useEffect(() => {
     const threadIdValue = currentThread?.id ?? "";
-    if (!threadIdValue.startsWith("group:")) return;
+    if (!threadIdValue.startsWith("group:")) {
+      lastLoadedGroupThreadRef.current = null;
+      return;
+    }
+    if (lastLoadedGroupThreadRef.current === threadIdValue) return;
     const groupId = Number(threadIdValue.replace("group:", ""));
     if (Number.isFinite(groupId)) {
-      void loadGroupMessages(groupId);
+      const hasGroupCache = messages.some(
+        (message) => message.threadId === threadIdValue,
+      );
+      lastLoadedGroupThreadRef.current = threadIdValue;
+      void loadGroupMessages(groupId, { silent: hasGroupCache });
     }
-  }, [currentThread?.id, loadGroupMessages]);
+  }, [currentThread?.id, loadGroupMessages, messages]);
 
   useEffect(() => {
     if (!currentThread) return;

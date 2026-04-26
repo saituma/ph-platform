@@ -1,4 +1,4 @@
-import { env } from "@/env";
+import { config } from "@/lib/config";
 
 export interface Program {
   id: number;
@@ -23,7 +23,7 @@ export interface TrainingContentV2Workspace {
 }
 
 export async function fetchPrograms(token: string): Promise<{ items: Program[] }> {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const baseUrl = config.api.baseUrl;
   
   const response = await fetch(`${baseUrl}/api/program-section-content`, {
     headers: {
@@ -41,7 +41,7 @@ export async function fetchPrograms(token: string): Promise<{ items: Program[] }
 }
 
 export async function fetchTeamWorkspace(token: string, age: number | null): Promise<TrainingContentV2Workspace> {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const baseUrl = config.api.baseUrl;
   const ageQ = age != null ? `?age=${age}` : "";
   
   const response = await fetch(`${baseUrl}/api/training-content-v2/mobile${ageQ}`, {
@@ -58,7 +58,7 @@ export async function fetchTeamWorkspace(token: string, age: number | null): Pro
 }
 
 export async function fetchSectionContent(token: string, type: string, tier: string, age: number | null) {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const baseUrl = config.api.baseUrl;
   const ageQ = age !== null ? `&age=${age}` : "";
   
   const response = await fetch(
@@ -78,7 +78,7 @@ export async function fetchSectionContent(token: string, type: string, tier: str
 }
 
 export async function fetchProgramDetail(token: string, programId: number): Promise<Program> {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const baseUrl = config.api.baseUrl;
   
   const response = await fetch(`${baseUrl}/api/programs/${programId}`, {
     headers: {

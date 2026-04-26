@@ -32,12 +32,14 @@ interface BuiltinCameraProps {
     width: number;
     height: number;
   }) => void;
+  maxDurationSeconds?: number;
 }
 
 export function BuiltinCamera({
   visible,
   onCancel,
   onRecorded,
+  maxDurationSeconds = 60,
 }: BuiltinCameraProps) {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
@@ -45,7 +47,8 @@ export function BuiltinCamera({
   const [facing, setFacing] = useState<"front" | "back">("back");
   const [flash, setFlash] = useState<"on" | "off">("off");
   const [isRecording, setIsRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [remainingSeconds, setRemainingSeconds] = useState(maxDurationSeconds);
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
@@ -54,6 +57,7 @@ export function BuiltinCamera({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const isCancelledRef = useRef(false);
+  const autoStopTriggeredRef = useRef(false);
   const recordingPromiseRef = useRef<Promise<
     { uri: string } | undefined
   > | null>(null);
@@ -99,25 +103,45 @@ export function BuiltinCamera({
       isCancelledRef.current = false;
       recordingPromiseRef.current = null;
       setIsRecording(false);
-      setSeconds(0);
+      setElapsedSeconds(0);
+      setRemainingSeconds(maxDurationSeconds);
+      autoStopTriggeredRef.current = false;
 
       // Reset animations
       recordButtonBorderRadius.setValue(32);
       recordButtonScale.setValue(1);
     }
-  }, [visible, recordButtonBorderRadius, recordButtonScale]);
+  }, [maxDurationSeconds, visible, recordButtonBorderRadius, recordButtonScale]);
+
+  useEffect(() => {
+    if (facing === "front" && flash === "on") {
+      setFlash("off");
+    }
+  }, [facing, flash]);
 
   const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     startTimeRef.current = Date.now();
-    setSeconds(0);
+    setElapsedSeconds(0);
+    setRemainingSeconds(maxDurationSeconds);
+    autoStopTriggeredRef.current = false;
 
     timerRef.current = setInterval(() => {
       if (!startTimeRef.current) return;
       const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      setSeconds(elapsed);
+      const remaining = Math.max(maxDurationSeconds - elapsed, 0);
+      setElapsedSeconds(elapsed);
+      setRemainingSeconds(remaining);
+      if (remaining <= 0 && !autoStopTriggeredRef.current) {
+        autoStopTriggeredRef.current = true;
+        try {
+          cameraRef.current?.stopRecording();
+        } catch {
+          // no-op: camera may already be stopping.
+        }
+      }
     }, 250);
-  }, []);
+  }, [maxDurationSeconds]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -126,10 +150,11 @@ export function BuiltinCamera({
     }
     if (startTimeRef.current) {
       const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      setSeconds(elapsed);
+      setElapsedSeconds(elapsed);
+      setRemainingSeconds(Math.max(maxDurationSeconds - elapsed, 0));
     }
     startTimeRef.current = null;
-  }, []);
+  }, [maxDurationSeconds]);
 
   const animateRecordButton = (recording: boolean) => {
     Animated.parallel([
@@ -157,7 +182,7 @@ export function BuiltinCamera({
 
     try {
       const options: CameraRecordingOptions = {
-        maxDuration: 180,
+        maxDuration: maxDurationSeconds,
       };
 
       recordingPromiseRef.current = cameraRef.current.recordAsync(options);
@@ -169,7 +194,7 @@ export function BuiltinCamera({
       const elapsed =
         startTimeRef.current != null
           ? Math.floor((Date.now() - startTimeRef.current) / 1000)
-          : seconds;
+          : elapsedSeconds;
       onRecorded({
         uri: video.uri,
         duration: elapsed,
@@ -224,6 +249,13 @@ export function BuiltinCamera({
   };
 
   const toggleFlash = () => {
+    if (facing === "front") {
+      Alert.alert(
+        "Flash unavailable",
+        "Torch only works on the rear camera.",
+      );
+      return;
+    }
     setFlash((prev) => (prev === "off" ? "on" : "off"));
   };
 
@@ -248,7 +280,8 @@ export function BuiltinCamera({
           ref={cameraRef}
           style={styles.camera}
           facing={facing}
-          flash={flash}
+          flash="off"
+          enableTorch={flash === "on" && facing === "back"}
           mode="video"
           videoQuality="720p"
           responsiveOrientationWhenOrientationLocked
@@ -272,11 +305,11 @@ export function BuiltinCamera({
                 style={styles.timerContainer}
               >
                 <View style={styles.redDot} />
-                <Text style={styles.timerText}>{formatTime(seconds)}</Text>
+                <Text style={styles.timerText}>{formatTime(remainingSeconds)}</Text>
               </BlurView>
             )}
 
-            <TouchableOpacity onPress={toggleFlash} disabled={isRecording}>
+            <TouchableOpacity onPress={toggleFlash}>
               <BlurView intensity={30} tint="dark" style={styles.iconButton}>
                 <Feather
                   name={flash === "on" ? "zap" : "zap-off"}
@@ -316,11 +349,15 @@ export function BuiltinCamera({
               />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={toggleFacing} disabled={isRecording}>
-              <BlurView intensity={30} tint="dark" style={styles.flipButton}>
-                <Feather name="refresh-cw" size={20} color="white" />
-              </BlurView>
-            </TouchableOpacity>
+            {isRecording ? (
+              <View style={styles.flipButtonPlaceholder} />
+            ) : (
+              <TouchableOpacity onPress={toggleFacing}>
+                <BlurView intensity={30} tint="dark" style={styles.flipButton}>
+                  <Feather name="refresh-cw" size={20} color="white" />
+                </BlurView>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -407,5 +444,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+  },
+  flipButtonPlaceholder: {
+    width: 50,
+    height: 50,
   },
 });

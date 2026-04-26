@@ -35,21 +35,25 @@ export function mapGroupToThread(group: ApiChatGroup): MessageThread {
     last && typeof last.content === "string"
       ? parseReplyPrefix(last.content)
       : null;
+  const senderName = String(last?.senderName ?? "").trim();
   const previewText =
     parsedLast?.text?.trim() || String(last?.content ?? "").trim();
-  const preview =
+  const contentPreview =
     lastContentType === "image"
       ? "Photo"
       : lastContentType === "video"
         ? "Video"
         : previewText ||
           (channelType === "team" ? "Team chat" : "Group chat");
+  const preview = senderName ? `${senderName}: ${contentPreview}` : contentPreview;
 
   return {
     id: `group:${group.id}`,
     name: group.name,
     role: channelType === "team" ? "Team" : "Group",
     channelType,
+    groupLabel: channelType === "team" ? "Team inbox" : "Coach group",
+    senderName: senderName || undefined,
     preview,
     time,
     pinned: false,
@@ -82,6 +86,7 @@ export function mapCoachToThread(
     name: coach.name,
     role: coach.role ?? "Coach",
     channelType: "direct" as const,
+    groupLabel: "Direct message",
     preview: lastMsg ? lastMsg.content : "Start the conversation",
     time: lastMsg?.createdAt
       ? new Date(lastMsg.createdAt).toLocaleTimeString([], {

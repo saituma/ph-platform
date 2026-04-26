@@ -4,11 +4,13 @@ import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
+import { isAdminRole } from "@/lib/isAdminRole";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 
 type AdminTeam = {
   team: string;
@@ -93,9 +95,14 @@ export default function AdminTeamsListScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const router = useRouter();
-  const token = useAppSelector((state) => state.user.token);
+  const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const canLoad = Boolean(token && bootstrapReady);
+
+  const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
+  if (!canAccess) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [loading, setLoading] = useState(false);

@@ -59,7 +59,6 @@ export default function ActiveRunScreen() {
   const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
   const [sheetIndex, setSheetIndex] = useState<ActiveRunSheetIndex>(-1);
   const [layersSheetIndex, setLayersSheetIndex] = useState<ActiveRunLayersSheetIndex>(-1);
-  const [pickingDestination, setPickingDestination] = useState(false);
   const [pointsOfInterestEnabled, setPointsOfInterestEnabled] = useState(true);
   const [showRunSheetHint, setShowRunSheetHint] = useState(true);
   const opacity = useSharedValue(0);
@@ -261,7 +260,7 @@ export default function ActiveRunScreen() {
 
   const isSheetOpen = sheetIndex >= 0 || layersSheetIndex >= 0;
   const showRunDock = sheetIndex === -1 && layersSheetIndex === -1;
-  const statsBottom = bottomSafeInset + 182;
+  const statsBottom = bottomSafeInset + 196;
   const controlsBottom =
     layersSheetIndex >= 0
       ? bottomSafeInset + 336
@@ -291,16 +290,10 @@ export default function ActiveRunScreen() {
           routePolyline={routePolyline}
           onManualMove={() => setFollowUser(false)}
           mapStyle={mapStyle}
-          onPress={
-            pickingDestination
-              ? (coord) => {
-                  setDestination(coord);
-                  setPickingDestination(false);
-                  setFollowUser(true);
-                  setSheetIndex(0);
-                }
-              : undefined
-          }
+          onPress={(coord) => {
+            setDestination(coord);
+            setSheetIndex(-1);
+          }}
         />
 
         {/* Top-left exit */}
@@ -379,32 +372,6 @@ export default function ActiveRunScreen() {
           </View>
         )}
 
-        {pickingDestination ? (
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              left: 16,
-              right: 16,
-              top: insets.top + 134,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              borderRadius: radius.xl,
-              backgroundColor: glassBg,
-              borderWidth: 1,
-              borderColor: glassBorder,
-              ...glassShadow,
-              zIndex: 35,
-            }}
-          >
-            <Text style={{ fontFamily: fonts.accentBold, fontSize: 13, color: colors.textPrimary }}>
-              Tap the map to set your route destination
-            </Text>
-            <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary }}>
-              This is optional — you can finish without a destination.
-            </Text>
-          </View>
-        ) : null}
 
         {sheetIndex >= 1 && layersSheetIndex === -1 && showRunSheetHint ? (
           <View
@@ -537,11 +504,7 @@ export default function ActiveRunScreen() {
               isDark={isDark}
               onPrimaryPress={handlePrimaryPress}
               onOpenSheet={() => setSheetIndex(0)}
-              onAddRoute={() => {
-                setPickingDestination(true);
-                setSheetIndex(-1);
-                setLayersSheetIndex(-1);
-              }}
+              onFinishRun={handleFinishRun}
             />
           </View>
         ) : null}
@@ -554,11 +517,6 @@ export default function ActiveRunScreen() {
           isDark={isDark}
           mainTabBarOverlap={bottomSafeInset}
           onPrimaryPress={handlePrimaryPress}
-          onAddRoute={() => {
-            setPickingDestination(true);
-            setSheetIndex(-1);
-            setLayersSheetIndex(-1);
-          }}
           onShareLiveLocation={() => {
             const current = useRunStore.getState().shareLiveLocationEnabled;
             useRunStore.getState().setShareLiveLocationEnabled(!current);

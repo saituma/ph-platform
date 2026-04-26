@@ -435,7 +435,10 @@ export async function submitTestimonial(req: Request, res: Response) {
 
 export async function listTestimonialSubmissions(_req: Request, res: Response) {
   const items = await getTestimonialSubmissions();
-  const pending = items.filter((item) => (item.category ?? "pending") !== "approved");
+  const pending = items.filter((item) => {
+    const cat = (item.category ?? "pending").toLowerCase();
+    return cat !== "approved" && cat !== "rejected";
+  });
   return res.status(200).json({ items: pending });
 }
 

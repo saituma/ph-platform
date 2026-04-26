@@ -7,9 +7,32 @@ import React, { useCallback, useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useRouter } from "expo-router";
-
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Feather } from "@/components/ui/theme-icons";
-import { AdminCard } from "@/roles/admin/components/AdminCard";
+
+const OPS_ITEMS = [
+  {
+    icon: "calendar",
+    title: "Schedule",
+    subtitle: "Bookings, service types, availability, pending requests.",
+    color: "#FFB020",
+    destination: "schedule" as const,
+  },
+  {
+    icon: "clipboard",
+    title: "Nutrition",
+    subtitle: "Nutrition + wellness logs, coach feedback, video response.",
+    color: "#34C759",
+    destination: "nutrition" as const,
+  },
+  {
+    icon: "activity",
+    title: "Referrals",
+    subtitle: "Manage referral logs and partner links.",
+    color: "#30B0C7",
+    destination: "referrals" as const,
+  },
+] as const;
 
 export default function AdminOpsScreen() {
   const { colors, isDark } = useAppTheme();
@@ -63,101 +86,156 @@ export default function AdminOpsScreen() {
     });
   }, [pushSchedule, router]);
 
-  function NavRow({
-    icon,
-    title,
-    subtitle,
-    onPress,
-  }: {
-    icon: any;
-    title: string;
-    subtitle: string;
-    onPress: () => void;
-  }) {
-    return (
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
-      >
-        <AdminCard>
-          <View className="flex-row items-center">
-            <View
-              className="h-12 w-12 rounded-2xl items-center justify-center border mr-4"
-              style={{
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
-                borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
-              }}
-            >
-              <Feather name={icon} size={22} color={colors.accent} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-[16px] font-outfit-bold font-bold text-app tracking-tight">
-                {title}
-              </Text>
-              <Text className="text-[12px] font-outfit text-secondary mt-0.5">
-                {subtitle}
-              </Text>
-            </View>
-            <Feather
-              name="chevron-right"
-              size={20}
-              color={isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.35)"}
-            />
-          </View>
-        </AdminCard>
-      </Pressable>
-    );
-  }
+  const handleNav = (destination: typeof OPS_ITEMS[number]["destination"]) => {
+    if (destination === "schedule") return pushSchedule();
+    if (destination === "nutrition") return router.push("/admin/ops/nutrition");
+    if (destination === "referrals") return router.push("/admin/ops/referrals");
+  };
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top }}>
       <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <View className="pt-10 mb-8 px-6">
-          <View className="flex-row items-center gap-3 mb-2">
-            <View className="h-8 w-1.5 rounded-full bg-accent" />
-            <Text
-              className="text-5xl font-telma-bold text-app tracking-tight"
-              numberOfLines={1}
-            >
-              Ops
-            </Text>
+        {/* Header */}
+        <Animated.View
+          entering={FadeInDown.delay(60).duration(380)}
+          style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 32 }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
+            <View
+              style={{
+                width: 5,
+                height: 36,
+                borderRadius: 3,
+                backgroundColor: colors.accent,
+              }}
+            />
+            <View>
+              <Text
+                style={{
+                  fontFamily: "Telma-Bold",
+                  fontSize: 44,
+                  color: colors.textPrimary,
+                  letterSpacing: -1,
+                  lineHeight: 48,
+                }}
+                numberOfLines={1}
+              >
+                Ops Hub
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 13,
+                  color: colors.textSecondary,
+                  marginTop: 2,
+                }}
+              >
+                Schedules, nutrition & referral tools
+              </Text>
+            </View>
           </View>
-          <Text
-            className="text-base font-outfit text-secondary leading-relaxed"
-          >
-            Manage schedules, nutrition logs, and referrals — aligned with the web admin tools.
-          </Text>
-        </View>
+        </Animated.View>
 
         {!bootstrapReady ? (
-          <View className="px-6">
-            <AdminCard>
-              <Text className="text-sm font-outfit text-secondary text-center py-4">
-                Admin tools will load after auth bootstrap.
-              </Text>
-            </AdminCard>
+          <View
+            style={{
+              marginHorizontal: 24,
+              padding: 24,
+              borderRadius: 22,
+              borderWidth: 1,
+              backgroundColor: isDark ? colors.cardElevated : colors.card,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 14,
+                color: colors.textSecondary,
+                textAlign: "center",
+              }}
+            >
+              Admin tools will load after auth bootstrap.
+            </Text>
           </View>
         ) : (
-          <View className="px-6 gap-4">
-            <NavRow
-              icon="calendar"
-              title="Schedule"
-              subtitle="Bookings, service types, availability, pending requests."
-              onPress={() => pushSchedule()}
-            />
-            <NavRow
-              icon="clipboard"
-              title="Nutrition"
-              subtitle="Nutrition + wellness logs, coach feedback, video response."
-              onPress={() => router.push("/admin/ops/nutrition")}
-            />
-            <NavRow
-              icon="activity"
-              title="Referrals"
-              subtitle="Manage referral logs and partner links."
-              onPress={() => router.push("/admin/ops/referrals")}
-            />
+          <View style={{ paddingHorizontal: 24, gap: 14 }}>
+            {OPS_ITEMS.map((item, idx) => (
+              <Animated.View key={item.destination} entering={FadeInDown.delay(120 + idx * 70).duration(380)}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => handleNav(item.destination)}
+                  style={({ pressed }) => ({
+                    borderRadius: 22,
+                    borderWidth: 1,
+                    backgroundColor: isDark ? colors.cardElevated : colors.card,
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+                    overflow: "hidden",
+                    opacity: pressed ? 0.88 : 1,
+                    transform: [{ scale: pressed ? 0.985 : 1 }],
+                  })}
+                >
+                  {/* Colored top strip */}
+                  <View
+                    style={{
+                      height: 3,
+                      backgroundColor: item.color,
+                      opacity: 0.7,
+                    }}
+                  />
+                  <View style={{ flexDirection: "row", alignItems: "center", padding: 20 }}>
+                    {/* Icon block */}
+                    <View
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 16,
+                        backgroundColor: isDark ? `${item.color}20` : `${item.color}14`,
+                        borderWidth: 1,
+                        borderColor: isDark ? `${item.color}30` : `${item.color}22`,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: 16,
+                      }}
+                    >
+                      <Feather name={item.icon as any} size={24} color={item.color} />
+                    </View>
+                    {/* Text */}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontFamily: "Outfit-Bold",
+                          fontSize: 17,
+                          color: colors.textPrimary,
+                          letterSpacing: -0.2,
+                          marginBottom: 3,
+                        }}
+                      >
+                        {item.title}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: "Outfit-Regular",
+                          fontSize: 13,
+                          color: colors.textSecondary,
+                          lineHeight: 18,
+                        }}
+                        numberOfLines={2}
+                      >
+                        {item.subtitle}
+                      </Text>
+                    </View>
+                    <Feather
+                      name="chevron-right"
+                      size={20}
+                      color={isDark ? "rgba(255,255,255,0.30)" : "rgba(15,23,42,0.30)"}
+                      style={{ marginLeft: 12 }}
+                    />
+                  </View>
+                </Pressable>
+              </Animated.View>
+            ))}
           </View>
         )}
       </ThemedScrollView>

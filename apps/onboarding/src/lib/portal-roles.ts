@@ -44,6 +44,16 @@ export function showPortalNutritionNav(role: string | undefined): boolean {
 }
 
 /**
+ * Physio referrals are assigned to athletes by admins/coaches.
+ * Athletes see their assigned referral; coaches manage them via apps/web.
+ */
+export function showPortalPhysioReferralNav(role: string | undefined): boolean {
+	if (role == null) return false;
+	if (isPortalAthleteFamilyRole(role)) return true;
+	return false;
+}
+
+/**
  * Team roster portal + `/api/team/roster*` (requireRole treats `team_coach` like legacy `coach`).
  */
 export function isPortalTeamRosterManagerRole(

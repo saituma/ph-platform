@@ -1,100 +1,197 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Bell, Mail, Smartphone, MessageCircle, Info } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+	Bell,
+	BellOff,
+	CheckCheck,
+	Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { settingsService } from "@/services/settingsService";
 
 export const Route = createFileRoute("/portal/notifications")({
 	component: NotificationsPage,
 });
 
-function NotificationsPage() {
-	const [settings, setSettings] = useState({
-		emailPromos: true,
-		emailLogs: true,
-		appMessages: true,
-		appReminders: false,
-	});
+type Notification = {
+	id: number;
+	type: string | null;
+	content: string | null;
+	read: boolean;
+	link: string | null;
+	createdAt: string;
+};
 
-	const toggle = (key: keyof typeof settings) => {
-		const newVal = !settings[key];
-		setSettings(prev => ({ ...prev, [key]: newVal }));
-		toast.success(`Preference updated`);
+function relativeDate(dateString: string) {
+	const diff = Date.now() - new Date(dateString).getTime();
+	const mins = Math.floor(diff / 60000);
+	if (mins < 1) return "Just now";
+	if (mins < 60) return `${mins}m ago`;
+	const hours = Math.floor(mins / 60);
+	if (hours < 24) return `${hours}h ago`;
+	const days = Math.floor(hours / 24);
+	if (days < 7) return `${days}d ago`;
+	return new Date(dateString).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function NotificationsPage() {
+	const [notifications, setNotifications] = useState<Notification[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [markingAll, setMarkingAll] = useState(false);
+
+	const fetchNotifications = async () => {
+		setLoading(true);
+		try {
+			const data = await settingsService.getNotifications();
+			setNotifications(data.items ?? []);
+		} catch {
+			toast.error("Could not load notifications");
+		} finally {
+			setLoading(false);
+		}
 	};
+
+	useEffect(() => {
+		void fetchNotifications();
+	}, []);
+
+	const handleMarkRead = async (id: number) => {
+		try {
+			await settingsService.markNotificationRead(id);
+			setNotifications((prev) =>
+				prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+			);
+		} catch {
+			toast.error("Failed to mark as read");
+		}
+	};
+
+	const handleMarkAllRead = async () => {
+		const unread = notifications.filter((n) => !n.read);
+		if (!unread.length) return;
+		setMarkingAll(true);
+		try {
+			await Promise.all(unread.map((n) => settingsService.markNotificationRead(n.id)));
+			setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+			toast.success("All notifications marked as read");
+		} catch {
+			toast.error("Failed to mark all as read");
+		} finally {
+			setMarkingAll(false);
+		}
+	};
+
+	const unreadCount = notifications.filter((n) => !n.read).length;
 
 	return (
 		<div className="p-6 max-w-2xl mx-auto space-y-6">
-			<div className="flex flex-col gap-2">
-				<h1 className="text-3xl font-black uppercase italic tracking-tighter">Notifications</h1>
-				<p className="text-muted-foreground">Control how and when you receive updates from the platform.</p>
+			<div className="flex items-start justify-between gap-4">
+				<div className="space-y-1">
+					<h1 className="text-3xl font-black uppercase italic tracking-tighter">
+						Notifications
+					</h1>
+					<p className="text-muted-foreground">
+						{unreadCount > 0
+							? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
+							: "You're all caught up"}
+					</p>
+				</div>
+				{unreadCount > 0 && (
+					<Button
+						variant="outline"
+						size="sm"
+						className="rounded-xl font-bold border-2 shrink-0"
+						onClick={() => void handleMarkAllRead()}
+						disabled={markingAll}
+					>
+						{markingAll ? (
+							<Loader2 className="mr-2 h-3 w-3 animate-spin" />
+						) : (
+							<CheckCheck className="mr-2 h-3 w-3" />
+						)}
+						Mark all read
+					</Button>
+				)}
 			</div>
 
 			<Card className="border-2">
-				<CardHeader>
-					<div className="flex items-center gap-2 text-primary">
-						<Mail className="h-5 w-5" />
-						<CardTitle className="text-lg font-bold uppercase tracking-tight">Email Notifications</CardTitle>
-					</div>
-					<CardDescription>Manage updates sent to your registered email address.</CardDescription>
+				<CardHeader className="pb-3">
+					<CardTitle className="flex items-center gap-2 text-base font-bold uppercase tracking-tight">
+						<Bell className="h-4 w-4 text-primary" />
+						Inbox
+						{unreadCount > 0 && (
+							<Badge className="rounded-full font-black text-xs px-2">
+								{unreadCount}
+							</Badge>
+						)}
+					</CardTitle>
 				</CardHeader>
-				<CardContent className="space-y-6">
-					<div className="flex items-center justify-between">
-						<div className="space-y-0.5">
-							<Label className="font-bold">Training Summaries</Label>
-							<p className="text-xs text-muted-foreground">Receive weekly recaps of your progress and logs.</p>
+				<CardContent className="p-0">
+					{loading ? (
+						<div className="flex items-center justify-center py-12">
+							<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
 						</div>
-						<Switch checked={settings.emailLogs} onCheckedChange={() => toggle('emailLogs')} />
-					</div>
-					<div className="flex items-center justify-between">
-						<div className="space-y-0.5">
-							<Label className="font-bold">Announcements & News</Label>
-							<p className="text-xs text-muted-foreground">Stay updated on new features and platform updates.</p>
+					) : notifications.length === 0 ? (
+						<div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
+							<BellOff className="h-8 w-8 opacity-30" />
+							<p className="text-sm font-medium">No notifications yet</p>
 						</div>
-						<Switch checked={settings.emailPromos} onCheckedChange={() => toggle('emailPromos')} />
-					</div>
+					) : (
+						<div className="divide-y">
+							{notifications.map((notif) => (
+								<button
+									key={notif.id}
+									type="button"
+									onClick={() => {
+										if (!notif.read) void handleMarkRead(notif.id);
+										if (notif.link) window.location.href = notif.link;
+									}}
+									className={cn(
+										"w-full flex items-start gap-4 px-5 py-4 text-left transition-colors",
+										!notif.read
+											? "bg-primary/5 hover:bg-primary/10"
+											: "hover:bg-muted/40",
+									)}
+								>
+									<div
+										className={cn(
+											"mt-0.5 h-2 w-2 shrink-0 rounded-full",
+											!notif.read ? "bg-primary" : "bg-transparent",
+										)}
+									/>
+									<div className="min-w-0 flex-1">
+										{notif.type && (
+											<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">
+												{notif.type.replace(/_/g, " ")}
+											</p>
+										)}
+										<p
+											className={cn(
+												"text-sm leading-snug",
+												!notif.read ? "font-bold text-foreground" : "text-muted-foreground",
+											)}
+										>
+											{notif.content || "—"}
+										</p>
+									</div>
+									<span className="shrink-0 text-xs text-muted-foreground">
+										{relativeDate(notif.createdAt)}
+									</span>
+								</button>
+							))}
+						</div>
+					)}
 				</CardContent>
 			</Card>
-
-			<Card className="border-2">
-				<CardHeader>
-					<div className="flex items-center gap-2 text-primary">
-						<Smartphone className="h-5 w-5" />
-						<CardTitle className="text-lg font-bold uppercase tracking-tight">In-App Alerts</CardTitle>
-					</div>
-					<CardDescription>Manage push notifications for your mobile device.</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-6">
-					<div className="flex items-center justify-between">
-						<div className="space-y-0.5">
-							<div className="flex items-center gap-2">
-								<MessageCircle className="h-3 w-3" />
-								<Label className="font-bold">New Messages</Label>
-							</div>
-							<p className="text-xs text-muted-foreground">Alerts when a coach sends you a new message.</p>
-						</div>
-						<Switch checked={settings.appMessages} onCheckedChange={() => toggle('appMessages')} />
-					</div>
-					<div className="flex items-center justify-between">
-						<div className="space-y-0.5">
-							<div className="flex items-center gap-2">
-								<Bell className="h-3 w-3" />
-								<Label className="font-bold">Logging Reminders</Label>
-							</div>
-							<p className="text-xs text-muted-foreground">Get reminded if you haven't logged your metrics for the day.</p>
-						</div>
-						<Switch checked={settings.appReminders} onCheckedChange={() => toggle('appReminders')} />
-					</div>
-				</CardContent>
-			</Card>
-
-			<div className="bg-primary/5 rounded-2xl p-4 flex gap-4 border-2 border-primary/10">
-				<Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-				<p className="text-xs text-muted-foreground leading-relaxed">
-					Push notifications require the **PH Mobile App** to be installed on your device. Web portal notifications are currently limited to email and in-browser toasts.
-				</p>
-			</div>
 		</div>
 	);
 }

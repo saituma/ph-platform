@@ -30,9 +30,20 @@ export const ROLES_TRAINING_STAFF: UserRole[] = [
 
 export const ROLES_ATHLETE: UserRole[] = ["team_athlete", "adult_athlete", "youth_athlete", "athlete"];
 
+export const ROLES_ADMIN: UserRole[] = ["admin", "superAdmin"];
+
 export function isTrainingStaff(role: string | null | undefined): boolean {
   if (!role) return false;
   return ROLES_TRAINING_STAFF.includes(role as UserRole);
+}
+
+export function isPlatformAdmin(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return ROLES_ADMIN.includes(role as UserRole);
+}
+
+export function isTeamManagerRole(role: string | null | undefined): boolean {
+  return String(role ?? "") === "team_coach";
 }
 
 export function isAthleteUserRole(role: string | null | undefined): boolean {

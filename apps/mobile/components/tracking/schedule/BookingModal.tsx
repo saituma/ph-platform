@@ -229,7 +229,7 @@ export function BookingModal({
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             contentContainerStyle={{
-              paddingBottom: Math.max(insets.bottom, 12) + 24,
+              paddingBottom: Math.max(insets.bottom, 12) + 24 + 56,
             }}
           >
             <View className="flex-row items-center justify-between">

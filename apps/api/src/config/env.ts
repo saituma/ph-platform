@@ -26,8 +26,9 @@ const optionalWhenScript = (messageWhenRequired: string) =>
 	const envSchema = z.object({
 	  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 	  PORT: z.coerce.number().int().positive().default(3000),
-	  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   DATABASE_SSL: z.string().optional(),
+  DATABASE_PREFER_DIRECT: z.string().optional(),
   R2_ACCOUNT_ID: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
@@ -96,6 +97,8 @@ const scriptPlaceholder = "__ph_api_script_unused__";
   nodeEnv: raw.NODE_ENV,
   databaseUrl: raw.DATABASE_URL,
   databaseSsl: raw.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
+  databasePreferDirect:
+    raw.DATABASE_PREFER_DIRECT != null ? raw.DATABASE_PREFER_DIRECT === "true" : false,
   r2AccountId: raw.R2_ACCOUNT_ID ?? "",
   r2AccessKeyId: raw.R2_ACCESS_KEY_ID ?? "",
   r2SecretAccessKey: raw.R2_SECRET_ACCESS_KEY ?? "",
@@ -132,7 +135,10 @@ const scriptPlaceholder = "__ph_api_script_unused__";
   openaiApiKey: phApiScript ? (raw.OPEN_AI_API_KEY ?? scriptPlaceholder) : (raw.OPEN_AI_API_KEY ?? ""),
   expoAccessToken: raw.EXPO_ACCESS_TOKEN ?? "",
   firebaseServiceAccountJson: raw.FIREBASE_SERVICE_ACCOUNT_JSON ?? "",
-  corsOrigins: raw.CORS_ORIGINS ?? "http://localhost:3000",
+  // Onboarding/portal (Vite) + web often run on 5173; allow socket + fetch in local dev.
+  corsOrigins:
+    raw.CORS_ORIGINS ??
+    "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173",
 	  requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
 	  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
 	};

@@ -14,7 +14,7 @@ import { useAppSelector } from "@/store/hooks";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Image, TouchableOpacity, View, Pressable } from "react-native";
+import { Alert, Image, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const CATEGORIES = [
@@ -312,17 +312,22 @@ export default function ParentPlatformScreen() {
               className="ml-3 flex-1 font-outfit text-base text-app"
             />
             {searchQuery ? (
-              <TouchableOpacity
+              <Pressable
                 onPress={() => setSearchQuery("")}
-                className="h-8 w-8 items-center justify-center rounded-full"
-                style={{
+                style={({ pressed }) => ({
+                  height: 32,
+                  width: 32,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 16,
+                  opacity: pressed ? 0.7 : 1,
                   backgroundColor: isDark
                     ? "rgba(255,255,255,0.06)"
                     : "rgba(15,23,42,0.05)",
-                }}
+                })}
               >
                 <Feather name="x" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
+              </Pressable>
             ) : null}
           </View>
 
@@ -458,20 +463,24 @@ export default function ParentPlatformScreen() {
                     key={category.id}
                     className="w-[48%] rounded-[24px] border p-4"
                     style={{
-                      backgroundColor: colors.card,
+                      backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
                       borderColor: isDark
                         ? "rgba(255,255,255,0.08)"
                         : "rgba(15,23,42,0.06)",
-                      ...(isDark ? Shadows.none : Shadows.sm),
                     }}
                   >
                     <View
-                      className={`${category.color} mb-3 h-10 w-10 rounded-2xl items-center justify-center`}
+                      className="mb-3 h-10 w-10 rounded-2xl items-center justify-center"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(34,197,94,0.14)"
+                          : "rgba(34,197,94,0.12)",
+                      }}
                     >
                       <Feather
                         name={category.icon as any}
                         size={18}
-                        color="white"
+                        color={colors.accent}
                       />
                     </View>
                     <Text className="mb-1 font-clash text-base text-app">
@@ -491,9 +500,14 @@ export default function ParentPlatformScreen() {
                 <View className="mb-3 flex-row items-center justify-between">
                   <View className="flex-row items-center gap-2">
                     <View
-                      className={`${cat.color} h-9 w-9 rounded-2xl items-center justify-center`}
+                      className="h-9 w-9 rounded-2xl items-center justify-center"
+                      style={{
+                        backgroundColor: isDark
+                          ? "rgba(34,197,94,0.14)"
+                          : "rgba(34,197,94,0.12)",
+                      }}
                     >
-                      <Feather name={cat.icon as any} size={18} color="white" />
+                      <Feather name={cat.icon as any} size={18} color={colors.accent} />
                     </View>
                     <Text className="font-clash text-app text-lg">
                       {cat.title}
@@ -651,15 +665,19 @@ function FeatureCard({
   isDark: boolean;
 }) {
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
+    <Pressable
       onPress={onPress}
-      className={`overflow-hidden rounded-[28px] border p-5 ${isLocked ? "opacity-70" : ""}`}
-      style={{
-        backgroundColor: colors.card,
+      style={({ pressed }) => ({
+        overflow: "hidden",
+        borderRadius: 28,
+        borderWidth: 1,
+        padding: 20,
+        opacity: isLocked ? 0.7 : pressed ? 0.92 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+        backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-        ...(isDark ? Shadows.none : Shadows.sm),
-      }}
+        ...(isDark ? {} : Shadows.sm),
+      })}
     >
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
@@ -718,7 +736,7 @@ function FeatureCard({
           <Feather name="arrow-right" size={16} color={colors.accent} />
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -736,15 +754,18 @@ function CourseCard({
   isDark: boolean;
 }) {
   return (
-    <TouchableOpacity
-      activeOpacity={0.85}
+    <Pressable
       onPress={onPress}
-      className={`rounded-[26px] border p-5 ${isLocked ? "opacity-70" : ""}`}
-      style={{
-        backgroundColor: colors.card,
+      style={({ pressed }) => ({
+        borderRadius: 26,
+        borderWidth: 1,
+        padding: 20,
+        opacity: isLocked ? 0.7 : pressed ? 0.92 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+        backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-        ...(isDark ? Shadows.none : Shadows.sm),
-      }}
+        ...(isDark ? {} : Shadows.sm),
+      })}
     >
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
@@ -776,6 +797,6 @@ function CourseCard({
       >
         {item.summary}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }

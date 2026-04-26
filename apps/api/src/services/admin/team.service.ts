@@ -99,6 +99,14 @@ async function addUsersToGroup(groupId: number, userIds: number[]) {
 }
 
 async function syncTeamChatMembers(teamId: number, groupId: number) {
+  const teamRows = await db
+    .select({ adminId: teamTable.adminId })
+    .from(teamTable)
+    .where(eq(teamTable.id, teamId))
+    .limit(1);
+    
+  const teamAdminId = teamRows[0]?.adminId;
+
   const athleteUsers = await db
     .select({
       athleteUserId: athleteTable.userId,
@@ -117,8 +125,24 @@ async function syncTeamChatMembers(teamId: number, groupId: number) {
         .innerJoin(userTable, eq(guardianTable.userId, userTable.id))
         .where(and(eq(userTable.isDeleted, false), inArray(guardianTable.id, guardianIds)))
     : [];
+    
+  const staffUsers = await db
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(
+      and(
+        inArray(userTable.role, ["coach", "program_coach", "team_coach", "admin", "superAdmin"]),
+        eq(userTable.isDeleted, false)
+      )
+    );
 
-  const userIds = [...athleteUsers.map((row) => row.athleteUserId), ...guardianUsers.map((row) => row.userId)];
+  const userIds = [
+    ...athleteUsers.map((row) => row.athleteUserId), 
+    ...guardianUsers.map((row) => row.userId),
+    ...staffUsers.map((row) => row.id)
+  ];
+  
+  if (teamAdminId) userIds.push(teamAdminId);
 
   await addUsersToGroup(groupId, userIds);
 }
@@ -174,6 +198,22 @@ export async function createTeamAdmin(input: {
   if (!created) {
     throw { status: 500, message: "Failed to create team record." };
   }
+  
+  const adminUserRows = await db
+    .select({ id: userTable.id, role: userTable.role, email: userTable.email })
+    .from(userTable)
+    .where(eq(userTable.id, input.adminId))
+    .limit(1);
+    
+  let adminEmail = adminUserRows[0]?.email;
+  
+  if (adminUserRows[0]) {
+    // Preserve higher-level roles; promote everyone else (including generic "coach") to team_coach.
+    const preserveRole = ["team_coach", "program_coach", "admin", "superAdmin"].includes(adminUserRows[0].role || "");
+    if (!preserveRole) {
+      await db.update(userTable).set({ role: "team_coach" }).where(eq(userTable.id, input.adminId));
+    }
+  }
 
   let checkoutUrl: string | null = null;
 
@@ -202,11 +242,6 @@ export async function createTeamAdmin(input: {
     const lookupKey = `${plan.tier.toLowerCase()}_${intervalKey}`;
 
     try {
-      const adminUser = await db
-        .select({ email: userTable.email })
-        .from(userTable)
-        .where(eq(userTable.id, input.adminId))
-        .limit(1);
       const session = await createTeamCheckoutSession({
         teamId: created.id,
         adminId: input.adminId,
@@ -215,15 +250,15 @@ export async function createTeamAdmin(input: {
         interval: billingCycle === "monthly" ? "monthly" : billingCycle === "6months" ? "six_months" : "yearly",
         quantity: input.maxAthletes,
         mode: billingCycle === "monthly" ? "subscription" : "payment",
-        customerEmail: paymentMethod === "email_link" ? adminUser[0]?.email : undefined,
+        customerEmail: paymentMethod === "email_link" ? adminEmail : undefined,
       });
 
       checkoutUrl = session.url;
 
       if (paymentMethod === "email_link") {
         // Send the link via email (mocking for now, replace with your email service)
-        console.log(`[Email] Sending payment link to ${adminUser[0]?.email}: ${checkoutUrl}`);
-        // await sendPaymentLinkEmail(adminUser[0]?.email, checkoutUrl);
+        console.log(`[Email] Sending payment link to ${adminEmail}: ${checkoutUrl}`);
+        // await sendPaymentLinkEmail(adminEmail, checkoutUrl);
       }
     } catch (err: any) {
       console.error("[Stripe] Failed to create team checkout session:", err);
@@ -244,7 +279,12 @@ export async function createTeamAdmin(input: {
   };
 }
 
-export async function listTeamsAdmin() {
+export async function listTeamsAdmin(options?: { adminId?: number | null }) {
+  const filters = [];
+  if (typeof options?.adminId === "number") {
+    filters.push(eq(teamTable.adminId, options.adminId));
+  }
+
   const rows = await db
     .select({
       id: teamTable.id,
@@ -266,6 +306,7 @@ export async function listTeamsAdmin() {
     .from(teamTable)
     .leftJoin(athleteTable, eq(athleteTable.teamId, teamTable.id))
     .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
+    .where(filters.length ? and(...filters) : undefined)
     .groupBy(teamTable.id, teamTable.name, teamTable.createdAt, teamTable.updatedAt)
     .orderBy(
       desc(sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`),

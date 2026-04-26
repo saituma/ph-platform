@@ -32,6 +32,7 @@ import {
 import { fonts, radius, spacing } from "@/constants/theme";
 
 import { useRunStore } from "../../../store/useRunStore";
+import { useAppSelector } from "@/store/hooks";
 import { saveRunRecord } from "../../../lib/sqliteRuns";
 import { pushRunsToCloud } from "../../../lib/runSync";
 
@@ -53,6 +54,7 @@ export default function FeedbackScreen() {
   const insets = useAppSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const {
+    status,
     distanceMeters,
     distanceOverrideMeters,
     elapsedSeconds,
@@ -60,6 +62,13 @@ export default function FeedbackScreen() {
     resetRun,
     currentRunId,
   } = useRunStore();
+  const userId = useAppSelector((s) => s.user.profile.id ?? null);
+
+  useEffect(() => {
+    if (status !== "stopped") {
+      router.replace("/(tabs)/tracking" as any);
+    }
+  }, [status, router]);
 
   const [effort, setEffort] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -135,6 +144,7 @@ export default function FeedbackScreen() {
             .filter(Boolean),
         ),
         notes,
+        user_id: userId,
       });
 
       pushRunsToCloud();

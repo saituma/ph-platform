@@ -46,6 +46,11 @@ const listGroupsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
+const listGroupMessagesQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.coerce.number().int().min(1).optional(),
+});
+
 export async function listGroups(req: Request, res: Response) {
   const { q, limit } = listGroupsQuerySchema.parse(req.query ?? {});
   const groups = await listGroupsForUser(req.user!.id, { q, limit });
@@ -78,12 +83,17 @@ export async function listMembers(req: Request, res: Response) {
 
 export async function listGroupChatMessages(req: Request, res: Response) {
   const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
+  const { limit, cursor } = listGroupMessagesQuerySchema.parse(req.query ?? {});
   const allowed = await isGroupMember(groupId, req.user!.id);
   if (!allowed) {
     return res.status(403).json({ error: "Forbidden" });
   }
-  const messages = await listGroupMessages(groupId);
-  return res.status(200).json({ messages });
+  const page = await listGroupMessages(groupId, {
+    limit,
+    cursorId: cursor,
+    viewerUserId: req.user!.id,
+  });
+  return res.status(200).json(page);
 }
 
 export async function sendGroupChatMessage(req: Request, res: Response) {

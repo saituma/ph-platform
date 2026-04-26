@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo } from "react";
 import { ActivityIndicator, Linking, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -14,6 +14,7 @@ import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { useAppSelector } from "@/store/hooks";
+import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
@@ -117,21 +118,37 @@ export default function ProgramContentDetailScreen() {
   const { token, programTier, athleteUserId, managedAthletes, appRole } = useAppSelector(
     (state) => state.user,
   );
+  const bootstrapReady = useAppSelector(selectBootstrapReady);
   const { isDark, colors } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
 
   /**
-   * Youth users should land on the Home tab on cold start.
-   * If this deep program route becomes the root screen (no back stack), redirect to Home.
+   * Cold start protection against Expo Go restoring ghost routes from AsyncStorage.
    */
-  useEffect(() => {
-    const role = String(appRole ?? "");
-    const isYouth = role === "youth_athlete" || role.startsWith("youth_athlete_");
-    if (!isYouth) return;
+  useLayoutEffect(() => {
+    if (!bootstrapReady) return;
     if (router.canGoBack()) return;
-    router.replace("/" as any);
-  }, [appRole, router]);
+    
+    let cancelled = false;
+    Linking.getInitialURL().then((url) => {
+      if (cancelled) return;
+      
+      const role = String(appRole ?? "");
+      const isYouth = role === "youth_athlete" || role === "youth_athlete_guardian_only";
+      if (isYouth) {
+        router.replace("/" as any);
+        return;
+      }
+      
+      // If it's not a real deep link matching this content, it's a ghost restore
+      if (url && url.includes("/programs/content/")) {
+        return; 
+      }
+      router.replace("/(tabs)");
+    });
+    return () => { cancelled = true; };
+  }, [bootstrapReady, router, appRole]);
 
   const {
     item,

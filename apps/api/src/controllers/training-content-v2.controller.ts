@@ -196,26 +196,58 @@ export async function getTrainingContentAdminWorkspaceHandler(req: Request, res:
 }
 
 export async function getTrainingContentMobileWorkspaceHandler(req: Request, res: Response) {
-  const parsed = mobileAgeQuerySchema.safeParse(req.query);
-  const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
-  const age = parsed.success ? parsed.data.age : (athlete?.age ?? null);
-  if (!age) {
+  try {
+    const parsed = mobileAgeQuerySchema.safeParse(req.query);
+    const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
+    const age = parsed.success ? parsed.data.age : (athlete?.age ?? null);
+    if (!age) {
+      return res.status(200).json({ age: null, tabs: ["Modules"], modules: [], others: [] });
+    }
+    const workspace = await getTrainingContentMobileWorkspace({
+      age,
+      athleteId: athlete?.id ?? null,
+      programTier: athlete?.currentProgramTier ?? null,
+      team: athlete?.team ?? null,
+    });
+    return res.status(200).json(workspace);
+  } catch (error) {
+    console.error("[training-content-v2/mobile] failed", {
+      userId: req.user?.id ?? null,
+      query: req.query,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return res.status(200).json({ age: null, tabs: ["Modules"], modules: [], others: [] });
   }
-  const workspace = await getTrainingContentMobileWorkspace({
-    age,
-    athleteId: athlete?.id ?? null,
-    programTier: athlete?.currentProgramTier ?? null,
-    team: athlete?.team ?? null,
-  });
-  return res.status(200).json(workspace);
 }
 
 export async function getTrainingContentMobileWorkoutsHandler(req: Request, res: Response) {
-  const parsed = mobileAgeQuerySchema.safeParse(req.query);
-  const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
-  const age = parsed.success ? parsed.data.age : (athlete?.age ?? null);
-  if (!athlete || !age) {
+  try {
+    const parsed = mobileAgeQuerySchema.safeParse(req.query);
+    const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
+    const age = parsed.success ? parsed.data.age : (athlete?.age ?? null);
+    if (!athlete || !age) {
+      return res.status(200).json({
+        generatedAt: new Date().toISOString(),
+        nextWorkoutSessionId: null,
+        completedCount: 0,
+        totalCount: 0,
+        workouts: [],
+      });
+    }
+
+    const payload = await getTrainingContentMobileWorkouts({
+      age,
+      athleteId: athlete.id,
+      programTier: athlete.currentProgramTier ?? null,
+      team: athlete.team ?? null,
+    });
+    return res.status(200).json(payload);
+  } catch (error) {
+    console.error("[training-content-v2/mobile/workouts] failed", {
+      userId: req.user?.id ?? null,
+      query: req.query,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return res.status(200).json({
       generatedAt: new Date().toISOString(),
       nextWorkoutSessionId: null,
@@ -224,14 +256,6 @@ export async function getTrainingContentMobileWorkoutsHandler(req: Request, res:
       workouts: [],
     });
   }
-
-  const payload = await getTrainingContentMobileWorkouts({
-    age,
-    athleteId: athlete.id,
-    programTier: athlete.currentProgramTier ?? null,
-    team: athlete.team ?? null,
-  });
-  return res.status(200).json(payload);
 }
 
 export async function createTrainingModuleHandler(req: Request, res: Response) {
@@ -449,18 +473,26 @@ async function completeTrainingSessionRequest(req: Request, res: Response) {
   const rpe = typeof parsedBody.data.rpe === "number" ? parsedBody.data.rpe : null;
 
   const hasWorkoutLog = Boolean(weightsUsed) || Boolean(repsCompleted) || rpe != null;
-  const item = await finishTrainingModuleSessionWithLog({
-    athleteId: athlete.id,
-    sessionId,
-    workoutLog: hasWorkoutLog
-      ? {
-          weightsUsed: weightsUsed ? weightsUsed : null,
-          repsCompleted: repsCompleted ? repsCompleted : null,
-          rpe,
-        }
-      : null,
-  });
-  return res.status(201).json({ item });
+  try {
+    const item = await finishTrainingModuleSessionWithLog({
+      athleteId: athlete.id,
+      sessionId,
+      workoutLog: hasWorkoutLog
+        ? {
+            weightsUsed: weightsUsed ? weightsUsed : null,
+            repsCompleted: repsCompleted ? repsCompleted : null,
+            rpe,
+          }
+        : null,
+    });
+    return res.status(201).json({ item });
+  } catch (error: any) {
+    console.error("finishTrainingSession error:", error);
+    if (error?.message === "Session already completed") {
+      return res.status(409).json({ error: "Session already completed" });
+    }
+    return res.status(500).json({ error: "Failed to complete session" });
+  }
 }
 
 export async function finishTrainingSessionHandler(req: Request, res: Response) {

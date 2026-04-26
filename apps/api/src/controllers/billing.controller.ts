@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import Stripe from "stripe";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { ProgramType } from "../db/schema";
 import { env } from "../config/env";
@@ -827,4 +827,47 @@ export async function verifyRevenueCatPurchase(req: any, res: any) {
     console.error("Error verifying RevenueCat purchase", error);
     return res.status(500).json({ error: "Internal server error" });
   }
+}
+
+export async function listInvoices(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const rows = await db
+    .select({
+      id: subscriptionRequestTable.id,
+      receiptPublicId: subscriptionRequestTable.receiptPublicId,
+      status: subscriptionRequestTable.status,
+      paymentStatus: subscriptionRequestTable.paymentStatus,
+      planBillingCycle: subscriptionRequestTable.planBillingCycle,
+      paymentAmountCents: subscriptionRequestTable.paymentAmountCents,
+      paymentCurrency: subscriptionRequestTable.paymentCurrency,
+      createdAt: subscriptionRequestTable.createdAt,
+      planName: subscriptionPlanTable.name,
+      planTier: subscriptionPlanTable.tier,
+    })
+    .from(subscriptionRequestTable)
+    .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
+    .where(eq(subscriptionRequestTable.userId, req.user.id))
+    .orderBy(desc(subscriptionRequestTable.createdAt))
+    .limit(50);
+
+  const invoices = rows.map((row) => ({
+    id: row.id,
+    receiptPublicId: row.receiptPublicId,
+    status: row.status,
+    paymentStatus: row.paymentStatus,
+    billingCycle: row.planBillingCycle,
+    amount: row.paymentAmountCents
+      ? new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: (row.paymentCurrency ?? "USD").toUpperCase(),
+        }).format(row.paymentAmountCents / 100)
+      : null,
+    date: row.createdAt.toISOString(),
+    plan: row.planName ?? row.planTier ?? "Plan",
+  }));
+
+  return res.status(200).json({ invoices });
 }

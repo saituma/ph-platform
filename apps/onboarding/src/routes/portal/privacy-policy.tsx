@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Shield, Lock, Eye, Database } from "lucide-react";
 
 export const Route = createFileRoute("/portal/privacy-policy")({

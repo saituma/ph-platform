@@ -41,7 +41,13 @@ export function shouldUseTeamTrackingFeatures(input: {
   authTeamMembership: AuthTeamMembership | null;
   firstManagedAthlete?: ManagedAthlete | null;
 }): boolean {
-  if (input.appRole === "team" || input.appRole === "adult_athlete_team") return true;
+  if (
+    input.appRole === "team" ||
+    input.appRole === "team_manager" ||
+    input.appRole === "adult_athlete_team" ||
+    input.appRole === "youth_athlete_team_guardian"
+  )
+    return true;
   if (hasOrgTeamMembership(input.authTeamMembership ?? undefined)) return true;
   if (hasOrgTeamMembership(input.firstManagedAthlete ?? undefined)) return true;
   return false;
@@ -54,6 +60,10 @@ export function canAccessTrackingTab(input: {
   firstManagedAthlete?: ManagedAthlete | null;
 }): boolean {
   if (input.appRole === "adult_athlete" || input.appRole === "adult_athlete_team") {
+    return true;
+  }
+
+  if (input.appRole === "team_manager") {
     return true;
   }
 

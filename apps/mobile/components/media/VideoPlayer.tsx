@@ -166,6 +166,7 @@ function VideoPlayerYoutubeMode({
   const isTabActive = activeTabIndex === currentTabIndex;
   const playbackController = useVideoPlaybackController();
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [youtubeMuted, setYoutubeMuted] = useState(initialMuted);
   const inlineYouTubeRef = useRef<YouTubeEmbedHandle | null>(null);
   const modalYouTubeRef = useRef<YouTubeEmbedHandle | null>(null);
   const [youtubeIsPlaying, setYoutubeIsPlaying] = useState(false);
@@ -277,7 +278,7 @@ function VideoPlayerYoutubeMode({
         shouldPlay={
           !fullscreenOpen && effectiveShouldPlay && youtubeIsPlaying
         }
-        initialMuted={initialMuted}
+        initialMuted={youtubeMuted}
         onPlayerStateChange={(state: string) => {
           if (fullscreenOpen) return;
           if (state === "playing") setYoutubeIsPlaying(true);
@@ -349,6 +350,20 @@ function VideoPlayerYoutubeMode({
           >
             <Feather name="x" size={22} color="#fff" />
           </Pressable>
+          <Pressable
+            onPress={() => setYoutubeMuted((prev) => !prev)}
+            style={{
+              position: "absolute",
+              top: 18,
+              right: 66,
+              zIndex: 10,
+              backgroundColor: "rgba(0,0,0,0.55)",
+              borderRadius: 999,
+              padding: 10,
+            }}
+          >
+            <Feather name={youtubeMuted ? "volume-x" : "volume-2"} size={22} color="#fff" />
+          </Pressable>
 
           <View
             style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
@@ -364,7 +379,7 @@ function VideoPlayerYoutubeMode({
                 ref={modalYouTubeRef as any}
                 url={uri}
                 shouldPlay={youtubeIsPlaying}
-                initialMuted={initialMuted}
+                initialMuted={youtubeMuted}
                 width={fullscreenVideoSize.width}
                 height={fullscreenVideoSize.height}
                 onPlayerReady={() => {
@@ -624,7 +639,7 @@ function VideoPlayerExpoNativeMode({
     fadeAnim,
   });
 
-  const videoRef = useRef<InstanceType<typeof VideoView> | null>(null);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
 
@@ -764,7 +779,7 @@ function VideoPlayerExpoNativeMode({
     if (playbackController && controllerKey) {
       playbackController.pauseOthers(controllerKey);
     }
-    void videoRef.current?.enterFullscreen();
+    setFullscreenOpen(true);
   }, [controllerKey, pauseOthers, playbackController]);
 
   if (error) {
@@ -813,12 +828,11 @@ function VideoPlayerExpoNativeMode({
         }}
       >
         <VideoView
-          ref={videoRef}
           player={player}
           style={{ flex: 1, width: "100%", height: "100%" }}
           contentFit={fitMode}
           nativeControls={ignoreTabFocus}
-          fullscreenOptions={{ enable: true, orientation: "default" }}
+          fullscreenOptions={{ enable: false, orientation: "default" }}
           allowsPictureInPicture
           {...(Platform.OS === "android" ? { surfaceType: "textureView" } : {})}
         />
@@ -903,6 +917,56 @@ function VideoPlayerExpoNativeMode({
           </View>
         </View>
       )}
+
+      <Modal
+        visible={fullscreenOpen}
+        animationType="fade"
+        onRequestClose={() => setFullscreenOpen(false)}
+        supportedOrientations={["portrait", "landscape"]}
+      >
+        <View style={{ flex: 1, backgroundColor: "#000" }}>
+          <Pressable
+            onPress={() => setFullscreenOpen(false)}
+            style={{
+              position: "absolute",
+              top: 18,
+              right: 18,
+              zIndex: 20,
+              backgroundColor: "rgba(0,0,0,0.55)",
+              borderRadius: 999,
+              padding: 10,
+            }}
+          >
+            <Feather name="x" size={22} color="#fff" />
+          </Pressable>
+          <Pressable
+            onPress={toggleMute}
+            style={{
+              position: "absolute",
+              top: 18,
+              right: 66,
+              zIndex: 20,
+              backgroundColor: "rgba(0,0,0,0.55)",
+              borderRadius: 999,
+              padding: 10,
+            }}
+          >
+            <Feather name={isMuted ? "volume-x" : "volume-2"} size={22} color="#fff" />
+          </Pressable>
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <VideoView
+              player={player}
+              style={{ width: "100%", height: "100%" }}
+              contentFit="contain"
+              nativeControls
+              allowsPictureInPicture
+              {...(Platform.OS === "android"
+                ? { surfaceType: "textureView" as const }
+                : {})}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { env } from "../config/env";
 import { db } from "../db";
-import { userTable } from "../db/schema";
+import { userDeviceTokensTable, userTable } from "../db/schema";
 import { isFcmEnabled, isFcmTokenError, sendFcmPush } from "./fcm.service";
 
 // Only pass accessToken when it is actually set — passing an empty string
@@ -30,7 +30,9 @@ function getChannelId(type?: string) {
   const value = String(type ?? "").toLowerCase();
   if (/(message|chat|group-message)/.test(value)) return "messages";
   if (/(schedule|booking|calendar)/.test(value)) return "schedule";
-  if (/(payment|billing|plan)/.test(value)) return "payment";
+  // Mobile should not expose payment-specific surfaces; plan/billing events use
+  // the account channel, which the app creates on Android.
+  if (/(payment|billing|plan)/.test(value)) return "account";
   if (/(account|security|profile)/.test(value)) return "account";
   if (/(progress|video|birthday|program)/.test(value)) return "progress";
   if (/(system|alert|warning|announcement)/.test(value)) return "system";
@@ -97,6 +99,47 @@ async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
   }
 }
 
+/** Send to any extra device tokens not already targeted by the primary send. */
+async function sendToAdditionalDevices(
+  userId: number,
+  alreadySentToken: string,
+  payload: { title: string; body: string; data: Record<string, string>; channelId: string; categoryId: string | undefined },
+) {
+  try {
+    const deviceRows = await db
+      .select({ expoPushToken: userDeviceTokensTable.expoPushToken })
+      .from(userDeviceTokensTable)
+      .where(eq(userDeviceTokensTable.userId, userId));
+
+    const extraTokens = deviceRows
+      .map((r) => r.expoPushToken)
+      .filter((t): t is string => !!t && t !== alreadySentToken && Expo.isExpoPushToken(t));
+
+    if (extraTokens.length === 0) return;
+
+    const messages: ExpoPushMessage[] = extraTokens.map((to) => ({
+      to,
+      title: payload.title,
+      body: payload.body,
+      data: payload.data,
+      sound: "default",
+      channelId: payload.channelId,
+      categoryId: payload.categoryId,
+      priority: "high",
+      mutableContent: true,
+    }));
+
+    const tickets = await expo.sendPushNotificationsAsync(messages);
+    logDebugPush({
+      location: "push.service.ts:sendToAdditionalDevices",
+      message: "multi_device_push_sent",
+      data: { userId, extraDeviceCount: extraTokens.length, ticketCount: tickets.length },
+    });
+  } catch (err) {
+    console.error(`[Push Service] Multi-device send failed for user ${userId}:`, err);
+  }
+}
+
 export async function sendPushNotification(userId: number, title: string, body: string, data?: Record<string, any>) {
   try {
     warnMissingExpoAccessTokenOnce();
@@ -146,6 +189,8 @@ export async function sendPushNotification(userId: number, title: string, body: 
             ? "unknown"
             : null;
 
+    const categoryId = getCategoryId(data?.type);
+
     if (devicePushToken && devicePushTokenType === "fcm" && isFcmEnabled()) {
       logDebugPush({
         location: "push.service.ts:sendPushNotification",
@@ -161,11 +206,16 @@ export async function sendPushNotification(userId: number, title: string, body: 
         },
       });
       try {
+        // Include categoryIdentifier in data so expo-notifications on Android
+        // can attach Reply / Mark Read action buttons to the notification.
+        const fcmData = categoryId
+          ? { ...dataForDevice, categoryIdentifier: categoryId }
+          : dataForDevice;
         await sendFcmPush({
           token: devicePushToken,
           title,
           body,
-          data: dataForDevice,
+          data: fcmData,
           android: { channelId, priority: "high" },
         });
         return;
@@ -228,7 +278,6 @@ export async function sendPushNotification(userId: number, title: string, body: 
       },
     });
 
-    const categoryId = getCategoryId(data?.type);
     const message: ExpoPushMessage = {
       to: token,
       title,
@@ -259,6 +308,9 @@ export async function sendPushNotification(userId: number, title: string, body: 
 
     const tickets = await expo.sendPushNotificationsAsync([message]);
     await applyPushTickets(userId, tickets);
+
+    // Send to any additional devices registered via the per-device token table.
+    await sendToAdditionalDevices(userId, token, { title, body, data: dataForDevice, channelId, categoryId });
   } catch (err) {
     console.error(`[Push Service] Failed to send push to user ${userId}:`, err);
     logDebugPush({

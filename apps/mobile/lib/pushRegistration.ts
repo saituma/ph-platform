@@ -195,6 +195,18 @@ export async function registerDevicePushToken({
       return result;
     }
 
+    // Get a stable device identifier for multi-device push support.
+    let deviceId: string | undefined;
+    try {
+      const Device = await import("expo-device");
+      const raw = (Device as any).default?.osBuildId ?? (Device as any).osBuildId ?? null;
+      if (raw && typeof raw === "string" && raw.trim()) {
+        deviceId = raw.trim();
+      }
+    } catch {
+      // expo-device not available; fall back to single-token mode
+    }
+
     let synced = false;
     let error: string | null = null;
     if (!skipBackendSync) {
@@ -207,6 +219,7 @@ export async function registerDevicePushToken({
               token: expoPushToken,
               devicePushToken,
               devicePushTokenType: devicePushTokenType ?? undefined,
+              ...(deviceId ? { deviceId } : {}),
             },
             token,
             suppressStatusCodes: [401, 403],

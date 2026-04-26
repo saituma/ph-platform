@@ -1,12 +1,23 @@
-import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { Feather } from "@/components/ui/theme-icons";
-import React from "react";
-import { ActivityIndicator, Image, View } from "react-native";
-import { MessageThread, TypingStatus } from "@/types/messages";
-import { Text } from "@/components/ScaledText";
+import { Ionicons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
+import React, { useCallback, useDeferredValue, useState } from "react";
+import {
+  Platform,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
+
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
-import { Transition } from "@/components/navigation/TransitionStack";
+import { INBOX_LIST_INSET, ThreadListItem } from "@/components/messages/inbox";
+import { Text } from "@/components/ScaledText";
+import { SkeletonMessagingScreen } from "@/components/ui/Skeleton";
+import type { MessageThread, TypingStatus } from "@/types/messages";
+
+// ── Props ────────────────────────────────────────────────────────────
 
 type InboxScreenProps = {
   threads: MessageThread[];
@@ -23,170 +34,104 @@ type InboxScreenProps = {
   showEmptySections?: boolean;
 };
 
-function getInitials(name?: string | null) {
-  if (!name || typeof name !== "string") return "";
-  const parts = name.trim().split(" ");
-  if (parts.length === 1) return parts[0]?.[0] ?? "";
-  const firstInit = parts[0][0] ?? "";
-  const lastInit = parts[parts.length - 1][0] ?? "";
-  return `${firstInit}${lastInit}`.toUpperCase();
+type InboxFilter = "all" | "unread";
+
+// ── Inbox search / filters (thread rows use ThreadListItem + list-row UI) ─
+
+interface FilterPillProps {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  count?: number;
 }
 
-function getTypingKey(threadId: string) {
-  return threadId.startsWith("group:") ? threadId : `user:${threadId}`;
-}
+const FilterPill = function FilterPill({
+  label,
+  active,
+  onPress,
+  count,
+}: FilterPillProps) {
+  const { colors, isDark } = useAppTheme();
 
-function formatUnreadBadge(unread: number) {
-  if (!Number.isFinite(unread) || unread <= 0) return null;
-  return unread > 9 ? "9+" : String(unread);
-}
-
-function groupThreadsByChannel(
-  threads: MessageThread[],
-  variant: "default" | "team",
-) {
-  const coachGroups = threads.filter(
-    (thread) => thread.channelType === "coach_group",
-  );
-  const direct = threads.filter(
-    (thread) =>
-      thread.channelType === "direct" || !thread.id.startsWith("group:"),
-  );
-  const team = threads.filter((thread) => thread.channelType === "team");
-
-  const sections =
-    variant === "team"
-      ? [
-          { key: "team", title: "Team inbox", items: team },
-          { key: "coach_group", title: "Coach groups", items: coachGroups },
-          { key: "direct", title: "Direct inbox", items: direct },
-        ]
-      : [
-          { key: "coach_group", title: "Coach groups", items: coachGroups },
-          { key: "direct", title: "Direct inbox", items: direct },
-          { key: "team", title: "Team inbox", items: team },
-        ];
-
-  return variant === "team"
-    ? sections
-    : sections.filter((section) => section.items.length > 0);
-}
-
-function ThreadSkeletonCard({
-  backgroundColor,
-  borderColor,
-  shimmerColor,
-}: {
-  backgroundColor: string;
-  borderColor: string;
-  shimmerColor: string;
-}) {
   return (
-    <View
-      className="rounded-[28px] p-5 border"
-      style={{ backgroundColor, borderColor }}
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }: { pressed: boolean }) => [
+        styles.filterPill,
+        {
+          backgroundColor: active
+            ? colors.textPrimary
+            : isDark
+              ? "rgba(255,255,255,0.05)"
+              : "rgba(0,0,0,0.03)",
+          transform: [{ scale: pressed ? 0.95 : 1 }],
+        },
+      ]}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={`Filter by ${label}`}
     >
-      <View className="flex-row items-center">
-        <View
-          className="h-14 w-14 rounded-2xl"
-          style={{ backgroundColor: shimmerColor }}
-        />
-        <View className="flex-1 ml-4 space-y-2.5">
-          <View
-            className="h-4 rounded-full w-4/5"
-            style={{ backgroundColor: shimmerColor }}
-          />
-          <View
-            className="h-3 rounded-full w-1/2"
-            style={{ backgroundColor: shimmerColor }}
-          />
-          <View
-            className="h-3 rounded-full w-full"
-            style={{ backgroundColor: shimmerColor }}
-          />
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function InboxEmptyState({
-  accentColor,
-  backgroundSecondary,
-  borderColor,
-  textPrimary,
-  textSecondary,
-}: {
-  accentColor: string;
-  backgroundSecondary: string;
-  borderColor: string;
-  textPrimary: string;
-  textSecondary: string;
-}) {
-  return (
-    <View className="py-20 items-center">
-      <View
-        className="w-20 h-20 rounded-full items-center justify-center mb-6 border"
-        style={{ backgroundColor: backgroundSecondary, borderColor }}
+      <Text
+        style={[
+          styles.filterPillText,
+          {
+            fontFamily: active ? "Outfit-Bold" : "Outfit-Medium",
+            color: active ? colors.background : colors.textSecondary,
+          },
+        ]}
       >
-        <Feather name="message-circle" size={42} color={accentColor} />
+        {label}
+      </Text>
+      {count !== undefined && count > 0 && (
+        <View style={[styles.pillBadge, { backgroundColor: active ? 'rgba(255,255,255,0.2)' : colors.accentLight }]}>
+          <Text style={[styles.pillBadgeText, { color: active ? colors.background : colors.accent }]}>
+            {count}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+};
+
+// ── Empty State ──────────────────────────────────────────────────────
+
+const InboxEmptyState = function InboxEmptyState() {
+  const { colors, isDark } = useAppTheme();
+  return (
+    <Animated.View entering={FadeIn.delay(200)} style={styles.emptyContainer}>
+      <View
+        style={[
+          styles.emptyIconContainer,
+          { backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)" },
+        ]}
+      >
+        <Ionicons
+          name="chatbubbles"
+          size={56}
+          color={colors.textDim}
+        />
       </View>
-      <Text className="text-2xl font-clash mb-2" style={{ color: textPrimary }}>
-        No messages yet
+      <Text
+        style={[
+          styles.emptyTitle,
+          { fontFamily: "Chillax-Semibold", color: colors.textPrimary },
+        ]}
+      >
+        Your Inbox is Empty
       </Text>
       <Text
-        className="text-center font-outfit max-w-[260px]"
-        style={{ color: textSecondary }}
+        style={[
+          styles.emptySubtext,
+          { fontFamily: "Outfit-Regular", color: colors.textSecondary },
+        ]}
       >
-        Your coach conversations will appear here
+        When you connect with your team, coach, or friends, your messages will show up here.
       </Text>
-    </View>
+    </Animated.View>
   );
-}
+};
 
-function PriorityHelpCard({
-  accent,
-  accentLight,
-  borderLime,
-  text,
-  textSecondary,
-}: {
-  accent: string;
-  accentLight: string;
-  borderLime: string;
-  text: string;
-  textSecondary: string;
-}) {
-  return (
-    <View
-      className="mx-6 mt-8 mb-10 rounded-[28px] p-6 border"
-      style={{ backgroundColor: accentLight, borderColor: borderLime }}
-    >
-      <View className="flex-row items-center gap-4">
-        <View
-          className="w-12 h-12 rounded-2xl items-center justify-center border"
-          style={{ backgroundColor: accentLight, borderColor: borderLime }}
-        >
-          <Feather name="help-circle" size={24} color={accent} />
-        </View>
-        <View className="flex-1">
-          <Text
-            className="font-clash text-lg font-bold"
-            style={{ color: text }}
-          >
-            Need priority help?
-          </Text>
-          <Text
-            className="text-sm mt-0.5 leading-relaxed"
-            style={{ color: textSecondary }}
-          >
-            Premium members get faster replies and 1:1 video review support.
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
+// ── Main ─────────────────────────────────────────────────────────────
 
 function InboxScreenBase({
   threads,
@@ -195,315 +140,237 @@ function InboxScreenBase({
   openingThreadId,
   onRefresh,
   onOpenThread,
-  variant = "default",
-  showEmptySections = false,
 }: InboxScreenProps) {
   const { colors, isDark } = useAppTheme();
 
-  const cardBorder = colors.borderSubtle;
-  const mutedPill = isDark
-    ? "rgba(255,255,255,0.08)"
-    : colors.backgroundSecondary;
+  const [searchText, setSearchText] = useState("");
+  const [activeFilter, setActiveFilter] = useState<InboxFilter>("all");
+  const deferredSearch = useDeferredValue(searchText);
 
-  const groupedSections = React.useMemo(() => {
-    return groupThreadsByChannel(threads, variant);
-  }, [threads, variant]);
+  const unreadThreadsCount = React.useMemo(
+    () => threads.filter((t) => (t.unread ?? 0) > 0).length,
+    [threads],
+  );
+
+  const filteredThreads = React.useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase();
+
+    return threads.filter((thread) => {
+      const matchesFilter =
+        activeFilter === "all" ? true : (thread.unread ?? 0) > 0;
+      if (!matchesFilter) return false;
+      if (!query) return true;
+
+      return (
+        thread.name?.toLowerCase().includes(query) ||
+        thread.preview?.toLowerCase().includes(query)
+      );
+    });
+  }, [threads, deferredSearch, activeFilter]);
+
+  const listData = React.useMemo(() => {
+    if (activeFilter === "unread") return filteredThreads;
+
+    const unread = filteredThreads.filter((t) => (t.unread ?? 0) > 0);
+    const read = filteredThreads.filter((t) => !(t.unread ?? 0));
+    return [...unread, ...read];
+  }, [filteredThreads, activeFilter]);
+
+  const clearSearch = useCallback(() => {
+    setSearchText("");
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <SkeletonMessagingScreen />
+      </View>
+    );
+  }
+
+  const renderItem = ({ item, index }: { item: MessageThread; index: number }) => (
+    <ThreadListItem
+      thread={item}
+      typingStatus={typingStatus}
+      openingThreadId={openingThreadId}
+      onOpenThread={onOpenThread}
+      index={index}
+    />
+  );
+
+  // Force light mode background to be off-white so that pure white cards visibly pop and show shadow contrast
+  const screenBg = isDark ? colors.background : "#F4F6F8";
 
   return (
-    <ThemedScrollView
-      onRefresh={onRefresh}
-      contentContainerStyle={{ paddingBottom: 120 }}
-    >
-      {/* Threads */}
-      <View className="px-6">
-        <View className="gap-4">
-          {isLoading ? (
-            [1, 2, 3].map((item) => (
-              <ThreadSkeletonCard
-                key={`skeleton-${item}`}
-                backgroundColor={colors.card}
-                borderColor={cardBorder}
-                shimmerColor={colors.backgroundSecondary}
-              />
-            ))
-          ) : threads.length > 0 || showEmptySections || variant === "team" ? (
-            groupedSections.map((section) => (
-              <View key={section.key} className="gap-3">
-                <View className="px-1 pt-1">
-                  <Text
-                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
-                    style={{ color: colors.textSecondary }}
-                  >
-                    {section.title}
-                  </Text>
-                </View>
-                {section.items.length === 0 ? (
-                  <View
-                    className="rounded-[28px] border p-4"
-                    style={{
-                      backgroundColor: colors.card,
-                      borderColor: cardBorder,
-                      ...(isDark ? Shadows.none : Shadows.sm),
-                    }}
-                  >
-                    <View className="flex-row items-center gap-3">
-                      <View
-                        className="h-10 w-10 rounded-2xl items-center justify-center"
-                        style={{ backgroundColor: colors.backgroundSecondary }}
-                      >
-                        <Feather
-                          name={section.key === "team" ? "users" : "message-circle"}
-                          size={18}
-                          color={colors.accent}
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text
-                          className="font-outfit font-semibold"
-                          style={{ color: colors.text }}
-                        >
-                          {section.key === "team"
-                            ? "No team chat yet"
-                            : section.key === "coach_group"
-                              ? "No coach groups yet"
-                              : "No direct messages yet"}
-                        </Text>
-                        <Text
-                          className="mt-0.5 text-[12px] font-outfit"
-                          style={{ color: colors.textSecondary }}
-                        >
-                          {section.key === "team"
-                            ? "When you’re added to a team group, it’ll show up here."
-                            : "This section will appear when you have messages."}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ) : (
-                  section.items.map((thread) => {
-                    const typingKey = getTypingKey(thread.id);
-                    const typing = typingStatus[typingKey];
-                    const isOpening = openingThreadId === thread.id;
-                    const sharedBoundTag = `thread-card-${thread.id}`;
-                    const sharedAvatarTag = `thread-avatar-${thread.id}`;
-                    const unreadBadge = formatUnreadBadge(thread.unread);
+    <View style={[styles.screen, { backgroundColor: screenBg }]}>
+      <Animated.View entering={FadeIn.duration(200)} style={styles.headerBlock}>
 
-                    return (
-                      <Transition.Pressable
-                        key={thread.id}
-                        sharedBoundTag={sharedBoundTag}
-                        onPress={() =>
-                          onOpenThread(thread, sharedBoundTag, sharedAvatarTag)
-                        }
-                        className="rounded-[28px] border p-4 active:opacity-95"
-                        style={{
-                          backgroundColor: colors.card,
-                          borderColor: cardBorder,
-                          ...(isDark ? Shadows.none : Shadows.md),
-                        }}
-                      >
-                        <View className="flex-row items-start gap-4">
-                          <View className="relative flex-shrink-0">
-                            <Transition.View sharedBoundTag={sharedAvatarTag}>
-                              {thread.avatarUrl ? (
-                                <Image
-                                  source={{ uri: thread.avatarUrl }}
-                                  className="h-14 w-14 rounded-2xl"
-                                />
-                              ) : (
-                                <View
-                                  className="h-14 w-14 rounded-2xl items-center justify-center"
-                                  style={{
-                                    backgroundColor: colors.successSoft,
-                                  }}
-                                >
-                                  <Text
-                                    className="font-clash text-2xl"
-                                    style={{ color: colors.success }}
-                                  >
-                                    {getInitials(thread.name)}
-                                  </Text>
-                                </View>
-                              )}
-                            </Transition.View>
 
-                            {unreadBadge ? (
-                              <View className="absolute -top-1 -right-1 min-w-6 h-6 px-1 bg-accent rounded-full items-center justify-center">
-                                <Text className="text-white text-[9px] font-bold font-outfit">
-                                  {unreadBadge}
-                                </Text>
-                              </View>
-                            ) : null}
-                          </View>
-
-                          <View className="flex-1 pt-0.5">
-                            <View className="flex-row justify-between items-start">
-                              <View className="flex-1 pr-2">
-                                <Text
-                                  className="font-clash text-lg"
-                                  numberOfLines={1}
-                                  style={{ color: colors.text }}
-                                >
-                                  {thread.name}
-                                </Text>
-                                <Text
-                                  className="text-sm font-outfit mt-0.5"
-                                  style={{ color: colors.textSecondary }}
-                                  numberOfLines={1}
-                                >
-                                  {thread.role}
-                                </Text>
-                              </View>
-
-                              <View className="items-end">
-                                {isOpening ? (
-                                  <ActivityIndicator
-                                    size="small"
-                                    color={colors.accent}
-                                  />
-                                ) : (
-                                  <View className="items-end gap-1.5">
-                                    <Text
-                                      className="text-[11px] font-bold font-outfit"
-                                      style={{ color: colors.textSecondary }}
-                                    >
-                                      {thread.time}
-                                    </Text>
-                                    {unreadBadge ? (
-                                      <View
-                                        className="rounded-full px-2.5 py-1 flex-row items-center gap-1.5"
-                                        style={{
-                                          backgroundColor: colors.successSoft,
-                                        }}
-                                      >
-                                        <Text
-                                          className="text-[9px] font-bold font-outfit uppercase tracking-[1px]"
-                                          style={{ color: colors.success }}
-                                        >
-                                          {unreadBadge}
-                                        </Text>
-                                        <Text
-                                          className="text-[9px] font-bold font-outfit uppercase tracking-[1px]"
-                                          style={{ color: colors.success }}
-                                        >
-                                          New
-                                        </Text>
-                                      </View>
-                                    ) : null}
-                                  </View>
-                                )}
-                              </View>
-                            </View>
-
-                            <Text
-                              className="mt-2.5 text-sm leading-6 font-outfit"
-                              style={{
-                                color: typing?.isTyping
-                                  ? colors.accent
-                                  : colors.textSecondary,
-                              }}
-                              numberOfLines={1}
-                            >
-                              {typing?.isTyping
-                                ? `${typing.name} is typing...`
-                                : thread.preview}
-                            </Text>
-
-                            <View className="flex-row items-end justify-between mt-4">
-                              <View className="flex-row items-center gap-2 flex-wrap">
-                                {thread.pinned ? (
-                                  <View
-                                    className="px-2.5 py-1 rounded-full flex-row items-center border"
-                                    style={{
-                                      backgroundColor: colors.warningSoft,
-                                      borderColor: colors.warningSoft,
-                                    }}
-                                  >
-                                    <Feather
-                                      name="bookmark"
-                                      size={11}
-                                      color={colors.warning}
-                                    />
-                                    <Text
-                                      className="ml-1 text-[9px] font-bold uppercase tracking-widest"
-                                      style={{ color: colors.warning }}
-                                    >
-                                      Pinned
-                                    </Text>
-                                  </View>
-                                ) : null}
-                                <View
-                                  className="px-2.5 py-1 rounded-full"
-                                  style={{ backgroundColor: mutedPill }}
-                                >
-                                  <Text
-                                    className="text-[10px] font-outfit font-semibold"
-                                    style={{ color: colors.text }}
-                                  >
-                                    {thread.lastSeen ?? "Open thread"}
-                                  </Text>
-                                </View>
-                              </View>
-
-                              {thread.premium ? (
-                                <View className="flex-col items-end gap-1">
-                                  <View
-                                    className="px-2 py-1 rounded-full shadow-sm"
-                                    style={{ backgroundColor: colors.accent }}
-                                  >
-                                    <Text className="text-[8px] font-bold text-white uppercase tracking-[1px]">
-                                      Premium
-                                    </Text>
-                                  </View>
-                                  {thread.responseTime ? (
-                                    <View
-                                      className="px-2 py-1 rounded-full shadow-sm"
-                                      style={{
-                                        backgroundColor: colors.successSoft,
-                                      }}
-                                    >
-                                      <Text
-                                        className="text-[8px] font-bold uppercase tracking-[1px]"
-                                        style={{ color: colors.success }}
-                                      >
-                                        {thread.responseTime}
-                                      </Text>
-                                    </View>
-                                  ) : null}
-                                </View>
-                              ) : null}
-                            </View>
-                          </View>
-                        </View>
-                      </Transition.Pressable>
-                    );
-                  })
-                )}
-              </View>
-            ))
-          ) : (
-            <InboxEmptyState
-              accentColor={colors.accent}
-              backgroundSecondary={colors.backgroundSecondary}
-              borderColor={cardBorder}
-              textPrimary={colors.text}
-              textSecondary={colors.textSecondary}
+        <View style={styles.searchWrap}>
+          <View
+            style={[
+              styles.searchInner,
+              {
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <Ionicons name="search" size={20} color={colors.textDim} />
+            <TextInput
+              placeholder="Search conversations..."
+              placeholderTextColor={colors.textDim}
+              value={searchText}
+              onChangeText={setSearchText}
+              style={[
+                styles.searchInput,
+                { fontFamily: "Outfit-Medium", color: colors.textPrimary },
+              ]}
+              returnKeyType="search"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
             />
-          )}
+            {searchText.length > 0 && Platform.OS === "android" && (
+               <Pressable onPress={clearSearch} style={styles.clearBtn}>
+                 <Ionicons name="close-circle" size={20} color={colors.textDim} />
+               </Pressable>
+            )}
+          </View>
         </View>
-      </View>
 
-      {/* Urgent Help Card */}
-      {threads.length > 0 ? (
-        <PriorityHelpCard
-          accent={colors.accent}
-          accentLight={colors.accentLight}
-          borderLime={colors.borderLime}
-          text={colors.text}
-          textSecondary={colors.textSecondary}
+        <View style={styles.filterTabs}>
+          <FilterPill
+            label="All Messages"
+            active={activeFilter === "all"}
+            onPress={() => setActiveFilter("all")}
+          />
+          <FilterPill
+            label="Unread"
+            active={activeFilter === "unread"}
+            onPress={() => setActiveFilter("unread")}
+            count={unreadThreadsCount}
+          />
+        </View>
+      </Animated.View>
+
+      {listData.length > 0 ? (
+        <FlashList
+          data={listData}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          style={{ width: "100%" }}
+          contentContainerStyle={{
+            width: "100%",
+            alignItems: "stretch",
+            paddingHorizontal: INBOX_LIST_INSET,
+            paddingTop: 10,
+            paddingBottom: Platform.OS === "ios" ? 140 : 120,
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={false}
+              onRefresh={onRefresh}
+              tintColor={colors.accent}
+            />
+          }
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         />
-      ) : null}
-    </ThemedScrollView>
+      ) : (
+        <InboxEmptyState />
+      )}
+    </View>
   );
 }
-export const InboxScreen = React.memo(InboxScreenBase);
+
+export const InboxScreen = InboxScreenBase;
+
+// ── Styles ───────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  headerBlock: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+
+  searchWrap: {
+    marginBottom: 16,
+  },
+  searchInner: {
+    height: 48,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
+    ...Platform.select({
+      android: { paddingBottom: 2 },
+    }),
+  },
+  clearBtn: {
+    padding: 4,
+  },
+  filterTabs: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  filterPill: {
+    height: 38,
+    borderRadius: 19,
+    flexDirection: "row",
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  filterPillText: {
+    fontSize: 15,
+  },
+  pillBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pillBadgeText: {
+    fontSize: 12,
+    fontFamily: "Outfit-Bold",
+  },
+  // --- Empty state ---
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: Platform.OS === "ios" ? 140 : 120,
+    paddingHorizontal: 40,
+  },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 26,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  emptySubtext: {
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
+  },
+});

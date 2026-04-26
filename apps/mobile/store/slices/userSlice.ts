@@ -29,10 +29,26 @@ function normalizeManagedAthleteAge(age?: number | null) {
 }
 
 export type AppCapabilities = {
+  training: boolean;
   schedule: boolean;
+  coachBooking: boolean;
   messaging: boolean;
+  groupChat: boolean;
   nutrition: boolean;
+  nutritionReview: boolean;
   parentContent: boolean;
+  progressTracking: boolean;
+  teamTracking: boolean;
+  socialTracking: boolean;
+  trainingQuestionnaire: boolean;
+  teamManagement: boolean;
+  athleteManagement: boolean;
+  planManagement: boolean;
+  routeManagement: boolean;
+  eventManagement: boolean;
+  adminMobile: boolean;
+  billingPortal: boolean;
+  mobilePayments: boolean;
   semiPrivateBooking: boolean;
   coachVideoUpload: boolean;
   physioReferrals: boolean;

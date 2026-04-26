@@ -34,7 +34,7 @@ import { ensureAthleteUserRecord, submitOnboarding } from "../onboarding.service
 import { getAthleteForUser, getUserByEmail, getUserById } from "../user.service";
 import { calculateAge, parseISODate } from "../../lib/age";
 
-export async function listUsers(options?: { q?: string; limit?: number }) {
+export async function listUsers(options?: { q?: string; limit?: number; managedByTeamAdminId?: number | null }) {
   type ProgramTier = (typeof ProgramType.enumValues)[number];
   type AthleteTypeValue = (typeof AthleteType.enumValues)[number];
   const coerceProgramTier = (value?: string | null): ProgramTier | null =>
@@ -64,6 +64,9 @@ export async function listUsers(options?: { q?: string; limit?: number }) {
   }
 
   const filterConditions = [eq(userTable.isDeleted, false)];
+  if (typeof options?.managedByTeamAdminId === "number") {
+    filterConditions.push(eq(teamTable.adminId, options.managedByTeamAdminId));
+  }
   if (q) {
     const pattern = `%${q}%`;
     filterConditions.push(

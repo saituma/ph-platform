@@ -24,19 +24,8 @@ function normalizeConnectionString(raw: string) {
     url.searchParams.delete("sslrootcert");
     url.searchParams.delete("channel_binding");
     url.searchParams.delete("pgbouncer");
-
-    // Migrating through a Neon pooler often results in ECONNRESET
-    // due to connection proxy timeouts or dropped TCP packets during DDL statements.
-    // We enforce the direct connection endpoint:
-    if (url.hostname.includes("-pooler.aws.neon.tech") || url.hostname.includes("-pooler.eu-")) {
-      const match = url.hostname.match(/^(ep-[a-z0-9-]+)-pooler/);
-      if (match && match[1]) {
-        // Neon handles direct connections properly when we explicitly pass the endpoint ID
-        url.searchParams.set("options", `endpoint=${match[1]}`);
-      }
-      url.hostname = url.hostname.replace("-pooler", "");
-    }
-
+    // Keep the pooler hostname — the direct endpoint requires the compute to be awake,
+    // but the Neon session-mode pooler (port 5432) works for DDL and wakes the compute automatically.
     return url.toString();
   } catch {
     return raw;

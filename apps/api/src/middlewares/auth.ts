@@ -1,10 +1,30 @@
 import type { NextFunction, Request, Response } from "express";
 
-import { isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
+import { getDbOutageRemainingMs, isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
 import { verifyAccessToken } from "../lib/jwt";
 import { env } from "../config/env";
 import { createUserFromCognito, getAthleteForUser, getUserByCognitoSub, getUserById } from "../services/user.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
+
+const DB_OUTAGE_AUTH_LOG_THROTTLE_MS = 2_000;
+let lastDbAuthOutageLogAt = 0;
+
+function maybeLogDbAuthOutage(err: unknown) {
+  const now = Date.now();
+  if (now - lastDbAuthOutageLogAt < DB_OUTAGE_AUTH_LOG_THROTTLE_MS) return;
+  lastDbAuthOutageLogAt = now;
+
+  const remainingMs = getDbOutageRemainingMs();
+  const message = err instanceof Error ? err.message : String(err);
+  const isCooldownHit = message.includes("skipping DB query during transient outage cooldown");
+
+  if (isCooldownHit) {
+    console.warn(`[Auth] Database outage cooldown active (${remainingMs}ms remaining)`);
+    return;
+  }
+
+  console.error("[Auth] Database unavailable during auth (not a token rejection):", err);
+}
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   // Public endpoints that should bypass auth even if guarded.
@@ -83,11 +103,19 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       }
     }
 
+    (res.locals as { authUserId?: number }).authUserId = req.user.id;
+
     next();
   } catch (err) {
     if (isLikelyDatabaseConnectivityFailure(err)) {
-      console.error("[Auth] Database unavailable during auth (not a token rejection):", err);
-      return res.status(503).json({ error: "Service temporarily unavailable" });
+      maybeLogDbAuthOutage(err);
+      const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
+      res.setHeader("Retry-After", String(retryAfterSeconds));
+      return res.status(503).json({
+        error: "Service temporarily unavailable",
+        code: "DB_UNAVAILABLE",
+        retryAfterSeconds,
+      });
     }
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`[Auth] Bearer token rejected: ${message}`);

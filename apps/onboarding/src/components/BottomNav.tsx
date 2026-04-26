@@ -1,5 +1,3 @@
-import { useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -12,15 +10,6 @@ interface BottomNavProps {
 }
 
 export function BottomNav({ children }: BottomNavProps) {
-	const router = useRouter();
-	const [currentPath, setCurrentPath] = useState(
-		router.state.location.pathname,
-	);
-
-	useEffect(() => {
-		setCurrentPath(router.state.location.pathname);
-	}, [router.state.location.pathname]);
-
 	return (
 		<SidebarProvider>
 			<AppSidebar />

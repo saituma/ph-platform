@@ -6,6 +6,7 @@ import { NOTIFICATION_CHANNELS } from "@/lib/notificationSetup";
 import { getNotifications } from "@/lib/notifications";
 import { store } from "@/store";
 import { sendLiveLocation } from "@/services/tracking/locationService";
+import { thinRoutePointsForDisplay } from "@/lib/tracking/thinRoute";
 
 export const BACKGROUND_LOCATION_TASK = "BACKGROUND_LOCATION_TASK";
 
@@ -88,15 +89,24 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
       void refreshRunNotification();
 
       // Send live location if enabled and enough time has passed
-      if (shareLiveLocationEnabled && latestCoord) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      const coordSnapshot = latestCoord as { latitude: number; longitude: number; accuracy: number | null } | null;
+      if (shareLiveLocationEnabled && coordSnapshot) {
         const now = Date.now();
         if (now - lastLocationSentAt > LOCATION_SEND_INTERVAL_MS) {
           const token = store.getState().user.token;
           if (token) {
             lastLocationSentAt = now;
-            void sendLiveLocation(token, latestCoord).catch(() => {
-              // silent failure for live updates
-            });
+            const { coordinates } = useRunStore.getState();
+            const thinned = thinRoutePointsForDisplay(coordinates, 30)
+              .slice(-50)
+              .map((c) => ({ lat: c.latitude, lng: c.longitude }));
+            void sendLiveLocation(token, {
+              latitude: coordSnapshot.latitude,
+              longitude: coordSnapshot.longitude,
+              accuracy: coordSnapshot.accuracy,
+              routePoints: thinned.length > 1 ? thinned : null,
+            }).catch(() => {});
           }
         }
       }

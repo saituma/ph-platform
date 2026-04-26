@@ -281,6 +281,16 @@ export function AuthPersist() {
             team?: unknown;
             teamId?: number | null;
             athleteType?: "youth" | "adult" | null;
+            debugProgramAccess?: {
+              athleteProgramTier?: string | null;
+              teamProgramTier?: string | null;
+              teamPlanTierSource?: string;
+              teamPlanId?: number | null;
+              teamSubscriptionStatus?: string | null;
+              effectiveProgramTier?: string | null;
+              effectiveTierSource?: string;
+              coachVideoUpload?: boolean;
+            };
           };
         }>("/auth/me", {
           token,
@@ -317,6 +327,9 @@ export function AuthPersist() {
             avatar: me.user.profilePicture ?? null,
           }),
         );
+        if (__DEV__ && me.user.debugProgramAccess) {
+          console.log("[AuthPersist] debugProgramAccess", me.user.debugProgramAccess);
+        }
         syncResolvedAppRole();
       } catch {
         if (!active) return;

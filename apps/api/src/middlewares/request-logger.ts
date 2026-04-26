@@ -33,6 +33,8 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
     const statusCode = aborted ? 499 : res.statusCode;
     const level = statusCode >= 500 ? "error" : statusCode >= 400 ? "warn" : "info";
 
+    const authId = (res.locals as { authUserId?: number }).authUserId;
+
     const payload = {
       level,
       event: "http_request",
@@ -42,7 +44,8 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
       statusCode,
       durationMs: Number(durationMs.toFixed(2)),
       ip,
-      userId: req.user?.id ?? null,
+      // res.locals.authUserId is set at end of requireAuth (mirrors req.user) for rare cases where close fires oddly.
+      userId: req.user?.id ?? authId ?? null,
       role: req.user?.role ?? null,
     };
 

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { settingsService } from "@/services/settingsService";
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,35 @@ export const Route = createFileRoute("/portal/privacy-security")({
 });
 
 function PrivacySecurityPage() {
-	const navigate = useNavigate();
 	const [password, setPassword] = useState("");
+	const [oldPassword, setOldPassword] = useState("");
+	const [newPassword, setNewPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
+	const [isChangingPassword, setIsChangingPassword] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
+
+	const handleChangePassword = async () => {
+		if (oldPassword.length < 8 || newPassword.length < 8) {
+			toast.error("Passwords must be at least 8 characters");
+			return;
+		}
+		if (newPassword !== confirmPassword) {
+			toast.error("New passwords do not match");
+			return;
+		}
+		setIsChangingPassword(true);
+		try {
+			await settingsService.changePassword({ oldPassword, newPassword });
+			setOldPassword("");
+			setNewPassword("");
+			setConfirmPassword("");
+			toast.success("Password updated successfully");
+		} catch (error: any) {
+			toast.error(error.message || "Failed to update password");
+		} finally {
+			setIsChangingPassword(false);
+		}
+	};
 
 	const handleDeleteAccount = async () => {
 		if (password.length < 8) {
@@ -61,13 +87,59 @@ function PrivacySecurityPage() {
 					</div>
 					<CardDescription>Update your password to keep your account secure.</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="space-y-4">
+					<div className="space-y-2">
+						<Label htmlFor="old-password">Current password</Label>
+						<Input
+							id="old-password"
+							type="password"
+							value={oldPassword}
+							onChange={(e) => setOldPassword(e.target.value)}
+							className="h-12 border-2"
+							autoComplete="current-password"
+						/>
+					</div>
+					<div className="grid gap-4 sm:grid-cols-2">
+						<div className="space-y-2">
+							<Label htmlFor="new-password">New password</Label>
+							<Input
+								id="new-password"
+								type="password"
+								value={newPassword}
+								onChange={(e) => setNewPassword(e.target.value)}
+								className="h-12 border-2"
+								autoComplete="new-password"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="confirm-password">Confirm password</Label>
+							<Input
+								id="confirm-password"
+								type="password"
+								value={confirmPassword}
+								onChange={(e) => setConfirmPassword(e.target.value)}
+								className="h-12 border-2"
+								autoComplete="new-password"
+							/>
+						</div>
+					</div>
 					<Button
 						variant="outline"
 						className="w-full h-12 rounded-xl border-2 font-bold uppercase tracking-wider"
-						onClick={() => toast.info("Password change flow would go here")}
+						onClick={handleChangePassword}
+						disabled={
+							isChangingPassword ||
+							oldPassword.length < 8 ||
+							newPassword.length < 8 ||
+							newPassword !== confirmPassword
+						}
 					>
-						Change Password
+						{isChangingPassword ? (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+						) : (
+							<Key className="mr-2 h-4 w-4" />
+						)}
+						{isChangingPassword ? "Updating..." : "Change Password"}
 					</Button>
 				</CardContent>
 			</Card>

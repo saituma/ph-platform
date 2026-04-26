@@ -35,6 +35,8 @@ export const env = createEnv({
 		),
 		/** Shown in copy for coach-provisioned athlete emails (`user.team@{domain}`). */
 		VITE_TEAM_ATHLETE_EMAIL_DOMAIN: z.string().min(1).optional(),
+		/** Sentry DSN for client-side error tracking. */
+		VITE_SENTRY_DSN: z.string().url().optional(),
 	},
 
 	/**

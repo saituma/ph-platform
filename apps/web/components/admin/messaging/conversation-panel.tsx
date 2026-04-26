@@ -242,35 +242,6 @@ export function ConversationPanel({
     return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
   };
 
-  const formatBytes = (sizeBytes: number) => {
-    if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return "0 KB";
-    if (sizeBytes < 1024 * 1024) return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
-    if (sizeBytes < 1024 * 1024 * 1024) return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(sizeBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  };
-
-  const extractFileName = (url: string) => {
-    try {
-      const pathname = new URL(url).pathname;
-      const raw = pathname.split("/").pop() ?? "";
-      return decodeURIComponent(raw) || "Attachment";
-    } catch {
-      const raw = url.split("?")[0]?.split("/").pop() ?? "";
-      return decodeURIComponent(raw) || "Attachment";
-    }
-  };
-
-  const getAttachmentMeta = (message: Message) => {
-    if (!message.mediaUrl) return null;
-    const sizeMatch = message.text.match(/\b(\d+(?:\.\d+)?)\s?(KB|MB|GB)\b/i);
-    const nameFromText = message.text.includes(" • ")
-      ? message.text.split(" • ")[0]?.trim()
-      : null;
-    const sizeLabel = sizeMatch ? `${sizeMatch[1]} ${sizeMatch[2].toUpperCase()}` : null;
-    const name = nameFromText && nameFromText.length > 0 ? nameFromText : extractFileName(message.mediaUrl);
-    return { name, sizeLabel };
-  };
-
   if (!name) {
     return (
       <EmptyState
@@ -305,16 +276,17 @@ export function ConversationPanel({
         <div className="space-y-3 pb-[calc(11rem+env(safe-area-inset-bottom))] lg:pb-0">
         {messages.map((message) => {
           const isCoach = message.author === "Coach";
-          const attachmentMeta = getAttachmentMeta(message);
-          const showAttachmentMeta = Boolean(attachmentMeta);
-          const shouldHideText = showAttachmentMeta && message.text.startsWith(attachmentMeta!.name);
+          const normalizedText = String(message.text ?? "").trim().toLowerCase();
+          const shouldHideText =
+            normalizedText === "attachment" ||
+            normalizedText.startsWith("file attached:");
           return (
             <div
               key={message.id}
               className={`flex ${isCoach ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`group max-w-[80%] rounded-2xl border p-3 text-sm shadow-sm ${
+                className={`group max-w-[80%] rounded-2xl p-3 text-sm shadow-sm ${
                   isCoach
                     ? "bg-emerald-100/80 text-foreground dark:bg-emerald-900/40"
                     : "bg-white text-foreground dark:bg-slate-900"
@@ -329,25 +301,6 @@ export function ConversationPanel({
                 <p className="text-[11px] text-muted-foreground">
                   {message.author} • {message.time}
                 </p>
-                {showAttachmentMeta ? (
-                  <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/30 px-3 py-2 text-xs">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-foreground">{attachmentMeta!.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {attachmentMeta!.sizeLabel ?? "Size unavailable"}
-                      </p>
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {message.contentType === "image"
-                        ? "Image"
-                        : message.contentType === "video"
-                        ? "Video"
-                        : isAudioAttachment(message)
-                        ? "Audio"
-                        : "File"}
-                    </div>
-                  </div>
-                ) : null}
                 {message.mediaUrl && message.contentType === "image" ? (
                   <button
                     type="button"
@@ -387,13 +340,13 @@ export function ConversationPanel({
                     href={message.mediaUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-flex rounded-xl border border-border bg-background px-3 py-2 text-xs text-primary underline"
+                    className="mt-2 inline-flex rounded-xl bg-background px-3 py-2 text-xs text-primary underline"
                   >
                     Open attachment
                   </a>
                 ) : null}
                 {isAudioAttachment(message) ? (
-                  <p className="mt-2 rounded-xl border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                  <p className="mt-2 rounded-xl bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
                     Voice messages are disabled.
                   </p>
                 ) : null}
@@ -507,10 +460,8 @@ export function ConversationPanel({
           }}
         />
         {attachment ? (
-          <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 px-3 py-2">
-            <p className="text-xs text-muted-foreground">
-              {attachment.file.name} ({Math.max(1, Math.round(attachment.file.size / 1024))} KB)
-            </p>
+          <div className="flex items-center justify-between rounded-xl bg-secondary/20 px-3 py-2">
+            <p className="text-xs text-muted-foreground">Attachment ready</p>
             <Button size="sm" variant="ghost" onClick={() => setAttachment(null)}>
               Remove
             </Button>

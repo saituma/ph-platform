@@ -1,136 +1,275 @@
-import { env } from "@/env";
+import { publicApiUrl } from "@/lib/public-api";
 
 export type ApiChatMessage = {
-  id: number;
-  senderId: number;
-  receiverId?: number;
-  content: string;
-  contentType?: "text" | "image" | "video";
-  mediaUrl?: string;
-  read: boolean;
-  createdAt: string;
+	id: number;
+	messageKey?: string;
+	senderId: number;
+	senderUserKey?: string;
+	receiverId?: number;
+	content: string;
+	contentType?: "text" | "image" | "video";
+	mediaUrl?: string;
+	read: boolean;
+	createdAt: string;
+	deliveredCount?: number;
+	readCount?: number;
+	myReadAt?: string | null;
+	// Present for group chat endpoints (`/chat/groups/:id/messages`).
+	senderName?: string | null;
+	senderProfilePicture?: string | null;
+	reactions?: { emoji: string; count: number; userIds: number[] }[];
+};
+
+export type SendMessagePayload = {
+	content: string;
+	contentType?: "text" | "image" | "video";
+	mediaUrl?: string;
 };
 
 export type ApiCoach = {
-  id: number;
-  name: string;
-  role?: string;
-  profilePicture?: string | null;
-  isAi?: boolean;
+	id: number;
+	name: string;
+	role?: string;
+	profilePicture?: string | null;
+	isAi?: boolean;
 };
 
 export type ApiChatGroup = {
-  id: number;
-  name: string;
-  category?: string;
-  createdAt: string;
-  unreadCount?: number;
-  lastMessage?: {
-    content: string;
-    contentType?: string;
-    createdAt: string;
-  } | null;
+	id: number;
+	name: string;
+	category?: string;
+	createdAt: string;
+	unreadCount?: number;
+	lastMessage?: {
+		content: string;
+		contentType?: string;
+		createdAt: string;
+		messageKey?: string;
+		senderUserKey?: string;
+		senderName?: string | null;
+		senderProfilePicture?: string | null;
+	} | null;
 };
 
 export type MessageThread = {
-  id: string;
-  name: string;
-  role: string;
-  preview: string;
-  time: string;
-  unread: number;
-  avatarUrl?: string | null;
-  type: "direct" | "group";
+	id: string;
+	name: string;
+	role: string;
+	preview: string;
+	time: string;
+	unread: number;
+	avatarUrl?: string | null;
+	type: "direct" | "group";
 };
 
-export async function fetchInbox(token: string): Promise<{ threads: MessageThread[] }> {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-  
-  try {
-    const [messagesRes, groupsRes] = await Promise.all([
-      fetch(`${baseUrl}/api/messages`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${baseUrl}/api/chat/groups`, { headers: { Authorization: `Bearer ${token}` } })
-    ]);
+type UnifiedInboxThread = {
+	id: string;
+	type: "direct" | "group";
+	peerUserId?: number;
+	groupId?: number;
+	groupCategory?: string;
+	name: string;
+	role: string;
+	avatarUrl?: string | null;
+	preview: string;
+	unread: number;
+	updatedAt: string;
+};
 
-    const messagesData = messagesRes.ok ? await messagesRes.json() : { messages: [], coach: null };
-    const groupsData = groupsRes.ok ? await groupsRes.json() : { groups: [] };
+export type ParsedReplyPrefix = {
+	replyToMessageId: number | null;
+	replyPreview: string;
+	text: string;
+};
 
-    const threads: MessageThread[] = [];
+const REPLY_PREFIX_RE = /^\[reply:(\d+):([^\]]*)\]\s*/;
 
-    // Map Coach (Direct Message)
-    if (messagesData.coach) {
-      const coach = messagesData.coach;
-      const lastMsg = messagesData.messages[0];
-      threads.push({
-        id: `coach:${coach.id}`,
-        name: coach.name,
-        role: coach.role || "Performance Coach",
-        avatarUrl: coach.profilePicture,
-        preview: lastMsg?.content || "Start a conversation",
-        time: lastMsg ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
-        unread: messagesData.messages.filter((m: any) => !m.read && m.senderId === coach.id).length,
-        type: "direct"
-      });
-    }
-
-    // Map Groups
-    const groups = groupsData.groups || [];
-    groups.forEach((group: ApiChatGroup) => {
-      threads.push({
-        id: `group:${group.id}`,
-        name: group.name,
-        role: group.category || "Team Group",
-        preview: group.lastMessage?.content || "No messages yet",
-        time: group.lastMessage ? new Date(group.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
-        unread: group.unreadCount || 0,
-        type: "group"
-      });
-    });
-
-    return { threads };
-  } catch (err) {
-    console.error("Fetch inbox error:", err);
-    return { threads: [] };
-  }
+export function parseReplyPrefix(raw: string): ParsedReplyPrefix {
+	const input = String(raw ?? "");
+	const match = input.match(REPLY_PREFIX_RE);
+	if (!match) return { replyToMessageId: null, replyPreview: "", text: input };
+	const replyToMessageId = Number(match[1]);
+	const encodedPreview = match[2] ?? "";
+	let replyPreview = "";
+	try {
+		replyPreview = decodeURIComponent(encodedPreview);
+	} catch {
+		replyPreview = encodedPreview;
+	}
+	return {
+		replyToMessageId: Number.isFinite(replyToMessageId) ? replyToMessageId : null,
+		replyPreview,
+		text: input.slice(match[0].length),
+	};
 }
 
-export async function fetchThreadMessages(token: string, threadId: string): Promise<ApiChatMessage[]> {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-  const [type, id] = threadId.split(":");
+export async function fetchInbox(
+	token: string,
+	isManager: boolean = false,
+): Promise<{ threads: MessageThread[] }> {
+	try {
+		const inboxRes = await fetch(
+			publicApiUrl(
+				`/api/messages/inbox?includeAdminThreads=${isManager ? "1" : "0"}`,
+			),
+			{
+				headers: { Authorization: `Bearer ${token}` },
+			},
+		);
+		const inboxData = inboxRes.ok
+			? await inboxRes.json()
+			: ({ threads: [] } as { threads: UnifiedInboxThread[] });
 
-  const endpoint = type === "group" 
-    ? `${baseUrl}/api/chat/groups/${id}/messages`
-    : `${baseUrl}/api/messages`;
+		const threads: MessageThread[] = (inboxData.threads ?? []).map(
+			(thread: UnifiedInboxThread) => ({
+				id: thread.id,
+				name: thread.name,
+				role: thread.role || "Message",
+				avatarUrl: thread.avatarUrl ?? null,
+				preview: thread.preview || "No messages yet",
+				time: thread.updatedAt
+					? new Date(thread.updatedAt).toLocaleTimeString([], {
+							hour: "2-digit",
+							minute: "2-digit",
+						})
+					: "",
+				unread: Number(thread.unread ?? 0) || 0,
+				type: thread.type === "group" ? "group" : "direct",
+			}),
+		);
 
-  const response = await fetch(endpoint, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-
-  if (!response.ok) throw new Error("Failed to fetch messages");
-  const data = await response.json();
-  return data.messages || [];
+		return {
+			threads: threads.sort(
+				(a, b) =>
+					new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime(),
+			),
+		};
+	} catch (err) {
+		console.error("Fetch inbox error:", err);
+		return { threads: [] };
+	}
 }
 
-export async function sendMessage(token: string, threadId: string, content: string): Promise<any> {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
-  const [type, id] = threadId.split(":");
+export async function fetchThreadMessages(
+	token: string,
+	threadId: string,
+): Promise<ApiChatMessage[]> {
+	const [type, id] = threadId.split(":");
 
-  const endpoint = type === "group" 
-    ? `${baseUrl}/api/chat/groups/${id}/messages`
-    : `${baseUrl}/api/messages`;
+	let endpoint = publicApiUrl("/api/messages");
+	if (type === "group")
+		endpoint = publicApiUrl(`/api/chat/groups/${id}/messages`);
+	if (type === "admin") endpoint = publicApiUrl(`/api/admin/messages/${id}`);
+	if (type === "coach")
+		endpoint = publicApiUrl(`/api/messages?peerUserId=${id}`);
 
-  const body: any = { content };
-  if (type === "coach") body.receiverId = Number(id);
+	const response = await fetch(endpoint, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify(body)
-  });
+	if (!response.ok) throw new Error("Failed to fetch messages");
+	const data = await response.json();
+	return data.messages || [];
+}
 
-  if (!response.ok) throw new Error("Failed to send message");
-  return response.json();
+export async function uploadMessageAttachment(
+	token: string,
+	file: File,
+): Promise<{ mediaUrl: string; contentType: "text" | "image" | "video" }> {
+	const mimeType = String(file.type || "application/octet-stream").toLowerCase();
+	const isImage = mimeType.startsWith("image/");
+	const isVideo = mimeType.startsWith("video/");
+	const contentType: "text" | "image" | "video" = isImage
+		? "image"
+		: isVideo
+			? "video"
+			: "text";
+	const folder = isImage
+		? "messages/images"
+		: isVideo
+			? "messages/videos"
+			: "messages/files";
+	const presignRes = await fetch(publicApiUrl("/api/media/presign"), {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${token}`,
+		},
+		body: JSON.stringify({
+			folder,
+			fileName: file.name || `upload-${Date.now()}`,
+			contentType: file.type || "application/octet-stream",
+			sizeBytes: file.size || 0,
+			client: "web",
+		}),
+	});
+	if (!presignRes.ok) throw new Error("Could not start upload");
+	const presignData = (await presignRes.json()) as {
+		uploadUrl: string;
+		publicUrl: string;
+	};
+	const putRes = await fetch(presignData.uploadUrl, {
+		method: "PUT",
+		headers: { "Content-Type": file.type || "application/octet-stream" },
+		body: file,
+	});
+	if (!putRes.ok) throw new Error("Could not upload attachment");
+	return { mediaUrl: presignData.publicUrl, contentType };
+}
+
+export async function sendMessage(
+	token: string,
+	threadId: string,
+	input: SendMessagePayload,
+): Promise<any> {
+	const [type, id] = threadId.split(":");
+
+	let endpoint = publicApiUrl("/api/messages");
+	if (type === "group")
+		endpoint = publicApiUrl(`/api/chat/groups/${id}/messages`);
+	if (type === "admin") endpoint = publicApiUrl(`/api/admin/messages/${id}`);
+
+	const body: any = {
+		content: input.content,
+		contentType: input.contentType ?? "text",
+		mediaUrl: input.mediaUrl,
+	};
+	if (type === "coach") body.receiverId = Number(id);
+
+	const response = await fetch(endpoint, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${token}`,
+		},
+		body: JSON.stringify(body),
+	});
+
+	if (!response.ok) throw new Error("Failed to send message");
+	return response.json();
+}
+
+export async function toggleMessageReaction(
+	token: string,
+	threadId: string,
+	messageId: number,
+	emoji: string,
+): Promise<{ reactions: { emoji: string; count: number; userIds: number[] }[] }> {
+	const [type, id] = threadId.split(":");
+	let endpoint = publicApiUrl(`/api/messages/${messageId}/reactions`);
+	if (type === "group") {
+		endpoint = publicApiUrl(
+			`/api/chat/groups/${id}/messages/${messageId}/reactions`,
+		);
+	}
+	const response = await fetch(endpoint, {
+		method: "PUT",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${token}`,
+		},
+		body: JSON.stringify({ emoji }),
+	});
+	if (!response.ok) throw new Error("Failed to react to message");
+	return response.json();
 }

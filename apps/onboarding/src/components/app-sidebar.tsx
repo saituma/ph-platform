@@ -5,8 +5,10 @@ import {
 	ChevronLeft,
 	ChevronRight,
 	Clipboard,
+	CreditCard,
 	Dumbbell,
 	FileText,
+	Gift,
 	HelpCircle,
 	House,
 	Info,
@@ -19,6 +21,7 @@ import {
 	Radio,
 	Shield,
 	Star,
+	Stethoscope,
 	User,
 	Users,
 } from "lucide-react";
@@ -40,6 +43,7 @@ import {
 import {
 	isPortalCoachLikeRole,
 	showPortalNutritionNav,
+	showPortalPhysioReferralNav,
 } from "@/lib/portal-roles";
 import { useRouterPathname } from "@/lib/use-router-pathname";
 import { cn } from "@/lib/utils";
@@ -82,8 +86,11 @@ const coachOnlyNavItems = [
 
 const accountItems = [
 	{ label: "Profile Information", path: "/portal/profile", icon: User },
+	{ label: "Billing & Plan", path: "/portal/billing", icon: CreditCard },
+	{ label: "Referral Program", path: "/portal/referral", icon: Gift },
 	{ label: "Permissions", path: "/portal/permissions", icon: Shield },
 	{ label: "Nutrition Tracking", path: "/portal/nutrition", icon: Clipboard },
+	{ label: "My Referral", path: "/portal/physio-referral", icon: Stethoscope },
 	{ label: "Notifications", path: "/portal/notifications", icon: Bell },
 	{ label: "Privacy & Security", path: "/portal/privacy-security", icon: Lock },
 ];
@@ -243,8 +250,10 @@ export function AppSidebar() {
 							{accountItems
 								.filter(
 									(item) =>
-										item.path !== "/portal/nutrition" ||
-										showPortalNutritionNav(user?.role),
+										(item.path !== "/portal/nutrition" ||
+											showPortalNutritionNav(user?.role)) &&
+										(item.path !== "/portal/physio-referral" ||
+											showPortalPhysioReferralNav(user?.role)),
 								)
 								.map((item) => {
 									const active = isActive(item.path);

@@ -106,7 +106,6 @@ function SparkBars({
               height: h,
               borderRadius: 6,
               backgroundColor: i === slice.length - 1 ? color : secondary,
-              opacity: 0.85,
             }}
           />
         );
@@ -603,7 +602,9 @@ export default function ProgressScreen() {
             justifyContent: "center",
             flexDirection: "row",
             gap: 8,
-            ...Shadows.md,
+            ...(isDark ? {} : Shadows.md),
+            borderWidth: isDark ? 1 : 0,
+            borderColor: isDark ? "rgba(255,255,255,0.14)" : "transparent",
           }}
         >
           <Ionicons name="add-circle-outline" size={22} color={colors.textInverse} />

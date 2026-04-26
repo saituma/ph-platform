@@ -116,6 +116,56 @@ type TrainingSnapshotRow = {
   premiumExercisesDone: number;
 };
 
+type AdminRunTrackingRow = {
+  id: number;
+  userId: number;
+  athleteId?: number | null;
+  athleteName?: string | null;
+  athleteType?: "youth" | "adult" | null;
+  teamId?: number | null;
+  teamName?: string | null;
+  date: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  avgPace?: number | null;
+  avgSpeed?: number | null;
+  calories?: number | null;
+  effortLevel?: number | null;
+  feelTags?: unknown;
+  notes?: string | null;
+  visibility?: string | null;
+  coordinates?: unknown;
+};
+
+type AdminRunTrackingResponse = {
+  summary: {
+    totalRuns: number;
+    totalMeters: number;
+    totalSeconds: number;
+    teamRunCount: number;
+    adultSoloRunCount: number;
+  };
+  items: AdminRunTrackingRow[];
+};
+
+type AdminTrainingQuestionnaireRow = {
+  source: "program_section" | "premium_plan" | "workout_log" | string;
+  id: number;
+  athleteId: number;
+  userId?: number | null;
+  athleteName?: string | null;
+  athleteType?: "youth" | "adult" | null;
+  teamName?: string | null;
+  title?: string | null;
+  rpe?: number | null;
+  soreness?: number | null;
+  fatigue?: number | null;
+  notes?: string | null;
+  weightsUsed?: string | null;
+  repsCompleted?: string | null;
+  completedAt?: string | null;
+};
+
 type UserListRow = {
   id: number;
   name: string;
@@ -390,6 +440,38 @@ export const apiSlice = createApi({
     }),
     getTrainingSnapshot: builder.query<{ items: TrainingSnapshotRow[] }, void>({
       query: () => "/admin/training-snapshot",
+      providesTags: ["Users"],
+    }),
+    getAdminRunTracking: builder.query<
+      AdminRunTrackingResponse,
+      { userId?: number; teamId?: number; from?: string; to?: string; limit?: number } | void
+    >({
+      query: (params) => {
+        const query = new URLSearchParams();
+        if (params?.userId) query.set("userId", String(params.userId));
+        if (params?.teamId) query.set("teamId", String(params.teamId));
+        if (params?.from) query.set("from", params.from);
+        if (params?.to) query.set("to", params.to);
+        if (params?.limit) query.set("limit", String(params.limit));
+        const suffix = query.toString() ? `?${query.toString()}` : "";
+        return `/admin/tracking/runs${suffix}`;
+      },
+      providesTags: ["Users"],
+    }),
+    getAdminTrainingQuestionnaires: builder.query<
+      { items: AdminTrainingQuestionnaireRow[] },
+      { userId?: number; teamId?: number; from?: string; to?: string; limit?: number } | void
+    >({
+      query: (params) => {
+        const query = new URLSearchParams();
+        if (params?.userId) query.set("userId", String(params.userId));
+        if (params?.teamId) query.set("teamId", String(params.teamId));
+        if (params?.from) query.set("from", params.from);
+        if (params?.to) query.set("to", params.to);
+        if (params?.limit) query.set("limit", String(params.limit));
+        const suffix = query.toString() ? `?${query.toString()}` : "";
+        return `/admin/training-questionnaires${suffix}`;
+      },
       providesTags: ["Users"],
     }),
     getUserLocations: builder.query<
@@ -687,6 +769,13 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Bookings"],
     }),
+    cancelBooking: builder.mutation<{ booking: BookingRecord }, number>({
+      query: (bookingId) => ({
+        url: `/bookings/${bookingId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Bookings"],
+    }),
     getThreads: builder.query<
       { threads: any[] },
       { q?: string; limit?: number } | void
@@ -702,6 +791,22 @@ export const apiSlice = createApi({
           : "/admin/messages/threads";
       },
       providesTags: ["Threads"],
+    }),
+    getMessagingInbox: builder.query<
+      { threads: any[] },
+      { limit?: number; includeAdminThreads?: boolean } | void
+    >({
+      query: (params) => {
+        if (!params) return "/messages/inbox";
+        const query = new URLSearchParams();
+        if (params.limit) query.set("limit", String(params.limit));
+        if (typeof params.includeAdminThreads === "boolean") {
+          query.set("includeAdminThreads", params.includeAdminThreads ? "1" : "0");
+        }
+        const queryString = query.toString();
+        return queryString ? `/messages/inbox?${queryString}` : "/messages/inbox";
+      },
+      providesTags: ["Threads", "ChatGroups"],
     }),
     getMessages: builder.query<{ messages: any[] }, number>({
       query: (userId) => `/admin/messages/${userId}`,
@@ -1468,6 +1573,8 @@ export const {
   useSubmitAppFeedbackMutation,
   useGetDashboardQuery,
   useGetTrainingSnapshotQuery,
+  useGetAdminRunTrackingQuery,
+  useGetAdminTrainingQuestionnairesQuery,
   useGetUserLocationsQuery,
   useGetUsersQuery,
   useGetAdminTeamsQuery,
@@ -1489,6 +1596,7 @@ export const {
   useGetGeneratedBookingAvailabilityQuery,
   useCreateBookingMutation,
   useGetThreadsQuery,
+  useGetMessagingInboxQuery,
   useGetMessagesQuery,
   useGetParentContentQuery,
   useGetHomeContentQuery,
@@ -1565,4 +1673,5 @@ export const {
   useGetChatGroupMessagesQuery,
   useSendChatGroupMessageMutation,
   useToggleChatGroupMessageReactionMutation,
+  useCancelBookingMutation,
 } = apiSlice;

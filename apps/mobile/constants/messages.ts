@@ -15,6 +15,8 @@ export type ChatMessage = {
   id: string;
   threadId: string;
   from: "coach" | "user";
+  senderId?: number;
+  receiverId?: number;
   text: string;
   replyToMessageId?: number;
   replyPreview?: string;

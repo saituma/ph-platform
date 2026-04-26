@@ -89,6 +89,12 @@ export default function ThreadScreen() {
     React.useState<ChatMessage | null>(null);
   const [messageActionsTarget, setMessageActionsTarget] =
     React.useState<ChatMessage | null>(null);
+  const isOwnActionTarget = React.useMemo(() => {
+    if (!messageActionsTarget) return false;
+    const senderId = Number(messageActionsTarget.senderId ?? Number.NaN);
+    if (Number.isFinite(senderId)) return senderId === effectiveProfileId;
+    return messageActionsTarget.from === "user";
+  }, [effectiveProfileId, messageActionsTarget]);
 
   const messageActionsSheetRef = React.useRef<BottomSheetModal>(null);
 
@@ -185,7 +191,10 @@ export default function ThreadScreen() {
         reactionTarget={reactionTarget}
         options={reactionOptions}
         onClose={() => setReactionTarget(null)}
-        onSelect={handleToggleReaction}
+        onSelect={(message, emoji) => {
+          setReactionTarget(null);
+          void handleToggleReaction(message, emoji);
+        }}
         onOpenEmojiPicker={(message) => {
           setReactionTarget(null);
           setReactionEmojiTarget(message);
@@ -280,27 +289,28 @@ export default function ThreadScreen() {
                   React
                 </Text>
               </Pressable>
-              <Pressable
-                onPress={() => {
-                  const target = messageActionsTarget;
-                  setMessageActionsTarget(null);
-                  if (target && target.from === "user")
-                    void handleDeleteMessage(target);
-                }}
-                className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
-                style={{
-                  borderColor: "rgba(239,68,68,0.25)",
-                  backgroundColor: "rgba(239,68,68,0.10)",
-                }}
-              >
-                <Feather name="trash-2" size={18} color="#EF4444" />
-                <Text
-                  className="font-outfit font-bold"
-                  style={{ color: "#EF4444" }}
+              {isOwnActionTarget && (
+                <Pressable
+                  onPress={() => {
+                    const target = messageActionsTarget;
+                    setMessageActionsTarget(null);
+                    if (target) void handleDeleteMessage(target);
+                  }}
+                  className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+                  style={{
+                    borderColor: "rgba(239,68,68,0.25)",
+                    backgroundColor: "rgba(239,68,68,0.10)",
+                  }}
                 >
-                  Delete
-                </Text>
-              </Pressable>
+                  <Feather name="trash-2" size={18} color="#EF4444" />
+                  <Text
+                    className="font-outfit font-bold"
+                    style={{ color: "#EF4444" }}
+                  >
+                    Delete
+                  </Text>
+                </Pressable>
+              )}
             </View>
             <View className="flex-row gap-3">
               <Pressable
@@ -325,28 +335,30 @@ export default function ThreadScreen() {
                   Report
                 </Text>
               </Pressable>
-              <Pressable
-                onPress={() => {
-                  setMessageActionsTarget(null);
-                  Alert.alert("Block User", "Are you sure you want to block this user? You will no longer receive or see their messages.", [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Block", style: "destructive", onPress: () => Alert.alert("User Blocked", "This user has been blocked.") }
-                  ]);
-                }}
-                className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
-                style={{
-                  borderColor: "rgba(239,68,68,0.25)",
-                  backgroundColor: "rgba(239,68,68,0.10)",
-                }}
-              >
-                <Feather name="slash" size={18} color="#EF4444" />
-                <Text
-                  className="font-outfit font-bold"
-                  style={{ color: "#EF4444" }}
+              {!isOwnActionTarget ? (
+                <Pressable
+                  onPress={() => {
+                    setMessageActionsTarget(null);
+                    Alert.alert("Block User", "Are you sure you want to block this user? You will no longer receive or see their messages.", [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Block", style: "destructive", onPress: () => Alert.alert("User Blocked", "This user has been blocked.") }
+                    ]);
+                  }}
+                  className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
+                  style={{
+                    borderColor: "rgba(239,68,68,0.25)",
+                    backgroundColor: "rgba(239,68,68,0.10)",
+                  }}
                 >
-                  Block
-                </Text>
-              </Pressable>
+                  <Feather name="slash" size={18} color="#EF4444" />
+                  <Text
+                    className="font-outfit font-bold"
+                    style={{ color: "#EF4444" }}
+                  >
+                    Block
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           </View>
           <Pressable

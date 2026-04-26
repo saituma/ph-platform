@@ -4,6 +4,7 @@ import {
 	type ReactNode,
 	useCallback,
 	useContext,
+	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useState,
@@ -15,6 +16,7 @@ import {
 } from "@/portal/portal-errors";
 import { portalKeys } from "@/portal/portal-query-keys";
 import type { PortalUser } from "@/portal/portal-types";
+import { isTokenExpired, msUntilExpiry } from "@/lib/token-expiry";
 
 type PortalContextValue = {
 	token: string | null;
@@ -23,6 +25,7 @@ type PortalContextValue = {
 	loading: boolean;
 	error: string | null;
 	refresh: () => Promise<void>;
+	refreshUser: () => Promise<void>;
 };
 
 const PortalContext = createContext<PortalContextValue | null>(null);
@@ -47,9 +50,36 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 	const [authHydrated, setAuthHydrated] = useState(false);
 
 	useLayoutEffect(() => {
-		setToken(localStorage.getItem("auth_token"));
+		const stored = localStorage.getItem("auth_token");
+		// Discard expired tokens immediately on hydration
+		if (stored && isTokenExpired(stored)) {
+			localStorage.removeItem("auth_token");
+			localStorage.removeItem("pending_email");
+			localStorage.removeItem("user_type");
+			setAuthHydrated(true);
+			return;
+		}
+		setToken(stored);
 		setAuthHydrated(true);
 	}, []);
+
+	// Auto-logout when token expires during the session
+	useEffect(() => {
+		if (!token) return;
+		const ms = msUntilExpiry(token);
+		if (ms <= 0) {
+			// Already expired — clear immediately
+			localStorage.removeItem("auth_token");
+			setToken(null);
+			return;
+		}
+		if (ms === -1) return; // No exp claim — token is session-based, skip timer
+		const timer = setTimeout(() => {
+			localStorage.removeItem("auth_token");
+			setToken(null);
+		}, ms);
+		return () => clearTimeout(timer);
+	}, [token]);
 
 	const {
 		data: user,
@@ -96,6 +126,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 				!authHydrated || (!!token && userLoading),
 			error: userError instanceof Error ? userError.message : null,
 			refresh,
+			refreshUser: refresh,
 		}),
 		[token, user, age, authHydrated, userLoading, userError, refresh],
 	);

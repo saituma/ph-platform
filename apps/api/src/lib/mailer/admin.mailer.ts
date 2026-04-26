@@ -134,6 +134,7 @@ ${reviewBtn}`;
     await deliverEmail({ to: input.to, subject, html, attachments });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    console.warn("[Mailer] sendSubscriptionPendingStaffEmail skipped:", detail);
+    console.error("[Mailer] sendSubscriptionPendingStaffEmail failed:", detail);
+    throw err;
   }
 }

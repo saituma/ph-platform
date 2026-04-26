@@ -1,6 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, LayoutDashboard } from "lucide-react";
+import {
+	Activity,
+	Bell,
+	ChevronRight,
+	CreditCard,
+	Dumbbell,
+	LayoutDashboard,
+	Loader2,
+	Utensils,
+} from "lucide-react";
 import { getClientAuthToken } from "@/lib/client-storage";
 import {
 	getCoachTeamPortalPlanSummary,
@@ -8,6 +17,7 @@ import {
 } from "@/lib/portal-access";
 import { usePortal } from "@/portal/PortalContext";
 import { fetchHomeContent, homeQueryKeys } from "@/services/homeService";
+import { settingsService } from "@/services/settingsService";
 
 export const homeKeys = homeQueryKeys;
 
@@ -43,7 +53,14 @@ function DashboardPage() {
 			return fetchHomeContent(token);
 		},
 		enabled: !!token && !portalLoading,
-		staleTime: 1000 * 60 * 5, // 5 minutes
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const { data: feedData, isLoading: feedLoading } = useQuery({
+		queryKey: ["activity-feed"],
+		queryFn: () => settingsService.getActivityFeed({ limit: 8 }),
+		enabled: !portalLoading,
+		staleTime: 1000 * 60 * 2,
 	});
 
 	if (portalLoading || (token && homeLoading && !homeContent)) {
@@ -124,6 +141,16 @@ function DashboardPage() {
 			month: "long",
 			day: "numeric",
 		});
+	};
+
+	const formatRelativeDate = (dateString: string) => {
+		const diff = Date.now() - new Date(dateString).getTime();
+		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+		if (days === 0) return "Today";
+		if (days === 1) return "Yesterday";
+		if (days < 7) return `${days}d ago`;
+		if (days < 30) return `${Math.floor(days / 7)}w ago`;
+		return `${Math.floor(days / 30)}mo ago`;
 	};
 
 	return (
@@ -422,6 +449,70 @@ function DashboardPage() {
 					<p className="font-bold">Messages</p>
 				</Link>
 			</div>
+
+			{/* Activity Feed */}
+			{!isCoach && (
+				<div className="space-y-4">
+					<div className="flex items-center justify-between px-1">
+						<h2 className="text-xl font-bold">Recent Activity</h2>
+						<Link
+							to="/portal/nutrition"
+							className="text-sm text-primary font-semibold hover:underline"
+						>
+							Log today →
+						</Link>
+					</div>
+
+					{feedLoading ? (
+						<div className="flex items-center justify-center rounded-2xl border bg-card py-10">
+							<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+						</div>
+					) : !feedData?.items?.length ? (
+						<div className="rounded-2xl border bg-card/50 p-8 text-center">
+							<Activity className="h-8 w-8 mx-auto text-muted-foreground/40 mb-3" />
+							<p className="text-sm text-muted-foreground font-medium">
+								No activity yet — start logging nutrition or complete a training session.
+							</p>
+						</div>
+					) : (
+						<div className="rounded-2xl border bg-card divide-y">
+							{feedData.items.map((item: any) => (
+								<div
+									key={item.id}
+									className="flex items-start gap-4 px-5 py-4"
+								>
+									<div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+										{item.icon === "utensils" ? (
+											<Utensils className="h-4 w-4" />
+										) : item.icon === "activity" ? (
+											<Activity className="h-4 w-4" />
+										) : item.icon === "credit-card" ? (
+											<CreditCard className="h-4 w-4" />
+										) : item.icon === "bell" ? (
+											<Bell className="h-4 w-4" />
+										) : (
+											<Dumbbell className="h-4 w-4" />
+										)}
+									</div>
+									<div className="min-w-0 flex-1">
+										<p className="text-sm font-bold text-foreground leading-snug">
+											{item.title}
+										</p>
+										{item.description && (
+											<p className="text-xs text-muted-foreground mt-0.5 truncate">
+												{item.description}
+											</p>
+										)}
+									</div>
+									<p className="shrink-0 text-xs text-muted-foreground">
+										{formatRelativeDate(item.date)}
+									</p>
+								</div>
+							))}
+						</div>
+					)}
+				</div>
+			)}
 
 			{/* Testimonials: athlete-facing home content; omit on coach workspace */}
 			{!isCoach &&

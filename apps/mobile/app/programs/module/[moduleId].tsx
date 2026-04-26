@@ -1,11 +1,12 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { ActivityIndicator, Alert, Pressable, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, View, Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -15,6 +16,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
+import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { apiRequest } from "@/lib/api";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
 import { Shadows } from "@/constants/theme";
@@ -58,17 +60,32 @@ export default function ProgramModuleDetailScreen() {
     programId?: ProgramId | string;
   }>();
 
+  const bootstrapReady = useAppSelector(selectBootstrapReady);
+
   /**
-   * Youth users should land on the Home tab on cold start.
-   * If this deep program route becomes the root screen (no back stack), redirect to Home.
+   * Cold start protection against Expo Go restoring ghost routes from AsyncStorage.
    */
-  useEffect(() => {
-    const role = String(appRole ?? "");
-    const isYouth = role === "youth_athlete" || role.startsWith("youth_athlete_");
-    if (!isYouth) return;
+  useLayoutEffect(() => {
+    if (!bootstrapReady) return;
     if (router.canGoBack()) return;
-    router.replace("/" as any);
-  }, [appRole, router]);
+    
+    let cancelled = false;
+    Linking.getInitialURL().then((url) => {
+      if (cancelled) return;
+      
+      const role = String(appRole ?? "");
+      const isYouth = role === "youth_athlete" || role === "youth_athlete_guardian_only";
+      if (isYouth) {
+        router.replace("/" as any);
+        return;
+      }
+      
+      if (url && url.includes("/programs/module/")) {
+        return;
+      }
+    });
+    return () => { cancelled = true; };
+  }, [bootstrapReady, router, appRole]);
 
   const moduleIdValue = useMemo(() => {
     const raw = Array.isArray(moduleId) ? moduleId[0] : moduleId;
@@ -104,7 +121,6 @@ export default function ProgramModuleDetailScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasLoadedOnceRef = useRef(false);
-  const deepLinkFallbackDoneRef = useRef(false);
   const wasLockedRef = useRef<boolean | null>(null);
 
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
@@ -180,13 +196,6 @@ export default function ProgramModuleDetailScreen() {
     },
     [activeAthleteAge, token],
   );
-
-  useEffect(() => {
-    if (deepLinkFallbackDoneRef.current) return;
-    if (router.canGoBack()) return;
-    deepLinkFallbackDoneRef.current = true;
-    router.replace("/(tabs)");
-  }, [router]);
 
   useEffect(() => {
     if (!isFocused) return;

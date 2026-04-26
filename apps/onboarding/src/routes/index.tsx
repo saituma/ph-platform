@@ -1,5 +1,4 @@
 import {
-	AppWindow,
 	ArrowRightIcon,
 	ChartLineUp,
 	CheckCircle,
@@ -9,19 +8,20 @@ import {
 	VideoCamera,
 	WarningCircle,
 } from "@phosphor-icons/react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import CTA from "#/components/shadcn-studio/blocks/cta-section-01/cta-section-01";
 import type { TestimonialItem } from "#/components/shadcn-studio/blocks/testimonials-component-18/testimonials-component-18";
 import TestimonialsComponent from "#/components/shadcn-studio/blocks/testimonials-component-18/testimonials-component-18";
-import { authClient } from "#/lib/auth-client";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { config } from "#/lib/config";
 
-export const Route = createFileRoute("/")({ component: RouteComponent });
+export const Route = createFileRoute("/")({
+	component: RouteComponent,
+});
 
 const testimonials: TestimonialItem[] = [
 	{
@@ -74,8 +74,51 @@ function RouteComponent() {
 	const [email, setEmail] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | undefined>();
-	const { data: session } = authClient.useSession();
+	const [authReady, setAuthReady] = useState(false);
+	const [isAuthenticated, setIsAuthenticated] = useState(false);
 	const navigate = useNavigate();
+
+	useEffect(() => {
+		let cancelled = false;
+		const syncAuthState = async () => {
+			if (typeof window === "undefined") return;
+			const token = localStorage.getItem("auth_token");
+			if (!token) {
+				if (!cancelled) {
+					setIsAuthenticated(false);
+					setAuthReady(true);
+				}
+				return;
+			}
+			try {
+				const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
+				const response = await fetch(`${baseUrl}/api/auth/me`, {
+					headers: { Authorization: `Bearer ${token}` },
+					cache: "no-store",
+				});
+				const isAuthenticatedStatus =
+					response.status === 200 || response.status === 304;
+				if (!cancelled) setIsAuthenticated(isAuthenticatedStatus);
+				if (
+					(response.status === 401 || response.status === 403) &&
+					typeof window !== "undefined"
+				) {
+					localStorage.removeItem("auth_token");
+					localStorage.removeItem("user_type");
+					localStorage.removeItem("pending_email");
+				}
+			} catch {
+				// Keep token-based session on transient network/API failures.
+				if (!cancelled) setIsAuthenticated(true);
+			} finally {
+				if (!cancelled) setAuthReady(true);
+			}
+		};
+		void syncAuthState();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -161,7 +204,41 @@ function RouteComponent() {
 								</p>
 							</div>
 
-							{!session?.user && (
+							{authReady && isAuthenticated && (
+								<div className="w-full max-w-md mx-auto lg:mx-0 space-y-4">
+									<div className="rounded-[1.25rem] border border-border/80 bg-card dark:bg-card/40 p-4 shadow-xl">
+										<p className="text-sm font-bold text-foreground">
+											You are signed in.
+										</p>
+										<p className="mt-1 text-xs text-muted-foreground">
+											Continue to your portal dashboard.
+										</p>
+										<div className="mt-4 flex gap-2">
+											<Button
+												type="button"
+												onClick={() => navigate({ to: "/portal/dashboard" })}
+												className="flex-1"
+											>
+												Go to Dashboard
+											</Button>
+											<Button
+												type="button"
+												variant="outline"
+												onClick={() => {
+													localStorage.removeItem("auth_token");
+													localStorage.removeItem("user_type");
+													localStorage.removeItem("pending_email");
+													setIsAuthenticated(false);
+												}}
+											>
+												Sign Out
+											</Button>
+										</div>
+									</div>
+								</div>
+							)}
+
+							{authReady && !isAuthenticated && (
 								<div className="w-full max-w-md mx-auto lg:mx-0 space-y-6">
 									<div className="space-y-3">
 										<form

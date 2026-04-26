@@ -1,6 +1,6 @@
-import { env } from "@/env";
+import { config } from "@/lib/config";
 
-const baseUrl = () => env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+const baseUrl = () => config.api.baseUrl;
 
 export const rosterQueryKeys = {
 	all: ["teamRoster"] as const,

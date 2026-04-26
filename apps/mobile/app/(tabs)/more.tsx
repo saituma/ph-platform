@@ -19,8 +19,6 @@ import {
 } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
 import {
-  hasPhpProPlanFeatures,
-  hasPremiumPlanFeatures,
   normalizeProgramTier,
 } from "@/lib/planAccess";
 import Animated, {
@@ -58,7 +56,7 @@ export default function MoreScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { profile, isAuthenticated, token, programTier } = useAppSelector(
+  const { profile, isAuthenticated, token, programTier, capabilities } = useAppSelector(
     (state) => state.user,
   );
   const {
@@ -69,9 +67,9 @@ export default function MoreScreen() {
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
   const showParentPlatform =
-    isAuthenticated && hasPremiumPlanFeatures(programTier);
-  const canAccessFoodDiary = hasPremiumPlanFeatures(programTier);
-  const showPhysioReferrals = hasPhpProPlanFeatures(programTier);
+    isAuthenticated && Boolean(capabilities?.parentContent);
+  const canAccessFoodDiary = Boolean(capabilities?.nutrition);
+  const showPhysioReferrals = Boolean(capabilities?.physioReferrals);
 
   const openParentPlatform = () => {
     router.push("/parent-platform");

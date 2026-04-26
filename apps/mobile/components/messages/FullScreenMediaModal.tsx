@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Modal, Pressable, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,6 +11,13 @@ interface Props {
   onClose: () => void;
   uri: string | null;
   contentType?: string | null;
+}
+
+function inferImageFromUri(uri: string): boolean {
+  const lower = uri.toLowerCase();
+  if (lower.includes("/messages/images/")) return true;
+  const cleaned = lower.split("?")[0].split("#")[0];
+  return /\.(jpg|jpeg|png|gif|webp|bmp|heic|heif|avif)$/.test(cleaned);
 }
 
 export function FullScreenMediaModal({
@@ -44,7 +51,14 @@ export function FullScreenMediaModal({
           <View
             style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
           >
-            {contentType === "image" ? (
+            {(() => {
+              const normalizedType = String(contentType ?? "").toLowerCase().trim();
+              const isImage =
+                normalizedType === "image" ||
+                normalizedType.startsWith("image/") ||
+                inferImageFromUri(uri);
+              return isImage;
+            })() ? (
               <ExpoImage
                 source={uri}
                 contentFit="contain"
@@ -73,16 +87,39 @@ function InternalVideo({
   height: number;
   width: number;
 }) {
+  const [isMuted, setIsMuted] = useState(false);
   const player = useVideoPlayer(uri, (instance) => {
     instance.loop = false;
-    instance.muted = false;
+    instance.muted = isMuted;
   });
+  useEffect(() => {
+    player.muted = isMuted;
+  }, [isMuted, player]);
+
   return (
-    <VideoView
-      player={player}
-      style={{ width, height }}
-      contentFit="contain"
-      nativeControls
-    />
+    <View style={{ width, height }}>
+      <VideoView
+        player={player}
+        style={{ width, height }}
+        contentFit="contain"
+        nativeControls
+      />
+      <Pressable
+        onPress={() => setIsMuted((prev) => !prev)}
+        style={{
+          position: "absolute",
+          right: 20,
+          bottom: 20,
+          height: 44,
+          width: 44,
+          borderRadius: 22,
+          backgroundColor: "rgba(0,0,0,0.55)",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={22} color="#FFFFFF" />
+      </Pressable>
+    </View>
   );
 }

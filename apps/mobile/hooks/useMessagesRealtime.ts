@@ -1,6 +1,19 @@
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread, TypingStatus } from "@/types/messages";
+
+function formatLastSeen(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "Last seen just now";
+  if (minutes < 60) return `Last seen ${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Last seen ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Last seen yesterday";
+  return `Last seen ${days}d ago`;
+}
 import { parseReplyPrefix } from "@/lib/messages/reply";
+import { resolveMediaType } from "@/lib/messages/mediaType";
 import { useEffect, useRef } from "react";
 import { useSocket } from "@/context/SocketContext";
 import {
@@ -9,6 +22,8 @@ import {
   SocketTypingUpdatePayload,
   SocketMessageReactionPayload,
   SocketMessageDeletedPayload,
+  SocketMessageReadPayload,
+  SocketGroupReadPayload,
 } from "@/types/socket-api";
 
 type UseMessagesRealtimeParams = {
@@ -29,7 +44,6 @@ export function useMessagesRealtime({
   draft,
   currentThread,
   groupMembers,
-  loadMessages,
   setMessages,
   setThreads,
   setTypingStatus,
@@ -41,7 +55,6 @@ export function useMessagesRealtime({
   const profileIdRef = useRef(profileId);
   const currentThreadIdRef = useRef<string | null>(currentThread?.id ?? null);
   const groupMembersRef = useRef(groupMembers);
-  const loadMessagesRef = useRef(loadMessages);
   const setMessagesRef = useRef(setMessages);
   const setThreadsRef = useRef(setThreads);
   const setTypingStatusRef = useRef(setTypingStatus);
@@ -50,7 +63,6 @@ export function useMessagesRealtime({
   useEffect(() => { profileIdRef.current = profileId; }, [profileId]);
   useEffect(() => { currentThreadIdRef.current = currentThread?.id ?? null; }, [currentThread?.id]);
   useEffect(() => { groupMembersRef.current = groupMembers; }, [groupMembers]);
-  useEffect(() => { loadMessagesRef.current = loadMessages; }, [loadMessages]);
   useEffect(() => { setMessagesRef.current = setMessages; }, [setMessages]);
   useEffect(() => { setThreadsRef.current = setThreads; }, [setThreads]);
   useEffect(() => { setTypingStatusRef.current = setTypingStatus; }, [setTypingStatus]);
@@ -71,14 +83,24 @@ export function useMessagesRealtime({
       const threadIdFromMessage = String(String(senderId) === selfId ? receiverId : senderId);
       const currentThreadId = currentThreadIdRef.current;
       const parsed = parseReplyPrefix(payload.content);
+      const normalizedDirectText = String(parsed.text ?? "").trim();
+      const directText =
+        payload.mediaUrl && normalizedDirectText.toLowerCase() === "attachment"
+          ? ""
+          : parsed.text;
       const message: ChatMessage = {
         id: String(payload.id),
         threadId: threadIdFromMessage,
         from: String(senderId) === selfId ? "user" : "coach",
-        text: parsed.text,
+        senderId,
+        receiverId,
+        text: directText,
         replyToMessageId: payload.videoUploadId ? undefined : parsed.replyToMessageId ?? undefined,
         replyPreview: parsed.replyPreview || undefined,
-        contentType: payload.contentType ?? "text",
+        contentType: resolveMediaType({
+          contentType: payload.contentType,
+          mediaUrl: payload.mediaUrl,
+        }),
         mediaUrl: payload.mediaUrl ?? undefined,
         videoUploadId: payload.videoUploadId ?? undefined,
         time: payload.createdAt
@@ -122,6 +144,8 @@ export function useMessagesRealtime({
           id: threadIdFromMessage,
           name: fallbackName,
           role: payload.senderRole ?? "Coach",
+          channelType: "direct",
+          groupLabel: "Direct message",
           preview: message.text,
           time: message.time,
           pinned: false,
@@ -144,24 +168,42 @@ export function useMessagesRealtime({
       const currentThreadId = currentThreadIdRef.current;
       const selfId = String(currentProfileId ?? "");
       const parsed = parseReplyPrefix(payload.content);
+      const normalizedGroupText = String(parsed.text ?? "").trim();
+      const groupText =
+        payload.mediaUrl && normalizedGroupText.toLowerCase() === "attachment"
+          ? ""
+          : parsed.text;
       const message: ChatMessage = {
         id: `group-${payload.id}`,
         threadId: `group:${groupId}`,
         from: String(payload.senderId) === selfId ? "user" : "coach",
-        text: parsed.text,
+        senderId: Number(payload.senderId),
+        text: groupText,
         replyToMessageId: parsed.replyToMessageId ?? undefined,
         replyPreview: parsed.replyPreview || undefined,
-        contentType: payload.contentType ?? "text",
+        contentType: resolveMediaType({
+          contentType: payload.contentType,
+          mediaUrl: payload.mediaUrl,
+        }),
         mediaUrl: payload.mediaUrl ?? undefined,
         time: payload.createdAt
           ? new Date(payload.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "",
         status: "sent",
-        authorName: currentGroupMembers[groupId]?.[payload.senderId]?.name,
-        authorAvatar: currentGroupMembers[groupId]?.[payload.senderId]?.avatar ?? null,
+        authorName:
+          payload.senderName?.trim() ||
+          currentGroupMembers[groupId]?.[payload.senderId]?.name,
+        authorAvatar:
+          payload.senderProfilePicture ??
+          currentGroupMembers[groupId]?.[payload.senderId]?.avatar ??
+          null,
         clientId: payload.clientId,
         reactions: payload.reactions ?? [],
       };
+      const senderDisplayName = String(message.authorName ?? "").trim();
+      const groupPreview = senderDisplayName
+        ? `${senderDisplayName}: ${message.text || (payload.contentType === "image" ? "Photo" : payload.contentType === "video" ? "Video" : payload.mediaUrl ? "File" : "")}`
+        : message.text || (payload.contentType === "image" ? "Photo" : payload.contentType === "video" ? "Video" : payload.mediaUrl ? "File" : "");
 
       setMessagesRef.current((prev) => {
         if (prev.some((m) => m.id === message.id)) return prev;
@@ -182,9 +224,10 @@ export function useMessagesRealtime({
         if (existing) {
           const nextThread = {
             ...existing,
-            preview: message.text,
+            preview: groupPreview,
             time: message.time,
             updatedAtMs,
+            senderName: senderDisplayName || existing.senderName,
             unread: isIncoming && !isActive ? (existing.unread ?? 0) + 1 : existing.unread ?? 0,
           };
           return bumpThreadToTop(prev, nextThread);
@@ -194,7 +237,10 @@ export function useMessagesRealtime({
           id: groupThreadId,
           name: payload.groupName ?? "Group Chat",
           role: "Group",
-          preview: message.text,
+          channelType: "coach_group",
+          groupLabel: "Group chat",
+          senderName: senderDisplayName || undefined,
+          preview: groupPreview,
           time: message.time,
           pinned: false,
           premium: false,
@@ -237,12 +283,78 @@ export function useMessagesRealtime({
     const handleMessageDeleted = (payload: SocketMessageDeletedPayload) => {
       const id = String(payload.messageId);
       setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
-      loadMessagesRef.current({ silent: true });
     };
 
     const handleGroupMessageDeleted = (payload: SocketMessageDeletedPayload) => {
       const id = `group-${payload.messageId}`;
       setMessagesRef.current((prev) => prev.filter((message) => message.id !== id));
+    };
+
+    const handleMessageRead = (payload: SocketMessageReadPayload) => {
+      const readerUserId = Number(payload?.readerUserId);
+      if (!Number.isFinite(readerUserId)) return;
+
+      const currentProfileId = Number(profileIdRef.current ?? NaN);
+      const peerUserIds = Array.isArray(payload?.peerUserIds)
+        ? payload.peerUserIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+        : [];
+
+      setMessagesRef.current((prev) =>
+        prev.map((message) => {
+          if (String(message.threadId).startsWith("group:")) return message;
+          const senderId = Number(message.senderId ?? NaN);
+          const receiverId = Number(message.receiverId ?? NaN);
+          const sentByMeToReader =
+            Number.isFinite(currentProfileId) &&
+            Number.isFinite(senderId) &&
+            Number.isFinite(receiverId) &&
+            senderId === currentProfileId &&
+            receiverId === readerUserId;
+          if (!sentByMeToReader || message.status === "read") return message;
+          return { ...message, status: "read" };
+        }),
+      );
+
+      if (Number.isFinite(currentProfileId) && readerUserId === currentProfileId && peerUserIds.length > 0) {
+        setThreadsRef.current((prev) =>
+          prev.map((thread) => {
+            const threadPeerId = Number(thread.id);
+            if (!Number.isFinite(threadPeerId) || !peerUserIds.includes(threadPeerId)) return thread;
+            return { ...thread, unread: 0 };
+          }),
+        );
+      }
+    };
+
+    const handleGroupRead = (payload: SocketGroupReadPayload) => {
+      const groupId = Number(payload?.groupId);
+      const readerUserId = Number(payload?.readerUserId);
+      const currentProfileId = Number(profileIdRef.current ?? NaN);
+      if (!Number.isFinite(groupId) || !Number.isFinite(readerUserId) || !Number.isFinite(currentProfileId)) {
+        return;
+      }
+      if (readerUserId !== currentProfileId) return;
+      const threadId = `group:${groupId}`;
+      setThreadsRef.current((prev) =>
+        prev.map((thread) => (thread.id === threadId ? { ...thread, unread: 0 } : thread)),
+      );
+    };
+
+    const handlePresenceUpdate = (onlineUserIds: number[]) => {
+      const onlineSet = new Set(onlineUserIds.map(Number));
+      setThreadsRef.current((prev) =>
+        prev.map((thread) => {
+          if (thread.channelType !== "direct") return thread;
+          const peerId = Number(thread.id);
+          if (!Number.isFinite(peerId) || peerId <= 0) return thread;
+          const isOnline = onlineSet.has(peerId);
+          if (isOnline) return { ...thread, lastSeen: "Online" };
+          if (thread.lastSeen === "Online") {
+            return { ...thread, lastSeen: thread.lastSeenAt ? formatLastSeen(thread.lastSeenAt) : "Recently active" };
+          }
+          return thread;
+        }),
+      );
     };
 
     socket.on("message:new", handleMessageNew);
@@ -252,6 +364,9 @@ export function useMessagesRealtime({
     socket.on("group:reaction", handleGroupReaction);
     socket.on("message:deleted", handleMessageDeleted);
     socket.on("group:message:deleted", handleGroupMessageDeleted);
+    socket.on("message:read", handleMessageRead);
+    socket.on("group:read", handleGroupRead);
+    socket.on("presence:update", handlePresenceUpdate);
 
     return () => {
       socket.off("message:new", handleMessageNew);
@@ -261,6 +376,9 @@ export function useMessagesRealtime({
       socket.off("group:reaction", handleGroupReaction);
       socket.off("message:deleted", handleMessageDeleted);
       socket.off("group:message:deleted", handleGroupMessageDeleted);
+      socket.off("message:read", handleMessageRead);
+      socket.off("group:read", handleGroupRead);
+      socket.off("presence:update", handlePresenceUpdate);
     };
   }, [socket]);
 

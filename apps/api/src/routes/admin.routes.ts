@@ -72,6 +72,8 @@ router.post("/admin/messages/:userId/read", AdminMessageController.markThreadRea
 
 // Athlete Plans (Premium) & Progress
 router.get("/admin/training-snapshot", AdminAthletePlanController.listTrainingSnapshotAdmin);
+router.get("/admin/tracking/runs", AdminAthletePlanController.listRunTrackingAdmin);
+router.get("/admin/training-questionnaires", AdminAthletePlanController.listTrainingQuestionnaireAnswersAdmin);
 router.get(
   "/admin/users/:userId/program-section-completions",
   AdminAthletePlanController.listProgramSectionCompletionsAdmin,

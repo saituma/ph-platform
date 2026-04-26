@@ -3,27 +3,27 @@ import { TabConfig } from "@/components/navigation";
 export const ADMIN_TAB_ROUTES: TabConfig[] = [
   {
     key: "admin-home",
-    label: "Admin",
-    icon: "shield",
-    iconOutline: "shield-outline",
+    label: "Dashboard",
+    icon: "home",
+    iconOutline: "home-outline",
   },
   {
     key: "admin-videos",
     label: "Videos",
-    icon: "videocam",
-    iconOutline: "videocam-outline",
+    icon: "film",
+    iconOutline: "film-outline",
   },
   {
     key: "admin-users",
     label: "Users",
-    icon: "people",
-    iconOutline: "people-outline",
+    icon: "people-circle",
+    iconOutline: "people-circle-outline",
   },
   {
     key: "admin-messages",
-    label: "Messages",
-    icon: "chatbox-ellipses",
-    iconOutline: "chatbox-ellipses-outline",
+    label: "Inbox",
+    icon: "mail",
+    iconOutline: "mail-outline",
   },
   {
     key: "admin-content",
@@ -34,14 +34,14 @@ export const ADMIN_TAB_ROUTES: TabConfig[] = [
   {
     key: "admin-ops",
     label: "Ops",
-    icon: "settings",
-    iconOutline: "settings-outline",
+    icon: "cog",
+    iconOutline: "cog-outline",
   },
   {
     key: "admin-profile",
     label: "Profile",
-    icon: "person",
-    iconOutline: "person-outline",
+    icon: "person-circle",
+    iconOutline: "person-circle-outline",
   },
 ];
 

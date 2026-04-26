@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Pressable, Image as RNImage } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Pressable, Linking } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,70 +14,126 @@ interface Props {
   onPress: () => void;
 }
 
-export function MessageMediaView({ uri, contentType, width, height, onPress }: Props) {
-  const [duration, setDuration] = useState<string | null>(null);
+function inferMediaKind(uri: string): "image" | "video" | "file" {
+  const lower = uri.toLowerCase();
+  if (lower.includes("/messages/images/")) return "image";
+  if (lower.includes("/messages/videos/")) return "video";
+  const cleaned = lower.split("?")[0].split("#")[0];
+  if (/\.(jpg|jpeg|png|gif|webp|bmp|heic|heif|avif)$/.test(cleaned)) return "image";
+  if (/\.(mp4|mov|webm|m4v|avi|mkv)$/.test(cleaned)) return "video";
+  return "file";
+}
 
-  if (contentType === "image") {
+export function MessageMediaView({ uri, contentType, width, height, onPress }: Props) {
+  const normalizedType = String(contentType ?? "").toLowerCase().trim();
+  const inferred = inferMediaKind(uri);
+  const isImage =
+    normalizedType === "image" ||
+    normalizedType.startsWith("image/") ||
+    inferred === "image";
+  const isVideo =
+    normalizedType === "video" ||
+    normalizedType.startsWith("video/") ||
+    inferred === "video";
+
+  if (isImage) {
     return (
       <Pressable onPress={onPress}>
         <ExpoImage
-          source={uri}
+          source={{ uri }}
           style={{ width, height, borderRadius: 14 }}
           contentFit="cover"
-          transition={180}
+          cachePolicy="memory-disk"
+          transition={120}
         />
       </Pressable>
     );
   }
 
-  if (contentType === "video") {
+  if (isVideo) {
     const isYT = isYoutubeUrl(uri);
     return (
-      <Pressable onPress={onPress}>
-        <View style={{ width, height, borderRadius: 18, overflow: "hidden" }}>
-          {isYT ? (
+      <View style={{ width, height, borderRadius: 18, overflow: "hidden" }}>
+        {isYT ? (
+          <>
             <YouTubeEmbed url={uri} shouldPlay={false} initialMuted />
-          ) : (
-            <>
-              <VideoSurface uri={uri} height={height} onDuration={(d) => setDuration(d)} />
-              <View className="absolute inset-0 items-center justify-center">
-                <View className="h-12 w-12 rounded-full bg-black/40 items-center justify-center border border-white/20">
-                  <Ionicons name="play" size={24} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                </View>
-              </View>
-              {duration && (
-                <View className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60">
-                  <Text className="text-[10px] font-bold text-white">{duration}</Text>
-                </View>
-              )}
-            </>
-          )}
-        </View>
-      </Pressable>
+            <Pressable
+              onPress={onPress}
+              className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60"
+            >
+              <Text className="text-[10px] font-bold text-white">Fullscreen</Text>
+            </Pressable>
+          </>
+        ) : (
+          <InlineVideoPreview
+            uri={uri}
+            width={width}
+            height={height}
+            onOpenFullscreen={onPress}
+          />
+        )}
+      </View>
     );
   }
 
-  return null;
+  return (
+    <Pressable onPress={() => void Linking.openURL(uri)}>
+      <View className="rounded-xl bg-black/5 px-3 py-3 flex-row items-center gap-2">
+        <Ionicons name="document-attach-outline" size={18} color="#6B7280" />
+        <Text className="text-xs text-slate-600">Open attachment</Text>
+      </View>
+    </Pressable>
+  );
 }
 
-function VideoSurface({ uri, height, onDuration }: { uri: string; height: number; onDuration: (d: string) => void }) {
+function InlineVideoPreview({
+  uri,
+  width,
+  height,
+  onOpenFullscreen,
+}: {
+  uri: string;
+  width: number;
+  height: number;
+  onOpenFullscreen: () => void;
+}) {
+  const [isPlaying, setIsPlaying] = useState(false);
   const player = useVideoPlayer(uri, (instance) => {
     instance.loop = false;
-    instance.muted = true;
+    instance.muted = false;
   });
 
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      const d = Number((player as any)?.duration ?? 0);
-      if (d > 0) {
-        const mins = Math.floor(d / 60);
-        const secs = Math.floor(d % 60);
-        onDuration(`${mins}:${secs.toString().padStart(2, "0")}`);
-        clearInterval(interval);
-      }
-    }, 500);
-    return () => clearInterval(interval);
+  useEffect(() => {
+    const sub = player.addListener("playingChange", (payload: { isPlaying?: boolean }) => {
+      setIsPlaying(Boolean(payload?.isPlaying));
+    });
+    return () => sub.remove();
   }, [player]);
 
-  return <VideoView player={player} style={{ width: "100%", height }} contentFit="cover" />;
+  return (
+    <View style={{ width, height }}>
+      <VideoView
+        player={player}
+        style={{ width, height }}
+        contentFit="cover"
+        nativeControls
+      />
+      {!isPlaying ? (
+        <Pressable
+          className="absolute inset-0 items-center justify-center bg-black/20"
+          onPress={() => player.play()}
+        >
+          <View className="h-12 w-12 rounded-full bg-black/40 items-center justify-center">
+            <Ionicons name="play" size={24} color="#FFFFFF" style={{ marginLeft: 4 }} />
+          </View>
+        </Pressable>
+      ) : null}
+      <Pressable
+        onPress={onOpenFullscreen}
+        className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60"
+      >
+        <Text className="text-[10px] font-bold text-white">Fullscreen</Text>
+      </Pressable>
+    </View>
+  );
 }

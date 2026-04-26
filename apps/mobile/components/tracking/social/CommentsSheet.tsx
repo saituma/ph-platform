@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   Share,
   ScrollView,
@@ -279,11 +281,15 @@ export function CommentsSheet({
 
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable
-        className="flex-1 justify-end"
-        style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-        onPress={onClose}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
       >
+        <Pressable
+          className="flex-1 justify-end"
+          style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+          onPress={onClose}
+        >
         <Pressable
           onPress={(e) => e.stopPropagation()}
           className="rounded-t-[28px] border px-5 pt-5 pb-4"
@@ -396,7 +402,8 @@ export function CommentsSheet({
             </Pressable>
           </View>
         </Pressable>
-      </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
 
       <CommentMenu
         open={menuOpen}

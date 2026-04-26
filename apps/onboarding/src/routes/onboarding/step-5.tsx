@@ -13,7 +13,7 @@ import {
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { toast } from "sonner";
-import { env } from "#/env";
+import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/onboarding/step-5")({
@@ -174,7 +174,7 @@ function OnboardingStep5() {
 	const loadPlans = useCallback(async () => {
 		setIsLoading(true);
 		try {
-			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+			const baseUrl = config.api.baseUrl;
 			const params = new URLSearchParams({ billingCycle });
 			const response = await fetch(`${baseUrl}/api/billing/plans?${params.toString()}`);
 			if (response.ok) {
@@ -238,7 +238,7 @@ function OnboardingStep5() {
 			}
 
 			try {
-				const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+				const baseUrl = config.api.baseUrl;
 				const res = await fetch(`${baseUrl}/api/auth/me`, {
 					headers: { Authorization: `Bearer ${token}` },
 				});
@@ -275,7 +275,7 @@ function OnboardingStep5() {
 		}
 		setIsSubmitting(true);
 		try {
-			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+			const baseUrl = config.api.baseUrl;
 			const token = localStorage.getItem("auth_token");
 			if (!token) {
 				throw new Error("Your session expired. Sign in again to continue.");

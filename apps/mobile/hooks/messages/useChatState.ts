@@ -54,7 +54,7 @@ export function useChatState(effectiveProfileId: number, threadId?: string) {
       threads,
       messages,
       groupMembers,
-      typingStatus,
+      typingStatus: {},
       selectedThread,
       draft: draftRef.current,
     });
@@ -62,7 +62,6 @@ export function useChatState(effectiveProfileId: number, threadId?: string) {
     threads,
     messages,
     groupMembers,
-    typingStatus,
     selectedThread,
     effectiveProfileId,
   ]);

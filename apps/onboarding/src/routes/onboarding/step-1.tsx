@@ -17,7 +17,7 @@ import { Card } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
 import { cn } from "#/lib/utils";
 import { toast } from "sonner";
-import { env } from "#/env";
+import { config } from "#/lib/config";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/onboarding/step-1")({
@@ -87,7 +87,7 @@ function OnboardingStep1() {
 
 			if (!email || !token) throw new Error("Session expired");
 
-			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+			const baseUrl = config.api.baseUrl;
 			const response = await fetch(`${baseUrl}/api/auth/onboarding/role`, {
 				method: "POST",
 				headers: {

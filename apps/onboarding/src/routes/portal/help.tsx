@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, ChevronDown, ChevronUp, HelpCircle, MessageCircle, ExternalLink, Zap, Shield, Headphones } from "lucide-react";
+import { Search, ChevronDown, ChevronUp, HelpCircle, MessageCircle, Zap, Shield, Headphones } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/portal/help")({

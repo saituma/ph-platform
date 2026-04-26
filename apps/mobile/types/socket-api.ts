@@ -30,3 +30,18 @@ export type SocketMessageReactionPayload = {
 export type SocketMessageDeletedPayload = {
   messageId: number;
 };
+
+export type SocketMessageReadPayload = {
+  scope: "direct";
+  readerUserId: number;
+  peerUserIds: number[];
+  readAt: string;
+  updated: number;
+};
+
+export type SocketGroupReadPayload = {
+  scope: "group";
+  groupId: number;
+  readerUserId: number;
+  readAt: string;
+};

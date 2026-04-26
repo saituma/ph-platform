@@ -21,7 +21,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
-import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
 import { PortalProvider, usePortal } from "#/portal/PortalContext";
 import { ProtectedLayout } from "#/portal/ProtectedLayout";
@@ -156,12 +155,11 @@ function Dashboard() {
 	const isYouth = userData.athleteType === "youth";
 	const isAdult = userData.athleteType === "adult";
 	const isTeam = userData.role === "coach";
-	const isGuardian = userData.role === "guardian";
 
 	const athletesData =
 		userData.allAthletes || (userData.athleteId ? [userData] : []);
 
-	const formatDate = (dateString: string | null) => {
+	const formatDate = (dateString: string | null | undefined) => {
 		if (!dateString) return "N/A";
 		return new Date(dateString).toLocaleDateString(undefined, {
 			year: "numeric",
@@ -235,7 +233,7 @@ function Dashboard() {
 							</p>
 						</div>
 						<Link
-							to="/profile"
+							to="/portal/profile"
 							className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
 						>
 							View Settings
@@ -283,7 +281,7 @@ function Dashboard() {
 														Date.now()) /
 														(new Date(userData.planExpiresAt).getTime() -
 															new Date(
-																userData.planCreatedAt || userData.createdAt,
+																userData.planCreatedAt || userData.createdAt || userData.planExpiresAt,
 															).getTime() || 1)) *
 														100,
 												),
