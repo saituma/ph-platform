@@ -3,7 +3,7 @@ import { z } from "zod";
 import { and, eq, desc, gte, lte } from "drizzle-orm";
 
 import { db } from "../db";
-import { nutritionTargetsTable, nutritionLogsTable, userTable, notificationTable } from "../db/schema";
+import { athleteTable, guardianTable, nutritionTargetsTable, nutritionLogsTable, userTable, notificationTable } from "../db/schema";
 import { sendPushNotification } from "../services/push.service";
 import { isTrainingStaff } from "../lib/user-roles";
 
@@ -17,6 +17,15 @@ const targetSchema = z.object({
 
 const logSchema = z.object({
   dateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  mealType: z
+    .string()
+    .trim()
+    .min(1)
+    .max(30)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .optional()
+    .default("daily"),
+  loggedAt: z.coerce.date().optional(),
   breakfast: z.string().optional().nullable(),
   snacks: z.string().optional().nullable(),
   snacksMorning: z.string().optional().nullable(),
@@ -55,6 +64,9 @@ function buildNutritionUpdatePayload(existing: NutritionLogRow, input: Nutrition
   const out: Record<string, unknown> = {
     updatedAt: new Date(),
   };
+  if (input.loggedAt) {
+    out.loggedAt = input.loggedAt;
+  }
 
   for (const key of MEAL_AND_DIARY_TEXT_KEYS) {
     const incoming = input[key];
@@ -82,6 +94,22 @@ const feedbackSchema = z.object({
   mediaUrl: z.string().url().optional().nullable(),
   mediaType: z.enum(["video", "image"]).optional().nullable(),
 });
+
+async function canWriteNutritionForUser(input: { actorUserId: number; actorRole: string; targetUserId: number }) {
+  if (input.targetUserId === input.actorUserId) return true;
+  if (isTrainingStaff(input.actorRole)) return true;
+
+  if (input.actorRole !== "guardian") return false;
+
+  const [ownedAthlete] = await db
+    .select({ id: athleteTable.id })
+    .from(athleteTable)
+    .innerJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+    .where(and(eq(guardianTable.userId, input.actorUserId), eq(athleteTable.userId, input.targetUserId)))
+    .limit(1);
+
+  return Boolean(ownedAthlete);
+}
 
 const reminderSettingsSchema = z
   .object({
@@ -147,6 +175,10 @@ export async function getTargets(req: Request, res: Response) {
 
   const targetUserId = req.params.userId === "me" ? req.user.id : Number(req.params.userId);
   if (!Number.isFinite(targetUserId)) return res.status(400).json({ error: "Invalid user ID" });
+
+  if (targetUserId !== req.user.id && !isTrainingStaff(req.user.role)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
 
   const [targets] = await db
     .select()
@@ -234,7 +266,7 @@ export async function listLogs(req: Request, res: Response) {
     .select()
     .from(nutritionLogsTable)
     .where(and(...whereClauses))
-    .orderBy(desc(nutritionLogsTable.dateKey))
+    .orderBy(desc(nutritionLogsTable.dateKey), desc(nutritionLogsTable.loggedAt), desc(nutritionLogsTable.id))
     .limit(limitRaw);
 
   return res.status(200).json({ logs });
@@ -243,26 +275,39 @@ export async function listLogs(req: Request, res: Response) {
 export async function upsertLog(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  // Actually, wait, role check? A guardian logging for a youth? Or the athlete directly.
-  // We'll enforce the user is an athlete or guardian. But `req.user.id` is the authenticated user.
-  // The system uses guardianId linking to athleteId, but we mapped `nutritionLogsTable.userId` directly.
-  // We'll assume req.user.id is the correct user or the query parameter handles proxying.
-  // For simplicity, we assume athletes login directly, or guardian posts for athlete.
   const targetUserId = req.body.athleteId ? Number(req.body.athleteId) : req.user.id;
+  if (!Number.isFinite(targetUserId)) {
+    return res.status(400).json({ error: "Invalid athlete ID" });
+  }
 
   const input = logSchema.parse(req.body);
 
+  const canWrite = await canWriteNutritionForUser({
+    actorUserId: req.user.id,
+    actorRole: req.user.role,
+    targetUserId,
+  });
+  if (!canWrite) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
   // Determine athlete type. Is not sent by default, fetch it from DB if needed, or default youth.
-  const [targetUserObj] = await db
-    .select({ role: userTable.role })
-    .from(userTable)
-    .where(eq(userTable.id, targetUserId))
+  const [targetAthlete] = await db
+    .select({ athleteType: athleteTable.athleteType })
+    .from(athleteTable)
+    .where(eq(athleteTable.userId, targetUserId))
     .limit(1);
 
   const [existingLog] = await db
     .select()
     .from(nutritionLogsTable)
-    .where(and(eq(nutritionLogsTable.userId, targetUserId), eq(nutritionLogsTable.dateKey, input.dateKey)))
+    .where(
+      and(
+        eq(nutritionLogsTable.userId, targetUserId),
+        eq(nutritionLogsTable.dateKey, input.dateKey),
+        eq(nutritionLogsTable.mealType, input.mealType),
+      ),
+    )
     .limit(1);
 
   let result;
@@ -273,14 +318,14 @@ export async function upsertLog(req: Request, res: Response) {
       .where(eq(nutritionLogsTable.id, existingLog.id))
       .returning();
   } else {
-    // Check if user is adult or youth
-    const athleteRoleType = targetUserObj && targetUserObj.role === "admin" ? "adult" : "youth"; // Rough fallback, the frontend usually handles this
     [result] = await db
       .insert(nutritionLogsTable)
       .values({
         userId: targetUserId,
-        athleteType: athleteRoleType,
+        athleteType: targetAthlete?.athleteType ?? "youth",
         ...input,
+        mealType: input.mealType,
+        loggedAt: input.loggedAt ?? new Date(),
       })
       .returning();
   }

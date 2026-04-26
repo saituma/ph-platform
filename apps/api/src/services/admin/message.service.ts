@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { athleteTable, guardianTable, messageTable, userTable } from "../../db/schema";
+import { athleteTable, guardianTable, messageReceiptTable, messageTable, userTable } from "../../db/schema";
+import { getSocketServer } from "../../socket-hub";
 import { getAdminCoachIds, sendMessage } from "../message.service";
 import { attachDirectMessageReactions } from "../reaction.service";
 
@@ -324,6 +325,22 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
   if (!adminIds.includes(coachId)) return 0;
 
   const otherUserIds = await resolveGuardianThreadUsers(userId);
+  const readAt = new Date();
+  await db
+    .update(messageReceiptTable)
+    .set({ readAt })
+    .where(
+      and(
+        eq(messageReceiptTable.userId, coachId),
+        inArray(
+          messageReceiptTable.messageId,
+          db
+            .select({ id: messageTable.id })
+            .from(messageTable)
+            .where(and(inArray(messageTable.receiverId, adminIds), inArray(messageTable.senderId, otherUserIds))),
+        ),
+      ),
+    );
   const result = await db
     .update(messageTable)
     .set({ read: true })
@@ -335,7 +352,25 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
       ),
     );
 
-  return result.rowCount ?? 0;
+  const updated = result.rowCount ?? 0;
+  if (updated > 0) {
+    const io = getSocketServer();
+    if (io) {
+      const payload = {
+        scope: "direct" as const,
+        readerUserId: coachId,
+        peerUserIds: otherUserIds,
+        readAt: readAt.toISOString(),
+        updated,
+      };
+      io.to(`user:${coachId}`).emit("message:read", payload);
+      for (const peerId of otherUserIds) {
+        io.to(`user:${peerId}`).emit("message:read", payload);
+      }
+      io.to("admin:all").emit("message:read", payload);
+    }
+  }
+  return updated;
 }
 
 export async function sendMessageAdmin(input: {

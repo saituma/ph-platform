@@ -1,11 +1,9 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import React, { useEffect, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import React from "react";
 import { 
   User, 
   Shield, 
-  Book, 
   Clipboard, 
-  Activity, 
   Bell, 
   Lock, 
   Star, 
@@ -17,7 +15,7 @@ import {
   LogOut,
   ChevronRight,
   Loader2,
-  Users
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showPortalNutritionNav } from "@/lib/portal-roles";
@@ -27,18 +25,8 @@ export const Route = createFileRoute("/portal/more")({
   component: MorePage,
 });
 
-interface UserProfile {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  programTier: string;
-  profilePicture?: string | null;
-}
-
 function MorePage() {
-	const navigate = useNavigate();
-	const { user, loading, error, token } = usePortal();
+	const { user, loading } = usePortal();
 
 	const handleLogout = () => {
 		localStorage.removeItem("auth_token");
@@ -125,26 +113,27 @@ function MorePage() {
       {/* Menu Groups */}
       <div className="space-y-8">
         <MenuGroup title="Account">
-          <MenuItem icon={<User />} label="Profile Information" />
-          <MenuItem icon={<Shield />} label="Permissions" />
+          <MenuItem icon={<User />} label="Profile Information" path="/portal/profile" />
+          <MenuItem icon={<CreditCard />} label="Billing & Plan" path="/portal/billing" />
+          <MenuItem icon={<Shield />} label="Permissions" path="/portal/permissions" />
           {showPortalNutritionNav(user?.role) ? (
-            <MenuItem icon={<Clipboard />} label="Nutrition Tracking" />
+            <MenuItem icon={<Clipboard />} label="Nutrition Tracking" path="/portal/nutrition" />
           ) : null}
-          <MenuItem icon={<Bell />} label="Notifications" />
-          <MenuItem icon={<Lock />} label="Privacy & Security" isLast />
+          <MenuItem icon={<Bell />} label="Notifications" path="/portal/notifications" />
+          <MenuItem icon={<Lock />} label="Privacy & Security" path="/portal/privacy-security" isLast />
         </MenuGroup>
 
         <MenuGroup title="Support & About">
-          <MenuItem icon={<Star />} label="Submit Testimonial" />
-          <MenuItem icon={<Radio />} label="Announcements" />
-          <MenuItem icon={<HelpCircle />} label="Help Center" />
-          <MenuItem icon={<MessageSquare />} label="Send Feedback" />
-          <MenuItem icon={<Info />} label="About Platform" isLast />
+          <MenuItem icon={<Star />} label="Submit Testimonial" path="/portal/testimonial" />
+          <MenuItem icon={<Radio />} label="Announcements" path="/portal/announcements" />
+          <MenuItem icon={<HelpCircle />} label="Help Center" path="/portal/help" />
+          <MenuItem icon={<MessageSquare />} label="Send Feedback" path="/portal/feedback" />
+          <MenuItem icon={<Info />} label="About Platform" path="/portal/about" isLast />
         </MenuGroup>
 
         <MenuGroup title="Legal">
-          <MenuItem icon={<FileText />} label="Terms of Service" />
-          <MenuItem icon={<Shield />} label="Privacy Policy" isLast />
+          <MenuItem icon={<FileText />} label="Terms of Service" path="/portal/terms" />
+          <MenuItem icon={<Shield />} label="Privacy Policy" path="/portal/privacy-policy" isLast />
         </MenuGroup>
       </div>
 
@@ -179,17 +168,27 @@ function MenuGroup({ title, children }: { title: string, children: React.ReactNo
   );
 }
 
-function MenuItem({ icon, label, isLast }: { icon: React.ReactNode, label: string, isLast?: boolean }) {
+function MenuItem({
+	icon,
+	label,
+	path,
+	isLast,
+}: {
+	icon: React.ReactElement<{ className?: string }>;
+	label: string;
+	path: string;
+	isLast?: boolean;
+}) {
   return (
-    <button className={cn(
+    <Link to={path} className={cn(
       "w-full px-6 py-5 flex items-center gap-5 hover:bg-muted/50 transition-all text-left group",
       !isLast && "border-b border-border/50"
     )}>
       <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-        {React.cloneElement(icon as React.ReactElement, { className: "w-5 h-5" })}
+        {React.cloneElement(icon, { className: "w-5 h-5" })}
       </div>
       <span className="flex-1 font-bold text-foreground/80">{label}</span>
       <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:translate-x-1 transition-transform" />
-    </button>
+    </Link>
   );
 }

@@ -1,4 +1,4 @@
-import { env } from "@/env";
+import { config } from "@/lib/config";
 
 export interface ScheduleEvent {
   id: string;
@@ -57,7 +57,7 @@ export function mapBookingsToEvents(items: any[]): ScheduleEvent[] {
 }
 
 export async function fetchBookings(token: string): Promise<ScheduleEvent[]> {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const baseUrl = config.api.baseUrl;
   
   const response = await fetch(`${baseUrl}/api/bookings`, {
     headers: {
@@ -74,7 +74,7 @@ export async function fetchBookings(token: string): Promise<ScheduleEvent[]> {
 }
 
 export async function fetchBookingServices(token: string) {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const baseUrl = config.api.baseUrl;
   
   const response = await fetch(
     `${baseUrl}/api/bookings/services?includeLocked=true&omitWithoutBookableSlots=true`,
@@ -98,7 +98,7 @@ export async function fetchGeneratedAvailability(
   token: string,
   params: { from: Date; to: Date; serviceTypeId: number },
 ) {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const baseUrl = config.api.baseUrl;
   const qs = new URLSearchParams({
     from: params.from.toISOString(),
     to: params.to.toISOString(),
@@ -144,7 +144,7 @@ export function sumReportedOpeningsForService(
 }
 
 export async function createBooking(token: string, body: any) {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const baseUrl = config.api.baseUrl;
   
   const response = await fetch(`${baseUrl}/api/bookings`, {
     method: "POST",

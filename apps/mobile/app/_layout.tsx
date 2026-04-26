@@ -28,8 +28,8 @@ import "@/lib/backgroundTask";
 import AppThemeProvider from "./theme/AppThemeProvider";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Compose } from "@/lib/compose";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { queryClient, queryPersister } from "@/lib/queryClient";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { AndroidBackToTabs } from "@/components/navigation/AndroidBackToTabs";
@@ -51,7 +51,12 @@ const GestureRoot = ({ children }: { children: ReactElement }) => (
 );
 
 const QueryWrapper = ({ children }: { children: ReactElement }) => (
-  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  <PersistQueryClientProvider
+    client={queryClient}
+    persistOptions={{ persister: queryPersister, maxAge: 1000 * 60 * 10 }}
+  >
+    {children}
+  </PersistQueryClientProvider>
 );
 
 function isExpoGo(): boolean {
@@ -134,15 +139,6 @@ export default function RootLayout() {
         <StartupSplashController />
         <AndroidBackToTabs />
         <Stack screenOptions={rootStackScreenOptions}>
-          <Stack.Screen
-            name="programs/[id]"
-            options={({ route }: any) => ({
-              ...Transition.Presets.SharedAppleMusic({
-                sharedBoundTag: String(route?.params?.sharedBoundTag ?? "program-card"),
-              }),
-              gestureEnabled: false,
-            })}
-          />
           <Stack.Screen
             name="programs/content/[contentId]"
             options={({ route }: any) => ({

@@ -147,29 +147,41 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
       ),
     );
 
+  if (!staff.length) {
+    console.warn(
+      `[Billing] notifySubscriptionEnteredPendingApproval: no staff users found for request #${requestId}. ` +
+        "Ensure at least one user with role admin/superAdmin/coach/team_coach/program_coach exists and is not deleted/blocked.",
+    );
+  }
+
   const seen = new Set<string>();
   for (const s of staff) {
     if (!s.email || seen.has(s.email)) continue;
     if (s.email === row.userEmail) continue;
     seen.add(s.email);
-    await sendSubscriptionPendingStaffEmail({
-      to: s.email,
-      recipientName: s.name,
-      payerName: row.userName || "Member",
-      payerEmail: row.userEmail,
-      payerRole: row.userRole,
-      subscriptionContext: "athlete",
-      team: null,
-      athlete: row.athleteId != null ? { id: row.athleteId, name: row.athleteName } : null,
-      planName: row.planName,
-      planTier: row.planTier,
-      amount: quote?.amount ?? null,
-      billingCycle: billingCycle,
-      paymentMode: quote?.mode ?? null,
-      requestId,
-      adminReviewUrl,
-      receipt,
-    });
+    try {
+      await sendSubscriptionPendingStaffEmail({
+        to: s.email,
+        recipientName: s.name,
+        payerName: row.userName || "Member",
+        payerEmail: row.userEmail,
+        payerRole: row.userRole,
+        subscriptionContext: "athlete",
+        team: null,
+        athlete: row.athleteId != null ? { id: row.athleteId, name: row.athleteName } : null,
+        planName: row.planName,
+        planTier: row.planTier,
+        amount: quote?.amount ?? null,
+        billingCycle: billingCycle,
+        paymentMode: quote?.mode ?? null,
+        requestId,
+        adminReviewUrl,
+        receipt,
+      });
+      console.info(`[Billing] Staff notification sent to ${s.email} for request #${requestId}`);
+    } catch (staffEmailErr) {
+      console.error(`[Billing] Failed to send staff notification to ${s.email} for request #${requestId}:`, staffEmailErr);
+    }
   }
 }
 

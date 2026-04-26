@@ -13,6 +13,7 @@ export async function recordUserLocation(input: {
   latitude: number;
   longitude: number;
   accuracy?: number | null;
+  routePoints?: Array<{ lat: number; lng: number }> | null;
 }) {
   const now = new Date();
   const latest = await db
@@ -31,6 +32,7 @@ export async function recordUserLocation(input: {
         longitude: input.longitude,
         accuracy: input.accuracy ?? null,
         recordedAt: now,
+        routePoints: input.routePoints ?? null,
       })
       .where(eq(userLocationTable.id, latestRow.id))
       .returning();
@@ -45,6 +47,7 @@ export async function recordUserLocation(input: {
       longitude: input.longitude,
       accuracy: input.accuracy ?? null,
       recordedAt: now,
+      routePoints: input.routePoints ?? null,
     })
     .returning();
 
@@ -70,6 +73,7 @@ export async function listLatestUserLocations() {
       longitude: userLocationTable.longitude,
       accuracy: userLocationTable.accuracy,
       recordedAt: userLocationTable.recordedAt,
+      routePoints: userLocationTable.routePoints,
     })
     .from(userLocationTable)
     .innerJoin(
@@ -106,6 +110,7 @@ export async function listTeamLocations(teamId: number) {
       longitude: userLocationTable.longitude,
       accuracy: userLocationTable.accuracy,
       recordedAt: userLocationTable.recordedAt,
+      routePoints: userLocationTable.routePoints,
     })
     .from(userLocationTable)
     .innerJoin(

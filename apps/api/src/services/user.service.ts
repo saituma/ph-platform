@@ -2,30 +2,38 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, guardianTable, userTable, teamTable } from "../db/schema";
-import { withTransientDbRetry } from "../lib/db-connectivity";
+import { withTransientDbRetry, withTransientDbRetryConfigured } from "../lib/db-connectivity";
 import type { UserRole } from "../lib/user-roles";
 import { isAthleteUserRole, isTrainingStaff } from "../lib/user-roles";
 
 export async function getUserByCognitoSub(sub: string) {
-  return withTransientDbRetry("getUserByCognitoSub", async () => {
-    const users = await db
-      .select()
-      .from(userTable)
-      .where(and(eq(userTable.cognitoSub, sub), eq(userTable.isDeleted, false)))
-      .limit(1);
-    return users[0] ?? null;
-  });
+  return withTransientDbRetryConfigured(
+    "getUserByCognitoSub",
+    async () => {
+      const users = await db
+        .select()
+        .from(userTable)
+        .where(and(eq(userTable.cognitoSub, sub), eq(userTable.isDeleted, false)))
+        .limit(1);
+      return users[0] ?? null;
+    },
+    { maxAttempts: 2 },
+  );
 }
 
 export async function getUserById(id: number) {
-  return withTransientDbRetry("getUserById", async () => {
-    const users = await db
-      .select()
-      .from(userTable)
-      .where(and(eq(userTable.id, id), eq(userTable.isDeleted, false)))
-      .limit(1);
-    return users[0] ?? null;
-  });
+  return withTransientDbRetryConfigured(
+    "getUserById",
+    async () => {
+      const users = await db
+        .select()
+        .from(userTable)
+        .where(and(eq(userTable.id, id), eq(userTable.isDeleted, false)))
+        .limit(1);
+      return users[0] ?? null;
+    },
+    { maxAttempts: 2 },
+  );
 }
 
 export async function getUserByEmail(email: string) {

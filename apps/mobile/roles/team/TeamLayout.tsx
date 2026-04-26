@@ -8,6 +8,7 @@ import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { TEAM_TAB_ROUTES } from "./tabs";
 import TeamMessagesScreen from "./screens/Messages";
 import { canAccessTrackingTab } from "@/lib/tracking/teamTrackingGate";
+import { filterTabsByCapabilities } from "../shared/capabilityTabs";
 
 export function TeamLayout() {
   const {
@@ -18,6 +19,7 @@ export function TeamLayout() {
     appRole,
     authTeamMembership,
     managedAthletes,
+    capabilities,
   } = useAppSelector((state) => state.user);
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, hasMessaging, profile.id);
@@ -29,13 +31,13 @@ export function TeamLayout() {
   });
 
   const visibleTabs = useMemo(() => {
-    return TEAM_TAB_ROUTES.filter((tab) => canUseTracking || tab.key !== "tracking").map((tab) => {
+    return filterTabsByCapabilities(TEAM_TAB_ROUTES, capabilities).filter((tab) => canUseTracking || tab.key !== "tracking").map((tab) => {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
       return tab;
     });
-  }, [canUseTracking, messagesUnread]);
+  }, [canUseTracking, capabilities, messagesUnread]);
 
   const tabComponents = useMemo(
     () => ({

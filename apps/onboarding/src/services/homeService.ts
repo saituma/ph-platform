@@ -1,4 +1,4 @@
-import { env } from "@/env";
+import { config } from "@/lib/config";
 
 /** React Query keys for `/api/content/home` (dashboard + coach info page). */
 export const homeQueryKeys = {
@@ -33,7 +33,7 @@ export type HomeContentPayload = {
 };
 
 export async function fetchHomeContent(token: string): Promise<HomeContentPayload | null> {
-  const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+  const baseUrl = config.api.baseUrl;
   
   const response = await fetch(`${baseUrl}/api/content/home`, {
     headers: {

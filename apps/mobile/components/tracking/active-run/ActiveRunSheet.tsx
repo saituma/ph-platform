@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Alert, Pressable, Switch, View } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -15,7 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { Text } from "@/components/ScaledText";
-import { fonts, radius } from "@/constants/theme";
+import { fonts } from "@/constants/theme";
 import { useRunStore } from "@/store/useRunStore";
 
 export type ActiveRunSheetIndex = -1 | 0 | 1;
@@ -23,12 +23,11 @@ export type ActiveRunSheetIndex = -1 | 0 | 1;
 export function ActiveRunSheet({
   index,
   setIndex,
-  status,
+  status: _status,
   colors,
   isDark,
   mainTabBarOverlap,
-  onPrimaryPress,
-  onAddRoute,
+  onPrimaryPress: _onPrimaryPress,
   onShareLiveLocation,
   onFinishRun,
   onIndexChange,
@@ -40,23 +39,28 @@ export function ActiveRunSheet({
   isDark: boolean;
   mainTabBarOverlap: number;
   onPrimaryPress: () => void;
-  onAddRoute: () => void;
   onShareLiveLocation: () => void;
   onFinishRun: () => void;
   onIndexChange?: (index: ActiveRunSheetIndex) => void;
 }) {
-  const snapPoints = useMemo(() => ["62%", "90%"] as const, []);
+  const snapPoints = useMemo(() => ["50%", "80%"] as const, []);
   const [trackLaps, setTrackLaps] = useState(false);
   const shareLiveLocationEnabled = useRunStore((s) => s.shareLiveLocationEnabled);
   const animatedSheetIndex = useSharedValue<number>(index >= 0 ? index : -1);
 
-  const cardBg = isDark ? "rgba(18,18,18,0.94)" : "rgba(255,255,255,0.96)";
-  const cardBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)";
+  // Design tokens — robis principles: tinted not pure, low saturation
+  const sheetBg = isDark ? "hsl(220, 8%, 10%)" : "hsl(220, 5%, 98%)";
+  const cardBg = isDark ? "hsl(220, 8%, 14%)" : "hsl(220, 5%, 94%)";
+  // In dark mode: border for elevation instead of shadow
+  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)";
+  const handleColor = isDark ? "rgba(255,255,255,0.20)" : "rgba(15,23,42,0.18)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+
   const contentAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       animatedSheetIndex.value,
-      [0, 0.15, 0.75],
-      [0.75, 0.9, 1],
+      [0, 0.2, 1],
+      [0.6, 0.85, 1],
       Extrapolation.CLAMP,
     ),
     transform: [
@@ -64,12 +68,24 @@ export function ActiveRunSheet({
         translateY: interpolate(
           animatedSheetIndex.value,
           [0, 1],
-          [14, 0],
+          [10, 0],
           Extrapolation.CLAMP,
         ),
       },
     ],
   }));
+
+  const handleFinish = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      "End run?",
+      "This will stop tracking and save your run.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "End Run", style: "destructive", onPress: onFinishRun },
+      ],
+    );
+  };
 
   return (
     <BottomSheet
@@ -90,21 +106,23 @@ export function ActiveRunSheet({
           {...props}
           appearsOnIndex={0}
           disappearsOnIndex={-1}
-          opacity={0.45}
+          opacity={0.4}
           pressBehavior="close"
         />
       )}
       backgroundStyle={{
-        backgroundColor: cardBg,
+        backgroundColor: sheetBg,
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
-        borderWidth: 1,
+        // Dark mode: border instead of shadow
+        borderWidth: isDark ? 1 : 0,
         borderColor: cardBorder,
       }}
-      style={{ left: 0, right: 0 }}
       handleIndicatorStyle={{
-        backgroundColor: isDark ? "rgba(255,255,255,0.30)" : "rgba(15,23,42,0.22)",
-        width: 44,
+        backgroundColor: handleColor,
+        width: 36,
+        height: 4,
+        borderRadius: 2,
       }}
     >
       {index >= 0 ? (
@@ -114,100 +132,119 @@ export function ActiveRunSheet({
           overScrollMode="never"
           contentContainerStyle={{
             flexGrow: 1,
-            paddingHorizontal: 0,
-            paddingBottom: mainTabBarOverlap,
+            paddingBottom: mainTabBarOverlap + 16,
           }}
         >
-          <View
-            style={{
-              paddingTop: 12,
-              paddingHorizontal: 20,
-              paddingBottom: 22,
-              minHeight: 420,
-            }}
+          <Animated.View
+            style={[
+              {
+                paddingHorizontal: 20,
+                paddingTop: 8,
+                gap: 12,
+              },
+              contentAnimatedStyle,
+            ]}
           >
-            <Animated.View style={[{ gap: 10 }, contentAnimatedStyle]}>
-              <View
-                style={{
-                  backgroundColor: "#020202",
-                  borderRadius: 26,
-                  paddingHorizontal: 18,
-                  paddingVertical: 10,
-                  marginTop: 10,
-                }}
-              >
-              <SheetRow
-                icon="share-social-outline"
+            {/* Section label */}
+            <Text
+              style={{
+                fontFamily: fonts.bodyBold,
+                fontSize: 11,
+                letterSpacing: 1.2,
+                color: labelColor,
+                textTransform: "uppercase",
+                paddingLeft: 4,
+                marginBottom: 4,
+              }}
+            >
+              Run Options
+            </Text>
+
+            {/* Toggles card — outer radius 20, padding 4 → inner rows get radius 16 */}
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: cardBorder,
+                paddingHorizontal: 4,
+                paddingVertical: 4,
+                gap: 0,
+              }}
+            >
+              <ToggleRow
+                icon={shareLiveLocationEnabled ? "share-social" : "share-social-outline"}
                 title="Share live location"
-                subtitle={shareLiveLocationEnabled ? "On" : "Off"}
-                onPress={() => {
+                subtitle="Let teammates see you on the map"
+                value={shareLiveLocationEnabled}
+                onToggle={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onShareLiveLocation();
                 }}
-                colors={colors}
-              />
-              <SheetDivider colors={colors} />
-              <SheetToggleRow
-                icon="repeat-outline"
-                title="Track laps"
-                subtitle="Manually track lap times"
-                value={trackLaps}
-                onToggle={() => setTrackLaps((v) => !v)}
-                colors={colors}
                 isDark={isDark}
+                accent={colors.accent}
               />
-              <SheetDivider colors={colors} />
-              <SheetRow
-                icon="pulse-outline"
-                title="Add a sensor"
-                subtitle="Connect heart-rate or footpod"
-                onPress={() => {
-                  Alert.alert("Coming soon", "Sensor integrations will be added later.");
-                }}
-                colors={colors}
-              />
-              <SheetDivider colors={colors} />
-              <SheetRow
-                icon="settings-outline"
-                title="Settings"
-                subtitle="Audio cues, auto-pause, route options"
-                onPress={() => {
-                  Alert.alert("Coming soon", "More run settings will be added later.");
-                }}
-                colors={colors}
-              />
-              </View>
 
-              <Pressable
-                onPress={() => {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                  Alert.alert(
-                    "Finish run?",
-                    "This will stop tracking and take you to the summary.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Finish", style: "destructive", onPress: onFinishRun },
-                    ],
-                  );
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: cardBorder,
+                  marginHorizontal: 12,
                 }}
-                style={({ pressed }) => ({
-                  height: 54,
-                  borderRadius: radius.xl,
-                  backgroundColor: "rgba(239,68,68,0.14)",
-                  borderWidth: 1,
-                  borderColor: "rgba(239,68,68,0.30)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: pressed ? 0.9 : 1,
-                  marginTop: 16,
-                })}
+              />
+
+              <ToggleRow
+                icon={trackLaps ? "repeat" : "repeat-outline"}
+                title="Track laps"
+                subtitle="Manually record lap splits"
+                value={trackLaps}
+                onToggle={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setTrackLaps((v) => !v);
+                }}
+                isDark={isDark}
+                accent={colors.accent}
+              />
+            </View>
+
+            {/* End Run button — full width, destructive */}
+            <Pressable
+              onPress={handleFinish}
+              style={({ pressed }) => ({
+                height: 56,
+                borderRadius: 16,
+                backgroundColor: isDark
+                  ? "hsl(0, 25%, 18%)"
+                  : "hsl(0, 30%, 94%)",
+                borderWidth: 1,
+                borderColor: isDark
+                  ? "hsl(0, 25%, 30%)"
+                  : "hsl(0, 30%, 82%)",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                marginTop: 8,
+                opacity: pressed ? 0.85 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
+            >
+              <Ionicons
+                name="stop-circle-outline"
+                size={20}
+                color="hsl(0, 45%, 52%)"
+              />
+              <Text
+                style={{
+                  fontFamily: fonts.heading2,
+                  fontSize: 16,
+                  color: "hsl(0, 45%, 52%)",
+                }}
               >
-                <Text style={{ fontFamily: fonts.heading2, fontSize: 16, color: "#EF4444" }}>
-                  Finish run
-                </Text>
-              </Pressable>
-            </Animated.View>
-          </View>
+                End Run
+              </Text>
+            </Pressable>
+          </Animated.View>
         </BottomSheetScrollView>
       ) : (
         <BottomSheetView style={{ height: 0 }}>
@@ -218,122 +255,86 @@ export function ActiveRunSheet({
   );
 }
 
-function SheetDivider({ colors }: { colors: Record<string, string> }) {
-  return (
-    <View
-      style={{
-        height: 1,
-        backgroundColor: "rgba(255,255,255,0.12)",
-        marginLeft: 50,
-      }}
-    />
-  );
-}
-
-function SheetRow({
-  icon,
-  title,
-  subtitle,
-  onPress,
-  colors,
-}: {
-  icon: string;
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-  colors: Record<string, string>;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 18,
-        paddingHorizontal: 6,
-        borderRadius: radius.xl,
-        backgroundColor: pressed ? "rgba(255,255,255,0.05)" : "transparent",
-      })}
-    >
-      <Ionicons name={icon as any} size={24} color={colors.textPrimary} />
-      <View style={{ marginLeft: 14, flex: 1 }}>
-        <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: colors.textPrimary }}>
-          {title}
-        </Text>
-        <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 13, color: "#D4D4D8" }}>
-          {subtitle}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color="#7A7A80" />
-    </Pressable>
-  );
-}
-
-function SheetToggleRow({
+function ToggleRow({
   icon,
   title,
   subtitle,
   value,
   onToggle,
-  colors,
   isDark,
+  accent,
 }: {
   icon: string;
   title: string;
   subtitle: string;
   value: boolean;
   onToggle: () => void;
-  colors: Record<string, string>;
   isDark: boolean;
+  accent: string;
 }) {
-  const trackBg = value ? colors.accent : isDark ? "rgba(255,255,255,0.16)" : "rgba(15,23,42,0.14)";
-  const thumbBg = value ? "#fff" : isDark ? "rgba(255,255,255,0.85)" : "#fff";
+  // Icon bg: tinted accent when on, neutral when off — low saturation per robis
+  const iconBg = value
+    ? isDark ? "rgba(200,241,53,0.12)" : "rgba(200,241,53,0.16)"
+    : isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)";
+  const iconColor = value ? accent : (isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,45%)");
+  // Text: tinted, not pure — robis principle
+  const titleColor = isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)";
+  const subtitleColor = isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)";
 
   return (
     <Pressable
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onToggle();
-      }}
+      onPress={onToggle}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={title}
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
-        paddingVertical: 18,
-        paddingHorizontal: 6,
-        borderRadius: radius.xl,
-        backgroundColor: pressed ? "rgba(255,255,255,0.05)" : "transparent",
+        // outer card radius 20, padding 4 → row radius = 20 - 4 = 16
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 14,
+        gap: 12,
+        backgroundColor: pressed
+          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
+          : "transparent",
       })}
     >
-      <Ionicons name={icon as any} size={24} color={colors.textPrimary} />
-      <View style={{ marginLeft: 14, flex: 1 }}>
-        <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: colors.textPrimary }}>
+      {/* Icon container: outer row px=12, so icon wrap radius = 16 - 12 = 4... use 8 for feel */}
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: iconBg,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon as any} size={19} color={iconColor} />
+      </View>
+
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: titleColor }}>
           {title}
         </Text>
-        <Text style={{ marginTop: 2, fontFamily: fonts.bodyMedium, fontSize: 13, color: "#D4D4D8" }}>
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: subtitleColor }}>
           {subtitle}
         </Text>
       </View>
 
-      <View
-        style={{
-          width: 54,
-          height: 32,
-          borderRadius: radius.pill,
-          backgroundColor: trackBg,
-          padding: 3,
-          alignItems: value ? "flex-end" : "flex-start",
-          justifyContent: "center",
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{
+          false: isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.14)",
+          true: accent,
         }}
-      >
-        <View
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 13,
-            backgroundColor: thumbBg,
-          }}
-        />
-      </View>
+        thumbColor={value
+          ? isDark ? "hsl(220,5%,92%)" : "hsl(220,5%,98%)"
+          : isDark ? "hsl(220,5%,75%)" : "hsl(220,5%,96%)"}
+        ios_backgroundColor={isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.14)"}
+      />
     </Pressable>
   );
 }

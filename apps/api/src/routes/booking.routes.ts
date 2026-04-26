@@ -5,6 +5,7 @@ import { requireRole } from "../middlewares/roles";
 import {
   bookingAction,
   bookingActionPost,
+  cancelBooking,
   createAvailability,
   createBookingForUser,
   createService,
@@ -29,5 +30,6 @@ router.get("/bookings/generated-availability", requireAuth, listGeneratedAvailab
 router.post("/bookings/availability", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createAvailability);
 router.post("/bookings", requireAuth, createBookingForUser);
 router.get("/bookings", requireAuth, listBookings);
+router.delete("/bookings/:id", requireAuth, cancelBooking);
 
 export default router;

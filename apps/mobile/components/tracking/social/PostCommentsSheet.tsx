@@ -160,7 +160,7 @@ export function PostCommentsSheet({
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <Pressable
@@ -326,9 +326,9 @@ export function PostCommentsSheet({
                 onPress={() => void onSubmit()}
                 disabled={posting || !text.trim().length}
                 style={({ pressed }) => ({
-                  width: 46,
-                  height: 46,
-                  borderRadius: 23,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
                   backgroundColor:
                     posting || !text.trim().length ? colors.surfaceHigh : colors.accent,
                   alignItems: "center",
@@ -337,12 +337,12 @@ export function PostCommentsSheet({
                 })}
               >
                 {posting ? (
-                  <ActivityIndicator color={colors.textInverse ?? "#07070F"} />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Ionicons
                     name="arrow-up"
-                    size={20}
-                    color={posting || !text.trim().length ? colors.textDim : "#07070F"}
+                    size={22}
+                    color={posting || !text.trim().length ? colors.textSecondary : "#FFFFFF"}
                   />
                 )}
               </Pressable>

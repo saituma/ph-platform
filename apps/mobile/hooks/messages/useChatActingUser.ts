@@ -3,10 +3,23 @@ import { useAppSelector } from "@/store/hooks";
 import { ManagedAthlete } from "@/store/slices/userSlice";
 
 export function useChatActingUser() {
-  const { profile, athleteUserId } = useAppSelector((state) => state.user);
+  const { profile, athleteUserId, appRole, apiUserRole } = useAppSelector(
+    (state) => state.user,
+  );
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
 
   const actingUserId = useMemo(() => {
+    const normalizedRole = String(apiUserRole ?? "").trim().toLowerCase();
+    const isStaffRole =
+      appRole === "team_manager" ||
+      appRole === "coach" ||
+      normalizedRole === "admin" ||
+      normalizedRole === "superadmin" ||
+      normalizedRole === "coach" ||
+      normalizedRole === "team_coach" ||
+      normalizedRole === "program_coach";
+    if (isStaffRole) return null;
+
     const raw = athleteUserId ? Number(athleteUserId) : NaN;
     if (!Number.isFinite(raw) || raw <= 0) return null;
 
@@ -29,7 +42,7 @@ export function useChatActingUser() {
     }
 
     return raw;
-  }, [athleteUserId, managedAthletes]);
+  }, [apiUserRole, appRole, athleteUserId, managedAthletes]);
 
   const actingHeaders = useMemo(() => {
     if (!actingUserId) return undefined;

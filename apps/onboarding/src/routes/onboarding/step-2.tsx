@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
 	ArrowLeft,
@@ -15,7 +15,7 @@ import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Card } from "#/components/ui/card";
 import { toast } from "sonner";
-import { env } from "#/env";
+import { config } from "#/lib/config";
 import { DatePicker } from "#/components/ui/date-picker";
 import { format, differenceInYears } from "date-fns";
 import { useMutation } from "@tanstack/react-query";
@@ -103,7 +103,7 @@ function OnboardingStep2() {
 
 			if (!token || !email) throw new Error("Session expired");
 
-			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+			const baseUrl = config.api.baseUrl;
 			let endpoint = "";
 			let body = {};
 

@@ -1,4 +1,3 @@
-import { ActionButton } from "@/components/dashboard/ActionButton";
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -7,11 +6,12 @@ import { apiRequest } from "@/lib/api";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -37,13 +37,6 @@ export default function SubmitTestimonialScreen() {
     return Boolean(quote.trim()) && !isSubmitting;
   }, [quote, isSubmitting]);
 
-  useEffect(() => {
-    if (!isSubmitted) return;
-    const timer = setTimeout(() => {
-      router.replace("/(tabs)/more");
-    }, 1800);
-    return () => clearTimeout(timer);
-  }, [isSubmitted, router]);
 
   const uploadPhoto = async (payload: {
     uri: string;
@@ -143,7 +136,7 @@ export default function SubmitTestimonialScreen() {
           }}
         >
           {isSubmitted ? (
-            <View className="items-center">
+            <View className="items-center w-full">
               <View className="h-20 w-20 rounded-full bg-accent/10 items-center justify-center mb-6">
                 <Feather name="check" size={28} color={colors.accent} />
               </View>
@@ -151,15 +144,28 @@ export default function SubmitTestimonialScreen() {
                 Thank you!
               </Text>
               <Text className="text-base font-outfit text-secondary leading-relaxed mb-8 text-center">
-                Your testimonial has been submitted.
+                Your testimonial has been submitted and is pending review.
               </Text>
-              <ActionButton
-                label="Back to More"
+              <Pressable
                 onPress={() => router.replace("/(tabs)/more")}
-                color="bg-accent"
-                icon="arrow-left"
-                fullWidth={true}
-              />
+                style={({ pressed }) => ({
+                  marginTop: 8,
+                  backgroundColor: colors.accent,
+                  borderRadius: 16,
+                  height: 56,
+                  width: "100%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <Feather name="arrow-left" size={18} color="#fff" />
+                <Text style={{ color: "#fff", fontFamily: "Outfit-Bold", fontSize: 16 }}>
+                  Back to More
+                </Text>
+              </Pressable>
             </View>
           ) : (
             <>
@@ -237,14 +243,27 @@ export default function SubmitTestimonialScreen() {
                 </View>
               ) : null}
 
-              <ActionButton
-                label={isSubmitting ? "Submitting..." : "Submit Testimonial"}
+              <Pressable
                 onPress={handleSubmit}
-                color="bg-accent"
-                icon="send"
-                disabled={!canSubmit}
-                fullWidth={true}
-              />
+                disabled={!canSubmit || isSubmitting}
+                style={({ pressed }) => ({
+                  marginTop: 8,
+                  backgroundColor: colors.accent,
+                  borderRadius: 16,
+                  height: 56,
+                  width: "100%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                  opacity: (!canSubmit || isSubmitting || pressed) ? 0.6 : 1,
+                })}
+              >
+                <Feather name="send" size={18} color="#fff" />
+                <Text style={{ color: "#fff", fontFamily: "Outfit-Bold", fontSize: 16 }}>
+                  {isSubmitting ? "Submitting…" : "Submit Testimonial"}
+                </Text>
+              </Pressable>
             </>
           )}
         </ThemedScrollView>

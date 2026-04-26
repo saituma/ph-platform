@@ -193,7 +193,7 @@ export default function PremiumExerciseDetailScreen() {
    */
   useEffect(() => {
     const role = String(appRole ?? "");
-    const isYouth = role === "youth_athlete" || role.startsWith("youth_athlete_");
+    const isYouth = role === "youth_athlete" || role === "youth_athlete_guardian_only";
     if (!isYouth) return;
     if (router.canGoBack()) return;
     router.replace("/" as any);

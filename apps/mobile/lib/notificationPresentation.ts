@@ -5,6 +5,7 @@ export type NotificationCategory =
   | "schedule"
   | "account"
   | "progress"
+  | "nutrition"
   | "system"
   | "general";
 
@@ -19,6 +20,7 @@ const CATEGORY_META: Record<NotificationCategory, NotificationMeta> = {
   schedule: { label: "Schedule", icon: "calendar", colorType: "warning" },
   account: { label: "Account", icon: "person-circle", colorType: "tint" },
   progress: { label: "Progress", icon: "trending-up", colorType: "success" },
+  nutrition: { label: "Nutrition", icon: "restaurant", colorType: "success" },
   system: { label: "System", icon: "alert-circle", colorType: "system" },
   general: { label: "Updates", icon: "notifications", colorType: "accent" },
 };
@@ -45,6 +47,7 @@ export function inferNotificationCategory(
   if (/(schedule|booking|session|calendar|reschedule)/.test(haystack)) return "schedule";
   if (/(account|profile|password|login|security|invoice|payment|billing|card|receipt|stripe)/.test(haystack)) return "account";
   if (/(progress|goal|workout|program|plan|assessment|video_reviewed|feedback)/.test(haystack)) return "progress";
+  if (/(nutrition|meal|breakfast|lunch|dinner|food|diet)/.test(haystack)) return "nutrition";
   if (/(alert|warning|system|maintenance|update)/.test(haystack)) return "system";
   return "general";
 }

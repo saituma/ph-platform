@@ -35,8 +35,18 @@ describe("message controller", () => {
   });
 
   it("returns list of messages when resolved", async () => {
-    (listThread as jest.Mock).mockResolvedValue([{ id: 1, content: "hello" }]);
-    (getLastAdminContact as jest.Mock).mockResolvedValue({ id: 22, name: "Coach" });
+    (listThread as jest.Mock).mockResolvedValue({
+      messages: [] as { id: number; content: string; senderId?: number; receiverId?: number }[],
+      hasMore: false,
+      nextCursor: null,
+      teamManager: null,
+    });
+    (getLastAdminContact as jest.Mock).mockResolvedValue({
+      id: 22,
+      name: "Coach",
+      email: "c@x.com",
+      role: "coach",
+    });
 
     const req = { user: { id: 1 }, headers: {} } as any;
     const res = createRes();
@@ -44,12 +54,19 @@ describe("message controller", () => {
     await listMessages(req, res);
 
     expect(listThread).toHaveBeenCalledWith(1, { includeVideoResponses: false });
+    expect(isUserPremium).toHaveBeenCalledWith(1);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({
-      messages: [{ id: 1, content: "hello" }],
-      coaches: [{ id: 22, name: "Coach" }],
-      coach: { id: 22, name: "Coach" },
-    });
+    expect(res.json).toHaveBeenCalled();
+    const body = (res.json as jest.Mock).mock.calls[0][0] as {
+      messages: unknown[];
+      hasMore: boolean;
+      nextCursor: null;
+      coach: { id: number; name: string } | null;
+    };
+    expect(body.messages).toEqual([]);
+    expect(body.hasMore).toBe(false);
+    expect(body.coach).toBeTruthy();
+    expect(body.coach?.id).toBe(22);
   });
 
   it("returns 400 when coach is not available", async () => {

@@ -9,6 +9,7 @@ export function getMessagesRolePrefix(params: {
   const { appRole, apiUserRole } = params;
 
   if (isAdminRole(apiUserRole) || appRole === "coach") return "admin";
+  if (appRole === "team_manager") return "team";
   if (appRole === "adult_athlete") return "adult";
   if (
     appRole === "youth_athlete_team_guardian" ||
@@ -29,4 +30,3 @@ export function messagesThreadHref(
 }
 
 export const messagesTabHref = "/(tabs)/messages" as const;
-

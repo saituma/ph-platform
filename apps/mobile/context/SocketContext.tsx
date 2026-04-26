@@ -29,6 +29,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const token = useAppSelector((state) => state.user.token);
   const profileId = useAppSelector((state) => state.user.profile?.id);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
+  const appRole = useAppSelector((state) => state.user.appRole);
+  const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -48,9 +50,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   }, [profileId]);
 
   useEffect(() => {
+    const normalizedRole = String(apiUserRole ?? "").trim().toLowerCase();
+    const isStaffRole =
+      appRole === "team_manager" ||
+      appRole === "coach" ||
+      normalizedRole === "admin" ||
+      normalizedRole === "superadmin" ||
+      normalizedRole === "coach" ||
+      normalizedRole === "team_coach" ||
+      normalizedRole === "program_coach";
+    if (isStaffRole) {
+      athleteUserIdRef.current = null;
+      return;
+    }
     const acting = athleteUserId ? Number(athleteUserId) : null;
     athleteUserIdRef.current = Number.isFinite(acting as number) && (acting as number) > 0 ? (acting as number) : null;
-  }, [athleteUserId]);
+  }, [apiUserRole, appRole, athleteUserId]);
 
   useEffect(() => {
     if (!token) {
@@ -192,10 +207,23 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   // tree on every connect and trigger update-depth loops in react-native-screen-transitions + navigator.
   useEffect(() => {
     if (!socketRef.current?.connected) return;
+    const normalizedRole = String(apiUserRole ?? "").trim().toLowerCase();
+    const isStaffRole =
+      appRole === "team_manager" ||
+      appRole === "coach" ||
+      normalizedRole === "admin" ||
+      normalizedRole === "superadmin" ||
+      normalizedRole === "coach" ||
+      normalizedRole === "team_coach" ||
+      normalizedRole === "program_coach";
+    if (isStaffRole) {
+      socketRef.current.emit("acting:join", {});
+      return;
+    }
     const acting = athleteUserId ? Number(athleteUserId) : null;
     const actingUserId = Number.isFinite(acting as number) && (acting as number) > 0 ? (acting as number) : null;
     socketRef.current.emit("acting:join", actingUserId ? { actingUserId } : {});
-  }, [athleteUserId, socket]);
+  }, [apiUserRole, appRole, athleteUserId, socket]);
 
   const value = useMemo(
     () => ({

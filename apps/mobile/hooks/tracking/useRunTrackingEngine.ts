@@ -181,11 +181,10 @@ export function useRunTrackingEngine(
     }
   }, []);
 
-  const fetchRoute = useCallback(async (startLat: number, startLng: number, destLat: number, destLng: number) => {
-    if (!osrmRoutingEnabled) return;
-
+  const fetchRoute = useCallback(async (startLat: number, startLng: number, destLat: number, destLng: number, force = false) => {
     const now = Date.now();
-    if (now - lastRouteFetchTime.current < 30000 || isFetchingRoute) return;
+    if (!force && (now - lastRouteFetchTime.current < 30000 || isFetchingRoute)) return;
+    if (isFetchingRoute) return;
 
     setIsFetchingRoute(true);
     lastRouteFetchTime.current = now;
@@ -251,19 +250,26 @@ export function useRunTrackingEngine(
     if (!destination) {
       setRoutePolyline(null);
       setRouteMetrics(null);
+      return;
     }
+    // New destination tapped — reset throttle and fetch immediately
+    lastRouteFetchTime.current = 0;
+    const coord = liveCoordinate;
+    if (coord) {
+      void fetchRoute(coord.latitude, coord.longitude, destination.latitude, destination.longitude, true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destination]);
 
   useEffect(() => {
-    if (!osrmRoutingEnabled) {
+    // When OSRM is disabled, only clear rerouting — existing drawn route stays
+    if (!osrmRoutingEnabled && !destination) {
       setRoutePolyline(null);
       setRouteMetrics(null);
     }
-  }, [osrmRoutingEnabled]);
+  }, [osrmRoutingEnabled, destination]);
 
   useEffect(() => {
-    if (!osrmRoutingEnabled) return;
-
     const destinationThresholdMeters = 40;
     if (goalKm && !goalReached && distanceMeters >= goalKm * 1000) {
       markGoalReached();
@@ -281,18 +287,19 @@ export function useRunTrackingEngine(
         triggerGoalFeedback("Destination reached", "Destination reached!");
       }
 
-      const now = Date.now();
-      if (routePolyline && routePolyline.length > 0 && !isFetchingRoute) {
-        let minDistance = Infinity;
-        for (const pt of routePolyline) {
-          const d = haversineDistance(liveCoordinate.latitude, liveCoordinate.longitude, pt.latitude, pt.longitude);
-          if (d < minDistance) minDistance = d;
+      // Auto-reroute when user deviates (only when OSRM preference is on)
+      if (osrmRoutingEnabled) {
+        const now = Date.now();
+        if (routePolyline && routePolyline.length > 0 && !isFetchingRoute) {
+          let minDistance = Infinity;
+          for (const pt of routePolyline) {
+            const d = haversineDistance(liveCoordinate.latitude, liveCoordinate.longitude, pt.latitude, pt.longitude);
+            if (d < minDistance) minDistance = d;
+          }
+          if (minDistance > 200 && (now - lastRouteFetchTime.current >= 30000)) {
+            fetchRoute(liveCoordinate.latitude, liveCoordinate.longitude, destination.latitude, destination.longitude);
+          }
         }
-        if (minDistance > 200 && (now - lastRouteFetchTime.current >= 30000)) {
-          fetchRoute(liveCoordinate.latitude, liveCoordinate.longitude, destination.latitude, destination.longitude);
-        }
-      } else if (!routePolyline && !isFetchingRoute && (now - lastRouteFetchTime.current >= 30000)) {
-        fetchRoute(liveCoordinate.latitude, liveCoordinate.longitude, destination.latitude, destination.longitude);
       }
     }
   }, [

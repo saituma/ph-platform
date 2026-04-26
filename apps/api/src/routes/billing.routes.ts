@@ -14,6 +14,7 @@ import {
   downgradePlan,
   getBillingStatus,
   getPaymentReceipt,
+  listInvoices,
   listTeamRequestsAdmin,
   listPlans,
   listPlansAdmin,
@@ -39,6 +40,7 @@ router.post("/billing/revenuecat/verify", requireAuth, verifyRevenueCatPurchase)
 router.post("/billing/confirm", requireAuth, confirmCheckout);
 router.get("/billing/receipt/:receiptId", requireAuth, getPaymentReceipt);
 router.post("/billing/downgrade", requireAuth, downgradePlan);
+router.get("/billing/invoices", requireAuth, listInvoices);
 
 router.get("/admin/subscription-plans", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listPlansAdmin);
 router.post("/admin/subscription-plans", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createPlanAdmin);

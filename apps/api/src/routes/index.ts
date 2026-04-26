@@ -11,6 +11,7 @@ import chatRoutes from "./chat.routes";
 import bookingRoutes from "./booking.routes";
 import videoRoutes from "./video.routes";
 import adminRoutes from "./admin.routes";
+import superAdminRoutes from "./super-admin.routes";
 import mediaRoutes from "./media.routes";
 import billingRoutes from "./billing.routes";
 import nutritionRoutes from "./nutrition.routes";
@@ -28,6 +29,8 @@ import runsRoutes from "./runs.routes";
 import socialRoutes from "./social.routes";
 import teamSocialRoutes from "./team-social.routes";
 import teamRosterRoutes from "./team-roster.routes";
+import activityRoutes from "./activity.routes";
+import referralRoutes from "./referral.routes";
 
 const router = Router();
 
@@ -43,6 +46,7 @@ router.use(bookingRoutes);
 router.use(videoRoutes);
 router.use(mediaRoutes);
 router.use(adminRoutes);
+router.use(superAdminRoutes);
 router.use(billingRoutes);
 router.use(nutritionRoutes);
 router.use(physioReferralRoutes);
@@ -59,5 +63,7 @@ router.use(runsRoutes);
 router.use(socialRoutes);
 router.use(teamSocialRoutes);
 router.use(teamRosterRoutes);
+router.use(activityRoutes);
+router.use(referralRoutes);
 
 export default router;

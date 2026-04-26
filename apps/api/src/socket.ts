@@ -1,16 +1,22 @@
 import type { Server as HttpServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
+import { eq } from "drizzle-orm";
 
 import { env } from "./config/env";
+import { getDbOutageRemainingMs, isLikelyDatabaseConnectivityFailure } from "./lib/db-connectivity";
 import { verifyAccessToken } from "./lib/jwt";
 import { getUserByCognitoSub, getUserById, getGuardianAndAthlete } from "./services/user.service";
 import { createGroupMessage, listGroupsForUser, isGroupMember } from "./services/chat.service";
 import { sendMessage } from "./services/message.service";
 import { setSocketServer } from "./socket-hub";
+import { db } from "./db";
+import { userTable } from "./db/schema";
 
 type AuthPayload = {
   sub?: string;
   user_id?: number;
+  role?: string;
+  name?: string;
 };
 
 async function resolveUserId(payload: AuthPayload) {
@@ -41,6 +47,14 @@ export function initSocket(server: HttpServer) {
     .map((origin) => origin.trim())
     .filter(Boolean)
     .forEach(addOrigin);
+  // Match Express `app.ts`: when CORS_ORIGINS is production-only, Socket.IO must still allow local dev
+  // or the browser sees 400 + missing Access-Control-Allow-Origin on the polling handshake.
+  addOrigin("http://localhost:3000");
+  addOrigin("http://localhost:3001");
+  addOrigin("http://127.0.0.1:3000");
+  addOrigin("http://127.0.0.1:3001");
+  addOrigin("http://localhost:5173");
+  addOrigin("http://127.0.0.1:5173");
 
   const io = new SocketIOServer(server, {
     cors: {
@@ -48,6 +62,9 @@ export function initSocket(server: HttpServer) {
         if (!origin) return callback(null, true);
         if (allowedOrigins.has("*")) return callback(null, true);
         if (allowedOrigins.has(origin)) return callback(null, true);
+        if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+          return callback(null, true);
+        }
         return callback(new Error("Origin not allowed"), false);
       },
       credentials: true,
@@ -91,11 +108,43 @@ export function initSocket(server: HttpServer) {
       }
       socket.data.userId = userId;
       socket.data.token = token;
-      const user = await getUserById(userId);
-      socket.data.role = user?.role ?? "guardian";
-      socket.data.name = user?.name ?? "User";
+      socket.data.role = typeof payload.role === "string" && payload.role.trim() ? payload.role : "guardian";
+      socket.data.name = typeof payload.name === "string" && payload.name.trim() ? payload.name : "User";
+
+      // Prefer JWT claims for socket handshake; if claims are sparse, best-effort hydrate from DB.
+      // Transient DB outages should not be misreported as auth rejections.
+      if (socket.data.role === "guardian" || socket.data.name === "User") {
+        try {
+          const user = await getUserById(userId);
+          if (user?.role) socket.data.role = user.role;
+          if (user?.name) socket.data.name = user.name;
+        } catch (error) {
+          if (!isLikelyDatabaseConnectivityFailure(error)) throw error;
+          const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
+          console.warn("[Socket] DB unavailable during optional profile lookup", {
+            ip: socket.handshake.address,
+            origin: socket.handshake.headers?.origin,
+            userId,
+            retryAfterSeconds,
+          });
+        }
+      }
       return next();
     } catch (error) {
+      if (isLikelyDatabaseConnectivityFailure(error)) {
+        const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
+        console.warn("[Socket] Service unavailable during auth", {
+          ip: socket.handshake.address,
+          origin: socket.handshake.headers?.origin,
+          retryAfterSeconds,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        const serviceUnavailableError = new Error("ServiceUnavailable") as Error & {
+          data?: { code: "DB_UNAVAILABLE"; retryAfterSeconds: number };
+        };
+        serviceUnavailableError.data = { code: "DB_UNAVAILABLE", retryAfterSeconds };
+        return next(serviceUnavailableError);
+      }
       console.warn("[Socket] Unauthorized: token verification failed", {
         ip: socket.handshake.address,
         origin: socket.handshake.headers?.origin,
@@ -119,7 +168,15 @@ export function initSocket(server: HttpServer) {
       const groups = await listGroupsForUser(userId);
       groups.forEach((group) => socket.join(`group:${group.id}`));
     } catch (error) {
-      console.warn("Socket group join failed", error);
+      if (isLikelyDatabaseConnectivityFailure(error)) {
+        const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
+        console.warn("[Socket] group bootstrap skipped during DB outage", {
+          userId,
+          retryAfterSeconds,
+        });
+      } else {
+        console.warn("Socket group join failed", error);
+      }
     }
 
     socket.on("group:join", async (payload: { groupId?: number }) => {
@@ -318,6 +375,12 @@ export function initSocket(server: HttpServer) {
     socket.on("disconnect", () => {
       onlineUsers.delete(userId);
       broadcastPresence();
+      db.update(userTable)
+        .set({ lastSeenAt: new Date() })
+        .where(eq(userTable.id, userId))
+        .catch((err: unknown) => {
+          console.warn("[Socket] Failed to update lastSeenAt:", err instanceof Error ? err.message : err);
+        });
     });
   });
 

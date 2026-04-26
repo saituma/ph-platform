@@ -69,7 +69,7 @@ export function usePushNotificationResponses(enabled: boolean) {
 
   const markThreadRead = async (threadId: string) => {
     if (!token) return;
-    
+
     // Clear badge count locally immediately for better "lively" feel
     getNotifications().then(n => n?.setBadgeCountAsync(0));
 
@@ -85,9 +85,12 @@ export function usePushNotificationResponses(enabled: boolean) {
       return;
     }
 
+    // Pass peerUserId so only this specific thread is marked read, not all DMs.
+    const peerUserId = Number(threadId);
     await apiRequest("/messages/read", {
       method: "POST",
       token,
+      body: Number.isFinite(peerUserId) && peerUserId > 0 ? { peerUserId } : undefined,
       suppressStatusCodes: [401, 403],
       suppressLog: true,
     });

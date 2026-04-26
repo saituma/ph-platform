@@ -17,7 +17,7 @@ import {
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { toast } from "sonner";
-import { env } from "#/env";
+import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/onboarding/step-4")({
@@ -77,7 +77,7 @@ function OnboardingStep4() {
 			}
 
 			try {
-				const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+				const baseUrl = config.api.baseUrl;
 				const response = await fetch(`${baseUrl}/api/onboarding`, {
 					headers: {
 						Authorization: `Bearer ${token}`,

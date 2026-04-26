@@ -23,9 +23,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalTestimonialRouteImport } from './routes/portal/testimonial'
 import { Route as PortalTermsRouteImport } from './routes/portal/terms'
 import { Route as PortalScheduleRouteImport } from './routes/portal/schedule'
+import { Route as PortalReferralRouteImport } from './routes/portal/referral'
 import { Route as PortalProfileRouteImport } from './routes/portal/profile'
 import { Route as PortalPrivacySecurityRouteImport } from './routes/portal/privacy-security'
 import { Route as PortalPrivacyPolicyRouteImport } from './routes/portal/privacy-policy'
+import { Route as PortalPhysioReferralRouteImport } from './routes/portal/physio-referral'
 import { Route as PortalPermissionsRouteImport } from './routes/portal/permissions'
 import { Route as PortalNutritionRouteImport } from './routes/portal/nutrition'
 import { Route as PortalNotificationsRouteImport } from './routes/portal/notifications'
@@ -35,6 +37,7 @@ import { Route as PortalHelpRouteImport } from './routes/portal/help'
 import { Route as PortalFeedbackRouteImport } from './routes/portal/feedback'
 import { Route as PortalDashboardRouteImport } from './routes/portal/dashboard'
 import { Route as PortalCoachAppRouteImport } from './routes/portal/coach-app'
+import { Route as PortalBillingRouteImport } from './routes/portal/billing'
 import { Route as PortalAnnouncementsRouteImport } from './routes/portal/announcements'
 import { Route as PortalAboutRouteImport } from './routes/portal/about'
 import { Route as OnboardingSuccessRouteImport } from './routes/onboarding/success'
@@ -121,6 +124,11 @@ const PortalScheduleRoute = PortalScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalReferralRoute = PortalReferralRouteImport.update({
+  id: '/referral',
+  path: '/referral',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PortalProfileRoute = PortalProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -134,6 +142,11 @@ const PortalPrivacySecurityRoute = PortalPrivacySecurityRouteImport.update({
 const PortalPrivacyPolicyRoute = PortalPrivacyPolicyRouteImport.update({
   id: '/privacy-policy',
   path: '/privacy-policy',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPhysioReferralRoute = PortalPhysioReferralRouteImport.update({
+  id: '/physio-referral',
+  path: '/physio-referral',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalPermissionsRoute = PortalPermissionsRouteImport.update({
@@ -179,6 +192,11 @@ const PortalDashboardRoute = PortalDashboardRouteImport.update({
 const PortalCoachAppRoute = PortalCoachAppRouteImport.update({
   id: '/coach-app',
   path: '/coach-app',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalBillingRoute = PortalBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalAnnouncementsRoute = PortalAnnouncementsRouteImport.update({
@@ -280,6 +298,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/portal/about': typeof PortalAboutRoute
   '/portal/announcements': typeof PortalAnnouncementsRoute
+  '/portal/billing': typeof PortalBillingRoute
   '/portal/coach-app': typeof PortalCoachAppRoute
   '/portal/dashboard': typeof PortalDashboardRoute
   '/portal/feedback': typeof PortalFeedbackRoute
@@ -289,9 +308,11 @@ export interface FileRoutesByFullPath {
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/nutrition': typeof PortalNutritionRoute
   '/portal/permissions': typeof PortalPermissionsRoute
+  '/portal/physio-referral': typeof PortalPhysioReferralRoute
   '/portal/privacy-policy': typeof PortalPrivacyPolicyRoute
   '/portal/privacy-security': typeof PortalPrivacySecurityRoute
   '/portal/profile': typeof PortalProfileRoute
+  '/portal/referral': typeof PortalReferralRoute
   '/portal/schedule': typeof PortalScheduleRoute
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
@@ -323,6 +344,7 @@ export interface FileRoutesByTo {
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/portal/about': typeof PortalAboutRoute
   '/portal/announcements': typeof PortalAnnouncementsRoute
+  '/portal/billing': typeof PortalBillingRoute
   '/portal/coach-app': typeof PortalCoachAppRoute
   '/portal/dashboard': typeof PortalDashboardRoute
   '/portal/feedback': typeof PortalFeedbackRoute
@@ -332,9 +354,11 @@ export interface FileRoutesByTo {
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/nutrition': typeof PortalNutritionRoute
   '/portal/permissions': typeof PortalPermissionsRoute
+  '/portal/physio-referral': typeof PortalPhysioReferralRoute
   '/portal/privacy-policy': typeof PortalPrivacyPolicyRoute
   '/portal/privacy-security': typeof PortalPrivacySecurityRoute
   '/portal/profile': typeof PortalProfileRoute
+  '/portal/referral': typeof PortalReferralRoute
   '/portal/schedule': typeof PortalScheduleRoute
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
@@ -367,6 +391,7 @@ export interface FileRoutesById {
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/portal/about': typeof PortalAboutRoute
   '/portal/announcements': typeof PortalAnnouncementsRoute
+  '/portal/billing': typeof PortalBillingRoute
   '/portal/coach-app': typeof PortalCoachAppRoute
   '/portal/dashboard': typeof PortalDashboardRoute
   '/portal/feedback': typeof PortalFeedbackRoute
@@ -376,9 +401,11 @@ export interface FileRoutesById {
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/nutrition': typeof PortalNutritionRoute
   '/portal/permissions': typeof PortalPermissionsRoute
+  '/portal/physio-referral': typeof PortalPhysioReferralRoute
   '/portal/privacy-policy': typeof PortalPrivacyPolicyRoute
   '/portal/privacy-security': typeof PortalPrivacySecurityRoute
   '/portal/profile': typeof PortalProfileRoute
+  '/portal/referral': typeof PortalReferralRoute
   '/portal/schedule': typeof PortalScheduleRoute
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
@@ -412,6 +439,7 @@ export interface FileRouteTypes {
     | '/onboarding/success'
     | '/portal/about'
     | '/portal/announcements'
+    | '/portal/billing'
     | '/portal/coach-app'
     | '/portal/dashboard'
     | '/portal/feedback'
@@ -421,9 +449,11 @@ export interface FileRouteTypes {
     | '/portal/notifications'
     | '/portal/nutrition'
     | '/portal/permissions'
+    | '/portal/physio-referral'
     | '/portal/privacy-policy'
     | '/portal/privacy-security'
     | '/portal/profile'
+    | '/portal/referral'
     | '/portal/schedule'
     | '/portal/terms'
     | '/portal/testimonial'
@@ -455,6 +485,7 @@ export interface FileRouteTypes {
     | '/onboarding/success'
     | '/portal/about'
     | '/portal/announcements'
+    | '/portal/billing'
     | '/portal/coach-app'
     | '/portal/dashboard'
     | '/portal/feedback'
@@ -464,9 +495,11 @@ export interface FileRouteTypes {
     | '/portal/notifications'
     | '/portal/nutrition'
     | '/portal/permissions'
+    | '/portal/physio-referral'
     | '/portal/privacy-policy'
     | '/portal/privacy-security'
     | '/portal/profile'
+    | '/portal/referral'
     | '/portal/schedule'
     | '/portal/terms'
     | '/portal/testimonial'
@@ -498,6 +531,7 @@ export interface FileRouteTypes {
     | '/onboarding/success'
     | '/portal/about'
     | '/portal/announcements'
+    | '/portal/billing'
     | '/portal/coach-app'
     | '/portal/dashboard'
     | '/portal/feedback'
@@ -507,9 +541,11 @@ export interface FileRouteTypes {
     | '/portal/notifications'
     | '/portal/nutrition'
     | '/portal/permissions'
+    | '/portal/physio-referral'
     | '/portal/privacy-policy'
     | '/portal/privacy-security'
     | '/portal/profile'
+    | '/portal/referral'
     | '/portal/schedule'
     | '/portal/terms'
     | '/portal/testimonial'
@@ -643,6 +679,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalScheduleRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/referral': {
+      id: '/portal/referral'
+      path: '/referral'
+      fullPath: '/portal/referral'
+      preLoaderRoute: typeof PortalReferralRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/portal/profile': {
       id: '/portal/profile'
       path: '/profile'
@@ -662,6 +705,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy-policy'
       fullPath: '/portal/privacy-policy'
       preLoaderRoute: typeof PortalPrivacyPolicyRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/physio-referral': {
+      id: '/portal/physio-referral'
+      path: '/physio-referral'
+      fullPath: '/portal/physio-referral'
+      preLoaderRoute: typeof PortalPhysioReferralRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/permissions': {
@@ -725,6 +775,13 @@ declare module '@tanstack/react-router' {
       path: '/coach-app'
       fullPath: '/portal/coach-app'
       preLoaderRoute: typeof PortalCoachAppRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/billing': {
+      id: '/portal/billing'
+      path: '/billing'
+      fullPath: '/portal/billing'
+      preLoaderRoute: typeof PortalBillingRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/announcements': {
@@ -838,6 +895,7 @@ declare module '@tanstack/react-router' {
 interface PortalRouteChildren {
   PortalAboutRoute: typeof PortalAboutRoute
   PortalAnnouncementsRoute: typeof PortalAnnouncementsRoute
+  PortalBillingRoute: typeof PortalBillingRoute
   PortalCoachAppRoute: typeof PortalCoachAppRoute
   PortalDashboardRoute: typeof PortalDashboardRoute
   PortalFeedbackRoute: typeof PortalFeedbackRoute
@@ -847,9 +905,11 @@ interface PortalRouteChildren {
   PortalNotificationsRoute: typeof PortalNotificationsRoute
   PortalNutritionRoute: typeof PortalNutritionRoute
   PortalPermissionsRoute: typeof PortalPermissionsRoute
+  PortalPhysioReferralRoute: typeof PortalPhysioReferralRoute
   PortalPrivacyPolicyRoute: typeof PortalPrivacyPolicyRoute
   PortalPrivacySecurityRoute: typeof PortalPrivacySecurityRoute
   PortalProfileRoute: typeof PortalProfileRoute
+  PortalReferralRoute: typeof PortalReferralRoute
   PortalScheduleRoute: typeof PortalScheduleRoute
   PortalTermsRoute: typeof PortalTermsRoute
   PortalTestimonialRoute: typeof PortalTestimonialRoute
@@ -863,6 +923,7 @@ interface PortalRouteChildren {
 const PortalRouteChildren: PortalRouteChildren = {
   PortalAboutRoute: PortalAboutRoute,
   PortalAnnouncementsRoute: PortalAnnouncementsRoute,
+  PortalBillingRoute: PortalBillingRoute,
   PortalCoachAppRoute: PortalCoachAppRoute,
   PortalDashboardRoute: PortalDashboardRoute,
   PortalFeedbackRoute: PortalFeedbackRoute,
@@ -872,9 +933,11 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalNotificationsRoute: PortalNotificationsRoute,
   PortalNutritionRoute: PortalNutritionRoute,
   PortalPermissionsRoute: PortalPermissionsRoute,
+  PortalPhysioReferralRoute: PortalPhysioReferralRoute,
   PortalPrivacyPolicyRoute: PortalPrivacyPolicyRoute,
   PortalPrivacySecurityRoute: PortalPrivacySecurityRoute,
   PortalProfileRoute: PortalProfileRoute,
+  PortalReferralRoute: PortalReferralRoute,
   PortalScheduleRoute: PortalScheduleRoute,
   PortalTermsRoute: PortalTermsRoute,
   PortalTestimonialRoute: PortalTestimonialRoute,

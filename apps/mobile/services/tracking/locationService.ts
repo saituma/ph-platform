@@ -8,12 +8,14 @@ export type UserLocation = {
   longitude: number;
   accuracy: number | null;
   recordedAt: string;
+  routePoints?: Array<{ lat: number; lng: number }> | null;
 };
 
 export async function sendLiveLocation(token: string, input: {
   latitude: number;
   longitude: number;
   accuracy?: number | null;
+  routePoints?: Array<{ lat: number; lng: number }> | null;
 }) {
   return apiRequest<{ ok: true }>("/location", {
     method: "POST",

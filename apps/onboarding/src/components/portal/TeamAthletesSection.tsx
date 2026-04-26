@@ -202,7 +202,7 @@ export function TeamAthletesSection({
 					provisionalEmail: res.email,
 					provisionalPassword: res.temporaryPassword,
 				} as { provisionalEmail?: string; provisionalPassword?: string },
-			});
+			} as any);
 		} catch (err) {
 			toast.error(
 				err instanceof Error ? err.message : "Could not create athlete",

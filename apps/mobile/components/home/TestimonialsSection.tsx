@@ -1,18 +1,17 @@
-import { Feather } from "@/components/ui/theme-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
   FlatList,
-  Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
   View,
   useWindowDimensions,
 } from "react-native";
+import { Image } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
+
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
-import { Ionicons } from "@expo/vector-icons";
-import { Shadows } from "@/constants/theme";
+import { AppIcon } from "@/components/ui/app-icon";
 import { radius, spacing } from "@/constants/theme";
 
 const AUTO_SCROLL_INTERVAL = 6000;
@@ -49,80 +48,98 @@ function TestimonialCard({
   const rating = Math.max(1, Math.min(5, Number(item.rating ?? 5)));
 
   return (
-    <View style={{ width: cardWidth, paddingHorizontal: 8 }}>
+    <View style={{ width: cardWidth, paddingHorizontal: 6 }}>
       <View
-        className="border"
         style={{
-          borderRadius: radius.xxl,
+          minHeight: 206,
+          borderRadius: radius.xl,
           padding: spacing.xl,
-          backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-          ...(isDark ? Shadows.none : Shadows.sm),
-          minHeight: 220,
+          backgroundColor: isDark ? colors.card : "#FFFFFF",
+          borderWidth: 1,
+          borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(16,25,20,0.07)",
+          gap: spacing.lg,
         }}
       >
-        <View className="mb-4 flex-row items-center gap-2">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Ionicons
-              key={i}
-              name="star"
-              size={13}
-              color={
-                i <= rating
-                  ? "#F59E0B"
-                  : isDark
-                    ? "rgba(255,255,255,0.12)"
-                    : "rgba(15,23,42,0.07)"
-              }
-            />
-          ))}
-        </View>
-
-        <Text
-          className="font-outfit flex-1"
-          style={{ color: isDark ? "#E2E8F0" : "#334155" }}
-          numberOfLines={5}
-        >
-          {quote ? `“${quote}”` : "“Great experience.”"}
-        </Text>
-
-        <View
-          className="flex-row items-center gap-4 mt-auto pt-5 border-t"
-          style={{
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)",
-          }}
-        >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
           <View
-            className="h-12 w-12 rounded-full overflow-hidden items-center justify-center border"
             style={{
-              backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.08)",
-              borderColor: isDark ? "rgba(34,197,94,0.20)" : "rgba(34,197,94,0.16)",
+              width: 52,
+              height: 52,
+              borderRadius: 26,
+              overflow: "hidden",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isDark ? colors.heroSurfaceMuted : colors.backgroundSecondary,
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(16,25,20,0.06)",
             }}
           >
             {photo ? (
-              <Image source={{ uri: photo }} className="h-full w-full" resizeMode="cover" />
+              <Image source={{ uri: photo }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
             ) : (
-              <Feather name="user" size={18} color={colors.accent} />
+              <AppIcon name="user" size={22} color={colors.accent} />
             )}
           </View>
-          <View className="flex-1">
+
+          <View style={{ flex: 1, gap: 2 }}>
             <Text
-              className="font-clash font-bold text-[16px]"
-              style={{ color: isDark ? "#F8FAFC" : colors.text }}
+              style={{
+                fontFamily: "Satoshi-Bold",
+                fontSize: 16,
+                lineHeight: 20,
+                color: colors.text,
+              }}
               numberOfLines={1}
             >
               {item.name}
             </Text>
             {item.role ? (
               <Text
-                className="font-outfit text-[11px] mt-0.5 uppercase tracking-[1.2px]"
-                style={{ color: isDark ? "rgba(226,232,240,0.72)" : "rgba(71,85,105,0.82)" }}
+                style={{
+                  fontFamily: "Satoshi-Medium",
+                  fontSize: 13,
+                  lineHeight: 17,
+                  color: colors.textSecondary,
+                }}
                 numberOfLines={1}
               >
                 {item.role}
               </Text>
             ) : null}
           </View>
+        </View>
+
+        <View style={{ gap: spacing.md, flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <View
+                key={i}
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: 999,
+                  backgroundColor:
+                    i <= rating
+                      ? colors.accent
+                      : isDark
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(16,25,20,0.10)",
+                }}
+              />
+            ))}
+          </View>
+
+          <Text
+            style={{
+              fontFamily: "Satoshi-Medium",
+              fontSize: 16,
+              lineHeight: 24,
+              color: colors.text,
+            }}
+            numberOfLines={5}
+          >
+            {quote ? `"${quote}"` : '"Great experience."'}
+          </Text>
         </View>
       </View>
     </View>
@@ -138,25 +155,27 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
   const activeIndexRef = useRef(0);
   const testimonials = items && items.length ? items : [];
 
-  // Card takes up 85% of screen, plus padding. This ensures the next card peeks in.
-  const cardWidth = screenWidth * 0.85;
-  const contentInset = (screenWidth - cardWidth) / 2;
+  const cardWidth = Math.min(screenWidth - 40, 340);
+  const sideInset = Math.max(20, (screenWidth - cardWidth) / 2);
 
   useEffect(() => {
     if (testimonials.length <= 1) return;
+
     const interval = setInterval(() => {
       if (isUserInteractingRef.current) return;
       const currentIndex = activeIndexRef.current;
       let nextIndex = currentIndex + 1;
       if (nextIndex >= testimonials.length) nextIndex = 0;
-      // scrollToIndex requires getItemLayout/onScrollToIndexFailed; fixed-width items use offset instead.
+
       flatListRef.current?.scrollToOffset({
         offset: nextIndex * cardWidth,
         animated: true,
       });
+
       setActiveIndex(nextIndex);
       activeIndexRef.current = nextIndex;
     }, AUTO_SCROLL_INTERVAL);
+
     return () => clearInterval(interval);
   }, [cardWidth, testimonials.length]);
 
@@ -171,47 +190,63 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
   };
 
   return (
-    <View>
-      <View className="flex-row items-end justify-between px-6 mb-4">
-        <View className="flex-1 pr-4">
-          <Text className="text-lg font-clash font-bold text-app">Testimonials</Text>
+    <View style={{ gap: spacing.md }}>
+      <View
+        style={{
+          paddingHorizontal: spacing.xl,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: spacing.md,
+        }}
+      >
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text
+            style={{
+              fontFamily: "Satoshi-Bold",
+              fontSize: 20,
+              lineHeight: 24,
+              color: colors.text,
+            }}
+          >
+            Testimonials
+          </Text>
+          <Text
+            style={{
+              fontFamily: "Satoshi-Medium",
+              fontSize: 13,
+              lineHeight: 18,
+              color: colors.textSecondary,
+            }}
+          >
+            What athletes are saying
+          </Text>
         </View>
 
-        <View className="items-end">
-          <Text
-            className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
-            style={{ color: isDark ? "rgba(226,232,240,0.78)" : "rgba(71,85,105,0.82)" }}
-          >
-            {activeIndex + 1} / {testimonials.length}
-          </Text>
-          <View className="flex-row gap-1.5 mt-2">
+        {testimonials.length > 1 ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             {testimonials.map((_, i) => (
               <DotIndicator
                 key={i}
                 isActive={activeIndex === i}
                 activeColor={colors.accent}
-                inactiveColor={isDark ? "rgba(255,255,255,0.16)" : "rgba(15,23,42,0.10)"}
+                inactiveColor={isDark ? "rgba(255,255,255,0.16)" : "rgba(16,25,20,0.12)"}
               />
             ))}
           </View>
-        </View>
+        ) : null}
       </View>
 
       <FlatList
         ref={flatListRef}
         data={testimonials}
         renderItem={({ item }) => (
-          <TestimonialCard 
-            item={item} 
-            colors={colors} 
-            isDark={isDark} 
-            cardWidth={cardWidth}
-          />
+          <TestimonialCard item={item} colors={colors} isDark={isDark} cardWidth={cardWidth} />
         )}
         keyExtractor={(item, index) => (item.id ? String(item.id) : `t-${index}`)}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: contentInset - 8 }} // Adjust for card's internal padding
+        contentContainerStyle={{ paddingHorizontal: sideInset - 6 }}
         snapToInterval={cardWidth}
         decelerationRate="fast"
         onScroll={onScroll}
@@ -227,13 +262,24 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
   );
 }
 
-function DotIndicator({ isActive, activeColor, inactiveColor }: any) {
-  const dotStyle = useAnimatedStyle(() => ({
-    width: withSpring(isActive ? 16 : 6, { damping: 15 }),
-    height: 6,
-    backgroundColor: isActive ? activeColor : inactiveColor,
-    borderRadius: 3,
-  }), [isActive]);
+function DotIndicator({
+  isActive,
+  activeColor,
+  inactiveColor,
+}: {
+  isActive: boolean;
+  activeColor: string;
+  inactiveColor: string;
+}) {
+  const dotStyle = useAnimatedStyle(
+    () => ({
+      width: withSpring(isActive ? 16 : 6, { damping: 15 }),
+      height: 6,
+      backgroundColor: isActive ? activeColor : inactiveColor,
+      borderRadius: 999,
+    }),
+    [isActive, activeColor, inactiveColor],
+  );
 
   return <Animated.View style={dotStyle} />;
 }

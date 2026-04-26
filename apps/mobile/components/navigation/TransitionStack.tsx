@@ -6,7 +6,7 @@ import {
 import Transition from "react-native-screen-transitions";
 import { interpolate } from "react-native-reanimated";
 import Constants from "expo-constants";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 
 const { Navigator } = createBlankStackNavigator();
 
@@ -23,7 +23,9 @@ export function SafeMaskedView({
   children: React.ReactNode;
   style?: any;
 }) {
-  if (isExpoGo) {
+  // On Android, react-native-screen-transitions' MaskedView triggers
+  // FragmentManager "already executing transactions" crashes. Use a plain View.
+  if (isExpoGo || Platform.OS === "android") {
     return <View style={style}>{children}</View>;
   }
   return <Transition.MaskedView style={style}>{children}</Transition.MaskedView>;

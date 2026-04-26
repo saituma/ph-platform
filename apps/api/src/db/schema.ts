@@ -9,6 +9,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   varchar,
   type AnyPgColumn,
@@ -124,9 +125,29 @@ export const userTable = pgTable("users", {
   lastNutritionReminderDateKey: varchar("last_nutrition_reminder_date_key", { length: 10 }), // 'YYYY-MM-DD'
   lastNutritionReminderSentAt: timestamp("last_nutrition_reminder_sent_at"),
 
+  lastSeenAt: timestamp("last_seen_at"),
+
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
+
+export const userDeviceTokensTable = pgTable(
+  "user_device_tokens",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }),
+    deviceId: varchar({ length: 255 }).notNull(),
+    expoPushToken: varchar({ length: 255 }),
+    devicePushToken: text(),
+    devicePushTokenType: varchar({ length: 20 }),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (t) => [
+    index("user_device_tokens_user_id_idx").on(t.userId),
+    unique("user_device_tokens_user_id_device_id_unique").on(t.userId, t.deviceId),
+  ],
+);
 
 export const userLocationTable = pgTable("user_locations", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -137,6 +158,7 @@ export const userLocationTable = pgTable("user_locations", {
   longitude: doublePrecision().notNull(),
   accuracy: integer(),
   recordedAt: timestamp().notNull().defaultNow(),
+  routePoints: jsonb("route_points").$type<Array<{ lat: number; lng: number }>>(),
 });
 
 export const adminSettingsTable = pgTable(
@@ -774,6 +796,7 @@ export const messageTable = pgTable(
     content: varchar({ length: 255 }).notNull(),
     contentType: messageType().default("text").notNull(),
     mediaUrl: varchar({ length: 500 }),
+    clientMessageId: varchar({ length: 96 }),
     videoUploadId: integer(),
     read: boolean().notNull().default(false),
     createdAt: timestamp().notNull().defaultNow(),
@@ -782,6 +805,12 @@ export const messageTable = pgTable(
   (table) => ({
     senderIdx: index("messages_sender_id_idx").on(table.senderId),
     receiverIdx: index("messages_receiver_id_idx").on(table.receiverId),
+    receiverCreatedAtIdx: index("messages_receiver_created_at_idx").on(table.receiverId, table.createdAt),
+    senderReceiverClientUnique: uniqueIndex("messages_sender_receiver_client_unique").on(
+      table.senderId,
+      table.receiverId,
+      table.clientMessageId,
+    ),
   }),
 );
 
@@ -828,10 +857,17 @@ export const chatGroupMessageTable = pgTable(
     content: varchar({ length: 500 }).notNull(),
     contentType: messageType().default("text").notNull(),
     mediaUrl: varchar({ length: 500 }),
+    clientMessageId: varchar({ length: 96 }),
     createdAt: timestamp().notNull().defaultNow(),
   },
   (table) => ({
     groupIdx: index("chat_group_messages_group_idx").on(table.groupId),
+    groupCreatedAtIdx: index("chat_group_messages_group_created_at_idx").on(table.groupId, table.createdAt),
+    groupSenderClientUnique: uniqueIndex("chat_group_messages_group_sender_client_unique").on(
+      table.groupId,
+      table.senderId,
+      table.clientMessageId,
+    ),
   }),
 );
 
@@ -853,6 +889,27 @@ export const messageReactionTable = pgTable(
   }),
 );
 
+export const messageReceiptTable = pgTable(
+  "message_receipts",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    messageId: integer()
+      .notNull()
+      .references(() => messageTable.id),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id),
+    deliveredAt: timestamp().notNull().defaultNow(),
+    readAt: timestamp(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    messageUserUnique: uniqueIndex("message_receipts_message_user_unique").on(table.messageId, table.userId),
+    messageReadIdx: index("message_receipts_message_read_idx").on(table.messageId, table.readAt),
+    userReadIdx: index("message_receipts_user_read_idx").on(table.userId, table.readAt),
+  }),
+);
+
 export const chatGroupMessageReactionTable = pgTable(
   "chat_group_message_reactions",
   {
@@ -868,6 +925,27 @@ export const chatGroupMessageReactionTable = pgTable(
   },
   (table) => ({
     messageIdx: index("chat_group_message_reactions_message_idx").on(table.messageId),
+  }),
+);
+
+export const chatGroupMessageReceiptTable = pgTable(
+  "chat_group_message_receipts",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    messageId: integer()
+      .notNull()
+      .references(() => chatGroupMessageTable.id),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id),
+    deliveredAt: timestamp().notNull().defaultNow(),
+    readAt: timestamp(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    messageUserUnique: uniqueIndex("chat_group_message_receipts_message_user_unique").on(table.messageId, table.userId),
+    messageReadIdx: index("chat_group_message_receipts_message_read_idx").on(table.messageId, table.readAt),
+    userReadIdx: index("chat_group_message_receipts_user_read_idx").on(table.userId, table.readAt),
   }),
 );
 
@@ -919,6 +997,7 @@ export const bookingTable = pgTable("bookings", {
   serviceTypeId: integer(),
   occurrenceKey: varchar({ length: 255 }),
   slotKey: varchar({ length: 255 }),
+  timezoneOffsetMinutes: integer(),
   createdBy: integer()
     .notNull()
     .references(() => userTable.id),
@@ -1256,6 +1335,8 @@ export const nutritionLogsTable = pgTable(
       .notNull()
       .references(() => userTable.id, { onDelete: "cascade" }),
     dateKey: varchar({ length: 10 }).notNull(), // 'YYYY-MM-DD'
+    mealType: varchar({ length: 30 }).notNull().default("daily"), // 'daily' | 'breakfast' | 'lunch' | 'dinner' | 'snack' | custom
+    loggedAt: timestamp().notNull().defaultNow(),
     athleteType: varchar({ length: 20 }).notNull().default("youth"), // 'youth' | 'adult'
 
     // Youth specific
@@ -1286,9 +1367,14 @@ export const nutritionLogsTable = pgTable(
     updatedAt: timestamp().notNull().defaultNow(),
   },
   (table) => ({
-    userDateUnique: uniqueIndex("nutrition_logs_user_date_unique").on(table.userId, table.dateKey),
+    userDateMealUnique: uniqueIndex("nutrition_logs_user_date_meal_unique").on(
+      table.userId,
+      table.dateKey,
+      table.mealType,
+    ),
     userIdx: index("nutrition_logs_user_idx").on(table.userId),
     dateIdx: index("nutrition_logs_date_idx").on(table.dateKey),
+    userDateIdx: index("nutrition_logs_user_date_idx").on(table.userId, table.dateKey),
   }),
 );
 
@@ -1397,5 +1483,39 @@ export const socialPostLikeTable = pgTable(
     postUserUnique: uniqueIndex("social_post_likes_post_user_unique").on(table.postId, table.userId),
     postIdx: index("social_post_likes_post_idx").on(table.postId),
     userIdx: index("social_post_likes_user_idx").on(table.userId),
+  }),
+);
+
+export const userReferralCodesTable = pgTable(
+  "user_referral_codes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    code: varchar("code", { length: 20 }).notNull().unique(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdUnique: uniqueIndex("user_referral_codes_user_unique").on(table.userId),
+    codeUnique: uniqueIndex("user_referral_codes_code_unique").on(table.code),
+  }),
+);
+
+export const referralClaimsTable = pgTable(
+  "referral_claims",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    referralCodeId: integer("referral_code_id")
+      .notNull()
+      .references(() => userReferralCodesTable.id, { onDelete: "cascade" }),
+    newUserId: integer("new_user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    claimedAt: timestamp("claimed_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    newUserUnique: uniqueIndex("referral_claims_new_user_unique").on(table.newUserId),
+    referralCodeIdx: index("referral_claims_code_idx").on(table.referralCodeId),
   }),
 );

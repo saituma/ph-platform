@@ -2,6 +2,7 @@ import { Layout, SignOut, User as UserIcon } from "@phosphor-icons/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
+import { config } from "../lib/config";
 import ThemeToggle from "./ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -16,7 +17,12 @@ import {
 
 export default function Header() {
 	const [scrolled, setScrolled] = useState(false);
-	const { data: session, isPending } = authClient.useSession();
+	const [isPending, setIsPending] = useState(true);
+	const [sessionUser, setSessionUser] = useState<{
+		name: string;
+		email: string;
+		image: string;
+	} | null>(null);
 	const navigate = useNavigate();
 
 	useEffect(() => {
@@ -25,8 +31,76 @@ export default function Header() {
 		return () => window.removeEventListener("scroll", handleScroll);
 	}, []);
 
+	useEffect(() => {
+		let cancelled = false;
+		const syncSession = async () => {
+			try {
+				const token = localStorage.getItem("auth_token");
+				if (!token) {
+					if (!cancelled) setSessionUser(null);
+					return;
+				}
+
+				const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
+				const response = await fetch(`${baseUrl}/api/auth/me`, {
+					headers: { Authorization: `Bearer ${token}` },
+					cache: "no-store",
+				});
+
+				if (response.status === 401 || response.status === 403) {
+					localStorage.removeItem("auth_token");
+					localStorage.removeItem("user_type");
+					localStorage.removeItem("pending_email");
+					if (!cancelled) setSessionUser(null);
+					return;
+				}
+
+				if (response.status === 200) {
+					const data = (await response.json()) as {
+						user?: {
+							name?: string | null;
+							email?: string | null;
+							profilePicture?: string | null;
+						};
+					};
+					const name = data?.user?.name?.trim() || "User";
+					const email = data?.user?.email?.trim() || "";
+					const image = data?.user?.profilePicture?.trim() || "";
+					if (!cancelled) setSessionUser({ name, email, image });
+					return;
+				}
+
+				if (response.status === 304 || response.status >= 500) {
+					if (!cancelled) {
+						setSessionUser((prev) =>
+							prev ?? { name: "User", email: "", image: "" },
+						);
+					}
+					return;
+				}
+
+				if (!cancelled) setSessionUser(null);
+			} catch {
+				if (!cancelled) {
+					setSessionUser((prev) => prev ?? { name: "User", email: "", image: "" });
+				}
+			} finally {
+				if (!cancelled) setIsPending(false);
+			}
+		};
+
+		void syncSession();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
 	const handleSignOut = async () => {
-		await authClient.signOut();
+		localStorage.removeItem("auth_token");
+		localStorage.removeItem("user_type");
+		localStorage.removeItem("pending_email");
+		setSessionUser(null);
+		await authClient.signOut().catch(() => undefined);
 		navigate({ to: "/" });
 	};
 
@@ -77,7 +151,7 @@ export default function Header() {
 
 					{isPending ? (
 						<div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
-					) : session?.user ? (
+					) : sessionUser ? (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button
@@ -86,11 +160,11 @@ export default function Header() {
 								>
 									<Avatar className="h-9 w-9 border-none">
 										<AvatarImage
-											src={session.user.image || ""}
-											alt={session.user.name || "User"}
+											src={sessionUser.image || ""}
+											alt={sessionUser.name || "User"}
 										/>
 										<AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black uppercase">
-											{session.user.name
+											{sessionUser.name
 												?.split(" ")
 												.map((n) => n[0])
 												.join("") || "U"}
@@ -106,10 +180,10 @@ export default function Header() {
 								<DropdownMenuLabel className="font-normal p-4">
 									<div className="flex flex-col space-y-1">
 										<p className="text-xs font-black uppercase tracking-widest leading-none">
-											{session.user.name}
+											{sessionUser.name}
 										</p>
 										<p className="text-[10px] leading-none text-muted-foreground font-bold uppercase tracking-wider truncate">
-											{session.user.email}
+											{sessionUser.email}
 										</p>
 									</div>
 								</DropdownMenuLabel>
@@ -161,7 +235,7 @@ export default function Header() {
 								className="bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase italic tracking-tighter px-6 rounded-2xl shadow-xl shadow-primary/10 transition-all hover:-translate-y-0.5 active:scale-[0.95]"
 								asChild
 							>
-								<Link to="/onboarding/create-account">Get Started</Link>
+								<Link to="/">Get Started</Link>
 							</Button>
 						</>
 					)}

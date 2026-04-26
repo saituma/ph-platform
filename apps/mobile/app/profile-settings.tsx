@@ -1,13 +1,12 @@
-import { ActionButton } from "@/components/dashboard/ActionButton";
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRefreshContext } from "@/context/RefreshContext";
 
-import { useRouter } from "expo-router";
 import React from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/components/ScaledText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
@@ -20,6 +19,7 @@ export default function ProfileSettingsScreen() {
   const { isSectionHidden } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const { colors } = useAppTheme();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
   const {
     profile,
@@ -87,15 +87,31 @@ export default function ProfileSettingsScreen() {
               managedAthleteCount={managedAthleteCount}
             />
 
-            <ActionButton
-              label={isSaving ? "Saving..." : "Save Changes"}
-              icon="check"
-              color="bg-accent"
-              iconColor="text-white"
+            <Pressable
               onPress={handleSave}
-              fullWidth={true}
-              size="xl"
-            />
+              disabled={isSaving}
+              style={({ pressed }) => ({
+                marginTop: 8,
+                backgroundColor: colors.accent,
+                borderRadius: 16,
+                height: 56,
+                width: "100%",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: isSaving || pressed ? 0.75 : 1,
+              })}
+            >
+              <Text
+                style={{
+                  color: "#FFFFFF",
+                  fontSize: 16,
+                  fontFamily: "Outfit-SemiBold",
+                  letterSpacing: 0.2,
+                }}
+              >
+                {isSaving ? "Saving…" : "Save Changes"}
+              </Text>
+            </Pressable>
           </View>
         )}
       </ThemedScrollView>

@@ -14,6 +14,7 @@ import {
   updateMe,
   updatePassword,
   deleteAccount,
+  getSessionCompat,
 } from "../controllers/auth.controller";
 import { requireAuth } from "../middlewares/auth";
 import rateLimit from "express-rate-limit";
@@ -42,6 +43,8 @@ router.post("/auth/login", authLimiter, login);
 router.post("/auth/refresh", authLimiter, refreshToken);
 router.post("/auth/forgot", authLimiter, startPasswordReset);
 router.post("/auth/forgot/confirm", authLimiter, confirmPasswordReset);
+router.get("/auth/get-session", getSessionCompat);
+router.get("/auth/session", getSessionCompat);
 router.get("/auth/me", requireAuth, getMe);
 router.patch("/auth/me", requireAuth, updateMe);
 router.post("/auth/change-password", requireAuth, updatePassword);

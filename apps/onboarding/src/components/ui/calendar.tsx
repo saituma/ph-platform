@@ -8,11 +8,14 @@ import { buttonVariants, Button } from "#/components/ui/button";
 
 function CustomMonthCaption(props: any) {
 	const { goToMonth, nextMonth, previousMonth } = useNavigation();
-	const { startMonth, endMonth } = useDayPicker();
+	const { startMonth, endMonth } = useDayPicker() as {
+		startMonth?: Date;
+		endMonth?: Date;
+	};
 
 	// In v9, MonthCaption receives a 'calendarMonth' prop
 	const calendarMonth = props.calendarMonth;
-	if (!calendarMonth || !calendarMonth.date) return null;
+	if (!calendarMonth || !calendarMonth.date) return <div />;
 	
 	const displayDate = calendarMonth.date;
 
@@ -144,7 +147,7 @@ function Calendar({
 			components={{
 				MonthCaption: CustomMonthCaption,
 				// We need to hide the default Nav as our CustomMonthCaption handles it
-				Nav: () => null,
+				Nav: () => <div />,
 			}}
 			{...props}
 		/>

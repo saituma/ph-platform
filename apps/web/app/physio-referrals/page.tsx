@@ -899,7 +899,7 @@ export default function ReferralsPage() {
                           const file = event.target.files?.[0];
                           if (!file) return;
                           await uploadReferralImage(file, setImageUrl, setIsUploadingImage);
-                          event.currentTarget.value = "";
+                          (event.target as HTMLInputElement).value = "";
                         }}
                       />
                       {isUploadingImage ? "Uploading..." : "Upload Image"}
@@ -1042,7 +1042,7 @@ export default function ReferralsPage() {
                                         const file = event.target.files?.[0];
                                         if (!file) return;
                                         await uploadReferralImage(file, setEditImageUrl, setIsUploadingEditImage);
-                                        event.currentTarget.value = "";
+                                        (event.target as HTMLInputElement).value = "";
                                       }}
                                     />
                                     {isUploadingEditImage ? "Uploading..." : "Upload Image"}

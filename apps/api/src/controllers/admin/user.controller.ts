@@ -95,7 +95,11 @@ const resetPasswordSchema = z.object({
 
 export async function listAllUsers(req: Request, res: Response) {
   const { q, limit } = adminSearchQuerySchema.parse(req.query ?? {});
-  const users = await listUsers({ q, limit });
+  const users = await listUsers({
+    q,
+    limit,
+    managedByTeamAdminId: req.user?.role === "team_coach" ? req.user.id : null,
+  });
   return res.status(200).json({ users });
 }
 

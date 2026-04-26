@@ -158,7 +158,7 @@ function About() {
 						</p>
 						<div className="flex flex-col sm:flex-row gap-6 justify-center pt-6">
 							<Link
-								to="/onboarding/create-account"
+								to="/"
 								className="px-12 py-5 rounded-2xl bg-primary text-primary-foreground font-black italic uppercase tracking-tighter shadow-[0_10px_40px_-10px_rgba(var(--primary),0.5)] hover:shadow-[0_15px_50px_-10px_rgba(var(--primary),0.6)] transition-all hover:-translate-y-1 active:scale-[0.98] flex items-center justify-center gap-3 group/btn"
 							>
 								GET STARTED NOW{" "}

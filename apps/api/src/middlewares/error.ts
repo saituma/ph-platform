@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
+import { getDbOutageRemainingMs, isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
 
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   const requestId = typeof res.locals?.requestId === "string" ? res.locals.requestId : undefined;
@@ -9,6 +10,28 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     path: req.originalUrl || req.url,
     userId: req.user?.id ?? null,
   };
+
+  if (isLikelyDatabaseConnectivityFailure(err)) {
+    const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "api_error",
+        statusCode: 503,
+        message,
+        code: "DB_UNAVAILABLE",
+        retryAfterSeconds,
+        ...context,
+      }),
+    );
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    return res.status(503).json({
+      error: "Service temporarily unavailable",
+      code: "DB_UNAVAILABLE",
+      retryAfterSeconds,
+    });
+  }
 
   if (err instanceof ZodError) {
     console.error(

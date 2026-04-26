@@ -152,11 +152,14 @@ export async function toggleDirectMessageReaction(input: { messageId: number; us
   if (existing[0]) {
     await db.delete(messageReactionTable).where(eq(messageReactionTable.id, existing[0].id));
   } else {
-    await db.insert(messageReactionTable).values({
-      messageId: input.messageId,
-      userId: input.userId,
-      emoji: input.emoji,
-    });
+    await db
+      .insert(messageReactionTable)
+      .values({
+        messageId: input.messageId,
+        userId: input.userId,
+        emoji: input.emoji,
+      })
+      .onConflictDoNothing();
   }
   const [enriched] = await attachDirectMessageReactions([message]);
   const io = getSocketServer();
@@ -199,11 +202,14 @@ export async function toggleGroupMessageReaction(input: {
   if (existing[0]) {
     await db.delete(chatGroupMessageReactionTable).where(eq(chatGroupMessageReactionTable.id, existing[0].id));
   } else {
-    await db.insert(chatGroupMessageReactionTable).values({
-      messageId: input.messageId,
-      userId: input.userId,
-      emoji: input.emoji,
-    });
+    await db
+      .insert(chatGroupMessageReactionTable)
+      .values({
+        messageId: input.messageId,
+        userId: input.userId,
+        emoji: input.emoji,
+      })
+      .onConflictDoNothing();
   }
   const [enriched] = await attachGroupMessageReactions([message]);
   const io = getSocketServer();

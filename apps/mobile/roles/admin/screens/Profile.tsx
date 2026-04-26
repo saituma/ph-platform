@@ -80,19 +80,22 @@ export default function AdminProfileScreen() {
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
       >
         {/* ── Page title ── */}
-        <View className="px-6 pt-6 mb-4 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-3 flex-1 mr-4 overflow-hidden">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text
-              className="text-4xl font-telma-bold text-app tracking-tight"
-              numberOfLines={1}
-            >
-              Profile
-            </Text>
+        <View style={{ paddingHorizontal: 24, paddingTop: 40, marginBottom: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 16, overflow: "hidden" }}>
+            <View style={{ width: 5, height: 36, borderRadius: 3, backgroundColor: colors.accent }} />
+            <View>
+              <Text
+                style={{ fontFamily: "Telma-Bold", fontSize: 44, color: colors.textPrimary, letterSpacing: -1, lineHeight: 48 }}
+                numberOfLines={1}
+              >
+                Profile
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
+                Account · Settings · Theme
+              </Text>
+            </View>
           </View>
-          <View className="mr-6">
-            <ThemeToggle size={58} iconSize={28} />
-          </View>
+          <ThemeToggle size={52} iconSize={24} />
         </View>
 
         {/* ── Identity card ── */}

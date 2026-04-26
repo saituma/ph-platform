@@ -10,7 +10,7 @@ import {
 	Video,
 } from "lucide-react";
 import { toast } from "sonner";
-import { env } from "@/env";
+import { config } from "@/lib/config";
 import { getClientAuthToken } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
 import { fetchTeamWorkspace } from "@/services/programsService";
@@ -234,7 +234,7 @@ function SessionDetailPage() {
 
 	const finishMutation = useMutation({
 		mutationFn: async () => {
-			const baseUrl = env.VITE_PUBLIC_API_URL || "http://localhost:3000";
+			const baseUrl = config.api.baseUrl;
 			const response = await fetch(
 				`${baseUrl}/api/training-content-v2/mobile/sessions/${sessionId}/finish`,
 				{

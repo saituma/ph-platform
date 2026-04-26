@@ -4,11 +4,13 @@ import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
+import { isAdminRole } from "@/lib/isAdminRole";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, Switch, View } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 
 type AdminTeamDetail = {
   team: string;
@@ -112,9 +114,14 @@ function asString(value: string | string[] | undefined) {
 export default function AdminTeamDetailScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
-  const token = useAppSelector((state) => state.user.token);
+  const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const canLoad = Boolean(token && bootstrapReady);
+
+  const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
+  if (!canAccess) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   const params = useLocalSearchParams<{ teamName?: string }>();
   const teamName = asString(params.teamName);

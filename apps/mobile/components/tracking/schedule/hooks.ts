@@ -7,10 +7,12 @@ export function useScheduleData(token: string | null, isFocused: boolean) {
   const eventsQuery = useQuery({
     queryKey: ["bookings"],
     queryFn: async () => {
-      const data = await apiRequest<{ items: any[] }>("/bookings", { token, forceRefresh: true });
+      const data = await apiRequest<{ items: any[] }>("/bookings", { token });
       return mapBookingsToEvents(data.items ?? []);
     },
     enabled: !!token && isFocused,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   const servicesQuery = useQuery({
@@ -19,14 +21,15 @@ export function useScheduleData(token: string | null, isFocused: boolean) {
       const data = await apiRequest<{ items: ServiceType[] }>(
         "/bookings/services?includeLocked=true&omitWithoutBookableSlots=true",
         {
-        token,
-        forceRefresh: true,
-        timeoutMs: 6000,
+          token,
+          timeoutMs: 6000,
         },
       );
       return data.items ?? [];
     },
     enabled: !!token,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 
   return {

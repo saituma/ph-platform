@@ -1,4 +1,4 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, lt } from "drizzle-orm";
 import { db } from "../../db";
 import { bookingTable, serviceTypeTable } from "../../db/schema";
 import {
@@ -18,7 +18,7 @@ import {
   countActiveBookingsForOccurrence,
   countActiveBookingsForService,
 } from "./availability.service";
-import { notifyBookingRequested } from "./notification.service";
+import { notifyBookingCancelled, notifyBookingRequested } from "./notification.service";
 
 let cachedSupportsServiceEligiblePlans: boolean | null = null;
 
@@ -488,6 +488,7 @@ export async function createBooking(input: {
       serviceTypeId: input.serviceTypeId,
       occurrenceKey,
       slotKey,
+      timezoneOffsetMinutes: input.timezoneOffsetMinutes ?? null,
       createdBy: input.createdBy,
     })
     .returning();
@@ -522,4 +523,29 @@ export async function listBookingsForUser(guardianId: number) {
 
 export async function listBookingsForAthlete(athleteId: number) {
   return db.select().from(bookingTable).where(eq(bookingTable.athleteId, athleteId));
+}
+
+export async function cancelBookingForUser(bookingId: number, guardianId: number) {
+  const [booking] = await db.select().from(bookingTable).where(eq(bookingTable.id, bookingId)).limit(1);
+  if (!booking) throw new Error("NOT_FOUND");
+  if (booking.guardianId !== guardianId) throw new Error("FORBIDDEN");
+  if (booking.status === "cancelled" || booking.status === "declined") throw new Error("ALREADY_CLOSED");
+
+  const [updated] = await db
+    .update(bookingTable)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(eq(bookingTable.id, bookingId))
+    .returning();
+
+  void notifyBookingCancelled(bookingId);
+
+  return updated;
+}
+
+export async function expireStaleBookings() {
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  return db
+    .update(bookingTable)
+    .set({ status: "declined", updatedAt: new Date() })
+    .where(and(eq(bookingTable.status, "pending"), lt(bookingTable.createdAt, cutoff)));
 }

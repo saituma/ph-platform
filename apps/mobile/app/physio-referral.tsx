@@ -143,7 +143,7 @@ export default function PhysioReferralScreen() {
               <View className="h-16 w-16 rounded-full bg-secondary/20 items-center justify-center mb-4">
                 <Feather name="activity" size={28} color="#94A3B8" />
               </View>
-              <Text className="text-lg font-clash text-white font-bold mb-2 text-center">No Referral Yet</Text>
+              <Text className="text-lg font-clash text-app font-bold mb-2 text-center">No Referral Yet</Text>
               <Text className="text-sm font-outfit text-secondary text-center leading-relaxed">
                 Your coach has not assigned a referral for you yet. They will notify you when one is ready.
               </Text>
@@ -151,26 +151,34 @@ export default function PhysioReferralScreen() {
           ) : (
             <View className="gap-6">
               {/* Main Actions Card */}
-              <View className="rounded-3xl bg-[#1F6F45] px-6 py-6 shadow-sm overflow-hidden">
-                <View className="absolute -top-10 -right-10 opacity-10">
+              <View style={{
+                borderRadius: 24,
+                backgroundColor: "#1F6F45",
+                paddingHorizontal: 24,
+                paddingVertical: 24,
+                overflow: "hidden",
+              }}>
+                <View style={{ position: "absolute", top: -40, right: -40, opacity: 0.1 }}>
                   <Feather name="activity" size={120} color="#FFFFFF" />
                 </View>
-                
-                <Text className="text-2xl font-clash text-white font-bold mb-2">Open Referral</Text>
-                
+
+                <Text style={{ fontSize: 22, fontFamily: "Chillax-Semibold", color: "#FFFFFF", marginBottom: 8 }}>
+                  Open Referral
+                </Text>
+
                 {referral.discountPercent ? (
-                  <View className="mb-6 flex-row items-center gap-2">
-                    <View className="rounded-full bg-white/20 px-3 py-1">
-                      <Text className="text-xs font-outfit text-white font-bold tracking-wider">
+                  <View style={{ marginBottom: 20, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View style={{ borderRadius: 99, backgroundColor: "rgba(255,255,255,0.25)", paddingHorizontal: 12, paddingVertical: 4 }}>
+                      <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: "#FFFFFF", letterSpacing: 1 }}>
                         {referral.discountPercent}% OFF
                       </Text>
                     </View>
-                    <Text className="text-xs font-outfit text-white/80">
+                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.85)" }}>
                       Included with this referral link.
                     </Text>
                   </View>
                 ) : (
-                  <Text className="mb-6 text-sm font-outfit text-white/90">
+                  <Text style={{ marginBottom: 20, fontSize: 14, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.9)" }}>
                     Use your referral link below.
                   </Text>
                 )}
@@ -179,10 +187,24 @@ export default function PhysioReferralScreen() {
                   onPress={() => {
                     if (referralLink) Linking.openURL(referralLink).catch(() => null);
                   }}
-                  className={`w-full rounded-2xl py-4 flex-row items-center justify-center gap-3 ${referralLink ? "bg-white" : "bg-white/20 opacity-50"}`}
                   disabled={!referralLink}
+                  style={({ pressed }) => ({
+                    width: "100%",
+                    borderRadius: 16,
+                    paddingVertical: 16,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                    backgroundColor: referralLink ? "#FFFFFF" : "rgba(255,255,255,0.25)",
+                    opacity: (!referralLink || pressed) ? 0.75 : 1,
+                  })}
                 >
-                  <Text className={`text-base font-outfit font-bold ${referralLink ? "text-[#1F6F45]" : "text-white"}`}>
+                  <Text style={{
+                    fontSize: 16,
+                    fontFamily: "Outfit-Bold",
+                    color: referralLink ? "#1F6F45" : "#FFFFFF",
+                  }}>
                     {referralLink ? "Open Referral Link" : "Link not available"}
                   </Text>
                   {referralLink && <Feather name="external-link" size={18} color="#1F6F45" />}

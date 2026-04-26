@@ -9,7 +9,9 @@ import {
   updateTeamMemberAdmin,
   attachAthleteToTeamAdmin,
 } from "../../services/admin/team.service";
-import { ProgramType } from "../../db/schema";
+import { ProgramType, teamTable } from "../../db/schema";
+import { db } from "../../db";
+import { and, eq } from "drizzle-orm";
 
 const teamDefaultsSchema = z.object({
   teamName: z.string().min(1),
@@ -36,8 +38,23 @@ const teamMemberUpdateSchema = z.object({
   relationToAthlete: z.string().optional().nullable(),
 });
 
-export async function listTeamsAdminDetails(_req: Request, res: Response) {
-  const teams = await listTeamsAdmin();
+function teamManagerScope(req: Request) {
+  return req.user?.role === "team_coach" ? req.user.id : null;
+}
+
+async function canAccessTeam(req: Request, teamName: string) {
+  const managerId = teamManagerScope(req);
+  if (managerId == null) return true;
+  const [team] = await db
+    .select({ id: teamTable.id })
+    .from(teamTable)
+    .where(and(eq(teamTable.name, teamName.trim()), eq(teamTable.adminId, managerId)))
+    .limit(1);
+  return Boolean(team);
+}
+
+export async function listTeamsAdminDetails(req: Request, res: Response) {
+  const teams = await listTeamsAdmin({ adminId: teamManagerScope(req) });
   return res.status(200).json({ teams });
 }
 
@@ -101,6 +118,9 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
 
 export async function getTeamAdminDetails(req: Request, res: Response) {
   const teamName = z.string().min(1).parse(req.params.teamName);
+  if (!(await canAccessTeam(req, teamName))) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
   const details = await getTeamDetailsAdmin(teamName);
   if (!details) {
     return res.status(404).json({ error: "Team not found" });
@@ -110,6 +130,9 @@ export async function getTeamAdminDetails(req: Request, res: Response) {
 
 export async function getTeamMemberAdminDetails(req: Request, res: Response) {
   const teamName = z.string().min(1).parse(req.params.teamName);
+  if (!(await canAccessTeam(req, teamName))) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
   const details = await getTeamMemberAdmin({ teamName, athleteId });
   if (!details) {
@@ -125,6 +148,9 @@ export async function saveTeamDefaultsAdmin(req: Request, res: Response) {
   }
 
   try {
+    if (!(await canAccessTeam(req, parsed.data.teamName))) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const result = await updateTeamDefaultsAdmin(parsed.data);
     return res.status(200).json(result);
   } catch (error: any) {
@@ -139,6 +165,9 @@ export async function saveTeamDefaultsAdmin(req: Request, res: Response) {
 
 export async function updateTeamMemberAdminDetails(req: Request, res: Response) {
   const teamName = z.string().min(1).parse(req.params.teamName);
+  if (!(await canAccessTeam(req, teamName))) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
   const parsed = teamMemberUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -164,6 +193,9 @@ export async function updateTeamMemberAdminDetails(req: Request, res: Response) 
 
 export async function attachAthleteToTeamAdminDetails(req: Request, res: Response) {
   const teamName = z.string().min(1).parse(req.params.teamName);
+  if (!(await canAccessTeam(req, teamName))) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
   try {
     const parsed = z.object({ allowMoveFromOtherTeam: z.coerce.boolean().optional() }).safeParse(req.body ?? {});

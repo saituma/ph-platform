@@ -12,6 +12,7 @@ import {
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 import { sendPushNotification } from "./push.service";
+import { cleanupOriginalVideoObject, optimizeUploadedVideoUrl } from "./video-optimization.service";
 
 export async function notifyCoachResponseVideo(input: { videoUploadId: number }) {
   try {
@@ -151,6 +152,34 @@ export async function createVideoUpload(input: {
       }
     } catch (err) {
       console.error("[Video Service] AI feedback failed:", err);
+    }
+  })();
+
+  // Async storage optimization pass (transcode + replace URL + delete original)
+  (async () => {
+    try {
+      const optimized = await optimizeUploadedVideoUrl(upload.videoUrl);
+      if (!optimized) return;
+
+      await db
+        .update(videoUploadTable)
+        .set({
+          videoUrl: optimized.optimizedUrl,
+          updatedAt: new Date(),
+        })
+        .where(eq(videoUploadTable.id, upload.id));
+
+      await cleanupOriginalVideoObject(optimized.originalKey).catch((err) => {
+        console.warn("[VideoOptimization] Failed to delete original object:", err);
+      });
+
+      console.info(
+        `[VideoOptimization] upload=${upload.id} saved ${
+          optimized.bytesBefore - optimized.bytesAfter
+        } bytes (${optimized.bytesBefore} -> ${optimized.bytesAfter})`,
+      );
+    } catch (err) {
+      console.warn("[VideoOptimization] Optimization skipped/failed:", err);
     }
   })();
 

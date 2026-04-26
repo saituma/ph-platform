@@ -13,7 +13,7 @@ export function useHomeContent(token: string | null, bootstrapReady: boolean) {
 
   const load = useCallback(async (forceRefresh = false) => {
     if (!token || !bootstrapReady) return;
-    setIsLoading(true);
+    if (!forceRefresh) setIsLoading(true);
     try {
       const content = await fetchHomeContent(token, forceRefresh);
       if (isMountedRef.current) {

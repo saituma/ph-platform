@@ -13,17 +13,17 @@ import { requireRole } from "../middlewares/roles";
 
 const router = Router();
 
-router.get("/team/roster", requireAuth, requireRole(["coach", "admin", "superAdmin"]), getTeamRoster);
+router.get("/team/roster", requireAuth, requireRole(["coach", "team_coach", "admin", "superAdmin"]), getTeamRoster);
 router.get(
   "/team/roster/athletes/:athleteId",
   requireAuth,
-  requireRole(["coach", "admin", "superAdmin"]),
+  requireRole(["coach", "team_coach", "admin", "superAdmin"]),
   getTeamRosterAthlete,
 );
 router.post(
   "/team/roster/athletes/:athleteId/reset-password",
   requireAuth,
-  requireRole(["coach", "admin", "superAdmin"]),
+  requireRole(["coach", "team_coach", "admin", "superAdmin"]),
   postTeamRosterAthleteResetPassword,
 );
 router.post("/team/roster/athletes", requireAuth, requireRole(["coach", "admin", "superAdmin"]), postTeamRosterAthlete);
@@ -31,7 +31,7 @@ router.patch("/team/roster/email-slug", requireAuth, requireRole(["coach", "admi
 router.patch(
   "/team/roster/athletes/:athleteId",
   requireAuth,
-  requireRole(["coach", "admin", "superAdmin"]),
+  requireRole(["coach", "team_coach", "admin", "superAdmin"]),
   patchTeamRosterAthleteHandler,
 );
 

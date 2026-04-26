@@ -1,6 +1,5 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
-import { ActionButton } from "@/components/dashboard/ActionButton";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { apiRequest } from "@/lib/api";
@@ -13,15 +12,20 @@ import {
     Modal,
     Platform,
     Pressable,
+    TouchableOpacity,
     View,
 } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Animated, {
     FadeInDown,
     ZoomIn,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
 } from "react-native-reanimated";
-import { AdminCard } from "../components/AdminCard";
 import { ADMIN_TAB_ROUTES } from "../tabs";
+import { Feather } from "@/components/ui/theme-icons";
+import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
 
 type AdminDashboard = {
     kpis: {
@@ -76,8 +80,6 @@ type HomeDetail =
     }
     | { kind: "athlete"; name: string; score: string; tier: string; };
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 function formatTierLabel(raw: string) {
     const trimmed = String(raw ?? "").trim();
     if (!trimmed) return "—";
@@ -94,8 +96,207 @@ function chunk<T>(items: T[], size: number) {
     return result;
 }
 
+// KPI icon/color config
+const KPI_CONFIG = [
+    { icon: "users", color: "#34C759", bgAlpha: "22" },
+    { icon: "star", color: "#FFB020", bgAlpha: "22" },
+    { icon: "message-circle", color: "#7B61FF", bgAlpha: "22" },
+    { icon: "calendar", color: "#30B0C7", bgAlpha: "22" },
+] as const;
+
+// Quick action config with icons and colors
+const ACTION_CONFIG: {
+    id: string;
+    icon: string;
+    label: string;
+    color: string;
+    bgAlpha: string;
+}[] = [
+    { id: "users", icon: "users", label: "Users", color: "#34C759", bgAlpha: "18" },
+    { id: "video", icon: "video", label: "Videos", color: "#7B61FF", bgAlpha: "18" },
+    { id: "content", icon: "layers", label: "Content", color: "#30B0C7", bgAlpha: "18" },
+    { id: "schedule", icon: "calendar", label: "Schedule", color: "#FFB020", bgAlpha: "18" },
+    { id: "ops", icon: "settings", label: "Ops", color: "#FF6B6B", bgAlpha: "18" },
+    { id: "nutrition", icon: "clipboard", label: "Nutrition", color: "#34C759", bgAlpha: "18" },
+    { id: "referrals", icon: "activity", label: "Referrals", color: "#30B0C7", bgAlpha: "18" },
+];
+
+function PressableActionTile({
+    icon,
+    label,
+    color,
+    bgAlpha,
+    onPress,
+    index,
+}: {
+    icon: string;
+    label: string;
+    color: string;
+    bgAlpha: string;
+    onPress: () => void;
+    index: number;
+}) {
+    const { isDark } = useAppTheme();
+    const scale = useSharedValue(1);
+    const animStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
+    return (
+        <Animated.View entering={ZoomIn.delay(80 + index * 35)} style={[animStyle, { flex: 1 }]}>
+            <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={onPress}
+                onPressIn={() => { scale.value = withSpring(0.94, { damping: 14 }); }}
+                onPressOut={() => { scale.value = withSpring(1, { damping: 14 }); }}
+                style={{
+                    alignItems: "center",
+                    paddingVertical: 16,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    backgroundColor: isDark ? `${color}${bgAlpha}` : `${color}12`,
+                    borderColor: isDark ? `${color}30` : `${color}25`,
+                }}
+            >
+                <View
+                    style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
+                        backgroundColor: isDark ? `${color}25` : `${color}18`,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginBottom: 10,
+                        borderWidth: 1,
+                        borderColor: isDark ? `${color}35` : `${color}22`,
+                    }}
+                >
+                    <Feather name={icon as any} size={20} color={color} />
+                </View>
+                <Text
+                    style={{
+                        fontFamily: "Outfit-Bold",
+                        fontSize: 11,
+                        letterSpacing: 0.8,
+                        textTransform: "uppercase",
+                        color: color,
+                    }}
+                    numberOfLines={1}
+                >
+                    {label}
+                </Text>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+}
+
+function StatCard({
+    label,
+    value,
+    icon,
+    color,
+    bgAlpha,
+    index,
+    onPress,
+    loading,
+}: {
+    label: string;
+    value: number | null;
+    icon: string;
+    color: string;
+    bgAlpha: string;
+    index: number;
+    onPress: () => void;
+    loading: boolean;
+}) {
+    const { isDark, colors } = useAppTheme();
+    const scale = useSharedValue(1);
+    const animStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
+
+    return (
+        <Animated.View
+            entering={ZoomIn.delay(160 + index * 50)}
+            style={[animStyle, { flex: 1 }]}
+        >
+            <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={onPress}
+                onPressIn={() => { scale.value = withSpring(0.96, { damping: 14 }); }}
+                onPressOut={() => { scale.value = withSpring(1, { damping: 14 }); }}
+                style={{
+                    minHeight: 110,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    backgroundColor: isDark ? colors.cardElevated : colors.card,
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+                    padding: 16,
+                    overflow: "hidden",
+                }}
+            >
+                {/* Colored top bar accent */}
+                <View
+                    style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 16,
+                        right: 16,
+                        height: 2,
+                        borderRadius: 1,
+                        backgroundColor: color,
+                        opacity: 0.6,
+                    }}
+                />
+                <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                    <Text
+                        style={{
+                            fontFamily: "Outfit-Bold",
+                            fontSize: 10,
+                            letterSpacing: 1.4,
+                            textTransform: "uppercase",
+                            color: colors.textSecondary,
+                        }}
+                    >
+                        {label}
+                    </Text>
+                    <View
+                        style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 10,
+                            backgroundColor: `${color}${bgAlpha}`,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderWidth: 1,
+                            borderColor: `${color}30`,
+                        }}
+                    >
+                        <Feather name={icon as any} size={14} color={color} />
+                    </View>
+                </View>
+                {loading && value === null ? (
+                    <Skeleton width={60} height={36} borderRadius={8} />
+                ) : (
+                    <Text
+                        style={{
+                            fontFamily: "Outfit-Black",
+                            fontSize: 38,
+                            lineHeight: 42,
+                            color: colors.textPrimary,
+                            fontVariant: ["tabular-nums"] as any,
+                        }}
+                        numberOfLines={1}
+                    >
+                        {value ?? "—"}
+                    </Text>
+                )}
+            </TouchableOpacity>
+        </Animated.View>
+    );
+}
+
 export default function AdminHomeScreen() {
-    const { colors } = useAppTheme();
+    const { colors, isDark } = useAppTheme();
     const insets = useAppSafeAreaInsets();
     const token = useAppSelector((state) => state.user.token);
     const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
@@ -105,6 +306,14 @@ export default function AdminHomeScreen() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [detail, setDetail] = useState<HomeDetail | null>(null);
+
+    const today = useMemo(() => {
+        return new Date().toLocaleDateString("en-GB", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+        });
+    }, []);
 
     const requestAdminTab = useCallback((key: (typeof ADMIN_TAB_ROUTES)[number]["key"]) => {
         const index = ADMIN_TAB_ROUTES.findIndex((tab) => tab.key === key);
@@ -136,10 +345,13 @@ export default function AdminHomeScreen() {
         [bootstrapReady, token],
     );
 
+    const teamsHook = useAdminTeams(token, canLoad);
+
     useEffect(() => {
         if (!canLoad) return;
         void loadDashboard(false);
-    }, [canLoad, loadDashboard]);
+        void teamsHook.load(false);
+    }, [canLoad, loadDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const kpis = useMemo(
         () => [
@@ -153,13 +365,13 @@ export default function AdminHomeScreen() {
 
     const commandActions = useMemo(
         () => [
-            { id: "users", icon: "users", label: "Users", onPress: () => requestAdminTab("admin-users") },
-            { id: "video", icon: "video", label: "Videos", onPress: () => requestAdminTab("admin-videos") },
-            { id: "content", icon: "layers", label: "Content", onPress: () => requestAdminTab("admin-content") },
-            { id: "schedule", icon: "calendar", label: "Schedule", onPress: () => router.push("/admin/ops/schedule") },
-            { id: "ops", icon: "settings", label: "Ops", onPress: () => requestAdminTab("admin-ops") },
-            { id: "nutrition", icon: "clipboard", label: "Nutrition", onPress: () => router.push("/admin/ops/nutrition") },
-            { id: "referrals", icon: "activity", label: "Referrals", onPress: () => router.push("/admin/ops/referrals") },
+            { ...ACTION_CONFIG[0], onPress: () => requestAdminTab("admin-users") },
+            { ...ACTION_CONFIG[1], onPress: () => requestAdminTab("admin-videos") },
+            { ...ACTION_CONFIG[2], onPress: () => requestAdminTab("admin-content") },
+            { ...ACTION_CONFIG[3], onPress: () => router.push("/admin/ops/schedule") },
+            { ...ACTION_CONFIG[4], onPress: () => requestAdminTab("admin-ops") },
+            { ...ACTION_CONFIG[5], onPress: () => router.push("/admin/ops/nutrition") },
+            { ...ACTION_CONFIG[6], onPress: () => router.push("/admin/ops/referrals") },
         ],
         [requestAdminTab]
     );
@@ -167,335 +379,691 @@ export default function AdminHomeScreen() {
     const bookings = useMemo(() => data?.bookingsToday ?? [], [data]);
     const athletes = useMemo(() => data?.topAthletes?.slice(0, 5) ?? [], [data]);
 
+    // Section heading style
+    const sectionLabel = {
+        fontFamily: "Outfit-Bold" as const,
+        fontSize: 11,
+        letterSpacing: 1.8,
+        textTransform: "uppercase" as const,
+        color: colors.textSecondary,
+    };
+
     return (
         <View style={{ flex: 1, paddingTop: insets.top }}>
             <ThemedScrollView
                 onRefresh={() => loadDashboard(true)}
                 contentContainerStyle={{ paddingBottom: 56 + insets.bottom }}
             >
-                {/* Header Region */}
+                {/* ── Header ── */}
                 <Animated.View
-                    entering={FadeInDown.delay(100).duration(400)}
-                    className="pt-10 mb-8 px-6"
+                    entering={FadeInDown.delay(60).duration(380)}
+                    style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}
                 >
-                    <View className="flex-row items-center gap-3 mb-2">
-                        <View className="h-8 w-1.5 rounded-full bg-accent" />
-                        <Text className="text-5xl font-telma-bold text-app tracking-tight">
-                            Admin
-                        </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
+                        <View
+                            style={{
+                                width: 5,
+                                height: 36,
+                                borderRadius: 3,
+                                backgroundColor: colors.accent,
+                            }}
+                        />
+                        <View style={{ flex: 1 }}>
+                            <Text
+                                style={{
+                                    fontFamily: "Telma-Bold",
+                                    fontSize: 44,
+                                    color: colors.textPrimary,
+                                    letterSpacing: -1,
+                                    lineHeight: 48,
+                                }}
+                            >
+                                Admin Panel
+                            </Text>
+                            <Text
+                                style={{
+                                    fontFamily: "Outfit-Regular",
+                                    fontSize: 13,
+                                    color: colors.textSecondary,
+                                    marginTop: 2,
+                                }}
+                            >
+                                {today}
+                            </Text>
+                        </View>
+                        {loading && !data && (
+                            <ActivityIndicator size="small" color={colors.accent} />
+                        )}
                     </View>
                 </Animated.View>
 
+                {/* ── Stats Grid (2×2) ── */}
                 <Animated.View
-                    entering={FadeInDown.delay(150).duration(400)}
-                    className="mb-6 px-6"
+                    entering={FadeInDown.delay(120).duration(380)}
+                    style={{ paddingHorizontal: 24, marginBottom: 28 }}
                 >
-                    <AdminCard>
-                        <View className="flex-row flex-wrap" style={{ marginHorizontal: -8, marginBottom: -16 }}>
-                            {commandActions.map((action) => (
-                                <View
-                                    key={action.id}
-                                    style={{ width: '33.33%', paddingHorizontal: 8, paddingBottom: 16 }}
-                                >
-                                    <ActionButton
-                                        icon={action.icon as any} // Adjust casting if ActionButton expects a specific union type
-                                        label={action.label}
-                                        color="bg-accent"
-                                        onPress={action.onPress}
-                                    />
-                                </View>
-                            ))}
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                        <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: colors.accent }} />
+                        <Text style={sectionLabel}>Performance KPIs</Text>
+                    </View>
+                    {error ? (
+                        <View
+                            style={{
+                                padding: 20,
+                                borderRadius: 20,
+                                backgroundColor: `${colors.danger}12`,
+                                borderWidth: 1,
+                                borderColor: `${colors.danger}25`,
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontFamily: "Outfit-Regular",
+                                    fontSize: 14,
+                                    color: colors.danger,
+                                    textAlign: "center",
+                                }}
+                            >
+                                {error}
+                            </Text>
                         </View>
-                    </AdminCard>
+                    ) : (
+                        chunk(kpis, 2).map((row, rowIndex) => (
+                            <View
+                                key={`kpi-row-${rowIndex}`}
+                                style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}
+                            >
+                                {row.map((item, colIndex) => {
+                                    const idx = rowIndex * 2 + colIndex;
+                                    const cfg = KPI_CONFIG[idx];
+                                    return (
+                                        <StatCard
+                                            key={item.label}
+                                            label={item.label}
+                                            value={item.value}
+                                            icon={cfg.icon}
+                                            color={cfg.color}
+                                            bgAlpha={cfg.bgAlpha}
+                                            index={idx}
+                                            loading={loading}
+                                            onPress={() =>
+                                                setDetail({
+                                                    kind: "stat",
+                                                    label: item.label,
+                                                    value: String(item.value ?? "—"),
+                                                })
+                                            }
+                                        />
+                                    );
+                                })}
+                                {row.length === 1 && <View style={{ flex: 1 }} />}
+                            </View>
+                        ))
+                    )}
                 </Animated.View>
 
-                <View className="px-6 gap-6">
-                    {/* Daily KPIs */}
-                    <Animated.View
-                        entering={FadeInDown.delay(200).duration(400)}
-                    >
-                        <AdminCard>
-                            <View className="flex-row items-start justify-between mb-5">
-                                <View className="flex-1 pr-3">
-                                    <View className="flex-row items-center gap-2">
-                                        <View className="w-2 h-2 rounded-full bg-accent" />
-                                        <Text className="text-[12px] font-outfit-bold font-bold uppercase tracking-[1.2px] text-app">
-                                            Performance KPI
+                {/* ── Quick Actions ── */}
+                <Animated.View
+                    entering={FadeInDown.delay(180).duration(380)}
+                    style={{ paddingHorizontal: 24, marginBottom: 28 }}
+                >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                        <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: colors.accent }} />
+                        <Text style={sectionLabel}>Quick Actions</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                        {commandActions.map((action, index) => (
+                            <View key={action.id} style={{ width: "30.5%" }}>
+                                <PressableActionTile
+                                    icon={action.icon}
+                                    label={action.label}
+                                    color={action.color}
+                                    bgAlpha={action.bgAlpha}
+                                    onPress={action.onPress}
+                                    index={index}
+                                />
+                            </View>
+                        ))}
+                    </View>
+                </Animated.View>
+
+                <View style={{ paddingHorizontal: 24, gap: 24 }}>
+                    {/* ── Live Schedule ── */}
+                    <Animated.View entering={FadeInDown.delay(240).duration(380)}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                            <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: "#30B0C7" }} />
+                            <Text style={{ ...sectionLabel, color: colors.textSecondary }}>Live Schedule</Text>
+                        </View>
+                        <View
+                            style={{
+                                borderRadius: 22,
+                                borderWidth: 1,
+                                backgroundColor: isDark ? colors.cardElevated : colors.card,
+                                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+                                overflow: "hidden",
+                            }}
+                        >
+                            {/* Colored top strip */}
+                            <View style={{ height: 3, backgroundColor: "#30B0C7", opacity: 0.7 }} />
+                            <View style={{ padding: 16 }}>
+                                {loading && !data ? (
+                                    <View style={{ gap: 10 }}>
+                                        <Skeleton width="100%" height={64} borderRadius={14} />
+                                        <Skeleton width="100%" height={64} borderRadius={14} />
+                                    </View>
+                                ) : bookings.length === 0 ? (
+                                    <View style={{ paddingVertical: 28, alignItems: "center" }}>
+                                        <View
+                                            style={{
+                                                width: 48,
+                                                height: 48,
+                                                borderRadius: 14,
+                                                backgroundColor: isDark ? "rgba(48,176,199,0.12)" : "rgba(48,176,199,0.08)",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                marginBottom: 12,
+                                            }}
+                                        >
+                                            <Feather name="calendar" size={22} color="#30B0C7" />
+                                        </View>
+                                        <Text
+                                            style={{
+                                                fontFamily: "Outfit-Regular",
+                                                fontSize: 14,
+                                                color: colors.textSecondary,
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            No sessions scheduled for today.
                                         </Text>
                                     </View>
-                                    <Text className="text-[12px] font-outfit text-secondary mt-1">
-                                        Quick snapshot for today.
-                                    </Text>
-                                </View>
-                                <View className="items-end">
-                                    {loading && !data ? (
-                                        <ActivityIndicator size="small" color={colors.accent} />
-                                    ) : (
-                                        <View className="px-3 py-1.5 rounded-full border border-app/10 bg-card">
-                                            <Text className="text-[10px] font-outfit-bold text-secondary uppercase tracking-[1.1px]">
-                                                Tap for details
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
-                            </View>
-
-                            {error ? (
-                                <Text className="text-sm font-outfit text-danger">{error}</Text>
-                            ) : (
-                                <View className="gap-3">
-                                    {chunk(kpis, 2).map((row, rowIndex) => (
-                                        <View key={`kpi-row-${rowIndex}`} className="flex-row gap-3">
-                                            {row.map((item, colIndex) => {
-                                                const index = rowIndex * 2 + colIndex;
-                                                return (
-                                                    <AnimatedPressable
-                                                        entering={ZoomIn.delay(140 + index * 45)}
-                                                        key={item.label}
-                                                        onPress={() =>
-                                                            setDetail({
-                                                                kind: "stat",
-                                                                label: item.label,
-                                                                value: String(item.value ?? "—"),
-                                                            })
-                                                        }
-                                                        className="flex-1 rounded-card-lg border border-app/10 bg-card px-5 py-4 active:opacity-90"
-                                                        style={{ minHeight: 92 }}
+                                ) : (
+                                    <View style={{ gap: 8 }}>
+                                        {bookings.map((booking) => (
+                                            <Pressable
+                                                key={booking.id}
+                                                onPress={() =>
+                                                    setDetail({
+                                                        kind: "booking",
+                                                        name: booking.serviceName,
+                                                        athlete: booking.athleteName,
+                                                        time: booking.startsAt,
+                                                        type: booking.type,
+                                                    })
+                                                }
+                                                style={({ pressed }) => ({
+                                                    flexDirection: "row",
+                                                    alignItems: "center",
+                                                    justifyContent: "space-between",
+                                                    borderRadius: 14,
+                                                    borderWidth: 1,
+                                                    backgroundColor: isDark
+                                                        ? "rgba(255,255,255,0.03)"
+                                                        : "rgba(15,23,42,0.03)",
+                                                    borderColor: isDark
+                                                        ? "rgba(255,255,255,0.07)"
+                                                        : "rgba(15,23,42,0.06)",
+                                                    padding: 14,
+                                                    opacity: pressed ? 0.78 : 1,
+                                                })}
+                                            >
+                                                <View style={{ flex: 1, marginRight: 12 }}>
+                                                    <Text
+                                                        style={{
+                                                            fontFamily: "Outfit-Bold",
+                                                            fontSize: 10,
+                                                            letterSpacing: 1.2,
+                                                            textTransform: "uppercase",
+                                                            color: "#30B0C7",
+                                                            marginBottom: 4,
+                                                        }}
+                                                        numberOfLines={1}
                                                     >
-                                                        <Text className="text-[10px] font-outfit-bold font-bold text-secondary uppercase tracking-[1.15px]">
-                                                            {item.label}
-                                                        </Text>
-                                                        <Text
-                                                            className="mt-2 text-[34px] leading-[38px] font-clash-bold font-bold text-app"
-                                                            style={{ fontVariant: ["tabular-nums"] }}
-                                                            numberOfLines={1}
-                                                        >
-                                                            {item.value ?? "—"}
-                                                        </Text>
-                                                    </AnimatedPressable>
-                                                );
-                                            })}
-                                            {row.length === 1 ? <View className="flex-1" /> : null}
+                                                        {booking.type?.replace("_", " ")}
+                                                    </Text>
+                                                    <Text
+                                                        style={{
+                                                            fontFamily: "Outfit-Bold",
+                                                            fontSize: 15,
+                                                            color: colors.textPrimary,
+                                                        }}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {booking.athleteName}
+                                                    </Text>
+                                                </View>
+                                                <View
+                                                    style={{
+                                                        paddingHorizontal: 14,
+                                                        paddingVertical: 7,
+                                                        borderRadius: 20,
+                                                        backgroundColor: isDark
+                                                            ? "rgba(48,176,199,0.14)"
+                                                            : "rgba(48,176,199,0.10)",
+                                                        borderWidth: 1,
+                                                        borderColor: isDark
+                                                            ? "rgba(48,176,199,0.25)"
+                                                            : "rgba(48,176,199,0.20)",
+                                                    }}
+                                                >
+                                                    <Text
+                                                        style={{
+                                                            fontFamily: "Outfit-Bold",
+                                                            fontSize: 13,
+                                                            color: "#30B0C7",
+                                                            fontVariant: ["tabular-nums"] as any,
+                                                        }}
+                                                    >
+                                                        {new Date(booking.startsAt).toLocaleTimeString([], {
+                                                            hour: "numeric",
+                                                            minute: "2-digit",
+                                                        })}
+                                                    </Text>
+                                                </View>
+                                            </Pressable>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        </View>
+                    </Animated.View>
+
+                    {/* ── Priority Actions ── */}
+                    <Animated.View entering={FadeInDown.delay(290).duration(380)}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                            <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: colors.warning }} />
+                            <Text style={{ ...sectionLabel, color: colors.textSecondary }}>Priority Actions</Text>
+                        </View>
+                        <View
+                            style={{
+                                borderRadius: 22,
+                                borderWidth: 1,
+                                backgroundColor: isDark ? colors.cardElevated : colors.card,
+                                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+                                overflow: "hidden",
+                            }}
+                        >
+                            <View style={{ height: 3, backgroundColor: colors.warning, opacity: 0.7 }} />
+                            <View style={{ padding: 16 }}>
+                                {(data?.priorityQueue?.length ?? 0) === 0 ? (
+                                    <View style={{ paddingVertical: 28, alignItems: "center" }}>
+                                        <View
+                                            style={{
+                                                width: 48,
+                                                height: 48,
+                                                borderRadius: 14,
+                                                backgroundColor: isDark ? `${colors.warning}18` : `${colors.warning}10`,
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                marginBottom: 12,
+                                            }}
+                                        >
+                                            <Feather name="check-circle" size={22} color={colors.warning} />
                                         </View>
-                                    ))}
-                                </View>
-                            )}
-                        </AdminCard>
+                                        <Text
+                                            style={{
+                                                fontFamily: "Outfit-Regular",
+                                                fontSize: 14,
+                                                color: colors.textSecondary,
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            Inbox zero. All caught up.
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    <View style={{ gap: 8 }}>
+                                        {data?.priorityQueue?.map((item, idx) => (
+                                            <Pressable
+                                                key={idx}
+                                                onPress={() =>
+                                                    setDetail({
+                                                        kind: "priority",
+                                                        title: item.title,
+                                                        detail: item.detail,
+                                                        status: item.status,
+                                                    })
+                                                }
+                                                style={({ pressed }) => ({
+                                                    borderRadius: 14,
+                                                    borderWidth: 1,
+                                                    backgroundColor: isDark
+                                                        ? "rgba(255,255,255,0.03)"
+                                                        : "rgba(15,23,42,0.03)",
+                                                    borderColor: isDark
+                                                        ? "rgba(255,255,255,0.07)"
+                                                        : "rgba(15,23,42,0.06)",
+                                                    padding: 16,
+                                                    opacity: pressed ? 0.78 : 1,
+                                                })}
+                                            >
+                                                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                                    <Text
+                                                        style={{
+                                                            fontFamily: "Outfit-Bold",
+                                                            fontSize: 15,
+                                                            color: colors.textPrimary,
+                                                            flex: 1,
+                                                            marginRight: 8,
+                                                        }}
+                                                    >
+                                                        {item.title}
+                                                    </Text>
+                                                    {item.status && (
+                                                        <View
+                                                            style={{
+                                                                paddingHorizontal: 10,
+                                                                paddingVertical: 4,
+                                                                borderRadius: 20,
+                                                                backgroundColor: isDark ? `${colors.warning}18` : `${colors.warning}10`,
+                                                                borderWidth: 1,
+                                                                borderColor: isDark ? `${colors.warning}30` : `${colors.warning}20`,
+                                                            }}
+                                                        >
+                                                            <Text
+                                                                style={{
+                                                                    fontFamily: "Outfit-Bold",
+                                                                    fontSize: 10,
+                                                                    color: colors.warning,
+                                                                    textTransform: "uppercase",
+                                                                    letterSpacing: 1,
+                                                                }}
+                                                            >
+                                                                {item.status}
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                                <Text
+                                                    style={{
+                                                        fontFamily: "Outfit-Regular",
+                                                        fontSize: 13,
+                                                        color: colors.textSecondary,
+                                                        lineHeight: 19,
+                                                    }}
+                                                >
+                                                    {item.detail}
+                                                </Text>
+                                            </Pressable>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        </View>
                     </Animated.View>
 
-                    {/* Bookings Today List */}
-                    <Animated.View
-                        entering={FadeInDown.delay(250).duration(400)}
-                    >
-                        <AdminCard>
-                            <View className="flex-row items-center gap-2 mb-6">
-                                <View className="w-2 h-2 rounded-full bg-accent" />
-                                <Text className="text-[13px] font-outfit-bold font-bold uppercase tracking-widest text-app">
-                                    Live Schedule
-                                </Text>
+                    {/* ── Top Engagement ── */}
+                    <Animated.View entering={FadeInDown.delay(340).duration(380)}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: colors.accent }} />
+                                <Text style={sectionLabel}>Top Engagement</Text>
                             </View>
-                            {loading && !data ? (
-                                <View className="gap-4">
-                                    <Skeleton width="100%" height={60} />
-                                    <Skeleton width="100%" height={60} />
-                                </View>
-                            ) : bookings.length === 0 ? (
-                                <View className="py-4 items-center justify-center">
-                                    <Text className="text-sm font-outfit text-muted">
-                                        No sessions scheduled for today.
-                                    </Text>
-                                </View>
-                            ) : (
-                                <View className="gap-3">
-                                    {bookings.map((booking) => (
-                                        <Pressable
-                                            key={booking.id}
-                                            onPress={() =>
-                                                setDetail({
-                                                    kind: "booking",
-                                                    name: booking.serviceName,
-                                                    athlete: booking.athleteName,
-                                                    time: booking.startsAt,
-                                                    type: booking.type,
-                                                })
-                                            }
-                                            className="flex-row items-center justify-between rounded-card border border-app/10 bg-card p-4 active:opacity-80"
-                                        >
-                                            <View className="flex-1">
-                                                <Text
-                                                    className="text-[10px] font-outfit-bold font-bold uppercase tracking-widest text-accent mb-1.5"
-                                                    numberOfLines={1}
-                                                >
-                                                    {booking.type?.replace("_", " ")}
-                                                </Text>
-                                                <Text
-                                                    className="text-base font-clash-bold font-bold text-app"
-                                                    numberOfLines={1}
-                                                >
-                                                    {booking.athleteName}
-                                                </Text>
-                                            </View>
-                                            <View className="bg-accent-light px-4 py-2 rounded-full border border-app/10">
-                                                <Text className="text-[13px] font-outfit-bold font-bold text-accent">
-                                                    {new Date(booking.startsAt).toLocaleTimeString([], {
-                                                        hour: "numeric",
-                                                        minute: "2-digit",
-                                                    })}
-                                                </Text>
-                                            </View>
-                                        </Pressable>
-                                    ))}
-                                </View>
-                            )}
-                        </AdminCard>
-                    </Animated.View>
-
-                    {/* Priority Queue */}
-                    <Animated.View
-                        entering={FadeInDown.delay(300).duration(400)}
-                    >
-                        <AdminCard>
-                            <View className="flex-row items-center gap-2 mb-6">
-                                <View className="w-2 h-2 rounded-full bg-warning" />
-                                <Text className="text-[13px] font-outfit-bold font-bold uppercase tracking-widest text-app">
-                                    Priority Actions
+                            <Pressable
+                                onPress={() => requestAdminTab("admin-users")}
+                                style={({ pressed }) => ({
+                                    paddingHorizontal: 14,
+                                    paddingVertical: 6,
+                                    borderRadius: 20,
+                                    borderWidth: 1,
+                                    backgroundColor: isDark ? `${colors.accent}14` : `${colors.accent}10`,
+                                    borderColor: isDark ? `${colors.accent}28` : `${colors.accent}20`,
+                                    opacity: pressed ? 0.7 : 1,
+                                })}
+                            >
+                                <Text
+                                    style={{
+                                        fontFamily: "Outfit-Bold",
+                                        fontSize: 11,
+                                        color: colors.accent,
+                                        letterSpacing: 0.8,
+                                    }}
+                                >
+                                    View all
                                 </Text>
-                            </View>
-                            {(data?.priorityQueue?.length ?? 0) === 0 ? (
-                                <View className="py-4 items-center justify-center">
-                                    <Text className="text-sm font-outfit text-muted">
-                                        Inbox zero. All caught up.
-                                    </Text>
-                                </View>
-                            ) : (
-                                <View className="gap-3">
-                                    {data?.priorityQueue?.map((item, idx) => (
-                                        <Pressable
-                                            key={idx}
-                                            onPress={() =>
-                                                setDetail({
-                                                    kind: "priority",
-                                                    title: item.title,
-                                                    detail: item.detail,
-                                                    status: item.status,
-                                                })
-                                            }
-                                            className="rounded-card border border-app/10 bg-card p-5 active:opacity-80"
+                            </Pressable>
+                        </View>
+                        <View
+                            style={{
+                                borderRadius: 22,
+                                borderWidth: 1,
+                                backgroundColor: isDark ? colors.cardElevated : colors.card,
+                                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+                                overflow: "hidden",
+                            }}
+                        >
+                            <View style={{ height: 3, backgroundColor: colors.accent, opacity: 0.7 }} />
+                            <View style={{ padding: 16 }}>
+                                {athletes.length === 0 ? (
+                                    <View style={{ paddingVertical: 28, alignItems: "center" }}>
+                                        <View
+                                            style={{
+                                                width: 48,
+                                                height: 48,
+                                                borderRadius: 14,
+                                                backgroundColor: isDark ? `${colors.accent}14` : `${colors.accent}10`,
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                marginBottom: 12,
+                                            }}
                                         >
-                                            <View className="flex-row justify-between items-center mb-2">
-                                                <Text className="text-base font-clash-bold font-bold text-app">
-                                                    {item.title}
-                                                </Text>
-                                                {item.status && (
-                                                    <View className="bg-warning-soft px-2.5 py-1 rounded-full border border-app/10">
-                                                        <Text className="text-[10px] font-outfit-bold font-bold text-warning uppercase tracking-wider">
-                                                            {item.status}
+                                            <Feather name="users" size={22} color={colors.accent} />
+                                        </View>
+                                        <Text
+                                            style={{
+                                                fontFamily: "Outfit-Regular",
+                                                fontSize: 14,
+                                                color: colors.textSecondary,
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            No athletes indexed.
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    <View style={{ gap: 8 }}>
+                                        {athletes.map((athlete, idx) => (
+                                            <Pressable
+                                                key={idx}
+                                                onPress={() =>
+                                                    setDetail({
+                                                        kind: "athlete",
+                                                        name: athlete.name,
+                                                        score: athlete.score,
+                                                        tier: athlete.tier,
+                                                    })
+                                                }
+                                                style={({ pressed }) => ({
+                                                    flexDirection: "row",
+                                                    alignItems: "center",
+                                                    justifyContent: "space-between",
+                                                    borderRadius: 14,
+                                                    borderWidth: 1,
+                                                    backgroundColor: isDark
+                                                        ? "rgba(255,255,255,0.03)"
+                                                        : "rgba(15,23,42,0.03)",
+                                                    borderColor: isDark
+                                                        ? "rgba(255,255,255,0.07)"
+                                                        : "rgba(15,23,42,0.06)",
+                                                    paddingHorizontal: 14,
+                                                    paddingVertical: 12,
+                                                    opacity: pressed ? 0.78 : 1,
+                                                })}
+                                            >
+                                                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 10 }}>
+                                                    <View
+                                                        style={{
+                                                            width: 36,
+                                                            height: 36,
+                                                            borderRadius: 10,
+                                                            backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            borderWidth: 1,
+                                                            borderColor: isDark ? `${colors.accent}28` : `${colors.accent}20`,
+                                                        }}
+                                                    >
+                                                        <Text
+                                                            style={{
+                                                                fontFamily: "Outfit-Bold",
+                                                                fontSize: 13,
+                                                                color: colors.accent,
+                                                                fontVariant: ["tabular-nums"] as any,
+                                                            }}
+                                                        >
+                                                            {idx + 1}
                                                         </Text>
                                                     </View>
-                                                )}
-                                            </View>
-                                            <Text className="text-[13px] font-outfit text-secondary leading-5">
-                                                {item.detail}
-                                            </Text>
-                                        </Pressable>
-                                    ))}
-                                </View>
-                            )}
-                        </AdminCard>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text
+                                                            style={{
+                                                                fontFamily: "Outfit-Bold",
+                                                                fontSize: 15,
+                                                                color: colors.textPrimary,
+                                                            }}
+                                                            numberOfLines={1}
+                                                        >
+                                                            {athlete.name}
+                                                        </Text>
+                                                        <Text
+                                                            style={{
+                                                                fontFamily: "Outfit-Regular",
+                                                                fontSize: 12,
+                                                                color: colors.textSecondary,
+                                                                marginTop: 2,
+                                                            }}
+                                                            numberOfLines={1}
+                                                        >
+                                                            {formatTierLabel(athlete.tier)}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <View style={{ alignItems: "flex-end" }}>
+                                                    <View
+                                                        style={{
+                                                            paddingHorizontal: 10,
+                                                            paddingVertical: 5,
+                                                            borderRadius: 20,
+                                                            backgroundColor: isDark
+                                                                ? "rgba(255,255,255,0.05)"
+                                                                : "rgba(15,23,42,0.05)",
+                                                            borderWidth: 1,
+                                                            borderColor: isDark
+                                                                ? "rgba(255,255,255,0.10)"
+                                                                : "rgba(15,23,42,0.08)",
+                                                        }}
+                                                    >
+                                                        <Text
+                                                            style={{
+                                                                fontFamily: "Outfit-Bold",
+                                                                fontSize: 12,
+                                                                color: colors.textPrimary,
+                                                                fontVariant: ["tabular-nums"] as any,
+                                                            }}
+                                                        >
+                                                            {athlete.score}
+                                                        </Text>
+                                                    </View>
+                                                    <Text
+                                                        style={{
+                                                            fontFamily: "Outfit-Regular",
+                                                            fontSize: 10,
+                                                            color: colors.textSecondary,
+                                                            marginTop: 3,
+                                                        }}
+                                                    >
+                                                        score
+                                                    </Text>
+                                                </View>
+                                            </Pressable>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        </View>
                     </Animated.View>
 
-                    {/* Top Athletes */}
-                    <Animated.View
-                        entering={FadeInDown.delay(350).duration(400)}
-                    >
-                        <AdminCard>
-                            <View className="flex-row items-start justify-between mb-5">
-                                <View className="flex-1 pr-3">
-                                    <View className="flex-row items-center gap-2">
-                                        <View className="w-2 h-2 rounded-full bg-accent" />
-                                        <Text className="text-[12px] font-outfit-bold font-bold uppercase tracking-[1.2px] text-app">
-                                            Top Engagement
+                    {/* ── Teams Overview ── */}
+                    <Animated.View entering={FadeInDown.delay(390).duration(380)}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: "#34C759" }} />
+                                <Text style={{ ...sectionLabel, color: colors.textSecondary }}>Teams</Text>
+                            </View>
+                        </View>
+                        <View
+                            style={{
+                                borderRadius: 22,
+                                borderWidth: 1,
+                                backgroundColor: isDark ? colors.cardElevated : colors.card,
+                                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+                                overflow: "hidden",
+                            }}
+                        >
+                            <View style={{ height: 3, backgroundColor: "#34C759", opacity: 0.7 }} />
+                            <View style={{ padding: 16 }}>
+                                {teamsHook.loading && teamsHook.teams.length === 0 ? (
+                                    <View style={{ gap: 8 }}>
+                                        <Skeleton width="100%" height={56} borderRadius={14} />
+                                        <Skeleton width="100%" height={56} borderRadius={14} />
+                                    </View>
+                                ) : teamsHook.teams.length === 0 ? (
+                                    <View style={{ paddingVertical: 28, alignItems: "center" }}>
+                                        <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: isDark ? "rgba(52,199,89,0.12)" : "rgba(52,199,89,0.08)", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                                            <Feather name="users" size={22} color="#34C759" />
+                                        </View>
+                                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary, textAlign: "center" }}>
+                                            No teams created yet.
                                         </Text>
                                     </View>
-                                    <Text className="text-[12px] font-outfit text-secondary mt-1">
-                                        Highest activity and coaching touchpoints.
-                                    </Text>
-                                </View>
-                                <Pressable
-                                    onPress={() => requestAdminTab("admin-users")}
-                                    className="px-3 py-1.5 rounded-full border border-app/10 bg-card active:opacity-90"
-                                >
-                                    <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-[1.1px]">
-                                        View users
-                                    </Text>
-                                </Pressable>
+                                ) : (
+                                    <View style={{ gap: 8 }}>
+                                        {teamsHook.teams.slice(0, 5).map((team) => (
+                                            <View
+                                                key={team.id}
+                                                style={{
+                                                    flexDirection: "row",
+                                                    alignItems: "center",
+                                                    justifyContent: "space-between",
+                                                    borderRadius: 14,
+                                                    borderWidth: 1,
+                                                    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+                                                    borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
+                                                    paddingHorizontal: 14,
+                                                    paddingVertical: 12,
+                                                }}
+                                            >
+                                                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 10 }}>
+                                                    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isDark ? "rgba(52,199,89,0.14)" : "rgba(52,199,89,0.10)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: isDark ? "rgba(52,199,89,0.25)" : "rgba(52,199,89,0.20)" }}>
+                                                        <Feather name="shield" size={16} color="#34C759" />
+                                                    </View>
+                                                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
+                                                        {team.team}
+                                                    </Text>
+                                                </View>
+                                                <View style={{ alignItems: "flex-end", gap: 3 }}>
+                                                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#34C759" }}>
+                                                        {team.memberCount}
+                                                    </Text>
+                                                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: colors.textSecondary }}>
+                                                        athletes
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        ))}
+                                        {teamsHook.teams.length > 5 && (
+                                            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: colors.textSecondary, textAlign: "center", paddingVertical: 6 }}>
+                                                +{teamsHook.teams.length - 5} more teams
+                                            </Text>
+                                        )}
+                                    </View>
+                                )}
                             </View>
-                            {athletes.length === 0 ? (
-                                <View className="py-4 items-center justify-center">
-                                    <Text className="text-sm font-outfit text-muted">
-                                        No athletes indexed.
-                                    </Text>
-                                </View>
-                            ) : (
-                                <View className="gap-3">
-                                    {athletes.map((athlete, idx) => (
-                                        <Pressable
-                                            key={idx}
-                                            onPress={() =>
-                                                setDetail({
-                                                    kind: "athlete",
-                                                    name: athlete.name,
-                                                    score: athlete.score,
-                                                    tier: athlete.tier,
-                                                })
-                                            }
-                                            className="flex-row items-center justify-between rounded-card-lg border border-app/10 bg-card px-4 py-3.5 active:opacity-90"
-                                        >
-                                            <View className="flex-row items-center gap-3 flex-1 pr-3">
-                                                <View className="w-10 h-10 rounded-button-lg bg-accent-light items-center justify-center border border-app/10">
-                                                    <Text
-                                                        className="text-[12px] font-outfit-bold font-bold text-accent tabular-nums"
-                                                        style={{ fontVariant: ["tabular-nums"] }}
-                                                    >
-                                                        {idx + 1}
-                                                    </Text>
-                                                </View>
-                                                <View className="flex-1">
-                                                    <Text
-                                                        className="text-[15px] font-clash-bold font-bold text-app"
-                                                        numberOfLines={1}
-                                                    >
-                                                        {athlete.name}
-                                                    </Text>
-                                                    <Text
-                                                        className="text-[12px] font-outfit text-secondary mt-0.5"
-                                                        numberOfLines={1}
-                                                    >
-                                                        {formatTierLabel(athlete.tier)}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <View className="items-end">
-                                                <View className="bg-background-secondary px-3 py-1.5 rounded-full border border-app/10">
-                                                    <Text
-                                                        className="text-[12px] font-outfit-bold font-bold text-app tabular-nums"
-                                                        style={{ fontVariant: ["tabular-nums"] }}
-                                                    >
-                                                        {athlete.score}
-                                                    </Text>
-                                                </View>
-                                                <Text className="text-[10px] font-outfit text-secondary mt-1">
-                                                    Engagement score
-                                                </Text>
-                                            </View>
-                                        </Pressable>
-                                    ))}
-                                </View>
-                            )}
-                        </AdminCard>
+                        </View>
                     </Animated.View>
                 </View>
 
+                {/* ── Detail Modal ── */}
                 <Modal
                     visible={detail != null}
                     animationType="slide"
@@ -511,13 +1079,27 @@ export default function AdminHomeScreen() {
                     >
                         <ThemedScrollView
                             contentContainerStyle={{
-                                paddingHorizontal: 16,
-                                paddingBottom: 24 + insets.bottom,
+                                paddingHorizontal: 20,
+                                paddingBottom: 40 + insets.bottom,
                             }}
                         >
-                            <View className="pt-4 mb-6 flex-row items-center justify-between">
+                            <View
+                                style={{
+                                    paddingTop: 20,
+                                    marginBottom: 24,
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}
+                            >
                                 <Text
-                                    className="text-2xl font-clash font-bold text-app flex-1 pr-3"
+                                    style={{
+                                        fontFamily: "Outfit-Bold",
+                                        fontSize: 22,
+                                        color: colors.textPrimary,
+                                        flex: 1,
+                                        marginRight: 12,
+                                    }}
                                     numberOfLines={1}
                                 >
                                     {detail?.kind === "stat"
@@ -530,70 +1112,109 @@ export default function AdminHomeScreen() {
                                 </Text>
                                 <Pressable
                                     onPress={() => setDetail(null)}
-                                    style={({ pressed }) => [
-                                        {
-                                            paddingHorizontal: 14,
-                                            paddingVertical: 8,
-                                            borderRadius: 999,
-                                            borderWidth: 1,
-                                            opacity: pressed ? 0.7 : 1,
-                                        },
-                                    ]}
-                                    className="bg-card border-app/10"
+                                    style={({ pressed }) => ({
+                                        paddingHorizontal: 16,
+                                        paddingVertical: 9,
+                                        borderRadius: 999,
+                                        borderWidth: 1,
+                                        backgroundColor: isDark
+                                            ? "rgba(255,255,255,0.06)"
+                                            : "rgba(15,23,42,0.06)",
+                                        borderColor: isDark
+                                            ? "rgba(255,255,255,0.12)"
+                                            : "rgba(15,23,42,0.10)",
+                                        opacity: pressed ? 0.7 : 1,
+                                    })}
                                 >
-                                    <Text className="text-[12px] font-outfit-semibold text-app">
+                                    <Text
+                                        style={{
+                                            fontFamily: "Outfit-SemiBold",
+                                            fontSize: 13,
+                                            color: colors.textPrimary,
+                                        }}
+                                    >
                                         Close
                                     </Text>
                                 </Pressable>
                             </View>
-                            <AdminCard className="rounded-card-lg border border-app bg-card-elevated p-6">
+                            <View
+                                style={{
+                                    borderRadius: 22,
+                                    borderWidth: 1,
+                                    backgroundColor: isDark ? colors.cardElevated : colors.card,
+                                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
+                                    padding: 24,
+                                }}
+                            >
                                 {detail?.kind === "stat" ? (
-                                    <Text className="text-5xl font-clash font-bold text-app tabular-nums">
+                                    <Text
+                                        style={{
+                                            fontFamily: "Outfit-Black",
+                                            fontSize: 72,
+                                            color: colors.textPrimary,
+                                            fontVariant: ["tabular-nums"] as any,
+                                        }}
+                                    >
                                         {detail.value}
                                     </Text>
                                 ) : detail?.kind === "booking" ? (
-                                    <View className="gap-2">
-                                        <Text className="text-sm font-outfit text-secondary">
+                                    <View style={{ gap: 10 }}>
+                                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary }}>
                                             Athlete:{" "}
-                                            <Text className="text-app font-bold">
+                                            <Text style={{ fontFamily: "Outfit-Bold", color: colors.textPrimary }}>
                                                 {detail.athlete}
                                             </Text>
                                         </Text>
-                                        <Text className="text-sm font-outfit text-secondary">
+                                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary }}>
                                             Time:{" "}
-                                            <Text className="text-app font-bold">
+                                            <Text style={{ fontFamily: "Outfit-Bold", color: colors.textPrimary }}>
                                                 {new Date(detail.time).toLocaleString()}
                                             </Text>
                                         </Text>
-                                        <Text className="text-sm font-outfit text-secondary">
+                                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary }}>
                                             Type:{" "}
-                                            <Text className="text-app font-bold">{detail.type}</Text>
+                                            <Text style={{ fontFamily: "Outfit-Bold", color: colors.textPrimary }}>{detail.type}</Text>
                                         </Text>
                                     </View>
                                 ) : detail?.kind === "athlete" ? (
-                                    <View className="gap-2">
-                                        <Text className="text-sm font-outfit text-secondary">
+                                    <View style={{ gap: 10 }}>
+                                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary }}>
                                             Engagement:{" "}
-                                            <Text className="text-app font-bold">{detail.score}</Text>
+                                            <Text style={{ fontFamily: "Outfit-Bold", color: colors.textPrimary }}>{detail.score}</Text>
                                         </Text>
-                                        <Text className="text-sm font-outfit text-secondary">
+                                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary }}>
                                             Program Tier:{" "}
-                                            <Text className="text-app font-bold">{detail.tier}</Text>
+                                            <Text style={{ fontFamily: "Outfit-Bold", color: colors.textPrimary }}>{detail.tier}</Text>
                                         </Text>
                                     </View>
                                 ) : detail?.kind === "priority" ? (
-                                    <View className="gap-3">
-                                        <Text className="text-sm font-outfit text-secondary leading-6">
+                                    <View style={{ gap: 14 }}>
+                                        <Text
+                                            style={{
+                                                fontFamily: "Outfit-Regular",
+                                                fontSize: 15,
+                                                color: colors.textSecondary,
+                                                lineHeight: 23,
+                                            }}
+                                        >
                                             {detail.detail || "No additional context."}
                                         </Text>
                                         {detail.status && (
-                                            <Text className="text-xs font-outfit-semibold text-warning uppercase tracking-widest">
+                                            <Text
+                                                style={{
+                                                    fontFamily: "Outfit-Bold",
+                                                    fontSize: 11,
+                                                    color: colors.warning,
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: 1.5,
+                                                }}
+                                            >
                                                 {detail.status}
                                             </Text>
                                         )}
                                     </View>
                                 ) : null}
-                            </AdminCard>
+                            </View>
                         </ThemedScrollView>
                     </View>
                 </Modal>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/portal/profile")({
@@ -82,7 +82,7 @@ function ProfilePage() {
 				<CardContent className="flex items-center gap-6">
 					<div className="relative group cursor-pointer">
 						<Avatar className="h-24 w-24 border-2 border-primary/20">
-							<AvatarImage src={user?.avatar || ""} alt={user?.name || "User"} />
+							<AvatarImage src={user?.profilePicture || ""} alt={user?.name || "User"} />
 							<AvatarFallback className="bg-primary/5 text-primary text-2xl font-bold">
 								{user?.name?.slice(0, 2).toUpperCase() || "PH"}
 							</AvatarFallback>

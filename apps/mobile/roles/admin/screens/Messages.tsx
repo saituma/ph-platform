@@ -1,13 +1,13 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppSelector } from "@/store/hooks";
 import React, { useMemo, useState } from "react";
-import { View } from "react-native";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+import { ActivityIndicator, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { Feather } from "@/components/ui/theme-icons";
 
 import { HeaderTabKey } from "@/types/admin-messages";
-import { Chip } from "@/components/admin/AdminShared";
 import { AdminDmSection } from "@/components/admin/messages/AdminDmSection";
 import { AdminStatsSection } from "@/components/admin/messages/AdminStatsSection";
 import { useAdminDms } from "@/hooks/admin/useAdminDms";
@@ -18,11 +18,21 @@ import { useAdminAnnouncements } from "@/hooks/admin/useAdminAnnouncements";
 import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
 import { AdminAnnouncementsSection } from "@/components/admin/messages/AdminAnnouncementsSection";
 import { AdminTeamsListSection } from "@/components/admin/messages/AdminTeamsListSection";
-import { AdminCard } from "@/roles/admin/components/AdminCard";
+
+const TAB_CONFIG: {
+  key: HeaderTabKey;
+  label: string;
+  icon: string;
+  color: string;
+}[] = [
+  { key: "inbox", label: "Inbox", icon: "mail", color: "#30B0C7" },
+  { key: "announcement", label: "Announcements", icon: "bell", color: "#7B61FF" },
+  { key: "teams", label: "Teams", icon: "users", color: "#34C759" },
+  { key: "stats", label: "Stats", icon: "bar-chart-2", color: "#FFB020" },
+];
 
 export default function AdminMessagesScreen() {
-  const { colors } = useAppTheme();
-  const insets = useAppSafeAreaInsets();
+  const { colors, isDark } = useAppTheme();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const myUserIdRaw = useAppSelector((state) => state.user.profile?.id) ?? null;
@@ -73,67 +83,173 @@ export default function AdminMessagesScreen() {
     ],
   );
 
-  const headerTabs: { key: HeaderTabKey; label: string }[] = [
-    { key: "inbox", label: "Inbox" },
-    { key: "announcement", label: "Announcements" },
-    { key: "teams", label: "Teams" },
-    { key: "stats", label: "Stats" },
-  ];
-
   return (
-    <View style={{ flex: 1, paddingTop: insets.top }}>
-      <ThemedScrollView>
-        <View className="pt-6 mb-4">
-          <View className="flex-row items-center gap-3 overflow-hidden">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <View className="flex-1">
-              <Text className="text-4xl font-telma-bold text-app tracking-tight">
-                Messages
-              </Text>
-              <Text className="text-[12px] font-outfit text-secondary">
-                Admin Controls
-              </Text>
-            </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      {/* Header */}
+      <Animated.View
+        entering={FadeInDown.delay(60).duration(360)}
+        style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
+          <View
+            style={{
+              width: 5,
+              height: 36,
+              borderRadius: 3,
+              backgroundColor: "#30B0C7",
+            }}
+          />
+          <View>
+            <Text
+              style={{
+                fontFamily: "Telma-Bold",
+                fontSize: 44,
+                color: colors.textPrimary,
+                letterSpacing: -1,
+                lineHeight: 48,
+              }}
+            >
+              Messages
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 13,
+                color: colors.textSecondary,
+                marginTop: 2,
+              }}
+            >
+              Inbox · Announcements · Teams
+            </Text>
           </View>
         </View>
+      </Animated.View>
 
-        <View className="flex-row gap-2 mb-4">
-          {headerTabs.map((tab) => (
-            <Chip
-              key={tab.key}
-              label={tab.label}
-              selected={activeTab === tab.key}
-              onPress={() => setActiveTab(tab.key)}
-            />
-          ))}
+      {/* Tab Switcher */}
+      <Animated.View
+        entering={FadeInDown.delay(120).duration(360)}
+        style={{ paddingHorizontal: 24, marginBottom: 20 }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            padding: 5,
+            borderRadius: 24,
+            borderWidth: 1,
+            backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+            borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
+            gap: 4,
+          }}
+        >
+          {TAB_CONFIG.map((t) => {
+            const isActive = activeTab === t.key;
+            const hasDot =
+              (t.key === "inbox" && dmUnreadTotal > 0) ||
+              (t.key === "teams" && groupUnreadTotal > 0);
+            return (
+              <TouchableOpacity
+                key={t.key}
+                onPress={() => setActiveTab(t.key)}
+                activeOpacity={0.8}
+                style={{
+                  flex: 1,
+                  height: 52,
+                  borderRadius: 18,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 6,
+                  backgroundColor: isActive
+                    ? isDark ? `${t.color}22` : `${t.color}16`
+                    : "transparent",
+                  borderWidth: isActive ? 1 : 0,
+                  borderColor: isActive
+                    ? isDark ? `${t.color}35` : `${t.color}28`
+                    : "transparent",
+                }}
+              >
+                <View style={{ position: "relative" }}>
+                  <Feather
+                    name={t.icon as any}
+                    size={16}
+                    color={isActive ? t.color : colors.textSecondary}
+                  />
+                  {hasDot && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: -2,
+                        right: -3,
+                        width: 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: t.color,
+                      }}
+                    />
+                  )}
+                </View>
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Bold",
+                    fontSize: 13,
+                    letterSpacing: 0.6,
+                    textTransform: "uppercase",
+                    color: isActive ? t.color : colors.textSecondary,
+                  }}
+                >
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
+      </Animated.View>
 
-        <AdminCard className="rounded-card-lg border border-app bg-card-elevated p-5">
-          {!canLoad ? (
-            <Text className="text-sm font-outfit text-secondary">
-              Tools will load after auth bootstrap.
+      {/* Content Area */}
+      <Animated.View
+        entering={FadeInDown.delay(180).duration(360)}
+        style={{ flex: 1 }}
+      >
+        {!canLoad ? (
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <ActivityIndicator color={colors.accent} />
+            <Text
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 14,
+                color: colors.textSecondary,
+                marginTop: 14,
+              }}
+            >
+              Loading messages...
             </Text>
-          ) : (
-            <>
-              {activeTab === "inbox" && (
-                <AdminDmSection
-                  token={token}
-                  canLoad={canLoad}
-                  myUserId={myUserId}
-                  initialUserId={initialUserId}
-                />
-              )}
-              {activeTab === "announcement" && (
-                <AdminAnnouncementsSection controller={announcements} canLoad={canLoad} />
-              )}
-              {activeTab === "teams" && (
-                <AdminTeamsListSection controller={teams} canLoad={canLoad} />
-              )}
-              {activeTab === "stats" && <AdminStatsSection stats={stats} />}
-            </>
-          )}
-        </AdminCard>
-      </ThemedScrollView>
-    </View>
+          </View>
+        ) : (
+          <View style={{ flex: 1 }}>
+            {activeTab === "inbox" && (
+              <AdminDmSection
+                token={token}
+                canLoad={canLoad}
+                myUserId={myUserId}
+                initialUserId={initialUserId}
+              />
+            )}
+            {activeTab === "announcement" && (
+              <AdminAnnouncementsSection controller={announcements} canLoad={canLoad} />
+            )}
+            {activeTab === "teams" && (
+              <AdminTeamsListSection controller={teams} canLoad={canLoad} />
+            )}
+            {activeTab === "stats" && <AdminStatsSection stats={stats} />}
+          </View>
+        )}
+      </Animated.View>
+    </SafeAreaView>
   );
 }

@@ -22,8 +22,8 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background">
-      <div className="flex min-h-screen min-w-0">
+    <div className="min-h-screen bg-background">
+      <div className="flex min-h-screen min-w-0 overflow-x-hidden">
         <AdminSidebar collapsed={isSidebarCollapsed} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between border-b border-border bg-card px-4 py-4 lg:hidden">

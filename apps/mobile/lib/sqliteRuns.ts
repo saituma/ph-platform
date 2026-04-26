@@ -16,6 +16,7 @@ export interface RunRecord {
   feel_tags: string; // JSON string array
   notes: string;
   synced_at: string | null;
+  user_id: string | null;
 }
 
 const db = SQLite.openDatabaseSync("tracking_premium.db"); // new db name to prevent schema mismatch
@@ -41,15 +42,18 @@ export function initSQLiteRuns() {
     );
   `);
 
-  // Migration: add synced_at column if it doesn't exist on older installs
+  // Migrations
   try {
     const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(runs)");
-    const hasSyncedAt = columns.some((c) => c.name === "synced_at");
-    if (!hasSyncedAt) {
+    const colNames = columns.map((c) => c.name);
+    if (!colNames.includes("synced_at")) {
       db.execSync("ALTER TABLE runs ADD COLUMN synced_at TEXT;");
     }
+    if (!colNames.includes("user_id")) {
+      db.execSync("ALTER TABLE runs ADD COLUMN user_id TEXT;");
+    }
   } catch {
-    // ignore — column likely already exists
+    // ignore — columns likely already exist
   }
 
   isInitialized = true;
@@ -70,8 +74,8 @@ function ensureInitialized() {
 export function saveRunRecord(run: Omit<RunRecord, "synced_at">) {
   ensureInitialized();
   return db.runSync(
-    `INSERT OR REPLACE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    `INSERT OR REPLACE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
     [
       run.id,
       run.date,
@@ -84,23 +88,29 @@ export function saveRunRecord(run: Omit<RunRecord, "synced_at">) {
       run.effort_level,
       run.feel_tags,
       run.notes,
+      run.user_id ?? null,
     ],
   );
 }
 
-export function getRecentRuns(limit: number = 3): RunRecord[] {
+export function getRecentRuns(limit: number = 3, userId?: string | null): RunRecord[] {
   ensureInitialized();
+  if (userId) {
+    return db.getAllSync<RunRecord>(
+      "SELECT * FROM runs WHERE user_id = ? ORDER BY date DESC LIMIT ?",
+      [userId, limit],
+    );
+  }
   return db.getAllSync<RunRecord>(
-    "SELECT * FROM runs ORDER BY date DESC LIMIT ?",
+    "SELECT * FROM runs WHERE user_id IS NULL ORDER BY date DESC LIMIT ?",
     [limit],
   );
 }
 
 /**
- * Matches the "THIS WEEK" card: last 7 calendar days through end of today
- * (same window as `getLastNDaysRangeLabel(7)`).
+ * Matches the "THIS WEEK" card: last 7 calendar days through end of today.
  */
-export function getWeeklySummaries(now: Date = new Date()) {
+export function getWeeklySummaries(now: Date = new Date(), userId?: string | null) {
   ensureInitialized();
   const windowEnd = new Date(now);
   windowEnd.setHours(23, 59, 59, 999);
@@ -108,19 +118,36 @@ export function getWeeklySummaries(now: Date = new Date()) {
   windowStart.setDate(windowStart.getDate() - 6);
   windowStart.setHours(0, 0, 0, 0);
 
-  const summary = db.getFirstSync<{
-    totalDistance: number | null;
-    totalTime: number | null;
-    numRuns: number | null;
-  }>(
-    `SELECT
-      COALESCE(SUM(distance_meters), 0) AS totalDistance,
-      COALESCE(SUM(duration_seconds), 0) AS totalTime,
-      COUNT(*) AS numRuns
-     FROM runs
-     WHERE date >= ? AND date <= ?`,
-    [windowStart.toISOString(), windowEnd.toISOString()],
-  );
+  let summary: { totalDistance: number | null; totalTime: number | null; numRuns: number | null } | null;
+  if (userId) {
+    summary = db.getFirstSync<{
+      totalDistance: number | null;
+      totalTime: number | null;
+      numRuns: number | null;
+    }>(
+      `SELECT
+        COALESCE(SUM(distance_meters), 0) AS totalDistance,
+        COALESCE(SUM(duration_seconds), 0) AS totalTime,
+        COUNT(*) AS numRuns
+       FROM runs
+       WHERE date >= ? AND date <= ? AND user_id = ?`,
+      [windowStart.toISOString(), windowEnd.toISOString(), userId],
+    );
+  } else {
+    summary = db.getFirstSync<{
+      totalDistance: number | null;
+      totalTime: number | null;
+      numRuns: number | null;
+    }>(
+      `SELECT
+        COALESCE(SUM(distance_meters), 0) AS totalDistance,
+        COALESCE(SUM(duration_seconds), 0) AS totalTime,
+        COUNT(*) AS numRuns
+       FROM runs
+       WHERE date >= ? AND date <= ? AND user_id IS NULL`,
+      [windowStart.toISOString(), windowEnd.toISOString()],
+    );
+  }
 
   return {
     totalDistance: summary?.totalDistance ?? 0,
@@ -129,9 +156,11 @@ export function getWeeklySummaries(now: Date = new Date()) {
   };
 }
 
-export function getPersonalBests(): PersonalBests {
+export function getPersonalBests(userId?: string | null): PersonalBests {
   ensureInitialized();
-  const runs = db.getAllSync<RunRecord>("SELECT * FROM runs");
+  const runs = userId
+    ? db.getAllSync<RunRecord>("SELECT * FROM runs WHERE user_id = ?", [userId])
+    : db.getAllSync<RunRecord>("SELECT * FROM runs WHERE user_id IS NULL");
 
   let best5kSeconds: number | null = null;
   let longestRunMeters: number | null = null;
@@ -161,9 +190,12 @@ export function getPersonalBests(): PersonalBests {
 // Cloud sync helpers
 // ──────────────────────────────────────────────
 
-export function getUnsyncedRuns(): RunRecord[] {
+export function getUnsyncedRuns(userId?: string | null): RunRecord[] {
   ensureInitialized();
-  return db.getAllSync<RunRecord>("SELECT * FROM runs WHERE synced_at IS NULL");
+  if (userId) {
+    return db.getAllSync<RunRecord>("SELECT * FROM runs WHERE synced_at IS NULL AND user_id = ?", [userId]);
+  }
+  return db.getAllSync<RunRecord>("SELECT * FROM runs WHERE synced_at IS NULL AND user_id IS NULL");
 }
 
 export function deleteRunRecord(id: string) {
@@ -194,11 +226,12 @@ export function upsertRunFromServer(run: {
   effort_level: number | null;
   feel_tags: string | null;
   notes: string | null;
+  user_id?: string | null;
 }) {
   ensureInitialized();
   db.runSync(
-    `INSERT OR IGNORE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR IGNORE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       run.id,
       run.date,
@@ -212,6 +245,7 @@ export function upsertRunFromServer(run: {
       run.feel_tags ?? "[]",
       run.notes ?? "",
       new Date().toISOString(),
+      run.user_id ?? null,
     ],
   );
 }

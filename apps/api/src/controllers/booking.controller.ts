@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
   buildAvailabilitySlots,
+  cancelBookingForUser,
   createAvailabilityBlock,
   createBooking,
   createServiceType,
@@ -324,17 +325,40 @@ export async function createBookingForUser(req: Request, res: Response) {
 }
 
 export async function listBookings(req: Request, res: Response) {
+  try {
+    const { guardian } = await getGuardianAndAthlete(req.user!.id);
+    if (guardian) {
+      const items = await listBookingsForUser(guardian.id);
+      return res.status(200).json({ items });
+    }
+    const athlete = await getAthleteForUser(req.user!.id);
+    if (athlete) {
+      const items = await listBookingsForAthlete(athlete.id);
+      return res.status(200).json({ items });
+    }
+    return res.status(200).json({ items: [] });
+  } catch (error) {
+    console.error("listBookings error:", error);
+    return res.status(200).json({ items: [] });
+  }
+}
+
+export async function cancelBooking(req: Request, res: Response) {
+  const bookingId = Number(req.params.id);
+  if (!Number.isFinite(bookingId)) return res.status(400).json({ error: "Invalid booking ID" });
+
   const { guardian } = await getGuardianAndAthlete(req.user!.id);
-  if (guardian) {
-    const items = await listBookingsForUser(guardian.id);
-    return res.status(200).json({ items });
+  if (!guardian) return res.status(403).json({ error: "Forbidden" });
+
+  try {
+    const booking = await cancelBookingForUser(bookingId, guardian.id);
+    return res.status(200).json({ booking });
+  } catch (error: any) {
+    if (error?.message === "NOT_FOUND") return res.status(404).json({ error: "Booking not found" });
+    if (error?.message === "FORBIDDEN") return res.status(403).json({ error: "Forbidden" });
+    if (error?.message === "ALREADY_CLOSED") return res.status(409).json({ error: "Booking already closed" });
+    throw error;
   }
-  const athlete = await getAthleteForUser(req.user!.id);
-  if (athlete) {
-    const items = await listBookingsForAthlete(athlete.id);
-    return res.status(200).json({ items });
-  }
-  return res.status(200).json({ items: [] });
 }
 
 export async function bookingAction(req: Request, res: Response) {

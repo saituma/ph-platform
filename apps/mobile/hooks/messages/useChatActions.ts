@@ -1,21 +1,32 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { Socket } from "socket.io-client";
+
+function formatLastSeenStatic(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "Last seen just now";
+  if (minutes < 60) return `Last seen ${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Last seen ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Last seen yesterday";
+  return `Last seen ${days}d ago`;
+}
+
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread } from "@/types/messages";
 import { apiRequest } from "@/lib/api";
-import { parseReplyPrefix } from "@/lib/messages/reply";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
 import {
   classifyGroupThread,
-  mapGroupToThread,
-  mapCoachToThread,
 } from "@/lib/messages/mappers/threadMapper";
 import {
   mapApiDirectMessageToChatMessage,
   mapApiGroupMessageToChatMessage,
 } from "@/lib/messages/mappers/messageMapper";
-import { ApiChatMessage } from "@/types/chat-api";
+import { schedulePrefetchChatMessageMedia } from "@/lib/messages/prefetchChatMedia";
+import { ApiChatMessage, ChatMessagesResponse } from "@/types/chat-api";
 
 interface ChatActionsParams {
   token: string | null;
@@ -48,6 +59,9 @@ export function useChatActions({
   setIsThreadLoading,
   setGroupMembers,
 }: ChatActionsParams) {
+  // Track IDs of messages pending deletion so background reloads don't re-add them
+  const pendingDeleteIds = useRef<Set<string>>(new Set());
+
   const loadMessages = useCallback(
     async (options?: { silent?: boolean }) => {
       if (!token) {
@@ -58,48 +72,120 @@ export function useChatActions({
       if (!silent) setIsLoading(true);
 
       try {
-        const [messagesResult, groupsResult] = await chatService.fetchInbox(
-          token,
-          actingHeaders,
-        );
-
-        const data =
-          messagesResult.status === "fulfilled"
-            ? messagesResult.value
-            : { messages: [], coaches: [] };
-
-        const groupsData =
-          groupsResult.status === "fulfilled"
-            ? groupsResult.value
-            : { groups: [] };
-
-        const groupThreads = (groupsData.groups ?? [])
-          .filter((group) => classifyGroupThread(group) !== "announcement")
-          .map(mapGroupToThread);
+        const [inboxData, data] = await Promise.all([
+          chatService.fetchInbox(token, actingHeaders),
+          apiRequest<ChatMessagesResponse>("/messages", {
+            token,
+            headers: actingHeaders,
+            suppressStatusCodes: [401, 403],
+          }),
+        ]);
 
         const selfId = String(effectiveProfileId ?? "");
         const isPremium = hasPaidProgramTier(programTier);
         const coaches = data.coaches ?? (data.coach ? [data.coach] : []);
+        const inboxThreads = (inboxData.threads ?? [])
+          .filter((thread) => {
+            if (thread.type !== "group") return true;
+            const category = classifyGroupThread({
+              id: Number(thread.groupId ?? 0),
+              name: thread.name,
+              category: thread.groupCategory ?? undefined,
+              createdAt: thread.updatedAt,
+            });
+            return category !== "announcement";
+          })
+          .map((thread): MessageThread => {
+            const updatedAtMs = new Date(thread.updatedAt ?? 0).getTime();
+            const time = Number.isFinite(updatedAtMs)
+              ? new Date(updatedAtMs).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "";
+            if (thread.type === "group") {
+              const category = classifyGroupThread({
+                id: Number(thread.groupId ?? 0),
+                name: thread.name,
+                category: thread.groupCategory ?? undefined,
+                createdAt: thread.updatedAt,
+              });
+              return {
+                id:
+                  thread.id ||
+                  `group:${String(thread.groupId ?? "").trim()}`,
+                name: thread.name,
+                role: category === "team" ? "Team" : "Group",
+                channelType: category,
+                groupLabel: category === "team" ? "Team inbox" : "Coach group",
+                preview: thread.preview,
+                senderName:
+                  String(thread.lastMessageSenderName ?? "").trim() || undefined,
+                time,
+                pinned: false,
+                premium: false,
+                unread: Number(thread.unread ?? 0) || 0,
+                lastSeen: "Active",
+                responseTime: "Group updates",
+                updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
+                avatarUrl: thread.avatarUrl ?? null,
+              };
+            }
+            const directId =
+              Number(thread.peerUserId) > 0
+                ? String(thread.peerUserId)
+                : String(thread.id ?? "").replace(/^direct:/, "");
+            return {
+              id: directId,
+              name: thread.name,
+              role: thread.role ?? "Coach",
+              channelType: "direct",
+              groupLabel: "Direct message",
+              preview: thread.preview,
+              time,
+              pinned: false,
+              premium: isPremium,
+              unread: Number(thread.unread ?? 0) || 0,
+              lastSeen: thread.lastSeenAt ? formatLastSeenStatic(thread.lastSeenAt) : "Active",
+              responseTime: isPremium
+                ? "Priority response window"
+                : "Standard response window",
+              updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
+              avatarUrl: thread.avatarUrl ?? null,
+              isAi: false,
+              lastSeenAt: thread.lastSeenAt ?? null,
+            };
+          });
 
-        const coachThreads = coaches
-          .filter((c) => !c.isAi)
-          .map((c) => mapCoachToThread(c, data.messages ?? [], isPremium));
-
-        const mappedMessages = (data.messages ?? []).map((msg) =>
+        const orderedDirectMessages = [...(data.messages ?? [])].sort(
+          (a, b) => Number(a.id ?? 0) - Number(b.id ?? 0),
+        );
+        const mappedMessages = orderedDirectMessages.map((msg) =>
           mapApiDirectMessageToChatMessage(msg, selfId, coaches, profileName),
         );
 
-        const sortedThreads = [...coachThreads, ...groupThreads].sort(
+        const sortedThreads = [...inboxThreads].sort(
           (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
         );
         setThreads(sortedThreads);
+        const deletedIds = pendingDeleteIds.current;
         setMessages((prev) => {
           const groupMessages = prev.filter((m) =>
-            String(m.threadId ?? "").startsWith("group:"),
+            String(m.threadId ?? "").startsWith("group:") && !deletedIds.has(m.id),
+          );
+          const optimisticDirect = prev.filter(
+            (m) =>
+              !String(m.threadId ?? "").startsWith("group:") &&
+              typeof m.id === "string" &&
+              m.id.startsWith("client-"),
           );
           const seen = new Set<string>();
           const next: ChatMessage[] = [];
-          for (const msg of [...groupMessages, ...mappedMessages]) {
+          for (const msg of [
+            ...groupMessages,
+            ...mappedMessages.filter((m) => !deletedIds.has(m.id)),
+            ...optimisticDirect,
+          ]) {
             if (!msg?.id) continue;
             if (seen.has(msg.id)) continue;
             seen.add(msg.id);
@@ -107,6 +193,57 @@ export function useChatActions({
           }
           return next;
         });
+        schedulePrefetchChatMessageMedia(mappedMessages);
+
+        const topGroupIds = sortedThreads
+          .filter((thread) => String(thread.id).startsWith("group:"))
+          .slice(0, 3)
+          .map((thread) => Number(String(thread.id).replace("group:", "")))
+          .filter((id) => Number.isFinite(id) && id > 0);
+        for (const groupId of topGroupIds) {
+          void chatService
+            .fetchGroupMessages(token, groupId, actingHeaders)
+            .then((groupData) => {
+              const mappedGroupMessages = (groupData.messages ?? [])
+                .slice()
+                .sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0))
+                .map((msg) =>
+                  mapApiGroupMessageToChatMessage(
+                    msg,
+                    groupId,
+                    selfId,
+                    {},
+                  ),
+                );
+              if (!mappedGroupMessages.length) return;
+              setMessages((prev) => {
+                const threadKey = `group:${groupId}`;
+                const nonGroup = prev.filter((m) => m.threadId !== threadKey);
+                const optimistic = prev.filter(
+                  (m) =>
+                    m.threadId === threadKey &&
+                    typeof m.id === "string" &&
+                    m.id.startsWith("client-"),
+                );
+                const seen = new Set<string>();
+                const next: ChatMessage[] = [];
+                for (const msg of [
+                  ...nonGroup,
+                  ...mappedGroupMessages,
+                  ...optimistic,
+                ]) {
+                  if (!msg?.id || seen.has(msg.id)) continue;
+                  seen.add(msg.id);
+                  next.push(msg);
+                }
+                return next;
+              });
+              schedulePrefetchChatMessageMedia(mappedGroupMessages);
+            })
+            .catch(() => {
+              // Silent prefetch failure should not affect UX.
+            });
+        }
       } catch (error) {
         console.warn("Failed to load messages", error);
       } finally {
@@ -123,26 +260,23 @@ export function useChatActions({
       if (!silent) setIsThreadLoading(true);
 
       try {
-        const [data, membersData] = await chatService.fetchGroupDetails(
+        // Load messages first so thread content appears immediately.
+        const data = await chatService.fetchGroupMessages(
           token,
           groupId,
           actingHeaders,
         );
-
-        const memberMap = membersData.members.reduce<
-          Record<number, { name: string; avatar?: string | null }>
-        >((acc, member) => {
-          acc[member.userId] = {
-            name: member.name || member.email,
-            avatar: member.profilePicture ?? null,
-          };
-          return acc;
-        }, {});
-        setGroupMembers((prev) => ({ ...prev, [groupId]: memberMap }));
+        const existingMemberMap: Record<
+          number,
+          { name: string; avatar?: string | null }
+        > = {};
 
         const selfId = String(effectiveProfileId ?? "");
-        const mappedMessages = (data.messages ?? []).map((msg) =>
-          mapApiGroupMessageToChatMessage(msg, groupId, selfId, memberMap),
+        const orderedGroupMessages = [...(data.messages ?? [])].sort(
+          (a, b) => Number(a.id ?? 0) - Number(b.id ?? 0),
+        );
+        const mappedMessages = orderedGroupMessages.map((msg) =>
+          mapApiGroupMessageToChatMessage(msg, groupId, selfId, existingMemberMap),
         );
 
         setMessages((prev) => {
@@ -155,9 +289,10 @@ export function useChatActions({
               msg.id.startsWith("client-"),
           );
 
+          const dIds = pendingDeleteIds.current;
           const seen = new Set<string>();
           const next: ChatMessage[] = [];
-          for (const msg of [...remaining, ...optimistic, ...mappedMessages]) {
+          for (const msg of [...remaining.filter((m) => !dIds.has(m.id)), ...mappedMessages.filter((m) => !dIds.has(m.id)), ...optimistic]) {
             if (!msg?.id) continue;
             if (seen.has(msg.id)) continue;
             seen.add(msg.id);
@@ -165,6 +300,7 @@ export function useChatActions({
           }
           return next;
         });
+        schedulePrefetchChatMessageMedia(mappedMessages);
 
         if (mappedMessages.length > 0) {
           const lastMsg = mappedMessages[mappedMessages.length - 1];
@@ -181,6 +317,43 @@ export function useChatActions({
             ),
           );
         }
+
+        // Member metadata can arrive after messages; update author names/avatars in place.
+        void chatService
+          .fetchGroupMembers(token, groupId, actingHeaders)
+          .then((membersData) => {
+            const memberMap = membersData.members.reduce<
+              Record<number, { name: string; avatar?: string | null }>
+            >((acc, member) => {
+              const displayName =
+                String(member.displayName ?? "").trim() ||
+                String(member.name ?? "").trim() ||
+                String(member.email ?? "").trim();
+              acc[member.userId] = {
+                name: displayName || `User ${member.userId}`,
+                avatar: member.profilePicture ?? null,
+              };
+              return acc;
+            }, {});
+            setGroupMembers((prev) => ({ ...prev, [groupId]: memberMap }));
+            setMessages((prev) =>
+              prev.map((message) => {
+                if (message.threadId !== `group:${groupId}`) return message;
+                const senderId = Number(message.senderId ?? NaN);
+                if (!Number.isFinite(senderId)) return message;
+                const member = memberMap[senderId];
+                if (!member) return message;
+                return {
+                  ...message,
+                  authorName: message.authorName || member.name,
+                  authorAvatar: message.authorAvatar ?? member.avatar ?? null,
+                };
+              }),
+            );
+          })
+          .catch((error) => {
+            console.warn("Failed to load group members", error);
+          });
       } catch (error) {
         console.warn("Failed to load group messages", error);
       } finally {
@@ -260,11 +433,27 @@ export function useChatActions({
   const handleDeleteMessage = useCallback(
     async (message: ChatMessage) => {
       if (!token) return;
+      // Mark as pending delete immediately so background reloads skip it
+      pendingDeleteIds.current.add(message.id);
+      let removedMessage: ChatMessage | null = null;
+      let removedIndex = -1;
+      setMessages((prev) => {
+        removedIndex = prev.findIndex((item) => item.id === message.id);
+        removedMessage =
+          removedIndex >= 0 && removedIndex < prev.length
+            ? prev[removedIndex]
+            : null;
+        if (removedIndex < 0) return prev;
+        return prev.filter((item) => item.id !== message.id);
+      });
       try {
         if (message.threadId.startsWith("group:")) {
           const groupId = Number(message.threadId.replace("group:", ""));
           const messageId = Number(message.id.replace("group-", ""));
-          if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return;
+          if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) {
+            pendingDeleteIds.current.delete(message.id);
+            return;
+          }
           await apiRequest(`/chat/groups/${groupId}/messages/${messageId}`, {
             method: "DELETE",
             token,
@@ -272,15 +461,31 @@ export function useChatActions({
           });
         } else {
           const messageId = Number(message.id);
-          if (!Number.isFinite(messageId)) return;
+          if (!Number.isFinite(messageId)) {
+            pendingDeleteIds.current.delete(message.id);
+            return;
+          }
           await apiRequest(`/messages/${messageId}`, {
             method: "DELETE",
             token,
             headers: actingHeaders,
           });
         }
-        setMessages((prev) => prev.filter((item) => item.id !== message.id));
+        // Keep in set permanently — message is gone from server too
       } catch (error) {
+        // Delete failed — remove from pending set and restore message
+        pendingDeleteIds.current.delete(message.id);
+        if (removedMessage) {
+          setMessages((prev) => {
+            if (prev.some((item) => item.id === removedMessage?.id)) return prev;
+            if (removedIndex < 0 || removedIndex > prev.length) {
+              return [...prev, removedMessage as ChatMessage];
+            }
+            const next = [...prev];
+            next.splice(removedIndex, 0, removedMessage as ChatMessage);
+            return next;
+          });
+        }
         console.warn("Failed to delete message", error);
       }
     },
@@ -290,52 +495,95 @@ export function useChatActions({
   const handleToggleReaction = useCallback(
     async (message: ChatMessage, emoji: string) => {
       if (!token) return;
-      try {
-        const currentUserId = Number.isFinite(effectiveProfileId)
-          ? effectiveProfileId
-          : 0;
+      const currentUserId = Number.isFinite(effectiveProfileId)
+        ? effectiveProfileId
+        : 0;
+      if (currentUserId <= 0) return;
+      const previousReactions = message.reactions ?? [];
+      const applyOptimisticReaction = (
+        reactions: { emoji: string; count: number; userIds: number[] }[],
+      ) => {
+        const next = (reactions ?? []).map((reaction) => ({
+          ...reaction,
+          userIds: [...(reaction.userIds ?? [])],
+        }));
+        const existingReactionIndex = next.findIndex((reaction) =>
+          reaction.userIds.includes(currentUserId),
+        );
         const existingEmoji =
-          currentUserId > 0
-            ? message.reactions?.find((reaction) =>
-                reaction.userIds?.includes(currentUserId),
-              )?.emoji
-            : undefined;
+          existingReactionIndex >= 0 ? next[existingReactionIndex].emoji : null;
 
-        const toggleReaction = async (nextEmoji: string) => {
-          if (message.threadId.startsWith("group:")) {
-            const groupId = Number(message.threadId.replace("group:", ""));
-            const messageId = Number(message.id.replace("group-", ""));
-            if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return;
-            await apiRequest(
-              `/chat/groups/${groupId}/messages/${messageId}/reactions`,
-              {
-                method: "PUT",
-                token,
-                headers: actingHeaders,
-                body: { emoji: nextEmoji },
-              },
-            );
-            return;
-          }
-          const messageId = Number(message.id);
-          if (!Number.isFinite(messageId)) return;
-          await apiRequest(`/messages/${messageId}/reactions`, {
-            method: "PUT",
-            token,
-            headers: actingHeaders,
-            body: { emoji: nextEmoji },
-          });
-        };
-
-        if (existingEmoji && existingEmoji !== emoji) {
-          await toggleReaction(existingEmoji);
+        // Tapping the same emoji toggles it off.
+        if (existingEmoji === emoji) {
+          const reaction = next[existingReactionIndex];
+          reaction.userIds = reaction.userIds.filter((id) => id !== currentUserId);
+          reaction.count = reaction.userIds.length;
+          return next.filter((item) => item.count > 0);
         }
-        await toggleReaction(emoji);
+
+        // Remove current user from any previous reaction.
+        if (existingReactionIndex >= 0) {
+          const previous = next[existingReactionIndex];
+          previous.userIds = previous.userIds.filter((id) => id !== currentUserId);
+          previous.count = previous.userIds.length;
+        }
+
+        // Add current user to selected emoji.
+        const targetIndex = next.findIndex((reaction) => reaction.emoji === emoji);
+        if (targetIndex >= 0) {
+          const target = next[targetIndex];
+          if (!target.userIds.includes(currentUserId)) {
+            target.userIds.push(currentUserId);
+          }
+          target.count = target.userIds.length;
+        } else {
+          next.push({ emoji, count: 1, userIds: [currentUserId] });
+        }
+        return next.filter((item) => item.count > 0);
+      };
+
+      const optimisticReactions = applyOptimisticReaction(previousReactions);
+      setMessages((prev) =>
+        prev.map((item) =>
+          item.id === message.id ? { ...item, reactions: optimisticReactions } : item,
+        ),
+      );
+
+      try {
+        if (message.threadId.startsWith("group:")) {
+          const groupId = Number(message.threadId.replace("group:", ""));
+          const messageId = Number(message.id.replace("group-", ""));
+          if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return;
+          await apiRequest(
+            `/chat/groups/${groupId}/messages/${messageId}/reactions`,
+            {
+              method: "PUT",
+              token,
+              headers: actingHeaders,
+              body: { emoji },
+            },
+          );
+          return;
+        }
+        const messageId = Number(message.id);
+        if (!Number.isFinite(messageId)) return;
+        await apiRequest(`/messages/${messageId}/reactions`, {
+          method: "PUT",
+          token,
+          headers: actingHeaders,
+          body: { emoji },
+        });
       } catch (error) {
+        // Roll back optimistic update if request fails.
+        setMessages((prev) =>
+          prev.map((item) =>
+            item.id === message.id ? { ...item, reactions: previousReactions } : item,
+          ),
+        );
         console.warn("Failed to react to message", error);
       }
     },
-    [actingHeaders, effectiveProfileId, token],
+    [actingHeaders, effectiveProfileId, token, setMessages],
   );
 
   return {

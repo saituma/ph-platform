@@ -36,11 +36,67 @@ export const Route = createFileRoute("/portal/nutrition")({
 	component: NutritionPage,
 });
 
+function TargetBar({
+	label,
+	unit,
+	value,
+	target,
+	color,
+}: {
+	label: string;
+	unit: string;
+	value: number;
+	target: number;
+	color: string;
+}) {
+	const pct = Math.min(100, Math.round((value / target) * 100));
+	return (
+		<div className="space-y-1.5">
+			<div className="flex justify-between text-xs font-bold">
+				<span>{label}</span>
+				<span className="text-muted-foreground">
+					{value} / {target} {unit}
+				</span>
+			</div>
+			<div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden">
+				<div
+					className={`h-full rounded-full ${color} transition-all`}
+					style={{ width: `${pct}%` }}
+				/>
+			</div>
+		</div>
+	);
+}
+
+function WellbeingDot({
+	value,
+	color,
+	inverted = false,
+}: {
+	value: number | null | undefined;
+	color: string;
+	inverted?: boolean;
+}) {
+	if (!value) return <div className="h-6 w-6 mx-auto rounded-full bg-muted/30" />;
+	const score = inverted ? 6 - value : value; // for pain, lower is better
+	const opacity = score <= 1 ? "opacity-20" : score <= 2 ? "opacity-40" : score <= 3 ? "opacity-60" : score <= 4 ? "opacity-80" : "opacity-100";
+	return (
+		<div
+			className={`h-6 w-6 mx-auto rounded-full ${color} ${opacity} flex items-center justify-center`}
+			title={`${value}/5`}
+		>
+			<span className="text-[8px] font-black text-white">{value}</span>
+		</div>
+	);
+}
+
 function NutritionPage() {
 	const { user } = usePortal();
 	const [date, setDate] = useState(new Date());
 	const [loading, setLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
+	const [targets, setTargets] = useState<any>(null);
+	const [weekLogs, setWeekLogs] = useState<any[]>([]);
 
 	const [log, setLog] = useState<any>({
 		breakfast: "",
@@ -64,12 +120,18 @@ function NutritionPage() {
 		if (!user || !showPortalNutritionNav(user.role)) return;
 		setLoading(true);
 		try {
-			const data = await settingsService.getNutritionLogs({
-				userId: user.id || "me",
-				from: dateKey,
-				to: dateKey,
-			});
-			const currentLog = data.logs.find((l: any) => l.dateKey === dateKey);
+			// Fetch today's log + 7-day history + targets in parallel
+			const weekStart = new Date(date);
+			weekStart.setDate(weekStart.getDate() - 6);
+			const weekStartKey = weekStart.toISOString().slice(0, 10);
+
+			const [todayData, weekData, targetsData] = await Promise.all([
+				settingsService.getNutritionLogs({ userId: user.id || "me", from: dateKey, to: dateKey }),
+				settingsService.getNutritionLogs({ userId: user.id || "me", from: weekStartKey, to: dateKey, limit: 30 }),
+				settingsService.getNutritionTargets(user.id || "me").catch(() => ({ targets: null })),
+			]);
+
+			const currentLog = todayData.logs.find((l: any) => l.dateKey === dateKey);
 			if (currentLog) {
 				setLog({
 					...currentLog,
@@ -94,6 +156,13 @@ function NutritionPage() {
 					foodDiary: "",
 				});
 			}
+			setTargets(targetsData.targets);
+			// Deduplicate by dateKey, keep one per day
+			const byDate = new Map<string, any>();
+			for (const l of weekData.logs) {
+				if (!byDate.has(l.dateKey)) byDate.set(l.dateKey, l);
+			}
+			setWeekLogs(Array.from(byDate.values()).sort((a, b) => a.dateKey.localeCompare(b.dateKey)));
 		} catch (error) {
 			console.error("Failed to fetch nutrition log", error);
 		} finally {
@@ -240,6 +309,7 @@ function NutritionPage() {
 					<Loader2 className="h-8 w-8 animate-spin text-primary" />
 				</div>
 			) : (
+				<>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 					<div className="space-y-6">
 						<Card className="border-2">
@@ -450,6 +520,68 @@ function NutritionPage() {
 						</Button>
 					</div>
 				</div>
+
+				{/* Daily Targets Progress */}
+				{targets && (
+					<Card className="border-2">
+						<CardHeader className="pb-3">
+							<CardTitle className="text-lg font-bold uppercase tracking-tight">
+								Daily Targets
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							{targets.calories && (
+								<TargetBar label="Calories" unit="kcal" value={0} target={targets.calories} color="bg-orange-500" />
+							)}
+							{targets.protein && (
+								<TargetBar label="Protein" unit="g" value={0} target={targets.protein} color="bg-blue-500" />
+							)}
+							{targets.carbs && (
+								<TargetBar label="Carbs" unit="g" value={0} target={targets.carbs} color="bg-yellow-500" />
+							)}
+							{targets.fats && (
+								<TargetBar label="Fats" unit="g" value={0} target={targets.fats} color="bg-red-500" />
+							)}
+							{targets.micronutrientsGuidance && (
+								<p className="text-xs text-muted-foreground border-t pt-3 mt-1">
+									<span className="font-bold">Coach notes: </span>
+									{targets.micronutrientsGuidance}
+								</p>
+							)}
+						</CardContent>
+					</Card>
+				)}
+
+				{/* Weekly Wellbeing Summary */}
+				{weekLogs.length > 1 && (
+					<Card className="border-2">
+						<CardHeader className="pb-3">
+							<CardTitle className="text-lg font-bold uppercase tracking-tight">
+								7-Day Wellbeing Trend
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="grid grid-cols-7 gap-1 text-center">
+								{weekLogs.slice(-7).map((log) => (
+									<div key={log.dateKey} className="space-y-1.5">
+										<p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+											{new Date(log.dateKey + "T12:00:00").toLocaleDateString(undefined, { weekday: "short" })}
+										</p>
+										<WellbeingDot value={log.mood} color="bg-amber-400" />
+										<WellbeingDot value={log.energy} color="bg-yellow-400" />
+										<WellbeingDot value={log.pain} color="bg-red-400" inverted />
+									</div>
+								))}
+							</div>
+							<div className="flex gap-4 mt-4 text-[10px] text-muted-foreground font-medium">
+								<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400 inline-block" />Mood</span>
+								<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-400 inline-block" />Energy</span>
+								<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400 inline-block" />Pain</span>
+							</div>
+						</CardContent>
+					</Card>
+				)}
+			</>
 			)}
 		</div>
 	);

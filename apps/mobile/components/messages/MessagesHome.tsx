@@ -1,305 +1,521 @@
+import { Ionicons } from "@expo/vector-icons";
+import React, { useCallback } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { AgeGate } from "@/components/AgeGate";
 import { InboxScreen } from "@/components/messages/InboxScreen";
 import { Text } from "@/components/ScaledText";
+import { useActiveTabIndex } from "@/context/ActiveTabContext";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import {
-  useActiveTabIndex,
-} from "@/context/ActiveTabContext";
-import { apiRequest } from "@/lib/api";
+	useSafePathname,
+	useSafeRouter,
+} from "@/hooks/navigation/useSafeExpoRouter";
 import { useMessagesController } from "@/hooks/useMessagesController";
-import { useAppSelector } from "@/store/hooks";
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { Pressable, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { apiRequest } from "@/lib/api";
 import { BASE_TEAM_TAB_ROUTES } from "@/roles/shared/tabs";
-import { useSafePathname, useSafeRouter } from "@/hooks/navigation/useSafeExpoRouter";
+import { useAppSelector } from "@/store/hooks";
 
 export type MessagesHomeMode = "team" | "adult" | "youth";
+type InboxFilterKey = "all" | "direct" | "team";
 
-function pickLatestAnnouncement(items: unknown[]): any | null {
-  if (!Array.isArray(items) || items.length === 0) return null;
-  return [...items].sort((a: any, b: any) => {
-    const tb = new Date(b?.updatedAt ?? b?.createdAt ?? 0).getTime();
-    const ta = new Date(a?.updatedAt ?? a?.createdAt ?? 0).getTime();
-    return tb - ta;
-  })[0];
+type AnnouncementItem = {
+	title?: string | null;
+	body?: unknown;
+	content?: string | null;
+	createdAt?: string | null;
+	updatedAt?: string | null;
+};
+
+function pickLatestAnnouncement(
+	items: AnnouncementItem[],
+): AnnouncementItem | null {
+	if (!Array.isArray(items) || items.length === 0) return null;
+	return [...items].sort((a, b) => {
+		const tb = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
+		const ta = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+		return tb - ta;
+	})[0];
 }
 
 export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
-  const { colors } = useAppTheme();
-  const token = useAppSelector((state) => state.user.token);
-  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
-  const { isSectionHidden } = useAgeExperience();
+	const { colors, isDark } = useAppTheme();
+	const token = useAppSelector((state) => state.user.token);
+	const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
+	const { isSectionHidden } = useAgeExperience();
 
-  const {
-    sortedThreads,
-    typingStatus,
-    isLoading,
-    openingThreadId,
-    openThread,
-    loadMessages,
-    resetOpeningThread,
-  } = useMessagesController();
-  const router = useSafeRouter();
-  const pathname = useSafePathname("");
-  const activeTabIndex = useActiveTabIndex();
-  const messagesTabIndex = React.useMemo(
-    () => BASE_TEAM_TAB_ROUTES.findIndex((t) => t.key === "messages"),
-    [],
-  );
-  const isOnMessagesTab =
-    messagesTabIndex >= 0 && activeTabIndex === messagesTabIndex;
-  const isMessagesRoute =
-    pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
-  /** Pager swipe does not always update URL; pathname alone can miss the messages tab. */
-  const isMessagesSurface = isOnMessagesTab || isMessagesRoute;
-  const unreadCount = React.useMemo(
-    () =>
-      sortedThreads.reduce(
-        (sum, thread) => sum + (Number(thread.unread) || 0),
-        0,
-      ),
-    [sortedThreads],
-  );
-  const [announcementsLoading, setAnnouncementsLoading] = React.useState(true);
-  const [announcementsMeta, setAnnouncementsMeta] = React.useState<{
-    count: number;
-    title: string;
-    snippet: string;
-    when: string;
-  } | null>(null);
+	const {
+		sortedThreads,
+		typingStatus,
+		isLoading,
+		openingThreadId,
+		openThread,
+		loadMessages,
+		resetOpeningThread,
+	} = useMessagesController();
+	const router = useSafeRouter();
+	const pathname = useSafePathname("");
+	const activeTabIndex = useActiveTabIndex();
+	const messagesTabIndex = React.useMemo(
+		() => BASE_TEAM_TAB_ROUTES.findIndex((t) => t.key === "messages"),
+		[],
+	);
+	const isOnMessagesTab =
+		messagesTabIndex >= 0 && activeTabIndex === messagesTabIndex;
+	const isMessagesRoute =
+		pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
+	const isMessagesSurface = isOnMessagesTab || isMessagesRoute;
 
-  const inboxThreads = React.useMemo(() => {
-    if (mode === "team") return sortedThreads;
-    return sortedThreads.filter((thread) => thread.channelType !== "team");
-  }, [mode, sortedThreads]);
+	const unreadCount = React.useMemo(
+		() =>
+			sortedThreads.reduce(
+				(sum, thread) => sum + (Number(thread.unread) || 0),
+				0,
+			),
+		[sortedThreads],
+	);
 
-  // Load whenever this screen is shown (MessagesHome only mounts after the Messages tab is visited).
-  // Do not gate on URL / active tab index — those can lag one frame and skip the fetch entirely.
-  React.useEffect(() => {
-    if (!token) {
-      setAnnouncementsLoading(false);
-      setAnnouncementsMeta(null);
-      return;
-    }
-    let active = true;
-    (async () => {
-      setAnnouncementsLoading(true);
-      try {
-        const headers = athleteUserId
-          ? { "X-Acting-User-Id": String(athleteUserId) }
-          : undefined;
-        const res = await apiRequest<{ items?: any[] }>(
-          "/content/announcements",
-          {
-            token,
-            headers,
-            skipCache: true,
-            forceRefresh: true,
-            suppressStatusCodes: [401, 403, 404],
-          },
-        );
-        const items = Array.isArray(res.items) ? res.items : [];
-        const latest = pickLatestAnnouncement(items);
-        if (!active) return;
-        if (!latest) {
-          setAnnouncementsMeta(null);
-          return;
-        }
-        const title = String(latest.title ?? "").trim() || "Announcement";
-        const rawBody =
-          typeof latest.body === "string"
-            ? latest.body
-            : latest.body
-              ? String(latest.body)
-              : String(latest.content ?? "");
-        const snippet = rawBody
-          .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
-          .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
-          .replace(/\s+/g, " ")
-          .trim()
-          .slice(0, 120);
-        const timestamp = latest.updatedAt ?? latest.createdAt ?? null;
-        const when = timestamp ? new Date(timestamp).toLocaleString() : "";
-        setAnnouncementsMeta({
-          count: items.length,
-          title,
-          snippet,
-          when,
-        });
-      } catch {
-        if (!active) return;
-        setAnnouncementsMeta(null);
-      } finally {
-        if (active) setAnnouncementsLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [athleteUserId, token]);
+	// ── Announcements (compact) ──────────────────────────────────────
+	const [announcementsLoading, setAnnouncementsLoading] = React.useState(true);
+	const [announcementsMeta, setAnnouncementsMeta] = React.useState<{
+		count: number;
+		title: string;
+		snippet: string;
+		when: string;
+	} | null>(null);
+	const [inboxFilter, setInboxFilter] = React.useState<InboxFilterKey>("all");
 
-  React.useEffect(() => {
-    if (!isMessagesSurface) return;
-    resetOpeningThread();
-  }, [isMessagesSurface, resetOpeningThread]);
+	const inboxThreads = React.useMemo(() => {
+		if (mode !== "team") {
+			const base = sortedThreads.filter((thread) => thread.channelType !== "team");
+			if (inboxFilter === "direct") return base.filter((t) => (t.unread ?? 0) > 0);
+			return base;
+		}
+		if (inboxFilter === "direct") {
+			return sortedThreads.filter((thread) => thread.channelType === "direct");
+		}
+		if (inboxFilter === "team") {
+			return sortedThreads.filter((thread) => thread.channelType === "team");
+		}
+		return sortedThreads;
+	}, [inboxFilter, mode, sortedThreads]);
 
-  if (isSectionHidden("messages")) {
-    return (
-      <AgeGate
-        title="Messages locked"
-        message="Messaging is restricted for this age."
-      />
-    );
-  }
+	React.useEffect(() => {
+		if (!token) {
+			setAnnouncementsLoading(false);
+			setAnnouncementsMeta(null);
+			return;
+		}
+		let active = true;
+		(async () => {
+			setAnnouncementsLoading(true);
+			try {
+				const headers = athleteUserId
+					? { "X-Acting-User-Id": String(athleteUserId) }
+					: undefined;
+				const res = await apiRequest<{ items?: AnnouncementItem[] }>(
+					"/content/announcements",
+					{
+						token,
+						headers,
+						skipCache: true,
+						forceRefresh: true,
+						suppressStatusCodes: [401, 403, 404],
+					},
+				);
+				const items = Array.isArray(res.items) ? res.items : [];
+				const latest = pickLatestAnnouncement(items);
+				if (!active) return;
+				if (!latest) {
+					setAnnouncementsMeta(null);
+					return;
+				}
+				const title = String(latest.title ?? "").trim() || "Announcement";
+				const rawBody =
+					typeof latest.body === "string"
+						? latest.body
+						: latest.body
+							? String(latest.body)
+							: String(latest.content ?? "");
+				const snippet = rawBody
+					.replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+					.replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+					.replace(/\s+/g, " ")
+					.trim()
+					.slice(0, 120);
+				const timestamp = latest.updatedAt ?? latest.createdAt ?? null;
+				const when = timestamp ? new Date(timestamp).toLocaleString() : "";
+				setAnnouncementsMeta({
+					count: items.length,
+					title,
+					snippet,
+					when,
+				});
+			} catch {
+				if (!active) return;
+				setAnnouncementsMeta(null);
+			} finally {
+				if (active) setAnnouncementsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [athleteUserId, token]);
 
-  return (
-    <SafeAreaView
-      className="flex-1"
-      edges={["top"]}
-      style={{ backgroundColor: colors.background }}
-    >
-      <View className="px-6 pt-10 pb-6">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 pr-4">
-            <Text
-              className="text-5xl font-telma-bold font-bold tracking-tight"
-              style={{ color: colors.text }}
-            >
-              Messages
-            </Text>
-          </View>
-          <View
-            className="h-16 w-16 rounded-[24px] items-center justify-center border"
-            style={{
-              backgroundColor: colors.backgroundSecondary,
-              borderColor: colors.borderSubtle,
-            }}
-          >
-            <Ionicons
-              name="chatbubble-ellipses"
-              size={32}
-              color={colors.accent}
-            />
-          </View>
-        </View>
+	React.useEffect(() => {
+		if (!isMessagesSurface) return;
+		resetOpeningThread();
+	}, [isMessagesSurface, resetOpeningThread]);
 
-        <View className="mt-8 flex-row items-center gap-3">
-          <View
-            className="rounded-full px-4 py-2 border"
-            style={{
-              backgroundColor: "rgba(200, 241, 53, 0.08)",
-              borderColor: "rgba(200, 241, 53, 0.15)",
-            }}
-          >
-            <Text
-              className="text-[12px] font-outfit-bold font-bold uppercase tracking-wider"
-              style={{ color: colors.accent }}
-            >
-              {sortedThreads.length} Thread{sortedThreads.length === 1 ? "" : "s"}
-            </Text>
-          </View>
-          {unreadCount > 0 && (
-            <View
-              className="rounded-full px-4 py-2"
-              style={{ backgroundColor: colors.danger }}
-            >
-              <Text className="text-[12px] font-outfit-bold font-bold text-white uppercase tracking-wider">
-                {unreadCount} New
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
+	const handleOpenAnnouncements = useCallback(() => {
+		router?.push("/announcements");
+	}, [router]);
 
-      <View className="px-6 pb-8">
-        <Pressable
-          onPress={() => router?.push("/announcements" as any)}
-          className="rounded-[32px] border p-6 active:opacity-90"
-          style={{
-            backgroundColor: colors.card,
-            borderColor: colors.borderSubtle,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-          }}
-        >
-          <View className="flex-row items-center justify-between mb-5">
-            <View className="flex-row items-center gap-3">
-              <View
-                className="w-10 h-10 rounded-2xl items-center justify-center"
-                style={{ backgroundColor: "rgba(200, 241, 53, 0.12)" }}
-              >
-                <Ionicons
-                  name="megaphone"
-                  size={20}
-                  color={colors.accent}
-                />
-              </View>
-              <Text
-                className="text-[13px] font-outfit-bold font-bold uppercase tracking-[2px]"
-                style={{ color: colors.accent }}
-              >
-                Updates
-              </Text>
-            </View>
-            {!announcementsLoading && announcementsMeta?.count ? (
-              <View
-                className="h-8 w-8 rounded-full items-center justify-center"
-                style={{ backgroundColor: colors.accent }}
-              >
-                <Text className="text-[13px] font-outfit-bold font-bold text-black">
-                  {announcementsMeta.count}
-                </Text>
-              </View>
-            ) : (
-              <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
-            )}
-          </View>
+	if (isSectionHidden("messages")) {
+		return (
+			<AgeGate
+				title="Messages locked"
+				message="Messaging is restricted for this age."
+			/>
+		);
+	}
 
-          <View>
-            <Text
-              className="text-xl font-clash-bold font-bold"
-              style={{ color: colors.text }}
-              numberOfLines={1}
-            >
-              {announcementsLoading
-                ? "…"
-                : announcementsMeta?.title || "None"}
-            </Text>
-            {!announcementsLoading && announcementsMeta?.snippet ? (
-              <Text
-                className="mt-2 text-[14px] font-outfit leading-6"
-                style={{ color: colors.textSecondary }}
-                numberOfLines={2}
-              >
-                {announcementsMeta.snippet}
-              </Text>
-            ) : null}
-            {!announcementsLoading && announcementsMeta?.when ? (
-              <View className="mt-4 pt-4 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-                <Text
-                  className="text-[12px] font-outfit-medium font-medium"
-                  style={{ color: colors.textDim }}
-                >
-                  Updated {announcementsMeta.when}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        </Pressable>
-      </View>
+	const screenBg = isDark ? colors.background : "#F4F6F8";
 
-      <InboxScreen
-        threads={inboxThreads}
-        typingStatus={typingStatus}
-        isLoading={isLoading}
-        openingThreadId={openingThreadId}
-        onRefresh={loadMessages}
-        onOpenThread={openThread}
-        variant={mode === "team" ? "team" : "default"}
-        showEmptySections={mode === "team"}
-      />
-    </SafeAreaView>
-  );
+	return (
+		<SafeAreaView
+			className="flex-1"
+			edges={["top"]}
+			style={{ backgroundColor: screenBg }}
+		>
+			{/* ── Native-style Header ───────────────────────────── */}
+			<View style={styles.header}>
+				<Text
+					style={[
+						styles.headerTitle,
+						{
+							fontFamily: "Chillax-Semibold",
+							color: colors.textPrimary,
+							fontSize: 36,
+						},
+					]}
+				>
+					Messages
+				</Text>
+
+				<View style={styles.headerRight}>
+					{unreadCount > 0 && (
+						<View
+							style={[styles.unreadPill, { backgroundColor: colors.accent }]}
+						>
+							<Text style={[styles.unreadText, { fontFamily: "Outfit-Bold" }]}>
+								{unreadCount}
+							</Text>
+						</View>
+					)}
+				</View>
+			</View>
+
+			{mode === "team" ? (
+				<View
+					style={[
+						styles.switcherWrap,
+						{
+							backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F2F4F7",
+						},
+					]}
+				>
+					{(
+						[
+							{ key: "all", label: "All" },
+							{ key: "direct", label: "Direct" },
+							{ key: "team", label: "Team" },
+						] as const
+					).map((item) => {
+						const isActive = inboxFilter === item.key;
+						return (
+							<Pressable
+								key={item.key}
+								onPress={() => setInboxFilter(item.key)}
+								style={[
+									styles.switcherItem,
+									{
+										backgroundColor: isActive
+											? colors.surface
+											: "transparent",
+										shadowColor: isActive && !isDark ? "#000" : "transparent",
+										shadowOffset: { width: 0, height: 2 },
+										shadowOpacity: 0.06,
+										shadowRadius: 4,
+										elevation: isActive && !isDark ? 2 : 0,
+									},
+								]}
+							>
+								<Text
+									style={[
+										styles.switcherText,
+										{
+											fontFamily: isActive ? "Outfit-Bold" : "Outfit-Medium",
+											color: isActive
+												? colors.textPrimary
+												: colors.textSecondary,
+										},
+									]}
+								>
+									{item.label}
+								</Text>
+							</Pressable>
+						);
+					})}
+				</View>
+			) : (
+				<View
+					style={[
+						styles.switcherWrap,
+						{
+							backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F2F4F7",
+						},
+					]}
+				>
+					{(
+						[
+							{ key: "all", label: "All" },
+							{ key: "direct", label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}` },
+						] as const
+					).map((item) => {
+						const isActive = inboxFilter === item.key;
+						const hasUnread = item.key === "direct" && unreadCount > 0;
+						return (
+							<Pressable
+								key={item.key}
+								onPress={() => setInboxFilter(item.key)}
+								style={[
+									styles.switcherItem,
+									{
+										backgroundColor: isActive
+											? colors.surface
+											: "transparent",
+										shadowColor: isActive && !isDark ? "#000" : "transparent",
+										shadowOffset: { width: 0, height: 2 },
+										shadowOpacity: 0.06,
+										shadowRadius: 4,
+										elevation: isActive && !isDark ? 2 : 0,
+									},
+								]}
+							>
+								<Text
+									style={[
+										styles.switcherText,
+										{
+											fontFamily: isActive ? "Outfit-Bold" : "Outfit-Medium",
+											color: hasUnread
+												? colors.accent
+												: isActive
+												? colors.textPrimary
+												: colors.textSecondary,
+										},
+									]}
+								>
+									{item.label}
+								</Text>
+							</Pressable>
+						);
+					})}
+				</View>
+			)}
+
+			{/* ── Inline Announcement Row (Telegram-style pinned) ── */}
+			{!announcementsLoading && announcementsMeta && (
+				<Pressable
+					onPress={handleOpenAnnouncements}
+					style={({ pressed }) => [
+						styles.announcementRow,
+						{
+							backgroundColor: pressed
+								? isDark
+									? "rgba(255,255,255,0.04)"
+									: "rgba(0,0,0,0.02)"
+								: "transparent",
+							borderBottomColor: isDark
+								? "rgba(255,255,255,0.06)"
+								: "rgba(0,0,0,0.04)",
+						},
+					]}
+				>
+					<View
+						style={[
+							styles.announcementIcon,
+							{
+								backgroundColor: isDark
+									? "rgba(200,241,53,0.1)"
+									: "rgba(34,197,94,0.08)",
+							},
+						]}
+					>
+						<Ionicons name="megaphone" size={14} color={colors.accent} />
+					</View>
+
+					<View style={styles.announcementContent}>
+						<Text
+							style={[
+								styles.announcementTitle,
+								{ fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
+							]}
+							numberOfLines={1}
+						>
+							{announcementsMeta.title}
+						</Text>
+						<Text
+							style={[
+								styles.announcementSnippet,
+								{ fontFamily: "Outfit-Regular", color: colors.textSecondary },
+							]}
+							numberOfLines={1}
+						>
+							{announcementsMeta.snippet}
+						</Text>
+					</View>
+
+					{announcementsMeta.count > 0 && (
+						<View
+							style={[
+								styles.announcementBadge,
+								{ backgroundColor: colors.accent },
+							]}
+						>
+							<Text
+								style={[
+									styles.announcementBadgeText,
+									{ fontFamily: "Outfit-Bold" },
+								]}
+							>
+								{announcementsMeta.count}
+							</Text>
+						</View>
+					)}
+
+					<Ionicons name="chevron-forward" size={16} color={colors.textDim} />
+				</Pressable>
+			)}
+
+			{/* ── Thread List ─────────────────────────────────────── */}
+			<InboxScreen
+				threads={inboxThreads}
+				typingStatus={typingStatus}
+				isLoading={isLoading}
+				openingThreadId={openingThreadId}
+				onRefresh={loadMessages}
+				onOpenThread={openThread}
+				variant={mode === "team" ? "team" : "default"}
+				showEmptySections={mode === "team"}
+			/>
+		</SafeAreaView>
+	);
 }
+
+// ── Styles ─────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+	header: {
+		paddingHorizontal: 20,
+		paddingTop: 16,
+		paddingBottom: 4,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+	},
+	headerTitle: {
+		letterSpacing: -1,
+	},
+	headerRight: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 12,
+	},
+	composeButton: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	unreadPill: {
+		minWidth: 24,
+		height: 24,
+		borderRadius: 12,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: 8,
+	},
+	unreadText: {
+		fontSize: 13,
+		color: "#000",
+	},
+	switcherWrap: {
+		marginHorizontal: 16,
+		marginVertical: 12,
+		padding: 6,
+		borderRadius: 20,
+		flexDirection: "row",
+		alignItems: "center",
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.04,
+		shadowRadius: 8,
+		elevation: 2,
+	},
+	switcherItem: {
+		flex: 1,
+		height: 40,
+		borderRadius: 14,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	switcherText: {
+		fontSize: 14,
+		letterSpacing: -0.1,
+	},
+	announcementRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 16,
+		paddingVertical: 12,
+		marginHorizontal: 16,
+		marginBottom: 12,
+		borderRadius: 20,
+		gap: 12,
+	},
+	announcementIcon: {
+		width: 36,
+		height: 36,
+		borderRadius: 12,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	announcementContent: {
+		flex: 1,
+		gap: 2,
+	},
+	announcementTitle: {
+		fontSize: 15,
+		letterSpacing: -0.2,
+	},
+	announcementSnippet: {
+		fontSize: 13,
+		opacity: 0.8,
+	},
+	announcementBadge: {
+		minWidth: 24,
+		height: 24,
+		borderRadius: 12,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: 8,
+	},
+	announcementBadgeText: {
+		fontSize: 12,
+		color: "#000",
+	},
+});

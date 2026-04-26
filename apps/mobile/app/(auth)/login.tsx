@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Pressable, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as z from "zod";
@@ -269,10 +269,24 @@ export default function LoginScreen() {
           </Text>
         ) : null}
 
-        <View className="flex-row justify-center items-center mt-4">
-          <Text className="text-accent text-base font-outfit-semibold text-center">
-            Send register request
+        <View className="flex-row justify-center items-center gap-1 mt-4">
+          <Text className="text-secondary text-sm font-outfit text-center">
+            Don&apos;t have an account?
           </Text>
+          <Pressable
+            accessibilityRole="link"
+            hitSlop={8}
+            onPress={() => {
+              const url =
+                (process.env.EXPO_PUBLIC_ONBOARDING_URL ?? "").trim() ||
+                "https://register.phperformance.ca";
+              void Linking.openURL(url);
+            }}
+          >
+            <Text className="text-accent text-sm font-outfit-semibold">
+              Register
+            </Text>
+          </Pressable>
         </View>
       </KeyboardAwareScrollView>
     </SafeAreaView>

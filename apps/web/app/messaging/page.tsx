@@ -16,7 +16,6 @@ import type {
   ChatReaction,
   ChatGroupItem,
   MessagingUser,
-  ThreadApiItem,
 } from "../../components/admin/messaging/types";
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -56,9 +55,8 @@ import {
   useGetAnnouncementsQuery,
   useGetChatGroupMembersQuery,
   useGetChatGroupMessagesQuery,
-  useGetChatGroupsQuery,
+  useGetMessagingInboxQuery,
   useGetMessagesQuery,
-  useGetThreadsQuery,
   useGetUsersQuery,
   useMarkChatGroupReadMutation,
   useMarkThreadReadMutation,
@@ -135,6 +133,10 @@ function formatGroupLastMessagePreview(group: ChatGroupItem) {
   return `${sender}: ${label}`;
 }
 
+function getGroupLastSender(group: ChatGroupItem) {
+  return String(group.lastMessage?.senderName ?? "").trim() || null;
+}
+
 function formatUnreadCount(unread: number) {
   if (!Number.isFinite(unread) || unread <= 0) return null;
   return unread > 99 ? "99+" : String(unread);
@@ -193,6 +195,22 @@ function categoryLabel(category: "announcement" | "coach_group" | "team") {
   if (category === "announcement") return "Coach announcements";
   if (category === "team") return "Team inbox";
   return "Coach groups";
+}
+
+function normalizeTeamKey(value?: string | null) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function canonicalTeamMatchKey(value?: string | null) {
+  const normalized = normalizeTeamKey(value);
+  const stripped = normalized
+    .replace(/\b(team|inbox|group|chat)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped || normalized;
 }
 
 export default function MessagingPage() {
@@ -289,10 +307,12 @@ export default function MessagingPage() {
   const { data: announcementsData, refetch: refetchAnnouncements } =
     useGetAnnouncementsQuery();
   const { data: adminProfileData } = useGetAdminProfileQuery();
-  const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
+  const { data: inboxData, refetch: refetchInbox } = useGetMessagingInboxQuery({
+    limit: 300,
+    includeAdminThreads: true,
+  });
   const { data: usersData } = useGetUsersQuery();
   const { data: adminTeamsData } = useGetAdminTeamsQuery();
-  const { data: groupsData, refetch: refetchGroups } = useGetChatGroupsQuery();
 
   const { data: directMessagesData, refetch: refetchDirectMessages } =
     useGetMessagesQuery(threadUserId ?? skipToken);
@@ -303,8 +323,12 @@ export default function MessagingPage() {
   );
 
   const socketRef = useRef<Socket | null>(null);
-  const refetchGroupsRef = useRef(refetchGroups);
+  const refetchThreadsRef = useRef(refetchInbox);
+  const refetchGroupsRef = useRef(refetchInbox);
+  const refetchDirectMessagesRef = useRef(refetchDirectMessages);
   const refetchGroupMessagesRef = useRef(refetchGroupMessages);
+  const activeThreadUserIdRef = useRef<number | null>(threadUserId);
+  const activeGroupIdRef = useRef<number | null>(groupId);
   const currentUserIdRef = useRef<number | null>(null);
   const isWindowFocusedRef = useRef(true);
   const lastNotifiedRef = useRef<{
@@ -313,12 +337,28 @@ export default function MessagingPage() {
   } | null>(null);
 
   useEffect(() => {
-    refetchGroupsRef.current = refetchGroups;
-  }, [refetchGroups]);
+    refetchThreadsRef.current = refetchInbox;
+  }, [refetchInbox]);
+
+  useEffect(() => {
+    refetchGroupsRef.current = refetchInbox;
+  }, [refetchInbox]);
+
+  useEffect(() => {
+    refetchDirectMessagesRef.current = refetchDirectMessages;
+  }, [refetchDirectMessages]);
 
   useEffect(() => {
     refetchGroupMessagesRef.current = refetchGroupMessages;
   }, [refetchGroupMessages]);
+
+  useEffect(() => {
+    activeThreadUserIdRef.current = threadUserId;
+  }, [threadUserId]);
+
+  useEffect(() => {
+    activeGroupIdRef.current = groupId;
+  }, [groupId]);
 
   useEffect(() => {
     const onFocus = () => {
@@ -416,7 +456,7 @@ export default function MessagingPage() {
     };
 
     socket.on("message:new", (payload: any) => {
-      refetchThreads();
+      refetchThreadsRef.current();
       const senderId = Number(payload?.senderId ?? NaN);
       const receiverId = Number(payload?.receiverId ?? NaN);
       const me = currentUserIdRef.current;
@@ -471,6 +511,73 @@ export default function MessagingPage() {
         tag: `group:${String(payload?.id ?? `${Date.now()}`)}`,
         url: `/messaging?tab=inbox&groupId=${groupId}`,
       });
+    });
+
+    socket.on("message:read", (payload: any) => {
+      refetchThreadsRef.current();
+
+      const activeThreadUserId = activeThreadUserIdRef.current;
+      const currentUserId = currentUserIdRef.current;
+      if (!activeThreadUserId || currentUserId == null) return;
+
+      const readerUserId = Number(payload?.readerUserId ?? NaN);
+      const peerUserIds = Array.isArray(payload?.peerUserIds)
+        ? payload.peerUserIds
+            .map((id: unknown) => Number(id))
+            .filter((id: number) => Number.isFinite(id))
+        : [];
+
+      const involvesActiveThread =
+        activeThreadUserId === readerUserId ||
+        peerUserIds.includes(activeThreadUserId);
+      const involvesCurrentUser =
+        currentUserId === readerUserId || peerUserIds.includes(currentUserId);
+
+      if (involvesActiveThread && involvesCurrentUser) {
+        refetchDirectMessagesRef.current();
+      }
+    });
+
+    socket.on("group:read", (payload: any) => {
+      refetchGroupsRef.current();
+      const activeGroupId = activeGroupIdRef.current;
+      const payloadGroupId = Number(payload?.groupId ?? NaN);
+      if (
+        activeGroupId &&
+        Number.isFinite(payloadGroupId) &&
+        payloadGroupId === activeGroupId
+      ) {
+        refetchGroupMessagesRef.current();
+      }
+    });
+
+    socket.on("message:reaction", (payload: any) => {
+      const messageId = Number(payload?.messageId ?? NaN);
+      if (!Number.isFinite(messageId)) return;
+      if (Array.isArray(payload?.reactions)) {
+        setDirectReactionOverrides((current) => ({
+          ...current,
+          [messageId]: payload.reactions as ChatReaction[],
+        }));
+      }
+      refetchDirectMessagesRef.current();
+    });
+
+    socket.on("group:reaction", (payload: any) => {
+      const payloadGroupId = Number(payload?.groupId ?? NaN);
+      const messageId = Number(payload?.messageId ?? NaN);
+      if (!Number.isFinite(payloadGroupId) || !Number.isFinite(messageId)) return;
+      if (Array.isArray(payload?.reactions)) {
+        setGroupReactionOverrides((current) => ({
+          ...current,
+          [messageId]: payload.reactions as ChatReaction[],
+        }));
+      }
+      const activeGroupId = activeGroupIdRef.current;
+      if (activeGroupId && payloadGroupId === activeGroupId) {
+        refetchGroupMessagesRef.current();
+      }
+      refetchGroupsRef.current();
     });
 
     return () => {
@@ -537,7 +644,7 @@ export default function MessagingPage() {
       try {
         await markChatGroupRead({ groupId }).unwrap();
         if (!active) return;
-        refetchGroups();
+        refetchInbox();
       } catch {
         // keep opening modal even if mark-read fails
       }
@@ -545,7 +652,7 @@ export default function MessagingPage() {
     return () => {
       active = false;
     };
-  }, [groupId, markChatGroupRead, refetchGroups]);
+  }, [groupId, markChatGroupRead, refetchInbox]);
 
   const userNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -563,31 +670,34 @@ export default function MessagingPage() {
     return map;
   }, [users]);
 
-  const threads = useMemo<ThreadListItem[]>(() => {
-    const source = (threadsData?.threads as ThreadApiItem[] | undefined) ?? [];
-    const byUserId = new Map<number, ThreadApiItem>();
-    source.forEach((thread) => {
-      byUserId.set(Number(thread.userId), thread);
-    });
+  const inboxThreads = useMemo<any[]>(
+    () => (inboxData?.threads as any[] | undefined) ?? [],
+    [inboxData],
+  );
 
-    return chatEligibleUsers
-      .map((user) => {
-        const thread = byUserId.get(user.id);
-        const tier = getTierFromUser(user);
+  const threads = useMemo<ThreadListItem[]>(() => {
+    return inboxThreads
+      .filter((thread) => thread?.type === "direct")
+      .map((thread) => {
+        const userId = Number(thread.peerUserId ?? String(thread.id ?? "").replace(/^direct:/, ""));
+        const user = chatEligibleUsers.find((candidate) => candidate.id === userId);
+        const tier = getTierFromUser(user ?? ({} as MessagingUser));
         return {
-          userId: user.id,
+          userId,
           name:
-            userNameById.get(user.id) ??
-            user.name ??
-            user.email ??
-            `User ${user.id}`,
-          preview: thread?.preview ?? "Start a conversation",
-          unread: Number(thread?.unread ?? 0),
-          updatedAt: thread?.time ?? "",
+            String(thread.name ?? "").trim() ||
+            userNameById.get(userId) ||
+            user?.name ||
+            user?.email ||
+            `User ${userId}`,
+          preview: String(thread.preview ?? "Start a conversation"),
+          unread: Number(thread.unread ?? 0) || 0,
+          updatedAt: String(thread.updatedAt ?? ""),
           isPremium: isPremiumTier(tier),
           tierLabel: tier,
         };
       })
+      .filter((thread) => Number.isFinite(thread.userId) && thread.userId > 0)
       .sort((a, b) => {
         if (Number(b.isPremium) !== Number(a.isPremium))
           return Number(b.isPremium) - Number(a.isPremium);
@@ -597,11 +707,48 @@ export default function MessagingPage() {
           new Date(a.updatedAt || 0).getTime()
         );
       });
-  }, [chatEligibleUsers, threadsData, userNameById]);
+  }, [chatEligibleUsers, inboxThreads, userNameById]);
 
   const groups = useMemo<ChatGroupItem[]>(
-    () => (groupsData?.groups as ChatGroupItem[] | undefined) ?? [],
-    [groupsData],
+    () =>
+      inboxThreads
+        .filter((thread) => thread?.type === "group")
+        .map((thread) => ({
+          id: Number(thread.groupId ?? String(thread.id ?? "").replace(/^group:/, "")),
+          name: String(thread.name ?? "Group"),
+          category: (thread.groupCategory as "announcement" | "coach_group" | "team" | null) ?? "coach_group",
+          createdAt: String(
+            thread.lastMessageCreatedAt ?? thread.updatedAt ?? new Date(0).toISOString(),
+          ),
+          unreadCount: Number(thread.unread ?? 0) || 0,
+          lastMessage: {
+            id: String(
+              thread.lastMessageId ??
+                `${String(thread.groupId ?? "").trim()}:latest`,
+            ),
+            senderId:
+              Number(thread.lastMessageSenderId ?? NaN) > 0
+                ? Number(thread.lastMessageSenderId)
+                : null,
+            senderName:
+              String(thread.lastMessageSenderName ?? "").trim() || null,
+            senderProfilePicture: thread.lastMessageSenderProfilePicture ?? null,
+            content: String(
+              thread.lastMessageContent ??
+                thread.preview ??
+                "No messages yet",
+            ),
+            contentType: String(thread.lastMessageContentType ?? "text"),
+            mediaUrl: null,
+            createdAt: String(
+              thread.lastMessageCreatedAt ??
+                thread.updatedAt ??
+                new Date(0).toISOString(),
+            ),
+          },
+        }))
+        .filter((group) => Number.isFinite(group.id) && group.id > 0),
+    [inboxThreads],
   );
   const groupedInboxSections = useMemo(
     () => ({
@@ -628,6 +775,68 @@ export default function MessagingPage() {
     () => adminTeamsData?.teams ?? [],
     [adminTeamsData],
   );
+  const teamInboxGroups = useMemo(
+    () =>
+      groups.filter(
+        (group) => resolveGroupCategory(group) === "team",
+      ),
+    [groups],
+  );
+  const teamInboxByKey = useMemo(() => {
+    const map = new Map<string, ChatGroupItem>();
+    teamInboxGroups.forEach((group) => {
+      const keys = [
+        normalizeTeamKey(group.name),
+        canonicalTeamMatchKey(group.name),
+      ].filter(Boolean);
+      keys.forEach((key) => {
+        if (!map.has(key)) {
+          map.set(key, group);
+        }
+      });
+    });
+    return map;
+  }, [teamInboxGroups]);
+  const teamMemberIdsByKey = useMemo(() => {
+    const map = new Map<string, number[]>();
+    chatEligibleUsers.forEach((user) => {
+      const teamName = normalizeTeamKey(
+        (
+          user as MessagingUser & {
+            athleteTeam?: string | null;
+            team?: string | null;
+          }
+        ).athleteTeam ??
+          (
+            user as MessagingUser & {
+              athleteTeam?: string | null;
+              team?: string | null;
+            }
+          ).team,
+      );
+      if (!teamName) return;
+      const list = map.get(teamName) ?? [];
+      if (!list.includes(user.id)) list.push(user.id);
+      map.set(teamName, list);
+    });
+    return map;
+  }, [chatEligibleUsers]);
+  const resolveTeamInboxGroup = (teamName: string) => {
+    const teamKey = normalizeTeamKey(teamName);
+    const teamCanonicalKey = canonicalTeamMatchKey(teamName);
+    return (
+      teamInboxByKey.get(teamKey) ??
+      teamInboxByKey.get(teamCanonicalKey) ??
+      teamInboxGroups.find((candidate) => {
+        const candidateKey = canonicalTeamMatchKey(candidate.name);
+        return (
+          candidateKey.includes(teamCanonicalKey) ||
+          teamCanonicalKey.includes(candidateKey)
+        );
+      }) ??
+      null
+    );
+  };
   const announcements = useMemo<AnnouncementItem[]>(
     () => (announcementsData?.items as AnnouncementItem[] | undefined) ?? [],
     [announcementsData],
@@ -644,7 +853,7 @@ export default function MessagingPage() {
 
     const userIdParam = Number(searchParams.get("userId"));
     if (Number.isFinite(userIdParam) && userIdParam > 0) {
-      const exists = chatEligibleUsers.some((user) => user.id === userIdParam);
+      const exists = threads.some((thread) => thread.userId === userIdParam);
       if (exists) {
         setTab("inbox");
         setGroupId(null);
@@ -671,7 +880,7 @@ export default function MessagingPage() {
     } else {
       setHighlightedTeamName(null);
     }
-  }, [searchParams, chatEligibleUsers, groups]);
+  }, [searchParams, groups, threads]);
 
   useEffect(() => {
     if (tab !== "inbox" || !highlightedInboxGroupId) return;
@@ -1006,7 +1215,7 @@ export default function MessagingPage() {
     setDirectReplyTo(null);
     try {
       await markThreadRead({ userId }).unwrap();
-      refetchThreads();
+      refetchInbox();
       refetchDirectMessages();
     } catch {
       // keep opening modal even if mark-read fails
@@ -1026,7 +1235,7 @@ export default function MessagingPage() {
       setDirectMessage("");
       setDirectReplyTo(null);
       refetchDirectMessages();
-      refetchThreads();
+      refetchInbox();
     } catch {
       toast.error("Failed", "Could not send message.");
     }
@@ -1045,7 +1254,7 @@ export default function MessagingPage() {
       setGroupMessage("");
       setGroupReplyTo(null);
       refetchGroupMessages();
-      refetchGroups();
+      refetchInbox();
     } catch {
       toast.error("Failed", "Could not send group message.");
     }
@@ -1094,7 +1303,7 @@ export default function MessagingPage() {
         setDirectMessage("");
         setDirectReplyTo(null);
         refetchDirectMessages();
-        refetchThreads();
+        refetchInbox();
       }
 
       if (target === "group" && groupId) {
@@ -1109,7 +1318,7 @@ export default function MessagingPage() {
         setGroupMessage("");
         setGroupReplyTo(null);
         refetchGroupMessages();
-        refetchGroups();
+        refetchInbox();
       }
     } catch {
       toast.error("Failed", "Could not upload media.");
@@ -1180,7 +1389,7 @@ export default function MessagingPage() {
         setDirectMessage("");
         setDirectReplyTo(null);
         refetchDirectMessages();
-        refetchThreads();
+        refetchInbox();
       }
       if (gifTarget === "group" && groupId) {
         await sendGroup({
@@ -1194,7 +1403,7 @@ export default function MessagingPage() {
         setGroupMessage("");
         setGroupReplyTo(null);
         refetchGroupMessages();
-        refetchGroups();
+        refetchInbox();
       }
       setGifDialogOpen(false);
       setGifTarget(null);
@@ -1270,7 +1479,7 @@ export default function MessagingPage() {
       setNewGroupCategory("coach_group");
       setSelectedMemberIds([]);
       setGroupMemberQuery("");
-      refetchGroups();
+      refetchInbox();
       if (response?.group?.id) {
         setGroupId(response.group.id);
       }
@@ -1285,6 +1494,45 @@ export default function MessagingPage() {
     setManageGroupMembersOpen(true);
     setManageSelectedMemberIds([]);
     setManageMemberQuery("");
+  };
+
+  const openTeamInbox = async (team: AdminTeamItem) => {
+    const teamKey = normalizeTeamKey(team.team);
+    setHighlightedTeamName(teamKey);
+    setThreadUserId(null);
+    setDirectReplyTo(null);
+    const existingGroup = resolveTeamInboxGroup(team.team);
+    if (existingGroup?.id) {
+      setHighlightedInboxGroupId(existingGroup.id);
+      setGroupId(existingGroup.id);
+      return;
+    }
+
+    const memberIds = teamMemberIdsByKey.get(teamKey) ?? [];
+    if (!memberIds.length) {
+      toast.error(
+        "No team inbox yet",
+        "This team has no chat-eligible members to start an inbox.",
+      );
+      return;
+    }
+
+    try {
+      const response = await createGroup({
+        name: team.team.trim(),
+        category: "team",
+        memberIds,
+      }).unwrap();
+      await refetchInbox();
+      const createdGroupId = Number(response?.group?.id ?? NaN);
+      if (Number.isFinite(createdGroupId) && createdGroupId > 0) {
+        setHighlightedInboxGroupId(createdGroupId);
+        setGroupId(createdGroupId);
+      }
+      toast.success("Team inbox ready", `Opened ${team.team} inbox.`);
+    } catch {
+      toast.error("Failed", "Could not open or create this team inbox.");
+    }
   };
 
   const handleAddMembersToGroup = async () => {
@@ -1703,51 +1951,61 @@ export default function MessagingPage() {
                         </p>
                         <Badge variant="outline">{section.items.length}</Badge>
                       </div>
-                      {section.items.map((group) => (
-                        <button
-                          key={group.id}
-                          ref={(node) => {
-                            groupRowRefs.current[group.id] = node;
-                          }}
-                          type="button"
-                          onClick={() => {
-                            setHighlightedInboxGroupId(group.id);
-                            setGroupId(group.id);
-                          }}
-                          className={`group flex w-full items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 ${
-                            highlightedInboxGroupId === group.id
-                              ? "border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
-                              : "border-border"
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="truncate text-sm font-semibold text-foreground">
-                                {group.name}
+                      {section.items.map((group) => {
+                        const lastSender = getGroupLastSender(group);
+                        return (
+                          <button
+                            key={group.id}
+                            ref={(node) => {
+                              groupRowRefs.current[group.id] = node;
+                            }}
+                            type="button"
+                            onClick={() => {
+                              setHighlightedInboxGroupId(group.id);
+                              setGroupId(group.id);
+                            }}
+                            className={`group flex w-full items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 ${
+                              highlightedInboxGroupId === group.id
+                                ? "border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+                                : "border-border"
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="truncate text-sm font-semibold text-foreground">
+                                  {group.name}
+                                </p>
+                                <span
+                                  className={`rounded-full border px-2 py-0.5 text-[10px] ${section.tone}`}
+                                >
+                                  {categoryLabel(resolveGroupCategory(group))}
+                                </span>
+                              </div>
+                              <p className="mt-1 truncate text-xs text-muted-foreground">
+                                {formatGroupLastMessagePreview(group)}
                               </p>
-                              <span
-                                className={`rounded-full border px-2 py-0.5 text-[10px] ${section.tone}`}
-                              >
-                                {categoryLabel(resolveGroupCategory(group))}
-                              </span>
+                              {lastSender ? (
+                                <p className="mt-1 truncate text-[11px] text-muted-foreground/80">
+                                  Sender: {lastSender} · Group:{" "}
+                                  {String(group.name ?? "Group")}
+                                </p>
+                              ) : null}
                             </div>
-                            <p className="mt-1 truncate text-xs text-muted-foreground">
-                              {formatGroupLastMessagePreview(group)}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {formatTime(getGroupActivityTimestamp(group))}
-                            </span>
-                            {Number(group.unreadCount ?? 0) > 0 ? (
-                              <Badge className="h-5 rounded-full px-2 text-[10px]">
-                                {formatUnreadCount(Number(group.unreadCount)) ??
-                                  ""}
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </button>
-                      ))}
+                            <div className="flex flex-col items-end gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {formatTime(getGroupActivityTimestamp(group))}
+                              </span>
+                              {Number(group.unreadCount ?? 0) > 0 ? (
+                                <Badge className="h-5 rounded-full px-2 text-[10px]">
+                                  {formatUnreadCount(
+                                    Number(group.unreadCount),
+                                  ) ?? ""}
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </button>
+                        );
+                      })}
                       {!section.items.length ? (
                         <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
                           No {section.title.toLowerCase()}.
@@ -1766,36 +2024,79 @@ export default function MessagingPage() {
             <CardHeader>
               <SectionHeader
                 title="Teams"
-                description="Real athlete teams from onboarding and program data. This is separate from Inbox group chats."
+                description="Open team inbox chats from roster teams. Missing inboxes are created automatically from team members."
               />
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {teams.map((team) => (
-                  <div
+                  (() => {
+                    const resolvedTeamInboxGroup = resolveTeamInboxGroup(
+                      team.team,
+                    );
+                    return (
+                  <button
                     key={team.team}
+                    type="button"
+                    onClick={() => void openTeamInbox(team)}
                     className={`rounded-xl border bg-background p-4 ${
                       highlightedTeamName &&
                       team.team.toLowerCase() === highlightedTeamName
                         ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
-                        : "border-border"
+                        : "border-border hover:border-primary/40 hover:bg-primary/5"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {team.team}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {team.team}
+                          </p>
+                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                            Team inbox
+                          </span>
+                          {(() => {
+                            const unread = Number(
+                              resolvedTeamInboxGroup?.unreadCount ?? 0,
+                            );
+                            if (!Number.isFinite(unread) || unread <= 0)
+                              return null;
+                            return (
+                              <Badge className="h-5 rounded-full px-2 text-[10px]">
+                                {formatUnreadCount(unread)}
+                              </Badge>
+                            );
+                          })()}
+                        </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {team.youthCount} youth · {team.adultCount} adult
+                          {team.youthCount} youth · {team.adultCount} adult ·{" "}
+                          {teamMemberIdsByKey.get(normalizeTeamKey(team.team))
+                            ?.length ?? 0}{" "}
+                          chat members
+                        </p>
+                        <p className="mt-1 truncate text-xs text-muted-foreground/90">
+                          {formatGroupLastMessagePreview(
+                            resolvedTeamInboxGroup ?? {
+                              id: 0,
+                              name: team.team,
+                              category: "team",
+                              createdAt: team.createdAt,
+                              unreadCount: 0,
+                            },
+                          )}
                         </p>
                       </div>
                       <div className="text-right text-xs text-muted-foreground">
                         <p>Updated {formatTime(team.updatedAt)}</p>
                         <p>Created {formatTime(team.createdAt)}</p>
+                        <p className="mt-1 text-[11px] text-primary/90">
+                          Open chat
+                        </p>
                       </div>
                     </div>
-                  </div>
+                  </button>
+                    );
+                  })()
                 ))}
                 {!teams.length ? (
                   <p className="text-sm text-muted-foreground">

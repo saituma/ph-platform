@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import interactionPlugin from "@fullcalendar/interaction";
+import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -147,12 +146,20 @@ export default function BookingsPage() {
 
   const now = new Date();
   const upcomingBookings = filteredBookings.filter((booking) => {
+    const s = booking.status?.toLowerCase();
+    if (s === "cancelled" || s === "declined") return false;
     if (!booking.startsAt) return true;
     return new Date(booking.startsAt) >= now;
   });
   const pastBookings = filteredBookings.filter((booking) => {
+    const s = booking.status?.toLowerCase();
+    if (s === "cancelled" || s === "declined") return false;
     if (!booking.startsAt) return false;
     return new Date(booking.startsAt) < now;
+  });
+  const cancelledBookings = filteredBookings.filter((booking) => {
+    const s = booking.status?.toLowerCase();
+    return s === "cancelled" || s === "declined";
   });
 
   return (
@@ -283,6 +290,56 @@ export default function BookingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {cancelledBookings.length > 0 && (
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <SectionHeader
+              title="Cancelled & Declined"
+              description="Bookings the client cancelled from the app, or that were declined."
+            />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {cancelledBookings.map((booking) => {
+              const start = booking.startsAt ? new Date(booking.startsAt) : null;
+              const dateLabel = start
+                ? start.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })
+                : "TBD";
+              const isCancelled = booking.status?.toLowerCase() === "cancelled";
+              return (
+                <div
+                  key={booking.id}
+                  className="rounded-2xl border border-border bg-secondary/20 p-4 opacity-70"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground line-through">
+                        {booking.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {booking.athlete} • {dateLabel} {booking.time !== "--" ? `• ${booking.time}` : ""}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-destructive">
+                        {isCancelled ? "Cancelled by client" : "Declined"}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedBooking(booking);
+                        setActiveDialog("booking-details");
+                      }}
+                    >
+                      View
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <BookingsDialogs
         active={activeDialog}

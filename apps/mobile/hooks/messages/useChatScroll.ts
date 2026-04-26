@@ -6,19 +6,24 @@ export function useChatScroll(messages: ChatMessage[], threadId: string) {
   const listRef = useRef<FlatList<ChatMessage> | null>(null);
   const isNearBottomRef = useRef(true);
   const hasInitialScrolled = useRef<string | null>(null);
+  const previousLengthRef = useRef(0);
   const [newIncomingCount, setNewIncomingCount] = useState(0);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
 
   useEffect(() => {
     if (hasInitialScrolled.current === threadId) return;
     hasInitialScrolled.current = threadId;
+    previousLengthRef.current = messages.length;
     setNewIncomingCount(0);
     requestAnimationFrame(() =>
       listRef.current?.scrollToOffset({ offset: 0, animated: false }),
     );
-  }, [threadId]);
+  }, [threadId, messages.length]);
 
   useEffect(() => {
+    const previousLength = previousLengthRef.current;
+    previousLengthRef.current = messages.length;
+    if (messages.length <= previousLength) return;
     if (messages.length === 0) return;
     const latest = messages[messages.length - 1];
     if (latest.from === "user" || isNearBottomRef.current) {

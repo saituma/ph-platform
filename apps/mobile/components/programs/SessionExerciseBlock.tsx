@@ -42,6 +42,11 @@ interface Props {
   completeSessionLabel?: string;
 }
 
+function formatMb(bytes: number | undefined) {
+  if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return "—";
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function SessionExerciseBlock({
   title,
   items,
@@ -379,6 +384,9 @@ export function SessionExerciseBlock({
                             maxHeightRatio={0.55}
                           />
                         </View>
+                        <Text className="text-[11px] font-outfit text-secondary">
+                          Selected size: {formatMb(pending.video.sizeBytes)}
+                        </Text>
 
                         <View
                           className="rounded-2xl px-4 py-3 border"
@@ -573,6 +581,18 @@ export function SessionExerciseBlock({
                 </Pressable>
                 <Text className="text-[10px] font-outfit text-secondary opacity-70 mt-2">
                   Coach feedback will show below.
+                </Text>
+              </View>
+            ) : canUpload && !item.allowVideoUpload ? (
+              <View className="mt-4 rounded-2xl border px-3 py-2" style={{ borderColor: borderSoft, backgroundColor: colors.surfaceHigh }}>
+                <Text className="text-[11px] font-outfit text-secondary">
+                  Video upload is disabled for this item.
+                </Text>
+              </View>
+            ) : item.allowVideoUpload ? (
+              <View className="mt-4 rounded-2xl border px-3 py-2" style={{ borderColor: borderSoft, backgroundColor: colors.surfaceHigh }}>
+                <Text className="text-[11px] font-outfit text-secondary">
+                  Video upload is available on Premium Plus or Pro.
                 </Text>
               </View>
             ) : null}

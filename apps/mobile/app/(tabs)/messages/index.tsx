@@ -8,10 +8,14 @@ export default function MessagesTabScreen() {
   const mode =
     appRole === "adult_athlete"
       ? "adult"
+      : appRole === "adult_athlete_team" ||
+          appRole === "youth_athlete_team_guardian" ||
+          appRole === "team" ||
+          appRole === "team_manager"
+        ? "team"
       : typeof appRole === "string" && appRole.startsWith("youth_")
         ? "youth"
         : "team";
 
   return <MessagesHome mode={mode} />;
 }
-

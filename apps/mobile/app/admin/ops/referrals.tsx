@@ -1,22 +1,20 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text, TextInput } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { AdminCard } from "@/roles/admin/components/AdminCard";
 import { apiRequest } from "@/lib/api";
-import { formatIsoShort, parseIntOrUndefined } from "@/lib/admin-utils";
-import { useAdminPhysioReferrals, AdminPhysioReferralItem } from "@/hooks/admin/useAdminPhysioReferrals";
+import { formatIsoShort } from "@/lib/admin-utils";
+import { useAdminPhysioReferrals } from "@/hooks/admin/useAdminPhysioReferrals";
 import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
 import { useAdminUsers } from "@/hooks/admin/useAdminUsers";
 import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
+import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
+import { isAdminRole } from "@/lib/isAdminRole";
 import { useAppSelector } from "@/store/hooks";
-import type { AdminUser } from "@/types/admin";
 import { Feather } from "@/components/ui/theme-icons";
-import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Shadows } from "@/constants/theme";
 
 // --- Constants ---
@@ -239,11 +237,14 @@ function Dropdown({
 
 export default function AdminOpsReferralsScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useAppSafeAreaInsets();
-  const router = useRouter();
-  const token = useAppSelector((state) => state.user.token);
+  const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const canLoad = Boolean(token && bootstrapReady);
+
+  const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
+  if (!canAccess) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   const referralsHook = useAdminPhysioReferrals(token, canLoad);
   const teamsHook = useAdminTeams(token, canLoad);
@@ -783,15 +784,35 @@ export default function AdminOpsReferralsScreen() {
               )}
               
               <View className="flex-row gap-4 pt-6 border-t border-app/5">
-                <TouchableOpacity 
-                  onPress={() => {}}
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert("Edit not yet available", "Editing referrals from mobile is coming soon. Use the admin web panel to edit referrals.");
+                  }}
                   className="flex-1 h-12 rounded-2xl bg-secondary/10 items-center justify-center"
                 >
                   <Text className="text-xs font-outfit-bold text-app uppercase tracking-widest">Edit</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => {}}
+                <TouchableOpacity
+                  disabled={referralsHook.mutatingId === item.id}
+                  onPress={() => {
+                    Alert.alert(
+                      "Delete Referral",
+                      "This will permanently remove the referral and notify the athlete. Continue?",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Delete",
+                          style: "destructive",
+                          onPress: async () => {
+                            await referralsHook.remove(item.id);
+                            void referralsHook.load({ limit: 50 }, true);
+                          },
+                        },
+                      ],
+                    );
+                  }}
                   className="flex-1 h-12 rounded-2xl bg-red-500/10 items-center justify-center"
+                  style={{ opacity: referralsHook.mutatingId === item.id ? 0.5 : 1 }}
                 >
                   <Text className="text-xs font-outfit-bold text-red-400 uppercase tracking-widest">Delete</Text>
                 </TouchableOpacity>
@@ -804,57 +825,103 @@ export default function AdminOpsReferralsScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       <ThemedScrollView showsVerticalScrollIndicator={false}>
-        <View className="pt-10 mb-8 px-6">
-          <View className="flex-row items-center gap-3 mb-2">
-            <View className="h-8 w-1.5 rounded-full bg-accent" />
-            <Text className="text-5xl font-telma-bold text-app tracking-tight">
-              Referrals
-            </Text>
+        {/* Header */}
+        <View style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
+            <View
+              style={{
+                width: 5,
+                height: 36,
+                borderRadius: 3,
+                backgroundColor: "#30B0C7",
+              }}
+            />
+            <View>
+              <Text
+                style={{
+                  fontFamily: "Telma-Bold",
+                  fontSize: 44,
+                  color: colors.textPrimary,
+                  letterSpacing: -1,
+                  lineHeight: 48,
+                }}
+              >
+                Referrals
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 13,
+                  color: colors.textSecondary,
+                  marginTop: 2,
+                }}
+              >
+                Create managed referrals for athletes, teams, or groups.
+              </Text>
+            </View>
           </View>
-          <Text className="text-base font-outfit text-textSecondary leading-relaxed">
-            Create managed referrals for athletes, teams, or groups.
-          </Text>
         </View>
 
         {/* Tab Switcher */}
-        <View className="px-6 mb-10">
-          <View 
-            className="flex-row p-1.5 rounded-[26px] border"
+        <View style={{ paddingHorizontal: 24, marginBottom: 32 }}>
+          <View
             style={{
+              flexDirection: "row",
+              padding: 5,
+              borderRadius: 24,
+              borderWidth: 1,
               backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-              borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+              borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
+              gap: 4,
             }}
           >
-            <TouchableOpacity
-              onPress={() => setActiveTab("create")}
-              className="flex-1 h-14 rounded-[20px] items-center justify-center"
-              style={{
-                backgroundColor: activeTab === "create" ? colors.accent : "transparent",
-              }}
-            >
-              <Text 
-                className="font-outfit-bold text-[14px] uppercase tracking-wider"
-                style={{ color: activeTab === "create" ? "#FFFFFF" : colors.textSecondary }}
-              >
-                Create
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setActiveTab("existing")}
-              className="flex-1 h-14 rounded-[20px] items-center justify-center"
-              style={{
-                backgroundColor: activeTab === "existing" ? colors.accent : "transparent",
-              }}
-            >
-              <Text 
-                className="font-outfit-bold text-[14px] uppercase tracking-wider"
-                style={{ color: activeTab === "existing" ? "#FFFFFF" : colors.textSecondary }}
-              >
-                Existing
-              </Text>
-            </TouchableOpacity>
+            {(["create", "existing"] as const).map((t) => {
+              const isActive = activeTab === t;
+              const icon = t === "create" ? "plus-circle" : "list";
+              const tabColor = "#30B0C7";
+              return (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setActiveTab(t)}
+                  activeOpacity={0.8}
+                  style={{
+                    flex: 1,
+                    height: 52,
+                    borderRadius: 18,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                    gap: 8,
+                    backgroundColor: isActive
+                      ? isDark ? `${tabColor}22` : `${tabColor}16`
+                      : "transparent",
+                    borderWidth: isActive ? 1 : 0,
+                    borderColor: isActive
+                      ? isDark ? `${tabColor}35` : `${tabColor}28`
+                      : "transparent",
+                  }}
+                >
+                  <Feather
+                    name={icon as any}
+                    size={16}
+                    color={isActive ? tabColor : colors.textSecondary}
+                  />
+                  <Text
+                    style={{
+                      fontFamily: "Outfit-Bold",
+                      fontSize: 13,
+                      letterSpacing: 0.6,
+                      textTransform: "uppercase",
+                      color: isActive ? tabColor : colors.textSecondary,
+                    }}
+                  >
+                    {t === "create" ? "Create" : "Existing"}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 

@@ -1,0 +1,58 @@
+export const tokens = {
+  colors: {
+    background: "#F7F8FA",
+    surface: "#FFFFFF",
+    primary: "#0A84FF",
+    primaryText: "#0F172A",
+    secondaryText: "#475569",
+    tertiaryText: "#64748B",
+    border: "#D9E0E8",
+    bubbleSent: "#0A84FF",
+    bubbleSentText: "#FFFFFF",
+    bubbleReceived: "#E9EEF5",
+    bubbleReceivedText: "#0F172A",
+    unreadBadge: "#0A84FF",
+    inputBar: "#FFFFFF",
+    separator: "#E5EAF1",
+    danger: "#DC2626",
+    success: "#16A34A",
+    warning: "#D97706",
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    xxl: 32,
+  },
+  radii: {
+    bubble: 18,
+    card: 12,
+    input: 10,
+    badge: 99,
+    avatar: 99,
+    pill: 8,
+  },
+  fontSize: {
+    xs: 11,
+    sm: 12,
+    body: 14,
+    bodyMd: 15,
+    title: 17,
+    large: 20,
+  },
+  fontWeight: {
+    regular: "400",
+    medium: "500",
+    semibold: "600",
+    bold: "700",
+  },
+  timing: {
+    fast: 150,
+    normal: 250,
+    slow: 400,
+  },
+} as const;
+
+export type Tokens = typeof tokens;

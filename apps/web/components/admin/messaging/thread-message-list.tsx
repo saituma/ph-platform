@@ -36,6 +36,54 @@ type ThreadMessageListProps = {
   emptyLabel: string;
 };
 
+function isMessageFromCurrentUser(params: {
+  message: ChatMessage;
+  currentUserId?: number | null;
+  mode: "direct" | "group";
+  directPeerUserId?: number | null;
+}) {
+  const { message, currentUserId, mode, directPeerUserId } = params;
+  const senderId = Number(message?.senderId ?? NaN);
+  const receiverId = Number(message?.receiverId ?? NaN);
+  const normalizedRole = String(message?.senderRole ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (currentUserId != null && Number.isFinite(senderId)) {
+    return senderId === currentUserId;
+  }
+  if (
+    currentUserId != null &&
+    Number.isFinite(receiverId) &&
+    mode === "direct"
+  ) {
+    return receiverId !== currentUserId;
+  }
+  if (
+    mode === "direct" &&
+    directPeerUserId != null &&
+    Number.isFinite(senderId)
+  ) {
+    return senderId !== directPeerUserId;
+  }
+  if (
+    mode === "direct" &&
+    directPeerUserId != null &&
+    Number.isFinite(receiverId)
+  ) {
+    return receiverId === directPeerUserId;
+  }
+  if (
+    currentUserId == null &&
+    (normalizedRole === "admin" ||
+      normalizedRole === "coach" ||
+      normalizedRole === "superadmin")
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function ThreadMessageList({
   messages,
   onReact,
@@ -259,19 +307,6 @@ export function ThreadMessageList({
     return cleaned[0] ?? null;
   };
 
-  const fileNameFromUrl = (url: string) => {
-    try {
-      const parsed = new URL(url);
-      const parts = parsed.pathname.split("/").filter(Boolean);
-      const last = parts[parts.length - 1];
-      return last ? decodeURIComponent(last) : "File";
-    } catch {
-      const parts = url.split("/").filter(Boolean);
-      const last = parts[parts.length - 1];
-      return last ? decodeURIComponent(last) : "File";
-    }
-  };
-
   const messageById = new Map<number, ChatMessage>();
   messages.forEach((item) => {
     const id = Number(item.id);
@@ -289,47 +324,12 @@ export function ThreadMessageList({
         <div className="space-y-3">
           {messages.map((message) => {
             const senderId = Number(message?.senderId ?? NaN);
-            const receiverId = Number(message?.receiverId ?? NaN);
-            const normalizedRole = String(message?.senderRole ?? "")
-              .trim()
-              .toLowerCase();
-
-            // Determine whether to render the message as "mine" (right-aligned).
-            // Prefer stable IDs over names to avoid misclassification when display names differ.
-            const mineByCurrentUserId =
-              currentUserId != null && Number.isFinite(senderId)
-                ? senderId === currentUserId
-                : null;
-            const mineByDirectPeerSenderId =
-              mode === "direct" &&
-              directPeerUserId != null &&
-              Number.isFinite(senderId)
-                ? senderId !== directPeerUserId
-                : null;
-            const mineByDirectPeerReceiverId =
-              mode === "direct" &&
-              directPeerUserId != null &&
-              Number.isFinite(receiverId)
-                ? receiverId === directPeerUserId
-                : null;
-            const mineByRoleFallback =
-              currentUserId == null &&
-              (normalizedRole === "admin" ||
-                normalizedRole === "coach" ||
-                normalizedRole === "superadmin")
-                ? true
-                : null;
-
-            let mine = false;
-            if (mineByCurrentUserId != null) {
-              mine = mineByCurrentUserId;
-            } else if (mineByDirectPeerSenderId != null) {
-              mine = mineByDirectPeerSenderId;
-            } else if (mineByDirectPeerReceiverId != null) {
-              mine = mineByDirectPeerReceiverId;
-            } else if (mineByRoleFallback != null) {
-              mine = mineByRoleFallback;
-            }
+            const mine = isMessageFromCurrentUser({
+              message,
+              currentUserId,
+              mode,
+              directPeerUserId,
+            });
             const reactions: ChatReaction[] = Array.isArray(message?.reactions)
               ? message.reactions
               : [];
@@ -344,18 +344,14 @@ export function ThreadMessageList({
             const normalizedText = String(parsed.text ?? "")
               .trim()
               .toLowerCase();
-            const hidePlaceholderText = normalizedText === "attachment";
+            const hidePlaceholderText =
+              normalizedText === "attachment" ||
+              normalizedText.startsWith("file attached:");
             const showText = Boolean(parsed.text && !hidePlaceholderText);
             const firstUrl = showText
               ? extractFirstUrl(String(parsed.text ?? ""))
               : null;
             const mediaOnly = hasMedia && !showText;
-            const attachmentName =
-              hasMedia && message.mediaUrl
-                ? fileNameFromUrl(message.mediaUrl)
-                : normalizedText.startsWith("file attached:")
-                  ? parsed.text.replace(/^file attached:\s*/i, "").trim()
-                  : "";
             const senderLabel =
               message.senderName?.trim() ||
               (Number.isFinite(senderId) && resolveUserName
@@ -418,7 +414,9 @@ export function ThreadMessageList({
                         ? "bg-transparent px-0 py-0 shadow-none"
                         : mine
                           ? "bg-emerald-600 text-white"
-                          : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                          : hasMedia
+                            ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                            : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                     }`}
                   >
                     {showSenderName ? (
@@ -490,13 +488,6 @@ export function ThreadMessageList({
                       </p>
                     ) : null}
                     {firstUrl ? <OpenGraphPreview url={firstUrl} /> : null}
-                    {attachmentName && !showText ? (
-                      <p
-                        className={`text-xs ${mine && !mediaOnly ? "text-white/85" : "text-muted-foreground"}`}
-                      >
-                        {attachmentName}
-                      </p>
-                    ) : null}
                     <p
                       className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}
                     >

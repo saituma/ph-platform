@@ -67,8 +67,15 @@ export function BookingsList({ bookings, isLoading = false, onSelect }: Bookings
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <Badge variant="accent">{booking.type}</Badge>
               {booking.status ? (
-                <Badge variant={booking.status === "pending" ? "outline" : "default"}>
-                  {booking.status}
+                <Badge
+                  variant={booking.status === "pending" ? "outline" : "default"}
+                  className={
+                    booking.status === "cancelled" || booking.status === "declined"
+                      ? "border-red-300 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+                      : undefined
+                  }
+                >
+                  {booking.status === "cancelled" ? "Cancelled by client" : booking.status}
                 </Badge>
               ) : null}
             </div>

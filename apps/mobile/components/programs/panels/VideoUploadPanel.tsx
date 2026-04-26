@@ -5,7 +5,14 @@ import React, {
   useState,
   useRef,
 } from "react";
-import { View, Modal, TouchableOpacity, Dimensions } from "react-native";
+import {
+  View,
+  Modal,
+  TouchableOpacity,
+  Dimensions,
+  Platform,
+  InteractionManager,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -34,9 +41,16 @@ import { useVideoHistory } from "@/hooks/programs/useVideoHistory";
 import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import { VideoHistoryList } from "./VideoHistoryList";
 import { VideoPickerControls } from "./VideoPickerControls";
+import { BuiltinCamera } from "@/components/media/BuiltinCamera";
 
-const VIDEO_MAX_MB = 200;
+const VIDEO_MAX_MB = 90;
 const VIDEO_MAX_BYTES = VIDEO_MAX_MB * 1024 * 1024;
+const VIDEO_MAX_DURATION_SECONDS = 60;
+
+function formatMb(bytes: number | undefined) {
+  if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return "—";
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export function VideoUploadPanel({
   refreshToken = 0,
@@ -87,6 +101,7 @@ export function VideoUploadPanel({
     uri: string;
     title?: string;
   } | null>(null);
+  const [builtinCameraVisible, setBuiltinCameraVisible] = useState(false);
 
   useEffect(() => {
     // Force refresh to avoid serving cached /messages when a coach has just
@@ -149,30 +164,53 @@ export function VideoUploadPanel({
 
   const pickVideo = async (source: "library" | "camera") => {
     try {
+      if (source === "camera") {
+        // Delay modal open to avoid FragmentManager transaction overlap.
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(() => setBuiltinCameraVisible(true), 80);
+        });
+        return;
+      }
       const permission =
-        source === "camera"
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) return;
 
-      const result =
-        source === "camera"
-          ? await ImagePicker.launchCameraAsync({
-              mediaTypes: "videos",
-              quality: 0.9,
-            })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: "videos",
-              quality: 0.9,
-            });
+      const iosCompressionOptions =
+        Platform.OS === "ios"
+          ? {
+              // Force H.264 transcode to reduce upload/storage footprint.
+              videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
+              videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+              preferredAssetRepresentationMode:
+                ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+            }
+          : {};
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "videos",
+        quality: 0.5,
+        ...iosCompressionOptions,
+      });
 
       if (result.canceled || !result.assets?.[0]) return;
 
       const asset = result.assets[0];
+      const durationSeconds =
+        typeof asset.duration === "number" && Number.isFinite(asset.duration)
+          ? Math.round(asset.duration / 1000)
+          : null;
+      if (durationSeconds != null && durationSeconds > VIDEO_MAX_DURATION_SECONDS) {
+        setStatus(
+          `Video is ${durationSeconds}s. Please keep clips at ${VIDEO_MAX_DURATION_SECONDS}s or less.`,
+        );
+        return;
+      }
       const fileInfo = await FileSystem.getInfoAsync(asset.uri);
       if (fileInfo.exists && fileInfo.size > VIDEO_MAX_BYTES) {
-        setStatus(`Video exceeds ${VIDEO_MAX_MB}MB limit.`);
+        setStatus(
+          `Video exceeds ${VIDEO_MAX_MB}MB limit. Keep it under ${VIDEO_MAX_DURATION_SECONDS}s or pick a shorter clip.`,
+        );
         return;
       }
 
@@ -184,6 +222,47 @@ export function VideoUploadPanel({
       });
     } catch (e) {
       setStatus("Failed to pick video.");
+    }
+  };
+
+  const handleBuiltinCameraRecorded = async (asset: {
+    uri: string;
+    duration: number;
+    width: number;
+    height: number;
+  }) => {
+    setBuiltinCameraVisible(false);
+    try {
+      if (
+        Number.isFinite(asset.duration) &&
+        asset.duration > VIDEO_MAX_DURATION_SECONDS
+      ) {
+        setStatus(
+          `Video is ${asset.duration}s. Please keep clips at ${VIDEO_MAX_DURATION_SECONDS}s or less.`,
+        );
+        return;
+      }
+      const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+      if (fileInfo.exists && fileInfo.size > VIDEO_MAX_BYTES) {
+        setStatus(
+          `Video exceeds ${VIDEO_MAX_MB}MB limit. Keep it under ${VIDEO_MAX_DURATION_SECONDS}s or pick a shorter clip.`,
+        );
+        return;
+      }
+      // Wait for camera modal to finish closing before showing confirm modal.
+      setTimeout(() => {
+        const uriLower = asset.uri.toLowerCase();
+        setSelectedVideo({
+          uri: asset.uri,
+          fileName: asset.uri.split("/").pop() ?? "video.mp4",
+          contentType: uriLower.endsWith(".mov") ? "video/quicktime" : "video/mp4",
+          sizeBytes: fileInfo.exists ? fileInfo.size : 0,
+          width: asset.width,
+          height: asset.height,
+        });
+      }, 140);
+    } catch {
+      setStatus("Failed to use recorded video.");
     }
   };
 
@@ -295,7 +374,12 @@ export function VideoUploadPanel({
               Confirm Upload
             </Text>
             {selectedVideo && (
-              <VideoPlayer uri={selectedVideo.uri} height={200} />
+              <>
+                <VideoPlayer uri={selectedVideo.uri} height={200} />
+                <Text className="mt-2 text-xs font-outfit text-secondary">
+                  Clip size: {formatMb(selectedVideo.sizeBytes)}
+                </Text>
+              </>
             )}
             <View className="flex-row gap-3 mt-6">
               <UIButton
@@ -312,6 +396,14 @@ export function VideoUploadPanel({
           </View>
         </View>
       </Modal>
+
+      <BuiltinCamera
+        visible={builtinCameraVisible}
+        onCancel={() => setBuiltinCameraVisible(false)}
+        onRecorded={(asset) => {
+          void handleBuiltinCameraRecorded(asset);
+        }}
+      />
 
       {/* REEL PREVIEW MODAL */}
       <Modal visible={!!reelPreview} transparent animationType="slide">

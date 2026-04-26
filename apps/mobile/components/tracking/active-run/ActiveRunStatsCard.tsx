@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { Text } from "@/components/ScaledText";
 import { fonts, radius } from "@/constants/theme";
@@ -32,10 +31,14 @@ export function ActiveRunStatsCard({
     [elapsedSeconds, distanceMeters],
   );
 
-  const labelColor = colors.textSecondary;
-  const valueColor = colors.textPrimary;
-  const cardBg = isDark ? "rgba(18,18,18,0.92)" : "rgba(255,255,255,0.92)";
-  const cardBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)";
+  const cardBg = isDark ? "rgba(10,10,10,0.72)" : "rgba(255,255,255,0.92)";
+  const cardBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.10)";
+  const dividerColor = isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)";
+
+  const distanceDisplay =
+    distanceMeters === 0 && elapsedSeconds < 2
+      ? "0.00"
+      : formatDistanceKm(distanceMeters, 2);
 
   return (
     <View
@@ -45,74 +48,90 @@ export function ActiveRunStatsCard({
         borderWidth: 1,
         borderColor: cardBorder,
         paddingHorizontal: 22,
-        paddingVertical: 18,
+        paddingTop: 18,
+        paddingBottom: 16,
+        ...(isDark
+          ? {
+              shadowColor: "#000",
+              shadowOpacity: 0.35,
+              shadowRadius: 20,
+              shadowOffset: { width: 0, height: 10 },
+              elevation: 10,
+            }
+          : {
+              shadowColor: "#000",
+              shadowOpacity: 0.14,
+              shadowRadius: 22,
+              shadowOffset: { width: 0, height: 12 },
+              elevation: 8,
+            }),
       }}
     >
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 14,
-        }}
-      >
-        <Text style={{ fontFamily: fonts.heading2, fontSize: 19, color: valueColor }}>
-          Run
+      {/* Hero distance row */}
+      <View style={{ flexDirection: "row", alignItems: "flex-end", marginBottom: 12 }}>
+        <Text
+          style={{
+            fontFamily: fonts.heroNumber,
+            fontSize: 56,
+            color: colors.textPrimary,
+            fontVariant: ["tabular-nums"],
+            lineHeight: 58,
+          }}
+        >
+          {distanceDisplay}
         </Text>
-        <Ionicons name="expand-outline" size={18} color={colors.textSecondary} />
+        <Text
+          style={{
+            fontFamily: fonts.bodyMedium,
+            fontSize: 18,
+            color: colors.textSecondary,
+            marginLeft: 6,
+            marginBottom: 8,
+          }}
+        >
+          km
+        </Text>
       </View>
 
-      <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-        <StatBlock
-          label="Time"
-          value={formatDurationClock(elapsedSeconds)}
-          colors={{ label: labelColor, value: valueColor }}
-          align="left"
-        />
-        <StatBlock
-          label="Split avg. (/km)"
-          value={pace}
-          colors={{ label: labelColor, value: valueColor }}
-          align="center"
-        />
-        <StatBlock
-          label="Distance (km)"
-          value={distanceMeters === 0 && elapsedSeconds < 2 ? "--" : formatDistanceKm(distanceMeters, 2)}
-          colors={{ label: labelColor, value: valueColor }}
-          align="right"
-        />
+      {/* Divider */}
+      <View style={{ height: 1, backgroundColor: dividerColor, marginBottom: 12 }} />
+
+      {/* Time + Pace row */}
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.labelMedium, fontSize: 10, color: colors.textSecondary, letterSpacing: 1, marginBottom: 2 }}>
+            TIME
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.accentBold,
+              fontSize: 22,
+              color: colors.textPrimary,
+              fontVariant: ["tabular-nums"],
+            }}
+          >
+            {formatDurationClock(elapsedSeconds)}
+          </Text>
+        </View>
+
+        <View style={{ width: 1, height: 36, backgroundColor: dividerColor, marginHorizontal: 16 }} />
+
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.labelMedium, fontSize: 10, color: colors.textSecondary, letterSpacing: 1, marginBottom: 2 }}>
+            PACE /KM
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.accentBold,
+              fontSize: 22,
+              color: colors.textPrimary,
+              fontVariant: ["tabular-nums"],
+            }}
+          >
+            {pace}
+          </Text>
+        </View>
       </View>
-    </View>
-  );
-}
-
-function StatBlock({
-  label,
-  value,
-  colors,
-  align,
-}: {
-  label: string;
-  value: string;
-  colors: { label: string; value: string };
-  align: "left" | "center" | "right";
-}) {
-  const alignItems =
-    align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
-
-  return (
-    <View style={{ flex: 1, alignItems }}>
-      <Text
-        adjustsFontSizeToFit
-        minimumFontScale={0.72}
-        numberOfLines={1}
-        style={{ fontFamily: fonts.bodyBold, fontSize: 31, color: colors.value, fontVariant: ["tabular-nums"] }}
-      >
-        {value}
-      </Text>
-      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.label, marginTop: 6 }}>
-        {label}
-      </Text>
     </View>
   );
 }

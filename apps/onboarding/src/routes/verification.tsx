@@ -183,7 +183,9 @@ function VerificationComponent() {
                             {otp.map((digit, i) => (
                                 <Input
                                     key={i}
-                                    ref={(el) => (inputsRef.current[i] = el)}
+                                    ref={(el) => {
+                                        inputsRef.current[i] = el;
+                                    }}
                                     value={digit}
                                     onChange={(e) => handleChange(e.target.value, i)}
                                     onKeyDown={(e) => handleKeyDown(e, i)}

@@ -2,18 +2,31 @@ export type PortalUser = {
 	id: number;
 	name: string;
 	email: string;
+	profilePicture?: string | null;
 	athleteName?: string;
 	role?: string;
 	programTier?: string;
 	planExpiresAt?: string;
+	planPaymentType?: string | null;
+	planCreatedAt?: string | null;
 	createdAt?: string;
 	birthDate?: string;
 	athleteType?: string | null;
+	athleteId?: number | null;
 	onboardingCompleted?: boolean;
 	trainingPerWeek?: number;
 	performanceGoals?: string | null;
 	phoneNumber?: string | null;
 	equipmentAccess?: string | null;
+	growthNotes?: string | null;
+	injuries?: any;
+	allAthletes?: Array<{
+		id: number;
+		name: string | null;
+		athleteType?: string | null;
+		currentProgramTier?: string | null;
+		planExpiresAt?: string | null;
+	}>;
 	team?: {
 		id: number;
 		name: string;
@@ -27,4 +40,14 @@ export type PortalUser = {
 		createdAt: string | null;
 		updatedAt: string | null;
 	} | null;
+	capabilities?: {
+		billingPortal?: boolean;
+		mobilePayments?: boolean;
+		parentContent?: boolean;
+		nutrition?: boolean;
+		training?: boolean;
+		progressTracking?: boolean;
+		teamManagement?: boolean;
+		[key: string]: boolean | undefined;
+	};
 };

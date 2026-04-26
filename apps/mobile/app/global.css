@@ -36,11 +36,11 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #0F1115;
-    --color-bg-secondary: #1A1D27;
-    --color-bg-input: #1A1D27;
-    --color-card: #181B23;
-    --color-card-elevated: #1F2330;
+    --color-bg: #0A0A0A;
+    --color-bg-secondary: #1A1A1A;
+    --color-bg-input: #1A1A1A;
+    --color-card: #111111;
+    --color-card-elevated: #1A1A1A;
     /* UI polish: keep dividers visible in dark mode without looking "outlined". */
     --color-separator: rgba(255, 255, 255, 0.08);
 

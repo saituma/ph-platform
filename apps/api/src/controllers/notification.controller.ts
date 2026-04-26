@@ -4,7 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { Expo } from "expo-server-sdk";
 
 import { db } from "../db";
-import { notificationTable, userTable } from "../db/schema";
+import { notificationTable, userDeviceTokensTable, userTable } from "../db/schema";
 import { sendPushNotification } from "../services/push.service";
 
 export async function listNotifications(req: Request, res: Response) {
@@ -45,6 +45,9 @@ const pushTokenSchema = z.object({
   expoPushToken: z.string().min(1).optional(),
   devicePushToken: z.string().min(1).optional(),
   devicePushTokenType: z.enum(["fcm", "apns", "unknown"]).optional(),
+  // Device identifier for multi-device support. If provided, tokens are stored
+  // per-device so all a user's devices receive push notifications.
+  deviceId: z.string().min(1).max(255).optional(),
 });
 
 export async function savePushToken(req: Request, res: Response) {
@@ -56,6 +59,7 @@ export async function savePushToken(req: Request, res: Response) {
   const expoPushToken = parsed.expoPushToken ?? parsed.token ?? undefined;
   const devicePushToken = parsed.devicePushToken ?? undefined;
   const devicePushTokenType = parsed.devicePushTokenType ?? undefined;
+  const deviceId = parsed.deviceId ?? undefined;
 
   if (!expoPushToken && !devicePushToken) {
     return res.status(400).json({ error: "Missing push token" });
@@ -66,20 +70,41 @@ export async function savePushToken(req: Request, res: Response) {
   }
 
   console.log(
-    `[PushToken] Saving push token(s) for user ${req.user.id}: expo=${expoPushToken ? expoPushToken.slice(0, 10) + "…" : "none"} device=${devicePushToken ? devicePushToken.slice(0, 10) + "…" : "none"}`,
+    `[PushToken] Saving push token(s) for user ${req.user.id} deviceId=${deviceId ?? "none"}: expo=${expoPushToken ? expoPushToken.slice(0, 10) + "…" : "none"} device=${devicePushToken ? devicePushToken.slice(0, 10) + "…" : "none"}`,
   );
 
-  const result = await db
+  // Always update the legacy single-token column for backwards compatibility.
+  await db
     .update(userTable)
     .set({
       ...(expoPushToken ? { expoPushToken } : {}),
       ...(devicePushToken ? { devicePushToken, devicePushTokenType: devicePushTokenType ?? "unknown" } : {}),
       updatedAt: new Date(),
     })
-    .where(eq(userTable.id, req.user.id))
-    .returning();
+    .where(eq(userTable.id, req.user.id));
 
-  console.log(`[PushToken] Update successful for user ${req.user.id}. Rows updated: ${result.length}`);
+  // When a deviceId is provided, also upsert into the per-device table so all
+  // registered devices receive push notifications for this user.
+  if (deviceId) {
+    await db
+      .insert(userDeviceTokensTable)
+      .values({
+        userId: req.user.id,
+        deviceId,
+        ...(expoPushToken ? { expoPushToken } : {}),
+        ...(devicePushToken ? { devicePushToken, devicePushTokenType: devicePushTokenType ?? "unknown" } : {}),
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [userDeviceTokensTable.userId, userDeviceTokensTable.deviceId],
+        set: {
+          ...(expoPushToken ? { expoPushToken } : {}),
+          ...(devicePushToken ? { devicePushToken, devicePushTokenType: devicePushTokenType ?? "unknown" } : {}),
+          updatedAt: new Date(),
+        },
+      });
+    console.log(`[PushToken] Device token upserted for user ${req.user.id} deviceId=${deviceId}`);
+  }
 
   return res.status(200).json({ success: true });
 }

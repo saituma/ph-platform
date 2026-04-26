@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  InteractionManager,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -10,6 +11,7 @@ import {
   ScrollView,
   TextInput,
   View,
+  Linking,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -23,6 +25,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
+import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
 import { canAccessTier } from "@/lib/planAccess";
 import { isAdultAthleteAppRole } from "@/lib/appRole";
@@ -33,6 +36,7 @@ import { useSessionUploads } from "@/hooks/programs/useSessionUploads";
 import { SessionExerciseBlock } from "@/components/programs/SessionExerciseBlock";
 import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import { useVideoHistory } from "@/hooks/programs/useVideoHistory";
+import { BuiltinCamera } from "@/components/media/BuiltinCamera";
 import {
   finishTrainingContentV2Session,
   FinishTrainingSessionWorkoutLog,
@@ -40,8 +44,9 @@ import {
 import { radius, spacing, fonts } from "@/constants/theme";
 import type { SelectedVideo } from "@/types/video-upload";
 
-const VIDEO_MAX_MB = 200;
+const VIDEO_MAX_MB = 90;
 const VIDEO_MAX_BYTES = VIDEO_MAX_MB * 1024 * 1024;
+const VIDEO_MAX_DURATION_SECONDS = 60;
 
 type PendingSessionVideo = {
   video: SelectedVideo;
@@ -61,20 +66,40 @@ export default function ProgramSessionDetailScreen() {
       moduleId: string;
       backToModule?: string;
     }>();
-  const { token, programTier, athleteUserId, managedAthletes, appRole } =
+  const { token, programTier, athleteUserId, managedAthletes, appRole, capabilities } =
     useAppSelector((state) => state.user);
 
+  const bootstrapReady = useAppSelector(selectBootstrapReady);
+
   /**
-   * Youth users should land on the Home tab on cold start.
-   * If this deep program route becomes the root screen (no back stack), redirect to Home.
+   * Cold start protection against Expo Go restoring ghost routes from AsyncStorage.
    */
-  useEffect(() => {
-    const role = String(appRole ?? "");
-    const isYouth = role === "youth_athlete" || role.startsWith("youth_athlete_");
-    if (!isYouth) return;
+  useLayoutEffect(() => {
+    if (!bootstrapReady) return;
     if (router.canGoBack()) return;
-    router.replace("/" as any);
-  }, [appRole, router]);
+    
+    let cancelled = false;
+    Linking.getInitialURL().then((url) => {
+      if (cancelled) return;
+      
+      const role = String(appRole ?? "");
+      const isYouth = role === "youth_athlete" || role === "youth_athlete_guardian_only";
+      if (isYouth) {
+        router.replace("/" as any);
+        return;
+      }
+      
+      if (url && url.includes("/programs/session/")) {
+        return;
+      }
+    });
+    return () => { cancelled = true; };
+  }, [bootstrapReady, router, appRole]);
+
+  const canUploadVideoResponse = useMemo(() => {
+    if (capabilities?.coachVideoUpload === true) return true;
+    return canAccessTier(programTier, "PHP_Premium_Plus");
+  }, [capabilities?.coachVideoUpload, programTier]);
 
   const activeAthlete = useMemo(() => {
     return (
@@ -122,6 +147,9 @@ export default function ProgramSessionDetailScreen() {
   const [activeUploadSectionId, setActiveUploadSectionId] = useState<
     number | null
   >(null);
+  const [builtinCameraVisible, setBuiltinCameraVisible] = useState(false);
+  const [builtinCameraTargetSectionId, setBuiltinCameraTargetSectionId] =
+    useState<number | null>(null);
 
   useEffect(() => {
     load();
@@ -151,33 +179,47 @@ export default function ProgramSessionDetailScreen() {
     return map;
   }, [coachResponses]);
 
-  const pickVideo = useCallback(async (source: "library" | "camera") => {
-    const permission =
-      source === "camera"
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const pickVideo = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) return null;
 
-    const result =
-      source === "camera"
-        ? await ImagePicker.launchCameraAsync({
-            mediaTypes: "videos",
-            quality: 0.9,
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: "videos",
-            quality: 0.9,
-          });
+    const iosCompressionOptions =
+      Platform.OS === "ios"
+        ? {
+            // Force H.264 transcode to a smaller target profile where possible.
+            videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
+            videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+            preferredAssetRepresentationMode:
+              ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+          }
+        : {};
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "videos",
+      quality: 0.5,
+      ...iosCompressionOptions,
+    });
 
     if (result.canceled || !result.assets?.[0]) return null;
 
     const asset = result.assets[0];
+    const durationSeconds =
+      typeof asset.duration === "number" && Number.isFinite(asset.duration)
+        ? Math.round(asset.duration / 1000)
+        : null;
+    if (durationSeconds != null && durationSeconds > VIDEO_MAX_DURATION_SECONDS) {
+      throw new Error(
+        `Video is ${durationSeconds}s. Please keep clips at ${VIDEO_MAX_DURATION_SECONDS}s or less.`,
+      );
+    }
     const fileInfo = await FileSystem.getInfoAsync(asset.uri);
     const sizeBytes = fileInfo.exists ? fileInfo.size : 0;
 
     if (fileInfo.exists && sizeBytes > VIDEO_MAX_BYTES) {
-      throw new Error(`Video exceeds ${VIDEO_MAX_MB}MB limit.`);
+      throw new Error(
+        `Video exceeds ${VIDEO_MAX_MB}MB limit. Keep it under ${VIDEO_MAX_DURATION_SECONDS}s or pick a shorter clip.`,
+      );
     }
 
     return {
@@ -187,6 +229,59 @@ export default function ProgramSessionDetailScreen() {
       sizeBytes,
     } satisfies SelectedVideo;
   }, []);
+
+  const handleBuiltinCameraRecorded = useCallback(
+    async (asset: { uri: string; duration: number; width: number; height: number }) => {
+      setBuiltinCameraVisible(false);
+      const targetId = builtinCameraTargetSectionId;
+      setBuiltinCameraTargetSectionId(null);
+      if (!targetId) return;
+
+      try {
+        if (
+          Number.isFinite(asset.duration) &&
+          asset.duration > VIDEO_MAX_DURATION_SECONDS
+        ) {
+          throw new Error(
+            `Video is ${asset.duration}s. Please keep clips at ${VIDEO_MAX_DURATION_SECONDS}s or less.`,
+          );
+        }
+
+        const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+        const sizeBytes = fileInfo.exists ? fileInfo.size : 0;
+        if (fileInfo.exists && sizeBytes > VIDEO_MAX_BYTES) {
+          throw new Error(
+            `Video exceeds ${VIDEO_MAX_MB}MB limit. Keep it under ${VIDEO_MAX_DURATION_SECONDS}s or pick a shorter clip.`,
+          );
+        }
+
+        const uriLower = asset.uri.toLowerCase();
+        const contentType = uriLower.endsWith(".mov")
+          ? "video/quicktime"
+          : "video/mp4";
+        setPendingBySectionId((prev) => ({
+          ...prev,
+          [targetId]: {
+            video: {
+              uri: asset.uri,
+              fileName: asset.uri.split("/").pop() ?? "video.mp4",
+              contentType,
+              sizeBytes,
+              width: asset.width,
+              height: asset.height,
+            },
+            notes: "",
+            progress: null,
+            error: null,
+          },
+        }));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Failed to record video.";
+        Alert.alert("Couldn't use recording", message);
+      }
+    },
+    [builtinCameraTargetSectionId],
+  );
 
   const warmupItems = useMemo(
     () => session?.items.filter((i) => i.blockType === "warmup") ?? [],
@@ -351,26 +446,12 @@ export default function ProgramSessionDetailScreen() {
         {
           text: "Record",
           onPress: () => {
-            void (async () => {
-              try {
-                setUploadStatus(null);
-                const selected = await pickVideo("camera");
-                if (!selected) return;
-                setPendingBySectionId((prev) => ({
-                  ...prev,
-                  [id]: {
-                    video: selected,
-                    notes: "",
-                    progress: null,
-                    error: null,
-                  },
-                }));
-              } catch (e) {
-                const message =
-                  e instanceof Error ? e.message : "Failed to pick video.";
-                Alert.alert("Couldn't pick video", message);
-              }
-            })();
+            setUploadStatus(null);
+            setBuiltinCameraTargetSectionId(id);
+            // Avoid Android FragmentManager transaction races after Alert dismissal.
+            InteractionManager.runAfterInteractions(() => {
+              setTimeout(() => setBuiltinCameraVisible(true), 80);
+            });
           },
         },
         {
@@ -379,7 +460,7 @@ export default function ProgramSessionDetailScreen() {
             void (async () => {
               try {
                 setUploadStatus(null);
-                const selected = await pickVideo("library");
+                const selected = await pickVideo();
                 if (!selected) return;
                 setPendingBySectionId((prev) => ({
                   ...prev,
@@ -671,7 +752,7 @@ export default function ProgramSessionDetailScreen() {
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
             coachResponsesByUploadId={coachResponsesByUploadId}
-            canUpload={canAccessTier(programTier, "PHP_Premium_Plus")}
+            canUpload={canUploadVideoResponse}
             pendingBySectionId={pendingBySectionId}
             activeUploadSectionId={activeUploadSectionId}
             isUploading={isUploading}
@@ -689,7 +770,7 @@ export default function ProgramSessionDetailScreen() {
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
             coachResponsesByUploadId={coachResponsesByUploadId}
-            canUpload={canAccessTier(programTier, "PHP_Premium_Plus")}
+            canUpload={canUploadVideoResponse}
             pendingBySectionId={pendingBySectionId}
             activeUploadSectionId={activeUploadSectionId}
             isUploading={isUploading}
@@ -707,7 +788,7 @@ export default function ProgramSessionDetailScreen() {
             hasUploaded={hasUploadedBySectionId}
             uploadsBySectionId={uploadsBySectionId}
             coachResponsesByUploadId={coachResponsesByUploadId}
-            canUpload={canAccessTier(programTier, "PHP_Premium_Plus")}
+            canUpload={canUploadVideoResponse}
             pendingBySectionId={pendingBySectionId}
             activeUploadSectionId={activeUploadSectionId}
             isUploading={isUploading}
@@ -1029,6 +1110,16 @@ export default function ProgramSessionDetailScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+      <BuiltinCamera
+        visible={builtinCameraVisible}
+        onCancel={() => {
+          setBuiltinCameraVisible(false);
+          setBuiltinCameraTargetSectionId(null);
+        }}
+        onRecorded={(asset) => {
+          void handleBuiltinCameraRecorded(asset);
+        }}
+      />
     </SafeAreaView>
   );
 }

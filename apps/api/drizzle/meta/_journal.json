@@ -652,6 +652,69 @@
       "when": 1777420000000,
       "tag": "0092_lethal_radioactive_man",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1777430000000,
+      "tag": "0093_nutrition_meal_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1777440000000,
+      "tag": "0094_messaging_idempotency_and_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1777450000000,
+      "tag": "0095_group_message_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1777460000000,
+      "tag": "0096_direct_message_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1777127440324,
+      "tag": "0097_thankful_shotgun",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1745539200000,
+      "tag": "0098_user_referral_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1745539300000,
+      "tag": "0099_live_location_route_points",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1777550000000,
+      "tag": "0100_user_device_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1777636400000,
+      "tag": "0101_user_last_seen_at",
+      "breakpoints": true
     }
   ]
 }

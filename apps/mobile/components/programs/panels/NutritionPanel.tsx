@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { apiRequest } from "@/lib/api";
@@ -30,13 +30,45 @@ function logHasCoachResponse(log: any): boolean {
 
 export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const router = useRouter();
-  const { token, athleteUserId, apiUserRole } = useAppSelector(
+  const { token, athleteUserId, apiUserRole, managedAthletes } = useAppSelector(
     (state) => state.user,
   );
   const { isDark, colors, shadows } = useProgramPanel();
+  const normalizedApiUserRole = (apiUserRole ?? "").toLowerCase();
 
   const isAdult =
     appRole === "adult_athlete" || appRole === "adult_athlete_team";
+  const selectedAthlete = React.useMemo(() => {
+    if (!managedAthletes.length) return null;
+    return (
+      managedAthletes.find(
+        (a) => a.id === athleteUserId || a.userId === athleteUserId,
+      ) ?? managedAthletes[0]
+    );
+  }, [managedAthletes, athleteUserId]);
+  const selectedAthleteType = selectedAthlete?.athleteType ?? null;
+  const activeAthleteAge = React.useMemo(() => {
+    return selectedAthlete?.age ?? null;
+  }, [selectedAthlete]);
+  const isUnder18Athlete =
+    typeof activeAthleteAge === "number" && activeAthleteAge < 18;
+  const isYouthAppRole =
+    appRole === "youth_athlete" ||
+    appRole === "youth_athlete_guardian_only" ||
+    appRole === "youth_athlete_team_guardian";
+  const isYouthFromAthleteData = selectedAthleteType === "youth";
+  const isTeamAthleteRole = normalizedApiUserRole === "team_athlete";
+  const hasExplicitAdultProof =
+    isAdult ||
+    selectedAthleteType === "adult" ||
+    (typeof activeAthleteAge === "number" && activeAthleteAge >= 18);
+  const isBlockedYouthContext =
+    isYouthAppRole ||
+    normalizedApiUserRole === "youth_athlete" ||
+    isYouthFromAthleteData ||
+    isUnder18Athlete ||
+    (isTeamAthleteRole && !hasExplicitAdultProof);
+  const showNutritionTargets = !isBlockedYouthContext && isAdult;
 
   const [activeTab, setActiveTab] = useState<"log" | "history" | "coach">(
     "log",
@@ -52,7 +84,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const [logId, setLogId] = useState<number | null>(null);
 
   const canEditTargets =
-    isAdult &&
+    showNutritionTargets &&
     ["coach", "admin", "superAdmin"].includes(apiUserRole ?? "") &&
     typeof athleteUserId === "number" &&
     Number.isFinite(athleteUserId);
@@ -383,7 +415,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
         setCoachFeedbackMediaUrl(null);
       }
 
-      if (isAdult) {
+      if (showNutritionTargets) {
         const targetData = await apiRequest<{ targets: any }>(
           `/nutrition/targets/${athleteUserId || "me"}`,
           { token, suppressLog: true },
@@ -421,7 +453,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, [token, dateKey, athleteUserId, isAdult, parseSlot]);
+  }, [token, dateKey, athleteUserId, parseSlot, showNutritionTargets]);
 
   const parseTargetNumber = useCallback((raw: string) => {
     const cleaned = raw.trim();
@@ -693,30 +725,41 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       </Text>
       <View className="flex-row justify-between">
         {[1, 2, 3, 4, 5].map((num) => (
-          <TouchableOpacity
+          <Pressable
             key={num}
             onPress={() => setter(num)}
             className={`w-12 h-12 rounded-2xl items-center justify-center border`}
-            style={{
-              backgroundColor: value === num ? colors.accent : colors.card,
+            style={({ pressed }) => ({
+              backgroundColor: value === num ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
               borderColor:
                 value === num
                   ? colors.accent
                   : isDark
                     ? "rgba(255,255,255,0.08)"
                     : "rgba(15,23,42,0.06)",
-            }}
+              opacity: pressed ? 0.75 : 1,
+            })}
           >
             <Text
               className={`font-bold font-clash text-lg ${value === num ? "text-white" : "text-app"}`}
             >
               {num}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
     </View>
   );
+
+  const surfaceMuted = isDark
+    ? "rgba(255,255,255,0.04)"
+    : "rgba(15,23,42,0.03)";
+  const borderSubtle = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const borderStrong = isDark
+    ? "rgba(255,255,255,0.14)"
+    : "rgba(15,23,42,0.12)";
 
   return (
     <View className="gap-4">
@@ -724,7 +767,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       <View
         className="overflow-hidden rounded-3xl border px-6 py-5"
         style={{
-          backgroundColor: isDark ? colors.card : "#F7FFF9",
+          backgroundColor: isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 15%, 98%)",
           borderColor: isDark
             ? "rgba(255,255,255,0.08)"
             : "rgba(15,23,42,0.06)",
@@ -740,17 +783,19 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             : "Check off your daily checklist and rate your metrics."}
         </Text>
 
-        <TouchableOpacity
+        <Pressable
           onPress={() => setDatePickerOpen(true)}
           className="mt-5 flex-row items-center justify-between rounded-2xl border px-4 py-3"
-          style={{
+          style={({ pressed }) => ({
             backgroundColor: isDark
               ? "rgba(255,255,255,0.04)"
               : "rgba(15,23,42,0.04)",
             borderColor: isDark
               ? "rgba(255,255,255,0.08)"
               : "rgba(15,23,42,0.06)",
-          }}
+            opacity: pressed ? 0.88 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
         >
           <View>
             <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
@@ -761,7 +806,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             </Text>
           </View>
           <Feather name="calendar" size={18} color={colors.accent} />
-        </TouchableOpacity>
+        </Pressable>
         {datePickerOpen ? (
           <DateTimePicker
             value={dateObj}
@@ -776,102 +821,114 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       </View>
 
       {/* Header Tabs */}
-      <View className="flex-row items-center gap-2">
-        <TouchableOpacity
-          onPress={() => setActiveTab("log")}
-          className="flex-1 min-w-0 rounded-2xl border px-2 py-2.5 items-center justify-center"
-          style={{
-            backgroundColor: activeTab === "log" ? colors.accent : colors.card,
-            borderColor:
-              activeTab === "log"
-                ? colors.accent
-                : isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
-          }}
-        >
-          <Text
-            className={`text-[10px] font-outfit font-bold uppercase tracking-[0.8px] ${
-              activeTab === "log" ? "text-white" : "text-app"
-            }`}
-            numberOfLines={1}
+      <View className="gap-2">
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={() => setActiveTab("log")}
+            className="flex-1 min-w-0 rounded-3xl border px-3 py-3"
+            style={({ pressed }) => ({
+              backgroundColor: activeTab === "log" ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
+              borderColor: activeTab === "log" ? colors.accent : borderSubtle,
+              opacity: pressed ? 0.88 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
           >
-            Log
-          </Text>
-        </TouchableOpacity>
+            <Text
+              className={`text-[11px] font-outfit font-bold uppercase tracking-[1.1px] ${
+                activeTab === "log" ? "text-white" : "text-app"
+              }`}
+            >
+              Log
+            </Text>
+            <Text
+              className={`mt-1 text-[11px] font-outfit ${
+                activeTab === "log" ? "text-white/85" : "text-secondary"
+              }`}
+              numberOfLines={1}
+            >
+              Today
+            </Text>
+          </Pressable>
 
-        <TouchableOpacity
-          onPress={() => {
-            setActiveTab("history");
-            if (coachFilterPreset !== "custom") {
-              applyPresetToDates(coachFilterPreset);
-            }
-          }}
-          className="flex-1 min-w-0 rounded-2xl border px-2 py-2.5 items-center justify-center"
-          style={{
-            backgroundColor:
-              activeTab === "history" ? colors.accent : colors.card,
-            borderColor:
-              activeTab === "history"
-                ? colors.accent
-                : isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
-          }}
-        >
-          <Text
-            className={`text-[10px] font-outfit font-bold uppercase tracking-[0.8px] text-center ${
-              activeTab === "history" ? "text-white" : "text-app"
-            }`}
-            numberOfLines={2}
-          >
-            Log history
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => {
-            setActiveTab("coach");
-            if (coachFilterPreset !== "custom") {
-              applyPresetToDates(coachFilterPreset);
-            }
-          }}
-          className="flex-1 min-w-0 rounded-2xl border px-2 py-2.5 items-center justify-center"
-          style={{
-            backgroundColor:
-              activeTab === "coach" ? colors.accent : colors.card,
-            borderColor:
-              activeTab === "coach"
-                ? colors.accent
-                : isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
-          }}
-        >
-          <Text
-            className={`text-[10px] font-outfit font-bold uppercase tracking-[0.8px] text-center ${
-              activeTab === "coach" ? "text-white" : "text-app"
-            }`}
-            numberOfLines={2}
-          >
-            Coach reply
-          </Text>
-        </TouchableOpacity>
-
-        {activeTab === "history" || activeTab === "coach" ? (
-          <TouchableOpacity
-            onPress={() => setCoachFilterOpen(true)}
-            className="h-11 w-11 shrink-0 items-center justify-center rounded-2xl border"
-            style={{
-              backgroundColor: colors.card,
-              borderColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(15,23,42,0.06)",
+          <Pressable
+            onPress={() => {
+              setActiveTab("history");
+              if (coachFilterPreset !== "custom") {
+                applyPresetToDates(coachFilterPreset);
+              }
             }}
+            className="flex-1 min-w-0 rounded-3xl border px-3 py-3"
+            style={({ pressed }) => ({
+              backgroundColor:
+                activeTab === "history" ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
+              borderColor: activeTab === "history" ? colors.accent : borderSubtle,
+              opacity: pressed ? 0.88 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
           >
-            <Feather name="sliders" size={18} color={colors.accent} />
-          </TouchableOpacity>
-        ) : null}
+            <Text
+              className={`text-[11px] font-outfit font-bold uppercase tracking-[1.1px] ${
+                activeTab === "history" ? "text-white" : "text-app"
+              }`}
+            >
+              Log History
+            </Text>
+            <Text
+              className={`mt-1 text-[11px] font-outfit ${
+                activeTab === "history" ? "text-white/85" : "text-secondary"
+              }`}
+              numberOfLines={1}
+            >
+              All entries
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              setActiveTab("coach");
+              if (coachFilterPreset !== "custom") {
+                applyPresetToDates(coachFilterPreset);
+              }
+            }}
+            className="flex-1 min-w-0 rounded-3xl border px-3 py-3"
+            style={({ pressed }) => ({
+              backgroundColor: activeTab === "coach" ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
+              borderColor: activeTab === "coach" ? colors.accent : borderSubtle,
+              opacity: pressed ? 0.88 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
+          >
+            <Text
+              className={`text-[11px] font-outfit font-bold uppercase tracking-[1.1px] ${
+                activeTab === "coach" ? "text-white" : "text-app"
+              }`}
+            >
+              Coach Reply
+            </Text>
+            <Text
+              className={`mt-1 text-[11px] font-outfit ${
+                activeTab === "coach" ? "text-white/85" : "text-secondary"
+              }`}
+              numberOfLines={1}
+            >
+              Feedback
+            </Text>
+          </Pressable>
+
+          {activeTab === "history" || activeTab === "coach" ? (
+            <Pressable
+              onPress={() => setCoachFilterOpen(true)}
+              className="h-[58px] w-[52px] shrink-0 items-center justify-center rounded-3xl border"
+              style={({ pressed }) => ({
+                backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                borderColor: borderSubtle,
+                opacity: pressed ? 0.75 : 1,
+              })}
+            >
+              <Feather name="sliders" size={18} color={colors.accent} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       {activeTab === "log" ? (
@@ -885,7 +942,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               <View
                 className="rounded-3xl border p-5"
                 style={{
-                  backgroundColor: colors.card,
+                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
                   borderColor: isDark
                     ? "rgba(255,255,255,0.08)"
                     : "rgba(15,23,42,0.06)",
@@ -901,7 +958,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     </Text>
                   </View>
 
-                  <TouchableOpacity
+                  <Pressable
                     onPress={async () => {
                       if (reminderSaving) return;
                       if (!reminderEnabled) {
@@ -916,7 +973,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       }
                     }}
                     className="rounded-2xl border px-4 py-3 items-center justify-center"
-                    style={{
+                    style={({ pressed }) => ({
                       backgroundColor: reminderEnabled
                         ? colors.accent
                         : isDark
@@ -927,7 +984,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         : isDark
                           ? "rgba(255,255,255,0.08)"
                           : "rgba(15,23,42,0.06)",
-                    }}
+                      opacity: pressed ? 0.75 : 1,
+                    })}
                   >
                     <Text
                       className={`text-[12px] font-outfit font-bold uppercase tracking-[1.2px] ${
@@ -936,7 +994,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     >
                       {reminderEnabled ? "On" : "Off"}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
 
                 <View className="mt-4">
@@ -945,22 +1003,22 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       <ActivityIndicator size="small" color={colors.accent} />
                     </View>
                   ) : (
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => {
                         setReminderEnableAfterPick(false);
                         setReminderTimePickerOpen(true);
                       }}
                       disabled={!reminderEnabled || reminderSaving}
                       className="rounded-2xl border px-4 py-3"
-                      style={{
+                      style={({ pressed }) => ({
                         backgroundColor: isDark
                           ? "rgba(255,255,255,0.04)"
                           : "rgba(15,23,42,0.04)",
                         borderColor: isDark
                           ? "rgba(255,255,255,0.08)"
                           : "rgba(15,23,42,0.06)",
-                        opacity: reminderEnabled ? 1 : 0.6,
-                      }}
+                        opacity: reminderEnabled ? (pressed ? 0.75 : 1) : 0.6,
+                      })}
                     >
                       <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                         Reminder time
@@ -971,7 +1029,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                           minute: "2-digit",
                         })}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   )}
                 </View>
 
@@ -1007,13 +1065,15 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
 
                 {reminderStatus ? (
                   <Text
-                    className={`mt-3 text-center font-bold ${
-                      reminderStatus.tone === "error"
-                        ? "text-red-500"
-                        : reminderStatus.tone === "success"
-                          ? "text-emerald-500"
-                          : "text-secondary"
-                    }`}
+                    className="mt-3 text-center font-bold"
+                    style={{
+                      color:
+                        reminderStatus.tone === "error"
+                          ? "hsl(0, 45%, 52%)"
+                          : reminderStatus.tone === "success"
+                            ? colors.accent
+                            : colors.textSecondary,
+                    }}
                   >
                     {reminderStatus.message}
                   </Text>
@@ -1021,11 +1081,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               </View>
             ) : null}
 
-            {isAdult ? (
+            {showNutritionTargets ? (
               <View
                 className="rounded-3xl border p-5"
                 style={{
-                  backgroundColor: colors.card,
+                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
                   borderColor: isDark
                     ? "rgba(255,255,255,0.08)"
                     : "rgba(15,23,42,0.06)",
@@ -1169,20 +1229,33 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   </View>
 
                   {canEditTargets ? (
-                    <TouchableOpacity
+                    <Pressable
                       onPress={handleSaveTargets}
                       disabled={targetsSaving}
-                      className={`rounded-[24px] items-center py-4 ${targetsSaving ? "bg-accent/40" : "bg-accent"}`}
+                      style={({ pressed }) => ({
+                        borderRadius: 24,
+                        alignItems: "center",
+                        paddingVertical: 16,
+                        backgroundColor: targetsSaving ? colors.accent + "66" : colors.accent,
+                        opacity: pressed ? 0.88 : 1,
+                        transform: [{ scale: pressed ? 0.98 : 1 }],
+                      })}
                     >
                       <Text className="text-white font-bold">
                         {targetsSaving ? "Saving..." : "Save Targets"}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   ) : null}
 
                   {targetsStatus ? (
                     <Text
-                      className={`text-center font-bold ${targetsStatus.tone === "error" ? "text-red-500" : "text-emerald-500"}`}
+                      className="text-center font-bold"
+                      style={{
+                        color:
+                          targetsStatus.tone === "error"
+                            ? "hsl(0, 45%, 52%)"
+                            : colors.accent,
+                      }}
                     >
                       {targetsStatus.message}
                     </Text>
@@ -1194,7 +1267,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             <View
               className="rounded-3xl border p-5"
               style={{
-                backgroundColor: colors.card,
+                backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
                 borderColor: isDark
                   ? "rgba(255,255,255,0.08)"
                   : "rgba(15,23,42,0.06)",
@@ -1230,19 +1303,21 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     },
                   ].map((meal) => (
                     <View key={meal.label} className="gap-2">
-                      <TouchableOpacity
+                      <Pressable
                         onPress={() => meal.setChecked(!meal.checked)}
                         className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
-                        style={{
+                        style={({ pressed }) => ({
                           backgroundColor: meal.checked
                             ? colors.accent
-                            : colors.card,
+                            : isDark ? "hsl(220, 8%, 12%)" : colors.card,
                           borderColor: meal.checked
                             ? colors.accent
                             : isDark
                               ? "rgba(255,255,255,0.08)"
                               : "rgba(15,23,42,0.06)",
-                        }}
+                          opacity: pressed ? 0.88 : 1,
+                          transform: [{ scale: pressed ? 0.98 : 1 }],
+                        })}
                       >
                         <Text
                           className={`font-bold ${meal.checked ? "text-white" : "text-app"}`}
@@ -1250,7 +1325,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                           {meal.label}
                         </Text>
                         {meal.checked && <Feather name="check" color="white" />}
-                      </TouchableOpacity>
+                      </Pressable>
 
                       {meal.checked ? (
                         <View
@@ -1315,19 +1390,21 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     },
                   ].map((slot) => (
                     <View key={slot.label} className="gap-2">
-                      <TouchableOpacity
+                      <Pressable
                         onPress={() => slot.setChecked(!slot.checked)}
                         className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
-                        style={{
+                        style={({ pressed }) => ({
                           backgroundColor: slot.checked
                             ? colors.accent
-                            : colors.card,
+                            : isDark ? "hsl(220, 8%, 12%)" : colors.card,
                           borderColor: slot.checked
                             ? colors.accent
                             : isDark
                               ? "rgba(255,255,255,0.08)"
                               : "rgba(15,23,42,0.06)",
-                        }}
+                          opacity: pressed ? 0.88 : 1,
+                          transform: [{ scale: pressed ? 0.98 : 1 }],
+                        })}
                       >
                         <Text
                           className={`font-bold ${slot.checked ? "text-white" : "text-app"}`}
@@ -1335,7 +1412,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                           {slot.label}
                         </Text>
                         {slot.checked && <Feather name="check" color="white" />}
-                      </TouchableOpacity>
+                      </Pressable>
 
                       {slot.checked ? (
                         <View
@@ -1380,7 +1457,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               <View
                 className="rounded-3xl border p-5"
                 style={{
-                  backgroundColor: colors.card,
+                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
                   borderColor: isDark
                     ? "rgba(255,255,255,0.08)"
                     : "rgba(15,23,42,0.06)",
@@ -1426,33 +1503,35 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   </Text>
 
                   <View className="flex-row items-center gap-3">
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() =>
                         setWaterIntake(Math.max(0, waterIntake - 1))
                       }
                       className="w-10 h-10 items-center justify-center rounded-2xl"
-                      style={{
+                      style={({ pressed }) => ({
                         backgroundColor: isDark
                           ? "rgba(255,255,255,0.04)"
                           : "rgba(15,23,42,0.04)",
-                      }}
+                        opacity: pressed ? 0.75 : 1,
+                      })}
                     >
                       <Feather name="minus" size={18} color={colors.accent} />
-                    </TouchableOpacity>
+                    </Pressable>
                     <Text className="text-base font-clash font-bold text-app min-w-[28px] text-center">
                       {waterIntake}
                     </Text>
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => setWaterIntake(waterIntake + 1)}
                       className="w-10 h-10 items-center justify-center rounded-2xl"
-                      style={{
+                      style={({ pressed }) => ({
                         backgroundColor: isDark
                           ? "rgba(255,255,255,0.04)"
                           : "rgba(15,23,42,0.04)",
-                      }}
+                        opacity: pressed ? 0.75 : 1,
+                      })}
                     >
                       <Feather name="plus" size={18} color={colors.accent} />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
 
@@ -1567,7 +1646,13 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             ) : null}
 
             {(coachFeedback || coachFeedbackMediaUrl) && (
-              <View className="rounded-3xl border p-5 bg-emerald-500/10 border-emerald-400/30">
+              <View
+                className="rounded-3xl border p-5"
+                style={{
+                  backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.08)",
+                  borderColor: "rgba(34,197,94,0.22)",
+                }}
+              >
                 <Text className="text-[10px] font-outfit font-bold uppercase text-emerald-600 dark:text-emerald-300 mb-2">
                   Coach Feedback
                 </Text>
@@ -1588,18 +1673,31 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               </View>
             )}
 
-            <TouchableOpacity
+            <Pressable
               onPress={handleSave}
               disabled={saving}
-              className={`rounded-[24px] items-center py-4 ${saving ? "bg-accent/40" : "bg-accent"}`}
+              style={({ pressed }) => ({
+                borderRadius: 24,
+                alignItems: "center",
+                paddingVertical: 16,
+                backgroundColor: saving ? colors.accent + "66" : colors.accent,
+                opacity: pressed ? 0.88 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
             >
               <Text className="text-white font-bold">
                 {saving ? "Saving..." : "Save Daily Log"}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
             {status && (
               <Text
-                className={`text-center font-bold ${status.tone === "error" ? "text-red-500" : "text-emerald-500"}`}
+                className="text-center font-bold"
+                style={{
+                  color:
+                    status.tone === "error"
+                      ? "hsl(0, 45%, 52%)"
+                      : colors.accent,
+                }}
               >
                 {status.message}
               </Text>
@@ -1611,7 +1709,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           <View
             className="rounded-3xl border px-5 py-4"
             style={{
-              backgroundColor: colors.card,
+              backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
               borderColor: isDark
                 ? "rgba(255,255,255,0.08)"
                 : "rgba(15,23,42,0.06)",
@@ -1634,7 +1732,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               <View
                 className="rounded-3xl border px-5 py-5"
                 style={{
-                  backgroundColor: colors.card,
+                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
                   borderColor: isDark
                     ? "rgba(255,255,255,0.08)"
                     : "rgba(15,23,42,0.06)",
@@ -1669,38 +1767,56 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   };
 
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={String(log?.id ?? dateLabel)}
-                      activeOpacity={0.9}
                       onPress={handleOpenDetail}
                       disabled={!canOpenDetail}
-                      className="rounded-3xl border p-5 gap-3"
-                      style={{
-                        backgroundColor: colors.card,
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(15,23,42,0.06)",
-                        opacity: canOpenDetail ? 1 : 0.8,
-                      }}
+                      className="rounded-[28px] border p-5 gap-4"
+                      style={({ pressed }) => ({
+                        backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                        borderColor: hasCoach ? borderStrong : borderSubtle,
+                        opacity: pressed ? 0.88 : canOpenDetail ? 1 : 0.8,
+                        transform: [{ scale: pressed ? 0.98 : 1 }],
+                      })}
                     >
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-sm font-outfit font-bold text-app">
+                      <View className="flex-row items-center justify-between gap-3">
+                        <Text className="text-base font-outfit font-bold text-app flex-1">
                           {dateLabel || "Log"}
                         </Text>
-                        <View
-                          className="rounded-full px-3 py-1.5"
-                          style={{
-                            backgroundColor: isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)",
-                          }}
-                        >
-                          <Text
-                            className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
-                            style={{ color: colors.accent }}
+                        <View className="flex-row items-center gap-2">
+                          <View
+                            className="rounded-full px-2.5 py-1"
+                            style={{
+                              backgroundColor: surfaceMuted,
+                              borderWidth: 1,
+                              borderColor: borderSubtle,
+                            }}
                           >
-                            Entry
-                          </Text>
+                            <Text
+                              className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]"
+                              style={{ color: colors.accent }}
+                            >
+                              Entry
+                            </Text>
+                          </View>
+                          <View
+                            className="rounded-full px-2.5 py-1"
+                            style={{
+                              backgroundColor: hasCoach ? colors.accent : surfaceMuted,
+                              borderWidth: 1,
+                              borderColor: hasCoach
+                                ? colors.accent
+                                : borderSubtle,
+                            }}
+                          >
+                            <Text
+                              className={`text-[10px] font-outfit font-bold uppercase tracking-[1.1px] ${
+                                hasCoach ? "text-white" : "text-secondary"
+                              }`}
+                            >
+                              {hasCoach ? "Coach replied" : "Awaiting coach"}
+                            </Text>
+                          </View>
                         </View>
                       </View>
 
@@ -1725,11 +1841,10 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       </View>
 
                       <View
-                        className="gap-2 mt-1 pt-3 border-t"
+                        className="gap-2 mt-1 rounded-2xl border p-3"
                         style={{
-                          borderColor: isDark
-                            ? "rgba(255,255,255,0.08)"
-                            : "rgba(15,23,42,0.06)",
+                          backgroundColor: surfaceMuted,
+                          borderColor: borderSubtle,
                         }}
                       >
                         <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
@@ -1757,7 +1872,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                           </Text>
                         )}
                       </View>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -1766,7 +1881,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             <View
               className="rounded-3xl border px-5 py-5"
               style={{
-                backgroundColor: colors.card,
+                backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
                 borderColor: isDark
                   ? "rgba(255,255,255,0.08)"
                   : "rgba(15,23,42,0.06)",
@@ -1802,34 +1917,40 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 };
 
                 return (
-                  <TouchableOpacity
+                    <Pressable
                     key={String(log?.id ?? dateLabel)}
-                    activeOpacity={0.9}
                     onPress={handleOpenDetail}
                     disabled={!canOpenDetail}
-                    className="rounded-3xl border p-5 gap-3"
-                    style={{
-                      backgroundColor: colors.card,
-                      borderColor: isDark
-                        ? "rgba(255,255,255,0.08)"
-                        : "rgba(15,23,42,0.06)",
-                      opacity: canOpenDetail ? 1 : 0.8,
-                    }}
+                      className="rounded-[28px] border p-5 gap-4"
+                    style={({ pressed }) => ({
+                      backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                        borderColor: borderStrong,
+                      opacity: pressed ? 0.88 : canOpenDetail ? 1 : 0.8,
+                      transform: [{ scale: pressed ? 0.98 : 1 }],
+                    })}
                   >
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm font-outfit font-bold text-app">
+                    <View className="flex-row items-center justify-between gap-3">
+                      <Text className="text-base font-outfit font-bold text-app flex-1">
                         {dateLabel || "Log"}
                       </Text>
-                      <View
-                        className="rounded-full px-3 py-1.5"
-                        style={{ backgroundColor: "rgba(34,197,94,0.10)" }}
-                      >
-                        <Text
-                          className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
-                          style={{ color: colors.accent }}
+                      <View className="flex-row items-center gap-2">
+                        <View
+                          className="rounded-full px-2.5 py-1"
+                          style={{
+                            backgroundColor: colors.accent,
+                            borderWidth: 1,
+                            borderColor: colors.accent,
+                          }}
                         >
-                          Coach
-                        </Text>
+                          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px] text-white">
+                            Coach replied
+                          </Text>
+                        </View>
+                        <Feather
+                          name="chevron-right"
+                          size={16}
+                          color={colors.placeholder}
+                        />
                       </View>
                     </View>
 
@@ -1853,7 +1974,13 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       )}
                     </View>
 
-                    <View className="gap-2">
+                    <View
+                      className="gap-2 rounded-2xl border p-3"
+                      style={{
+                        backgroundColor: surfaceMuted,
+                        borderColor: borderSubtle,
+                      }}
+                    >
                       <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                         Coach response
                       </Text>
@@ -1876,7 +2003,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         </View>
                       ) : null}
                     </View>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -1895,7 +2022,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           <View
             className="rounded-[28px] border p-5 gap-4"
             style={{
-              backgroundColor: colors.card,
+              backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
               borderColor: isDark
                 ? "rgba(255,255,255,0.08)"
                 : "rgba(15,23,42,0.06)",
@@ -1905,9 +2032,12 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               <Text className="text-lg font-clash font-bold text-app">
                 Filter
               </Text>
-              <TouchableOpacity onPress={() => setCoachFilterOpen(false)}>
+              <Pressable
+                onPress={() => setCoachFilterOpen(false)}
+                style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+              >
                 <Feather name="x" size={22} color={colors.text} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <View className="flex-row gap-3">
@@ -1916,23 +2046,25 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 { key: "7d" as const, label: "7 days" },
                 { key: "30d" as const, label: "30 days" },
               ].map((p) => (
-                <TouchableOpacity
+                <Pressable
                   key={p.key}
                   onPress={() => {
                     setCoachFilterPreset(p.key);
                     applyPresetToDates(p.key);
                   }}
                   className="flex-1 rounded-2xl border px-3 py-3 items-center"
-                  style={{
+                  style={({ pressed }) => ({
                     backgroundColor:
-                      coachFilterPreset === p.key ? colors.accent : colors.card,
+                      coachFilterPreset === p.key ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
                     borderColor:
                       coachFilterPreset === p.key
                         ? colors.accent
                         : isDark
                           ? "rgba(255,255,255,0.08)"
                           : "rgba(15,23,42,0.06)",
-                  }}
+                    opacity: pressed ? 0.88 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                  })}
                 >
                   <Text
                     className={`text-[11px] font-outfit font-bold uppercase tracking-[1.1px] ${
@@ -1941,23 +2073,25 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   >
                     {p.label}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
 
-            <TouchableOpacity
+            <Pressable
               onPress={() => setCoachFilterPreset("custom")}
               className="rounded-2xl border px-4 py-3"
-              style={{
+              style={({ pressed }) => ({
                 backgroundColor:
-                  coachFilterPreset === "custom" ? colors.accent : colors.card,
+                  coachFilterPreset === "custom" ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
                 borderColor:
                   coachFilterPreset === "custom"
                     ? colors.accent
                     : isDark
                       ? "rgba(255,255,255,0.08)"
                       : "rgba(15,23,42,0.06)",
-              }}
+                opacity: pressed ? 0.88 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
             >
               <Text
                 className={`text-[12px] font-outfit font-bold uppercase tracking-[1.2px] ${
@@ -1966,21 +2100,23 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               >
                 Custom dates
               </Text>
-            </TouchableOpacity>
+            </Pressable>
 
             {coachFilterPreset === "custom" ? (
               <View className="gap-3">
-                <TouchableOpacity
+                <Pressable
                   onPress={() => setCoachFromPickerOpen(true)}
                   className="rounded-2xl border px-4 py-3"
-                  style={{
+                  style={({ pressed }) => ({
                     backgroundColor: isDark
                       ? "rgba(255,255,255,0.04)"
                       : "rgba(15,23,42,0.03)",
                     borderColor: isDark
                       ? "rgba(255,255,255,0.08)"
                       : "rgba(15,23,42,0.06)",
-                  }}
+                    opacity: pressed ? 0.88 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                  })}
                 >
                   <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                     From
@@ -1988,19 +2124,21 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   <Text className="mt-1 text-sm font-outfit text-app">
                     {coachFromDate.toLocaleDateString()}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
+                <Pressable
                   onPress={() => setCoachToPickerOpen(true)}
                   className="rounded-2xl border px-4 py-3"
-                  style={{
+                  style={({ pressed }) => ({
                     backgroundColor: isDark
                       ? "rgba(255,255,255,0.04)"
                       : "rgba(15,23,42,0.03)",
                     borderColor: isDark
                       ? "rgba(255,255,255,0.08)"
                       : "rgba(15,23,42,0.06)",
-                  }}
+                    opacity: pressed ? 0.88 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                  })}
                 >
                   <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
                     To
@@ -2008,7 +2146,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   <Text className="mt-1 text-sm font-outfit text-app">
                     {coachToDate.toLocaleDateString()}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             ) : null}
 
@@ -2036,32 +2174,38 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             ) : null}
 
             <View className="flex-row gap-3">
-              <TouchableOpacity
+              <Pressable
                 onPress={() => setCoachFilterOpen(false)}
                 className="flex-1 rounded-2xl border px-4 py-4 items-center"
-                style={{
-                  backgroundColor: colors.card,
+                style={({ pressed }) => ({
+                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
                   borderColor: isDark
                     ? "rgba(255,255,255,0.08)"
                     : "rgba(15,23,42,0.06)",
-                }}
+                  opacity: pressed ? 0.88 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                })}
               >
                 <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.2px] text-app">
                   Cancel
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </Pressable>
+              <Pressable
                 onPress={() => {
                   setCoachFilterOpen(false);
                   void fetchCoachLogs();
                 }}
                 className="flex-1 rounded-2xl px-4 py-4 items-center"
-                style={{ backgroundColor: colors.accent }}
+                style={({ pressed }) => ({
+                  backgroundColor: colors.accent,
+                  opacity: pressed ? 0.88 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                })}
               >
                 <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.2px] text-white">
                   Apply
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </View>
