@@ -97,6 +97,8 @@ const HomeScreen = memo(function HomeScreen() {
 
   const isLoading = statsQuery.isLoading;
   const stats = statsQuery.data;
+  const hasTeam = appRole === "team" || appRole === "adult_athlete_team" || appRole === "youth_athlete_team_guardian";
+  const showTracking = hasTeam || appRole === "adult_athlete" || appRole === "coach";
 
   useFocusEffect(
     useCallback(() => {
@@ -183,7 +185,8 @@ const HomeScreen = memo(function HomeScreen() {
         }
       >
 
-        {/* ── Hero card ────────────────────────────────────────── */}
+        {/* ── Hero card (hidden for non-team youth athletes) ─── */}
+        {showTracking && (
         <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(200)}>
           <View
             style={[
@@ -208,7 +211,6 @@ const HomeScreen = memo(function HomeScreen() {
                 </Text>
                 {watchHistory[0].thumbnail ? (
                   <View style={styles.progressContainer}>
-                    {/* Robis: tinted track bg */}
                     <View style={[styles.progressTrack, { backgroundColor: isDark ? "hsl(220,8%,20%)" : "hsl(220,8%,88%)" }]}>
                       <View
                         style={[
@@ -242,7 +244,6 @@ const HomeScreen = memo(function HomeScreen() {
               </>
             )}
 
-            {/* CTA — robis: border in dark instead of shadow */}
             <Animated.View style={[ctaStyle, { marginTop: 20 }]}>
               <Pressable
                 onPress={navigateToTracking}
@@ -252,7 +253,6 @@ const HomeScreen = memo(function HomeScreen() {
                   styles.ctaBtn,
                   {
                     backgroundColor: colors.accent,
-                    // Robis: dark mode border instead of glow/shadow
                     borderWidth: isDark ? 1 : 0,
                     borderColor: isDark ? "rgba(255,255,255,0.10)" : "transparent",
                   },
@@ -267,8 +267,10 @@ const HomeScreen = memo(function HomeScreen() {
             </Animated.View>
           </View>
         </Animated.View>
+        )}
 
         {/* ── Quick stats row ──────────────────────────────────── */}
+        {showTracking && (
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(80).duration(300).springify()}
           style={styles.statsRow}
@@ -290,6 +292,7 @@ const HomeScreen = memo(function HomeScreen() {
             />
           ))}
         </Animated.View>
+        )}
 
         {/* ── Quick links ──────────────────────────────────────── */}
         <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(140).duration(300).springify()}>
