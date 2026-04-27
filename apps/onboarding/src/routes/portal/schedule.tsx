@@ -65,6 +65,37 @@ function SchedulePage() {
 		}
 	};
 
+	const getStatusBadge = (status?: string) => {
+		switch (status) {
+			case "confirmed":
+				return (
+					<span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase">
+						Confirmed
+					</span>
+				);
+			case "pending":
+				return (
+					<span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-full text-[10px] font-black uppercase">
+						Pending
+					</span>
+				);
+			case "declined":
+				return (
+					<span className="px-2 py-0.5 bg-destructive/10 text-destructive rounded-full text-[10px] font-black uppercase">
+						Declined
+					</span>
+				);
+			case "cancelled":
+				return (
+					<span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-[10px] font-black uppercase">
+						Cancelled
+					</span>
+				);
+			default:
+				return null;
+		}
+	};
+
 	const getEventColor = (type: string) => {
 		switch (type) {
 			case "call":
@@ -102,9 +133,13 @@ function SchedulePage() {
 		);
 	}
 
-	const upcomingEvents = events.filter(
-		(e) => new Date(e.startsAt) >= new Date(new Date().setHours(0, 0, 0, 0)),
-	);
+	const today = new Date(new Date().setHours(0, 0, 0, 0));
+	const futureEvents = events.filter((e) => new Date(e.startsAt) >= today);
+	const requestedEvents = futureEvents.filter((e) => e.status === "pending");
+	const upcomingEvents = futureEvents.filter((e) => e.status !== "pending");
+	const pastEvents = events
+		.filter((e) => new Date(e.startsAt) < today)
+		.sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
 
 	return (
 		<div className="container mx-auto p-4 pb-20 space-y-8">
@@ -171,11 +206,7 @@ function SchedulePage() {
 												<h3 className="font-bold text-lg uppercase italic tracking-tight">
 													{event.title}
 												</h3>
-												{event.status === "confirmed" && (
-													<span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase">
-														Confirmed
-													</span>
-												)}
+												{getStatusBadge(event.status)}
 											</div>
 
 											<div className="flex flex-wrap gap-4 text-sm text-muted-foreground font-medium">
@@ -253,21 +284,96 @@ function SchedulePage() {
 							)}
 						</div>
 					</section>
+
+					{requestedEvents.length > 0 && (
+						<section className="space-y-4">
+							<h2 className="text-xl font-bold border-l-4 border-amber-500 pl-3">
+								Requested Bookings
+							</h2>
+							<div className="space-y-4">
+								{requestedEvents.map((event) => (
+									<div
+										key={event.id}
+										className="group p-6 rounded-[2rem] border border-amber-500/20 bg-amber-500/5 flex flex-col md:flex-row md:items-center gap-6"
+									>
+										<div
+											className={`w-14 h-14 rounded-2xl border flex items-center justify-center shrink-0 ${getEventColor(event.type)}`}
+										>
+											{getEventIcon(event.type)}
+										</div>
+										<div className="flex-1 space-y-1">
+											<div className="flex items-center gap-2">
+												<h3 className="font-bold text-lg uppercase italic tracking-tight">
+													{event.title}
+												</h3>
+												{getStatusBadge(event.status)}
+											</div>
+											<div className="flex flex-wrap gap-4 text-sm text-muted-foreground font-medium">
+												<div className="flex items-center gap-1.5">
+													<Calendar className="w-4 h-4 text-primary/60" />
+													{new Date(event.startsAt).toLocaleDateString(undefined, {
+														weekday: "short", month: "short", day: "numeric",
+													})}
+												</div>
+												<div className="flex items-center gap-1.5">
+													<Clock className="w-4 h-4 text-primary/60" />
+													{event.timeStart} - {event.timeEnd}
+												</div>
+											</div>
+											{event.notes && (
+												<p className="text-xs text-muted-foreground mt-1 italic">{event.notes}</p>
+											)}
+										</div>
+									</div>
+								))}
+							</div>
+						</section>
+					)}
+
+					{pastEvents.length > 0 && (
+						<section className="space-y-4">
+							<h2 className="text-xl font-bold border-l-4 border-muted-foreground/30 pl-3">
+								Past Bookings
+							</h2>
+							<div className="space-y-3">
+								{pastEvents.map((event) => (
+									<div
+										key={event.id}
+										className="p-5 rounded-2xl border bg-card/50 flex flex-col md:flex-row md:items-center gap-4 opacity-70"
+									>
+										<div
+											className={`w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 ${getEventColor(event.type)}`}
+										>
+											{getEventIcon(event.type)}
+										</div>
+										<div className="flex-1 space-y-0.5">
+											<div className="flex items-center gap-2">
+												<h3 className="font-bold uppercase italic tracking-tight">
+													{event.title}
+												</h3>
+												{getStatusBadge(event.status)}
+											</div>
+											<div className="flex flex-wrap gap-4 text-sm text-muted-foreground font-medium">
+												<div className="flex items-center gap-1.5">
+													<Calendar className="w-4 h-4 text-muted-foreground/40" />
+													{new Date(event.startsAt).toLocaleDateString(undefined, {
+														weekday: "short", month: "short", day: "numeric", year: "numeric",
+													})}
+												</div>
+												<div className="flex items-center gap-1.5">
+													<Clock className="w-4 h-4 text-muted-foreground/40" />
+													{event.timeStart} - {event.timeEnd}
+												</div>
+											</div>
+										</div>
+									</div>
+								))}
+							</div>
+						</section>
+					)}
 				</div>
 
 				<div className="space-y-6">
-					<div className="p-8 rounded-[2.5rem] border bg-card shadow-sm space-y-6">
-						<h3 className="font-bold uppercase italic text-sm tracking-widest text-muted-foreground">
-							Calendar Preview
-						</h3>
-						<div className="aspect-square bg-muted/20 rounded-3xl flex items-center justify-center border border-dashed">
-							<p className="text-xs text-muted-foreground text-center px-6 leading-relaxed">
-								Interactive calendar view is coming soon to web. Use the list
-								view to manage your current sessions.
-							</p>
-						</div>
-					</div>
-
 					<div className="p-8 rounded-[2.5rem] border bg-primary/5 border-primary/20 space-y-4">
 						<h3 className="font-bold text-primary italic uppercase tracking-tight">
 							{canSelfBook ? "Need a session?" : "Team schedule"}
