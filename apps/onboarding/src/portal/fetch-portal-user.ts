@@ -7,18 +7,18 @@ import type { PortalUser } from "@/portal/portal-types";
 
 export async function fetchPortalUser(token: string): Promise<PortalUser> {
 	const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
-	let res = await fetch(`${baseUrl}/api/auth/me`, {
-		headers: { Authorization: `Bearer ${token}` },
-		cache: "no-store",
-	});
-
-	// Guard against brief backend edge hops returning a stale 401.
-	if (res.status === 401) {
-		await new Promise((resolve) => setTimeout(resolve, 200));
-		res = await fetch(`${baseUrl}/api/auth/me`, {
+	const doFetch = () =>
+		fetch(`${baseUrl}/api/auth/me`, {
 			headers: { Authorization: `Bearer ${token}` },
 			cache: "no-store",
 		});
+
+	let res = await doFetch();
+
+	// Retry once on transient failures (401 edge hop, 5xx, network blip).
+	if (res.status === 401 || res.status >= 500) {
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		res = await doFetch();
 	}
 
 	if (res.status === 401) {
@@ -28,9 +28,12 @@ export async function fetchPortalUser(token: string): Promise<PortalUser> {
 		throw new Error(PORTAL_SERVICE_UNAVAILABLE);
 	}
 	if (!res.ok) {
-		throw new Error("Failed to fetch user data");
+		throw new Error(`Failed to fetch user data (${res.status})`);
 	}
 
 	const data = await res.json();
+	if (!data?.user) {
+		throw new Error("Server returned no user data");
+	}
 	return data.user as PortalUser;
 }
