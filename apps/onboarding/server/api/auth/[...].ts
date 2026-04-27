@@ -8,22 +8,24 @@ function workerAuthBase() {
     .replace(/\/+$/, "");
 }
 
-function sanitizeProxyHeaders(incoming: Headers) {
-  const headers = new Headers(incoming);
-  const hopByHop = [
-    "accept-encoding",
-    "connection",
-    "host",
-    "keep-alive",
-    "proxy-authenticate",
-    "proxy-authorization",
-    "te",
-    "trailer",
-    "transfer-encoding",
-    "upgrade",
-    "content-length",
+function buildUpstreamHeaders(incoming: Headers) {
+  const headers = new Headers();
+  const passthrough = [
+    "accept",
+    "accept-language",
+    "authorization",
+    "content-type",
+    "cookie",
+    "origin",
+    "referer",
+    "user-agent",
+    "access-control-request-method",
+    "access-control-request-headers",
   ];
-  for (const key of hopByHop) headers.delete(key);
+  for (const key of passthrough) {
+    const value = incoming.get(key);
+    if (value) headers.set(key, value);
+  }
   return headers;
 }
 
@@ -39,7 +41,7 @@ export default async function (request: Request): Promise<Response> {
   const url = new URL(request.url);
   const target = `${base}${url.pathname}${url.search}`;
   const method = request.method;
-  const headers = sanitizeProxyHeaders(request.headers);
+  const headers = buildUpstreamHeaders(request.headers);
   const shouldSendBody = method !== "GET" && method !== "HEAD";
   const body = shouldSendBody && request.body ? request.body : undefined;
   const init: RequestInit & { duplex?: "half" } = {
