@@ -18,6 +18,7 @@ import {
   fetchLeaderboard,
   type SocialLeaderboardItem,
 } from "@/services/tracking/socialService";
+import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TeamManagerHomeScreen
@@ -26,26 +27,34 @@ import {
 export default function TeamManagerHomeScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
-  const { authTeamMembership, managedAthletes, token, appRole } =
+  const { authTeamMembership, token, appRole } =
     useAppSelector((state) => state.user);
+  const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
   const [refreshing, setRefreshing] = useState(false);
   const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [roster, setRoster] = useState<RosterResponse | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  const members = useMemo(
+    () => (Array.isArray(roster?.members) ? roster!.members! : []),
+    [roster],
+  );
   const teamName =
-    authTeamMembership?.team ?? managedAthletes[0]?.team ?? "Your Team";
-  const memberCount = managedAthletes.length;
+    roster?.team?.name?.trim() ||
+    authTeamMembership?.team ||
+    "Your Team";
+  const memberCount = roster?.team?.memberCount ?? members.length;
 
   const youthCount = useMemo(
-    () => managedAthletes.filter((a) => a.athleteType === "youth").length,
-    [managedAthletes],
+    () => members.filter((a) => a.athleteType === "youth").length,
+    [members],
   );
   const adultCount = useMemo(
-    () => managedAthletes.filter((a) => a.athleteType === "adult").length,
-    [managedAthletes],
+    () => members.filter((a) => a.athleteType === "adult").length,
+    [members],
   );
   const activeCount = useMemo(
     () => leaderboard.filter((l) => l.kmTotal > 0).length,
@@ -56,25 +65,25 @@ export default function TeamManagerHomeScreen() {
     [leaderboard],
   );
 
-  const fetchData = useCallback(async () => {
-    if (!token) return;
+  const fetchData = useCallback(async (forceRefresh = false) => {
+    if (!token || !bootstrapReady) return;
     try {
-      const res = await fetchLeaderboard(token, {
-        windowDays: 7,
-        limit: 100,
-        useTeamFeed: true,
-      });
-      setLeaderboard(res?.items ?? []);
+      const [rosterRes, leaderboardRes] = await Promise.allSettled([
+        fetchRoster(token, forceRefresh),
+        fetchLeaderboard(token, { windowDays: 7, limit: 100, useTeamFeed: true }),
+      ]);
+      if (rosterRes.status === "fulfilled") setRoster(rosterRes.value ?? null);
+      if (leaderboardRes.status === "fulfilled") setLeaderboard(leaderboardRes.value?.items ?? []);
     } catch {
       // silent
     } finally {
       setLoaded(true);
     }
-  }, [token]);
+  }, [token, bootstrapReady]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (bootstrapReady) void fetchData();
+  }, [fetchData, bootstrapReady]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -86,7 +95,7 @@ export default function TeamManagerHomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await fetchData(true);
     setRefreshing(false);
   }, [fetchData]);
 

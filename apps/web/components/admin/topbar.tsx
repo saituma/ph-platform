@@ -2,13 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-} from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { Button } from "../ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "./theme-toggle";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { GlobalCommandPalette } from "./global-command-palette";
@@ -18,17 +15,9 @@ type TopbarProps = {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
-  isSidebarCollapsed?: boolean;
-  onToggleSidebar?: () => void;
 };
 
-export function AdminTopbar({
-  title,
-  subtitle,
-  actions,
-  isSidebarCollapsed = false,
-  onToggleSidebar,
-}: TopbarProps) {
+export function AdminTopbar({ title, subtitle, actions }: TopbarProps) {
   const [openNotify, setOpenNotify] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
   const [profileAction, setProfileAction] = useState<string | null>(null);
@@ -44,21 +33,10 @@ export function AdminTopbar({
     return `${first}${second}`.toUpperCase() || "AD";
   }, [displayName]);
   return (
-    <header className="hidden min-w-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-4 lg:flex lg:px-10">
-      <div className="flex min-w-0 items-center gap-4">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => onToggleSidebar?.()}
-          className="h-8 w-8 rounded-none border-border hover:bg-primary hover:text-primary-foreground"
-        >
-          {isSidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
+    <header className="hidden min-w-0 items-center gap-2 border-b border-border bg-card px-4 py-3 lg:flex lg:px-6">
+      <SidebarTrigger className="-ml-1" />
+      <div className="h-4 w-px bg-border" />
+      <div className="flex min-w-0 flex-1 items-center gap-4">
         <div className="flex min-w-0 flex-col">
           {subtitle ? (
             <p className="mb-1 truncate text-[10px] font-bold uppercase leading-none tracking-widest text-primary">{subtitle}</p>

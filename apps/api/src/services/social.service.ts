@@ -98,8 +98,8 @@ export async function assertGlobalSocialDeprecated(userId: number): Promise<void
 }
 
 export async function assertTeamMemberSocial(userId: number, role?: string | null): Promise<{ teamId: number }> {
-  // Team coaches are linked via teamTable.adminId, not the athlete table.
-  if (role === "team_coach") {
+  // Team coaches and team managers are linked via teamTable.adminId, not the athlete table.
+  if (role === "team_coach" || role === "team_manager") {
     const [coachTeam] = await db
       .select({ id: teamTable.id })
       .from(teamTable)

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef } from "react";
-import { Animated, Image, Pressable, ScrollView, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Image, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
@@ -7,7 +7,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { fonts } from "@/constants/theme";
-import type { ManagedAthlete } from "@/store/slices/userSlice";
+import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TeamManagerManageScreen
@@ -16,11 +16,43 @@ import type { ManagedAthlete } from "@/store/slices/userSlice";
 export default function TeamManagerManageScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
-  const { managedAthletes, authTeamMembership, appRole } = useAppSelector(
-    (s) => s.user,
-  );
+  const { authTeamMembership, appRole, token } = useAppSelector((s) => s.user);
+  const bootstrapReady = useAppSelector((s) => s.app.bootstrapReady);
+
+  const [roster, setRoster] = useState<RosterResponse | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const members = useMemo(
+    () => (Array.isArray(roster?.members) ? roster!.members! : []),
+    [roster],
+  );
+  const memberCount = roster?.team?.memberCount ?? members.length;
+  const youthCount = useMemo(
+    () => members.filter((a) => a.athleteType === "youth").length,
+    [members],
+  );
+  const adultCount = useMemo(
+    () => members.filter((a) => a.athleteType === "adult").length,
+    [members],
+  );
+  const teamName =
+    roster?.team?.name?.trim() || authTeamMembership?.team || "Your Team";
+
+  const loadRoster = useCallback(async (forceRefresh = false) => {
+    if (!token || !bootstrapReady) return;
+    try {
+      const res = await fetchRoster(token, forceRefresh);
+      setRoster(res ?? null);
+    } catch {
+      // silent
+    }
+  }, [token, bootstrapReady]);
+
+  useEffect(() => {
+    if (bootstrapReady) void loadRoster();
+  }, [loadRoster, bootstrapReady]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -30,17 +62,11 @@ export default function TeamManagerManageScreen() {
     }).start();
   }, [fadeAnim]);
 
-  const memberCount = managedAthletes.length;
-  const youthCount = useMemo(
-    () => managedAthletes.filter((a) => a.athleteType === "youth").length,
-    [managedAthletes],
-  );
-  const adultCount = useMemo(
-    () => managedAthletes.filter((a) => a.athleteType === "adult").length,
-    [managedAthletes],
-  );
-  const teamName =
-    authTeamMembership?.team ?? managedAthletes[0]?.team ?? "Your Team";
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadRoster(true);
+    setRefreshing(false);
+  }, [loadRoster]);
 
   if (appRole !== "team_manager") return null;
 
@@ -53,6 +79,14 @@ export default function TeamManagerManageScreen() {
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
       >
         <Animated.View style={{ opacity: fadeAnim }}>
 
@@ -166,7 +200,7 @@ export default function TeamManagerManageScreen() {
             />
 
             {/* Athlete avatar strip */}
-            {managedAthletes.length > 0 ? (
+            {members.length > 0 ? (
               <View style={{ marginBottom: 28 }}>
                 <View
                   style={{
@@ -209,22 +243,22 @@ export default function TeamManagerManageScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ paddingHorizontal: 20 }}
                 >
-                  {managedAthletes.slice(0, 10).map((athlete, index) => (
+                  {members.slice(0, 10).map((athlete, index) => (
                     <View
-                      key={athlete.id ?? index}
+                      key={athlete.athleteId ?? index}
                       style={{
                         marginRight:
-                          index < Math.min(managedAthletes.length, 10) - 1
+                          index < Math.min(members.length, 10) - 1
                             ? 10
                             : 0,
                       }}
                     >
                       <AthleteAvatar
-                        athlete={athlete}
+                        athlete={{ id: athlete.athleteId, name: athlete.name, profilePicture: athlete.profilePicture }}
                         onPress={() =>
-                          athlete.id !== undefined
+                          athlete.athleteId !== undefined
                             ? router.push(
-                                `/team-manager/athlete/${athlete.id}` as any,
+                                `/team-manager/athlete/${athlete.athleteId}` as any,
                               )
                             : router.push("/team-manager/roster")
                         }
@@ -483,7 +517,7 @@ function AthleteAvatar({
   athlete,
   onPress,
 }: {
-  athlete: ManagedAthlete;
+  athlete: { id?: number; name?: string | null; profilePicture?: string | null };
   onPress: () => void;
 }) {
   const { colors, isDark } = useAppTheme();
@@ -491,7 +525,7 @@ function AthleteAvatar({
   const initials = (athlete.name ?? "?")
     .trim()
     .split(/\s+/)
-    .map((w) => w[0] ?? "")
+    .map((w: string) => w[0] ?? "")
     .slice(0, 2)
     .join("")
     .toUpperCase();

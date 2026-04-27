@@ -182,6 +182,7 @@ export default function MoreScreen() {
         {/* Header */}
         <View
           style={{
+            width: "100%",
             paddingHorizontal: 24,
             paddingTop: 28,
             paddingBottom: 20,
@@ -376,7 +377,7 @@ export default function MoreScreen() {
         </View>
 
         {/* Menu Items — flat list, no group borders */}
-        <Animated.View style={[{ paddingHorizontal: 20 }, transitionStyle]}>
+        <Animated.View style={[{ paddingHorizontal: 20, width: "100%" }, transitionStyle]}>
           {isLoading ? (
             <View style={{ gap: 16, paddingHorizontal: 4 }}>
               {Array.from({ length: 8 }).map((_, i) => (

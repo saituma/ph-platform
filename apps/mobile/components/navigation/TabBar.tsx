@@ -83,6 +83,15 @@ function resolveTabIcon(icon: string): AppIconName {
     case "grid":
     case "grid-outline":
       return "more";
+    // Team manager tabs
+    case "chatbubbles":
+    case "chatbubbles-outline":
+      return "chat-detail";
+    case "id-card":
+    case "id-card-outline":
+    case "clipboard":
+    case "clipboard-outline":
+      return "roster";
     default:
       return "menu";
   }
