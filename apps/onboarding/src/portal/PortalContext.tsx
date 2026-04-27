@@ -7,6 +7,7 @@ import {
 	useEffect,
 	useLayoutEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { fetchPortalUser } from "@/portal/fetch-portal-user";
@@ -107,9 +108,24 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 		},
 	});
 
+	// Guard against occasional client hydration races where token is present but the
+	// first query cycle settles with `user=null` and no explicit error.
+	const attemptedRecoveryRef = useRef(false);
+	useEffect(() => {
+		if (!authHydrated) return;
+		if (!token) return;
+		if (userLoading) return;
+		if (userError) return;
+		if (user) return;
+		if (attemptedRecoveryRef.current) return;
+		attemptedRecoveryRef.current = true;
+		void refetch();
+	}, [authHydrated, token, userLoading, userError, user, refetch]);
+
 	const refresh = useCallback(async () => {
 		const currentToken = localStorage.getItem("auth_token");
 		setToken(currentToken);
+		attemptedRecoveryRef.current = false;
 		if (currentToken) {
 			await refetch();
 		}
