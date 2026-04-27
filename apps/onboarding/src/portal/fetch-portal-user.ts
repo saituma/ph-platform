@@ -5,21 +5,30 @@ import {
 } from "@/portal/portal-errors";
 import type { PortalUser } from "@/portal/portal-types";
 
+async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Promise<Response> {
+	for (let i = 0; i <= retries; i++) {
+		try {
+			const res = await fetch(url, init);
+			if (res.ok || res.status === 401 || res.status === 403) return res;
+			if (i < retries) {
+				await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+				continue;
+			}
+			return res;
+		} catch (err) {
+			if (i >= retries) throw err;
+			await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+		}
+	}
+	throw new Error("Failed to reach server");
+}
+
 export async function fetchPortalUser(token: string): Promise<PortalUser> {
 	const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
-	const doFetch = () =>
-		fetch(`${baseUrl}/api/auth/me`, {
-			headers: { Authorization: `Bearer ${token}` },
-			cache: "no-store",
-		});
-
-	let res = await doFetch();
-
-	// Retry once on transient failures (401 edge hop, 5xx, network blip).
-	if (res.status === 401 || res.status >= 500) {
-		await new Promise((resolve) => setTimeout(resolve, 300));
-		res = await doFetch();
-	}
+	const res = await fetchWithRetry(
+		`${baseUrl}/api/auth/me`,
+		{ headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+	);
 
 	if (res.status === 401) {
 		throw new Error(PORTAL_UNAUTHORIZED_ERROR);

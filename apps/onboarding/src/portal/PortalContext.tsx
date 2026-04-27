@@ -63,6 +63,12 @@ function readStoredToken(): string | null {
 export function PortalProvider({ children }: { children: ReactNode }) {
 	const [token, setToken] = useState<string | null>(readStoredToken);
 
+	// SSR hydration: server sets token to null (no window). Re-read on client mount.
+	useEffect(() => {
+		const stored = readStoredToken();
+		if (stored && stored !== token) setToken(stored);
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
 	useEffect(() => {
 		if (!token) return;
 		const ms = msUntilExpiry(token);
@@ -101,8 +107,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			) {
 				return false;
 			}
-			return failureCount < 1;
+			return failureCount < 3;
 		},
+		retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
 	});
 
 	const attemptedRecoveryRef = useRef(false);
