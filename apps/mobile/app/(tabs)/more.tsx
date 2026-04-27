@@ -297,13 +297,13 @@ export default function MoreScreen() {
                   </View>
                 </View>
 
-                <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ gap: 12 }}>
                   <View
                     style={{
-                      flex: 1,
                       borderRadius: 16,
                       borderCurve: "continuous",
-                      padding: 16,
+                      paddingHorizontal: 20,
+                      paddingVertical: 18,
                       backgroundColor: subtleBg,
                     }}
                   >
@@ -331,10 +331,10 @@ export default function MoreScreen() {
                   </View>
                   <View
                     style={{
-                      flex: 1,
                       borderRadius: 16,
                       borderCurve: "continuous",
-                      padding: 16,
+                      paddingHorizontal: 20,
+                      paddingVertical: 18,
                       backgroundColor: subtleBg,
                     }}
                   >
@@ -640,8 +640,8 @@ function MenuItem({
       accessibilityRole="button"
       style={({ pressed }) => ({
         paddingHorizontal: 16,
-        paddingVertical: 14,
-        marginVertical: 4,
+        paddingVertical: 16,
+        marginVertical: 6,
         borderRadius: 20,
         borderCurve: "continuous",
         backgroundColor: pressed
