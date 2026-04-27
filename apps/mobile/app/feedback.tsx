@@ -79,7 +79,7 @@ export default function FeedbackScreen() {
           >
             Select Category
           </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 32 }}>
             {categories.map((cat) => {
               const isActive = category === cat;
               return (
@@ -87,27 +87,26 @@ export default function FeedbackScreen() {
                   key={cat}
                   onPress={() => setCategory(cat)}
                   style={({ pressed }) => ({
-                    paddingHorizontal: 24,
-                    paddingVertical: 12,
+                    flex: 1,
+                    height: 52,
                     borderRadius: 14,
                     borderWidth: 1,
-                    backgroundColor: isActive
-                      ? colors.accent
-                      : cardBg,
-                    borderColor: isActive
-                      ? colors.accent
-                      : cardBorder,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingHorizontal: 8,
+                    backgroundColor: isActive ? colors.accent : cardBg,
+                    borderColor: isActive ? colors.accent : cardBorder,
                     opacity: pressed ? 0.85 : 1,
                     transform: [{ scale: pressed ? 0.97 : 1 }],
                   })}
                 >
                   <Text
+                    numberOfLines={2}
                     style={{
                       fontFamily: fonts.bodyBold,
-                      fontSize: 14,
-                      color: isActive
-                        ? "hsl(220, 5%, 98%)"
-                        : textPrimary,
+                      fontSize: 11,
+                      textAlign: "center",
+                      color: isActive ? "#fff" : textPrimary,
                     }}
                   >
                     {cat}

@@ -134,41 +134,43 @@ export default function PermissionsScreen() {
               </View>
             </View>
 
-            <Pressable
-              onPress={requestNotifications}
-              style={({ pressed }) => ({
-                borderRadius: 14,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                alignItems: "center",
-                backgroundColor: colors.accent,
-                opacity: pressed ? 0.85 : 1,
-                transform: [{ scale: pressed ? 0.98 : 1 }],
-              })}
-            >
-              <Text style={{ color: "hsl(220, 5%, 98%)", fontFamily: fonts.bodyBold, fontSize: 14 }}>
-                Request Permission
-              </Text>
-            </Pressable>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <Pressable
+                onPress={requestNotifications}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  height: 52,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: colors.accent,
+                  opacity: pressed ? 0.85 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                })}
+              >
+                <Text style={{ color: "#fff", fontFamily: fonts.bodyBold, fontSize: 14 }}>
+                  Request Permission
+                </Text>
+              </Pressable>
 
-            <Pressable
-              onPress={() => Linking.openSettings()}
-              style={({ pressed }) => ({
-                borderRadius: 14,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                alignItems: "center",
-                borderWidth: 1,
-                borderColor: cardBorder,
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                opacity: pressed ? 0.85 : 1,
-                transform: [{ scale: pressed ? 0.98 : 1 }],
-              })}
-            >
-              <Text style={{ color: textPrimary, fontFamily: fonts.bodyBold, fontSize: 14 }}>
-                Revoke in System Settings
-              </Text>
-            </Pressable>
+              <Pressable
+                onPress={() => Linking.openSettings()}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  height: 52,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: colors.accent,
+                  opacity: pressed ? 0.85 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                })}
+              >
+                <Text style={{ color: "#fff", fontFamily: fonts.bodyBold, fontSize: 14 }}>
+                  Open Settings
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
           {/* Push debug card */}
@@ -233,44 +235,6 @@ export default function PermissionsScreen() {
             ))}
           </View>
 
-          {/* Open system settings */}
-          <Pressable
-            onPress={() => Linking.openSettings()}
-            style={({ pressed }) => ({
-              borderRadius: 20,
-              paddingHorizontal: 20,
-              paddingVertical: 16,
-              borderWidth: 1,
-              borderColor: cardBorder,
-              backgroundColor: cardBg,
-              opacity: pressed ? 0.85 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            })}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <View
-                style={{
-                  height: 40,
-                  width: 40,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 12,
-                  backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}14`,
-                }}
-              >
-                <Ionicons name="settings-outline" size={18} color={colors.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
-                  Open System Settings
-                </Text>
-                <Text style={{ fontSize: 12, fontFamily: "Outfit", color: labelColor, marginTop: 2 }}>
-                  Manage all app permissions in system settings.
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={17} color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"} />
-            </View>
-          </Pressable>
         </View>
       </ThemedScrollView>
     </View>
