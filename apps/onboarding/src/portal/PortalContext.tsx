@@ -140,7 +140,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			age,
 			loading:
 				!authHydrated || (!!token && userLoading),
-			error: userError instanceof Error ? userError.message : null,
+			error: userError
+				? userError instanceof Error
+					? userError.message
+					: String(userError)
+				: null,
 			refresh,
 			refreshUser: refresh,
 		}),

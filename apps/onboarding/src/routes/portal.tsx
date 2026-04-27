@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
 import { hasActivePortalSubscription } from "@/lib/portal-access";
@@ -76,35 +77,15 @@ function PortalGate() {
 		);
 	}
 
-	// Keep showing spinner while user data is loading OR while we have a token but no user yet
-	if (loading || !user) {
-		// Only show error state if we have an actual error message
-		if (error) {
-			return (
-				<div className="flex h-screen items-center justify-center px-4">
-					<div className="text-center space-y-3">
-						<p className="text-sm text-muted-foreground">{error}</p>
-						<div className="flex gap-2 justify-center">
-							<button
-								type="button"
-								onClick={() => void refresh()}
-								className="inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-							>
-								Retry
-							</button>
-							<button
-								type="button"
-								onClick={() => navigate({ to: "/login" })}
-								className="inline-flex items-center justify-center rounded-2xl border border-border/60 bg-background/60 px-5 py-3 text-sm font-black uppercase tracking-wider hover:bg-accent transition-all"
-							>
-								Go to Login
-							</button>
-						</div>
-					</div>
-				</div>
-			);
-		}
+	// Timeout: if loading takes more than 8 seconds, show retry
+	const [timedOut, setTimedOut] = useState(false);
+	useEffect(() => {
+		if (user) return;
+		const t = setTimeout(() => setTimedOut(true), 8000);
+		return () => clearTimeout(t);
+	}, [user]);
 
+	if (loading && !timedOut) {
 		return (
 			<div className="flex h-screen items-center justify-center">
 				<div className="text-center">
@@ -112,6 +93,37 @@ function PortalGate() {
 					<p className="mt-4 text-sm text-muted-foreground">
 						Loading your account...
 					</p>
+				</div>
+			</div>
+		);
+	}
+
+	if (error || !user) {
+		return (
+			<div className="flex h-screen items-center justify-center px-4">
+				<div className="text-center space-y-3">
+					<p className="text-sm text-muted-foreground">
+						{error || "Could not reach the server. Check your connection and try again."}
+					</p>
+					<div className="flex gap-2 justify-center">
+						<button
+							type="button"
+							onClick={() => {
+								setTimedOut(false);
+								void refresh();
+							}}
+							className="inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+						>
+							Retry
+						</button>
+						<button
+							type="button"
+							onClick={() => navigate({ to: "/login" })}
+							className="inline-flex items-center justify-center rounded-2xl border border-border/60 bg-background/60 px-5 py-3 text-sm font-black uppercase tracking-wider hover:bg-accent transition-all"
+						>
+							Go to Login
+						</button>
+					</div>
 				</div>
 			</div>
 		);
