@@ -5,7 +5,6 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
-	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -45,36 +44,34 @@ function calculateAge(birthDate: string | undefined): number | null {
 	return age;
 }
 
-export function PortalProvider({ children }: { children: ReactNode }) {
-	const [token, setToken] = useState<string | null>(null);
-	/** False until we read `localStorage` on the client so we never flash “not logged in” before the token exists. */
-	const [authHydrated, setAuthHydrated] = useState(false);
-
-	useLayoutEffect(() => {
+function readStoredToken(): string | null {
+	if (typeof window === "undefined") return null;
+	try {
 		const stored = localStorage.getItem("auth_token");
-		// Discard expired tokens immediately on hydration
 		if (stored && isTokenExpired(stored)) {
 			localStorage.removeItem("auth_token");
 			localStorage.removeItem("pending_email");
 			localStorage.removeItem("user_type");
-			setAuthHydrated(true);
-			return;
+			return null;
 		}
-		setToken(stored);
-		setAuthHydrated(true);
-	}, []);
+		return stored;
+	} catch {
+		return null;
+	}
+}
 
-	// Auto-logout when token expires during the session
+export function PortalProvider({ children }: { children: ReactNode }) {
+	const [token, setToken] = useState<string | null>(readStoredToken);
+
 	useEffect(() => {
 		if (!token) return;
 		const ms = msUntilExpiry(token);
 		if (ms <= 0) {
-			// Already expired — clear immediately
 			localStorage.removeItem("auth_token");
 			setToken(null);
 			return;
 		}
-		if (ms === -1) return; // No exp claim — token is session-based, skip timer
+		if (ms === -1) return;
 		const timer = setTimeout(() => {
 			localStorage.removeItem("auth_token");
 			setToken(null);
@@ -95,7 +92,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			return fetchPortalUser(t);
 		},
 		enabled: !!token,
-		staleTime: 1000 * 60 * 10, // 10 minutes
+		staleTime: 1000 * 60 * 10,
 		retry: (failureCount, err) => {
 			if (
 				err instanceof Error &&
@@ -108,11 +105,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 		},
 	});
 
-	// Guard against occasional client hydration races where token is present but the
-	// first query cycle settles with `user=null` and no explicit error.
 	const attemptedRecoveryRef = useRef(false);
 	useEffect(() => {
-		if (!authHydrated) return;
 		if (!token) return;
 		if (userLoading) return;
 		if (userError) return;
@@ -120,7 +114,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 		if (attemptedRecoveryRef.current) return;
 		attemptedRecoveryRef.current = true;
 		void refetch();
-	}, [authHydrated, token, userLoading, userError, user, refetch]);
+	}, [token, userLoading, userError, user, refetch]);
 
 	const refresh = useCallback(async () => {
 		const currentToken = localStorage.getItem("auth_token");
@@ -138,8 +132,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			token,
 			user: user ?? null,
 			age,
-			loading:
-				!authHydrated || (!!token && userLoading),
+			loading: !!token && userLoading,
 			error: userError
 				? userError instanceof Error
 					? userError.message
@@ -148,7 +141,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			refresh,
 			refreshUser: refresh,
 		}),
-		[token, user, age, authHydrated, userLoading, userError, refresh],
+		[token, user, age, userLoading, userError, refresh],
 	);
 
 	return (
