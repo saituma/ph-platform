@@ -446,7 +446,7 @@ export async function getMe(req: Request, res: Response) {
       // Never let merged athlete/guardian payloads override the authenticated account identity.
       role: user.role,
       email: user.email,
-      name: user.name,
+      name: user.name && user.name !== "User" ? user.name : (athlete?.name ?? coachManagedTeam?.name ?? user.name),
     },
   });
 }
