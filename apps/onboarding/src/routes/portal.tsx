@@ -4,7 +4,6 @@ import { BottomNav } from "@/components/BottomNav";
 import { hasActivePortalSubscription } from "@/lib/portal-access";
 import { isPortalCoachLikeRole } from "@/lib/portal-roles";
 import { PortalProvider, usePortal } from "@/portal/PortalContext";
-import { ProtectedLayout } from "@/portal/ProtectedLayout";
 import {
 	PORTAL_SERVICE_UNAVAILABLE,
 	PORTAL_UNAUTHORIZED_ERROR,
@@ -19,12 +18,20 @@ export const Route = createFileRoute("/portal")({
 });
 
 function PortalLayout() {
+	const hasToken =
+		typeof window !== "undefined" && !!localStorage.getItem("auth_token");
+
+	if (!hasToken) {
+		if (typeof window !== "undefined") {
+			window.location.replace("/login");
+		}
+		return null;
+	}
+
 	return (
-		<ProtectedLayout>
-			<PortalProvider>
-				<PortalGate />
-			</PortalProvider>
-		</ProtectedLayout>
+		<PortalProvider>
+			<PortalGate />
+		</PortalProvider>
 	);
 }
 
@@ -69,29 +76,15 @@ function PortalGate() {
 		);
 	}
 
-	if (loading) {
-		return (
-			<div className="flex h-screen items-center justify-center">
-				<div className="text-center">
-					<div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-					<p className="mt-4 text-sm text-muted-foreground">
-						Loading your account...
-					</p>
-				</div>
-			</div>
-		);
-	}
-
-	if (error || !user) {
-		const hasToken = !!localStorage.getItem("auth_token");
-		return (
-			<div className="flex h-screen items-center justify-center px-4">
-				<div className="text-center space-y-3">
-					<p className="text-sm text-muted-foreground">
-						{error || (hasToken ? "Could not load your account. The server may be temporarily unavailable." : "Please log in again.")}
-					</p>
-					<div className="flex flex-col sm:flex-row gap-2 justify-center">
-						{hasToken && (
+	// Keep showing spinner while user data is loading OR while we have a token but no user yet
+	if (loading || !user) {
+		// Only show error state if we have an actual error message
+		if (error) {
+			return (
+				<div className="flex h-screen items-center justify-center px-4">
+					<div className="text-center space-y-3">
+						<p className="text-sm text-muted-foreground">{error}</p>
+						<div className="flex gap-2 justify-center">
 							<button
 								type="button"
 								onClick={() => void refresh()}
@@ -99,15 +92,26 @@ function PortalGate() {
 							>
 								Retry
 							</button>
-						)}
-						<button
-							type="button"
-							onClick={() => navigate({ to: "/login" })}
-							className="inline-flex items-center justify-center rounded-2xl border border-border/60 bg-background/60 px-5 py-3 text-sm font-black uppercase tracking-wider hover:bg-accent transition-all"
-						>
-							Go to Login
-						</button>
+							<button
+								type="button"
+								onClick={() => navigate({ to: "/login" })}
+								className="inline-flex items-center justify-center rounded-2xl border border-border/60 bg-background/60 px-5 py-3 text-sm font-black uppercase tracking-wider hover:bg-accent transition-all"
+							>
+								Go to Login
+							</button>
+						</div>
 					</div>
+				</div>
+			);
+		}
+
+		return (
+			<div className="flex h-screen items-center justify-center">
+				<div className="text-center">
+					<div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+					<p className="mt-4 text-sm text-muted-foreground">
+						Loading your account...
+					</p>
 				</div>
 			</div>
 		);
