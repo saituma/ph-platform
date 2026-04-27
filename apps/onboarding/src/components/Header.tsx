@@ -42,10 +42,18 @@ export default function Header() {
 				}
 
 				const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
-				const response = await fetch(`${baseUrl}/api/auth/me`, {
+				let response = await fetch(`${baseUrl}/api/auth/me`, {
 					headers: { Authorization: `Bearer ${token}` },
 					cache: "no-store",
 				});
+
+				if (response.status === 401) {
+					await new Promise((resolve) => setTimeout(resolve, 200));
+					response = await fetch(`${baseUrl}/api/auth/me`, {
+						headers: { Authorization: `Bearer ${token}` },
+						cache: "no-store",
+					});
+				}
 
 				if (response.status === 401 || response.status === 403) {
 					localStorage.removeItem("auth_token");

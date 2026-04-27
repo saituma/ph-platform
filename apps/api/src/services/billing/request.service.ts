@@ -647,8 +647,10 @@ export async function approveSubscriptionRequest(requestId: number) {
     }
 
     if (request.guardianId) {
-      await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.guardianId, request.guardianId));
+      // Guardian owns the tier — set it on the guardian record (source of truth)
+      // and mirror to managed athletes so expiry/content-gating queries still work.
       await tx.update(guardianTable).set({ currentProgramTier: request.planTier, updatedAt: new Date() }).where(eq(guardianTable.id, request.guardianId));
+      await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.guardianId, request.guardianId));
     } else {
       await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.id, request.athleteId));
     }

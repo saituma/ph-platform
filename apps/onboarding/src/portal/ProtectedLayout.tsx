@@ -27,10 +27,17 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
 		const verify = async () => {
 			try {
 				const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
-				const res = await fetch(`${baseUrl}/api/auth/me`, {
+				let res = await fetch(`${baseUrl}/api/auth/me`, {
 					headers: { Authorization: `Bearer ${token}` },
 					cache: "no-store",
 				});
+				if (res.status === 401) {
+					await new Promise((resolve) => setTimeout(resolve, 200));
+					res = await fetch(`${baseUrl}/api/auth/me`, {
+						headers: { Authorization: `Bearer ${token}` },
+						cache: "no-store",
+					});
+				}
 				if (res.status === 401 || res.status === 403) {
 					localStorage.removeItem("auth_token");
 					localStorage.removeItem("user_type");

@@ -729,6 +729,13 @@
       "when": 1777722400000,
       "tag": "0103_add_bookings_timezone_offset",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1777808800000,
+      "tag": "0104_backfill_guardian_tiers",
+      "breakpoints": true
     }
   ]
 }

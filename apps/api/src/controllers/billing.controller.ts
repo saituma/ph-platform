@@ -130,19 +130,21 @@ export async function getBillingStatus(req: Request, res: Response) {
   }
   const guardianRows = athlete.guardianId
     ? await db
-        .select({ userId: guardianTable.userId })
+        .select({ userId: guardianTable.userId, currentProgramTier: guardianTable.currentProgramTier })
         .from(guardianTable)
         .where(eq(guardianTable.id, athlete.guardianId))
         .limit(1)
     : [];
-  const requestUserId = guardianRows[0]?.userId ?? req.user!.id;
+  const guardian = guardianRows[0] ?? null;
+  const requestUserId = guardian?.userId ?? req.user!.id;
   const latestRequest = await getLatestSubscriptionRequest({
     userId: requestUserId,
     athleteId: athlete.id,
   });
+  const effectiveTier = guardian?.currentProgramTier ?? athlete.currentProgramTier ?? null;
   return res.status(200).json({
     athlete,
-    currentProgramTier: athlete.currentProgramTier ?? null,
+    currentProgramTier: effectiveTier,
     latestRequest,
     messagingAccessTiers,
   });
@@ -177,6 +179,9 @@ export async function downgradePlan(req: Request, res: Response) {
   }
 
   const updated = await updateAthleteProgramTier(athlete.id, targetTier);
+  if (athlete.guardianId) {
+    await db.update(guardianTable).set({ currentProgramTier: targetTier, updatedAt: new Date() }).where(eq(guardianTable.id, athlete.guardianId));
+  }
   const latestRequest = await getLatestSubscriptionRequest({
     userId: req.user!.id,
     athleteId: athlete.id,
