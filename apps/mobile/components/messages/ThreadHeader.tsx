@@ -1,9 +1,11 @@
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import Animated from "react-native-reanimated";
+import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Transition } from "@/components/navigation/TransitionStack";
 import { Text } from "@/components/ScaledText";
-import { Feather } from "@/components/ui/theme-icons";
+import { fonts } from "@/constants/theme";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import type { MessageThread } from "@/types/messages";
 
@@ -36,6 +38,9 @@ export function ThreadHeader({
 		: "rgba(15,23,42,0.06)";
 	const avatarBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.12)";
 	const mutedPill = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+	const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
+	const textSecondary = isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,45%)";
+	const onlineColor = isDark ? "hsl(155, 30%, 55%)" : "hsl(155, 40%, 38%)";
 
 	const summaryLabel = thread.id.startsWith("group:")
 		? "Group"
@@ -54,39 +59,63 @@ export function ThreadHeader({
 				paddingTop: insets.top,
 			}}
 		>
-			<Animated.View className="px-3 py-2">
+			<Animated.View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
 				<Transition.View
 					sharedBoundTag={sharedBoundTag}
-					className="flex-row items-center gap-3"
+					style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
 				>
 					<Pressable
 						onPress={onBack}
-						className="h-9 w-9 rounded-full items-center justify-center active:opacity-70"
-						style={{ backgroundColor: mutedPill }}
+						style={({ pressed }) => ({
+							height: 36,
+							width: 36,
+							borderRadius: 18,
+							alignItems: "center",
+							justifyContent: "center",
+							backgroundColor: mutedPill,
+							opacity: pressed ? 0.7 : 1,
+						})}
 					>
-						<Feather name="chevron-left" size={20} color={colors.text} />
+						<Ionicons name="chevron-back" size={20} color={textPrimary} />
 					</Pressable>
 
 					<Transition.View sharedBoundTag={sharedAvatarTag}>
 						{thread.avatarUrl ? (
 							<View
-								className="h-10 w-10 rounded-full overflow-hidden border"
-								style={{ borderColor: headerBorder }}
+								style={{
+									height: 40,
+									width: 40,
+									borderRadius: 20,
+									overflow: "hidden",
+									borderWidth: 1,
+									borderColor: headerBorder,
+								}}
 							>
 								<Image
 									source={{ uri: thread.avatarUrl }}
-									className="h-full w-full"
-									resizeMode="cover"
+									style={{ height: 40, width: 40 }}
+									contentFit="cover"
 								/>
 							</View>
 						) : (
 							<View
-								className="h-10 w-10 rounded-full items-center justify-center border"
-								style={{ backgroundColor: avatarBg, borderColor: headerBorder }}
+								style={{
+									height: 40,
+									width: 40,
+									borderRadius: 20,
+									alignItems: "center",
+									justifyContent: "center",
+									borderWidth: 1,
+									backgroundColor: avatarBg,
+									borderColor: headerBorder,
+								}}
 							>
 								<Text
-									className="font-outfit text-base font-bold"
-									style={{ color: colors.accent }}
+									style={{
+										fontFamily: fonts.bodyBold,
+										fontSize: 15,
+										color: colors.accent,
+									}}
 								>
 									{getInitials(thread.name)}
 								</Text>
@@ -94,11 +123,14 @@ export function ThreadHeader({
 						)}
 					</Transition.View>
 
-					<View className="flex-1">
+					<View style={{ flex: 1 }}>
 						<Text
-							className="font-outfit text-[16px] font-semibold"
 							numberOfLines={1}
-							style={{ color: colors.text }}
+							style={{
+								fontFamily: fonts.bodyBold,
+								fontSize: 16,
+								color: textPrimary,
+							}}
 						>
 							{thread.name}
 						</Text>
@@ -109,14 +141,17 @@ export function ThreadHeader({
 										width: 7,
 										height: 7,
 										borderRadius: 4,
-										backgroundColor: "#22c55e",
+										backgroundColor: onlineColor,
 									}}
 								/>
 							)}
 							<Text
-								className="text-[12px] font-outfit"
 								numberOfLines={1}
-								style={{ color: isOnline ? "#22c55e" : colors.textSecondary }}
+								style={{
+									fontSize: 12,
+									fontFamily: "Outfit",
+									color: isOnline ? onlineColor : textSecondary,
+								}}
 							>
 								{statusLine}
 							</Text>
@@ -124,16 +159,19 @@ export function ThreadHeader({
 					</View>
 
 					<View
-						className="rounded-full px-2.5 py-1"
 						style={{
-							backgroundColor: isDark
-								? "rgba(255,255,255,0.08)"
-								: "rgba(15,23,42,0.06)",
+							borderRadius: 99,
+							paddingHorizontal: 10,
+							paddingVertical: 4,
+							backgroundColor: mutedPill,
 						}}
 					>
 						<Text
-							className="text-[10px] font-outfit font-semibold"
-							style={{ color: colors.textSecondary }}
+							style={{
+								fontSize: 10,
+								fontFamily: fonts.bodyBold,
+								color: textSecondary,
+							}}
 						>
 							{summaryLabel}
 						</Text>

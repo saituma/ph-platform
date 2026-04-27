@@ -3,12 +3,12 @@ import * as Haptics from "expo-haptics";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
 	ActivityIndicator,
-	Image,
 	Platform,
 	Pressable,
 	useWindowDimensions,
 	View,
 } from "react-native";
+import { Image } from "expo-image";
 import { Swipeable } from "react-native-gesture-handler";
 import Animated, {
 	Easing,
@@ -24,7 +24,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { OpenGraphPreview } from "@/components/media/OpenGraphPreview";
 import { Text } from "@/components/ScaledText";
 import type { ChatMessage } from "@/constants/messages";
-import { fonts, Shadows } from "@/constants/theme";
+import { fonts } from "@/constants/theme";
 
 import { useMessageDimensions } from "@/hooks/messages/useMessageDimensions";
 import { FullScreenMediaModal } from "./FullScreenMediaModal";
@@ -46,7 +46,6 @@ type MessageBubbleProps = {
 	token?: string | null;
 };
 
-// Premium spring configuration for bubble press
 const BUBBLE_SPRING = {
 	damping: 16,
 	stiffness: 200,
@@ -166,10 +165,9 @@ function MessageBubbleComponent({
 		const DOUBLE_TAP_DELAY = 300;
 
 		if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-			// Double tap detected!
 			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 			onReactionPress(message, "❤️");
-			lastTapRef.current = 0; // Reset after double tap
+			lastTapRef.current = 0;
 		} else {
 			lastTapRef.current = now;
 		}
@@ -179,37 +177,58 @@ function MessageBubbleComponent({
 		? colors.accent
 		: isDark
 			? "rgba(255,255,255,0.08)"
-			: "#F2F2F7";
-	const bubbleTextColor = isUser ? "#FFFFFF" : colors.textPrimary;
+			: "hsl(220, 10%, 96%)";
+	const bubbleTextColor = isUser ? "hsl(220, 5%, 98%)" : colors.textPrimary;
 	const metaColor = isUser ? "rgba(255,255,255,0.8)" : colors.textDim;
+	const readReceiptColor = isUser
+		? message.status === "read"
+			? "hsl(195, 40%, 85%)"
+			: "rgba(255,255,255,0.75)"
+		: colors.textDim;
 	const bubbleMaxWidth = Math.min(
 		viewportWidth * (Platform.OS === "ios" ? 0.78 : 0.82),
 		420,
 	);
 	const outgoingRadius = Platform.OS === "ios" ? 17 : 18;
+	const reactionPillBg = isDark ? colors.surfaceHigh : "hsl(220, 5%, 97%)";
+	const reactionBorder = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
 
 	return (
-		<View className="mb-px w-full">
+		<View style={{ marginBottom: 1, width: "100%" }}>
 			<View
-				className={`flex-row items-end gap-2 w-full ${isUser ? "justify-end" : "justify-start"}`}
+				style={{
+					flexDirection: "row",
+					alignItems: "flex-end",
+					gap: 8,
+					width: "100%",
+					justifyContent: isUser ? "flex-end" : "flex-start",
+				}}
 			>
 				{showLeadingAvatar && (
-					<View className="items-center">
+					<View style={{ alignItems: "center" }}>
 						{message.authorAvatar ? (
 							<Image
 								source={{ uri: message.authorAvatar }}
-								className="h-8 w-8 rounded-full"
+								style={{ height: 32, width: 32, borderRadius: 16 }}
+								contentFit="cover"
 							/>
 						) : (
 							<View
-								className="h-8 w-8 rounded-full items-center justify-center"
-								style={{ backgroundColor: colors.surfaceHigher }}
+								style={{
+									height: 32,
+									width: 32,
+									borderRadius: 16,
+									alignItems: "center",
+									justifyContent: "center",
+									backgroundColor: colors.surfaceHigher,
+								}}
 							>
 								<Text
-									className="text-[10px] font-bold uppercase"
 									style={{
-										color: colors.textSecondary,
+										fontSize: 10,
 										fontFamily: fonts.labelBold,
+										textTransform: "uppercase",
+										color: colors.textSecondary,
 									}}
 								>
 									{initials}
@@ -219,10 +238,6 @@ function MessageBubbleComponent({
 					</View>
 				)}
 
-				{/* WhatsApp/Telegram sizing style: 
-          Container has a strict max width, so the bubble inside can naturally expand to fit content 
-          up to 82% of the screen width, then it wraps the text.
-        */}
 				<View
 					style={{
 						maxWidth: bubbleMaxWidth,
@@ -235,10 +250,16 @@ function MessageBubbleComponent({
 						rightThreshold={40}
 						onSwipeableOpen={handleSwipeOpen}
 						renderLeftActions={() => (
-							<View className="w-16 items-center justify-center pl-2">
+							<View style={{ width: 64, alignItems: "center", justifyContent: "center", paddingLeft: 8 }}>
 								<View
-									className="h-10 w-10 rounded-full items-center justify-center"
-									style={{ backgroundColor: colors.surfaceHigher }}
+									style={{
+										height: 40,
+										width: 40,
+										borderRadius: 20,
+										alignItems: "center",
+										justifyContent: "center",
+										backgroundColor: colors.surfaceHigher,
+									}}
 								>
 									<Ionicons
 										name="arrow-undo"
@@ -250,7 +271,6 @@ function MessageBubbleComponent({
 						)}
 					>
 						<Animated.View style={animatedStyle}>
-							{/* Relative wrapper needed so absolute reactions render strictly below the bubble */}
 							<View
 								style={{
 									position: "relative",
@@ -272,7 +292,6 @@ function MessageBubbleComponent({
 									</Text>
 								) : null}
 
-								{/* The Message Bubble itself */}
 								<Pressable
 									onPress={handlePress}
 									onPressIn={() =>
@@ -285,8 +304,10 @@ function MessageBubbleComponent({
 										Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 										onLongPress(message);
 									}}
-									className={`overflow-hidden ${isAttachmentOnly ? "px-0 py-0" : "px-4 py-2.5"}`}
 									style={{
+										overflow: "hidden",
+										paddingHorizontal: isAttachmentOnly ? 0 : 16,
+										paddingVertical: isAttachmentOnly ? 0 : 10,
 										backgroundColor: isAttachmentOnly
 											? "transparent"
 											: bubbleBackgroundColor,
@@ -306,14 +327,16 @@ function MessageBubbleComponent({
 												: outgoingRadius,
 									}}
 								>
-									{/* Reply Context Bar */}
 									{message.replyToMessageId != null && (
 										<Pressable
 											onPress={() =>
 												onJumpToMessage?.(Number(message.replyToMessageId))
 											}
-											className="mb-2 p-2 rounded-lg border-l-2"
 											style={{
+												marginBottom: 8,
+												padding: 8,
+												borderRadius: 8,
+												borderLeftWidth: 2,
 												backgroundColor: isDark
 													? "rgba(255,255,255,0.03)"
 													: "rgba(0,0,0,0.03)",
@@ -323,8 +346,10 @@ function MessageBubbleComponent({
 											}}
 										>
 											<Text
-												className="text-[10px] uppercase tracking-wide"
 												style={{
+													fontSize: 10,
+													textTransform: "uppercase",
+													letterSpacing: 0.8,
 													color: isUser
 														? "rgba(255,255,255,0.95)"
 														: colors.accent,
@@ -334,24 +359,29 @@ function MessageBubbleComponent({
 												Replying
 											</Text>
 											<Text
-												className="text-xs mt-0.5"
+												numberOfLines={1}
 												style={{
+													fontSize: 12,
+													marginTop: 2,
 													color: isUser
 														? "rgba(255,255,255,0.82)"
 														: colors.textDim,
 													fontFamily: fonts.bodyMedium,
 												}}
-												numberOfLines={1}
 											>
 												{message.replyPreview || resolvedReplyPreview}
 											</Text>
 										</Pressable>
 									)}
 
-									{/* Media */}
 									{message.mediaUrl && message.contentType && (
 										<View
-											className={`${isAttachmentOnly ? "" : "mb-2"} overflow-hidden rounded-xl relative`}
+											style={{
+												marginBottom: isAttachmentOnly ? 0 : 8,
+												overflow: "hidden",
+												borderRadius: 12,
+												position: "relative",
+											}}
 										>
 											<MessageMediaView
 												uri={message.mediaUrl}
@@ -363,17 +393,26 @@ function MessageBubbleComponent({
 											{isPendingMediaUpload ? (
 												<Animated.View
 													pointerEvents="none"
-													className="absolute inset-0 items-center justify-center"
 													style={[
-														{ backgroundColor: "rgba(0,0,0,0.35)" },
+														{
+															position: "absolute",
+															top: 0,
+															left: 0,
+															right: 0,
+															bottom: 0,
+															alignItems: "center",
+															justifyContent: "center",
+															backgroundColor: "rgba(0,0,0,0.35)",
+														},
 														uploadOverlayStyle,
 													]}
 												>
-													<ActivityIndicator size="small" color="#ffffff" />
+													<ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
 													<Text
-														className="mt-1 text-[11px]"
 														style={{
-															color: "#ffffff",
+															marginTop: 4,
+															fontSize: 11,
+															color: "hsl(220, 5%, 98%)",
 															fontFamily: fonts.labelBold,
 														}}
 													>
@@ -384,11 +423,11 @@ function MessageBubbleComponent({
 										</View>
 									)}
 
-									{/* Body Text */}
 									{message.text && (
 										<Text
-											className="text-[15px] leading-6"
 											style={{
+												fontSize: 15,
+												lineHeight: 24,
 												color: bubbleTextColor,
 												fontFamily: fonts.bodyMedium,
 											}}
@@ -402,12 +441,11 @@ function MessageBubbleComponent({
 											<OpenGraphPreview key={u} url={u} token={token} compact />
 										))}
 
-									{/* Meta Footer (Time & Status) */}
-									<View className="flex-row items-center justify-end gap-1 mt-1.5">
+									<View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4, marginTop: 6 }}>
 										{onOpenReactionPicker && (
 											<Pressable
 												onPress={() => onOpenReactionPicker(message)}
-												className="mr-auto h-5 w-5 items-center justify-center rounded-full"
+												style={{ marginRight: "auto", height: 20, width: 20, alignItems: "center", justifyContent: "center", borderRadius: 10 }}
 											>
 												<Ionicons
 													name="add-outline"
@@ -417,8 +455,8 @@ function MessageBubbleComponent({
 											</Pressable>
 										)}
 										<Text
-											className="text-[10px]"
 											style={{
+												fontSize: 10,
 												color: metaColor,
 												fontFamily: fonts.labelMedium,
 											}}
@@ -433,43 +471,44 @@ function MessageBubbleComponent({
 														: "checkmark"
 												}
 												size={14}
-												color={
-													message.status === "read"
-														? "#D2F4FF"
-														: "rgba(255,255,255,0.75)"
-												}
+												color={readReceiptColor}
 											/>
 										)}
 									</View>
 								</Pressable>
 
-								{/* Floating Reactions (Rendered OUTSIDE the overflow-hidden bubble) */}
 								{hasReactions && (
 									<View
-										className="absolute flex-row gap-1 z-50"
 										style={{
+											position: "absolute",
+											flexDirection: "row",
+											gap: 4,
+											zIndex: 50,
 											bottom: -8,
 											flexWrap: "nowrap",
-											[isUser ? "right" : "left"]: 8,
+											...(isUser ? { right: 8 } : { left: 8 }),
 										}}
 									>
 										{reactions.slice(0, 1).map((r) => (
 											<Pressable
 												key={r.emoji}
 												onPress={() => onReactionPress(message, r.emoji)}
-												className="px-2 py-1 rounded-full border flex-row items-center gap-1"
 												style={{
-													backgroundColor: isDark
-														? colors.surfaceHigh
-														: "#FFFFFF",
-													borderColor: colors.borderSubtle,
-													...(isDark ? Shadows.none : Shadows.sm),
+													paddingHorizontal: 8,
+													paddingVertical: 4,
+													borderRadius: 99,
+													borderWidth: 1,
+													flexDirection: "row",
+													alignItems: "center",
+													gap: 4,
+													backgroundColor: reactionPillBg,
+													borderColor: reactionBorder,
 												}}
 											>
-												<Text className="text-[11px]">{r.emoji}</Text>
+												<Text style={{ fontSize: 11 }}>{r.emoji}</Text>
 												<Text
-													className="text-[10px]"
 													style={{
+														fontSize: 10,
 														color: colors.textPrimary,
 														fontFamily: fonts.labelBold,
 													}}
@@ -482,18 +521,20 @@ function MessageBubbleComponent({
 										{reactions.length > 1 && (
 											<Pressable
 												onPress={() => setReactionsOpen(true)}
-												className="px-2 py-1 rounded-full border flex-row items-center"
 												style={{
-													backgroundColor: isDark
-														? colors.surfaceHigh
-														: "#FFFFFF",
-													borderColor: colors.borderSubtle,
-													...Shadows.md,
+													paddingHorizontal: 8,
+													paddingVertical: 4,
+													borderRadius: 99,
+													borderWidth: 1,
+													flexDirection: "row",
+													alignItems: "center",
+													backgroundColor: reactionPillBg,
+													borderColor: reactionBorder,
 												}}
 											>
 												<Text
-													className="text-[10px]"
 													style={{
+														fontSize: 10,
 														color: colors.textPrimary,
 														fontFamily: fonts.labelBold,
 													}}

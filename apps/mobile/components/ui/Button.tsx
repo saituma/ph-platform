@@ -115,7 +115,7 @@ export function Button({
     switch (size) {
       case "sm":
         return {
-          button: { height: 36, paddingHorizontal: 12 },
+          button: { height: 40, paddingHorizontal: 12 },
           text: { fontSize: 13 },
           iconSize: 14,
         };
@@ -184,6 +184,7 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
+      accessibilityRole="button"
       className={className}
       style={({ pressed }) => [
         baseButtonStyle,

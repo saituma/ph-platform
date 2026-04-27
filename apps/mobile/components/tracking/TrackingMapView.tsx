@@ -29,6 +29,8 @@ type Props = Omit<MapViewProps, "children"> & {
   fitBounds?: boolean;
   /** Street map vs satellite imagery (native on iOS; Carto + Esri on Android WebView). */
   mapStyle?: TrackingMapStyle;
+  /** Show points of interest (restaurants, hotels, etc.) on iOS Apple Maps. */
+  showsPointsOfInterest?: boolean;
 };
 
 const DEFAULT_ANDROID_INITIAL_REGION: Region = {
@@ -130,13 +132,20 @@ export const TrackingMapView = React.forwardRef<TrackingMapViewRef, Props>(
       layers,
       fitBounds = false,
       mapStyle = "road",
+      showsPointsOfInterest: showsPOI = true,
       ...mapProps
     },
     ref,
   ) {
     const isDark = mapProps.userInterfaceStyle === "dark";
     const effectiveMapType =
-      mapStyle === "satellite" ? MAP_TYPES.SATELLITE : MAP_TYPES.STANDARD;
+      mapStyle === "satellite"
+        ? MAP_TYPES.SATELLITE
+        : mapStyle === "hybrid"
+          ? MAP_TYPES.HYBRID
+          : mapStyle === "terrain"
+            ? MAP_TYPES.TERRAIN
+            : MAP_TYPES.STANDARD;
 
     const onPressWrapped = mapProps.onPress
       ? (c: { latitude: number; longitude: number }) => {
@@ -180,9 +189,12 @@ export const TrackingMapView = React.forwardRef<TrackingMapViewRef, Props>(
         mapType={effectiveMapType}
         rotateEnabled={mapProps.rotateEnabled ?? false}
         pitchEnabled={mapProps.pitchEnabled ?? false}
-        showsBuildings={false}
+        showsBuildings={showsPOI}
         showsTraffic={false}
-        showsIndoors={false}
+        showsIndoors={showsPOI}
+        showsPointsOfInterests={showsPOI}
+        showsUserLocation
+        showsMyLocationButton={false}
       >
         {layers.map((layer) => {
           if (layer.type === "polyline") {

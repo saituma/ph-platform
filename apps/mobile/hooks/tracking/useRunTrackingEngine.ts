@@ -5,6 +5,7 @@ import { useRunStore } from "../../store/useRunStore";
 import { haversineDistance } from "../../lib/haversine";
 import { getNotifications } from "@/lib/notifications";
 import { sendRunProgressNotification } from "@/lib/runProgressNotifications";
+import { announceKilometerSplit, announceAutoPause } from "@/lib/tracking/audioCues";
 import { Region } from "react-native-maps";
 import { withSpring } from "react-native-reanimated";
 import { SharedValue } from "react-native-reanimated";
@@ -17,6 +18,8 @@ export type RouteMetrics = {
 
 export type UseRunTrackingEngineOpts = {
   osrmRoutingEnabled: boolean;
+  autoPauseEnabled: boolean;
+  audioCuesEnabled: boolean;
 };
 
 export function useRunTrackingEngine(
@@ -24,8 +27,9 @@ export function useRunTrackingEngine(
   insetsTop: number,
   opts?: UseRunTrackingEngineOpts,
 ) {
-  // Default to enabled to preserve existing behavior for any legacy call sites.
   const osrmRoutingEnabled = opts?.osrmRoutingEnabled ?? true;
+  const autoPauseEnabled = opts?.autoPauseEnabled ?? true;
+  const audioCuesEnabled = opts?.audioCuesEnabled ?? true;
 
   const {
     status,
@@ -64,6 +68,7 @@ export function useRunTrackingEngine(
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   const notificationsRef = useRef<any | null>(null);
   const lastRouteFetchTime = useRef<number>(0);
+  const lastSpeedRef = useRef<number>(0);
 
   const stopForegroundWatch = useCallback(() => {
     watchRef.current?.remove();
@@ -99,6 +104,10 @@ export function useRunTrackingEngine(
             },
             loc.coords?.accuracy ?? null,
           );
+          const speed = loc.coords?.speed;
+          if (typeof speed === "number" && Number.isFinite(speed)) {
+            lastSpeedRef.current = Math.max(0, speed);
+          }
         },
       );
     } catch (e) {
@@ -221,8 +230,53 @@ export function useRunTrackingEngine(
     }
     setupLocationAndPermissions();
 
+    const AUTO_PAUSE_SPEED_THRESHOLD = 0.5; // m/s (~1.8 km/h)
+    const AUTO_PAUSE_DELAY_MS = 4000;
+
     const timer = setInterval(() => {
+      const store = useRunStore.getState();
       tick();
+
+      // --- Auto-pause logic ---
+      if (autoPauseEnabled && store.status === "running" && store.getIsWarmedUp()) {
+        const speed = lastSpeedRef.current;
+        if (speed < AUTO_PAUSE_SPEED_THRESHOLD) {
+          if (!store.autoPauseStillSince) {
+            store.setAutoPauseStillSince(Date.now());
+          } else if (Date.now() - store.autoPauseStillSince >= AUTO_PAUSE_DELAY_MS) {
+            store.pauseRun();
+            store.setAutoPaused(true);
+            if (audioCuesEnabled) announceAutoPause(true);
+            triggerGoalFeedback("Auto-paused", "Stopped moving — run paused");
+          }
+        } else {
+          store.setAutoPauseStillSince(null);
+        }
+      }
+      // Auto-resume when moving again
+      if (autoPauseEnabled && store.isAutoPaused && store.status === "paused") {
+        if (lastSpeedRef.current >= AUTO_PAUSE_SPEED_THRESHOLD * 2) {
+          store.resumeRun();
+          store.setAutoPaused(false);
+          store.setAutoPauseStillSince(null);
+          if (audioCuesEnabled) announceAutoPause(false);
+          triggerGoalFeedback("Resumed", "Movement detected — run resumed");
+        }
+      }
+
+      // --- Audio cues: km split announcements ---
+      if (audioCuesEnabled) {
+        const km = store.consumeKmAnnouncement();
+        if (km) {
+          announceKilometerSplit({
+            km,
+            totalDistanceMeters: store.distanceMeters,
+            elapsedSeconds: store.elapsedSeconds,
+          });
+        }
+      }
+
+      // --- Progress milestone notifications ---
       const milestones = useRunStore.getState().consumeProgressMilestones();
       if (milestones.length) {
         for (const meters of milestones) {
@@ -233,7 +287,6 @@ export function useRunTrackingEngine(
           });
         }
       }
-      // Also poll warmup state to trigger UI changes without rerendering the whole tree on every coordinate
       setIsWarmedUp(useRunStore.getState().getIsWarmedUp());
     }, 1000);
 

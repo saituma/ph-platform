@@ -8,6 +8,25 @@ function workerAuthBase() {
     .replace(/\/+$/, "");
 }
 
+function sanitizeProxyHeaders(incoming: Headers) {
+  const headers = new Headers(incoming);
+  const hopByHop = [
+    "accept-encoding",
+    "connection",
+    "host",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+    "content-length",
+  ];
+  for (const key of hopByHop) headers.delete(key);
+  return headers;
+}
+
 export default async function (request: Request): Promise<Response> {
   const base = workerAuthBase();
   if (!base) {
@@ -19,18 +38,22 @@ export default async function (request: Request): Promise<Response> {
 
   const url = new URL(request.url);
   const target = `${base}${url.pathname}${url.search}`;
-
-  const headers = new Headers(request.headers);
-  headers.delete("accept-encoding");
-  headers.delete("host");
-
   const method = request.method;
-  const body = method !== "GET" && method !== "HEAD"
-    ? await request.arrayBuffer()
-    : undefined;
+  const headers = sanitizeProxyHeaders(request.headers);
+  const shouldSendBody = method !== "GET" && method !== "HEAD";
+  const body = shouldSendBody && request.body ? request.body : undefined;
+  const init: RequestInit & { duplex?: "half" } = {
+    method,
+    headers,
+    body,
+    redirect: "manual",
+  };
+  if (body && typeof ReadableStream !== "undefined" && body instanceof ReadableStream) {
+    init.duplex = "half";
+  }
 
   try {
-    const upstream = await fetch(target, { method, headers, body, redirect: "manual" });
+    const upstream = await fetch(target, init);
     const responseHeaders = new Headers(upstream.headers);
     responseHeaders.delete("content-encoding");
     responseHeaders.delete("content-length");

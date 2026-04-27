@@ -70,9 +70,9 @@ export function hasAssignedProgramTier(tier?: string | null): boolean {
   return normalizeProgramTier(tier ?? null) != null;
 }
 
-/** PHP Premium+ — nutrition, parent platform, expanded coach messaging treatment. */
+/** PHP Premium Plus+ — parent platform, expanded coach messaging treatment. */
 export function hasPremiumPlanFeatures(tier?: string | null): boolean {
-  return canAccessTier(tier ?? null, "PHP_Premium");
+  return canAccessTier(tier ?? null, "PHP_Premium_Plus");
 }
 
 /** PHP Plus / Pro — semi-private booking type & session video upload for coach review. */

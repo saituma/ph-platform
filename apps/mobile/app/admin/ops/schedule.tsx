@@ -5,14 +5,15 @@ import { AdminBookingsSection } from "@/components/admin/AdminBookingsSection";
 import { AdminServicesSection } from "@/components/admin/AdminServicesSection";
 import { useAdminServices } from "@/hooks/admin/useAdminServices";
 import { useAppSelector } from "@/store/hooks";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter, usePathname } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, View, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@/components/ui/theme-icons";
 import { isAdminRole } from "@/lib/isAdminRole";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { goBackOrFallbackTabs } from "@/lib/navigation/androidBackToTabs";
+import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 
 type ScheduleTab = "bookings" | "services";
 
@@ -30,6 +31,9 @@ const TAB_CONFIG = [
 
 export default function AdminOpsScheduleScreen() {
   const { colors, isDark } = useAppTheme();
+  const router = useRouter();
+  const pathname = usePathname();
+  const reduceMotion = useReducedMotion();
   const params = useLocalSearchParams();
 
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
@@ -72,9 +76,22 @@ export default function AdminOpsScheduleScreen() {
       <ThemedScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
         {/* Header */}
         <Animated.View
-          entering={FadeInDown.delay(60).duration(360)}
-          style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}
+          entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(360).springify()}
+          style={{ paddingTop: 20, paddingHorizontal: 24, marginBottom: 28 }}
         >
+          <TouchableOpacity
+            onPress={() => goBackOrFallbackTabs(router, pathname)}
+            style={{
+              width: 40, height: 40, borderRadius: 20,
+              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
+              alignItems: "center", justifyContent: "center",
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              marginBottom: 20, alignSelf: "flex-start",
+            }}
+          >
+            <Feather name="chevron-left" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
             <View
               style={{
@@ -112,7 +129,7 @@ export default function AdminOpsScheduleScreen() {
 
         {/* Tab Switcher */}
         <Animated.View
-          entering={FadeInDown.delay(120).duration(360)}
+          entering={reduceMotion ? undefined : FadeInDown.delay(120).duration(360).springify()}
           style={{ paddingHorizontal: 24, marginBottom: 28 }}
         >
           <View
@@ -172,7 +189,7 @@ export default function AdminOpsScheduleScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(180).duration(360)}>
+        <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(360).springify()}>
           {!canLoad ? (
             <View
               style={{

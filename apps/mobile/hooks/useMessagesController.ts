@@ -37,9 +37,11 @@ export function useMessagesController() {
   }>();
   const threadId = thread || id;
 
-  const { token, profile, programTier, appRole, apiUserRole } = useAppSelector(
-    (state) => state.user,
-  );
+  const token = useAppSelector((state) => state.user.token);
+  const profile = useAppSelector((state) => state.user.profile);
+  const programTier = useAppSelector((state) => state.user.programTier);
+  const appRole = useAppSelector((state) => state.user.appRole);
+  const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
   const profileName = profile.name;
   const { socket, setActiveThreadId } = useSocket();
   const rolePrefix = useMemo(
@@ -156,14 +158,14 @@ export function useMessagesController() {
   }, [draftQuery, threadId, currentThread?.id, setDraft, draftRef]);
 
   const clearThread = useCallback(() => {
+    setSelectedThread(null);
+    setOpeningThreadId(null);
+    setPendingAttachment(null);
     if (routerRef.current.canGoBack()) {
       routerRef.current.back();
     } else {
       routerRef.current.replace(messagesTabHref);
     }
-    setSelectedThread(null);
-    setOpeningThreadId(null);
-    setPendingAttachment(null);
   }, [setPendingAttachment, setSelectedThread]);
 
   const openThread = useCallback(
@@ -742,12 +744,11 @@ export function useMessagesController() {
     if (Platform.OS !== "android" || !currentThreadId) return;
     const handler = () => {
       clearThread();
-      if (router.canGoBack()) router.back();
       return true;
     };
     const sub = BackHandler.addEventListener("hardwareBackPress", handler);
     return () => sub.remove();
-  }, [clearThread, currentThreadId, router]);
+  }, [clearThread, currentThreadId]);
 
   const [reactionTarget, setReactionTarget] = useState<ChatMessage | null>(
     null,

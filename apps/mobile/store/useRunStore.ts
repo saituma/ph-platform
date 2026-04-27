@@ -36,6 +36,14 @@ interface RunStore {
   warmupUntil: number | null;
   currentRunId: string | null;
   shareLiveLocationEnabled: boolean;
+  /** Auto-pause: paused automatically when user stops moving. */
+  isAutoPaused: boolean;
+  /** Timestamp when speed last dropped below auto-pause threshold. */
+  autoPauseStillSince: number | null;
+  /** Audio cues: announce km splits via TTS. */
+  audioCuesEnabled: boolean;
+  /** Tracks the last km announced to avoid repeats. */
+  lastAnnouncedKm: number;
 
   startRun: () => void;
   pauseRun: () => void;
@@ -53,6 +61,10 @@ interface RunStore {
   markDestinationReached: () => void;
   getIsWarmedUp: () => boolean;
   setShareLiveLocationEnabled: (enabled: boolean) => void;
+  setAutoPaused: (paused: boolean) => void;
+  setAutoPauseStillSince: (ts: number | null) => void;
+  setAudioCuesEnabled: (enabled: boolean) => void;
+  consumeKmAnnouncement: () => number | null;
 }
 
 const MIN_RUN_SEGMENT_METERS = 12;
@@ -76,6 +88,10 @@ export const useRunStore = create<RunStore>((set, get) => ({
   warmupUntil: null,
   currentRunId: null,
   shareLiveLocationEnabled: false,
+  isAutoPaused: false,
+  autoPauseStillSince: null,
+  audioCuesEnabled: true,
+  lastAnnouncedKm: 0,
 
   startRun: () => {
     const every = get().progressNotifyEveryMeters;
@@ -137,6 +153,9 @@ export const useRunStore = create<RunStore>((set, get) => ({
       warmupUntil: null,
       currentRunId: null,
       shareLiveLocationEnabled: false,
+      isAutoPaused: false,
+      autoPauseStillSince: null,
+      lastAnnouncedKm: 0,
     });
   },
 
@@ -238,4 +257,18 @@ export const useRunStore = create<RunStore>((set, get) => ({
   },
 
   setShareLiveLocationEnabled: (enabled) => set({ shareLiveLocationEnabled: enabled }),
+
+  setAutoPaused: (paused) => set({ isAutoPaused: paused }),
+  setAutoPauseStillSince: (ts) => set({ autoPauseStillSince: ts }),
+  setAudioCuesEnabled: (enabled) => set({ audioCuesEnabled: enabled }),
+
+  consumeKmAnnouncement: () => {
+    const { distanceMeters, lastAnnouncedKm } = get();
+    const currentKm = Math.floor(distanceMeters / 1000);
+    if (currentKm > lastAnnouncedKm && currentKm > 0) {
+      set({ lastAnnouncedKm: currentKm });
+      return currentKm;
+    }
+    return null;
+  },
 }));

@@ -154,11 +154,10 @@ export default function ParentPlatformScreen() {
   const hasParentProgramAccess = hasPremiumPlanFeatures(programTier);
   const hasPremiumAccess = hasParentProgramAccess;
   const parentPlatformUnlockPlans = useMemo(
-    () => getUnlockingPlanNames("PHP_Premium"),
+    () => getUnlockingPlanNames("PHP_Premium_Plus"),
     [],
   );
   const visibleGroups = grouped.filter((cat) => cat.items.length > 0);
-  const visibleItems: ParentCourseItem[] = [];
   const previewCount = filteredItems.filter((item) => item.isPreview).length;
   const lockedCount = filteredItems.filter(
     (item) =>
@@ -603,7 +602,7 @@ export default function ParentPlatformScreen() {
             </View>
           </View>
           <Text className="text-base font-outfit leading-relaxed text-app">
-            PHP Premium Plus and Premium members receive exclusive articles,
+            PHP Premium Plus and Pro members receive exclusive articles,
             video guides, and deeper education in every category.
           </Text>
         </View>

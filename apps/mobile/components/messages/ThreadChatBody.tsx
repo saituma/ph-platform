@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ActivityIndicator,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
+import { fonts } from "@/constants/theme";
 import type { ChatMessage } from "@/constants/messages";
 import { useChatScroll } from "@/hooks/messages/useChatScroll";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -62,10 +63,6 @@ type ThreadChatBodyProps = {
 	coachingContextLabel?: string;
 };
 
-// ── MessageListSection ────────────────────────────────────────────────
-// Isolated memo so that draft / typing / reply state changes never
-// trigger a re-render of the FlatList or its items.
-
 type MessageListSectionProps = {
 	thread: MessageThread;
 	messages: ChatMessage[];
@@ -110,8 +107,6 @@ const MessageListSection = React.memo(function MessageListSection({
 	const { listRef, handleScroll, jumpTo, newIncomingCount, highlightedId } =
 		useChatScroll(messages, thread.id);
 
-	// Ref so renderItem doesn't close over highlightedId — prevents
-	// all FlatList cells getting a new renderItem on every reply-jump.
 	const highlightedIdRef = useRef<number | null>(null);
 	highlightedIdRef.current = highlightedId;
 
@@ -163,7 +158,6 @@ const MessageListSection = React.memo(function MessageListSection({
 			onReactionPress,
 			onOpenReactionPicker,
 			onReplyMessage,
-			// highlightedId intentionally omitted — handled via extraData + ref
 		],
 	);
 
@@ -177,8 +171,6 @@ const MessageListSection = React.memo(function MessageListSection({
 				data={reversed}
 				keyExtractor={keyExtractor}
 				onScroll={handleScroll}
-				// extraData re-renders only the affected cell when highlight changes,
-				// while keeping renderItem reference stable (no mass cell re-renders).
 				extraData={highlightedId}
 				removeClippedSubviews={Platform.OS === "android"}
 				maxToRenderPerBatch={10}
@@ -256,8 +248,11 @@ const MessageListSection = React.memo(function MessageListSection({
 					onPress={() =>
 						listRef.current?.scrollToOffset({ offset: 0, animated: true })
 					}
-					className="absolute left-0 right-0 items-center"
 					style={{
+						position: "absolute",
+						left: 0,
+						right: 0,
+						alignItems: "center",
 						bottom: isKeyboardVisible
 							? Platform.OS === "ios"
 								? 96
@@ -265,9 +260,25 @@ const MessageListSection = React.memo(function MessageListSection({
 							: insets.bottom + 88,
 					}}
 				>
-					<View className="bg-accent px-4 py-2 rounded-full flex-row items-center gap-2 shadow-lg">
-						<Feather name="arrow-down" size={16} color="white" />
-						<Text className="text-white font-outfit-bold text-xs">
+					<View
+						style={{
+							backgroundColor: colors.accent,
+							paddingHorizontal: 16,
+							paddingVertical: 8,
+							borderRadius: 99,
+							flexDirection: "row",
+							alignItems: "center",
+							gap: 8,
+						}}
+					>
+						<Ionicons name="arrow-down" size={16} color="hsl(220, 5%, 98%)" />
+						<Text
+							style={{
+								color: "hsl(220, 5%, 98%)",
+								fontFamily: fonts.bodyBold,
+								fontSize: 12,
+							}}
+						>
 							{newIncomingCount} New
 						</Text>
 					</View>
@@ -276,8 +287,6 @@ const MessageListSection = React.memo(function MessageListSection({
 		</>
 	);
 });
-
-// ── ThreadChatBody ────────────────────────────────────────────────────
 
 export const ThreadChatBody = React.memo(function ThreadChatBody({
 	thread,
@@ -305,7 +314,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 	isUploadingAttachment,
 	coachingContextLabel,
 }: ThreadChatBodyProps) {
-	const { colors } = useAppTheme();
+	const { colors, isDark } = useAppTheme();
 	const insets = useAppSafeAreaInsets();
 	const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
@@ -316,6 +325,10 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 	const composerDockGap = Platform.OS === "ios" ? 8 : 10;
 	const listBottomPadding =
 		isKeyboardVisible ? 12 : Math.max(8, insets.bottom);
+
+	const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+	const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+	const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
 
 	useEffect(() => {
 		const show = Keyboard.addListener(
@@ -358,25 +371,50 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 
 			<View style={{ paddingBottom: composerDockGap }}>
 				{replyTarget && (
-					<View className="px-4 pb-2">
-						<View className="bg-card rounded-2xl p-3 flex-row items-center border border-border">
-							<View className="flex-1">
-								<Text className="text-[10px] font-bold text-accent uppercase">
+					<View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+						<View
+							style={{
+								backgroundColor: cardBg,
+								borderRadius: 16,
+								padding: 12,
+								flexDirection: "row",
+								alignItems: "center",
+								borderWidth: 1,
+								borderColor: cardBorder,
+							}}
+						>
+							<View style={{ flex: 1 }}>
+								<Text
+									style={{
+										fontSize: 10,
+										fontFamily: fonts.bodyBold,
+										textTransform: "uppercase",
+										letterSpacing: 1,
+										color: colors.accent,
+									}}
+								>
 									Replying to {replyTarget.authorName}
 								</Text>
-								<Text className="text-xs text-secondary" numberOfLines={1}>
+								<Text
+									numberOfLines={1}
+									style={{
+										fontSize: 12,
+										fontFamily: fonts.bodyMedium,
+										color: labelColor,
+									}}
+								>
 									{replyTarget.preview}
 								</Text>
 							</View>
 							<Pressable onPress={onClearReplyTarget}>
-								<Feather name="x" size={18} color={colors.textSecondary} />
+								<Ionicons name="close" size={18} color={labelColor} />
 							</Pressable>
 						</View>
 					</View>
 				)}
 
 				{typing?.isTyping && (
-					<View className="px-5 pb-2">
+					<View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
 						<TypingIndicator />
 					</View>
 				)}

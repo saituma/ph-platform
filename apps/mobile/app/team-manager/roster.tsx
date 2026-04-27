@@ -6,15 +6,15 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { Shadows } from "@/constants/theme";
+import { fonts } from "@/constants/theme";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
-import { Feather } from "@/components/ui/theme-icons";
 import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterService";
 
 function getInitials(name: string | null | undefined): string {
@@ -38,11 +38,19 @@ function AthletePill({ member, onPress }: { member: Member; onPress: () => void 
         ? "Adult"
         : null;
 
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+      style={({ pressed }) => ({
+        opacity: pressed ? 0.85 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      })}
     >
       <View
         style={{
@@ -52,20 +60,18 @@ function AthletePill({ member, onPress }: { member: Member; onPress: () => void 
           borderWidth: 1,
           paddingHorizontal: 16,
           paddingVertical: 14,
-          backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-          ...(isDark ? Shadows.none : Shadows.sm),
+          backgroundColor: cardBg,
+          borderColor: cardBorder,
         }}
       >
-        {/* Avatar circle */}
         <View
           style={{
             width: 44,
             height: 44,
-            borderRadius: 22,
+            borderRadius: 14,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: colors.accent + "22",
+            backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}14`,
             marginRight: 14,
           }}
         >
@@ -77,13 +83,13 @@ function AthletePill({ member, onPress }: { member: Member; onPress: () => void 
         <View style={{ flex: 1 }}>
           <Text
             numberOfLines={1}
-            style={{ fontSize: 15, fontFamily: "OutfitBold", color: colors.text }}
+            style={{ fontSize: 15, fontFamily: fonts.bodyBold, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}
           >
             {member.name ?? `Athlete #${member.athleteId}`}
           </Text>
           <Text
             numberOfLines={1}
-            style={{ fontSize: 12, fontFamily: "Outfit", color: colors.textSecondary, marginTop: 2 }}
+            style={{ fontSize: 12, fontFamily: fonts.bodyMedium, color: isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)", marginTop: 2 }}
           >
             {[typeLabel, typeof member.age === "number" ? `${member.age}y` : null]
               .filter(Boolean)
@@ -91,10 +97,10 @@ function AthletePill({ member, onPress }: { member: Member; onPress: () => void 
           </Text>
         </View>
 
-        <Feather
-          name="chevron-right"
-          size={18}
-          color={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
+        <Ionicons
+          name="chevron-forward"
+          size={17}
+          color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"}
         />
       </View>
     </Pressable>
@@ -116,6 +122,14 @@ export default function TeamManagerRosterScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const errorColor = isDark ? "hsl(0, 35%, 60%)" : "hsl(0, 40%, 48%)";
+  const errorBorder = isDark ? "hsla(0, 35%, 60%, 0.2)" : "hsla(0, 40%, 48%, 0.15)";
 
   const load = useCallback(
     async (forceRefresh: boolean) => {
@@ -169,12 +183,17 @@ export default function TeamManagerRosterScreen() {
             />
             <Text
               numberOfLines={1}
-              style={{ fontSize: 44, fontFamily: "TelmaBold", color: colors.text, letterSpacing: -0.5 }}
+              style={{
+                fontSize: 44,
+                fontFamily: "TelmaBold",
+                color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
+                letterSpacing: -0.5,
+              }}
             >
               Roster
             </Text>
           </View>
-          <Text style={{ fontSize: 15, fontFamily: "Outfit", color: colors.textSecondary }}>
+          <Text style={{ fontSize: 15, fontFamily: "Outfit", color: labelColor, lineHeight: 22 }}>
             {teamName}
             {memberCount > 0 ? ` • ${memberCount} member${memberCount !== 1 ? "s" : ""}` : ""}
           </Text>
@@ -190,22 +209,22 @@ export default function TeamManagerRosterScreen() {
               borderWidth: 1,
               paddingHorizontal: 14,
               paddingVertical: 10,
-              backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
               gap: 10,
             }}
           >
-            <Feather name="search" size={18} color={colors.textSecondary} />
+            <Ionicons name="search-outline" size={18} color={labelColor} />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search athletes…"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={labelColor}
               style={{
                 flex: 1,
                 fontSize: 15,
                 fontFamily: "Outfit",
-                color: colors.text,
+                color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
                 paddingVertical: 0,
               }}
               returnKeyType="search"
@@ -213,7 +232,7 @@ export default function TeamManagerRosterScreen() {
             />
             {search.length > 0 && (
               <Pressable onPress={() => setSearch("")} hitSlop={8}>
-                <Feather name="x-circle" size={17} color={colors.textSecondary} />
+                <Ionicons name="close-circle" size={17} color={labelColor} />
               </Pressable>
             )}
           </View>
@@ -222,7 +241,7 @@ export default function TeamManagerRosterScreen() {
         {/* Content */}
         <View style={{ paddingHorizontal: 24, gap: 12 }}>
           {!canLoad ? (
-            <Text style={{ fontSize: 14, fontFamily: "Outfit", color: colors.textSecondary }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit", color: labelColor }}>
               Waiting for auth bootstrap…
             </Text>
           ) : isInitialLoading ? (
@@ -237,18 +256,18 @@ export default function TeamManagerRosterScreen() {
                 borderRadius: 20,
                 borderWidth: 1,
                 padding: 20,
-                backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-                borderColor: "rgba(239,68,68,0.2)",
+                backgroundColor: cardBg,
+                borderColor: errorBorder,
               }}
             >
-              <Text style={{ fontSize: 14, fontFamily: "Outfit", color: "#ef4444" }}>
+              <Text style={{ fontSize: 14, fontFamily: "Outfit", color: errorColor }}>
                 {error}
               </Text>
               <Pressable
                 onPress={() => load(true)}
                 style={{ marginTop: 12 }}
               >
-                <Text style={{ fontSize: 14, fontFamily: "OutfitBold", color: colors.accent }}>
+                <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: colors.accent }}>
                   Try again
                 </Text>
               </Pressable>
@@ -260,16 +279,16 @@ export default function TeamManagerRosterScreen() {
                 borderWidth: 1,
                 padding: 32,
                 alignItems: "center",
-                backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+                backgroundColor: cardBg,
+                borderColor: cardBorder,
               }}
             >
-              <Feather name="users" size={36} color={colors.textSecondary} />
+              <Ionicons name="people-outline" size={36} color={labelColor} />
               <Text
                 style={{
                   fontSize: 15,
-                  fontFamily: "OutfitBold",
-                  color: colors.text,
+                  fontFamily: fonts.bodyBold,
+                  color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
                   marginTop: 12,
                   textAlign: "center",
                 }}
@@ -280,7 +299,7 @@ export default function TeamManagerRosterScreen() {
                 style={{
                   fontSize: 13,
                   fontFamily: "Outfit",
-                  color: colors.textSecondary,
+                  color: labelColor,
                   marginTop: 6,
                   textAlign: "center",
                 }}

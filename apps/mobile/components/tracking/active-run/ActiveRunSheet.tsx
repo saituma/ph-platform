@@ -31,6 +31,10 @@ export function ActiveRunSheet({
   onShareLiveLocation,
   onFinishRun,
   onIndexChange,
+  autoPauseEnabled,
+  onToggleAutoPause,
+  audioCuesEnabled,
+  onToggleAudioCues,
 }: {
   index: ActiveRunSheetIndex;
   setIndex: (index: ActiveRunSheetIndex) => void;
@@ -42,6 +46,10 @@ export function ActiveRunSheet({
   onShareLiveLocation: () => void;
   onFinishRun: () => void;
   onIndexChange?: (index: ActiveRunSheetIndex) => void;
+  autoPauseEnabled: boolean;
+  onToggleAutoPause: () => void;
+  audioCuesEnabled: boolean;
+  onToggleAudioCues: () => void;
 }) {
   const snapPoints = useMemo(() => ["50%", "80%"] as const, []);
   const [trackLaps, setTrackLaps] = useState(false);
@@ -201,6 +209,48 @@ export function ActiveRunSheet({
                 onToggle={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setTrackLaps((v) => !v);
+                }}
+                isDark={isDark}
+                accent={colors.accent}
+              />
+
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: cardBorder,
+                  marginHorizontal: 12,
+                }}
+              />
+
+              <ToggleRow
+                icon={autoPauseEnabled ? "pause-circle" : "pause-circle-outline"}
+                title="Auto-pause"
+                subtitle="Pause when you stop moving"
+                value={autoPauseEnabled}
+                onToggle={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onToggleAutoPause();
+                }}
+                isDark={isDark}
+                accent={colors.accent}
+              />
+
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: cardBorder,
+                  marginHorizontal: 12,
+                }}
+              />
+
+              <ToggleRow
+                icon={audioCuesEnabled ? "volume-high" : "volume-high-outline"}
+                title="Audio cues"
+                subtitle="Voice announcements at each kilometer"
+                value={audioCuesEnabled}
+                onToggle={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onToggleAudioCues();
                 }}
                 isDark={isDark}
                 accent={colors.accent}

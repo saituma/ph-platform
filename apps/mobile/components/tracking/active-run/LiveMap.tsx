@@ -18,6 +18,7 @@ interface LiveMapProps {
   onManualMove: () => void;
   mapStyle: TrackingMapStyle;
   onPress?: (coord: { latitude: number; longitude: number }) => void;
+  showsPointsOfInterest?: boolean;
 }
 
 export function LiveMap({
@@ -32,6 +33,7 @@ export function LiveMap({
   onManualMove,
   mapStyle,
   onPress,
+  showsPointsOfInterest = true,
 }: LiveMapProps) {
   const mapRef = useRef<TrackingMapViewRef | null>(null);
   const hasAnimatedToFirstFix = useRef(false);
@@ -169,6 +171,7 @@ export function LiveMap({
           }
           layers={layers}
           mapStyle={mapStyle}
+          showsPointsOfInterest={showsPointsOfInterest}
         />
       </MapErrorBoundary>
 

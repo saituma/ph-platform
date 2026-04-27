@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import React, { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useAppSelector } from "@/store/hooks";
 
@@ -107,24 +107,24 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     SecureStore.deleteItemAsync(STORAGE_KEYS.answer);
   }, [isAuthenticated]);
 
-  const setEnabled = async (value: boolean) => {
+  const setEnabled = useCallback(async (value: boolean) => {
     setEnabledState(value);
     await SecureStore.setItemAsync(STORAGE_KEYS.enabled, value ? "true" : "false");
     if (!value) {
       setIsLocked(false);
     }
-  };
+  }, []);
 
-  const setPin = async (nextPin: string | null) => {
+  const setPin = useCallback(async (nextPin: string | null) => {
     setPinState(nextPin);
     if (nextPin) {
       await SecureStore.setItemAsync(STORAGE_KEYS.pin, nextPin);
     } else {
       await SecureStore.deleteItemAsync(STORAGE_KEYS.pin);
     }
-  };
+  }, []);
 
-  const setRecovery = async (question: string | null, answer: string | null) => {
+  const setRecovery = useCallback(async (question: string | null, answer: string | null) => {
     setRecoveryQuestion(question);
     setRecoveryAnswer(answer);
     if (question && answer) {
@@ -134,22 +134,22 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
       await SecureStore.deleteItemAsync(STORAGE_KEYS.question);
       await SecureStore.deleteItemAsync(STORAGE_KEYS.answer);
     }
-  };
+  }, []);
 
-  const setAutoLockInterval = async (value: AutoLockInterval) => {
+  const setAutoLockInterval = useCallback(async (value: AutoLockInterval) => {
     setAutoLockIntervalState(value);
     await SecureStore.setItemAsync(STORAGE_KEYS.interval, value);
-  };
+  }, []);
 
-  const unlock = () => setIsLocked(false);
-  const lock = () => {
+  const unlock = useCallback(() => setIsLocked(false), []);
+  const lock = useCallback(() => {
     if (enabled && pin) setIsLocked(true);
-  };
+  }, [enabled, pin]);
 
-  const checkRecoveryAnswer = (answer: string) => {
+  const checkRecoveryAnswer = useCallback((answer: string) => {
     if (!recoveryAnswer) return false;
     return recoveryAnswer.toLowerCase() === answer.trim().toLowerCase();
-  };
+  }, [recoveryAnswer]);
 
   const value = useMemo<AppLockState>(
     () => ({
@@ -167,7 +167,7 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
       lock,
       checkRecoveryAnswer,
     }),
-    [enabled, pin, recoveryQuestion, recoveryAnswer, autoLockInterval, isLocked]
+    [enabled, pin, recoveryQuestion, recoveryAnswer, autoLockInterval, isLocked, setEnabled, setPin, setRecovery, setAutoLockInterval, unlock, lock, checkRecoveryAnswer]
   );
 
   return <AppLockContext.Provider value={value}>{children}</AppLockContext.Provider>;

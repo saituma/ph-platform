@@ -136,3 +136,80 @@ export async function copyTrainingModulesFromAudience(input: {
     return listTrainingContentAdminWorkspace(targetAudienceLabel);
   });
 }
+
+export async function copySelectedModulesToAudience(input: {
+  sourceAudienceLabel: string;
+  targetAudienceLabel: string;
+  moduleIds: number[];
+  sessionIds: number[] | null;
+  createdBy: number;
+}) {
+  const sourceAudienceLabel = normalizeAudienceLabel(input.sourceAudienceLabel);
+  const targetAudienceLabel = normalizeAudienceLabel(input.targetAudienceLabel);
+
+  const sourceWorkspace = await listTrainingContentAdminWorkspace(sourceAudienceLabel);
+  await ensureTrainingAudienceExists(targetAudienceLabel, input.createdBy);
+
+  const selectedModules = sourceWorkspace.modules.filter((m) =>
+    input.moduleIds.includes(m.id),
+  );
+
+  if (!selectedModules.length) {
+    throw new Error("No matching modules found in source.");
+  }
+
+  const targetWorkspace = await listTrainingContentAdminWorkspace(targetAudienceLabel);
+  const usedOrders = new Set(targetWorkspace.modules.map((m) => m.order));
+
+  return db.transaction(async (tx) => {
+    for (const sourceModule of selectedModules) {
+      let order = sourceModule.order;
+      while (usedOrders.has(order)) order++;
+      usedOrders.add(order);
+
+      const [createdModule] = await tx
+        .insert(trainingModuleTable)
+        .values({
+          age: 0,
+          audienceLabel: targetAudienceLabel,
+          title: sourceModule.title,
+          order,
+          createdBy: input.createdBy,
+        })
+        .returning();
+
+      const sessions =
+        input.sessionIds != null
+          ? sourceModule.sessions.filter((s) => input.sessionIds!.includes(s.id))
+          : sourceModule.sessions;
+
+      for (const sourceSession of sessions) {
+        const [createdSession] = await tx
+          .insert(trainingModuleSessionTable)
+          .values({
+            moduleId: createdModule.id,
+            title: sourceSession.title,
+            dayLength: sourceSession.dayLength,
+            order: sourceSession.order,
+          })
+          .returning();
+
+        for (const sourceItem of sourceSession.items) {
+          await tx.insert(trainingSessionItemTable).values({
+            sessionId: createdSession.id,
+            blockType: sourceItem.blockType as (typeof trainingSessionBlockType.enumValues)[number],
+            title: sourceItem.title,
+            body: sourceItem.body,
+            videoUrl: sourceItem.videoUrl ?? null,
+            allowVideoUpload: Boolean(sourceItem.allowVideoUpload),
+            metadata: sourceItem.metadata ?? null,
+            order: sourceItem.order,
+            createdBy: input.createdBy,
+          });
+        }
+      }
+    }
+
+    return listTrainingContentAdminWorkspace(targetAudienceLabel);
+  });
+}

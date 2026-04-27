@@ -7,19 +7,30 @@ import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import * as SecureStore from "expo-secure-store";
 import { Text } from "@/components/ScaledText";
 
 export default function PrivacyPolicyScreen() {
   const router = useRouter();
-  const { isDark } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
+  const insets = useAppSafeAreaInsets();
   const params = useLocalSearchParams<{ from?: string }>();
   const { token } = useAppSelector((state) => state.user);
   const [privacyContent, setPrivacyContent] = useState<string | null>(null);
   const [privacyVersion, setPrivacyVersion] = useState<string | null>(null);
   const [privacyUpdatedAt, setPrivacyUpdatedAt] = useState<string | null>(null);
+
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
+  const textBody = isDark ? "hsl(220, 5%, 60%)" : "hsl(220, 5%, 42%)";
+  const headingColor = isDark ? "hsl(220,5%,90%)" : "hsl(220,8%,12%)";
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+
   const cacheKeys = useMemo(
     () => ({
       body: "legal_privacy_body",
@@ -112,7 +123,7 @@ export default function PrivacyPolicyScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
       <MoreStackHeader
         title="Privacy Policy"
         subtitle="Understand how your account data is handled, protected, and updated across the platform."
@@ -130,14 +141,14 @@ export default function PrivacyPolicyScreen() {
           paddingBottom: 40,
         }}
       >
-        <View className="mb-6">
-          <View className="flex-row items-center gap-3 mb-3">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text className="text-3xl font-telma-bold text-app">
+        <View style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: colors.accent }} />
+            <Text style={{ fontSize: 28, fontFamily: "TelmaBold", color: textPrimary }}>
               Data Protection
             </Text>
           </View>
-          <Text className="text-base font-outfit text-secondary mt-1">
+          <Text style={{ fontSize: 15, fontFamily: "Outfit", color: labelColor, marginTop: 4 }}>
             {privacyUpdatedAt
               ? `Updated: ${new Date(privacyUpdatedAt).toLocaleDateString()}`
               : privacyVersion
@@ -146,32 +157,27 @@ export default function PrivacyPolicyScreen() {
           </Text>
         </View>
 
-        <View className="gap-6">
+        <View style={{ gap: 24 }}>
           <View
-            className="bg-input rounded-[28px] border border-app p-5"
-            style={
-              isDark
-                ? undefined
-                : {
-                    shadowColor: "#0F172A",
-                    shadowOpacity: 0.08,
-                    shadowRadius: 12,
-                    shadowOffset: { width: 0, height: 6 },
-                    elevation: 6,
-                  }
-            }
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              padding: 20,
+            }}
           >
             <MarkdownText
               text={(privacyContent && privacyContent.trim().length ? privacyContent : fallbackContent).trim()}
-              baseStyle={{ fontSize: 16, lineHeight: 24, color: "#64748B" }}
-              headingStyle={{ fontSize: 20, lineHeight: 28, color: "#0F172A", fontWeight: "700" }}
-              subheadingStyle={{ fontSize: 18, lineHeight: 26, color: "#0F172A", fontWeight: "700" }}
+              baseStyle={{ fontSize: 15, lineHeight: 24, color: textBody }}
+              headingStyle={{ fontSize: 20, lineHeight: 28, color: headingColor, fontWeight: "700" }}
+              subheadingStyle={{ fontSize: 18, lineHeight: 26, color: headingColor, fontWeight: "700" }}
               listItemStyle={{ paddingLeft: 6 }}
             />
           </View>
         </View>
 
-        <View className="mt-12">
+        <View style={{ marginTop: 48 }}>
           <ActionButton
             label="I Understand"
             onPress={handleBack}
@@ -181,6 +187,6 @@ export default function PrivacyPolicyScreen() {
           />
         </View>
       </ThemedScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

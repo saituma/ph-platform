@@ -49,7 +49,8 @@ describe("planAccess", () => {
     expect(hasAssignedProgramTier(null)).toBe(false);
     expect(hasAssignedProgramTier("PHP")).toBe(true);
     expect(hasPremiumPlanFeatures("PHP")).toBe(false);
-    expect(hasPremiumPlanFeatures("PHP_Premium")).toBe(true);
+    expect(hasPremiumPlanFeatures("PHP_Premium")).toBe(false);
+    expect(hasPremiumPlanFeatures("PHP_Premium_Plus")).toBe(true);
     expect(hasPhpPlusPlanFeatures("PHP_Premium")).toBe(false);
     expect(hasPhpPlusPlanFeatures("PHP_Premium_Plus")).toBe(true);
     expect(hasPhpProPlanFeatures("PHP_Premium_Plus")).toBe(false);

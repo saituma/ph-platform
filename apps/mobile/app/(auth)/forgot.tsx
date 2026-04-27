@@ -21,7 +21,13 @@ export default function ForgotScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app">
       <View className="px-4 pt-4">
-        <Pressable onPress={() => router.back()} className="p-2 self-start">
+        <Pressable
+          onPress={() => router.back()}
+          className="p-2 self-start"
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={8}
+        >
           <Feather
             name="arrow-left"
             size={24}

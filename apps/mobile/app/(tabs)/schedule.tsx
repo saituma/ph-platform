@@ -51,13 +51,13 @@ function relativeDate(dateKey: string): string {
   });
 }
 
-function accentFor(status?: string) {
+function accentFor(status?: string, colors?: Record<string, string>) {
   switch (status?.toLowerCase()) {
-    case "confirmed": return "#22C55E";
-    case "pending":   return "#F59E0B";
+    case "confirmed": return colors?.success ?? "#22C55E";
+    case "pending":   return colors?.warning ?? "#F59E0B";
     case "declined":
-    case "cancelled": return "#94A3B8";
-    default:          return "#6366F1";
+    case "cancelled": return colors?.textSecondary ?? "#94A3B8";
+    default:          return colors?.accent ?? "#6366F1";
   }
 }
 
@@ -338,7 +338,12 @@ const TeamBanner = memo(function TeamBanner() {
 export default memo(function ScheduleScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
-  const { token, programTier, apiUserRole, managedAthletes, athleteUserId, authTeamMembership } = useAppSelector((s) => s.user);
+  const token = useAppSelector((s) => s.user.token);
+  const programTier = useAppSelector((s) => s.user.programTier);
+  const apiUserRole = useAppSelector((s) => s.user.apiUserRole);
+  const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
+  const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
+  const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const canBook = canSelfBookSchedule(apiUserRole);
   const userTeamId = authTeamMembership?.teamId ?? null;
   const userAthleteType = useMemo(() => {

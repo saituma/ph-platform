@@ -34,15 +34,19 @@ export function RefreshProvider({ children }: { children: React.ReactNode }) {
     setRefreshHandler((prev) => (prev === handler ? null : prev));
   }, []);
 
+  const setIsLoadingCb = useCallback((loading: boolean) => {
+    setIsLoading(loading);
+  }, []);
+
   const value = useMemo(
     () => ({
       registerHandler,
       unregisterHandler,
       refreshHandler,
       isLoading,
-      setIsLoading,
+      setIsLoading: setIsLoadingCb,
     }),
-    [registerHandler, unregisterHandler, refreshHandler, isLoading],
+    [registerHandler, unregisterHandler, refreshHandler, isLoading, setIsLoadingCb],
   );
 
   return (

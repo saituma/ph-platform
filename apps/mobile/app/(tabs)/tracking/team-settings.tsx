@@ -139,7 +139,7 @@ export default function TeamSettingsScreen() {
         >
           <RoundIconButton
             onPress={handleBack}
-            icon={<Ionicons name="arrow-back" size={20} color="#FFFFFF" />}
+            icon={<Ionicons name="arrow-back" size={20} color="hsl(220, 5%, 94%)" />}
           />
           <Text style={{ fontFamily: fonts.heading2, fontSize: 22, color: colors.textPrimary }}>
             Team settings
@@ -149,10 +149,10 @@ export default function TeamSettingsScreen() {
 
         <View
           style={{
-            backgroundColor: "#0D140F",
+            backgroundColor: isDark ? "hsl(155, 10%, 8%)" : "hsl(155, 15%, 95%)",
             borderRadius: radius.xxl,
             borderWidth: 1,
-            borderColor: "rgba(34,197,94,0.18)",
+            borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.15)",
             padding: spacing.xl,
             gap: spacing.sm,
           }}
@@ -160,7 +160,7 @@ export default function TeamSettingsScreen() {
           <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary }}>
             Manage team visibility
           </Text>
-          <Text style={{ color: "#A7F3D0" }}>
+          <Text style={{ color: isDark ? "hsl(155, 30%, 75%)" : "hsl(155, 35%, 35%)" }}>
             Control whether your runs appear in the team feed, leaderboard, and directory.
           </Text>
         </View>
@@ -198,7 +198,7 @@ export default function TeamSettingsScreen() {
                 value={privacySettings?.socialEnabled ?? false}
                 onValueChange={handleToggleSocialEnabled}
                 trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-                thumbColor="#fff"
+                thumbColor="hsl(220, 5%, 98%)"
               />
             )}
           </View>
@@ -306,7 +306,7 @@ function SettingRow({
   subtitle: string;
   value: boolean;
   onChange: (v: boolean) => void;
-  colors: any;
+  colors: Record<string, string>;
   disabled: boolean;
 }) {
   return (
@@ -323,7 +323,7 @@ function SettingRow({
         value={value}
         onValueChange={onChange}
         trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-        thumbColor="#fff"
+        thumbColor="hsl(220, 5%, 98%)"
         disabled={disabled}
       />
     </View>

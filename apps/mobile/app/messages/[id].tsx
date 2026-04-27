@@ -7,29 +7,26 @@ import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
 import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import { useMessagesController } from "@/hooks/useMessagesController";
+import { fonts } from "@/constants/theme";
 import React from "react";
 import { ActivityIndicator, Pressable, View, Alert } from "react-native";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams } from "expo-router";
-import { useRouter } from "expo-router";
 import { Text } from "@/components/ScaledText";
+import { Ionicons } from "@expo/vector-icons";
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
-import { Feather } from "@/components/ui/theme-icons";
 
 export default function ThreadScreen() {
   const { colors, isDark } = useAppTheme();
-  const dispatch = useAppDispatch();
-  const router = useRouter();
   const token = useAppSelector((state) => state.user.token);
   const appRole = useAppSelector((state) => state.user.appRole);
   const profile = useAppSelector((state) => state.user.profile);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
-  const canMessage = true;
   const isYouthAthleteRole =
     appRole === "youth_athlete_guardian_only" ||
     appRole === "youth_athlete_team_guardian";
@@ -113,22 +110,25 @@ export default function ThreadScreen() {
     setPendingAttachment(null);
   }, [setPendingAttachment]);
 
+  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
+  const dangerColor = isDark ? "hsl(0, 35%, 60%)" : "hsl(0, 40%, 48%)";
+  const dangerBg = isDark ? "hsla(0, 35%, 60%, 0.10)" : "hsla(0, 40%, 48%, 0.06)";
+  const dangerBorder = isDark ? "hsla(0, 35%, 60%, 0.25)" : "hsla(0, 40%, 48%, 0.18)";
+  const warningColor = isDark ? "hsl(40, 35%, 60%)" : "hsl(40, 45%, 42%)";
+  const warningBg = isDark ? "hsla(40, 35%, 60%, 0.10)" : "hsla(40, 45%, 42%, 0.06)";
+  const warningBorder = isDark ? "hsla(40, 35%, 60%, 0.25)" : "hsla(40, 45%, 42%, 0.18)";
+  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+
   if (!currentThread) {
     return (
-      <View className="flex-1 bg-app items-center justify-center">
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
-  const isGroupThread = currentThread.id.startsWith("group:");
-  const canSendInThread = true;
-
   return (
-    <View
-      className="flex-1 bg-app"
-      style={{ backgroundColor: colors.background }}
-    >
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ThreadHeader
         thread={currentThread}
         onBack={clearThread}
@@ -136,23 +136,35 @@ export default function ThreadScreen() {
         sharedAvatarTag={sharedAvatarTag}
       />
       {isYouthAthleteRole ? (
-        <View className="px-4 pb-2">
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
           <View
-            className="rounded-2xl px-4 py-3 border"
             style={{
-              backgroundColor: "rgba(34,197,94,0.08)",
-              borderColor: "rgba(34,197,94,0.16)",
+              borderRadius: 16,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderWidth: 1,
+              backgroundColor: isDark ? "hsla(155, 25%, 50%, 0.08)" : "hsla(155, 35%, 50%, 0.06)",
+              borderColor: isDark ? "hsla(155, 25%, 50%, 0.16)" : "hsla(155, 35%, 50%, 0.12)",
             }}
           >
             <Text
-              className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
-              style={{ color: colors.accent }}
+              style={{
+                fontSize: 11,
+                fontFamily: fonts.bodyBold,
+                textTransform: "uppercase",
+                letterSpacing: 1.2,
+                color: colors.accent,
+              }}
             >
               Coaching thread
             </Text>
             <Text
-              className="mt-1 text-sm font-outfit"
-              style={{ color: colors.textSecondary }}
+              style={{
+                marginTop: 4,
+                fontSize: 14,
+                fontFamily: "Outfit",
+                color: isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,45%)",
+              }}
             >
               Keep {focusName}&apos;s progress updates in one thread for faster
               coach feedback.
@@ -181,7 +193,7 @@ export default function ThreadScreen() {
         onLongPressMessage={handleLongPressMessage}
         onReactionPress={handleToggleReaction}
         onOpenReactionPicker={(message) => setReactionTarget(message)}
-        composerDisabled={!canSendInThread}
+        composerDisabled={false}
         pendingAttachment={pendingAttachment}
         onRemovePendingAttachment={handleRemovePendingAttachment}
         isUploadingAttachment={isUploadingAttachment}
@@ -253,39 +265,47 @@ export default function ThreadScreen() {
             pressBehavior="close"
           />
         )}
-        backgroundStyle={{ backgroundColor: colors.card }}
+        backgroundStyle={{ backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card }}
         handleIndicatorStyle={{
           backgroundColor: isDark
             ? "rgba(255,255,255,0.28)"
             : "rgba(15,23,42,0.22)",
         }}
       >
-        <BottomSheetView className="px-6 pb-8">
+        <BottomSheetView style={{ paddingHorizontal: 24, paddingBottom: 32 }}>
           <Text
-            className="font-clash text-[18px] font-bold"
-            style={{ color: colors.text }}
+            style={{
+              fontFamily: "ClashDisplay-Bold",
+              fontSize: 18,
+              color: textPrimary,
+            }}
           >
             Message actions
           </Text>
-          <View className="mt-5 flex-col gap-3">
-            <View className="flex-row gap-3">
+          <View style={{ marginTop: 20, gap: 12 }}>
+            <View style={{ flexDirection: "row", gap: 12 }}>
               <Pressable
                 onPress={() => {
                   const target = messageActionsTarget;
                   setMessageActionsTarget(null);
                   if (target) setReactionTarget(target);
                 }}
-                className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
-                style={{
-                  borderColor: colors.borderSubtle,
-                  backgroundColor: colors.backgroundSecondary,
-                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  flexDirection: "row",
+                  gap: 8,
+                  borderColor: cardBorder,
+                  backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+                  opacity: pressed ? 0.8 : 1,
+                })}
               >
-                <Feather name="smile" size={18} color={colors.accent} />
-                <Text
-                  className="font-outfit font-bold"
-                  style={{ color: colors.text }}
-                >
+                <Ionicons name="happy-outline" size={18} color={colors.accent} />
+                <Text style={{ fontFamily: fonts.bodyBold, color: textPrimary }}>
                   React
                 </Text>
               </Pressable>
@@ -296,23 +316,28 @@ export default function ThreadScreen() {
                     setMessageActionsTarget(null);
                     if (target) void handleDeleteMessage(target);
                   }}
-                  className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
-                  style={{
-                    borderColor: "rgba(239,68,68,0.25)",
-                    backgroundColor: "rgba(239,68,68,0.10)",
-                  }}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    height: 48,
+                    borderRadius: 14,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    flexDirection: "row",
+                    gap: 8,
+                    borderColor: dangerBorder,
+                    backgroundColor: dangerBg,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
                 >
-                  <Feather name="trash-2" size={18} color="#EF4444" />
-                  <Text
-                    className="font-outfit font-bold"
-                    style={{ color: "#EF4444" }}
-                  >
+                  <Ionicons name="trash-outline" size={18} color={dangerColor} />
+                  <Text style={{ fontFamily: fonts.bodyBold, color: dangerColor }}>
                     Delete
                   </Text>
                 </Pressable>
               )}
             </View>
-            <View className="flex-row gap-3">
+            <View style={{ flexDirection: "row", gap: 12 }}>
               <Pressable
                 onPress={() => {
                   setMessageActionsTarget(null);
@@ -321,17 +346,22 @@ export default function ThreadScreen() {
                     { text: "Report", style: "destructive", onPress: () => Alert.alert("User Reported", "A report has been sent to our moderation team.") }
                   ]);
                 }}
-                className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
-                style={{
-                  borderColor: "rgba(245,158,11,0.25)",
-                  backgroundColor: "rgba(245,158,11,0.10)",
-                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  flexDirection: "row",
+                  gap: 8,
+                  borderColor: warningBorder,
+                  backgroundColor: warningBg,
+                  opacity: pressed ? 0.8 : 1,
+                })}
               >
-                <Feather name="flag" size={18} color="#F59E0B" />
-                <Text
-                  className="font-outfit font-bold"
-                  style={{ color: "#F59E0B" }}
-                >
+                <Ionicons name="flag-outline" size={18} color={warningColor} />
+                <Text style={{ fontFamily: fonts.bodyBold, color: warningColor }}>
                   Report
                 </Text>
               </Pressable>
@@ -344,17 +374,22 @@ export default function ThreadScreen() {
                       { text: "Block", style: "destructive", onPress: () => Alert.alert("User Blocked", "This user has been blocked.") }
                     ]);
                   }}
-                  className="flex-1 h-12 rounded-2xl items-center justify-center border flex-row gap-2"
-                  style={{
-                    borderColor: "rgba(239,68,68,0.25)",
-                    backgroundColor: "rgba(239,68,68,0.10)",
-                  }}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    height: 48,
+                    borderRadius: 14,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    flexDirection: "row",
+                    gap: 8,
+                    borderColor: dangerBorder,
+                    backgroundColor: dangerBg,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
                 >
-                  <Feather name="slash" size={18} color="#EF4444" />
-                  <Text
-                    className="font-outfit font-bold"
-                    style={{ color: "#EF4444" }}
-                  >
+                  <Ionicons name="ban-outline" size={18} color={dangerColor} />
+                  <Text style={{ fontFamily: fonts.bodyBold, color: dangerColor }}>
                     Block
                   </Text>
                 </Pressable>
@@ -363,16 +398,19 @@ export default function ThreadScreen() {
           </View>
           <Pressable
             onPress={() => setMessageActionsTarget(null)}
-            className="mt-4 h-12 rounded-2xl items-center justify-center border"
-            style={{
-              borderColor: colors.borderSubtle,
-              backgroundColor: colors.backgroundSecondary,
-            }}
+            style={({ pressed }) => ({
+              marginTop: 16,
+              height: 48,
+              borderRadius: 14,
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              borderColor: cardBorder,
+              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+              opacity: pressed ? 0.8 : 1,
+            })}
           >
-            <Text
-              className="font-outfit font-bold"
-              style={{ color: colors.text }}
-            >
+            <Text style={{ fontFamily: fonts.bodyBold, color: textPrimary }}>
               Close
             </Text>
           </Pressable>

@@ -53,17 +53,43 @@ const FilterPill = function FilterPill({
 }: FilterPillProps) {
   const { colors, isDark } = useAppTheme();
 
+  const bg = active
+    ? colors.accent
+    : isDark
+      ? "hsl(220, 5%, 92%)"
+      : "hsl(220, 8%, 12%)";
+
+  const textColor = active
+    ? "hsl(220, 5%, 98%)"
+    : isDark
+      ? "hsl(220, 8%, 10%)"
+      : "hsl(220, 5%, 94%)";
+
+  const badgeBg = active
+    ? "rgba(255,255,255,0.22)"
+    : isDark
+      ? "rgba(0,0,0,0.12)"
+      : "rgba(255,255,255,0.18)";
+
+  const badgeText = active
+    ? "hsl(220, 5%, 98%)"
+    : isDark
+      ? "hsl(220, 8%, 10%)"
+      : "hsl(220, 5%, 94%)";
+
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }: { pressed: boolean }) => [
         styles.filterPill,
         {
-          backgroundColor: active
-            ? colors.textPrimary
+          backgroundColor: bg,
+          borderWidth: 1,
+          borderColor: active
+            ? colors.accent
             : isDark
-              ? "rgba(255,255,255,0.05)"
-              : "rgba(0,0,0,0.03)",
+              ? "hsl(220, 5%, 85%)"
+              : "hsl(220, 8%, 18%)",
           transform: [{ scale: pressed ? 0.95 : 1 }],
         },
       ]}
@@ -76,15 +102,15 @@ const FilterPill = function FilterPill({
           styles.filterPillText,
           {
             fontFamily: active ? "Outfit-Bold" : "Outfit-Medium",
-            color: active ? colors.background : colors.textSecondary,
+            color: textColor,
           },
         ]}
       >
         {label}
       </Text>
       {count !== undefined && count > 0 && (
-        <View style={[styles.pillBadge, { backgroundColor: active ? 'rgba(255,255,255,0.2)' : colors.accentLight }]}>
-          <Text style={[styles.pillBadgeText, { color: active ? colors.background : colors.accent }]}>
+        <View style={[styles.pillBadge, { backgroundColor: badgeBg }]}>
+          <Text style={[styles.pillBadgeText, { color: badgeText }]}>
             {count}
           </Text>
         </View>
@@ -130,6 +156,8 @@ const InboxEmptyState = function InboxEmptyState() {
     </Animated.View>
   );
 };
+
+const InboxListSeparator = () => <View style={{ height: 8 }} />;
 
 // ── Main ─────────────────────────────────────────────────────────────
 
@@ -180,6 +208,19 @@ function InboxScreenBase({
     setSearchText("");
   }, []);
 
+  const renderItem = useCallback(
+    ({ item, index }: { item: MessageThread; index: number }) => (
+      <ThreadListItem
+        thread={item}
+        typingStatus={typingStatus}
+        openingThreadId={openingThreadId}
+        onOpenThread={onOpenThread}
+        index={index}
+      />
+    ),
+    [typingStatus, openingThreadId, onOpenThread],
+  );
+
   if (isLoading) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -187,16 +228,6 @@ function InboxScreenBase({
       </View>
     );
   }
-
-  const renderItem = ({ item, index }: { item: MessageThread; index: number }) => (
-    <ThreadListItem
-      thread={item}
-      typingStatus={typingStatus}
-      openingThreadId={openingThreadId}
-      onOpenThread={onOpenThread}
-      index={index}
-    />
-  );
 
   // Force light mode background to be off-white so that pure white cards visibly pop and show shadow contrast
   const screenBg = isDark ? colors.background : "#F4F6F8";
@@ -274,7 +305,7 @@ function InboxScreenBase({
               tintColor={colors.accent}
             />
           }
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          ItemSeparatorComponent={InboxListSeparator}
         />
       ) : (
         <InboxEmptyState />

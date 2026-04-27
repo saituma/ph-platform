@@ -58,7 +58,7 @@ export default function AthleteStatsScreen() {
     },
   });
 
-  const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium");
+  const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium_Plus");
 
   const loadAthletes = useCallback(async () => {
     if (!token) return;
@@ -272,7 +272,7 @@ export default function AthleteStatsScreen() {
   }
 
   if (!hasPremiumAccess) {
-    const unlockingPlans = getUnlockingPlanNames("PHP_Premium");
+    const unlockingPlans = getUnlockingPlanNames("PHP_Premium_Plus");
     return (
       <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
         <ThemedScrollView

@@ -4,19 +4,28 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { apiRequest } from "@/lib/api";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAppSelector } from "@/store/hooks";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+import { fonts } from "@/constants/theme";
 
 export default function FeedbackScreen() {
   const router = useRouter();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
+  const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
   const [feedback, setFeedback] = useState("");
   const [category, setCategory] = useState("Bug Report");
   const [isSending, setIsSending] = useState(false);
+
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
 
   const categories = [
     "Bug Report",
@@ -26,7 +35,7 @@ export default function FeedbackScreen() {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
       <MoreStackHeader
         title="Send Feedback"
         subtitle="Tell us what feels great, what feels broken, and what you want next."
@@ -35,7 +44,7 @@ export default function FeedbackScreen() {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        style={{ flex: 1 }}
       >
         <ThemedScrollView
           onRefresh={async () => {
@@ -47,53 +56,103 @@ export default function FeedbackScreen() {
             paddingBottom: 40,
           }}
         >
-          <View className="mb-8">
-            <Text className="text-3xl font-telma-bold text-app mb-2">
+          <View style={{ marginBottom: 32 }}>
+            <Text style={{ fontSize: 28, fontFamily: "TelmaBold", color: textPrimary, marginBottom: 8 }}>
               We value your input
             </Text>
-            <Text className="text-base font-outfit text-secondary leading-relaxed">
+            <Text style={{ fontSize: 15, fontFamily: "Outfit", color: labelColor, lineHeight: 22 }}>
               Help us improve the coaching experience by sharing your thoughts
               or reporting issues.
             </Text>
           </View>
 
-          <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
+          <Text
+            style={{
+              fontSize: 11,
+              fontFamily: fonts.bodyBold,
+              color: labelColor,
+              textTransform: "uppercase",
+              letterSpacing: 1.2,
+              marginBottom: 16,
+              marginLeft: 8,
+            }}
+          >
             Select Category
           </Text>
-          <View className="flex-row flex-wrap gap-2 mb-8">
-            {categories.map((cat) => (
-              <TouchableOpacity
-                key={cat}
-                onPress={() => setCategory(cat)}
-                className={`px-6 py-3 rounded-2xl border ${
-                  category === cat
-                    ? "bg-accent border-accent"
-                    : "bg-input border-app"
-                }`}
-              >
-                <Text
-                  className={`font-outfit font-bold ${
-                    category === cat ? "text-white" : "text-app"
-                  }`}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
+            {categories.map((cat) => {
+              const isActive = category === cat;
+              return (
+                <Pressable
+                  key={cat}
+                  onPress={() => setCategory(cat)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: 24,
+                    paddingVertical: 12,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    backgroundColor: isActive
+                      ? colors.accent
+                      : cardBg,
+                    borderColor: isActive
+                      ? colors.accent
+                      : cardBorder,
+                    opacity: pressed ? 0.85 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                  })}
                 >
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={{
+                      fontFamily: fonts.bodyBold,
+                      fontSize: 14,
+                      color: isActive
+                        ? "hsl(220, 5%, 98%)"
+                        : textPrimary,
+                    }}
+                  >
+                    {cat}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
 
-          <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
+          <Text
+            style={{
+              fontSize: 11,
+              fontFamily: fonts.bodyBold,
+              color: labelColor,
+              textTransform: "uppercase",
+              letterSpacing: 1.2,
+              marginBottom: 16,
+              marginLeft: 8,
+            }}
+          >
             Your Message
           </Text>
-          <View className="bg-input border border-app rounded-3xl p-5 mb-8 shadow-inner min-h-[200px]">
+          <View
+            style={{
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              borderRadius: 20,
+              padding: 20,
+              marginBottom: 32,
+              minHeight: 200,
+            }}
+          >
             <TextInput
               multiline
               placeholder="What's on your mind?..."
-              placeholderTextColor={colors.placeholder}
+              placeholderTextColor={labelColor}
               value={feedback}
               onChangeText={setFeedback}
-              className="font-outfit text-app text-base"
-              style={{ textAlignVertical: "top" }}
+              style={{
+                fontFamily: "Outfit",
+                color: textPrimary,
+                fontSize: 15,
+                textAlignVertical: "top",
+              }}
             />
           </View>
 
@@ -131,6 +190,6 @@ export default function FeedbackScreen() {
           />
         </ThemedScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }

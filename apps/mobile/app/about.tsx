@@ -2,19 +2,27 @@ import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
-import { Feather } from "@expo/vector-icons";
 import { Ionicons } from "@expo/vector-icons";
+import { fonts } from "@/constants/theme";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Constants from "expo-constants";
 import React, { useMemo } from "react";
 import { Linking, Pressable, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-const DEFAULT_SITE_URL = "https://www.instagram.com/ph.perform/";
 const INSTAGRAM_URL = "https://www.instagram.com/ph.perform/";
 
 export default function AboutScreen() {
   const { colors, isDark } = useAppTheme();
+  const insets = useAppSafeAreaInsets();
+
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 30%, 97%)";
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
+  const accentSoft = isDark ? `${colors.accent}18` : `${colors.accent}14`;
+  const mutedFill = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";
 
   const versionLine = useMemo(() => {
     const appVersion = Constants.expoConfig?.version ?? "—";
@@ -28,19 +36,10 @@ export default function AboutScreen() {
     return build ? `${appVersion} (build ${build})` : appVersion;
   }, []);
 
-  const siteUrl = process.env.EXPO_PUBLIC_MARKETING_SITE_URL?.trim() || DEFAULT_SITE_URL;
-
-  const cardStyle = {
-    backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
-    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
-    ...(isDark ? Shadows.none : Shadows.sm),
-  };
-
-  const mutedFill = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";
-  const accentSoft = isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.12)";
+  const siteUrl = process.env.EXPO_PUBLIC_MARKETING_SITE_URL?.trim() || INSTAGRAM_URL;
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }} edges={["top"]}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
       <MoreStackHeader
         title="About App"
         subtitle="Platform overview, mission, and how to stay in touch with the team."
@@ -58,78 +57,129 @@ export default function AboutScreen() {
         }}
       >
         {/* Hero */}
-        <View className="items-center mb-8">
+        <View style={{ alignItems: "center", marginBottom: 32 }}>
           <View
-            className="w-[88px] h-[88px] rounded-[28px] items-center justify-center mb-5 border"
             style={{
-              backgroundColor: accentSoft,
-              borderColor: isDark ? "rgba(34,197,94,0.35)" : "rgba(34,197,94,0.25)",
-              ...(isDark ? Shadows.none : Shadows.md),
+              width: 88,
+              height: 88,
+              borderRadius: 24,
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 20,
+              borderWidth: 1,
+              backgroundColor: isDark ? "hsla(155, 25%, 50%, 0.14)" : "hsla(155, 35%, 50%, 0.10)",
+              borderColor: isDark ? "hsla(155, 25%, 50%, 0.35)" : "hsla(155, 35%, 50%, 0.25)",
             }}
           >
             <View
-              className="w-[60px] h-[60px] rounded-[20px] items-center justify-center"
-              style={{ backgroundColor: colors.accent }}
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 18,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: colors.accent,
+              }}
             >
-              <Feather name="activity" size={30} color="#FFFFFF" />
+              <Ionicons name="pulse-outline" size={30} color="hsl(220, 5%, 98%)" />
             </View>
           </View>
-          <Text className="text-3xl font-telma-bold text-center" style={{ color: colors.text }}>
+          <Text style={{ fontSize: 28, fontFamily: "TelmaBold", textAlign: "center", color: textPrimary }}>
             PHP Coaching
           </Text>
           <View
-            className="mt-3 px-3 py-1.5 rounded-full border"
-            style={{ backgroundColor: mutedFill, borderColor: cardStyle.borderColor as string }}
+            style={{
+              marginTop: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 99,
+              borderWidth: 1,
+              backgroundColor: mutedFill,
+              borderColor: cardBorder,
+            }}
           >
-            <Text className="text-xs font-outfit font-medium" style={{ color: colors.textSecondary }}>
+            <Text style={{ fontSize: 12, fontFamily: fonts.bodyMedium, color: labelColor }}>
               Version {versionLine}
             </Text>
           </View>
         </View>
 
         {/* Mission + platform */}
-        <View className="rounded-[28px] border px-5 py-5 mb-4" style={cardStyle}>
-          <View className="flex-row items-center gap-2 mb-3">
+        <View
+          style={{
+            borderRadius: 20,
+            borderWidth: 1,
+            paddingHorizontal: 20,
+            paddingVertical: 20,
+            marginBottom: 16,
+            backgroundColor: cardBg,
+            borderColor: cardBorder,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <View
-              className="h-8 w-8 rounded-xl items-center justify-center"
-              style={{ backgroundColor: accentSoft }}
+              style={{
+                height: 32,
+                width: 32,
+                borderRadius: 10,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: accentSoft,
+              }}
             >
-              <Feather name="target" size={16} color={colors.accent} />
+              <Ionicons name="locate-outline" size={16} color={colors.accent} />
             </View>
-            <Text className="text-lg font-clash font-bold" style={{ color: colors.text }}>
+            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
               Our mission
             </Text>
           </View>
-          <Text className="text-[15px] font-outfit leading-[22px] mb-5" style={{ color: colors.textSecondary }}>
+          <Text style={{ fontSize: 15, fontFamily: "Outfit", lineHeight: 22, marginBottom: 20, color: labelColor }}>
             Professional-grade football coaching and athletic development for young athletes — grounded in science
             and elite experience.
           </Text>
 
           <View
-            className="h-px w-full mb-5"
-            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)" }}
+            style={{
+              height: 1,
+              width: "100%",
+              marginBottom: 20,
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+            }}
           />
 
-          <View className="flex-row items-center gap-2 mb-3">
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <View
-              className="h-8 w-8 rounded-xl items-center justify-center"
-              style={{ backgroundColor: accentSoft }}
+              style={{
+                height: 32,
+                width: 32,
+                borderRadius: 10,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: accentSoft,
+              }}
             >
-              <Feather name="smartphone" size={16} color={colors.accent} />
+              <Ionicons name="phone-portrait-outline" size={16} color={colors.accent} />
             </View>
-            <Text className="text-lg font-clash font-bold" style={{ color: colors.text }}>
+            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
               The platform
             </Text>
           </View>
-          <Text className="text-[15px] font-outfit leading-[22px]" style={{ color: colors.textSecondary }}>
+          <Text style={{ fontSize: 15, fontFamily: "Outfit", lineHeight: 22, color: labelColor }}>
             Built by coaches and developers at Lift Lab to bridge amateur play and professional pathways.
           </Text>
         </View>
 
-        {/* Social — full-width row so it reads as a real button in light mode */}
+        {/* Social — Instagram */}
         <Text
-          className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px] mb-2 px-1"
-          style={{ color: colors.textSecondary }}
+          style={{
+            fontSize: 10,
+            fontFamily: fonts.bodyBold,
+            textTransform: "uppercase",
+            letterSpacing: 1.4,
+            marginBottom: 8,
+            paddingHorizontal: 4,
+            color: labelColor,
+          }}
         >
           Connect
         </Text>
@@ -137,55 +187,84 @@ export default function AboutScreen() {
           onPress={() => void Linking.openURL(INSTAGRAM_URL)}
           accessibilityRole="link"
           accessibilityLabel="Follow PH Performance on Instagram"
-          className="flex-row items-center gap-4 rounded-[22px] border px-4 py-4 mb-4 active:opacity-90"
-          style={{
-            backgroundColor: isDark ? colors.cardElevated : colors.backgroundSecondary,
-            borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.1)",
-            ...(isDark ? Shadows.none : Shadows.sm),
-          }}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 16,
+            borderRadius: 20,
+            borderWidth: 1,
+            paddingHorizontal: 16,
+            paddingVertical: 16,
+            marginBottom: 16,
+            backgroundColor: cardBg,
+            borderColor: cardBorder,
+            opacity: pressed ? 0.9 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
         >
           <View
-            className="h-12 w-12 rounded-2xl items-center justify-center border"
             style={{
-              backgroundColor: isDark ? "rgba(225,48,108,0.12)" : "rgba(225,48,108,0.08)",
-              borderColor: isDark ? "rgba(225,48,108,0.25)" : "rgba(225,48,108,0.2)",
+              height: 48,
+              width: 48,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              backgroundColor: isDark ? "hsla(340, 25%, 50%, 0.12)" : "hsla(340, 30%, 50%, 0.08)",
+              borderColor: isDark ? "hsla(340, 25%, 50%, 0.25)" : "hsla(340, 30%, 50%, 0.2)",
             }}
           >
-            <Ionicons name="logo-instagram" size={26} color="#E1306C" />
+            <Ionicons name="logo-instagram" size={26} color={isDark ? "hsl(340, 35%, 65%)" : "hsl(340, 50%, 50%)"} />
           </View>
-          <View className="flex-1">
-            <Text className="text-base font-clash font-semibold" style={{ color: colors.text }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
               Instagram
             </Text>
-            <Text className="text-sm font-outfit mt-0.5" style={{ color: colors.textSecondary }}>
+            <Text style={{ fontSize: 13, fontFamily: "Outfit", marginTop: 2, color: labelColor }}>
               @ph.perform — updates, drills, and community
             </Text>
           </View>
-          <Feather name="chevron-right" size={20} color={colors.icon} />
+          <Ionicons name="chevron-forward" size={17} color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"} />
         </Pressable>
 
-        {/* Primary CTA — accent fill + white copy (always readable) */}
+        {/* Primary CTA */}
         <Pressable
           onPress={() => void Linking.openURL(siteUrl)}
-          className="h-14 flex-row items-center justify-center gap-2 rounded-2xl px-5 active:opacity-92"
-          style={{
+          style={({ pressed }) => ({
+            height: 56,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            borderRadius: 16,
+            paddingHorizontal: 20,
             backgroundColor: colors.accent,
-            ...(isDark ? Shadows.none : Shadows.md),
-          }}
+            opacity: pressed ? 0.85 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
         >
-          <Feather name="external-link" size={20} color="#FFFFFF" />
-          <Text className="text-base font-clash font-bold" style={{ color: "#FFFFFF" }}>
+          <Ionicons name="open-outline" size={20} color="hsl(220, 5%, 98%)" />
+          <Text style={{ fontSize: 15, fontFamily: fonts.bodyBold, color: "hsl(220, 5%, 98%)" }}>
             Visit website
           </Text>
         </Pressable>
 
         <Text
-          className="text-center font-outfit text-[10px] mt-8 uppercase tracking-[2px] px-4 leading-4"
-          style={{ color: colors.textSecondary }}
+          style={{
+            textAlign: "center",
+            fontFamily: "Outfit",
+            fontSize: 10,
+            marginTop: 32,
+            textTransform: "uppercase",
+            letterSpacing: 2,
+            paddingHorizontal: 16,
+            lineHeight: 16,
+            color: labelColor,
+          }}
         >
           © 2026 Lift Lab Ltd. All rights reserved.
         </Text>
       </ThemedScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

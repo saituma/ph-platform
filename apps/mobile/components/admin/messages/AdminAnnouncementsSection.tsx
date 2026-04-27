@@ -192,18 +192,33 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
   };
 
   return (
-    <View className="gap-4">
-      <View className="flex-row gap-2">
-        <View className="flex-1 rounded-2xl border border-app/10 bg-card px-4 py-3">
+    <View style={{ gap: 16, paddingHorizontal: 20 }}>
+      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+        <View
+          style={{
+            flex: 1,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+            paddingHorizontal: 14,
+            height: 44,
+            justifyContent: "center",
+          }}
+        >
           <TextInput
-            className="text-[14px] font-outfit text-app"
+            style={{
+              fontFamily: "Outfit-Regular",
+              fontSize: 14,
+              color: colors.textPrimary,
+            }}
             value={query}
             onChangeText={setQuery}
             placeholder="Search announcements..."
             placeholderTextColor={colors.placeholder}
           />
         </View>
-        <SmallAction label="New" tone="success" onPress={openCreate} />
+        <SmallAction label="+ New" tone="success" onPress={openCreate} />
       </View>
 
       {controller.loading && controller.items.length === 0 ? (
@@ -216,7 +231,7 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
       ) : filtered.length === 0 ? (
         <Text className="text-sm font-outfit text-secondary">No announcements found.</Text>
       ) : (
-        <View className="gap-3">
+        <View style={{ gap: 12 }}>
           {filtered.map((item) => {
             const starts = item.announcementStartsAt ?? item.startsAt ?? null;
             const ends = item.announcementEndsAt ?? item.endsAt ?? null;

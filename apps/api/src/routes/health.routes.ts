@@ -22,7 +22,7 @@ router.get("/health/fcm-test", async (_req, res) => {
     res.json({ ok: true, result: "sent (unexpected)" });
   } catch (err: any) {
     const code = err?.code ?? err?.errorInfo?.code ?? "unknown";
-    const working = code === "messaging/invalid-registration-token" || code === "messaging/registration-token-not-registered";
+    const working = code === "messaging/invalid-registration-token" || code === "messaging/registration-token-not-registered" || code === "messaging/invalid-argument";
     res.status(working ? 200 : 500).json({ ok: working, code, message: err?.message });
   }
 });

@@ -1,11 +1,12 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
-import { Feather } from "@/components/ui/theme-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
+import { Ionicons } from "@expo/vector-icons";
+import { fonts } from "@/constants/theme";
 import { useCallback, useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useRouter } from "expo-router";
 import { getNotifications } from "@/lib/notifications";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -18,12 +19,22 @@ const formatStatus = (status: PermissionStatus) =>
 
 export default function PermissionsScreen() {
   const { colors, isDark } = useAppTheme();
+  const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.user.token);
   const pushRegistration = useAppSelector((state) => state.app.pushRegistration);
   const [notificationStatus, setNotificationStatus] = useState<PermissionStatus>("undetermined");
   const [notificationsSupported, setNotificationsSupported] = useState(true);
+
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
+  const successColor = isDark ? "hsl(155, 30%, 55%)" : "hsl(155, 40%, 38%)";
+  const warningColor = isDark ? "hsl(40, 35%, 60%)" : "hsl(40, 45%, 42%)";
 
   const refreshStatuses = useCallback(async () => {
     const notifications = await getNotifications();
@@ -42,9 +53,7 @@ export default function PermissionsScreen() {
   }, [refreshStatuses]);
 
   const requestNotifications = async () => {
-    if (!token) {
-      return;
-    }
+    if (!token) return;
     const result = await registerDevicePushToken({
       token,
       dispatch,
@@ -59,8 +68,14 @@ export default function PermissionsScreen() {
     setNotificationStatus(result.permissionStatus);
   };
 
+  const isGranted = notificationStatus === "granted";
+  const statusBadgeBg = isGranted
+    ? isDark ? "hsla(155, 30%, 55%, 0.15)" : "hsla(155, 40%, 38%, 0.1)"
+    : isDark ? "hsla(40, 35%, 60%, 0.15)" : "hsla(40, 45%, 42%, 0.1)";
+  const statusBadgeText = isGranted ? successColor : warningColor;
+
   return (
-    <SafeAreaView className="flex-1 bg-app">
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
       <ThemedScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <MoreStackHeader
           title="Permissions"
@@ -69,28 +84,112 @@ export default function PermissionsScreen() {
           onBack={() => router.replace("/(tabs)/more")}
         />
 
-        <View className="px-6 gap-6">
-          <PermissionCard
-            icon="bell"
-            title="Notifications"
-            description={
-              notificationsSupported
-                ? "Get alerts for messages and updates."
-                : "Push notifications need a development build (not Expo Go)."
-            }
-            status={notificationStatus}
-            onRequest={requestNotifications}
-            onRevoke={() => Linking.openSettings()}
-            accentColor={colors.accent}
-            isDark={isDark}
-          />
+        <View style={{ paddingHorizontal: 24, gap: 24 }}>
+          {/* Notification permission card */}
+          <View
+            style={{
+              borderRadius: 20,
+              borderWidth: 1,
+              overflow: "hidden",
+              padding: 20,
+              gap: 16,
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+              <View
+                style={{
+                  height: 48,
+                  width: 48,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 16,
+                  backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
+                }}
+              >
+                <Ionicons name="notifications-outline" size={22} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
+                  Notifications
+                </Text>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit", color: labelColor, marginTop: 2 }}>
+                  {notificationsSupported
+                    ? "Get alerts for messages and updates."
+                    : "Push notifications need a development build (not Expo Go)."}
+                </Text>
+              </View>
+              <View
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 4,
+                  borderRadius: 99,
+                  backgroundColor: statusBadgeBg,
+                }}
+              >
+                <Text style={{ fontSize: 12, fontFamily: fonts.bodyBold, color: statusBadgeText }}>
+                  {formatStatus(notificationStatus)}
+                </Text>
+              </View>
+            </View>
 
-          <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app p-5 gap-3">
-            <Text className="text-lg font-clash text-app">Push Debug</Text>
-            <Text className="text-xs font-outfit text-secondary">
+            <Pressable
+              onPress={requestNotifications}
+              style={({ pressed }) => ({
+                borderRadius: 14,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                alignItems: "center",
+                backgroundColor: colors.accent,
+                opacity: pressed ? 0.85 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
+            >
+              <Text style={{ color: "hsl(220, 5%, 98%)", fontFamily: fonts.bodyBold, fontSize: 14 }}>
+                Request Permission
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              style={({ pressed }) => ({
+                borderRadius: 14,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                alignItems: "center",
+                borderWidth: 1,
+                borderColor: cardBorder,
+                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+                opacity: pressed ? 0.85 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
+            >
+              <Text style={{ color: textPrimary, fontFamily: fonts.bodyBold, fontSize: 14 }}>
+                Revoke in System Settings
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Push debug card */}
+          <View
+            style={{
+              borderRadius: 20,
+              borderWidth: 1,
+              overflow: "hidden",
+              padding: 20,
+              gap: 12,
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
+            }}
+          >
+            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
+              Push Debug
+            </Text>
+            <Text style={{ fontSize: 12, fontFamily: "Outfit", color: labelColor }}>
               Current native build push status for this device.
             </Text>
-            {[
+            {([
               ["Support", pushRegistration.support],
               ["Permission", pushRegistration.permissionStatus],
               ["Project ID", pushRegistration.projectId || "Missing"],
@@ -102,114 +201,78 @@ export default function PermissionsScreen() {
                   "Not available",
               ],
               ["Last error", pushRegistration.lastError || "None"],
-            ].map(([label, value]) => (
-              <View key={label} className="rounded-2xl border border-app px-4 py-3">
-                <Text className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px] text-secondary">
+            ] as [string, string][]).map(([label, value]) => (
+              <View
+                key={label}
+                style={{
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: cardBorder,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: fonts.bodyBold,
+                    textTransform: "uppercase",
+                    letterSpacing: 1.2,
+                    color: labelColor,
+                  }}
+                >
                   {label}
                 </Text>
-                <Text className="mt-1 text-xs font-outfit text-app">{value}</Text>
+                <Text
+                  selectable
+                  style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit", color: textPrimary }}
+                >
+                  {value}
+                </Text>
               </View>
             ))}
           </View>
 
+          {/* Open system settings */}
           <Pressable
             onPress={() => Linking.openSettings()}
-            className="bg-secondary rounded-3xl px-5 py-4 border border-app"
             style={({ pressed }) => ({
+              borderRadius: 20,
+              paddingHorizontal: 20,
+              paddingVertical: 16,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              backgroundColor: cardBg,
+              opacity: pressed ? 0.85 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
-              opacity: pressed ? 0.92 : 1,
             })}
           >
-            <View className="flex-row items-center gap-3">
-              <View className="h-10 w-10 items-center justify-center rounded-2xl bg-accent/15">
-                <Feather name="settings" size={18} color={colors.accent} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View
+                style={{
+                  height: 40,
+                  width: 40,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 12,
+                  backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}14`,
+                }}
+              >
+                <Ionicons name="settings-outline" size={18} color={colors.accent} />
               </View>
-              <View className="flex-1">
-                <Text className="text-base font-clash text-app">
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
                   Open System Settings
                 </Text>
-                <Text className="text-xs font-outfit text-secondary">
+                <Text style={{ fontSize: 12, fontFamily: "Outfit", color: labelColor, marginTop: 2 }}>
                   Manage all app permissions in system settings.
                 </Text>
               </View>
-              <Feather name="chevron-right" size={18} color={`${colors.accent}99`} />
+              <Ionicons name="chevron-forward" size={17} color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"} />
             </View>
           </Pressable>
         </View>
       </ThemedScrollView>
-    </SafeAreaView>
-  );
-}
-
-function PermissionCard({
-  icon,
-  title,
-  description,
-  status,
-  onRequest,
-  onRevoke,
-  accentColor,
-  isDark,
-}: {
-  icon: any;
-  title: string;
-  description: string;
-  status: PermissionStatus;
-  onRequest: () => void;
-  onRevoke?: () => void;
-  accentColor: string;
-  isDark: boolean;
-}) {
-  const isGranted = status === "granted";
-  const badgeBg = isGranted ? "bg-emerald-100" : "bg-amber-100";
-  const badgeText = isGranted ? "text-emerald-700" : "text-amber-700";
-  const badgeBgDark = isGranted ? "bg-emerald-500/15" : "bg-amber-400/15";
-  const badgeTextDark = isGranted ? "text-emerald-300" : "text-amber-300";
-
-  return (
-    <View className="bg-input rounded-3xl overflow-hidden shadow-sm border border-app p-5 gap-4">
-      <View className="flex-row items-center gap-4">
-        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-accent/10">
-          <Feather name={icon} size={22} color={accentColor} />
-        </View>
-        <View className="flex-1">
-          <Text className="text-lg font-clash text-app">{title}</Text>
-          <Text className="text-xs font-outfit text-secondary">{description}</Text>
-        </View>
-        <View
-          className={`px-3 py-1 rounded-full ${isDark ? badgeBgDark : badgeBg}`}
-        >
-          <Text className={`text-xs font-outfit font-semibold ${isDark ? badgeTextDark : badgeText}`}>
-            {formatStatus(status)}
-          </Text>
-        </View>
-      </View>
-      <Pressable
-        onPress={onRequest}
-        className="bg-accent rounded-2xl px-4 py-3 items-center"
-        style={({ pressed }) => ({
-          transform: [{ scale: pressed ? 0.98 : 1 }],
-          opacity: pressed ? 0.92 : 1,
-        })}
-      >
-        <Text className="text-white font-bold font-outfit text-sm">
-          Request Permission
-        </Text>
-      </Pressable>
-      {onRevoke ? (
-        <Pressable
-          onPress={onRevoke}
-          className="bg-secondary rounded-2xl px-4 py-3 items-center border border-app"
-          style={({ pressed }) => ({
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-            opacity: pressed ? 0.92 : 1,
-          })}
-        >
-          <Text className="text-app font-bold font-outfit text-sm">
-            Revoke in System Settings
-          </Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }

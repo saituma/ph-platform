@@ -4,10 +4,10 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Dimensions,
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -64,12 +64,11 @@ import {
 } from "../../../components/tracking/FeelTagSelector";
 import { pushRunsToCloud } from "../../../lib/runSync";
 
-const SCREEN_HEIGHT = Dimensions.get("window").height;
-const MAP_HEIGHT = SCREEN_HEIGHT * 0.52;
-
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function RunSummaryScreen() {
+  const { height: screenHeight } = useWindowDimensions();
+  const MAP_HEIGHT = screenHeight * 0.52;
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
   const { colors, isDark } = useAppTheme();

@@ -25,7 +25,7 @@ const TAB_CONFIG: {
   color: string;
 }[] = [
   { key: "inbox", label: "Inbox", icon: "mail", color: "#30B0C7" },
-  { key: "announcement", label: "Announcements", icon: "bell", color: "#7B61FF" },
+  { key: "announcement", label: "Announce", icon: "bell", color: "#7B61FF" },
   { key: "teams", label: "Teams", icon: "users", color: "#34C759" },
 ];
 
@@ -170,11 +170,12 @@ export default function AdminMessagesScreen() {
                 <Text
                   style={{
                     fontFamily: "Outfit-Bold",
-                    fontSize: 13,
-                    letterSpacing: 0.6,
+                    fontSize: 11,
+                    letterSpacing: 0.3,
                     textTransform: "uppercase",
                     color: isActive ? t.color : colors.textSecondary,
                   }}
+                  numberOfLines={1}
                 >
                   {t.label}
                 </Text>

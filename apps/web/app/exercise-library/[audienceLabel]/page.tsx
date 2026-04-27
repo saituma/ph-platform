@@ -18,6 +18,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import {
   AudienceWorkspace,
+  AudienceSummary,
   PROGRAM_TIERS,
   isProgramTierAudienceLabel,
   normalizeAudienceLabelInput,
@@ -63,6 +64,10 @@ export default function AudienceDetailPage() {
     [audienceLabel, fromAdultMode],
   );
   const audienceNoun = fromAdultMode ? "adult tier" : "age";
+  const currentTierValue = useMemo(
+    () => PROGRAM_TIERS.find((t) => t.label === audienceLabel)?.value ?? null,
+    [audienceLabel],
+  );
 
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [activeTab, setActiveTab] = useState<"modules" | "others">("modules");
@@ -88,6 +93,18 @@ export default function AudienceDetailPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingLocks, setIsUpdatingLocks] = useState(false);
+
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
+  const [copyStep, setCopyStep] = useState<"plan" | "modules" | "sessions">("plan");
+  const [copySourcePlans, setCopySourcePlans] = useState<AudienceSummary[]>([]);
+  const [copySelectedPlan, setCopySelectedPlan] = useState<string | null>(null);
+  const [copySourceWorkspace, setCopySourceWorkspace] = useState<AudienceWorkspace | null>(null);
+  const [copySelectedModules, setCopySelectedModules] = useState<Set<number>>(new Set());
+  const [copyAllModules, setCopyAllModules] = useState(true);
+  const [copyAllSessions, setCopyAllSessions] = useState(true);
+  const [copySelectedSessions, setCopySelectedSessions] = useState<Set<number>>(new Set());
+  const [isCopying, setIsCopying] = useState(false);
+  const [copyLoadingSource, setCopyLoadingSource] = useState(false);
 
   const loadWorkspace = async () => {
     try {
@@ -210,6 +227,70 @@ export default function AudienceDetailPage() {
     }
   };
 
+  const openCopyModal = async () => {
+    setCopyStep("plan");
+    setCopySelectedPlan(null);
+    setCopySourceWorkspace(null);
+    setCopySelectedModules(new Set());
+    setCopyAllModules(true);
+    setCopyAllSessions(true);
+    setCopySelectedSessions(new Set());
+    setCopyModalOpen(true);
+    try {
+      const plans = await trainingContentRequest<AudienceSummary[]>("/admin/audiences");
+      setCopySourcePlans(plans.filter((p) => p.label !== storageAudienceLabel));
+    } catch {
+      setCopySourcePlans([]);
+    }
+  };
+
+  const loadCopySourceWorkspace = async (label: string) => {
+    setCopyLoadingSource(true);
+    try {
+      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(label)}`);
+      setCopySourceWorkspace(data);
+    } catch {
+      setCopySourceWorkspace(null);
+    } finally {
+      setCopyLoadingSource(false);
+    }
+  };
+
+  const executeCopy = async () => {
+    if (!copySelectedPlan || !copySourceWorkspace) return;
+    const moduleIds = copyAllModules
+      ? copySourceWorkspace.modules.map((m) => m.id)
+      : Array.from(copySelectedModules);
+    if (!moduleIds.length) return;
+
+    setIsCopying(true);
+    try {
+      setError(null);
+      const result = await trainingContentRequest<AudienceWorkspace>("/admin/copy-selected", {
+        method: "POST",
+        body: JSON.stringify({
+          sourceAudienceLabel: copySelectedPlan,
+          targetAudienceLabel: storageAudienceLabel,
+          moduleIds,
+          sessionIds: copyAllSessions ? null : Array.from(copySelectedSessions),
+        }),
+      });
+      setWorkspace(result);
+      setCopyModalOpen(false);
+      setNotice("Modules copied successfully.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to copy modules.");
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
+  const copySourceModules = copySourceWorkspace?.modules ?? [];
+  const copySelectedModulesList = copyAllModules
+    ? copySourceModules
+    : copySourceModules.filter((m) => copySelectedModules.has(m.id));
+  const copyAvailableSessions = copySelectedModulesList.flatMap((m) => m.sessions.map((s) => ({ ...s, moduleTitle: parseModuleTitle(m.title).name || m.title })));
+
   const modules = workspace?.modules ?? [];
   const moduleOrderById = useMemo(() => new Map(modules.map((module) => [module.id, module.order])), [modules]);
   const lockStartOrderByTier = useMemo(() => {
@@ -236,30 +317,6 @@ export default function AudienceDetailPage() {
       ]),
     );
   }, [lockStartOrderByTier]);
-
-  const effectiveLockedTiersByModuleId = useMemo(() => {
-    if (!workspace) return new Map<number, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
-
-    const lockStartOrderByTier = new Map<(typeof PROGRAM_TIERS)[number]["value"], number>();
-    for (const lock of workspace.moduleLocks) {
-      const lockModule = workspace.modules.find((module) => module.id === lock.startModuleId);
-      if (lockModule) {
-        lockStartOrderByTier.set(lock.programTier, lockModule.order);
-      }
-    }
-
-    return new Map(
-      workspace.modules.map((module) => [
-        module.id,
-        PROGRAM_TIERS
-          .filter((tier) => {
-            const startOrder = lockStartOrderByTier.get(tier.value);
-            return startOrder != null && module.order >= startOrder;
-          })
-          .map((tier) => tier.value),
-      ])
-    );
-  }, [workspace]);
 
   const moduleByOrder = new Map(modules.map((module) => [module.order, module]));
   const moduleSlots = Array.from({ length: 12 }, (_, index) => {
@@ -327,6 +384,9 @@ export default function AudienceDetailPage() {
           <Button variant="outline" disabled={isSaving || isUpdatingLocks} onClick={() => void cleanupPlaceholderModules()}>
             Clean placeholders
           </Button>
+          <Button variant="outline" onClick={() => void openCopyModal()}>
+            Copy from plan
+          </Button>
           <Button
             className="ml-auto"
             onClick={() => {
@@ -372,9 +432,9 @@ export default function AudienceDetailPage() {
                       <p className="mt-2 text-sm text-muted-foreground">
                         {module ? `${module.sessions.length} sessions · ${module.totalDayLength} total days` : "0 sessions · 0 total days"}
                       </p>
-                      {slotLockedTiers.length ? (
+                      {slotLockedTiers.filter((t) => t !== currentTierValue).length ? (
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {slotLockedTiers.map((tier) => (
+                          {slotLockedTiers.filter((t) => t !== currentTierValue).map((tier) => (
                             <span
                               key={`${slot.order}-${tier}`}
                               className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
@@ -637,6 +697,167 @@ export default function AudienceDetailPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={copyModalOpen} onOpenChange={setCopyModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {copyStep === "plan" && "Copy modules from another plan"}
+              {copyStep === "modules" && "Select modules to copy"}
+              {copyStep === "sessions" && "Select sessions to copy"}
+            </DialogTitle>
+            <DialogDescription>
+              {copyStep === "plan" && "Choose the source plan to copy from."}
+              {copyStep === "modules" && "Pick all modules or select specific ones."}
+              {copyStep === "sessions" && "Pick all sessions or select specific ones."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {copyStep === "plan" && (
+            <div className="space-y-3">
+              {copySourcePlans.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No other plans found.</p>
+              ) : (
+                <div className="max-h-72 space-y-2 overflow-y-auto">
+                  {copySourcePlans.map((plan) => (
+                    <button
+                      key={plan.label}
+                      type="button"
+                      className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                        copySelectedPlan === plan.label
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                      onClick={() => setCopySelectedPlan(plan.label)}
+                    >
+                      <p className="text-sm font-semibold text-foreground">{plan.label}</p>
+                      <p className="text-xs text-muted-foreground">{plan.moduleCount} modules · {plan.otherCount} other items</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCopyModalOpen(false)}>Cancel</Button>
+                <Button
+                  disabled={!copySelectedPlan}
+                  onClick={async () => {
+                    if (!copySelectedPlan) return;
+                    await loadCopySourceWorkspace(copySelectedPlan);
+                    setCopyStep("modules");
+                  }}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {copyStep === "modules" && (
+            <div className="space-y-3">
+              {copyLoadingSource ? (
+                <p className="text-sm text-muted-foreground">Loading modules...</p>
+              ) : (
+                <>
+                  <label className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={copyAllModules}
+                      onChange={(e) => {
+                        setCopyAllModules(e.target.checked);
+                        if (e.target.checked) setCopySelectedModules(new Set());
+                      }}
+                    />
+                    <span className="text-sm font-medium text-foreground">All modules</span>
+                  </label>
+                  {!copyAllModules && (
+                    <div className="max-h-60 space-y-2 overflow-y-auto">
+                      {copySourceModules.map((m) => {
+                        const parsed = parseModuleTitle(m.title);
+                        return (
+                          <label key={m.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={copySelectedModules.has(m.id)}
+                              onChange={(e) => {
+                                setCopySelectedModules((prev) => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(m.id);
+                                  else next.delete(m.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <span className="text-sm text-foreground">
+                              Module {m.order}: {parsed.name || m.title}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCopyStep("plan")}>Back</Button>
+                <Button
+                  disabled={!copyAllModules && copySelectedModules.size === 0}
+                  onClick={() => setCopyStep("sessions")}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {copyStep === "sessions" && (
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={copyAllSessions}
+                  onChange={(e) => {
+                    setCopyAllSessions(e.target.checked);
+                    if (e.target.checked) setCopySelectedSessions(new Set());
+                  }}
+                />
+                <span className="text-sm font-medium text-foreground">All sessions in selected modules</span>
+              </label>
+              {!copyAllSessions && (
+                <div className="max-h-60 space-y-2 overflow-y-auto">
+                  {copyAvailableSessions.map((s) => (
+                    <label key={s.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={copySelectedSessions.has(s.id)}
+                        onChange={(e) => {
+                          setCopySelectedSessions((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(s.id);
+                            else next.delete(s.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span className="text-sm text-foreground">
+                        <span className="text-muted-foreground">{s.moduleTitle} ›</span> {s.title}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCopyStep("modules")}>Back</Button>
+                <Button
+                  disabled={isCopying || (!copyAllSessions && copySelectedSessions.size === 0)}
+                  onClick={() => void executeCopy()}
+                >
+                  {isCopying ? "Copying..." : "Copy"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AdminShell>

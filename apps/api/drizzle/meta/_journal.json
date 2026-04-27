@@ -722,6 +722,13 @@
       "when": 1777236411950,
       "tag": "0102_glossy_shockwave",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1777722400000,
+      "tag": "0103_add_bookings_timezone_offset",
+      "breakpoints": true
     }
   ]
 }

@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Text, View, Pressable, ActivityIndicator } from "react-native";
+import { View, Pressable, ActivityIndicator } from "react-native";
+import { Text } from "@/components/ScaledText";
 import * as Crypto from "expo-crypto";
 import { initSQLiteRuns, saveRunRecord } from "../../../lib/sqliteRuns";
 import { estimateCalories } from "../../../lib/tracking/runUtils";
 import { pushRunsToCloud } from "../../../lib/runSync";
+import { announceRunComplete } from "../../../lib/tracking/audioCues";
 import { RunShareCard } from "../../../components/tracking/RunShareCard";
 import { useAppSelector } from "@/store/hooks";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -33,6 +35,10 @@ import { RunToast } from "../../../components/tracking/active-run/RunToast";
 import {
   getRunBackgroundTrackingDefault,
   getOsrmRoutingDefault,
+  getAutoPauseDefault,
+  getAudioCuesDefault,
+  setAutoPauseDefault,
+  setAudioCuesDefault,
 } from "../../../lib/runTrackingPreferences";
 import type { TrackingMapStyle } from "../../../components/tracking/trackingMapLayers";
 import { ActiveRunSheet, type ActiveRunSheetIndex } from "../../../components/tracking/active-run/ActiveRunSheet";
@@ -64,6 +70,8 @@ export default function ActiveRunScreen() {
   const [backgroundTrackingEnabled, setBackgroundTrackingEnabled] =
     useState(false);
   const [osrmRoutingEnabled, setOsrmRoutingEnabled] = useState(false);
+  const [autoPauseEnabled, setAutoPauseEnabled] = useState(true);
+  const [audioCuesEnabled, setAudioCuesEnabled] = useState(true);
   const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
   const [sheetIndex, setSheetIndex] = useState<ActiveRunSheetIndex>(-1);
   const [layersSheetIndex, setLayersSheetIndex] = useState<ActiveRunLayersSheetIndex>(-1);
@@ -93,7 +101,11 @@ export default function ActiveRunScreen() {
     routeMetrics,
     isFetchingRoute,
     isWarmedUp,
-  } = useRunTrackingEngine(toastTranslateY, insets.top, { osrmRoutingEnabled });
+  } = useRunTrackingEngine(toastTranslateY, insets.top, {
+    osrmRoutingEnabled,
+    autoPauseEnabled,
+    audioCuesEnabled,
+  });
 
   const bottomSafeInset = Math.max(insets.bottom, 12);
   const showWarmupBanner = !isWarmedUp && status === "running";
@@ -139,13 +151,17 @@ export default function ActiveRunScreen() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [bg, osrm] = await Promise.all([
+      const [bg, osrm, ap, ac] = await Promise.all([
         getRunBackgroundTrackingDefault(),
         getOsrmRoutingDefault(),
+        getAutoPauseDefault(),
+        getAudioCuesDefault(),
       ]);
       if (!active) return;
       setBackgroundTrackingEnabled(bg);
       setOsrmRoutingEnabled(osrm);
+      setAutoPauseEnabled(ap);
+      setAudioCuesEnabled(ac);
     })().catch(() => {});
     return () => {
       active = false;
@@ -170,9 +186,12 @@ export default function ActiveRunScreen() {
     };
   }, [stopForegroundWatch]);
 
+  const isAutoPaused = useRunStore((s) => s.isAutoPaused);
+
   useEffect(() => {
     if (!hasGps) return;
-    if (status === "running") {
+    // Keep GPS alive during auto-pause so we can detect movement for auto-resume
+    if (status === "running" || (status === "paused" && isAutoPaused)) {
       startForegroundWatch().catch(() => null);
       if (backgroundTrackingEnabled) {
         startLocationTracking().catch(() => null);
@@ -186,6 +205,7 @@ export default function ActiveRunScreen() {
   }, [
     backgroundTrackingEnabled,
     hasGps,
+    isAutoPaused,
     startForegroundWatch,
     status,
     stopForegroundWatch,
@@ -225,6 +245,9 @@ export default function ActiveRunScreen() {
     }
 
     setShareCardData({ distanceMeters: finalDistance, elapsedSeconds: finalSeconds, coordinates: finalCoords });
+    if (audioCuesEnabled) {
+      announceRunComplete(finalDistance, finalSeconds);
+    }
   };
 
   const handleShareCardClose = () => {
@@ -350,6 +373,7 @@ export default function ActiveRunScreen() {
           routePolyline={routePolyline}
           onManualMove={() => setFollowUser(false)}
           mapStyle={mapStyle}
+          showsPointsOfInterest={pointsOfInterestEnabled}
           onPress={(coord) => {
             setDestination(coord);
             setSheetIndex(-1);
@@ -447,13 +471,15 @@ export default function ActiveRunScreen() {
             <View
               style={{
                 width: "100%",
-                backgroundColor: "#F8F6F2",
+                backgroundColor: isDark ? "hsl(220,8%,14%)" : "#F8F6F2",
                 borderRadius: 22,
                 paddingHorizontal: 18,
                 paddingVertical: 16,
                 flexDirection: "row",
                 alignItems: "flex-start",
                 gap: 10,
+                borderWidth: isDark ? 1 : 0,
+                borderColor: "rgba(255,255,255,0.10)",
               }}
             >
               <Text
@@ -462,23 +488,25 @@ export default function ActiveRunScreen() {
                   fontFamily: fonts.bodyMedium,
                   fontSize: 16,
                   lineHeight: 22,
-                  color: "#18181B",
+                  color: isDark ? "hsl(220,5%,92%)" : "#18181B",
                 }}
               >
                 Share location, change sports, and edit settings right here.
               </Text>
               <Pressable
                 onPress={() => setShowRunSheetHint(false)}
+                accessibilityLabel="Dismiss hint"
+                accessibilityRole="button"
                 style={{ padding: 2 }}
               >
-                <Ionicons name="close" size={26} color="#18181B" />
+                <Ionicons name="close" size={26} color={isDark ? "hsl(220,5%,70%)" : "#18181B"} />
               </Pressable>
             </View>
             <View
               style={{
                 width: 22,
                 height: 22,
-                backgroundColor: "#F8F6F2",
+                backgroundColor: isDark ? "hsl(220,8%,14%)" : "#F8F6F2",
                 transform: [{ rotate: "45deg" }],
                 marginTop: -11,
               }}
@@ -584,6 +612,22 @@ export default function ActiveRunScreen() {
           }}
           onFinishRun={handleFinishRun}
           onIndexChange={(i) => setSheetIndex(i)}
+          autoPauseEnabled={autoPauseEnabled}
+          onToggleAutoPause={() => {
+            const next = !autoPauseEnabled;
+            setAutoPauseEnabled(next);
+            setAutoPauseDefault(next).catch(() => {});
+            if (!next) {
+              useRunStore.getState().setAutoPaused(false);
+              useRunStore.getState().setAutoPauseStillSince(null);
+            }
+          }}
+          audioCuesEnabled={audioCuesEnabled}
+          onToggleAudioCues={() => {
+            const next = !audioCuesEnabled;
+            setAudioCuesEnabled(next);
+            setAudioCuesDefault(next).catch(() => {});
+          }}
         />
 
         <ActiveRunLayersSheet

@@ -1,15 +1,15 @@
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
+import { Pressable, View } from "react-native";
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
 
+import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
-import { Feather } from "@/components/ui/theme-icons";
-import { Shadows } from "@/constants/theme";
+import { fonts } from "@/constants/theme";
 
 type ComposerActionsModalProps = {
   open: boolean;
@@ -26,7 +26,7 @@ type ComposerActionsModalProps = {
 };
 
 type ActionItemProps = {
-  icon: React.ComponentProps<typeof Feather>["name"];
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   color: string;
@@ -40,29 +40,46 @@ const ActionItem = ({
   color,
   isDark,
 }: ActionItemProps) => (
-  <TouchableOpacity
+  <Pressable
     onPress={onPress}
-    activeOpacity={0.7}
-    className="w-[30%] items-center justify-center gap-2"
+    style={({ pressed }) => ({
+      width: "30%",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      opacity: pressed ? 0.7 : 1,
+      transform: [{ scale: pressed ? 0.95 : 1 }],
+    })}
   >
     <View
-      className="h-16 w-16 items-center justify-center rounded-[22px] border"
       style={{
+        height: 64,
+        width: 64,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 20,
+        borderWidth: 1,
         backgroundColor: isDark
           ? "rgba(255,255,255,0.05)"
           : "rgba(15,23,42,0.03)",
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
       }}
     >
-      <Feather name={icon} size={24} color={color} />
+      <Ionicons name={icon} size={24} color={color} />
     </View>
     <Text
-      className="text-center font-outfit text-[11px] font-bold uppercase tracking-wider"
-      style={{ color: isDark ? "#94A3B8" : "#64748B" }}
+      style={{
+        textAlign: "center",
+        fontFamily: fonts.bodyBold,
+        fontSize: 11,
+        textTransform: "uppercase",
+        letterSpacing: 1,
+        color: isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)",
+      }}
     >
       {label}
     </Text>
-  </TouchableOpacity>
+  </Pressable>
 );
 
 export function ComposerActionsModal({
@@ -81,6 +98,13 @@ export function ComposerActionsModal({
   const { colors, isDark } = useAppTheme();
   const modalRef = React.useRef<BottomSheetModal>(null);
   const snapPoints = React.useMemo(() => ["68%"], []);
+
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
 
   React.useEffect(() => {
     const modal = modalRef.current;
@@ -109,7 +133,7 @@ export function ComposerActionsModal({
         />
       )}
       backgroundStyle={{
-        backgroundColor: colors.card,
+        backgroundColor: cardBg,
       }}
       handleIndicatorStyle={{
         backgroundColor: isDark
@@ -117,114 +141,125 @@ export function ComposerActionsModal({
           : "rgba(15,23,42,0.25)",
       }}
     >
-      <BottomSheetView className="px-6 pb-8">
+      <BottomSheetView style={{ paddingHorizontal: 24, paddingBottom: 32 }}>
         <View
-          className="rounded-[28px] border p-6"
           style={{
-            backgroundColor: colors.card,
-            borderColor: isDark
-              ? "rgba(255,255,255,0.1)"
-              : "rgba(15,23,42,0.08)",
-            ...(isDark ? Shadows.none : Shadows.lg),
+            borderRadius: 20,
+            borderWidth: 1,
+            padding: 24,
+            backgroundColor: cardBg,
+            borderColor: cardBorder,
           }}
         >
-          <View className="mb-6 flex-row items-center justify-between">
+          <View style={{ marginBottom: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <View>
               <Text
-                className="font-clash text-[20px] font-bold"
-                style={{ color: colors.text }}
+                style={{
+                  fontFamily: "ClashDisplay-Bold",
+                  fontSize: 20,
+                  color: textPrimary,
+                }}
               >
                 {title ?? "Add content"}
               </Text>
               <Text
-                className="mt-0.5 font-outfit text-[13px]"
-                style={{ color: colors.textSecondary }}
+                style={{
+                  marginTop: 2,
+                  fontFamily: "Outfit",
+                  fontSize: 13,
+                  color: labelColor,
+                }}
               >
                 {subtitle ?? "Share media or files with your coach"}
               </Text>
             </View>
-            <TouchableOpacity
+            <Pressable
               onPress={onClose}
-              className="h-10 w-10 items-center justify-center rounded-full"
-              style={{
+              style={({ pressed }) => ({
+                height: 40,
+                width: 40,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 20,
                 backgroundColor: isDark
                   ? "rgba(255,255,255,0.08)"
                   : "rgba(15,23,42,0.05)",
-              }}
+                opacity: pressed ? 0.7 : 1,
+              })}
             >
-              <Feather name="x" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
+              <Ionicons name="close" size={20} color={labelColor} />
+            </Pressable>
           </View>
 
-          <View className="flex-row flex-wrap justify-between gap-y-6">
+          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 24 }}>
             <ActionItem
-              icon="image"
+              icon="images-outline"
               label="Gallery"
               onPress={() => {
                 onAttachImage();
                 onClose();
               }}
-              color="#3B82F6"
+              color={isDark ? "hsl(220, 30%, 65%)" : "hsl(220, 40%, 50%)"}
               isDark={isDark}
             />
             <ActionItem
-              icon="gift"
+              icon="gift-outline"
               label="GIFs"
               onPress={() => {
                 onOpenGifs();
                 onClose();
               }}
-              color="#A855F7"
+              color={isDark ? "hsl(270, 25%, 65%)" : "hsl(270, 35%, 50%)"}
               isDark={isDark}
             />
             <ActionItem
-              icon="camera"
+              icon="camera-outline"
               label="Camera"
               onPress={() => {
                 onTakePhoto();
                 onClose();
               }}
-              color="#10B981"
+              color={isDark ? "hsl(155, 25%, 55%)" : "hsl(155, 35%, 42%)"}
               isDark={isDark}
             />
             <ActionItem
-              icon="smile"
+              icon="happy-outline"
               label="Emoji"
               onPress={() => {
                 onOpenEmojis();
                 onClose();
               }}
-              color="#F59E0B"
+              color={isDark ? "hsl(40, 30%, 60%)" : "hsl(40, 40%, 45%)"}
               isDark={isDark}
             />
             <ActionItem
-              icon="video"
+              icon="videocam-outline"
               label="Video"
               onPress={() => {
                 onAttachVideo();
                 onClose();
               }}
-              color="#8B5CF6"
+              color={isDark ? "hsl(260, 25%, 65%)" : "hsl(260, 35%, 50%)"}
               isDark={isDark}
             />
             <ActionItem
-              icon="file-text"
+              icon="document-text-outline"
               label="Files"
               onPress={() => {
                 onAttachFile();
                 onClose();
               }}
-              color="#F59E0B"
+              color={isDark ? "hsl(40, 30%, 60%)" : "hsl(40, 40%, 45%)"}
               isDark={isDark}
             />
             <ActionItem
-              icon="video"
+              icon="radio-outline"
               label="Record"
               onPress={() => {
                 onRecordVideo();
                 onClose();
               }}
-              color="#EF4444"
+              color={isDark ? "hsl(0, 30%, 60%)" : "hsl(0, 35%, 48%)"}
               isDark={isDark}
             />
           </View>

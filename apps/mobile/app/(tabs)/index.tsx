@@ -6,7 +6,6 @@ import {
   View,
 } from "react-native";
 import { BlurView } from "expo-blur";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -82,7 +81,9 @@ const HomeScreen = memo(function HomeScreen() {
   const reduceMotion = useReducedMotion();
   const queryClient = useQueryClient();
 
-  const { token, profile, appRole } = useAppSelector((s) => s.user);
+  const token = useAppSelector((s) => s.user.token);
+  const profile = useAppSelector((s) => s.user.profile);
+  const appRole = useAppSelector((s) => s.user.appRole);
   const bootstrapReady = useAppSelector(selectBootstrapReady);
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
 
@@ -130,10 +131,6 @@ const HomeScreen = memo(function HomeScreen() {
   }, [ctaScale]);
   const ctaPressOut = useCallback(() => { ctaScale.value = withSpring(1.0, { damping: 20, stiffness: 400 }); }, [ctaScale]);
 
-  const statScale = useSharedValue(1);
-  const statStyle = useAnimatedStyle(() => ({ transform: [{ scale: statScale.value }] }));
-  const statPressIn = useCallback(() => { statScale.value = withSpring(0.97, { damping: 18, stiffness: 350 }); }, [statScale]);
-  const statPressOut = useCallback(() => { statScale.value = withSpring(1.0, { damping: 20, stiffness: 400 }); }, [statScale]);
 
   if (isLoading) {
     return (
@@ -167,20 +164,6 @@ const HomeScreen = memo(function HomeScreen() {
           <Text style={[styles.screenTitle, { fontFamily: "Outfit-Bold", color: primaryText }]}>
             {getGreeting()}, {firstName}
           </Text>
-          {/* Bell — tap target 44px min */}
-          <Pressable
-            accessibilityLabel="Notifications"
-            style={[
-              styles.bellBtn,
-              {
-                backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.05)",
-                borderWidth: 1,
-                borderColor: cardBorder,
-              },
-            ]}
-          >
-            <Ionicons name="notifications-outline" size={20} color={primaryText} />
-          </Pressable>
         </View>
       </View>
 
@@ -291,36 +274,20 @@ const HomeScreen = memo(function HomeScreen() {
           style={styles.statsRow}
         >
           {[
-            { value: formatKm(totalDist), label: "Distance", unit: "km" },
-            { value: formatTime(totalTime), label: "Time", unit: "" },
+            { value: formatKm(totalDist), label: "Dist", unit: "km" },
+            { value: formatTime(totalTime), label: "Time", unit: totalTime >= 3600 ? "hr" : "min" },
             { value: String(numRuns), label: "Sessions", unit: "" },
           ].map((stat) => (
-            <Animated.View key={stat.label} style={[statStyle, { flex: 1 }]}>
-              <Pressable
-                onPressIn={statPressIn}
-                onPressOut={statPressOut}
-                onPress={navigateToTracking}
-                style={[
-                  styles.statCard,
-                  {
-                    backgroundColor: cardBg,
-                    borderWidth: 1,
-                    borderColor: cardBorder,
-                  },
-                ]}
-              >
-                {/* Robis: micro label above value */}
-                <Text style={[styles.statLabel, { color: colors.accent }]}>
-                  {stat.label}
-                </Text>
-                <Text style={[styles.statValue, { fontFamily: "Chillax-Semibold", color: primaryText }]}>
-                  {stat.value}
-                  {stat.unit ? (
-                    <Text style={{ fontSize: 13, color: secondaryText }}> {stat.unit}</Text>
-                  ) : null}
-                </Text>
-              </Pressable>
-            </Animated.View>
+            <HomeStatCard
+              key={stat.label}
+              stat={stat}
+              onPress={navigateToTracking}
+              cardBg={cardBg}
+              cardBorder={cardBorder}
+              accentColor={colors.accent}
+              primaryText={primaryText}
+              secondaryText={secondaryText}
+            />
           ))}
         </Animated.View>
 
@@ -356,6 +323,64 @@ const HomeScreen = memo(function HomeScreen() {
 
 export default HomeScreen;
 
+// ── HomeStatCard ────────────────────────────────────────────────────
+
+function HomeStatCard({
+  stat,
+  onPress,
+  cardBg,
+  cardBorder,
+  accentColor,
+  primaryText,
+  secondaryText,
+}: {
+  stat: { value: string; label: string; unit: string };
+  onPress: () => void;
+  cardBg: string;
+  cardBorder: string;
+  accentColor: string;
+  primaryText: string;
+  secondaryText: string;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View style={[animStyle, { flex: 1 }]}>
+      <Pressable
+        onPressIn={() => { scale.value = withSpring(0.97, { damping: 18, stiffness: 350 }); }}
+        onPressOut={() => { scale.value = withSpring(1.0, { damping: 20, stiffness: 400 }); }}
+        onPress={onPress}
+        style={[
+          styles.statCard,
+          {
+            backgroundColor: cardBg,
+            borderWidth: 1,
+            borderColor: cardBorder,
+          },
+        ]}
+      >
+        <Text style={[styles.statLabel, { color: accentColor }]} numberOfLines={1}>
+          {stat.label}
+        </Text>
+        <View style={styles.statValueRow}>
+          <Text
+            style={[styles.statValue, { fontFamily: "Chillax-Semibold", color: primaryText }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {stat.value}
+          </Text>
+          {stat.unit ? (
+            <Text style={[styles.statUnit, { color: secondaryText }]}>{stat.unit}</Text>
+          ) : null}
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 // ── Styles ───────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -379,14 +404,6 @@ const styles = StyleSheet.create({
   screenTitle: {
     fontSize: 22,
     letterSpacing: -0.3,
-  },
-  // Robis: 44px tap target, rounded with border
-  bellBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
   },
   // Hero: 24px radius, 24px padding → inner CTA pill radius unconstrained (it's full pill)
   heroCard: {
@@ -445,22 +462,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-  // Robis: outer 16, padding 16 → inner elements need no radius (label/value only)
   statCard: {
     borderRadius: 16,
-    padding: 16,
+    padding: 12,
     gap: 4,
   },
-  // Robis: caps label above value with correct letterSpacing
   statLabel: {
-    fontFamily: "Outfit-Medium",
-    fontSize: 10,
-    letterSpacing: 1.0,
+    fontFamily: "Outfit-Bold",
+    fontSize: 9,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
   },
+  statValueRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 3,
+  },
   statValue: {
-    fontSize: 28,
+    fontSize: 22,
     letterSpacing: -0.5,
+    flexShrink: 1,
+  },
+  statUnit: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 11,
+    paddingBottom: 3,
   },
   sectionHeader: {
     fontFamily: "Outfit-Bold",

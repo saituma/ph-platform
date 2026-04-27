@@ -90,8 +90,31 @@ type ReferralGroup = {
   }[];
 };
 
+type PartnerFields = {
+  providerName: string;
+  organizationName: string;
+  imageUrl: string;
+  location: string;
+  phone: string;
+  email: string;
+  specialty: string;
+  notes: string;
+};
+
+const EMPTY_PARTNER_FIELDS: PartnerFields = {
+  providerName: "",
+  organizationName: "",
+  imageUrl: "",
+  location: "",
+  phone: "",
+  email: "",
+  specialty: "",
+  notes: "",
+};
+
 const REFERRAL_TYPE_OPTIONS = ["Physio", "Stocks", "Nutrition", "Recovery", "Doctor", "Specialist", "Other"];
 const PRESET_REFERRAL_TYPES = new Set(REFERRAL_TYPE_OPTIONS.filter((option) => option !== "Other"));
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function resolveReferralType(metadata?: ReferralMetadata | null) {
   const explicitType = metadata?.referralType?.trim();
@@ -145,6 +168,132 @@ function getErrorMessage(err: unknown, fallback: string) {
   return fallback;
 }
 
+function PartnerDetailsForm({
+  fields,
+  onChange,
+  imageUploading,
+  onImageUpload,
+}: {
+  fields: PartnerFields;
+  onChange: (patch: Partial<PartnerFields>) => void;
+  imageUploading: boolean;
+  onImageUpload: (file: File) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Partner Details</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Provider / Contact Name</label>
+          <Input
+            value={fields.providerName}
+            onChange={(e) => onChange({ providerName: e.target.value })}
+            placeholder="e.g. Dr. Sarah Lee"
+            aria-label="Provider or contact name"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Organisation / Company</label>
+          <Input
+            value={fields.organizationName}
+            onChange={(e) => onChange({ organizationName: e.target.value })}
+            placeholder="e.g. PhysioFirst Clinic"
+            aria-label="Organisation or company name"
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referral Image</label>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="inline-flex cursor-pointer items-center rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary/40">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              aria-label="Upload referral image"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > MAX_IMAGE_SIZE_BYTES) {
+                  toast.error("File too large", "Please upload an image under 10 MB.");
+                  return;
+                }
+                onImageUpload(file);
+                (e.target as HTMLInputElement).value = "";
+              }}
+            />
+            {imageUploading ? "Uploading..." : "Upload Image"}
+          </label>
+          {fields.imageUrl ? (
+            <button
+              type="button"
+              className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
+              onClick={() => onChange({ imageUrl: "" })}
+            >
+              Remove Image
+            </button>
+          ) : null}
+        </div>
+        {fields.imageUrl ? (
+          <img src={fields.imageUrl} alt="Referral preview" className="max-h-48 rounded-2xl border border-border object-cover" />
+        ) : (
+          <p className="text-xs text-muted-foreground">Optional. Add an image for this referral campaign.</p>
+        )}
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-muted-foreground">Location / Address</label>
+        <Input
+          value={fields.location}
+          onChange={(e) => onChange({ location: e.target.value })}
+          placeholder="e.g. 123 Main St, Sydney"
+          aria-label="Location or address"
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Phone</label>
+          <Input
+            type="tel"
+            value={fields.phone}
+            onChange={(e) => onChange({ phone: e.target.value })}
+            placeholder="e.g. +61 400 000 000"
+            aria-label="Phone number"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Email</label>
+          <Input
+            type="email"
+            value={fields.email}
+            onChange={(e) => onChange({ email: e.target.value })}
+            placeholder="e.g. referrals@clinic.com"
+            aria-label="Email address"
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-muted-foreground">Focus / Specialty</label>
+        <Input
+          value={fields.specialty}
+          onChange={(e) => onChange({ specialty: e.target.value })}
+          placeholder="e.g. Sports rehabilitation"
+          aria-label="Specialty or focus area"
+        />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-muted-foreground">Notes</label>
+        <Textarea
+          className="min-h-[80px]"
+          value={fields.notes}
+          onChange={(e) => onChange({ notes: e.target.value })}
+          placeholder="Additional notes for the athlete..."
+          aria-label="Additional notes"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function ReferralsPage() {
   const searchParams = useSearchParams();
   const { data, isLoading } = useGetPhysioReferralsQuery();
@@ -163,7 +312,6 @@ export default function ReferralsPage() {
   const [athleteId, setAthleteId] = useState("");
   const [teamName, setTeamName] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
-  const [athleteLabel, setAthleteLabel] = useState<string | null>(null);
   const [ageMode, setAgeMode] = useState<AgeMode>("single_age");
   const [minAge, setMinAge] = useState("");
   const [maxAge, setMaxAge] = useState("");
@@ -177,15 +325,8 @@ export default function ReferralsPage() {
   const [referalLink, setReferalLink] = useState("");
   const [discountPercent, setDiscountPercent] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [providerName, setProviderName] = useState("");
-  const [organizationName, setOrganizationName] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [partnerFields, setPartnerFields] = useState<PartnerFields>(EMPTY_PARTNER_FIELDS);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [location, setLocation] = useState("");
-  const [phone, setPhone] = useState("");
-  const [emailField, setEmailField] = useState("");
-  const [specialty, setSpecialty] = useState("");
-  const [notes, setNotes] = useState("");
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [highlightedEntryId, setHighlightedEntryId] = useState<number | null>(null);
@@ -193,18 +334,16 @@ export default function ReferralsPage() {
   const [editCustomReferralType, setEditCustomReferralType] = useState("");
   const [editLink, setEditLink] = useState("");
   const [editDiscount, setEditDiscount] = useState("");
-  const [editProviderName, setEditProviderName] = useState("");
-  const [editOrganizationName, setEditOrganizationName] = useState("");
-  const [editImageUrl, setEditImageUrl] = useState("");
+  const [editPartnerFields, setEditPartnerFields] = useState<PartnerFields>(EMPTY_PARTNER_FIELDS);
   const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
-  const [editLocation, setEditLocation] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editSpecialty, setEditSpecialty] = useState("");
-  const [editNotes, setEditNotes] = useState("");
 
   const entries: ReferralItem[] = useMemo(() => data?.items ?? [], [data]);
   const referralGroups: ReferralGroup[] = useMemo(() => referralGroupsData?.items ?? [], [referralGroupsData]);
+
+  const updatePartnerFields = (patch: Partial<PartnerFields>) =>
+    setPartnerFields((prev) => ({ ...prev, ...patch }));
+  const updateEditPartnerFields = (patch: Partial<PartnerFields>) =>
+    setEditPartnerFields((prev) => ({ ...prev, ...patch }));
 
   const athleteOptions = useMemo(() => {
     const users = (usersData?.users ?? []) as ReferralUser[];
@@ -237,6 +376,12 @@ export default function ReferralsPage() {
     if (!Number.isFinite(id) || id <= 0) return null;
     return athleteTierById.get(id) ?? null;
   }, [athleteId, athleteTierById]);
+
+  const selectedAthleteLabel = useMemo(() => {
+    const id = Number(athleteId);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    return athleteOptions.find((o) => o.athleteId === id)?.label ?? null;
+  }, [athleteId, athleteOptions]);
 
   const teamOptions = useMemo(() => {
     const fromApi = (teamsData?.teams ?? [])
@@ -295,14 +440,11 @@ export default function ReferralsPage() {
       }));
   }, [ageMode, athleteId, athleteOptions, maxAge, minAge, selectedReferralGroup, targetMode, teamName]);
 
-  const eligibleEntries = entries;
-
   const resetCreateForm = () => {
     setTargetMode("single");
     setAthleteId("");
     setTeamName("");
     setAthleteSearch("");
-    setAthleteLabel(null);
     setAgeMode("single_age");
     setMinAge("");
     setMaxAge("");
@@ -311,14 +453,7 @@ export default function ReferralsPage() {
     setCustomReferralType("");
     setReferalLink("");
     setDiscountPercent("");
-    setProviderName("");
-    setOrganizationName("");
-    setImageUrl("");
-    setLocation("");
-    setPhone("");
-    setEmailField("");
-    setSpecialty("");
-    setNotes("");
+    setPartnerFields(EMPTY_PARTNER_FIELDS);
   };
 
   const buildMetadata = (): ReferralMetadata | null => {
@@ -340,14 +475,14 @@ export default function ReferralsPage() {
           : null,
     };
     if (resolvedType) meta.referralType = resolvedType;
-    if (providerName.trim()) meta.providerName = providerName.trim();
-    if (organizationName.trim()) meta.organizationName = organizationName.trim();
-    if (imageUrl.trim()) meta.imageUrl = imageUrl.trim();
-    if (location.trim()) meta.location = location.trim();
-    if (phone.trim()) meta.phone = phone.trim();
-    if (emailField.trim()) meta.email = emailField.trim();
-    if (specialty.trim()) meta.specialty = specialty.trim();
-    if (notes.trim()) meta.notes = notes.trim();
+    if (partnerFields.providerName.trim()) meta.providerName = partnerFields.providerName.trim();
+    if (partnerFields.organizationName.trim()) meta.organizationName = partnerFields.organizationName.trim();
+    if (partnerFields.imageUrl.trim()) meta.imageUrl = partnerFields.imageUrl.trim();
+    if (partnerFields.location.trim()) meta.location = partnerFields.location.trim();
+    if (partnerFields.phone.trim()) meta.phone = partnerFields.phone.trim();
+    if (partnerFields.email.trim()) meta.email = partnerFields.email.trim();
+    if (partnerFields.specialty.trim()) meta.specialty = partnerFields.specialty.trim();
+    if (partnerFields.notes.trim()) meta.notes = partnerFields.notes.trim();
     return meta;
   };
 
@@ -355,14 +490,14 @@ export default function ReferralsPage() {
     const resolvedType = getResolvedReferralType(editReferralType, editCustomReferralType);
     const meta: ReferralMetadata = {};
     if (resolvedType) meta.referralType = resolvedType;
-    if (editProviderName.trim()) meta.providerName = editProviderName.trim();
-    if (editOrganizationName.trim()) meta.organizationName = editOrganizationName.trim();
-    if (editImageUrl.trim()) meta.imageUrl = editImageUrl.trim();
-    if (editLocation.trim()) meta.location = editLocation.trim();
-    if (editPhone.trim()) meta.phone = editPhone.trim();
-    if (editEmail.trim()) meta.email = editEmail.trim();
-    if (editSpecialty.trim()) meta.specialty = editSpecialty.trim();
-    if (editNotes.trim()) meta.notes = editNotes.trim();
+    if (editPartnerFields.providerName.trim()) meta.providerName = editPartnerFields.providerName.trim();
+    if (editPartnerFields.organizationName.trim()) meta.organizationName = editPartnerFields.organizationName.trim();
+    if (editPartnerFields.imageUrl.trim()) meta.imageUrl = editPartnerFields.imageUrl.trim();
+    if (editPartnerFields.location.trim()) meta.location = editPartnerFields.location.trim();
+    if (editPartnerFields.phone.trim()) meta.phone = editPartnerFields.phone.trim();
+    if (editPartnerFields.email.trim()) meta.email = editPartnerFields.email.trim();
+    if (editPartnerFields.specialty.trim()) meta.specialty = editPartnerFields.specialty.trim();
+    if (editPartnerFields.notes.trim()) meta.notes = editPartnerFields.notes.trim();
     return Object.keys(meta).length > 0 ? meta : null;
   };
 
@@ -409,13 +544,13 @@ export default function ReferralsPage() {
   ) => {
     try {
       setUploading(true);
-	      const { uploadUrl, publicUrl } = await createUploadUrl({
-	        folder: "referrals",
-	        fileName: `${Date.now()}-${file.name}`,
-	        contentType: file.type || "application/octet-stream",
-	        sizeBytes: file.size,
-	        client: "web",
-	      }).unwrap();
+      const { uploadUrl, publicUrl } = await createUploadUrl({
+        folder: "referrals",
+        fileName: `${Date.now()}-${file.name}`,
+        contentType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+        client: "web",
+      }).unwrap();
 
       await fetch(uploadUrl, {
         method: "PUT",
@@ -460,6 +595,10 @@ export default function ReferralsPage() {
       const parsedMax = Number(ageMode === "single_age" ? minAge : maxAge);
       if (!Number.isFinite(parsedMin) || !Number.isFinite(parsedMax) || parsedMin > parsedMax) {
         setError("Enter a valid age range.");
+        return;
+      }
+      if (parsedMin < 3 || parsedMax > 100) {
+        setError("Age must be between 3 and 100.");
         return;
       }
     }
@@ -536,14 +675,16 @@ export default function ReferralsPage() {
     setEditCustomReferralType(typeSelection.customValue);
     setEditLink(entry.referalLink ?? "");
     setEditDiscount(typeof entry.discountPercent === "number" ? String(entry.discountPercent) : "");
-    setEditProviderName(resolveProviderName(meta));
-    setEditOrganizationName(resolveOrganizationName(meta));
-    setEditImageUrl(meta.imageUrl ?? "");
-    setEditLocation(meta.location ?? "");
-    setEditPhone(meta.phone ?? "");
-    setEditEmail(meta.email ?? "");
-    setEditSpecialty(meta.specialty ?? "");
-    setEditNotes(meta.notes ?? "");
+    setEditPartnerFields({
+      providerName: resolveProviderName(meta),
+      organizationName: resolveOrganizationName(meta),
+      imageUrl: meta.imageUrl ?? "",
+      location: meta.location ?? "",
+      phone: meta.phone ?? "",
+      email: meta.email ?? "",
+      specialty: meta.specialty ?? "",
+      notes: meta.notes ?? "",
+    });
   };
 
   useEffect(() => {
@@ -558,7 +699,7 @@ export default function ReferralsPage() {
       return;
     }
 
-    const target = eligibleEntries.find((entry) => entry.id === entryIdParam);
+    const target = entries.find((entry) => entry.id === entryIdParam);
     if (!target) return;
 
     setActiveTab("existing");
@@ -568,13 +709,12 @@ export default function ReferralsPage() {
       startEdit(target);
     }
 
-    if (typeof window !== "undefined") {
-      window.setTimeout(() => {
-        const el = document.getElementById(`referral-entry-${entryIdParam}`);
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 0);
-    }
-  }, [searchParams, eligibleEntries]);
+    const frame = requestAnimationFrame(() => {
+      const el = document.getElementById(`referral-entry-${entryIdParam}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [searchParams, entries]);
 
   const saveEdit = async (id: number) => {
     setError(null);
@@ -662,12 +802,20 @@ export default function ReferralsPage() {
               />
             </CardHeader>
             <CardContent className="space-y-4">
-              {error ? <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</div> : null}
+              {error ? (
+                <div role="alert" className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+                  {error}
+                </div>
+              ) : null}
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target Mode</label>
-                  <Select value={targetMode} onChange={(event) => setTargetMode(event.target.value as TargetMode)}>
+                  <Select
+                    value={targetMode}
+                    onChange={(event) => setTargetMode(event.target.value as TargetMode)}
+                    aria-label="Target mode"
+                  >
                     <option value="single">Single Athlete</option>
                     <option value="team">Team</option>
                     <option value="age_range">Age Range</option>
@@ -676,7 +824,11 @@ export default function ReferralsPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referral Type</label>
-                  <Select value={referralType} onChange={(event) => setReferralType(event.target.value)}>
+                  <Select
+                    value={referralType}
+                    onChange={(event) => setReferralType(event.target.value)}
+                    aria-label="Referral type"
+                  >
                     {REFERRAL_TYPE_OPTIONS.map((option) => (
                       <option key={option} value={option}>{option}</option>
                     ))}
@@ -693,32 +845,38 @@ export default function ReferralsPage() {
               {targetMode === "single" ? (
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Athlete</label>
-                  <Input value={athleteSearch} onChange={(event) => setAthleteSearch(event.target.value)} placeholder="Search athlete by name or guardian" />
-                  {athleteLabel ? (
+                  <Input
+                    value={athleteSearch}
+                    onChange={(event) => setAthleteSearch(event.target.value)}
+                    placeholder="Search athlete by name or guardian"
+                    aria-label="Search athletes"
+                  />
+                  {selectedAthleteLabel ? (
                     <div className="flex items-center justify-between rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
-                      <span>Selected: {athleteLabel}</span>
+                      <span>Selected: {selectedAthleteLabel}</span>
                       <button
                         type="button"
                         className="rounded-full border border-border px-2 py-0.5 text-[11px] text-foreground hover:bg-secondary/40"
                         onClick={() => {
                           setAthleteId("");
-                          setAthleteLabel(null);
                           setAthleteSearch("");
                         }}
+                        aria-label="Clear athlete selection"
                       >
                         Clear
                       </button>
                     </div>
                   ) : null}
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2" role="listbox" aria-label="Athlete search results">
                     {filteredAthletes.map((option) => (
                       <button
                         key={option.athleteId}
                         type="button"
+                        role="option"
+                        aria-selected={athleteId === String(option.athleteId)}
                         className="rounded-2xl border border-border px-3 py-2 text-left text-xs text-foreground hover:bg-secondary/40"
                         onClick={() => {
                           setAthleteId(String(option.athleteId));
-                          setAthleteLabel(option.label);
                           setAthleteSearch(option.label);
                         }}
                       >
@@ -737,7 +895,7 @@ export default function ReferralsPage() {
               {targetMode === "team" ? (
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Team</label>
-                  <Select value={teamName} onChange={(event) => setTeamName(event.target.value)}>
+                  <Select value={teamName} onChange={(event) => setTeamName(event.target.value)} aria-label="Select team">
                     <option value="">Select a team</option>
                     {teamOptions.map((team) => (
                       <option key={team} value={team}>
@@ -754,7 +912,7 @@ export default function ReferralsPage() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1">
                       <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Age Option</label>
-                      <Select value={ageMode} onChange={(event) => setAgeMode(event.target.value as AgeMode)}>
+                      <Select value={ageMode} onChange={(event) => setAgeMode(event.target.value as AgeMode)} aria-label="Age option">
                         <option value="single_age">Single Age</option>
                         <option value="range_age">Age Range</option>
                       </Select>
@@ -767,13 +925,24 @@ export default function ReferralsPage() {
                         value={minAge}
                         onChange={(event) => setMinAge(event.target.value)}
                         type="number"
+                        min={3}
+                        max={100}
                         placeholder={ageMode === "single_age" ? "6" : "10"}
+                        aria-label={ageMode === "single_age" ? "Age" : "Minimum age"}
                       />
                     </div>
                     {ageMode === "range_age" ? (
                       <div className="space-y-1">
                         <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Maximum Age</label>
-                        <Input value={maxAge} onChange={(event) => setMaxAge(event.target.value)} type="number" placeholder="14" />
+                        <Input
+                          value={maxAge}
+                          onChange={(event) => setMaxAge(event.target.value)}
+                          type="number"
+                          min={3}
+                          max={100}
+                          placeholder="14"
+                          aria-label="Maximum age"
+                        />
                       </div>
                     ) : null}
                   </div>
@@ -789,7 +958,7 @@ export default function ReferralsPage() {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saved Group</label>
-                    <Select value={groupId} onChange={(event) => setGroupId(event.target.value)}>
+                    <Select value={groupId} onChange={(event) => setGroupId(event.target.value)} aria-label="Select referral group">
                       <option value="">Select a saved group</option>
                       {referralGroups.map((group) => (
                         <option key={group.id} value={String(group.id)}>
@@ -807,13 +976,14 @@ export default function ReferralsPage() {
                   <div className="rounded-2xl border border-border bg-secondary/15 p-4 space-y-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Create Referral Group</p>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Input placeholder="Group name" value={groupName} onChange={(event) => setGroupName(event.target.value)} />
-                      <Input placeholder="How many athletes?" type="number" value={groupSize} onChange={(event) => setGroupSize(event.target.value)} />
+                      <Input placeholder="Group name" value={groupName} onChange={(event) => setGroupName(event.target.value)} aria-label="Group name" />
+                      <Input placeholder="How many athletes?" type="number" min={1} value={groupSize} onChange={(event) => setGroupSize(event.target.value)} aria-label="Expected group size" />
                     </div>
                     <Input
                       placeholder="Search athletes to add"
                       value={groupAthleteSearch}
                       onChange={(event) => setGroupAthleteSearch(event.target.value)}
+                      aria-label="Search athletes for group"
                     />
                     <div className="flex flex-wrap gap-2">
                       {groupAthleteIds.map((selectedId) => {
@@ -825,8 +995,9 @@ export default function ReferralsPage() {
                             type="button"
                             className="rounded-full border border-border px-3 py-1 text-xs text-foreground hover:bg-secondary/40"
                             onClick={() => setGroupAthleteIds((prev) => prev.filter((id) => id !== selectedId))}
+                            aria-label={`Remove ${option.label}`}
                           >
-                            {option.label} ×
+                            {option.label} &times;
                           </button>
                         );
                       })}
@@ -873,60 +1044,37 @@ export default function ReferralsPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Discount %</label>
-                  <Input value={discountPercent} onChange={(event) => setDiscountPercent(event.target.value)} placeholder="Optional" type="number" />
+                  <Input
+                    value={discountPercent}
+                    onChange={(event) => setDiscountPercent(event.target.value)}
+                    placeholder="Optional"
+                    type="number"
+                    min={0}
+                    max={100}
+                    aria-label="Discount percentage"
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referral Link</label>
-                  <Input value={referalLink} onChange={(event) => setReferalLink(event.target.value)} placeholder="https://partner-provider.com/booking" />
+                  <Input
+                    value={referalLink}
+                    onChange={(event) => setReferalLink(event.target.value)}
+                    placeholder="https://partner-provider.com/booking"
+                    type="url"
+                    aria-label="Referral link URL"
+                  />
                 </div>
               </div>
 
               <div className="space-y-3 rounded-2xl border border-border bg-secondary/20 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Partner Details</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input placeholder="Provider / Contact Name" value={providerName} onChange={(event) => setProviderName(event.target.value)} />
-                  <Input placeholder="Organisation / Company" value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referral Image</label>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="inline-flex cursor-pointer items-center rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary/40">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (event) => {
-                          const file = event.target.files?.[0];
-                          if (!file) return;
-                          await uploadReferralImage(file, setImageUrl, setIsUploadingImage);
-                          (event.target as HTMLInputElement).value = "";
-                        }}
-                      />
-                      {isUploadingImage ? "Uploading..." : "Upload Image"}
-                    </label>
-                    {imageUrl ? (
-                      <button
-                        type="button"
-                        className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
-                        onClick={() => setImageUrl("")}
-                      >
-                        Remove Image
-                      </button>
-                    ) : null}
-                  </div>
-                  {imageUrl ? (
-                    <img src={imageUrl} alt="Referral preview" className="max-h-48 rounded-2xl border border-border object-cover" />
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Optional. Add an image for this referral campaign.</p>
-                  )}
-                </div>
-                <Input placeholder="Location / Address" value={location} onChange={(event) => setLocation(event.target.value)} />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input placeholder="Phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
-                  <Input placeholder="Email" value={emailField} onChange={(event) => setEmailField(event.target.value)} />
-                </div>
-                <Input placeholder="Focus / Specialty" value={specialty} onChange={(event) => setSpecialty(event.target.value)} />
-                <Textarea className="min-h-[80px]" placeholder="Additional notes for the athlete..." value={notes} onChange={(event) => setNotes(event.target.value)} />
+                <PartnerDetailsForm
+                  fields={partnerFields}
+                  onChange={updatePartnerFields}
+                  imageUploading={isUploadingImage}
+                  onImageUpload={(file) =>
+                    uploadReferralImage(file, (url) => updatePartnerFields({ imageUrl: url }), setIsUploadingImage)
+                  }
+                />
               </div>
 
               <Button onClick={handleCreate} disabled={isSubmitting} className="w-full">
@@ -942,14 +1090,18 @@ export default function ReferralsPage() {
               <SectionHeader title="Existing Referrals" description="Most recent first." actionLabel="Create Referral" onAction={() => setActiveTab("create")} />
             </CardHeader>
             <CardContent>
-              {error ? <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</div> : null}
+              {error ? (
+                <div role="alert" className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+                  {error}
+                </div>
+              ) : null}
               {isLoading ? (
                 <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">Loading referrals...</div>
-              ) : eligibleEntries.length === 0 ? (
+              ) : entries.length === 0 ? (
                 <EmptyState title="No referrals yet" description="Create your first referral." />
               ) : (
                 <div className="space-y-3">
-                  {eligibleEntries.map((entry) => {
+                  {entries.map((entry) => {
                     const meta = (entry.metadata ?? {}) as ReferralMetadata;
                     const referralTypeLabel = resolveReferralType(meta);
                     const providerLabel = resolveProviderName(meta);
@@ -979,14 +1131,30 @@ export default function ReferralsPage() {
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
                             {entry.referalLink ? (
-                              <a href={entry.referalLink} target="_blank" rel="noreferrer" className="rounded-full border border-border px-3 py-2 text-xs text-foreground">
+                              <a
+                                href={entry.referalLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
+                                aria-label={`Open referral link for ${entry.athleteName ?? "athlete"}`}
+                              >
                                 Open Link
                               </a>
                             ) : null}
-                            <button type="button" className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40" onClick={() => startEdit(entry)}>
+                            <button
+                              type="button"
+                              className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
+                              onClick={() => startEdit(entry)}
+                              aria-label={`Edit referral for ${entry.athleteName ?? "athlete"}`}
+                            >
                               Edit
                             </button>
-                            <button type="button" className="rounded-full border border-red-500/40 px-3 py-2 text-xs text-red-200 hover:bg-red-500/10" onClick={() => handleDelete(entry.id)}>
+                            <button
+                              type="button"
+                              className="rounded-full border border-red-500/40 px-3 py-2 text-xs text-red-200 hover:bg-red-500/10"
+                              onClick={() => handleDelete(entry.id)}
+                              aria-label={`Delete referral for ${entry.athleteName ?? "athlete"}`}
+                            >
                               Delete
                             </button>
                           </div>
@@ -1000,9 +1168,9 @@ export default function ReferralsPage() {
                             {providerLabel ? <p className="text-sm font-medium text-foreground">{providerLabel}</p> : null}
                             {organizationLabel ? <p className="text-xs text-muted-foreground">{organizationLabel}</p> : null}
                             <div className="mt-1 flex flex-wrap gap-3">
-                              {meta.location ? <span className="text-xs text-muted-foreground">📍 {meta.location}</span> : null}
-                              {meta.phone ? <span className="text-xs text-muted-foreground">📞 {meta.phone}</span> : null}
-                              {meta.email ? <span className="text-xs text-muted-foreground">✉️ {meta.email}</span> : null}
+                              {meta.location ? <span className="text-xs text-muted-foreground">Location: {meta.location}</span> : null}
+                              {meta.phone ? <span className="text-xs text-muted-foreground">Phone: {meta.phone}</span> : null}
+                              {meta.email ? <span className="text-xs text-muted-foreground">Email: {meta.email}</span> : null}
                             </div>
                             {meta.specialty ? <p className="mt-1 text-xs text-primary">Focus: {meta.specialty}</p> : null}
                             {meta.notes ? <p className="mt-1 text-xs italic text-muted-foreground">{meta.notes}</p> : null}
@@ -1012,7 +1180,11 @@ export default function ReferralsPage() {
                         {editingId === entry.id ? (
                           <div className="mt-4 space-y-3">
                             <div className="grid gap-3 lg:grid-cols-[0.8fr_1.2fr]">
-                              <Select value={editReferralType} onChange={(event) => setEditReferralType(event.target.value)}>
+                              <Select
+                                value={editReferralType}
+                                onChange={(event) => setEditReferralType(event.target.value)}
+                                aria-label="Edit referral type"
+                              >
                                 {REFERRAL_TYPE_OPTIONS.map((option) => (
                                   <option key={option} value={option}>{option}</option>
                                 ))}
@@ -1022,52 +1194,18 @@ export default function ReferralsPage() {
                               ) : null}
                             </div>
                             <div className="grid gap-3 lg:grid-cols-2">
-                              <Input value={editLink} onChange={(event) => setEditLink(event.target.value)} placeholder="Referral link" />
-                              <Input value={editDiscount} onChange={(event) => setEditDiscount(event.target.value)} placeholder="Discount %" type="number" />
+                              <Input value={editLink} onChange={(event) => setEditLink(event.target.value)} placeholder="Referral link" type="url" aria-label="Edit referral link" />
+                              <Input value={editDiscount} onChange={(event) => setEditDiscount(event.target.value)} placeholder="Discount %" type="number" min={0} max={100} aria-label="Edit discount percentage" />
                             </div>
-                            <div className="space-y-2 rounded-2xl border border-border bg-secondary/20 p-3">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Partner Details</p>
-                              <div className="grid gap-2 sm:grid-cols-2">
-                                <Input placeholder="Provider / Contact Name" value={editProviderName} onChange={(event) => setEditProviderName(event.target.value)} />
-                                <Input placeholder="Organisation / Company" value={editOrganizationName} onChange={(event) => setEditOrganizationName(event.target.value)} />
-                              </div>
-                              <div className="space-y-2">
-                                <div className="flex flex-wrap items-center gap-3">
-                                  <label className="inline-flex cursor-pointer items-center rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary/40">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={async (event) => {
-                                        const file = event.target.files?.[0];
-                                        if (!file) return;
-                                        await uploadReferralImage(file, setEditImageUrl, setIsUploadingEditImage);
-                                        (event.target as HTMLInputElement).value = "";
-                                      }}
-                                    />
-                                    {isUploadingEditImage ? "Uploading..." : "Upload Image"}
-                                  </label>
-                                  {editImageUrl ? (
-                                    <button
-                                      type="button"
-                                      className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
-                                      onClick={() => setEditImageUrl("")}
-                                    >
-                                      Remove Image
-                                    </button>
-                                  ) : null}
-                                </div>
-                                {editImageUrl ? (
-                                  <img src={editImageUrl} alt="Referral preview" className="max-h-40 rounded-2xl border border-border object-cover" />
-                                ) : null}
-                              </div>
-                              <Input placeholder="Location" value={editLocation} onChange={(event) => setEditLocation(event.target.value)} />
-                              <div className="grid gap-2 sm:grid-cols-2">
-                                <Input placeholder="Phone" value={editPhone} onChange={(event) => setEditPhone(event.target.value)} />
-                                <Input placeholder="Email" value={editEmail} onChange={(event) => setEditEmail(event.target.value)} />
-                              </div>
-                              <Input placeholder="Focus / Specialty" value={editSpecialty} onChange={(event) => setEditSpecialty(event.target.value)} />
-                              <Textarea className="min-h-[60px]" placeholder="Notes" value={editNotes} onChange={(event) => setEditNotes(event.target.value)} />
+                            <div className="rounded-2xl border border-border bg-secondary/20 p-3">
+                              <PartnerDetailsForm
+                                fields={editPartnerFields}
+                                onChange={updateEditPartnerFields}
+                                imageUploading={isUploadingEditImage}
+                                onImageUpload={(file) =>
+                                  uploadReferralImage(file, (url) => updateEditPartnerFields({ imageUrl: url }), setIsUploadingEditImage)
+                                }
+                              />
                             </div>
                             <div className="flex flex-wrap gap-2">
                               <Button onClick={() => saveEdit(entry.id)}>Save</Button>
