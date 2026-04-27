@@ -88,30 +88,7 @@ function Login() {
 			localStorage.setItem("auth_token", data.accessToken);
 			localStorage.setItem("pending_email", email);
 
-			// Validate token immediately so portal never opens with a dead session.
-			const sessionCheck = await fetch(`${config.api.baseUrl}/api/auth/me`, {
-				headers: { Authorization: `Bearer ${data.accessToken}` },
-				cache: "no-store",
-			});
-			if (sessionCheck.status === 401 || sessionCheck.status === 403) {
-				localStorage.removeItem("auth_token");
-				localStorage.removeItem("pending_email");
-				throw new Error(
-					"Server rejected the new session token. Verify API JWT_SECRET and auth database consistency.",
-				);
-			}
-			if (!sessionCheck.ok) {
-				throw new Error("Login succeeded, but profile fetch failed. Please retry.");
-			}
-
-			toast.success("Welcome back!", {
-				description: "Redirecting to your dashboard...",
-			});
-
-			// Use setTimeout to ensure state updates and navigate works
-			setTimeout(() => {
-				navigate({ to: "/portal/dashboard", replace: true });
-			}, 200);
+			navigate({ to: "/portal/dashboard", replace: true });
 		} catch (error: any) {
 			toast.error("Login failed", {
 				description: error.message || "Invalid email or password.",
