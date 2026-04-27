@@ -14,14 +14,23 @@ export const Route = createFileRoute("/portal/profile")({
 	component: ProfilePage,
 });
 
+function displayName(user: ReturnType<typeof usePortal>["user"]): string {
+	if (user?.name && user.name !== "User") return user.name;
+	if (user?.athleteName) return user.athleteName;
+	if (user?.team?.name) return user.team.name;
+	return "";
+}
+
 function ProfilePage() {
 	const { user, refreshUser } = usePortal();
-	const [name, setName] = useState(user?.name || "");
+	const resolved = displayName(user);
+	const [name, setName] = useState(resolved);
 	const [isSaving, setIsSaving] = useState(false);
 	const [isUploading, setIsUploading] = useState(false);
 
 	useEffect(() => {
-		if (user?.name) setName(user.name);
+		const n = displayName(user);
+		if (n) setName(n);
 	}, [user]);
 
 	const handleSave = async () => {
