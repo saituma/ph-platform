@@ -492,9 +492,11 @@ export async function getOnboardingByUser(userId: number) {
     console.warn("[Onboarding] Failed birthday notification side effect for guardian onboarding status", error);
   }
 
-  // Return the first athlete as primary for backward compatibility, but include allAthletes
+  // Return the first athlete as primary for backward compatibility, but include allAthletes.
+  // Surface the guardian's own tier so auth can prefer it over the managed athlete's tier.
   return {
     ...decoratedAthletes[0],
+    guardianProgramTier: guardian?.currentProgramTier ?? null,
     allAthletes: decoratedAthletes,
   };
 }

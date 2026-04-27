@@ -3,6 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   athleteTable,
+  guardianTable,
   notificationTable,
   subscriptionPlanTable,
   subscriptionRequestTable,
@@ -647,6 +648,7 @@ export async function approveSubscriptionRequest(requestId: number) {
 
     if (request.guardianId) {
       await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.guardianId, request.guardianId));
+      await tx.update(guardianTable).set({ currentProgramTier: request.planTier, updatedAt: new Date() }).where(eq(guardianTable.id, request.guardianId));
     } else {
       await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.id, request.athleteId));
     }

@@ -15,7 +15,7 @@ import {
 import { deleteOwnAccount } from "../services/account-deletion.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
 import { verifyAccessToken } from "../lib/jwt";
-import { getAthleteForUser, getUserById, updateUserProfile } from "../services/user.service";
+import { getUserById, updateUserProfile } from "../services/user.service";
 import { getOnboardingByUser } from "../services/onboarding.service";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { buildAppCapabilities } from "../services/app-capabilities.service";
@@ -387,13 +387,16 @@ export async function getMe(req: Request, res: Response) {
     ? coachManagedTeam
     : await withTeamPlanTier(await resolveAthleteTeamForMe(athlete));
   const teamTierFallback = teamForUser?.planTier ?? null;
-  const programTier = athlete?.currentProgramTier ?? teamTierFallback;
+  const guardianTier = user.role === "guardian" ? (athlete?.guardianProgramTier ?? null) : null;
+  const programTier = guardianTier ?? athlete?.currentProgramTier ?? teamTierFallback;
   const tierSource =
-    athlete?.currentProgramTier != null
-      ? "athlete"
-      : teamTierFallback != null
-        ? "team"
-        : "none";
+    guardianTier != null
+      ? "guardian"
+      : athlete?.currentProgramTier != null
+        ? "athlete"
+        : teamTierFallback != null
+          ? "team"
+          : "none";
   const capabilities = buildAppCapabilities({
     role: user.role,
     programTier,
@@ -412,6 +415,7 @@ export async function getMe(req: Request, res: Response) {
       team: teamForUser ?? athlete?.team ?? null,
       programTier,
       debugProgramAccess: {
+        guardianProgramTier: guardianTier,
         athleteProgramTier: athlete?.currentProgramTier ?? null,
         teamProgramTier: teamTierFallback,
         teamPlanTierSource: teamForUser?.planTierSource ?? "none",
