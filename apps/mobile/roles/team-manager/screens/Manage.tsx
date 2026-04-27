@@ -1,319 +1,665 @@
-import React from "react";
-import { Alert, Pressable, View } from "react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { Animated, Image, Pressable, ScrollView, View } from "react-native";
 import { router } from "expo-router";
-import { ThemedScrollView } from "@/components/ThemedScrollView";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
-import { Ionicons } from "@expo/vector-icons";
 import { fonts } from "@/constants/theme";
+import type { ManagedAthlete } from "@/store/slices/userSlice";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TeamManagerManageScreen
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function TeamManagerManageScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
-  const appRole = useAppSelector((s) => s.user.appRole);
+  const { managedAthletes, authTeamMembership, appRole } = useAppSelector(
+    (s) => s.user,
+  );
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
+  const memberCount = managedAthletes.length;
+  const youthCount = useMemo(
+    () => managedAthletes.filter((a) => a.athleteType === "youth").length,
+    [managedAthletes],
+  );
+  const adultCount = useMemo(
+    () => managedAthletes.filter((a) => a.athleteType === "adult").length,
+    [managedAthletes],
+  );
+  const teamName =
+    authTeamMembership?.team ?? managedAthletes[0]?.team ?? "Your Team";
 
   if (appRole !== "team_manager") return null;
 
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
-  const cardBorder = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const heroBg = isDark ? "hsl(148,18%,6%)" : "hsl(148,22%,96%)";
+  const cardBg = colors.surfaceHigh;
+  const cardBorder = isDark ? colors.borderMid : colors.borderMid;
 
   return (
-    <View
-      style={{
-        flex: 1,
-        paddingTop: insets.top,
-        backgroundColor: colors.background,
-      }}
-    >
-      <ThemedScrollView contentContainerStyle={{ paddingBottom: 56 + insets.bottom }}>
-        {/* Header */}
-        <View style={{ paddingTop: 40, marginBottom: 24, paddingHorizontal: 24 }}>
+    <View style={{ flex: 1, backgroundColor: heroBg }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={{ opacity: fadeAnim }}>
+
+          {/* ── Hero ─────────────────────────────────────── */}
           <View
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 6,
+              paddingTop: insets.top + 32,
+              paddingHorizontal: 24,
+              paddingBottom: 52,
+              overflow: "hidden",
             }}
           >
+            {/* Ambient glow */}
             <View
               style={{
-                height: 32,
-                width: 6,
-                borderRadius: 99,
-                backgroundColor: colors.accent,
+                position: "absolute",
+                top: -30,
+                right: -40,
+                width: 220,
+                height: 220,
+                borderRadius: 110,
+                backgroundColor: isDark
+                  ? "rgba(52,199,89,0.07)"
+                  : "rgba(22,163,74,0.07)",
               }}
             />
+
+            {/* Title */}
             <Text
-              numberOfLines={1}
               style={{
-                fontSize: 44,
+                fontSize: 36,
                 fontFamily: "TelmaBold",
-                color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
+                color: isDark ? "hsl(148,8%,94%)" : "hsl(148,28%,10%)",
                 letterSpacing: -0.5,
+                lineHeight: 42,
+                marginBottom: 10,
               }}
             >
               Roster
             </Text>
+
+            {/* Team name sub-label */}
+            <Text
+              numberOfLines={1}
+              style={{
+                fontSize: 13,
+                fontFamily: fonts.bodyMedium,
+                color: isDark ? "hsl(148,5%,55%)" : "hsl(148,18%,40%)",
+                marginBottom: 16,
+              }}
+            >
+              {teamName}
+            </Text>
+
+            {/* Count badges */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <CountBadge
+                value={memberCount}
+                label="athletes"
+                icon="people-outline"
+              />
+              {youthCount > 0 && (
+                <CountBadge
+                  value={youthCount}
+                  label="youth"
+                  icon="school-outline"
+                  accent
+                />
+              )}
+              {adultCount > 0 && (
+                <CountBadge
+                  value={adultCount}
+                  label="adults"
+                  icon="body-outline"
+                />
+              )}
+            </View>
           </View>
-          <Text
+
+          {/* ── Floating Content Card ─────────────────────── */}
+          <View
             style={{
-              fontSize: 15,
-              fontFamily: "Outfit",
-              color: labelColor,
-              lineHeight: 22,
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              marginTop: -28,
+              paddingTop: 12,
+              paddingBottom: 56 + insets.bottom,
+              minHeight: 520,
             }}
           >
-            Manage athletes, team settings, and schedules.
-          </Text>
-        </View>
-
-        <View style={{ paddingHorizontal: 24, gap: 16 }}>
-          {/* Athletes section */}
-          <SectionCard
-            title="Athletes"
-            cardBg={cardBg}
-            cardBorder={cardBorder}
-            labelColor={labelColor}
-          >
-            <ManageRow
-              icon="people-outline"
-              title="View Roster"
-              subtitle="View and edit athlete profiles"
-              isDark={isDark}
-              accent={colors.accent}
-              cardBorder={cardBorder}
-              divider
-              onPress={() => router.push("/team-manager/roster")}
-            />
-            <ManageRow
-              icon="person-add-outline"
-              title="Add Athlete"
-              subtitle="Invite a new athlete to your team"
-              isDark={isDark}
-              accent={isDark ? "hsl(155,25%,55%)" : "hsl(155,35%,42%)"}
-              cardBorder={cardBorder}
-              onPress={() => {
-                Alert.alert(
-                  "Coming Soon",
-                  "Athlete invitations will be available in a future update.",
-                  [{ text: "OK" }],
-                );
+            {/* Drag pill */}
+            <View
+              style={{
+                width: 36,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.12)"
+                  : "rgba(0,0,0,0.10)",
+                alignSelf: "center",
+                marginBottom: 28,
               }}
             />
-          </SectionCard>
 
-          {/* Team settings section */}
-          <SectionCard
-            title="Team Settings"
-            cardBg={cardBg}
-            cardBorder={cardBorder}
-            labelColor={labelColor}
-          >
-            <ManageRow
-              icon="shield-checkmark-outline"
-              title="Privacy & Visibility"
-              subtitle="Control who can see team activity"
-              isDark={isDark}
-              accent={isDark ? "hsl(270,25%,65%)" : "hsl(270,35%,50%)"}
-              cardBorder={cardBorder}
-              divider
-              onPress={() =>
-                router.push("/(tabs)/tracking/team-settings" as any)
-              }
-            />
-            <ManageRow
-              icon="megaphone-outline"
-              title="Announcements"
-              subtitle="Post updates for the team"
-              isDark={isDark}
-              accent={isDark ? "hsl(30,30%,60%)" : "hsl(30,45%,45%)"}
-              cardBorder={cardBorder}
-              onPress={() => router.push("/announcements" as any)}
-            />
-          </SectionCard>
+            {/* Athlete avatar strip */}
+            {managedAthletes.length > 0 ? (
+              <View style={{ marginBottom: 28 }}>
+                <View
+                  style={{
+                    paddingHorizontal: 20,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.labelCaps,
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                      color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,50%)",
+                      textTransform: "uppercase",
+                      paddingLeft: 2,
+                    }}
+                  >
+                    Athletes
+                  </Text>
+                  <Pressable
+                    onPress={() => router.push("/team-manager/roster")}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontFamily: fonts.bodyMedium,
+                        color: colors.accent,
+                      }}
+                    >
+                      View all
+                    </Text>
+                  </Pressable>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: 20 }}
+                >
+                  {managedAthletes.slice(0, 10).map((athlete, index) => (
+                    <View
+                      key={athlete.id ?? index}
+                      style={{
+                        marginRight:
+                          index < Math.min(managedAthletes.length, 10) - 1
+                            ? 10
+                            : 0,
+                      }}
+                    >
+                      <AthleteAvatar
+                        athlete={athlete}
+                        onPress={() =>
+                          athlete.id !== undefined
+                            ? router.push(
+                                `/team-manager/athlete/${athlete.id}` as any,
+                              )
+                            : router.push("/team-manager/roster")
+                        }
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : (
+              /* Empty state */
+              <View
+                style={{
+                  paddingHorizontal: 20,
+                  marginBottom: 28,
+                }}
+              >
+                <View
+                  style={{
+                    borderRadius: 18,
+                    borderWidth: 1,
+                    borderColor: cardBorder,
+                    backgroundColor: cardBg,
+                    padding: 28,
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Ionicons
+                    name="people-outline"
+                    size={32}
+                    color={isDark ? "hsl(220,5%,40%)" : "hsl(220,5%,65%)"}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontFamily: fonts.bodyBold,
+                      color: isDark ? "hsl(220,5%,70%)" : "hsl(220,8%,30%)",
+                      textAlign: "center",
+                    }}
+                  >
+                    No athletes yet
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontFamily: fonts.bodyRegular,
+                      color: colors.textSecondary,
+                      textAlign: "center",
+                    }}
+                  >
+                    Athletes will appear here once they join your team.
+                  </Text>
+                </View>
+              </View>
+            )}
 
-          {/* Schedule section */}
-          <SectionCard
-            title="Schedule"
-            cardBg={cardBg}
-            cardBorder={cardBorder}
-            labelColor={labelColor}
-          >
-            <ManageRow
-              icon="calendar-outline"
-              title="Sessions & Events"
-              subtitle="View and manage training sessions"
-              isDark={isDark}
-              accent={isDark ? "hsl(200,25%,60%)" : "hsl(200,40%,45%)"}
-              cardBorder={cardBorder}
-              onPress={() => router.push("/(tabs)/schedule")}
-            />
-          </SectionCard>
+            {/* ── Manage section ────────────────────────── */}
+            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+              <SectionLabel label="Manage" />
+              <View
+                style={{
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: cardBorder,
+                  backgroundColor: cardBg,
+                  overflow: "hidden",
+                }}
+              >
+                <ManageRow
+                  icon="people-outline"
+                  label="View Roster"
+                  subtitle="View and edit athlete profiles"
+                  accent={colors.accent}
+                  isFirst
+                  onPress={() => router.push("/team-manager/roster")}
+                />
+                <ManageRow
+                  icon="person-add-outline"
+                  label="Add Athlete"
+                  subtitle="Invite a new athlete to your team"
+                  accent={colors.cyan}
+                  onPress={() => router.push("/team-manager/add-athlete" as any)}
+                />
+                <ManageRow
+                  icon="megaphone-outline"
+                  label="Announcements"
+                  subtitle="Post updates for your team"
+                  accent={colors.amber}
+                  onPress={() => router.push("/announcements" as any)}
+                />
+              </View>
+            </View>
 
-          {/* Tracking section */}
-          <SectionCard
-            title="Tracking & Stats"
-            cardBg={cardBg}
-            cardBorder={cardBorder}
-            labelColor={labelColor}
-          >
-            <ManageRow
-              icon="trophy-outline"
-              title="Team Leaderboard"
-              subtitle="View rankings and challenges"
-              isDark={isDark}
-              accent={isDark ? "hsl(40,30%,60%)" : "hsl(40,45%,45%)"}
-              cardBorder={cardBorder}
-              divider
-              onPress={() =>
-                router.push("/(tabs)/tracking/social" as any)
-              }
-            />
-            <ManageRow
-              icon="analytics-outline"
-              title="Athlete Activity"
-              subtitle="Monitor athlete runs and stats"
-              isDark={isDark}
-              accent={colors.accent}
-              cardBorder={cardBorder}
-              onPress={() => router.push("/(tabs)/tracking" as any)}
-            />
-          </SectionCard>
-        </View>
-      </ThemedScrollView>
+            {/* ── Schedule & Stats section ───────────────── */}
+            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+              <SectionLabel label="Schedule & Stats" />
+              <View
+                style={{
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: cardBorder,
+                  backgroundColor: cardBg,
+                  overflow: "hidden",
+                }}
+              >
+                <ManageRow
+                  icon="calendar-outline"
+                  label="Sessions & Events"
+                  subtitle="View and manage training sessions"
+                  accent={colors.purple}
+                  isFirst
+                  onPress={() => router.push("/(tabs)/schedule")}
+                />
+                <ManageRow
+                  icon="trophy-outline"
+                  label="Leaderboard"
+                  subtitle="View rankings and weekly activity"
+                  accent={colors.amber}
+                  onPress={() =>
+                    router.push("/(tabs)/tracking/social" as any)
+                  }
+                />
+                <ManageRow
+                  icon="analytics-outline"
+                  label="Athlete Activity"
+                  subtitle="Monitor runs and performance stats"
+                  accent={colors.coral}
+                  onPress={() => router.push("/(tabs)/tracking" as any)}
+                />
+              </View>
+            </View>
+
+            {/* ── Settings section ──────────────────────── */}
+            <View style={{ paddingHorizontal: 20 }}>
+              <SectionLabel label="Settings" />
+              <View
+                style={{
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: cardBorder,
+                  backgroundColor: cardBg,
+                  overflow: "hidden",
+                }}
+              >
+                <ManageRow
+                  icon="shield-checkmark-outline"
+                  label="Privacy & Visibility"
+                  subtitle="Control who can see team activity"
+                  accent={colors.purple}
+                  isFirst
+                  onPress={() =>
+                    router.push("/(tabs)/tracking/team-settings" as any)
+                  }
+                />
+              </View>
+            </View>
+
+          </View>
+        </Animated.View>
+      </ScrollView>
     </View>
   );
 }
 
-// ── SectionCard ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// SectionLabel
+// ─────────────────────────────────────────────────────────────────────────────
 
-function SectionCard({
-  title,
-  children,
-  cardBg,
-  cardBorder,
-  labelColor,
-}: {
-  title: string;
-  children: React.ReactNode;
-  cardBg: string;
-  cardBorder: string;
-  labelColor: string;
-}) {
+function SectionLabel({ label }: { label: string }) {
+  const { isDark } = useAppTheme();
   return (
-    <View style={{ gap: 8 }}>
-      <Text
-        style={{
-          fontSize: 11,
-          fontFamily: fonts.bodyBold,
-          color: labelColor,
-          textTransform: "uppercase",
-          letterSpacing: 1.0,
-          paddingHorizontal: 4,
-        }}
-      >
-        {title}
-      </Text>
-      <View
-        style={{
-          borderRadius: 20,
-          borderWidth: 1,
-          backgroundColor: cardBg,
-          borderColor: cardBorder,
-          overflow: "hidden",
-        }}
-      >
-        {children}
-      </View>
-    </View>
+    <Text
+      style={{
+        fontFamily: fonts.labelCaps,
+        fontSize: 11,
+        letterSpacing: 1.2,
+        color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,50%)",
+        textTransform: "uppercase",
+        paddingLeft: 2,
+        marginBottom: 12,
+      }}
+    >
+      {label}
+    </Text>
   );
 }
 
-// ── ManageRow ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// CountBadge
+// ─────────────────────────────────────────────────────────────────────────────
 
-function ManageRow({
+function CountBadge({
+  value,
+  label,
   icon,
-  title,
-  subtitle,
-  isDark,
   accent,
-  cardBorder,
-  divider = false,
-  onPress,
 }: {
+  value: number;
+  label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  subtitle: string;
-  isDark: boolean;
-  accent: string;
-  cardBorder: string;
-  divider?: boolean;
-  onPress: () => void;
+  accent?: boolean;
 }) {
+  const { colors, isDark } = useAppTheme();
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      onPress={onPress}
-      style={({ pressed }) => ({
+    <View
+      style={{
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        gap: 12,
-        backgroundColor: pressed
-          ? isDark
-            ? "rgba(255,255,255,0.04)"
-            : "rgba(15,23,42,0.03)"
-          : "transparent",
-        borderBottomWidth: divider ? 1 : 0,
-        borderBottomColor: cardBorder,
+        gap: 5,
+        backgroundColor: accent
+          ? colors.accentLight
+          : isDark
+            ? "rgba(255,255,255,0.07)"
+            : "rgba(0,0,0,0.06)",
+        borderRadius: 99,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderWidth: accent ? 1 : 0,
+        borderColor: accent ? colors.borderLime : "transparent",
+      }}
+    >
+      <Ionicons
+        name={icon}
+        size={11}
+        color={
+          accent
+            ? colors.accent
+            : isDark
+              ? "hsl(148,5%,60%)"
+              : "hsl(148,18%,38%)"
+        }
+      />
+      <Text
+        style={{
+          fontSize: 12,
+          fontFamily: fonts.bodyMedium,
+          color: accent
+            ? colors.accent
+            : isDark
+              ? "hsl(148,5%,60%)"
+              : "hsl(148,18%,38%)",
+        }}
+      >
+        {value} {label}
+      </Text>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AthleteAvatar
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AthleteAvatar({
+  athlete,
+  onPress,
+}: {
+  athlete: ManagedAthlete;
+  onPress: () => void;
+}) {
+  const { colors, isDark } = useAppTheme();
+
+  const initials = (athlete.name ?? "?")
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0] ?? "")
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const cardBg = isDark ? colors.surfaceHigh : colors.cardElevated;
+  const cardBorder = isDark ? colors.borderMid : colors.borderMid;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        opacity: pressed ? 0.75 : 1,
+        transform: [{ scale: pressed ? 0.96 : 1 }],
       })}
     >
       <View
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
           alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+          gap: 6,
+          width: 64,
         }}
       >
-        <Ionicons name={icon} size={19} color={accent} />
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text
+        <View
           style={{
-            fontSize: 15,
-            fontFamily: fonts.bodyBold,
-            color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
-            letterSpacing: -0.1,
+            width: 52,
+            height: 52,
+            borderRadius: 16,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: cardBg,
+            borderWidth: 1,
+            borderColor: cardBorder,
+            overflow: "hidden",
           }}
         >
-          {title}
-        </Text>
+          {athlete.profilePicture ? (
+            <Image
+              source={{ uri: athlete.profilePicture }}
+              style={{ width: 52, height: 52 }}
+            />
+          ) : (
+            <Text
+              style={{
+                fontSize: 16,
+                fontFamily: "ClashDisplay-Bold",
+                color: colors.accent,
+              }}
+            >
+              {initials}
+            </Text>
+          )}
+        </View>
         <Text
+          numberOfLines={1}
           style={{
-            fontSize: 12,
+            fontSize: 10,
             fontFamily: fonts.bodyMedium,
-            color: isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)",
+            color: isDark ? "hsl(220,5%,72%)" : "hsl(220,8%,28%)",
+            textAlign: "center",
+            maxWidth: 62,
           }}
         >
-          {subtitle}
+          {(athlete.name ?? "Athlete").split(" ")[0]}
         </Text>
       </View>
-      <Ionicons
-        name="chevron-forward"
-        size={17}
-        color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"}
-      />
     </Pressable>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ManageRow
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ManageRow({
+  icon,
+  label,
+  subtitle,
+  accent,
+  isFirst,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  subtitle: string;
+  accent: string;
+  isFirst?: boolean;
+  onPress: () => void;
+}) {
+  const { colors, isDark } = useAppTheme();
+
+  return (
+    <View>
+      {!isFirst && (
+        <View
+          style={{
+            height: 1,
+            backgroundColor: isDark ? colors.borderSubtle : colors.borderMid,
+            marginLeft: 66,
+          }}
+        />
+      )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={onPress}
+        style={({ pressed }) => ({
+          backgroundColor: pressed
+            ? isDark
+              ? "rgba(255,255,255,0.04)"
+              : "rgba(0,0,0,0.03)"
+            : "transparent",
+        })}
+      >
+        {/* Static layout — flexDirection MUST be in a plain View, not Pressable style fn */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            gap: 14,
+          }}
+        >
+          {/* Icon */}
+          <View
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 11,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isDark ? `${accent}22` : `${accent}18`,
+            }}
+          >
+            <Ionicons name={icon} size={18} color={accent} />
+          </View>
+
+          {/* Text */}
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontSize: 15,
+                fontFamily: fonts.bodyBold,
+                color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,10%)",
+              }}
+            >
+              {label}
+            </Text>
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: fonts.bodyRegular,
+                color: colors.textSecondary,
+                marginTop: 1,
+              }}
+            >
+              {subtitle}
+            </Text>
+          </View>
+
+          {/* Chevron */}
+          <Ionicons
+            name="chevron-forward"
+            size={14}
+            color={isDark ? "hsl(220,5%,36%)" : "hsl(220,5%,65%)"}
+          />
+        </View>
+      </Pressable>
+    </View>
   );
 }

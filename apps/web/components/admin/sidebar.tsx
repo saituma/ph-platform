@@ -13,6 +13,7 @@ import {
   ClipboardList,
   CreditCard,
   Home,
+  Images,
   MessageCircle,
   PlaySquare,
   Library,
@@ -168,6 +169,7 @@ export function AdminSidebarContent({
       description: "Home CMS, parent portal, exercises, age UX",
       items: [
         { label: "Content", href: "/content", icon: BookOpen },
+        { label: "Gallery", href: "/gallery", icon: Images },
         { label: "Parent Portal", href: "/parent", icon: Library },
         { label: "Training content", href: "/exercise-library", icon: BadgeCheck },
       ],

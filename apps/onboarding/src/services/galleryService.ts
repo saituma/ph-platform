@@ -5,7 +5,9 @@ export type GalleryApiItem = {
 	url: string;
 	thumbnail: string | null;
 	caption: string | null;
-	mediaType: "photo" | "video";
+	mediaType: "photo" | "video" | "instagram" | "link";
+	postType: "upload" | "link" | "instagram";
+	instagramId: string | null;
 	tag: string | null;
 	createdAt: string;
 };
