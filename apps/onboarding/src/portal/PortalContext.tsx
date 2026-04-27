@@ -66,9 +66,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
 	// SSR hydration: server sets token to null (no window). Re-read on client mount.
 	useEffect(() => {
-		const raw = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
 		const stored = readStoredToken();
-		console.log("[Portal] hydration effect", { raw: !!raw, stored: !!stored, currentToken: !!token });
 		if (stored && stored !== token) setToken(stored);
 		setHydrated(true);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -76,19 +74,19 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		if (!token) return;
 		const ms = msUntilExpiry(token);
-		console.log("[Portal] expiry check", { ms });
 		if (ms <= 0) {
-			console.log("[Portal] TOKEN CLEARED by expiry (ms<=0)");
 			localStorage.removeItem("auth_token");
 			setToken(null);
 			return;
 		}
 		if (ms === -1) return;
+		// setTimeout overflows at 2^31-1 ms (~24.8 days) and fires immediately.
+		// Cap at 12 hours; token will be re-checked on next page load.
+		const safeMs = Math.min(ms, 12 * 60 * 60 * 1000);
 		const timer = setTimeout(() => {
-			console.log("[Portal] TOKEN CLEARED by expiry timer");
 			localStorage.removeItem("auth_token");
 			setToken(null);
-		}, ms);
+		}, safeMs);
 		return () => clearTimeout(timer);
 	}, [token]);
 
@@ -147,10 +145,6 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			? userError.message
 			: String(userError)
 		: null;
-
-	useEffect(() => {
-		console.log("[Portal] state", { hydrated, token: !!token, loading, user: !!user, error, userLoading });
-	}, [hydrated, token, loading, user, error, userLoading]);
 
 	const value = useMemo<PortalContextValue>(
 		() => ({
