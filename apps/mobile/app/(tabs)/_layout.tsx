@@ -100,14 +100,13 @@ export default function TabLayout() {
     };
   }, [effectiveAuth, bootstrapReady, token, athleteUserId]);
 
-  // Cold start sometimes restores `/(tabs)/programs` as the shell route. Without a matching URL when
-  // switching tabs, the pager and pathname fight — e.g. Tracking shows Programs. If there was no
-  // deep link, normalize top-level Programs to Home once.
+  // Cold start sometimes restores `/(tabs)/programs` as the shell route.
+  // Only normalize on the very first render — never after user interaction.
   useEffect(() => {
-    if (!effectiveAuth || !bootstrapReady || didNormalizeLaunchRoute.current) return;
-    if (!pathname) return;
-
+    if (didNormalizeLaunchRoute.current) return;
     didNormalizeLaunchRoute.current = true;
+
+    if (!effectiveAuth || !bootstrapReady || !pathname) return;
 
     Linking.getInitialURL().then((url) => {
       if (url) return;
@@ -118,7 +117,7 @@ export default function TabLayout() {
         router.replace("/(tabs)");
       }
     });
-  }, [effectiveAuth, bootstrapReady, pathname, router]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Shared Logic Hooks
   usePushNotificationResponses(effectiveAuth && bootstrapReady);
