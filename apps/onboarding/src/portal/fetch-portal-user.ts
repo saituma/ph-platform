@@ -7,9 +7,19 @@ import type { PortalUser } from "@/portal/portal-types";
 
 export async function fetchPortalUser(token: string): Promise<PortalUser> {
 	const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
-	const res = await fetch(`${baseUrl}/api/auth/me`, {
+	let res = await fetch(`${baseUrl}/api/auth/me`, {
 		headers: { Authorization: `Bearer ${token}` },
+		cache: "no-store",
 	});
+
+	// Guard against brief backend edge hops returning a stale 401.
+	if (res.status === 401) {
+		await new Promise((resolve) => setTimeout(resolve, 200));
+		res = await fetch(`${baseUrl}/api/auth/me`, {
+			headers: { Authorization: `Bearer ${token}` },
+			cache: "no-store",
+		});
+	}
 
 	if (res.status === 401) {
 		throw new Error(PORTAL_UNAUTHORIZED_ERROR);
