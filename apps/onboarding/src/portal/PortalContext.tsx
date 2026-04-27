@@ -62,11 +62,13 @@ function readStoredToken(): string | null {
 
 export function PortalProvider({ children }: { children: ReactNode }) {
 	const [token, setToken] = useState<string | null>(readStoredToken);
+	const [hydrated, setHydrated] = useState(typeof window !== "undefined");
 
 	// SSR hydration: server sets token to null (no window). Re-read on client mount.
 	useEffect(() => {
 		const stored = readStoredToken();
 		if (stored && stored !== token) setToken(stored);
+		setHydrated(true);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
@@ -139,7 +141,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			token,
 			user: user ?? null,
 			age,
-			loading: !!token && userLoading,
+			loading: !hydrated || (!!token && userLoading),
 			error: userError
 				? userError instanceof Error
 					? userError.message
@@ -148,7 +150,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			refresh,
 			refreshUser: refresh,
 		}),
-		[token, user, age, userLoading, userError, refresh],
+		[token, user, age, hydrated, userLoading, userError, refresh],
 	);
 
 	return (
