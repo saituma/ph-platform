@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -35,7 +34,6 @@ export default function TeamManagerHomeScreen() {
   const [loaded, setLoaded] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
 
   const teamName =
     authTeamMembership?.team ?? managedAthletes[0]?.team ?? "Your Team";
@@ -79,19 +77,12 @@ export default function TeamManagerHomeScreen() {
   }, [fetchData]);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 480,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 480,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fadeAnim, slideAnim]);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -101,19 +92,20 @@ export default function TeamManagerHomeScreen() {
 
   if (appRole !== "team_manager") return null;
 
-  const cardBg = isDark ? colors.surfaceHigh : colors.card;
-  const cardBorder = isDark ? colors.borderMid : colors.borderSubtle;
+  // Hero tint: very subtle lime-tinted background behind the top section
+  const heroBg = isDark ? "hsl(148,18%,6%)" : "hsl(148,22%,96%)";
+  // surfaceHigh gives visible contrast in both light (#F6F8F6) and dark (#111311)
+  const cardBg = colors.surfaceHigh;
+  const cardBorder = isDark ? colors.borderMid : colors.borderMid;
+  const participationPct =
+    memberCount > 0 ? Math.min((activeCount / memberCount) * 100, 100) : 0;
 
   return (
-    <View
-      style={{
-        flex: 1,
-        paddingTop: insets.top,
-        backgroundColor: colors.background,
-      }}
-    >
-      <ThemedScrollView
-        contentContainerStyle={{ paddingBottom: 56 + insets.bottom }}
+    // Outer container carries the hero tint — shows behind rounded card corners
+    <View style={{ flex: 1, backgroundColor: heroBg }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -123,38 +115,54 @@ export default function TeamManagerHomeScreen() {
           />
         }
       >
-        <Animated.View
-          style={{
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          }}
-        >
-          {/* ── Header ─────────────────────────────────────────────── */}
+        <Animated.View style={{ opacity: fadeAnim }}>
+
+          {/* ── Hero Section ─────────────────────────────── */}
           <View
             style={{
-              paddingTop: 40,
+              paddingTop: insets.top + 32,
               paddingHorizontal: 24,
-              marginBottom: 24,
+              paddingBottom: 52,
+              overflow: "hidden",
             }}
           >
+            {/* Ambient glow dot */}
+            <View
+              style={{
+                position: "absolute",
+                top: -30,
+                right: -40,
+                width: 220,
+                height: 220,
+                borderRadius: 110,
+                backgroundColor: isDark
+                  ? "rgba(52,199,89,0.07)"
+                  : "rgba(22,163,74,0.07)",
+              }}
+            />
+
+            {/* Team name */}
             <Text
               numberOfLines={1}
               style={{
-                fontSize: 42,
+                fontSize: 36,
                 fontFamily: "TelmaBold",
-                color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)",
+                color: isDark ? "hsl(148,8%,94%)" : "hsl(148,28%,10%)",
                 letterSpacing: -0.5,
-                lineHeight: 50,
+                lineHeight: 42,
                 marginBottom: 10,
               }}
             >
               {teamName}
             </Text>
+
+            {/* Badges */}
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 8,
+                marginBottom: 32,
                 flexWrap: "wrap",
               }}
             >
@@ -164,25 +172,25 @@ export default function TeamManagerHomeScreen() {
                   alignItems: "center",
                   gap: 5,
                   backgroundColor: isDark
-                    ? colors.surfaceHigher
-                    : colors.backgroundSecondary,
+                    ? "rgba(255,255,255,0.07)"
+                    : "rgba(0,0,0,0.06)",
                   borderRadius: 99,
                   paddingHorizontal: 10,
                   paddingVertical: 5,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
                 }}
               >
                 <Ionicons
                   name="people-outline"
                   size={11}
-                  color={colors.textSecondary}
+                  color={isDark ? "hsl(148,5%,60%)" : "hsl(148,18%,38%)"}
                 />
                 <Text
                   style={{
                     fontSize: 12,
                     fontFamily: fonts.bodyMedium,
-                    color: colors.textSecondary,
+                    color: isDark
+                      ? "hsl(148,5%,60%)"
+                      : "hsl(148,18%,38%)",
                   }}
                 >
                   {memberCount} athletes
@@ -217,171 +225,235 @@ export default function TeamManagerHomeScreen() {
                       color: colors.accent,
                     }}
                   >
-                    {activeCount} active this week
+                    {activeCount} active
                   </Text>
                 </View>
               )}
             </View>
+
+            {/* KM stat or skeleton */}
+            {loaded ? (
+              <View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "baseline",
+                    gap: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 64,
+                      fontFamily: "ClashDisplay-Bold",
+                      color: isDark
+                        ? "hsl(148,8%,94%)"
+                        : "hsl(148,28%,8%)",
+                      letterSpacing: -2,
+                      lineHeight: 68,
+                    }}
+                  >
+                    {teamKm.toFixed(1)}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 20,
+                      fontFamily: fonts.bodyMedium,
+                      color: isDark
+                        ? "hsl(148,5%,52%)"
+                        : "hsl(148,18%,40%)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    km
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontFamily: fonts.bodyRegular,
+                    color: isDark
+                      ? "hsl(148,5%,52%)"
+                      : "hsl(148,18%,42%)",
+                    marginBottom: 14,
+                  }}
+                >
+                  Team distance this week
+                </Text>
+                {memberCount > 0 && (
+                  <View>
+                    <View
+                      style={{
+                        height: 4,
+                        borderRadius: 2,
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.09)"
+                          : "rgba(0,0,0,0.09)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          height: "100%",
+                          width: `${participationPct}%`,
+                          borderRadius: 2,
+                          backgroundColor: colors.accent,
+                        }}
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: fonts.bodyRegular,
+                        color: isDark
+                          ? "hsl(148,5%,50%)"
+                          : "hsl(148,18%,44%)",
+                        marginTop: 7,
+                      }}
+                    >
+                      {activeCount} of {memberCount} athletes ran this week
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <HeroSkeleton />
+            )}
           </View>
 
-          {/* ── Body ───────────────────────────────────────────────── */}
-          <View style={{ gap: 14 }}>
+          {/* ── Floating Content Card ─────────────────────── */}
+          <View
+            style={{
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              marginTop: -28,
+              paddingTop: 12,
+              paddingBottom: 56 + insets.bottom,
+              minHeight: 560,
+            }}
+          >
+            {/* Drag pill */}
+            <View
+              style={{
+                width: 36,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.12)"
+                  : "rgba(0,0,0,0.10)",
+                alignSelf: "center",
+                marginBottom: 28,
+              }}
+            />
 
-            {/* Activity Hero Card */}
-            <View style={{ paddingHorizontal: 24 }}>
-              {loaded ? (
-                <ActivityHeroCard
-                  teamKm={teamKm}
-                  activeCount={activeCount}
-                  memberCount={memberCount}
+            {/* Compact stats strip — always visible, data from Redux */}
+            <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: cardBorder,
+                  backgroundColor: cardBg,
+                  overflow: "hidden",
+                }}
+              >
+                <StatPill
+                  label="Athletes"
+                  value={memberCount}
+                  accent={colors.accent}
                 />
-              ) : (
-                <SkeletonBlock height={118} borderRadius={20} />
-              )}
+                <View style={{ width: 1, backgroundColor: cardBorder }} />
+                <StatPill
+                  label="Youth"
+                  value={youthCount}
+                  accent={isDark ? "hsl(220,30%,72%)" : "hsl(220,40%,55%)"}
+                />
+                <View style={{ width: 1, backgroundColor: cardBorder }} />
+                <StatPill
+                  label="Adults"
+                  value={adultCount}
+                  accent={isDark ? "hsl(160,25%,62%)" : "hsl(160,35%,42%)"}
+                />
+              </View>
             </View>
 
-            {/* Asymmetric Stats Bento */}
-            <View style={{ paddingHorizontal: 24 }}>
-              {loaded ? (
-                <StatsBento
-                  memberCount={memberCount}
-                  youthCount={youthCount}
-                  adultCount={adultCount}
-                  cardBg={cardBg}
-                  cardBorder={cardBorder}
-                />
-              ) : (
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <SkeletonBlock
-                    height={132}
-                    borderRadius={20}
-                    style={{ flex: 1.35 }}
-                  />
-                  <View style={{ flex: 1, gap: 10 }}>
-                    <SkeletonBlock height={58} borderRadius={16} />
-                    <SkeletonBlock height={58} borderRadius={16} />
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* Leaderboard Preview */}
+            {/* Leaderboard preview */}
             {loaded && leaderboard.length > 0 && (
-              <LeaderboardPreview leaderboard={leaderboard} />
+              <View style={{ marginBottom: 28 }}>
+                <LeaderboardPreview leaderboard={leaderboard} />
+              </View>
             )}
             {!loaded && (
-              <View style={{ paddingHorizontal: 24 }}>
-                <SkeletonBlock height={108} borderRadius={18} />
+              <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
+                <SkeletonBlock height={110} borderRadius={18} />
               </View>
             )}
 
-            {/* Quick Actions */}
-            <View style={{ paddingHorizontal: 24, gap: 10, marginTop: 4 }}>
+            {/* Actions list */}
+            <View style={{ paddingHorizontal: 20 }}>
               <SectionLabel label="Actions" />
-
-              {/* Roster — primary full-width */}
-              <PrimaryActionTile
-                icon="people-outline"
-                label="Roster"
-                subtitle={`${memberCount} athlete${memberCount !== 1 ? "s" : ""} on your team`}
-                accent={colors.accent}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
-                onPress={() => router.push("/team-manager/roster")}
-              />
-
-              {/* Row: Messages + Announcements */}
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <ActionTile
+              <View
+                style={{
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: cardBorder,
+                  backgroundColor: cardBg,
+                  overflow: "hidden",
+                }}
+              >
+                <ActionRow
+                  icon="people-outline"
+                  label="Roster"
+                  subtitle={`${memberCount} athlete${memberCount !== 1 ? "s" : ""}`}
+                  accent={colors.accent}
+                  isFirst
+                  onPress={() => router.push("/team-manager/roster")}
+                />
+                <ActionRow
                   icon="chatbubbles-outline"
                   label="Messages"
-                  accent={isDark ? "hsl(200,26%,62%)" : "hsl(200,40%,45%)"}
-                  cardBg={cardBg}
-                  cardBorder={cardBorder}
+                  accent={colors.cyan}
                   onPress={() => router.push("/(tabs)/messages" as any)}
                 />
-                <ActionTile
+                <ActionRow
                   icon="megaphone-outline"
-                  label="Announce"
-                  accent={isDark ? "hsl(32,30%,62%)" : "hsl(32,45%,45%)"}
-                  cardBg={cardBg}
-                  cardBorder={cardBorder}
+                  label="Announcements"
+                  accent={colors.amber}
                   onPress={() => router.push("/announcements" as any)}
                 />
-              </View>
-
-              {/* Row: Schedule + Stats */}
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <ActionTile
+                <ActionRow
                   icon="calendar-outline"
                   label="Schedule"
-                  accent={isDark ? "hsl(270,25%,65%)" : "hsl(270,35%,50%)"}
-                  cardBg={cardBg}
-                  cardBorder={cardBorder}
+                  accent={colors.purple}
                   onPress={() => router.push("/(tabs)/schedule")}
                 />
-                <ActionTile
+                <ActionRow
                   icon="analytics-outline"
                   label="Stats"
-                  accent={isDark ? "hsl(40,30%,62%)" : "hsl(40,45%,45%)"}
-                  cardBg={cardBg}
-                  cardBorder={cardBorder}
+                  accent={colors.coral}
                   onPress={() =>
                     router.push("/(tabs)/tracking/social" as any)
                   }
                 />
+                <ActionRow
+                  icon="settings-outline"
+                  label="Team Settings"
+                  accent={colors.textSecondary}
+                  isLast
+                  onPress={() =>
+                    router.push(
+                      "/(tabs)/tracking/team-settings" as any,
+                    )
+                  }
+                />
               </View>
-
-              {/* Settings — tertiary text row */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Team Settings"
-                onPress={() =>
-                  router.push("/(tabs)/tracking/team-settings" as any)
-                }
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  paddingVertical: 14,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
-                  backgroundColor: pressed
-                    ? isDark
-                      ? "rgba(255,255,255,0.03)"
-                      : "rgba(0,0,0,0.02)"
-                    : "transparent",
-                  opacity: pressed ? 0.7 : 1,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                })}
-              >
-                <Ionicons
-                  name="settings-outline"
-                  size={14}
-                  color={colors.textSecondary}
-                />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: fonts.bodyMedium,
-                    color: colors.textSecondary,
-                  }}
-                >
-                  Team Settings
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={12}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
             </View>
-
           </View>
+
         </Animated.View>
-      </ThemedScrollView>
+      </ScrollView>
     </View>
   );
 }
@@ -401,6 +473,7 @@ function SectionLabel({ label }: { label: string }) {
         color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,50%)",
         textTransform: "uppercase",
         paddingLeft: 2,
+        marginBottom: 12,
       }}
     >
       {label}
@@ -466,340 +539,124 @@ function SkeletonBlock({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ActivityHeroCard
+// HeroSkeleton
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ActivityHeroCard({
-  teamKm,
-  activeCount,
-  memberCount,
-}: {
-  teamKm: number;
-  activeCount: number;
-  memberCount: number;
-}) {
-  const { colors, isDark } = useAppTheme();
-  const participationPct =
-    memberCount > 0 ? Math.min((activeCount / memberCount) * 100, 100) : 0;
+function HeroSkeleton() {
+  const { isDark } = useAppTheme();
+  const shimmer = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shimmer]);
+
+  const opacity = shimmer.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.2, 0.45],
+  });
+
+  const bg = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)";
 
   return (
-    <View
-      style={{
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: colors.borderLime,
-        backgroundColor: isDark
-          ? "rgba(52,199,89,0.07)"
-          : "rgba(22,163,74,0.06)",
-        padding: 20,
-      }}
-    >
-      <View
+    <View style={{ gap: 10 }}>
+      <Animated.View
         style={{
-          flexDirection: "row",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
+          height: 68,
+          width: "72%",
+          borderRadius: 14,
+          backgroundColor: bg,
+          opacity,
         }}
-      >
-        {/* Left: KM metric */}
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 10,
-              fontFamily: fonts.labelCaps,
-              letterSpacing: 1.4,
-              textTransform: "uppercase",
-              color: colors.accent,
-              marginBottom: 6,
-            }}
-          >
-            Last 7 Days
-          </Text>
-          <View
-            style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}
-          >
-            <Text
-              style={{
-                fontSize: 38,
-                fontFamily: "ClashDisplay-Bold",
-                color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)",
-                letterSpacing: -1,
-                lineHeight: 42,
-              }}
-            >
-              {teamKm.toFixed(1)}
-            </Text>
-            <Text
-              style={{
-                fontSize: 14,
-                fontFamily: fonts.bodyMedium,
-                color: colors.textSecondary,
-                marginBottom: 2,
-              }}
-            >
-              km
-            </Text>
-          </View>
-          <Text
-            style={{
-              fontSize: 11,
-              fontFamily: fonts.bodyRegular,
-              color: colors.textSecondary,
-              marginTop: 2,
-            }}
-          >
-            Team distance
-          </Text>
-        </View>
-
-        {/* Right: Active badge */}
-        <View
-          style={{
-            alignItems: "center",
-            backgroundColor: isDark
-              ? "rgba(52,199,89,0.14)"
-              : "rgba(22,163,74,0.10)",
-            borderRadius: 14,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 24,
-              fontFamily: "ClashDisplay-Bold",
-              color: colors.accent,
-              lineHeight: 28,
-            }}
-          >
-            {activeCount}
-          </Text>
-          <Text
-            style={{
-              fontSize: 9,
-              fontFamily: fonts.labelBold,
-              color: colors.accent,
-              textTransform: "uppercase",
-              letterSpacing: 1,
-              marginTop: 1,
-            }}
-          >
-            active
-          </Text>
-        </View>
-      </View>
-
-      {/* Participation bar */}
-      {memberCount > 0 && (
-        <View style={{ marginTop: 14 }}>
-          <View
-            style={{
-              height: 3,
-              borderRadius: 2,
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(0,0,0,0.07)",
-              overflow: "hidden",
-            }}
-          >
-            <View
-              style={{
-                height: "100%",
-                width: `${participationPct}%`,
-                borderRadius: 2,
-                backgroundColor: colors.accent,
-              }}
-            />
-          </View>
-          <Text
-            style={{
-              fontSize: 10,
-              fontFamily: fonts.bodyRegular,
-              color: colors.textSecondary,
-              marginTop: 6,
-            }}
-          >
-            {participationPct.toFixed(0)}% participation this week
-          </Text>
-        </View>
-      )}
+      />
+      <Animated.View
+        style={{
+          height: 4,
+          width: "100%",
+          borderRadius: 2,
+          backgroundColor: bg,
+          opacity,
+        }}
+      />
+      <Animated.View
+        style={{
+          height: 12,
+          width: "52%",
+          borderRadius: 6,
+          backgroundColor: bg,
+          opacity,
+        }}
+      />
     </View>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// StatsBento — asymmetric 3-stat layout
+// StatPill — one third of the compact stats strip
 // ─────────────────────────────────────────────────────────────────────────────
 
-function StatsBento({
-  memberCount,
-  youthCount,
-  adultCount,
-  cardBg,
-  cardBorder,
-}: {
-  memberCount: number;
-  youthCount: number;
-  adultCount: number;
-  cardBg: string;
-  cardBorder: string;
-}) {
-  const { colors, isDark } = useAppTheme();
-
-  return (
-    <View style={{ flexDirection: "row", gap: 10 }}>
-      {/* Left dominant tile */}
-      <View
-        style={{
-          flex: 1.35,
-          borderRadius: 20,
-          borderWidth: 1,
-          padding: 16,
-          backgroundColor: cardBg,
-          borderColor: cardBorder,
-          justifyContent: "space-between",
-          minHeight: 128,
-        }}
-      >
-        <View
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 10,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: isDark
-              ? `${colors.accent}18`
-              : `${colors.accent}14`,
-          }}
-        >
-          <Ionicons name="people-outline" size={16} color={colors.accent} />
-        </View>
-        <View>
-          <Text
-            style={{
-              fontSize: 34,
-              fontFamily: "ClashDisplay-Bold",
-              color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)",
-              letterSpacing: -1,
-              lineHeight: 38,
-            }}
-          >
-            {memberCount}
-          </Text>
-          <Text
-            style={{
-              fontSize: 10,
-              fontFamily: fonts.labelBold,
-              color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,50%)",
-              textTransform: "uppercase",
-              letterSpacing: 0.8,
-              marginTop: 2,
-            }}
-          >
-            Athletes
-          </Text>
-        </View>
-      </View>
-
-      {/* Right column: Youth + Adults stacked */}
-      <View style={{ flex: 1, gap: 10 }}>
-        <SmallStatTile
-          label="Youth"
-          value={youthCount}
-          icon="school-outline"
-          accent={isDark ? "hsl(220,30%,72%)" : "hsl(220,40%,55%)"}
-          cardBg={cardBg}
-          cardBorder={cardBorder}
-        />
-        <SmallStatTile
-          label="Adults"
-          value={adultCount}
-          icon="body-outline"
-          accent={isDark ? "hsl(160,25%,62%)" : "hsl(160,35%,42%)"}
-          cardBg={cardBg}
-          cardBorder={cardBorder}
-        />
-      </View>
-    </View>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SmallStatTile
-// ─────────────────────────────────────────────────────────────────────────────
-
-function SmallStatTile({
+function StatPill({
   label,
   value,
-  icon,
-  accent,
-  cardBg,
-  cardBorder,
 }: {
   label: string;
   value: number;
-  icon: keyof typeof Ionicons.glyphMap;
   accent: string;
-  cardBg: string;
-  cardBorder: string;
 }) {
   const { isDark } = useAppTheme();
 
   return (
     <View
       style={{
-        borderRadius: 16,
-        borderWidth: 1,
-        padding: 13,
-        backgroundColor: cardBg,
-        borderColor: cardBorder,
-        flexDirection: "row",
+        flex: 1,
         alignItems: "center",
-        gap: 10,
+        paddingVertical: 16,
+        paddingHorizontal: 8,
       }}
     >
-      <View
+      <Text
         style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+          fontSize: 28,
+          fontFamily: "ClashDisplay-Bold",
+          color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)",
+          letterSpacing: -0.5,
+          lineHeight: 32,
         }}
       >
-        <Ionicons name={icon} size={14} color={accent} />
-      </View>
-      <View>
-        <Text
-          style={{
-            fontSize: 20,
-            fontFamily: "ClashDisplay-Bold",
-            color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)",
-            lineHeight: 24,
-          }}
-        >
-          {value}
-        </Text>
-        <Text
-          style={{
-            fontSize: 9,
-            fontFamily: fonts.labelBold,
-            color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,50%)",
-            textTransform: "uppercase",
-            letterSpacing: 0.8,
-          }}
-        >
-          {label}
-        </Text>
-      </View>
+        {value}
+      </Text>
+      <Text
+        style={{
+          fontSize: 10,
+          fontFamily: fonts.labelBold,
+          color: isDark ? "hsl(220,5%,46%)" : "hsl(220,5%,52%)",
+          textTransform: "uppercase",
+          letterSpacing: 0.8,
+          marginTop: 3,
+        }}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LeaderboardPreview — edge-to-edge horizontal scroll
+// LeaderboardPreview
 // ─────────────────────────────────────────────────────────────────────────────
 
 function LeaderboardPreview({
@@ -811,10 +668,10 @@ function LeaderboardPreview({
   const top = leaderboard.slice(0, 8);
 
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 12 }}>
       <View
         style={{
-          paddingHorizontal: 24,
+          paddingHorizontal: 20,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
@@ -850,7 +707,7 @@ function LeaderboardPreview({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 20 }}
       >
         {top.map((item, index) => (
           <View
@@ -905,7 +762,6 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
         width: 86,
       }}
     >
-      {/* Rank */}
       <View style={{ position: "absolute", top: 8, right: 9 }}>
         <Text
           style={{
@@ -953,7 +809,6 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
         )}
       </View>
 
-      {/* First name */}
       <Text
         numberOfLines={1}
         style={{
@@ -967,7 +822,6 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
         {item.name.split(" ")[0]}
       </Text>
 
-      {/* KM */}
       <Text
         style={{
           fontSize: 13,
@@ -992,174 +846,107 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PrimaryActionTile
+// ActionRow — full-width list row with divider
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PrimaryActionTile({
+function ActionRow({
   icon,
   label,
   subtitle,
   accent,
-  cardBg,
-  cardBorder,
+  isFirst,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  subtitle: string;
+  subtitle?: string;
   accent: string;
-  cardBg: string;
-  cardBorder: string;
+  isFirst?: boolean;
+  isLast?: boolean;
   onPress: () => void;
 }) {
   const { colors, isDark } = useAppTheme();
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        borderRadius: 20,
-        borderWidth: 1,
-        padding: 18,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: cardBg,
-        borderColor: cardBorder,
-        opacity: pressed ? 0.85 : 1,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-      })}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 14,
-          flex: 1,
-        }}
-      >
+    <View>
+      {!isFirst && (
         <View
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: 13,
+            height: 1,
+            backgroundColor: isDark ? colors.borderSubtle : colors.borderMid,
+            marginLeft: 66,
+          }}
+        />
+      )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={onPress}
+        style={({ pressed }) => ({
+          backgroundColor: pressed
+            ? isDark
+              ? "rgba(255,255,255,0.04)"
+              : "rgba(0,0,0,0.03)"
+            : "transparent",
+        })}
+      >
+        {/* Static layout View — flexDirection must NOT be in the Pressable style function */}
+        <View
+          style={{
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+            paddingHorizontal: 16,
+            paddingVertical: subtitle !== undefined ? 13 : 15,
+            gap: 14,
           }}
         >
-          <Ionicons name={icon} size={22} color={accent} />
-        </View>
-        <View style={{ gap: 2, flex: 1 }}>
-          <Text
+          {/* Icon pill */}
+          <View
             style={{
-              fontSize: 16,
-              fontFamily: fonts.heading3,
-              color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,10%)",
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isDark ? `${accent}22` : `${accent}18`,
             }}
           >
-            {label}
-          </Text>
-          <Text
-            style={{
-              fontSize: 12,
-              fontFamily: fonts.bodyRegular,
-              color: colors.textSecondary,
-            }}
-          >
-            {subtitle}
-          </Text>
+            <Ionicons name={icon} size={18} color={accent} />
+          </View>
+
+          {/* Label + subtitle */}
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontSize: 15,
+                fontFamily: fonts.bodyBold,
+                color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,10%)",
+              }}
+            >
+              {label}
+            </Text>
+            {subtitle !== undefined && (
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: fonts.bodyRegular,
+                  color: colors.textSecondary,
+                  marginTop: 1,
+                }}
+              >
+                {subtitle}
+              </Text>
+            )}
+          </View>
+
+          {/* Chevron */}
+          <Ionicons
+            name="chevron-forward"
+            size={14}
+            color={isDark ? "hsl(220,5%,36%)" : "hsl(220,5%,65%)"}
+          />
         </View>
-      </View>
-      <View
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 14,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: isDark
-            ? "rgba(255,255,255,0.06)"
-            : "rgba(0,0,0,0.05)",
-          marginLeft: 10,
-        }}
-      >
-        <Ionicons
-          name="chevron-forward"
-          size={13}
-          color={isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,55%)"}
-        />
-      </View>
-    </Pressable>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ActionTile
-// ─────────────────────────────────────────────────────────────────────────────
-
-function ActionTile({
-  icon,
-  label,
-  accent,
-  cardBg,
-  cardBorder,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  accent: string;
-  cardBg: string;
-  cardBorder: string;
-  onPress: () => void;
-}) {
-  const { isDark } = useAppTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flex: 1,
-        borderRadius: 18,
-        borderWidth: 1,
-        padding: 16,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 10,
-        minHeight: 84,
-        backgroundColor: cardBg,
-        borderColor: cardBorder,
-        opacity: pressed ? 0.8 : 1,
-        transform: [{ scale: pressed ? 0.97 : 1 }],
-      })}
-    >
-      <View
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: 11,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
-        }}
-      >
-        <Ionicons name={icon} size={19} color={accent} />
-      </View>
-      <Text
-        style={{
-          fontSize: 12,
-          fontFamily: fonts.bodyBold,
-          color: isDark ? "hsl(220,5%,80%)" : "hsl(220,8%,20%)",
-          textAlign: "center",
-          letterSpacing: 0.1,
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }

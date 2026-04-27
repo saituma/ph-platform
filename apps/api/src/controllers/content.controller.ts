@@ -602,6 +602,8 @@ export async function listGalleryItems(_req: Request, res: Response) {
         thumbnail: (body.thumbnail as string) ?? null,
         caption: (body.caption as string) ?? row.title ?? "",
         mediaType: (body.mediaType as string) ?? (row.type === "video" ? "video" : "photo"),
+        postType: (body.postType as string) ?? "upload",
+        instagramId: (body.instagramId as string) ?? null,
         tag: (body.tag as string) ?? null,
         createdAt: row.createdAt,
       };

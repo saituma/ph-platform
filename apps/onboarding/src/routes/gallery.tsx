@@ -140,7 +140,66 @@ function GalleryCard({
 	onClick: () => void;
 }) {
 	const [loaded, setLoaded] = useState(false);
-	const thumb = item.mediaType === "video" ? item.thumbnail : item.url;
+	const isInstagram = item.mediaType === "instagram";
+	const isLink = item.mediaType === "link";
+	const isVideo = item.mediaType === "video";
+	const thumb = isVideo ? (item.thumbnail ?? null) : (!isInstagram && !isLink ? item.url : null);
+
+	// Instagram and external links open URL in new tab instead of lightbox
+	if (isInstagram || isLink) {
+		return (
+			<a
+				href={item.url}
+				target="_blank"
+				rel="noopener noreferrer"
+				className="break-inside-avoid mb-3 block group relative overflow-hidden border border-border/30 hover:border-primary/40 bg-card/40"
+				style={{
+					aspectRatio: "1/1",
+					transition: "border-color 0.25s cubic-bezier(0.25,0,0,1)",
+				}}
+				aria-label={item.caption ?? item.url}
+			>
+				{isInstagram && item.instagramId ? (
+					<iframe
+						src={`https://www.instagram.com/p/${item.instagramId}/embed/`}
+						className="w-full h-full border-0"
+						scrolling="no"
+						allowTransparency={true}
+						title={item.caption ?? "Instagram post"}
+					/>
+				) : (
+					<div className="w-full h-full flex flex-col items-center justify-center gap-3 p-4">
+						<div
+							className="flex items-center justify-center rounded-full border border-border/50"
+							style={{ width: "48px", height: "48px" }}
+						>
+							<ArrowRight weight="bold" size={20} className="text-primary" />
+						</div>
+						<p
+							className="text-foreground/60 font-black uppercase text-center line-clamp-3 break-all"
+							style={{ fontSize: "0.6rem", letterSpacing: "0.12em" }}
+						>
+							{item.caption || item.url}
+						</p>
+					</div>
+				)}
+
+				{/* Badge */}
+				<div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 px-2 py-1">
+					<span className="w-1.5 h-1.5 rounded-full" style={{ background: isInstagram ? "#e1306c" : "hsl(var(--primary))" }} />
+					<span className="font-black uppercase text-white/70" style={{ fontSize: "0.5rem", letterSpacing: "0.15em" }}>
+						{isInstagram ? "Instagram" : "Link"}
+					</span>
+				</div>
+
+				{item.tag && (
+					<div className="absolute bottom-2 right-2 bg-black/70 text-white/80 font-black uppercase px-2 py-0.5" style={{ fontSize: "0.5rem", letterSpacing: "0.14em" }}>
+						{item.tag}
+					</div>
+				)}
+			</a>
+		);
+	}
 
 	return (
 		<div
@@ -157,56 +216,32 @@ function GalleryCard({
 					src={thumb}
 					alt={item.caption ?? ""}
 					className="w-full h-auto block"
-					style={{
-						opacity: loaded ? 1 : 0,
-						transition: "opacity 0.4s cubic-bezier(0.25,0,0,1)",
-					}}
+					style={{ opacity: loaded ? 1 : 0, transition: "opacity 0.4s cubic-bezier(0.25,0,0,1)" }}
 					onLoad={() => setLoaded(true)}
 				/>
 			) : (
-				<div
-					className="w-full bg-card/60 flex items-center justify-center"
-					style={{ aspectRatio: index % 3 === 0 ? "4/3" : index % 3 === 1 ? "9/16" : "1/1" }}
-				>
-					<p
-						className="text-muted-foreground/20 font-black uppercase"
-						style={{ fontSize: "0.6rem", letterSpacing: "0.15em" }}
-					>
-						{item.mediaType === "video" ? "Video" : "Photo"}
+				<div className="w-full bg-card/60 flex items-center justify-center" style={{ aspectRatio: index % 3 === 0 ? "4/3" : index % 3 === 1 ? "9/16" : "1/1" }}>
+					<p className="text-muted-foreground/20 font-black uppercase" style={{ fontSize: "0.6rem", letterSpacing: "0.15em" }}>
+						{isVideo ? "Video" : "Photo"}
 					</p>
 				</div>
 			)}
 
 			<div
 				className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center"
-				style={{
-					background: "linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.15) 100%)",
-					transition: "opacity 0.3s cubic-bezier(0.25,0,0,1)",
-				}}
+				style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.15) 100%)", transition: "opacity 0.3s cubic-bezier(0.25,0,0,1)" }}
 			>
-				{item.mediaType === "video" && (
-					<div
-						className="flex items-center justify-center rounded-full bg-primary"
-						style={{
-							width: "44px",
-							height: "44px",
-							boxShadow: "0 0 0 8px hsl(var(--primary) / 0.2)",
-						}}
-					>
+				{isVideo && (
+					<div className="flex items-center justify-center rounded-full bg-primary" style={{ width: "44px", height: "44px", boxShadow: "0 0 0 8px hsl(var(--primary) / 0.2)" }}>
 						<Play weight="fill" size={18} className="text-primary-foreground ml-0.5" />
 					</div>
 				)}
 			</div>
 
-			{item.mediaType === "video" && (
+			{isVideo && (
 				<div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 px-2 py-1">
 					<span className="w-1.5 h-1.5 rounded-full bg-primary" />
-					<span
-						className="font-black uppercase text-white/70"
-						style={{ fontSize: "0.5rem", letterSpacing: "0.15em" }}
-					>
-						Video
-					</span>
+					<span className="font-black uppercase text-white/70" style={{ fontSize: "0.5rem", letterSpacing: "0.15em" }}>Video</span>
 				</div>
 			)}
 
@@ -254,13 +289,18 @@ function GalleryPage() {
 
 	const tags = ["All", ...Array.from(new Set(items.map((i) => i.tag).filter(Boolean))) as string[]];
 	const filtered = activeTag === "All" ? items : items.filter((i) => i.tag === activeTag);
+	// lightbox only operates on photo/video items within the filtered set
+	const lightboxItems = filtered.filter((i) => i.mediaType === "photo" || i.mediaType === "video");
 
-	const openLightbox = useCallback((i: number) => setLightboxIndex(i), []);
+	const openLightbox = useCallback((item: GalleryApiItem) => {
+		const idx = lightboxItems.findIndex((i) => i.id === item.id);
+		if (idx !== -1) setLightboxIndex(idx);
+	}, [lightboxItems]);
 	const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 	const prev = useCallback(() =>
-		setLightboxIndex((i) => (i === null ? null : (i - 1 + filtered.length) % filtered.length)), [filtered.length]);
+		setLightboxIndex((i) => (i === null ? null : (i - 1 + lightboxItems.length) % lightboxItems.length)), [lightboxItems.length]);
 	const next = useCallback(() =>
-		setLightboxIndex((i) => (i === null ? null : (i + 1) % filtered.length)), [filtered.length]);
+		setLightboxIndex((i) => (i === null ? null : (i + 1) % lightboxItems.length)), [lightboxItems.length]);
 
 	return (
 		<div className="min-h-dvh flex flex-col bg-background text-foreground">
@@ -365,7 +405,7 @@ function GalleryPage() {
 										key={item.id}
 										item={item}
 										index={i}
-										onClick={() => openLightbox(i)}
+										onClick={() => openLightbox(item)}
 									/>
 								))}
 							</div>
@@ -378,7 +418,7 @@ function GalleryPage() {
 
 			{lightboxIndex !== null && (
 				<Lightbox
-					items={filtered}
+					items={lightboxItems}
 					index={lightboxIndex}
 					onClose={closeLightbox}
 					onPrev={prev}

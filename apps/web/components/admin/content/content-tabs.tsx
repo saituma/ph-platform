@@ -9,7 +9,6 @@ import { Select } from "../../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Textarea } from "../../ui/textarea";
 import { ParentCourseMediaUpload } from "../../parent/config/parent-course-media-upload";
-import { GalleryManager } from "./GalleryManager";
 
 export type TestimonialEntry = {
   id?: string | number;
@@ -35,6 +34,7 @@ type SubmissionBody = {
 };
 
 type ContentTabsProps = {
+  defaultTab?: string;
   initialHome?: {
     introVideoUrl?: string;
     introVideos?: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }>;
@@ -59,6 +59,7 @@ type IntroVideoRule = { url: string; roles: IntroAudience[] };
 const ALL_INTRO_AUDIENCES: IntroAudience[] = ["team", "youth", "adult"];
 
 export function ContentTabs({
+  defaultTab,
   initialHome,
   onSaveProfile,
   onSaveTestimonials,
@@ -390,12 +391,11 @@ export function ContentTabs({
   ] as const;
 
   return (
-    <Tabs defaultValue="profile">
+    <Tabs defaultValue={defaultTab ?? "profile"}>
       <TabsList>
         <TabsTrigger value="profile">Profile</TabsTrigger>
         <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
         <TabsTrigger value="intro">Intro Video</TabsTrigger>
-        <TabsTrigger value="gallery">Gallery</TabsTrigger>
       </TabsList>
       <TabsContent value="profile">
         <div className="grid items-start gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -1090,9 +1090,6 @@ export function ContentTabs({
 	          </div>
 	        </div>
 	      </TabsContent>
-      <TabsContent value="gallery">
-        <GalleryManager />
-      </TabsContent>
     </Tabs>
   );
 }

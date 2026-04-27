@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -28,6 +29,8 @@ type HomeDraft = {
 };
 
 export default function ContentPage() {
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams.get("tab") ?? undefined;
   const [createContent, { isLoading }] = useCreateContentMutation();
   const [updateContent, { isLoading: isUpdating }] = useUpdateContentMutation();
   const [approveSubmission] = useApproveTestimonialSubmissionMutation();
@@ -75,6 +78,7 @@ export default function ContentPage() {
             </div>
           ) : (
             <ContentTabs
+              defaultTab={defaultTab}
               initialHome={{
                 introVideoUrl: homeDraft.introVideoUrl ?? "",
                 introVideos: Array.isArray((homeDraft as any).introVideos)
