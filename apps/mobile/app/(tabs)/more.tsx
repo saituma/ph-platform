@@ -4,13 +4,13 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Feather } from "@/components/ui/theme-icons";
-import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
-import { Image, Pressable, TouchableOpacity, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
@@ -18,6 +18,7 @@ import {
   updateProfile,
 } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
+import { fonts } from "@/constants/theme";
 import {
   normalizeProgramTier,
 } from "@/lib/planAccess";
@@ -56,9 +57,11 @@ export default function MoreScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { profile, isAuthenticated, token, programTier, capabilities } = useAppSelector(
-    (state) => state.user,
-  );
+  const profile = useAppSelector((state) => state.user.profile);
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const token = useAppSelector((state) => state.user.token);
+  const programTier = useAppSelector((state) => state.user.programTier);
+  const capabilities = useAppSelector((state) => state.user.capabilities);
   const {
     config: ageConfig,
     isLoading: ageExperienceLoading,
@@ -66,14 +69,13 @@ export default function MoreScreen() {
   } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
+  const isPremiumPlus = normalizeProgramTier(programTier) === "PHP_Premium_Plus"
+    || normalizeProgramTier(programTier) === "PHP_Pro";
+  const isPro = normalizeProgramTier(programTier) === "PHP_Pro";
   const showParentPlatform =
-    isAuthenticated && Boolean(capabilities?.parentContent);
-  const canAccessFoodDiary = Boolean(capabilities?.nutrition);
-  const showPhysioReferrals = Boolean(capabilities?.physioReferrals);
-
-  const openParentPlatform = () => {
-    router.push("/parent-platform");
-  };
+    isAuthenticated && (Boolean(capabilities?.parentContent) || isPremiumPlus);
+  const canAccessFoodDiary = Boolean(capabilities?.nutrition) || isPremiumPlus;
+  const showPhysioReferrals = Boolean(capabilities?.physioReferrals) || isPro;
 
   useEffect(() => {
     transition.value = 0;
@@ -87,6 +89,7 @@ export default function MoreScreen() {
     opacity: transition.value,
     transform: [{ translateY: (1 - transition.value) * 10 }],
   }));
+
   const experienceLabel = useMemo(
     () => formatExperienceLabel(ageConfig),
     [ageConfig],
@@ -146,157 +149,214 @@ export default function MoreScreen() {
   }, []);
 
   const insets = useAppSafeAreaInsets();
-  // This app uses a custom, absolutely-positioned tab bar (see `components/navigation/TabBar.tsx`).
-  // To keep the Logout button visible, reserve space above the tab bar overlay.
   const tabBarOverlayHeightEstimate = 86 + Math.max(insets.bottom, 12);
-  const logoutFooterPaddingBottom = 12;
+
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 20%, 97%)";
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const textPrimary = isDark ? "hsl(220, 5%, 94%)" : "hsl(220, 8%, 10%)";
+  const subtleBg = isDark
+    ? "rgba(255,255,255,0.05)"
+    : "rgba(255,255,255,0.84)";
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ThemedScrollView
         onRefresh={handleRefresh}
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: insets.top,
-          paddingBottom: 16,
+          paddingBottom: tabBarOverlayHeightEstimate + 24,
         }}
       >
-        <View className="px-6 pt-6 mb-4 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-3 flex-1 mr-4 overflow-hidden">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text
-              className="text-4xl font-telma-bold text-app tracking-tight"
-              numberOfLines={1}
-            >
-              More
-            </Text>
-          </View>
-          <View className="mr-6">
-            <ThemeToggle size={58} iconSize={28} />
-          </View>
+        {/* Header */}
+        <View
+          style={{
+            paddingHorizontal: 24,
+            paddingTop: 28,
+            paddingBottom: 20,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Text
+            numberOfLines={1}
+            style={{
+              fontSize: 32,
+              fontFamily: "Telma-Bold",
+              color: textPrimary,
+              letterSpacing: -0.5,
+            }}
+          >
+            More
+          </Text>
+          <ThemeToggle size={52} iconSize={24} />
         </View>
 
-        <View className="px-6 mb-6">
+        {/* Profile Card */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
           <View
-            className="overflow-hidden rounded-[32px] border px-5 py-5"
             style={{
-              backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(15,23,42,0.06)",
-              ...(isDark ? Shadows.none : Shadows.md),
+              overflow: "hidden",
+              borderRadius: 28,
+              borderWidth: 1,
+              borderCurve: "continuous",
+              padding: 24,
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
             }}
           >
             <View
-              className="absolute -right-8 -top-8 h-28 w-28 rounded-full"
               style={{
+                position: "absolute",
+                right: -28,
+                top: -28,
+                height: 100,
+                width: 100,
+                borderRadius: 50,
                 backgroundColor: isDark
-                  ? "rgba(34,197,94,0.14)"
-                  : "rgba(34,197,94,0.10)",
+                  ? "rgba(34,197,94,0.12)"
+                  : "rgba(34,197,94,0.08)",
               }}
             />
 
             {isLoading ? (
-              <View className="flex-row items-center gap-5 mb-8">
-                <Skeleton circle width={64} height={64} />
-                <View className="flex-1 gap-2">
-                  <Skeleton width="60%" height={24} />
-                  <Skeleton width="40%" height={16} />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
+                <Skeleton circle width={60} height={60} />
+                <View style={{ flex: 1, gap: 8 }}>
+                  <Skeleton width="60%" height={22} />
+                  <Skeleton width="40%" height={14} />
                 </View>
               </View>
             ) : (
               <>
-                <View className="flex-row items-center gap-5 mb-6">
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 20 }}>
                   {profile.avatar ? (
                     <View
-                      className="h-16 w-16 rounded-[22px] overflow-hidden relative border"
                       style={{
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(15,23,42,0.06)",
-                        ...(isDark ? Shadows.none : Shadows.sm),
+                        height: 60,
+                        width: 60,
+                        borderRadius: 20,
+                        borderCurve: "continuous",
+                        overflow: "hidden",
+                        borderWidth: 1,
+                        borderColor: cardBorder,
                       }}
                     >
                       <Image
                         source={{ uri: profile.avatar }}
-                        style={{ width: 64, height: 64 }}
+                        style={{ width: 60, height: 60 }}
+                        contentFit="cover"
                       />
-                      <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full" />
                     </View>
                   ) : (
                     <View
-                      className="h-16 w-16 rounded-[22px] items-center justify-center relative border"
                       style={{
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(255,255,255,0.84)",
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(15,23,42,0.06)",
-                        ...(isDark ? Shadows.none : Shadows.sm),
+                        height: 60,
+                        width: 60,
+                        borderRadius: 20,
+                        borderCurve: "continuous",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: subtleBg,
+                        borderWidth: 1,
+                        borderColor: cardBorder,
                       }}
                     >
-                      <Feather name="user" size={28} color={colors.accent} />
-                      <View className="absolute bottom-0 right-0 h-4 w-4 bg-green-500 rounded-full" />
+                      <Ionicons name="person-outline" size={26} color={colors.accent} />
                     </View>
                   )}
-                  <View className="flex-1">
-                    <View
-                      className="self-start rounded-full px-3 py-1.5 mb-2"
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      numberOfLines={1}
                       style={{
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.06)"
-                          : "rgba(255,255,255,0.82)",
+                        fontSize: 20,
+                        fontFamily: "ClashDisplay-Bold",
+                        color: textPrimary,
+                        lineHeight: 24,
                       }}
                     >
-                      <Text
-                        className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]"
-                        style={{ color: colors.accent }}
-                      >
-                        Account overview
-                      </Text>
-                    </View>
-                    <Text className="text-xl font-bold font-clash text-app leading-tight">
                       {profile.name || "Profile"}
                     </Text>
-                    <Text className="text-secondary font-outfit text-sm mt-0.5">
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontFamily: "Outfit",
+                        fontSize: 14,
+                        color: labelColor,
+                        marginTop: 4,
+                      }}
+                    >
                       {profile.email ||
-                        (isAuthenticated
-                          ? "Email unavailable"
-                          : "Not signed in")}
+                        (isAuthenticated ? "Email unavailable" : "Not signed in")}
                     </Text>
                   </View>
                 </View>
 
-                <View className="flex-row gap-3">
+                <View style={{ flexDirection: "row", gap: 12 }}>
                   <View
-                    className="flex-1 rounded-[22px] px-4 py-4"
                     style={{
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.05)"
-                        : "rgba(255,255,255,0.84)",
+                      flex: 1,
+                      borderRadius: 16,
+                      borderCurve: "continuous",
+                      padding: 16,
+                      backgroundColor: subtleBg,
                     }}
                   >
-                    <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px] text-secondary">
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontFamily: fonts.labelBold,
+                        textTransform: "uppercase",
+                        letterSpacing: 1.2,
+                        color: labelColor,
+                      }}
+                    >
                       Access
                     </Text>
-                    <Text className="mt-2 text-lg font-clash text-app">
+                    <Text
+                      style={{
+                        marginTop: 6,
+                        fontSize: 17,
+                        fontFamily: "ClashDisplay-Semibold",
+                        color: textPrimary,
+                      }}
+                    >
                       {formatAccessTierLabel(programTier)}
                     </Text>
                   </View>
                   <View
-                    className="flex-1 rounded-[22px] px-4 py-4"
                     style={{
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.05)"
-                        : "rgba(255,255,255,0.84)",
+                      flex: 1,
+                      borderRadius: 16,
+                      borderCurve: "continuous",
+                      padding: 16,
+                      backgroundColor: subtleBg,
                     }}
                   >
-                    <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px] text-secondary">
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontFamily: fonts.labelBold,
+                        textTransform: "uppercase",
+                        letterSpacing: 1.2,
+                        color: labelColor,
+                      }}
+                    >
                       Experience
                     </Text>
-                    <Text className="mt-2 text-lg font-clash text-app">
+                    <Text
+                      style={{
+                        marginTop: 6,
+                        fontSize: 17,
+                        fontFamily: "ClashDisplay-Semibold",
+                        color: textPrimary,
+                      }}
+                    >
                       {isAuthenticated && ageExperienceLoading
                         ? "…"
                         : experienceLabel}
@@ -308,248 +368,338 @@ export default function MoreScreen() {
           </View>
         </View>
 
-        <Animated.View className="px-6 gap-6" style={transitionStyle}>
+        {/* Menu Items — flat list, no group borders */}
+        <Animated.View style={[{ paddingHorizontal: 20 }, transitionStyle]}>
           {isLoading ? (
-            <View className="gap-6">
-              {[1, 2, 3].map((i) => (
-                <View key={i}>
-                  <Skeleton
-                    width={80}
-                    height={12}
-                    style={{ marginBottom: 12, marginLeft: 8 }}
-                  />
-                  <View className="bg-input rounded-3xl overflow-hidden border border-app p-4 gap-4">
-                    <Skeleton width="100%" height={20} />
-                    <Skeleton width="100%" height={20} />
-                    <Skeleton width="100%" height={20} />
+            <View style={{ gap: 16, paddingHorizontal: 4 }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                  <Skeleton width={48} height={48} style={{ borderRadius: 16 }} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <Skeleton width="55%" height={16} />
+                    <Skeleton width="35%" height={12} />
                   </View>
                 </View>
               ))}
             </View>
           ) : (
             <>
-              <View>
-                <View className="flex-row items-center gap-3 mb-3 ml-2">
-                  <View className="h-4 w-1 rounded-full bg-accent" />
-                  <Text className="text-xs font-bold font-outfit text-secondary uppercase tracking-wider">
-                    Account
-                  </Text>
-                </View>
-                <View
-                  className="bg-card rounded-3xl overflow-hidden"
-                  style={isDark ? Shadows.none : Shadows.sm}
-                >
-                  <MenuItem
-                    icon="user"
-                    label="Profile Information"
-                    isLast={false}
-                    onPress={() => router.navigate("/profile-settings")}
-                    accentColor={colors.accent}
-                  />
-                  <MenuItem
-                    icon="shield"
-                    label="Permissions"
-                    isLast={false}
-                    onPress={() => router.navigate("/permissions")}
-                    accentColor={colors.accent}
-                  />
-                  {showParentPlatform ? (
-                    <MenuItem
-                      icon="book"
-                      label="Parent Platform"
-                      isLast={false}
-                      onPress={openParentPlatform}
-                      accentColor={colors.accent}
-                    />
-                  ) : null}
-                  {canAccessFoodDiary ? (
-                    <MenuItem
-                      icon="clipboard"
-                      label="Nutrition Tracking"
-                      isLast={false}
-                      onPress={() => router.push("/nutrition")}
-                      accentColor={colors.accent}
-                    />
-                  ) : null}
-                  {showPhysioReferrals ? (
-                    <MenuItem
-                      icon="activity"
-                      label="Referrals"
-                      isLast={false}
-                      onPress={() => router.push("/physio-referral")}
-                      accentColor={colors.accent}
-                    />
-                  ) : null}
-                  <MenuItem
-                    icon="bell"
-                    label="Notifications"
-                    isLast={false}
-                    onPress={() => router.navigate("/notifications")}
-                    accentColor={colors.accent}
-                  />
-                  <MenuItem
-                    icon="lock"
-                    label="Privacy & Security"
-                    isLast={true}
-                    onPress={() => router.navigate("/privacy-security")}
-                    accentColor={colors.accent}
-                  />
-                </View>
-              </View>
+              <SectionLabel text="Account" color={labelColor} />
 
-              <View>
-                <View className="flex-row items-center gap-3 mb-3 ml-2">
-                  <View className="h-4 w-1 rounded-full bg-accent" />
-                  <Text className="text-xs font-bold font-outfit text-secondary uppercase tracking-wider">
-                    Support & About
-                  </Text>
-                </View>
-                <View
-                  className="bg-card rounded-3xl overflow-hidden"
-                  style={isDark ? Shadows.none : Shadows.sm}
-                >
-                  <MenuItem
-                    icon="star"
-                    label="Submit Testimonial"
-                    isLast={false}
-                    onPress={() => router.navigate("/submit-testimonial")}
-                    accentColor={colors.accent}
-                  />
-                  <MenuItem
-                    icon="radio"
-                    label="Announcements"
-                    isLast={false}
-                    onPress={() => router.push("/announcements" as any)}
-                    accentColor={colors.accent}
-                  />
-                  <MenuItem
-                    icon="help-circle"
-                    label="Help Center"
-                    isLast={false}
-                    onPress={() => router.push("/help-center")}
-                    accentColor={colors.accent}
-                  />
-                  <MenuItem
-                    icon="message-square"
-                    label="Send Feedback"
-                    isLast={false}
-                    onPress={() => router.push("/feedback")}
-                    accentColor={colors.accent}
-                  />
-                  <MenuItem
-                    icon="info"
-                    label="About App"
-                    isLast={true}
-                    onPress={() => router.push("/about")}
-                    accentColor={colors.accent}
-                  />
-                </View>
-              </View>
+              <MenuItem
+                icon="person-outline"
+                label="Profile Information"
+                subtitle="Name, email, avatar"
+                onPress={() => router.navigate("/profile-settings")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+              <MenuItem
+                icon="shield-checkmark-outline"
+                label="Permissions"
+                subtitle="Notifications & push"
+                onPress={() => router.navigate("/permissions")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+              {showParentPlatform ? (
+                <MenuItem
+                  icon="book-outline"
+                  label="Parent Platform"
+                  subtitle="Resources for parents"
+                  onPress={() => router.push("/parent-platform")}
+                  accentColor={colors.accent}
+                  textColor={textPrimary}
+                  subtitleColor={labelColor}
+                  isDark={isDark}
+                />
+              ) : null}
+              {canAccessFoodDiary ? (
+                <MenuItem
+                  icon="nutrition-outline"
+                  label="Nutrition Tracking"
+                  subtitle="Food diary & meals"
+                  onPress={() => router.push("/nutrition")}
+                  accentColor={colors.accent}
+                  textColor={textPrimary}
+                  subtitleColor={labelColor}
+                  isDark={isDark}
+                />
+              ) : null}
+              {showPhysioReferrals ? (
+                <MenuItem
+                  icon="pulse-outline"
+                  label="Referrals"
+                  subtitle="Physio referrals"
+                  onPress={() => router.push("/physio-referral")}
+                  accentColor={colors.accent}
+                  textColor={textPrimary}
+                  subtitleColor={labelColor}
+                  isDark={isDark}
+                />
+              ) : null}
+              <MenuItem
+                icon="notifications-outline"
+                label="Notifications"
+                subtitle="Alerts & reminders"
+                onPress={() => router.navigate("/notifications")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+              <MenuItem
+                icon="lock-closed-outline"
+                label="Privacy & Security"
+                subtitle="Password & app lock"
+                onPress={() => router.navigate("/privacy-security")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
 
-              <View>
-                <View className="flex-row items-center gap-3 mb-3 ml-2">
-                  <View className="h-4 w-1 rounded-full bg-accent" />
-                  <Text className="text-xs font-bold font-outfit text-secondary uppercase tracking-wider">
-                    Legal
+              <SectionLabel text="Support & About" color={labelColor} />
+
+              <MenuItem
+                icon="star-outline"
+                label="Submit Testimonial"
+                subtitle="Share your experience"
+                onPress={() => router.navigate("/submit-testimonial")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+              <MenuItem
+                icon="megaphone-outline"
+                label="Announcements"
+                subtitle="Latest updates"
+                onPress={() => router.push("/announcements" as any)}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+              <MenuItem
+                icon="help-circle-outline"
+                label="Help Center"
+                subtitle="FAQ & guides"
+                onPress={() => router.push("/help-center")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+              <MenuItem
+                icon="chatbubble-ellipses-outline"
+                label="Send Feedback"
+                subtitle="Report issues or ideas"
+                onPress={() => router.push("/feedback")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+              <MenuItem
+                icon="information-circle-outline"
+                label="About App"
+                subtitle="Version & credits"
+                onPress={() => router.push("/about")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+
+              <SectionLabel text="Legal" color={labelColor} />
+
+              <MenuItem
+                icon="document-text-outline"
+                label="Terms of Service"
+                onPress={() => router.navigate("/terms")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+              <MenuItem
+                icon="shield-outline"
+                label="Privacy Policy"
+                onPress={() => router.navigate("/privacy-policy")}
+                accentColor={colors.accent}
+                textColor={textPrimary}
+                subtitleColor={labelColor}
+                isDark={isDark}
+              />
+
+              {/* Logout */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Logout"
+                onPress={() => {
+                  dispatch(logout());
+                  router.replace("/(auth)/login");
+                }}
+                style={({ pressed }) => ({
+                  marginTop: 32,
+                  opacity: pressed ? 0.85 : 1,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
+                })}
+              >
+                <View
+                  style={{
+                    height: 56,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 20,
+                    borderCurve: "continuous",
+                    gap: 10,
+                    backgroundColor: "#DC2626",
+                  }}
+                >
+                  <Ionicons name="log-out-outline" size={20} color="#FAFAFA" />
+                  <Text
+                    style={{
+                      fontFamily: "ClashDisplay-Bold",
+                      color: "#FAFAFA",
+                      fontSize: 16,
+                    }}
+                  >
+                    Logout
                   </Text>
                 </View>
-                <View
-                  className="bg-card rounded-3xl overflow-hidden"
-                  style={isDark ? Shadows.none : Shadows.sm}
-                >
-                  <MenuItem
-                    icon="file-text"
-                    label="Terms of Service"
-                    isLast={false}
-                    onPress={() => router.navigate("/terms")}
-                    accentColor={colors.accent}
-                  />
-                  <MenuItem
-                    icon="shield"
-                    label="Privacy Policy"
-                    isLast={true}
-                    onPress={() => router.navigate("/privacy-policy")}
-                    accentColor={colors.accent}
-                  />
-                </View>
-              </View>
+              </Pressable>
+
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontFamily: "Outfit",
+                  fontSize: 12,
+                  color: labelColor,
+                  marginTop: 24,
+                  opacity: 0.6,
+                }}
+              >
+                {versionLine}
+              </Text>
             </>
           )}
-
-          <Text className="text-center text-muted font-outfit text-xs mt-2 mb-6">
-            {versionLine}
-          </Text>
         </Animated.View>
       </ThemedScrollView>
-
-      <View
-        className="px-6 pt-3 pb-4 border-t border-separator"
-        style={{
-          marginBottom: tabBarOverlayHeightEstimate,
-          paddingBottom: logoutFooterPaddingBottom,
-          backgroundColor: colors.background,
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Logout"
-          onPress={() => {
-            dispatch(logout());
-            router.replace("/(auth)/login");
-          }}
-          className="h-14 w-full flex-row items-center justify-center rounded-3xl bg-red-600 border border-white/10"
-          style={({ pressed }) => [
-            {
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            },
-          ]}
-        >
-          <Feather name="log-out" size={20} color="#FFFFFF" />
-          <Text
-            className="text-white"
-            style={{ marginLeft: 10, fontFamily: "ClashDisplay-Bold" }}
-          >
-            Logout
-          </Text>
-        </Pressable>
-      </View>
     </View>
+  );
+}
+
+function SectionLabel({ text, color }: { text: string; color: string }) {
+  return (
+    <Text
+      style={{
+        fontSize: 12,
+        fontFamily: fonts.labelBold,
+        color,
+        textTransform: "uppercase",
+        letterSpacing: 1.2,
+        marginTop: 32,
+        marginBottom: 8,
+        paddingHorizontal: 4,
+      }}
+    >
+      {text}
+    </Text>
   );
 }
 
 function MenuItem({
   icon,
   label,
-  isLast,
+  subtitle,
   onPress,
   accentColor,
+  textColor,
+  subtitleColor,
+  isDark,
 }: {
-  icon: any;
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  isLast: boolean;
+  subtitle?: string;
   onPress?: () => void;
   accentColor: string;
+  textColor: string;
+  subtitleColor: string;
+  isDark: boolean;
 }) {
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
-      className={`flex-row items-center px-5 py-5 active:opacity-90 ${!isLast ? "border-b border-separator" : ""}`}
+      accessibilityRole="button"
+      style={({ pressed }) => ({
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        marginVertical: 4,
+        borderRadius: 20,
+        borderCurve: "continuous",
+        backgroundColor: pressed
+          ? isDark
+            ? "rgba(255,255,255,0.04)"
+            : "rgba(0,0,0,0.03)"
+          : "transparent",
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      })}
     >
-      <View
-        className="w-12 h-12 items-center justify-center rounded-2xl mr-4"
-        style={{ backgroundColor: `${accentColor}18` }}
-      >
-        <Feather name={icon} size={22} color={accentColor} />
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View
+          style={{
+            width: 48,
+            height: 48,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 16,
+            borderCurve: "continuous",
+            marginRight: 16,
+            backgroundColor: isDark
+              ? "rgba(255,255,255,0.06)"
+              : `${accentColor}12`,
+          }}
+        >
+          <Ionicons name={icon} size={22} color={accentColor} />
+        </View>
+        <View style={{ flex: 1, marginRight: 12 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.bodyMedium,
+              fontSize: 16,
+              color: textColor,
+            }}
+          >
+            {label}
+          </Text>
+          {subtitle ? (
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: "Outfit",
+                fontSize: 13,
+                color: subtitleColor,
+                marginTop: 2,
+              }}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={isDark ? "hsl(220, 5%, 35%)" : "hsl(220, 5%, 72%)"}
+        />
       </View>
-      <Text className="flex-1 font-outfit text-app text-[1.1875rem] font-medium">
-        {label}
-      </Text>
-      <View
-        className="h-9 w-9 rounded-2xl items-center justify-center"
-        style={{ backgroundColor: `${accentColor}12` }}
-      >
-        <Feather name="chevron-right" size={18} color={accentColor} />
-      </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }

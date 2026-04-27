@@ -57,14 +57,16 @@ import {
 } from "@/services/tracking/socialService";
 import { fetchTeamLocations } from "@/services/tracking/locationService";
 import { formatDurationClock, formatDistanceKm } from "@/lib/tracking/runUtils";
+import { relativeTime } from "@/lib/tracking/relativeTime";
 
 // ─── Tab definition ──────────────────────────────────────────────────────────
 
-type TabKey = "feed" | "leaderboard" | "squad";
+type TabKey = "feed" | "leaderboard" | "squad" | "challenges";
 
 const TABS: Array<{ key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }> = [
   { key: "feed", label: "Feed", icon: "newspaper-outline", iconActive: "newspaper" },
   { key: "leaderboard", label: "Leaderboard", icon: "trophy-outline", iconActive: "trophy" },
+  { key: "challenges", label: "Challenges", icon: "flame-outline", iconActive: "flame" },
   { key: "squad", label: "Squad", icon: "people-outline", iconActive: "people" },
 ];
 
@@ -716,6 +718,7 @@ export default function TrackingSocialScreen() {
               unifiedFeed={unifiedFeed}
               feed={feed}
               postFeed={postFeed}
+              leaderboard={leaderboard}
               colors={colors}
               isDark={isDark}
               cardBg={cardBg}
@@ -770,10 +773,28 @@ export default function TrackingSocialScreen() {
             />
           ) : null}
 
+          {/* ── Challenges tab ── */}
+          {activeTab === "challenges" ? (
+            <ChallengesTab
+              leaderboard={leaderboard}
+              memberCount={memberCount}
+              loading={loading}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={colors}
+              isDark={isDark}
+              cardBg={cardBg}
+              cardBorder={cardBorder}
+              bottomPad={trackingScrollBottomPad(insets) + 72}
+              teamName={teamName}
+            />
+          ) : null}
+
           {/* ── Squad tab ── */}
           {activeTab === "squad" ? (
             <SquadTab
               adults={adults}
+              leaderboard={leaderboard}
               loading={loading}
               refreshing={refreshing}
               onRefresh={handleRefresh}
@@ -979,6 +1000,7 @@ type FeedTabProps = {
   unifiedFeed: FeedItem[];
   feed: SocialRunFeedItem[];
   postFeed: SocialPostItem[];
+  leaderboard: SocialLeaderboardItem[];
   colors: any;
   isDark: boolean;
   cardBg: string;
@@ -1008,6 +1030,7 @@ function FeedTab({
   unifiedFeed,
   feed: _feed,
   postFeed: _postFeed,
+  leaderboard,
   colors,
   isDark,
   cardBg,
@@ -1039,6 +1062,7 @@ function FeedTab({
 
   type ListItem =
     | { _listType: "composer" }
+    | { _listType: "team-stats" }
     | { _listType: "filters" }
     | { _listType: "item"; data: FeedItem }
     | { _listType: "empty" }
@@ -1047,6 +1071,7 @@ function FeedTab({
   const listData = useMemo<ListItem[]>(() => {
     const items: ListItem[] = [
       { _listType: "composer" },
+      { _listType: "team-stats" },
       { _listType: "filters" },
     ];
     if (loading) {
@@ -1071,6 +1096,22 @@ function FeedTab({
             colors={colors}
             cardBg={cardBg}
             cardBorder={cardBorder}
+          />
+        );
+      }
+      if (item._listType === "team-stats") {
+        if (leaderboard.length === 0) return null;
+        const totalKm = leaderboard.reduce((s, l) => s + l.kmTotal, 0);
+        const totalMin = leaderboard.reduce((s, l) => s + l.durationMinutesTotal, 0);
+        const activeMembers = leaderboard.filter((l) => l.kmTotal > 0).length;
+        return (
+          <TeamStatsBanner
+            totalKm={totalKm}
+            totalMinutes={totalMin}
+            activeRunners={activeMembers}
+            rangeDays={rangeDays}
+            colors={colors}
+            isDark={isDark}
           />
         );
       }
@@ -1166,6 +1207,7 @@ function FeedTab({
 
   const keyExtractor = useCallback((item: ListItem, _index: number) => {
     if (item._listType === "composer") return "composer";
+    if (item._listType === "team-stats") return "team-stats";
     if (item._listType === "filters") return "filters";
     if (item._listType === "loading") return "loading";
     if (item._listType === "empty") return "empty";
@@ -1346,6 +1388,7 @@ function LeaderboardTab({
 
 function SquadTab({
   adults,
+  leaderboard,
   loading,
   refreshing,
   onRefresh,
@@ -1356,6 +1399,7 @@ function SquadTab({
   bottomPad,
 }: {
   adults: { userId: number; name: string; avatarUrl: string | null }[];
+  leaderboard: SocialLeaderboardItem[];
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
@@ -1365,6 +1409,11 @@ function SquadTab({
   cardBorder: string;
   bottomPad: number;
 }) {
+  const statsByUserId = useMemo(() => {
+    const map = new Map<number, SocialLeaderboardItem>();
+    for (const l of leaderboard) map.set(l.userId, l);
+    return map;
+  }, [leaderboard]);
   type ListItem =
     | { _listType: "loading" }
     | { _listType: "empty" }
@@ -1395,6 +1444,7 @@ function SquadTab({
         );
       }
       const member = item.data;
+      const stats = statsByUserId.get(member.userId);
       return (
         <View
           style={{
@@ -1404,26 +1454,80 @@ function SquadTab({
             borderWidth: 1,
             borderColor: cardBorder,
             padding: spacing.lg,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
+            gap: 10,
           }}
         >
-          <InitialAvatar
-            initial={member.name.slice(0, 1).toUpperCase()}
-            url={member.avatarUrl}
-            size={44}
-          />
-          <Text
-            style={{
-              fontFamily: fonts.bodyBold,
-              fontSize: 15,
-              color: colors.textPrimary,
-              flex: 1,
-            }}
-          >
-            {member.name}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <InitialAvatar
+              initial={member.name.slice(0, 1).toUpperCase()}
+              url={member.avatarUrl}
+              size={44}
+            />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.bodyBold,
+                  fontSize: 15,
+                  color: colors.textPrimary,
+                }}
+              >
+                {member.name}
+              </Text>
+              {stats ? (
+                <Text
+                  style={{
+                    fontFamily: fonts.bodyMedium,
+                    fontSize: 12,
+                    color: colors.textSecondary,
+                    marginTop: 2,
+                  }}
+                >
+                  {stats.kmTotal > 0 ? `${stats.kmTotal.toFixed(1)} km this week` : "No runs yet"}
+                </Text>
+              ) : null}
+            </View>
+            {stats && stats.rank <= 3 ? (
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  backgroundColor:
+                    stats.rank === 1
+                      ? "rgba(255,176,32,0.15)"
+                      : stats.rank === 2
+                        ? "rgba(176,190,197,0.15)"
+                        : "rgba(205,127,50,0.15)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontSize: 14 }}>
+                  {stats.rank === 1 ? "🥇" : stats.rank === 2 ? "🥈" : "🥉"}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          {stats && stats.kmTotal > 0 ? (
+            <View style={{ flexDirection: "row", gap: 16, paddingLeft: 56 }}>
+              <View>
+                <Text style={{ fontFamily: fonts.statNumber, fontSize: 14, color: colors.textPrimary }}>
+                  {stats.durationMinutesTotal}
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>
+                  min
+                </Text>
+              </View>
+              <View>
+                <Text style={{ fontFamily: fonts.statNumber, fontSize: 14, color: colors.textPrimary }}>
+                  #{stats.rank}
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>
+                  rank
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </View>
       );
     },
@@ -1485,12 +1589,7 @@ const RunCard = memo(function RunCard({
       : "—";
   const likeCount = item.likeCount ?? 0;
   const commentCount = item.commentCount ?? 0;
-  const dateLabel = new Date(item.date).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const dateLabel = relativeTime(item.date);
 
   return (
     <View
@@ -1706,12 +1805,7 @@ const PostCard = memo(function PostCard({
   const [expanded, setExpanded] = useState(false);
   const likeCount = item.likeCount ?? 0;
   const commentCount = item.commentCount ?? 0;
-  const dateLabel = new Date(item.date).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const dateLabel = relativeTime(item.date);
   const isLongText = item.content && item.content.length > 180;
 
   return (
@@ -2367,6 +2461,370 @@ const InitialAvatar = memo(function InitialAvatar({
     </View>
   );
 });
+
+// ─── TeamStatsBanner ────────────────────────────────────────────────────────
+
+function TeamStatsBanner({
+  totalKm,
+  totalMinutes,
+  activeRunners,
+  rangeDays,
+  colors,
+  isDark,
+}: {
+  totalKm: number;
+  totalMinutes: number;
+  activeRunners: number;
+  rangeDays: number;
+  colors: any;
+  isDark: boolean;
+}) {
+  const rangeLabel = rangeDays === 0 ? "All time" : rangeDays === 7 ? "This week" : `Last ${rangeDays} days`;
+  return (
+    <LinearGradient
+      colors={
+        isDark
+          ? ["rgba(200,241,53,0.08)", "rgba(200,241,53,0.02)"]
+          : ["rgba(200,241,53,0.12)", "rgba(200,241,53,0.04)"]
+      }
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: isDark ? "rgba(200,241,53,0.15)" : "rgba(200,241,53,0.25)",
+        padding: 18,
+        gap: 14,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Ionicons name="stats-chart" size={16} color={colors.accent} />
+        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.accent, letterSpacing: 0.5 }}>
+          TEAM ACTIVITY · {rangeLabel.toUpperCase()}
+        </Text>
+      </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontFamily: fonts.statNumber, fontSize: 24, color: colors.textPrimary }}>
+            {totalKm.toFixed(1)}
+          </Text>
+          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+            km total
+          </Text>
+        </View>
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontFamily: fonts.statNumber, fontSize: 24, color: colors.textPrimary }}>
+            {totalMinutes >= 60
+              ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
+              : `${totalMinutes}m`}
+          </Text>
+          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+            time
+          </Text>
+        </View>
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontFamily: fonts.statNumber, fontSize: 24, color: colors.textPrimary }}>
+            {activeRunners}
+          </Text>
+          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+            runners
+          </Text>
+        </View>
+      </View>
+    </LinearGradient>
+  );
+}
+
+// ─── ChallengesTab ──────────────────────────────────────────────────────────
+
+function ChallengesTab({
+  leaderboard,
+  memberCount,
+  loading,
+  refreshing,
+  onRefresh,
+  colors,
+  isDark,
+  cardBg,
+  cardBorder,
+  bottomPad,
+  teamName,
+}: {
+  leaderboard: SocialLeaderboardItem[];
+  memberCount: number;
+  loading: boolean;
+  refreshing: boolean;
+  onRefresh: () => void;
+  colors: any;
+  isDark: boolean;
+  cardBg: string;
+  cardBorder: string;
+  bottomPad: number;
+  teamName: string;
+}) {
+  const totalKm = leaderboard.reduce((s, l) => s + l.kmTotal, 0);
+  const activeRunners = leaderboard.filter((l) => l.kmTotal > 0).length;
+  const participationPct = memberCount > 0 ? Math.round((activeRunners / memberCount) * 100) : 0;
+
+  const weeklyGoalKm = memberCount * 5;
+  const goalProgress = weeklyGoalKm > 0 ? Math.min(1, totalKm / weeklyGoalKm) : 0;
+
+  type ListItem =
+    | { _listType: "weekly-goal" }
+    | { _listType: "participation" }
+    | { _listType: "streaks" }
+    | { _listType: "loading" };
+
+  const data: ListItem[] = loading
+    ? [{ _listType: "loading" }]
+    : [{ _listType: "weekly-goal" }, { _listType: "participation" }, { _listType: "streaks" }];
+
+  return (
+    <FlatList
+      data={data}
+      keyExtractor={(item) => item._listType}
+      contentContainerStyle={{
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.sm,
+        paddingBottom: bottomPad,
+        gap: 14,
+      }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+      }
+      renderItem={({ item }) => {
+        if (item._listType === "loading") {
+          return <ActivityIndicator color={colors.accent} style={{ marginVertical: 40 }} />;
+        }
+
+        if (item._listType === "weekly-goal") {
+          return (
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: cardBorder,
+                borderRadius: 20,
+                padding: 20,
+                gap: 16,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: "rgba(255,176,32,0.12)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 22 }}>🏆</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.heading2, fontSize: 17, color: colors.textPrimary }}>
+                    Weekly Team Goal
+                  </Text>
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                    {teamName} · {weeklyGoalKm} km target
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ gap: 8 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textPrimary }}>
+                    {totalKm.toFixed(1)} / {weeklyGoalKm} km
+                  </Text>
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.accent }}>
+                    {Math.round(goalProgress * 100)}%
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <LinearGradient
+                    colors={["#C8F135", "#A0D911"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{
+                      height: "100%",
+                      width: `${Math.round(goalProgress * 100)}%`,
+                      borderRadius: 5,
+                    }}
+                  />
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", justifyContent: "space-around", paddingTop: 4 }}>
+                <View style={{ alignItems: "center" }}>
+                  <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
+                    {totalKm.toFixed(1)}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>km total</Text>
+                </View>
+                <View style={{ alignItems: "center" }}>
+                  <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
+                    {activeRunners}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>runners</Text>
+                </View>
+                <View style={{ alignItems: "center" }}>
+                  <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
+                    {leaderboard.length}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>members</Text>
+                </View>
+              </View>
+            </View>
+          );
+        }
+
+        if (item._listType === "participation") {
+          return (
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: cardBorder,
+                borderRadius: 20,
+                padding: 20,
+                gap: 14,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: "rgba(59,130,246,0.12)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="people" size={18} color="#3B82F6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.textPrimary }}>
+                    Team Participation
+                  </Text>
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                    {activeRunners} of {memberCount} members active
+                  </Text>
+                </View>
+                <Text style={{ fontFamily: fonts.statNumber, fontSize: 22, color: "#3B82F6" }}>
+                  {participationPct}%
+                </Text>
+              </View>
+              <View
+                style={{
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                  overflow: "hidden",
+                }}
+              >
+                <View
+                  style={{
+                    height: "100%",
+                    width: `${participationPct}%`,
+                    borderRadius: 4,
+                    backgroundColor: "#3B82F6",
+                  }}
+                />
+              </View>
+            </View>
+          );
+        }
+
+        // streaks - show top 5 performers
+        const top5 = leaderboard.filter((l) => l.kmTotal > 0).slice(0, 5);
+        if (top5.length === 0) {
+          return (
+            <EmptyState
+              title="No activity yet"
+              subtitle="Start running to see team challenges!"
+              colors={colors}
+              cardBg={cardBg}
+              cardBorder={cardBorder}
+            />
+          );
+        }
+        return (
+          <View
+            style={{
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              borderRadius: 20,
+              padding: 20,
+              gap: 14,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: "rgba(249,115,22,0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="flame" size={18} color="#F97316" />
+              </View>
+              <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.textPrimary }}>
+                Top Performers
+              </Text>
+            </View>
+            {top5.map((athlete, i) => (
+              <View
+                key={athlete.userId}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  paddingVertical: 6,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.bodyBold,
+                    fontSize: 14,
+                    color: i === 0 ? "#FFB020" : i === 1 ? "#B0BEC5" : i === 2 ? "#CD7F32" : colors.textSecondary,
+                    width: 22,
+                  }}
+                >
+                  #{i + 1}
+                </Text>
+                <InitialAvatar
+                  initial={athlete.name.slice(0, 1).toUpperCase()}
+                  url={athlete.avatarUrl}
+                  size={34}
+                />
+                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary, flex: 1 }}>
+                  {athlete.name}
+                </Text>
+                <Text style={{ fontFamily: fonts.statNumber, fontSize: 14, color: colors.accent }}>
+                  {athlete.kmTotal.toFixed(1)} km
+                </Text>
+              </View>
+            ))}
+          </View>
+        );
+      }}
+    />
+  );
+}
 
 // ─── EmptyState ─────────────────────────────────────────────────────────────
 

@@ -31,6 +31,13 @@ export const TRACKING_TAB: TabConfig = {
   iconOutline: "walk-outline",
 };
 
+export const PARENT_PLATFORM_TAB: TabConfig = {
+  key: "parent-platform",
+  label: "Parents",
+  icon: "book",
+  iconOutline: "book-outline",
+};
+
 /**
  * Home, Programs, Messages, Schedule, Tracking, More — used for team + adult athlete shells.
  * (Youth shell omits Tracking — see `roles/youth/tabs.ts`.)

@@ -10,6 +10,25 @@ function workerAuthBase() {
     .replace(/\/+$/, "");
 }
 
+function sanitizeProxyHeaders(incoming: Headers) {
+  const headers = new Headers(incoming);
+  const hopByHop = [
+    "accept-encoding",
+    "connection",
+    "host",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+    "content-length",
+  ];
+  for (const key of hopByHop) headers.delete(key);
+  return headers;
+}
+
 async function proxyToWorker(request: Request) {
   const base = workerAuthBase();
   if (!base) {
@@ -23,23 +42,22 @@ async function proxyToWorker(request: Request) {
 
   const url = new URL(request.url);
   const target = `${base}${url.pathname}${url.search}`;
-  const headers = new Headers(request.headers);
-  // Prevent double-decompression: fetch() auto-decompresses but keeps the
-  // Content-Encoding header, so the browser would try to decompress again.
-  headers.delete("accept-encoding");
-
-  const payload =
-    request.method !== "GET" && request.method !== "HEAD"
-      ? await request.text()
-      : undefined;
+  const headers = sanitizeProxyHeaders(request.headers);
+  const method = request.method;
+  const shouldSendBody = method !== "GET" && method !== "HEAD";
+  const payload = shouldSendBody && request.body ? request.body : undefined;
+  const init: RequestInit & { duplex?: "half" } = {
+    method,
+    headers,
+    redirect: "manual",
+    body: payload,
+  };
+  if (payload && typeof ReadableStream !== "undefined" && payload instanceof ReadableStream) {
+    init.duplex = "half";
+  }
 
   try {
-    const upstream = await fetch(target, {
-      method: request.method,
-      headers,
-      body: payload,
-      redirect: "manual",
-    });
+    const upstream = await fetch(target, init);
     const responseHeaders = new Headers(upstream.headers);
     responseHeaders.delete("content-encoding");
     responseHeaders.delete("content-length");

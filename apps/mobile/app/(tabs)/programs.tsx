@@ -108,6 +108,9 @@ const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
   );
 });
 
+const WatchListSeparator = () => <View style={{ width: 12 }} />;
+const watchListContentStyle = { paddingHorizontal: 20 };
+
 // ── Main Screen ──────────────────────────────────────────────────────
 
 const ProgramsScreen = memo(function ProgramsScreen() {
@@ -117,7 +120,10 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   const reduceMotion = useReducedMotion();
   const { isSectionHidden } = useAgeExperience();
   const programTier = useAppSelector((s) => s.user.programTier);
-  const { token, profile, athleteUserId, managedAthletes } = useAppSelector((s) => s.user);
+  const token = useAppSelector((s) => s.user.token);
+  const profile = useAppSelector((s) => s.user.profile);
+  const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
+  const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
 
   const activeAthlete = useMemo(() => {
     return (
@@ -151,6 +157,34 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   // ── Watch history (AsyncStorage-backed Zustand store) ────────────────
   const watchHistory = useWatchHistoryStore((s) => s.history);
 
+  const renderWatchItem = useCallback(
+    ({ item, index }: { item: WatchEntry; index: number }) => (
+      <WatchCard entry={item} index={index} />
+    ),
+    [],
+  );
+
+  const watchKeyExtractor = useCallback((item: WatchEntry) => item.videoId, []);
+
+  const focusInfo = useMemo(
+    () =>
+      [
+        activeAthlete?.age ? `${activeAthlete.age} yrs` : null,
+        activeAthlete?.team,
+      ].filter(Boolean) as string[],
+    [activeAthlete?.age, activeAthlete?.team],
+  );
+
+  const onOpenModule = useCallback(
+    (id: number) => router.push(`/programs/module/${id}`),
+    [router],
+  );
+
+  const onNavigate = useCallback(
+    (path: string) => router.push(path as any),
+    [router],
+  );
+
   if (isSectionHidden("programs")) {
     return <AgeGate title="Programs locked" message="Programs are restricted for this age." />;
   }
@@ -159,7 +193,6 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   if (isTeamMode) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-        {/* Continue watching row (team mode) */}
         {watchHistory.length > 0 ? (
           <View style={styles.watchSection}>
             <Text style={[styles.sectionHeader, { fontFamily: "Outfit-Bold", color: colors.textPrimary }]}>
@@ -167,13 +200,13 @@ const ProgramsScreen = memo(function ProgramsScreen() {
             </Text>
             <FlashList
               data={watchHistory}
-              renderItem={({ item, index }) => <WatchCard entry={item} index={index} />}
+              renderItem={renderWatchItem}
               estimatedItemSize={160}
               horizontal
-              keyExtractor={(item) => item.videoId}
+              keyExtractor={watchKeyExtractor}
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 20 }}
-              ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+              contentContainerStyle={watchListContentStyle}
+              ItemSeparatorComponent={WatchListSeparator}
             />
           </View>
         ) : null}
@@ -182,16 +215,11 @@ const ProgramsScreen = memo(function ProgramsScreen() {
           workspace={workspace}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          onOpenModule={(id) => router.push(`/programs/module/${id}`)}
+          onOpenModule={onOpenModule}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           focusName={activeAthlete?.name || profile.name || "Athlete"}
-          focusInfo={
-            [
-              activeAthlete?.age ? `${activeAthlete.age} yrs` : null,
-              activeAthlete?.team,
-            ].filter(Boolean) as string[]
-          }
+          focusInfo={focusInfo}
         />
       </View>
     );
@@ -202,7 +230,6 @@ const ProgramsScreen = memo(function ProgramsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      {/* Continue watching row (solo mode) */}
       {watchHistory.length > 0 ? (
         <View style={styles.watchSection}>
           <Text style={[styles.sectionHeader, { fontFamily: "Outfit-Bold", color: colors.textPrimary }]}>
@@ -210,13 +237,13 @@ const ProgramsScreen = memo(function ProgramsScreen() {
           </Text>
           <FlashList
             data={watchHistory}
-            renderItem={({ item, index }) => <WatchCard entry={item} index={index} />}
+            renderItem={renderWatchItem}
             estimatedItemSize={160}
             horizontal
-            keyExtractor={(item) => item.videoId}
+            keyExtractor={watchKeyExtractor}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20 }}
-            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            contentContainerStyle={watchListContentStyle}
+            ItemSeparatorComponent={WatchListSeparator}
           />
         </View>
       ) : null}
@@ -225,7 +252,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
         <ProgramDetailPanel
           programId={programId}
           showBack={false}
-          onNavigate={(path) => router.push(path as any)}
+          onNavigate={onNavigate}
         />
       </SafeMaskedView>
     </View>

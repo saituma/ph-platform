@@ -25,8 +25,8 @@ export function ActiveRunLayersSheet({
 }: {
   index: ActiveRunLayersSheetIndex;
   setIndex: (index: ActiveRunLayersSheetIndex) => void;
-  mapStyle: "road" | "satellite";
-  onChangeMapStyle: (next: "road" | "satellite") => void;
+  mapStyle: "road" | "satellite" | "hybrid" | "terrain";
+  onChangeMapStyle: (next: "road" | "satellite" | "hybrid" | "terrain") => void;
   pointsOfInterestEnabled: boolean;
   onTogglePointsOfInterest: () => void;
   colors: Record<string, string>;
@@ -84,7 +84,7 @@ export function ActiveRunLayersSheet({
             }}
           >
             <SectionTitle title="Map Types" colors={colors} />
-            <View style={{ flexDirection: "row", gap: 16, marginTop: 18 }}>
+            <View style={{ flexDirection: "row", gap: 14, marginTop: 18, flexWrap: "wrap" }}>
               <SelectionCard
                 label="Standard"
                 active={mapStyle === "road"}
@@ -100,6 +100,22 @@ export function ActiveRunLayersSheet({
                 colors={colors}
                 isDark={isDark}
                 preview="satellite"
+              />
+              <SelectionCard
+                label="Hybrid"
+                active={mapStyle === "hybrid"}
+                onPress={() => onChangeMapStyle("hybrid")}
+                colors={colors}
+                isDark={isDark}
+                preview="hybrid"
+              />
+              <SelectionCard
+                label="Terrain"
+                active={mapStyle === "terrain"}
+                onPress={() => onChangeMapStyle("terrain")}
+                colors={colors}
+                isDark={isDark}
+                preview="terrain"
               />
             </View>
 
@@ -160,7 +176,7 @@ function SelectionCard({
   onPress: () => void;
   colors: Record<string, string>;
   isDark: boolean;
-  preview: "road" | "satellite" | "poi";
+  preview: "road" | "satellite" | "hybrid" | "terrain" | "poi";
 }) {
   const frameBorder = active
     ? "#FF5A16"
@@ -194,15 +210,23 @@ function SelectionCard({
             backgroundColor:
               preview === "satellite"
                 ? "#6C826D"
-                : preview === "poi"
-                  ? "#27423B"
-                  : "#1D4255",
+                : preview === "hybrid"
+                  ? "#5A7055"
+                  : preview === "terrain"
+                    ? "#8B9E78"
+                    : preview === "poi"
+                      ? "#27423B"
+                      : "#1D4255",
           }}
         >
           {preview === "road" ? (
             <RoadPreview />
           ) : preview === "satellite" ? (
             <SatellitePreview />
+          ) : preview === "hybrid" ? (
+            <HybridPreview />
+          ) : preview === "terrain" ? (
+            <TerrainPreview />
           ) : (
             <PoiPreview colors={colors} />
           )}
@@ -241,6 +265,31 @@ function SatellitePreview() {
       <PreviewBlob style={{ left: -4, top: 10, width: 54, height: 40 }} color="#8AA379" />
       <PreviewBlob style={{ right: -10, bottom: 6, width: 56, height: 42 }} color="#AAB884" />
       <PreviewLine style={{ left: -12, top: 52, width: 128, transform: [{ rotate: "18deg" }] }} color="#D9E0D7" height={8} />
+    </View>
+  );
+}
+
+function HybridPreview() {
+  return (
+    <View style={{ flex: 1, backgroundColor: "#5A7055" }}>
+      <View style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.15)" }} />
+      <PreviewBlob style={{ left: -4, top: 8, width: 50, height: 36 }} color="#748E6A" />
+      <PreviewBlob style={{ right: -8, bottom: 4, width: 52, height: 38 }} color="#92A87C" />
+      <PreviewLine style={{ left: -10, top: 48, width: 125, transform: [{ rotate: "14deg" }] }} color="#E8E4D4" height={6} />
+      <PreviewLine style={{ left: 6, top: 28, width: 70, transform: [{ rotate: "-20deg" }] }} color="rgba(255,255,255,0.6)" height={2} />
+      <Badge style={{ left: 12, top: 8 }} bg="rgba(0,0,0,0.5)" icon="A" />
+    </View>
+  );
+}
+
+function TerrainPreview() {
+  return (
+    <View style={{ flex: 1, backgroundColor: "#B8C9A0" }}>
+      <PreviewBlob style={{ left: -6, top: 0, width: 60, height: 50 }} color="#9DB37E" />
+      <PreviewBlob style={{ right: -4, bottom: -2, width: 55, height: 45 }} color="#C4D4AB" />
+      <PreviewLine style={{ left: -14, top: 32, width: 140, transform: [{ rotate: "8deg" }] }} color="#8CA46D" height={3} />
+      <PreviewLine style={{ left: -8, top: 50, width: 130, transform: [{ rotate: "-6deg" }] }} color="#8CA46D" height={2} />
+      <PreviewLine style={{ left: 4, top: 18, width: 80, transform: [{ rotate: "25deg" }] }} color="#A3B98A" height={2} />
     </View>
   );
 }

@@ -1,98 +1,220 @@
 import React from "react";
-import { Pressable, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import { Feather } from "@/components/ui/theme-icons";
-import { Shadows } from "@/constants/theme";
+import { useAppSelector } from "@/store/hooks";
+import { Ionicons } from "@expo/vector-icons";
+import { fonts } from "@/constants/theme";
 
-type ManageRowProps = {
-  icon: React.ComponentProps<typeof Feather>["name"];
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-  /** Render a divider line below this row */
-  divider?: boolean;
-};
-
-function ManageRow({ icon, title, subtitle, onPress, divider }: ManageRowProps) {
+export default function TeamManagerManageScreen() {
   const { colors, isDark } = useAppTheme();
+  const insets = useAppSafeAreaInsets();
+  const appRole = useAppSelector((s) => s.user.appRole);
+
+  if (appRole !== "team_manager") return null;
+
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+
   return (
-    <>
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14 }}>
+    <View
+      style={{
+        flex: 1,
+        paddingTop: insets.top,
+        backgroundColor: colors.background,
+      }}
+    >
+      <ThemedScrollView contentContainerStyle={{ paddingBottom: 56 + insets.bottom }}>
+        {/* Header */}
+        <View style={{ paddingTop: 40, marginBottom: 24, paddingHorizontal: 24 }}>
           <View
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: colors.accent + "18",
-              marginRight: 14,
+              gap: 12,
+              marginBottom: 6,
             }}
           >
-            <Feather name={icon} size={20} color={colors.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text
+            <View
               style={{
-                fontSize: 15,
-                fontFamily: "OutfitBold",
-                color: colors.text,
-                letterSpacing: -0.1,
+                height: 32,
+                width: 6,
+                borderRadius: 99,
+                backgroundColor: colors.accent,
+              }}
+            />
+            <Text
+              numberOfLines={1}
+              style={{
+                fontSize: 44,
+                fontFamily: "TelmaBold",
+                color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
+                letterSpacing: -0.5,
               }}
             >
-              {title}
-            </Text>
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: "Outfit",
-                color: colors.textSecondary,
-                marginTop: 2,
-              }}
-            >
-              {subtitle}
+              Roster
             </Text>
           </View>
-          <Feather
-            name="chevron-right"
-            size={18}
-            color={isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)"}
-          />
+          <Text
+            style={{
+              fontSize: 15,
+              fontFamily: "Outfit",
+              color: labelColor,
+              lineHeight: 22,
+            }}
+          >
+            Manage athletes, team settings, and schedules.
+          </Text>
         </View>
-      </Pressable>
-      {divider ? (
-        <View
-          style={{
-            height: 1,
-            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-          }}
-        />
-      ) : null}
-    </>
+
+        <View style={{ paddingHorizontal: 24, gap: 16 }}>
+          {/* Athletes section */}
+          <SectionCard
+            title="Athletes"
+            cardBg={cardBg}
+            cardBorder={cardBorder}
+            labelColor={labelColor}
+          >
+            <ManageRow
+              icon="people-outline"
+              title="View Roster"
+              subtitle="View and edit athlete profiles"
+              isDark={isDark}
+              accent={colors.accent}
+              cardBorder={cardBorder}
+              divider
+              onPress={() => router.push("/team-manager/roster")}
+            />
+            <ManageRow
+              icon="person-add-outline"
+              title="Add Athlete"
+              subtitle="Invite a new athlete to your team"
+              isDark={isDark}
+              accent={isDark ? "hsl(155,25%,55%)" : "hsl(155,35%,42%)"}
+              cardBorder={cardBorder}
+              onPress={() => {
+                Alert.alert(
+                  "Coming Soon",
+                  "Athlete invitations will be available in a future update.",
+                  [{ text: "OK" }],
+                );
+              }}
+            />
+          </SectionCard>
+
+          {/* Team settings section */}
+          <SectionCard
+            title="Team Settings"
+            cardBg={cardBg}
+            cardBorder={cardBorder}
+            labelColor={labelColor}
+          >
+            <ManageRow
+              icon="shield-checkmark-outline"
+              title="Privacy & Visibility"
+              subtitle="Control who can see team activity"
+              isDark={isDark}
+              accent={isDark ? "hsl(270,25%,65%)" : "hsl(270,35%,50%)"}
+              cardBorder={cardBorder}
+              divider
+              onPress={() =>
+                router.push("/(tabs)/tracking/team-settings" as any)
+              }
+            />
+            <ManageRow
+              icon="megaphone-outline"
+              title="Announcements"
+              subtitle="Post updates for the team"
+              isDark={isDark}
+              accent={isDark ? "hsl(30,30%,60%)" : "hsl(30,45%,45%)"}
+              cardBorder={cardBorder}
+              onPress={() => router.push("/announcements" as any)}
+            />
+          </SectionCard>
+
+          {/* Schedule section */}
+          <SectionCard
+            title="Schedule"
+            cardBg={cardBg}
+            cardBorder={cardBorder}
+            labelColor={labelColor}
+          >
+            <ManageRow
+              icon="calendar-outline"
+              title="Sessions & Events"
+              subtitle="View and manage training sessions"
+              isDark={isDark}
+              accent={isDark ? "hsl(200,25%,60%)" : "hsl(200,40%,45%)"}
+              cardBorder={cardBorder}
+              onPress={() => router.push("/(tabs)/schedule")}
+            />
+          </SectionCard>
+
+          {/* Tracking section */}
+          <SectionCard
+            title="Tracking & Stats"
+            cardBg={cardBg}
+            cardBorder={cardBorder}
+            labelColor={labelColor}
+          >
+            <ManageRow
+              icon="trophy-outline"
+              title="Team Leaderboard"
+              subtitle="View rankings and challenges"
+              isDark={isDark}
+              accent={isDark ? "hsl(40,30%,60%)" : "hsl(40,45%,45%)"}
+              cardBorder={cardBorder}
+              divider
+              onPress={() =>
+                router.push("/(tabs)/tracking/social" as any)
+              }
+            />
+            <ManageRow
+              icon="analytics-outline"
+              title="Athlete Activity"
+              subtitle="Monitor athlete runs and stats"
+              isDark={isDark}
+              accent={colors.accent}
+              cardBorder={cardBorder}
+              onPress={() => router.push("/(tabs)/tracking" as any)}
+            />
+          </SectionCard>
+        </View>
+      </ThemedScrollView>
+    </View>
   );
 }
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
-  const { colors, isDark } = useAppTheme();
+// ── SectionCard ────────────────────────────────────────────────────────────
+
+function SectionCard({
+  title,
+  children,
+  cardBg,
+  cardBorder,
+  labelColor,
+}: {
+  title: string;
+  children: React.ReactNode;
+  cardBg: string;
+  cardBorder: string;
+  labelColor: string;
+}) {
   return (
-    <View style={{ marginBottom: 16 }}>
+    <View style={{ gap: 8 }}>
       <Text
         style={{
           fontSize: 11,
-          fontFamily: "OutfitBold",
-          color: colors.textSecondary,
+          fontFamily: fonts.bodyBold,
+          color: labelColor,
           textTransform: "uppercase",
-          letterSpacing: 0.9,
-          marginBottom: 8,
+          letterSpacing: 1.0,
           paddingHorizontal: 4,
         }}
       >
@@ -102,10 +224,9 @@ function SectionCard({ title, children }: { title: string; children: React.React
         style={{
           borderRadius: 20,
           borderWidth: 1,
-          paddingHorizontal: 16,
-          backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-          ...(isDark ? Shadows.none : Shadows.md),
+          backgroundColor: cardBg,
+          borderColor: cardBorder,
+          overflow: "hidden",
         }}
       >
         {children}
@@ -114,93 +235,85 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
-export default function TeamManagerManageScreen() {
-  const { colors } = useAppTheme();
-  const insets = useAppSafeAreaInsets();
+// ── ManageRow ──────────────────────────────────────────────────────────────
 
+function ManageRow({
+  icon,
+  title,
+  subtitle,
+  isDark,
+  accent,
+  cardBorder,
+  divider = false,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  isDark: boolean;
+  accent: string;
+  cardBorder: string;
+  divider?: boolean;
+  onPress: () => void;
+}) {
   return (
-    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
-      <ThemedScrollView contentContainerStyle={{ paddingBottom: 56 + insets.bottom }}>
-        {/* Header */}
-        <View style={{ paddingTop: 40, marginBottom: 28, paddingHorizontal: 24 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
-            <View
-              style={{ height: 32, width: 6, borderRadius: 99, backgroundColor: colors.accent }}
-            />
-            <Text
-              numberOfLines={1}
-              style={{
-                fontSize: 44,
-                fontFamily: "TelmaBold",
-                color: colors.text,
-                letterSpacing: -0.5,
-              }}
-            >
-              Manage
-            </Text>
-          </View>
-          <Text
-            style={{ fontSize: 15, fontFamily: "Outfit", color: colors.textSecondary, lineHeight: 22 }}
-          >
-            Team operations, athletes, schedule, and settings.
-          </Text>
-        </View>
-
-        <View style={{ paddingHorizontal: 24 }}>
-          {/* Athletes section */}
-          <SectionCard title="Athletes">
-            <ManageRow
-              icon="users"
-              title="Roster"
-              subtitle="View and edit athlete profiles"
-              onPress={() => router.push("/team-manager/roster")}
-              divider
-            />
-            <ManageRow
-              icon="user-plus"
-              title="Add Athlete"
-              subtitle="Invite a new athlete to your team"
-              onPress={() => {
-                /* future: add-athlete flow */
-              }}
-            />
-          </SectionCard>
-
-          {/* Team section */}
-          <SectionCard title="Team">
-            <ManageRow
-              icon="shield"
-              title="Privacy Settings"
-              subtitle="Control who can see your team's activity"
-              onPress={() => router.push("/(tabs)/tracking/team-settings" as any)}
-              divider
-            />
-            <ManageRow
-              icon="map-pin"
-              title="Tracking Settings"
-              subtitle="Manage GPS tracking and location sharing"
-              onPress={() => router.push("/(tabs)/tracking/team-settings" as any)}
-            />
-          </SectionCard>
-
-          {/* Schedule section */}
-          <SectionCard title="Schedule">
-            <ManageRow
-              icon="calendar"
-              title="Bookings"
-              subtitle="Book and review sessions with the coach"
-              onPress={() => router.push("/(tabs)/schedule")}
-              divider
-            />
-            <ManageRow
-              icon="tag"
-              title="Services"
-              subtitle="Browse available training services"
-              onPress={() => router.push("/(tabs)/schedule")}
-            />
-          </SectionCard>
-        </View>
-      </ThemedScrollView>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        gap: 12,
+        backgroundColor: pressed
+          ? isDark
+            ? "rgba(255,255,255,0.04)"
+            : "rgba(15,23,42,0.03)"
+          : "transparent",
+        borderBottomWidth: divider ? 1 : 0,
+        borderBottomColor: cardBorder,
+      })}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+        }}
+      >
+        <Ionicons name={icon} size={19} color={accent} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text
+          style={{
+            fontSize: 15,
+            fontFamily: fonts.bodyBold,
+            color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
+            letterSpacing: -0.1,
+          }}
+        >
+          {title}
+        </Text>
+        <Text
+          style={{
+            fontSize: 12,
+            fontFamily: fonts.bodyMedium,
+            color: isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)",
+          }}
+        >
+          {subtitle}
+        </Text>
+      </View>
+      <Ionicons
+        name="chevron-forward"
+        size={17}
+        color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"}
+      />
+    </Pressable>
   );
 }

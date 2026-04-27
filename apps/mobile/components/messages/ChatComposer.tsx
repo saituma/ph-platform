@@ -1,12 +1,12 @@
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import {
 	ActivityIndicator,
-	Image,
 	Platform,
 	Pressable,
 	StyleSheet,
 	View,
 } from "react-native";
+import { Image } from "expo-image";
 import Animated, {
 	useAnimatedStyle,
 	useSharedValue,
@@ -15,7 +15,6 @@ import Animated, {
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { TextInput } from "@/components/ScaledText";
-import { Shadows } from "@/constants/theme";
 
 interface Props {
 	draft: string;
@@ -64,10 +63,12 @@ export function ChatComposer({
 
 	const hasContent = draft.trim().length > 0 || !!pendingAttachment;
 	const canSend = !disabled && !isUploading && hasContent;
-	const containerBg = isDark ? colors.background : "#FFFFFF";
-	const composerBg = isDark ? "rgba(255,255,255,0.08)" : "#F2F2F7";
-	const addButtonBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
-	const sendButtonSize = Platform.OS === "ios" ? 42 : 44;
+	const containerBg = isDark ? colors.background : "hsl(220, 5%, 98%)";
+	const composerBg = isDark ? "rgba(255,255,255,0.08)" : "hsl(220, 10%, 96%)";
+	const addButtonBg = isDark ? "rgba(255,255,255,0.08)" : "hsl(220, 5%, 98%)";
+	const borderColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+	const dangerColor = isDark ? "hsl(0, 35%, 60%)" : "hsl(0, 40%, 48%)";
+	const sendButtonSize = 44;
 	const inputFontSize = Platform.OS === "ios" ? 17 : 16;
 
 	return (
@@ -82,55 +83,71 @@ export function ChatComposer({
 				paddingTop: 8,
 				paddingHorizontal: 10,
 				borderTopWidth: StyleSheet.hairlineWidth,
-				borderTopColor: isDark
-					? "rgba(255,255,255,0.08)"
-					: "rgba(15,23,42,0.06)",
+				borderTopColor: borderColor,
 			}}
 		>
 			{pendingAttachment && (
 				<View
-					style={[
-						styles.attachmentCard,
-						{
-							backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F8FAFC",
-						},
-						isDark ? Shadows.none : Shadows.sm,
-					]}
+					style={{
+						marginBottom: 10,
+						marginHorizontal: 2,
+						borderRadius: 20,
+						padding: 12,
+						backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "hsl(220, 15%, 97%)",
+						borderWidth: 1,
+						borderColor,
+					}}
 				>
-					<View className="flex-row items-center justify-between">
-						<View className="flex-1 flex-row items-center gap-3">
+					<View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+						<View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12 }}>
 							{pendingAttachment.isImage ? (
 								<Image
 									source={{ uri: pendingAttachment.uri }}
-									className="w-14 h-14 rounded-[18px]"
+									style={{ width: 56, height: 56, borderRadius: 14 }}
+									contentFit="cover"
 								/>
 							) : (
-								<View className="w-14 h-14 rounded-[18px] items-center justify-center bg-accent/10">
-									<Feather name="file-text" size={22} color={colors.accent} />
+								<View
+									style={{
+										width: 56,
+										height: 56,
+										borderRadius: 14,
+										alignItems: "center",
+										justifyContent: "center",
+										backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
+									}}
+								>
+									<Ionicons name="document-text-outline" size={22} color={colors.accent} />
 								</View>
 							)}
 						</View>
 						<Pressable onPress={onRemoveAttachment} disabled={isUploading}>
-							<Ionicons name="close-circle" size={24} color="#EF4444" />
+							<Ionicons name="close-circle" size={24} color={dangerColor} />
 						</Pressable>
 					</View>
 					{isUploading && (
-						<View className="h-1.5 bg-accent/10 rounded-full mt-3 overflow-hidden">
-							<View className="h-full bg-accent w-1/3" />
+						<View
+							style={{
+								height: 6,
+								backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
+								borderRadius: 99,
+								marginTop: 12,
+								overflow: "hidden",
+							}}
+						>
+							<View style={{ height: "100%", backgroundColor: colors.accent, width: "33%" }} />
 						</View>
 					)}
 				</View>
 			)}
 
-			<View className="flex-row items-end gap-2.5">
+			<View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
 				<View
 					style={[
 						styles.composerShell,
 						{
 							backgroundColor: composerBg,
-							borderColor: isDark
-								? "rgba(255,255,255,0.08)"
-								: "rgba(15,23,42,0.06)",
+							borderColor,
 						},
 					]}
 				>
@@ -141,15 +158,13 @@ export function ChatComposer({
 							plusStyle,
 							{
 								backgroundColor: addButtonBg,
-								borderColor: isDark
-									? "rgba(255,255,255,0.08)"
-									: "rgba(15,23,42,0.06)",
+								borderColor,
 							},
 						]}
 						onPressIn={() => (plusButtonScale.value = withSpring(0.9))}
 						onPressOut={() => (plusButtonScale.value = withSpring(1))}
 					>
-						<Feather name="plus" size={22} color={colors.accent} />
+						<Ionicons name="add" size={22} color={colors.accent} />
 					</AnimatedPressable>
 
 					<TextInput
@@ -194,9 +209,9 @@ export function ChatComposer({
 					onPressOut={() => (sendButtonScale.value = withSpring(1))}
 				>
 					{isUploading || disabled ? (
-						<ActivityIndicator size="small" color="white" />
+						<ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
 					) : (
-						<Ionicons name="send" size={20} color="white" />
+						<Ionicons name="send" size={20} color="hsl(220, 5%, 98%)" />
 					)}
 				</AnimatedPressable>
 			</View>
@@ -205,12 +220,6 @@ export function ChatComposer({
 }
 
 const styles = StyleSheet.create({
-	attachmentCard: {
-		marginBottom: 10,
-		marginHorizontal: 2,
-		borderRadius: 20,
-		padding: 12,
-	},
 	composerShell: {
 		flex: 1,
 		minHeight: 48,

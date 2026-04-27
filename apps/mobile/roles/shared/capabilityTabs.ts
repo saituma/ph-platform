@@ -8,6 +8,7 @@ export function filterTabsByCapabilities(tabs: TabConfig[], capabilities: AppCap
     if (tab.key === "messages") return capabilities.messaging || capabilities.groupChat;
     if (tab.key === "schedule") return capabilities.schedule;
     if (tab.key === "tracking") return capabilities.progressTracking || capabilities.teamTracking;
+    if (tab.key === "parent-platform") return capabilities.parentContent;
     return true;
   });
 }

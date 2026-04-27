@@ -2,11 +2,11 @@ import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { apiRequest } from "@/lib/api";
-import { Shadows } from "@/constants/theme";
+import { fonts } from "@/constants/theme";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,10 +14,9 @@ import {
   Modal,
   Pressable,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout } from "@/store/slices/userSlice";
 import * as SecureStore from "expo-secure-store";
@@ -29,17 +28,22 @@ export default function PrivacySecurityScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { colors, isDark } = useAppTheme();
+  const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const cardStyle = {
-    backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
-    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
-    ...(isDark ? Shadows.none : Shadows.sm),
-  };
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 30%, 97%)";
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
+  const dangerColor = isDark ? "hsl(0, 35%, 60%)" : "hsl(0, 40%, 48%)";
+  const dangerBg = isDark ? "hsla(0, 35%, 60%, 0.12)" : "hsla(0, 40%, 48%, 0.08)";
+  const dangerBorder = isDark ? "hsla(0, 35%, 60%, 0.2)" : "hsla(0, 40%, 48%, 0.15)";
 
   const performDelete = useCallback(async () => {
     if (!token || deleteBusy) return;
@@ -83,7 +87,7 @@ export default function PrivacySecurityScreen() {
   }, [performDelete]);
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }} edges={["top"]}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
       <MoreStackHeader
         title="Privacy & Security"
         subtitle="Password and account deletion."
@@ -100,54 +104,113 @@ export default function PrivacySecurityScreen() {
           paddingBottom: 40,
         }}
       >
-        <View className="mb-5">
-          <View className="flex-row items-center gap-3 mb-2">
-            <View className="h-6 w-1.5 rounded-full" style={{ backgroundColor: colors.accent }} />
-            <Text className="text-2xl font-telma-bold" style={{ color: colors.text }}>
+        <View style={{ marginBottom: 20 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: colors.accent }} />
+            <Text style={{ fontSize: 24, fontFamily: "TelmaBold", color: textPrimary }}>
               Account safety
             </Text>
           </View>
-          <Text className="text-[15px] font-outfit leading-[22px]" style={{ color: colors.textSecondary }}>
+          <Text style={{ fontSize: 15, fontFamily: "Outfit", lineHeight: 22, color: labelColor }}>
             Manage password and account access.
           </Text>
         </View>
 
-        <View className="rounded-[28px] border overflow-hidden mb-6" style={cardStyle}>
-          <SecurityLink
-            label="Change password"
-            icon="key"
+        <View
+          style={{
+            borderRadius: 20,
+            borderWidth: 1,
+            overflow: "hidden",
+            marginBottom: 24,
+            backgroundColor: cardBg,
+            borderColor: cardBorder,
+          }}
+        >
+          <Pressable
             onPress={() => router.navigate("/(auth)/change-password")}
-            isLast={false}
-            colors={colors}
-            isDark={isDark}
-          />
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              padding: 20,
+              backgroundColor: pressed
+                ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
+                : "transparent",
+            })}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 12,
+                backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}14`,
+                marginRight: 16,
+              }}
+            >
+              <Ionicons name="key-outline" size={18} color={colors.accent} />
+            </View>
+            <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 15, color: textPrimary }}>
+              Change password
+            </Text>
+            <Ionicons name="chevron-forward" size={17} color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"} />
+          </Pressable>
         </View>
 
-        <View className="rounded-[28px] border overflow-hidden mb-2" style={cardStyle}>
-          <View className="px-5 pt-5 pb-2">
-            <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.danger }}>
+        <View
+          style={{
+            borderRadius: 20,
+            borderWidth: 1,
+            overflow: "hidden",
+            marginBottom: 8,
+            backgroundColor: cardBg,
+            borderColor: dangerBorder,
+          }}
+        >
+          <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: fonts.bodyBold,
+                textTransform: "uppercase",
+                letterSpacing: 1.3,
+                color: dangerColor,
+              }}
+            >
               Danger zone
             </Text>
-            <Text className="text-lg font-clash mt-2" style={{ color: colors.text }}>
+            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", marginTop: 8, color: textPrimary }}>
               Delete account
             </Text>
-            <Text className="text-sm font-outfit mt-2 leading-5" style={{ color: colors.textSecondary }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit", marginTop: 8, lineHeight: 20, color: labelColor }}>
               Permanently close your account. You must enter your current password. Staff accounts cannot use this from the app.
               {"\n\n"}
               Alternatively, you can request account deletion on our website at:
             </Text>
-            <TouchableOpacity onPress={() => Linking.openURL("https://phperformance.uk/delete-account")}>
-              <Text className="text-sm font-outfit text-accent font-bold mt-1">
+            <Pressable onPress={() => Linking.openURL("https://phperformance.uk/delete-account")}>
+              <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: colors.accent, marginTop: 4 }}>
                 phperformance.uk/delete-account
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
           <Pressable
             onPress={() => setDeleteOpen(true)}
-            className="mx-5 mb-5 mt-2 h-12 rounded-2xl border items-center justify-center active:opacity-90"
-            style={{ borderColor: colors.danger, backgroundColor: isDark ? "rgba(239,68,68,0.12)" : "rgba(239,68,68,0.08)" }}
+            style={({ pressed }) => ({
+              marginHorizontal: 20,
+              marginBottom: 20,
+              marginTop: 8,
+              height: 48,
+              borderRadius: 14,
+              borderWidth: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              borderColor: dangerBorder,
+              backgroundColor: dangerBg,
+              opacity: pressed ? 0.9 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
           >
-            <Text className="text-sm font-clash font-bold" style={{ color: colors.danger }}>
+            <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: dangerColor }}>
               Delete my account…
             </Text>
           </Pressable>
@@ -155,16 +218,24 @@ export default function PrivacySecurityScreen() {
       </ThemedScrollView>
 
       <Modal visible={deleteOpen} transparent animationType="fade" onRequestClose={() => !deleteBusy && setDeleteOpen(false)}>
-        <Pressable className="flex-1 justify-center px-5" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onPress={() => !deleteBusy && setDeleteOpen(false)}>
+        <Pressable
+          style={{ flex: 1, justifyContent: "center", paddingHorizontal: 20, backgroundColor: "rgba(0,0,0,0.5)" }}
+          onPress={() => !deleteBusy && setDeleteOpen(false)}
+        >
           <Pressable
             onPress={(e) => e.stopPropagation()}
-            className="rounded-[24px] border p-5"
-            style={{ backgroundColor: colors.cardElevated, borderColor: colors.border, ...(isDark ? Shadows.none : Shadows.md) }}
+            style={{
+              borderRadius: 24,
+              borderWidth: 1,
+              padding: 20,
+              backgroundColor: isDark ? "hsl(220, 8%, 14%)" : colors.card,
+              borderColor: cardBorder,
+            }}
           >
-            <Text className="text-lg font-clash" style={{ color: colors.text }}>
+            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
               Confirm password
             </Text>
-            <Text className="text-sm font-outfit mt-2 leading-5" style={{ color: colors.textSecondary }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit", marginTop: 8, lineHeight: 20, color: labelColor }}>
               Enter the password you use to sign in. Then confirm deletion in the next step.
             </Text>
             <TextInput
@@ -174,69 +245,63 @@ export default function PrivacySecurityScreen() {
               autoCapitalize="none"
               editable={!deleteBusy}
               placeholder="Current password"
-              placeholderTextColor={colors.placeholder}
-              className="mt-4 rounded-2xl border px-4 py-3 font-outfit text-base"
-              style={{ borderColor: colors.border, color: colors.text, backgroundColor: colors.background }}
+              placeholderTextColor={labelColor}
+              style={{
+                marginTop: 16,
+                borderRadius: 14,
+                borderWidth: 1,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontFamily: "Outfit",
+                fontSize: 15,
+                borderColor: cardBorder,
+                color: textPrimary,
+                backgroundColor: colors.background,
+              }}
             />
-            <View className="flex-row gap-3 mt-5">
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 20 }}>
               <Pressable
                 onPress={() => !deleteBusy && setDeleteOpen(false)}
-                className="flex-1 h-12 rounded-2xl border items-center justify-center"
-                style={{ borderColor: colors.border }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderColor: cardBorder,
+                  opacity: pressed ? 0.8 : 1,
+                })}
               >
-                <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+                <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: labelColor }}>
                   Cancel
                 </Text>
               </Pressable>
               <Pressable
                 onPress={confirmDelete}
                 disabled={deleteBusy}
-                className="flex-1 h-12 rounded-2xl items-center justify-center flex-row gap-2"
-                style={{ backgroundColor: colors.danger }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 14,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  backgroundColor: dangerColor,
+                  opacity: pressed || deleteBusy ? 0.75 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                })}
               >
-                {deleteBusy ? <ActivityIndicator color="#fff" /> : null}
-                <Text className="text-sm font-clash font-bold text-white">Continue</Text>
+                {deleteBusy ? <ActivityIndicator color="hsl(220, 5%, 98%)" /> : null}
+                <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: "hsl(220, 5%, 98%)" }}>
+                  Continue
+                </Text>
               </Pressable>
             </View>
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
-  );
-}
-
-function SecurityLink({
-  label,
-  onPress,
-  icon,
-  isLast,
-  colors,
-  isDark,
-}: {
-  label: string;
-  onPress: () => void;
-  icon: keyof typeof Feather.glyphMap;
-  isLast: boolean;
-  colors: ReturnType<typeof useAppTheme>["colors"];
-  isDark: boolean;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      className={`flex-row items-center p-5 ${!isLast ? "border-b" : ""}`}
-      style={!isLast ? { borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)" } : undefined}
-    >
-      <View
-        className="w-10 h-10 items-center justify-center rounded-2xl mr-4"
-        style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.10)" }}
-      >
-        <Feather name={icon} size={18} color={colors.accent} />
-      </View>
-      <Text className="flex-1 font-outfit text-base font-semibold" style={{ color: colors.text }}>
-        {label}
-      </Text>
-      <Feather name="chevron-right" size={18} color={colors.icon} />
-    </TouchableOpacity>
+    </View>
   );
 }

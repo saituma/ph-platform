@@ -131,20 +131,20 @@ export default function RootLayout() {
     <Compose
       providers={[
         GestureRoot,
-        QueryWrapper,
+        SafeAreaProvider,
         MaybeKeyboardProvider,
         BottomSheetModalProvider,
+        FontScaleProvider,
         ReduxProvider,
-        SafeAreaProvider,
+        QueryWrapper,
         AppThemeProvider,
         HeroAppProvider,
-        FontScaleProvider,
+        RoleProvider,
         AgeExperienceProvider,
         TabVisibilityProvider,
-        RoleProvider,
-        InAppNotificationsProvider,
-        SocketProvider,
         RefreshProvider,
+        SocketProvider,
+        InAppNotificationsProvider,
       ]}
     >
       <RootErrorBoundary>

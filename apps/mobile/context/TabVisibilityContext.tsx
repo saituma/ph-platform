@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useMemo, useState } from "react";
 
 interface TabVisibilityContextType {
   isTabBarVisible: boolean;
@@ -12,10 +12,13 @@ const TabVisibilityContext = createContext<TabVisibilityContextType | undefined>
 export function TabVisibilityProvider({ children }: { children: React.ReactNode }) {
   const [isTabBarVisible, setIsTabBarVisible] = useState(true);
 
+  const value = useMemo(
+    () => ({ isTabBarVisible, setIsTabBarVisible }),
+    [isTabBarVisible],
+  );
+
   return (
-    <TabVisibilityContext.Provider
-      value={{ isTabBarVisible, setIsTabBarVisible }}
-    >
+    <TabVisibilityContext.Provider value={value}>
       {children}
     </TabVisibilityContext.Provider>
   );

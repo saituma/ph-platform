@@ -34,7 +34,6 @@ import { Input } from "../../../../components/ui/input";
 import { Textarea } from "../../../../components/ui/textarea";
 import {
   AudienceWorkspace,
-  PROGRAM_TIERS,
   normalizeAudienceLabelInput,
   toStorageAudienceLabel,
   toTeamStorageAudienceLabel,
@@ -57,17 +56,13 @@ function toPlanStorageAudienceLabel(planName: string) {
 function SortableModuleCard({
   module,
   audienceLabel,
-  effectiveLockedForTiers,
   onEdit,
   onDelete,
-  onLock,
 }: {
   module: AudienceWorkspace["modules"][number];
   audienceLabel: string;
-  effectiveLockedForTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>;
   onEdit: (module: AudienceWorkspace["modules"][number]) => void;
   onDelete: (path: string) => void;
-  onLock: (module: AudienceWorkspace["modules"][number]) => void;
 }) {
   const {
     attributes,
@@ -111,28 +106,12 @@ function SortableModuleCard({
       <p className="mt-1 text-sm text-muted-foreground">
         {module.sessions.length} sessions · {module.totalDayLength} total days
       </p>
-      {effectiveLockedForTiers.length ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {effectiveLockedForTiers.map((tier) => (
-            <span
-              key={`${module.id}-${tier}`}
-              className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800"
-            >
-              Locked for{" "}
-              {PROGRAM_TIERS.find((item) => item.value === tier)?.label ?? tier}
-            </span>
-          ))}
-        </div>
-      ) : null}
       <div className="mt-3 flex gap-2">
         <Link
           href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}/modules/${module.id}`}
         >
           <Button size="sm">Open module</Button>
         </Link>
-        <Button size="sm" variant="secondary" onClick={() => onLock(module)}>
-          Lock plans
-        </Button>
         <Button size="sm" variant="outline" onClick={() => onEdit(module)}>
           Edit
         </Button>
@@ -167,7 +146,6 @@ export default function TeamDetailPage() {
   const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [copyModalOpen, setCopyModalOpen] = useState(false);
-  const [lockModalOpen, setLockModalOpen] = useState(false);
   const [moduleForm, setModuleForm] = useState({
     id: null as number | null,
     title: "",
@@ -182,28 +160,25 @@ export default function TeamDetailPage() {
     videoUrl: "",
     order: "",
   });
-  const [lockForm, setLockForm] = useState<{
-    moduleId: number | null;
-    moduleTitle: string;
-    programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>;
-  }>({
-    moduleId: null,
-    moduleTitle: "",
-    programTiers: [],
-  });
   const [plans, setPlans] = useState<
     Array<{ id: number; name: string; tier: string; isActive: boolean }>
   >([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [copySourceTeam, setCopySourceTeam] = useState("");
   const [copySearch, setCopySearch] = useState("");
+  const [copyStep, setCopyStep] = useState<"team" | "modules" | "sessions">("team");
+  const [copySourceWorkspace, setCopySourceWorkspace] = useState<AudienceWorkspace | null>(null);
+  const [copyLoadingSource, setCopyLoadingSource] = useState(false);
+  const [copyAllModules, setCopyAllModules] = useState(true);
+  const [copySelectedModules, setCopySelectedModules] = useState<Set<number>>(new Set());
+  const [copyAllSessions, setCopyAllSessions] = useState(true);
+  const [copySelectedSessions, setCopySelectedSessions] = useState<Set<number>>(new Set());
   const [otherPlanWorkspaces, setOtherPlanWorkspaces] = useState<
     Record<string, AudienceWorkspace>
   >({});
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
-  const [isUpdatingLocks, setIsUpdatingLocks] = useState(false);
   const [otherLockModalOpen, setOtherLockModalOpen] = useState(false);
   const [isUpdatingOtherLocks, setIsUpdatingOtherLocks] = useState(false);
   const [otherLockForm, setOtherLockForm] = useState<{
@@ -432,16 +407,37 @@ export default function TeamDetailPage() {
       item.team.toLowerCase().includes(copySearch.trim().toLowerCase()),
   );
 
-  const copyModulesFromAnotherTeam = async () => {
-    if (!copySourceTeam || copySourceTeam === audienceLabel) return;
+  const loadCopySourceWorkspace = async (teamName: string) => {
+    setCopyLoadingSource(true);
+    try {
+      const data = await trainingContentRequest<AudienceWorkspace>(
+        `/admin?audienceLabel=${encodeURIComponent(toTeamStorageAudienceLabel(teamName))}`,
+      );
+      setCopySourceWorkspace(data);
+    } catch {
+      setCopySourceWorkspace(null);
+    } finally {
+      setCopyLoadingSource(false);
+    }
+  };
+
+  const executeCopy = async () => {
+    if (!copySourceTeam || !copySourceWorkspace) return;
+    const moduleIds = copyAllModules
+      ? copySourceWorkspace.modules.map((m) => m.id)
+      : Array.from(copySelectedModules);
+    if (!moduleIds.length) return;
+
     setIsCopying(true);
     try {
       setError(null);
-      await trainingContentRequest<AudienceWorkspace>("/admin/copy-modules", {
+      await trainingContentRequest<AudienceWorkspace>("/admin/copy-selected", {
         method: "POST",
         body: JSON.stringify({
           sourceAudienceLabel: toTeamStorageAudienceLabel(copySourceTeam),
           targetAudienceLabel: storageAudienceLabel,
+          moduleIds,
+          sessionIds: copyAllSessions ? null : Array.from(copySelectedSessions),
         }),
       });
       await loadWorkspace();
@@ -457,6 +453,14 @@ export default function TeamDetailPage() {
       setIsCopying(false);
     }
   };
+
+  const copySourceModules = copySourceWorkspace?.modules ?? [];
+  const copySelectedModulesList = copyAllModules
+    ? copySourceModules
+    : copySourceModules.filter((m) => copySelectedModules.has(m.id));
+  const copyAvailableSessions = copySelectedModulesList.flatMap((m) =>
+    m.sessions.map((s) => ({ ...s, moduleTitle: m.title })),
+  );
 
   const toggleOtherType = async (type: string, enabled: boolean) => {
     try {
@@ -572,63 +576,6 @@ export default function TeamDetailPage() {
     }
   };
 
-  const saveModuleLocks = async (
-    moduleId: number | null,
-    programTiers: Array<(typeof PROGRAM_TIERS)[number]["value"]>,
-  ) => {
-    if (!programTiers.length) return;
-    setIsUpdatingLocks(true);
-    try {
-      setError(null);
-      const workspaceResponse = await trainingContentRequest<AudienceWorkspace>(
-        "/modules/locks",
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            audienceLabel: storageAudienceLabel,
-            moduleId,
-            programTiers,
-          }),
-        },
-      );
-      setWorkspace(workspaceResponse);
-      setLockModalOpen(false);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to update module locks.",
-      );
-    } finally {
-      setIsUpdatingLocks(false);
-    }
-  };
-
-  const effectiveLockedTiersByModuleId = useMemo(() => {
-    if (!workspace)
-      return new Map<number, Array<(typeof PROGRAM_TIERS)[number]["value"]>>();
-
-    const lockStartOrderByTier = new Map<
-      (typeof PROGRAM_TIERS)[number]["value"],
-      number
-    >();
-    for (const lock of workspace.moduleLocks) {
-      const lockModule = workspace.modules.find(
-        (module) => module.id === lock.startModuleId,
-      );
-      if (lockModule) {
-        lockStartOrderByTier.set(lock.programTier, lockModule.order);
-      }
-    }
-
-    return new Map(
-      workspace.modules.map((module) => [
-        module.id,
-        PROGRAM_TIERS.filter((tier) => {
-          const startOrder = lockStartOrderByTier.get(tier.value);
-          return startOrder != null && module.order >= startOrder;
-        }).map((tier) => tier.value),
-      ]),
-    );
-  }, [workspace]);
 
   return (
     <AdminShell
@@ -671,7 +618,15 @@ export default function TeamDetailPage() {
               <>
                 <Button
                   variant="outline"
-                  onClick={() => setCopyModalOpen(true)}
+                  onClick={() => {
+                    setCopyStep("team");
+                    setCopySourceWorkspace(null);
+                    setCopyAllModules(true);
+                    setCopySelectedModules(new Set());
+                    setCopyAllSessions(true);
+                    setCopySelectedSessions(new Set());
+                    setCopyModalOpen(true);
+                  }}
                 >
                   Copy from team
                 </Button>
@@ -718,21 +673,6 @@ export default function TeamDetailPage() {
                           key={module.id}
                           module={module}
                           audienceLabel={audienceLabel}
-                          effectiveLockedForTiers={
-                            effectiveLockedTiersByModuleId.get(module.id) ?? []
-                          }
-                          onLock={(current) => {
-                            const effectiveLockedForTiers =
-                              effectiveLockedTiersByModuleId.get(current.id) ??
-                              current.lockedForTiers ??
-                              [];
-                            setLockForm({
-                              moduleId: current.id,
-                              moduleTitle: current.title,
-                              programTiers: effectiveLockedForTiers,
-                            });
-                            setLockModalOpen(true);
-                          }}
                           onEdit={(current) => {
                             setModuleForm({
                               id: current.id,
@@ -997,107 +937,6 @@ export default function TeamDetailPage() {
           ) : null}
         </DialogContent>
       </Dialog>
-      <Dialog open={lockModalOpen} onOpenChange={setLockModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Lock module for plans</DialogTitle>
-            <DialogDescription>
-              Starting from {lockForm.moduleTitle || "this module"}, the
-              selected plan tiers will be locked here and for every module below
-              it on mobile.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setLockForm((current) => ({
-                    ...current,
-                    programTiers: PROGRAM_TIERS.map((tier) => tier.value),
-                  }))
-                }
-              >
-                All plans
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setLockForm((current) => ({ ...current, programTiers: [] }))
-                }
-              >
-                Clear selection
-              </Button>
-            </div>
-            <div className="space-y-3">
-              {PROGRAM_TIERS.map((tier) => {
-                const checked = lockForm.programTiers.includes(tier.value);
-                return (
-                  <label
-                    key={tier.value}
-                    className="flex items-center gap-3 rounded-xl border border-border px-4 py-3"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(event) => {
-                        const nextProgramTiers = event.target.checked
-                          ? [...lockForm.programTiers, tier.value]
-                          : lockForm.programTiers.filter(
-                              (value) => value !== tier.value,
-                            );
-                        setLockForm((current) => ({
-                          ...current,
-                          programTiers: nextProgramTiers,
-                        }));
-                      }}
-                    />
-                    <span className="text-sm font-medium text-foreground">
-                      {tier.label}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-            <div className="flex justify-between gap-2">
-              <Button
-                variant="ghost"
-                disabled={isUpdatingLocks || !lockForm.programTiers.length}
-                onClick={() =>
-                  void saveModuleLocks(null, lockForm.programTiers)
-                }
-              >
-                Unlock selected plans
-              </Button>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setLockModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={
-                    isUpdatingLocks ||
-                    !lockForm.moduleId ||
-                    !lockForm.programTiers.length
-                  }
-                  onClick={() =>
-                    void saveModuleLocks(
-                      lockForm.moduleId,
-                      lockForm.programTiers,
-                    )
-                  }
-                >
-                  {isUpdatingLocks ? "Saving..." : "Save locks"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={otherLockModalOpen} onOpenChange={setOtherLockModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1247,104 +1086,164 @@ export default function TeamDetailPage() {
         </DialogContent>
       </Dialog>
       <Dialog open={copyModalOpen} onOpenChange={setCopyModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Copy modules from another team</DialogTitle>
+            <DialogTitle>
+              {copyStep === "team" && "Copy modules from another team"}
+              {copyStep === "modules" && "Select modules to copy"}
+              {copyStep === "sessions" && "Select sessions to copy"}
+            </DialogTitle>
             <DialogDescription>
-              Copy all modules, sessions, and session items from another team
-              into {audienceLabel}. This replaces the current module list for
-              this team.
+              {copyStep === "team" && "Choose the source team to copy from."}
+              {copyStep === "modules" && "Pick all modules or select specific ones."}
+              {copyStep === "sessions" && "Pick all sessions or select specific ones."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Search teams
-              </label>
+
+          {copyStep === "team" && (
+            <div className="space-y-4">
               <Input
                 placeholder="Search team name"
                 value={copySearch}
                 onChange={(event) => setCopySearch(event.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Search or scroll the list below, then choose the team you want
-                to copy from.
-              </p>
+              <div className="max-h-72 space-y-2 overflow-y-auto">
+                {filteredCopyTeams.map((item) => (
+                  <button
+                    key={item.team}
+                    type="button"
+                    onClick={() => setCopySourceTeam(item.team)}
+                    className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                      copySourceTeam === item.team
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-foreground">{item.team}</p>
+                    <p className="text-xs text-muted-foreground">{item.youthCount} youth · {item.adultCount} adult</p>
+                  </button>
+                ))}
+                {!filteredCopyTeams.length ? (
+                  <p className="text-sm text-muted-foreground">No teams match that search.</p>
+                ) : null}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCopyModalOpen(false)}>Cancel</Button>
+                <Button
+                  disabled={!copySourceTeam}
+                  onClick={async () => {
+                    if (!copySourceTeam) return;
+                    await loadCopySourceWorkspace(copySourceTeam);
+                    setCopyStep("modules");
+                  }}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Available teams
-              </label>
-              <div className="max-h-72 overflow-y-auto rounded-xl border border-border">
-                <div className="divide-y divide-border">
-                  {filteredCopyTeams.map((item) => (
-                    <button
-                      key={item.team}
-                      type="button"
-                      onClick={() => setCopySourceTeam(item.team)}
-                      className={`flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-secondary/40 ${
-                        copySourceTeam === item.team
-                          ? "bg-primary/10"
-                          : "bg-background"
-                      }`}
-                    >
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {item.team}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.youthCount} youth · {item.adultCount} adult
-                        </p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {copySourceTeam === item.team ? "Selected" : "Select"}
-                      </span>
-                    </button>
-                  ))}
-                  {!filteredCopyTeams.length ? (
-                    <div className="px-4 py-6 text-sm text-muted-foreground">
-                      No teams match that search.
+          )}
+
+          {copyStep === "modules" && (
+            <div className="space-y-3">
+              {copyLoadingSource ? (
+                <p className="text-sm text-muted-foreground">Loading modules...</p>
+              ) : (
+                <>
+                  <label className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={copyAllModules}
+                      onChange={(e) => {
+                        setCopyAllModules(e.target.checked);
+                        if (e.target.checked) setCopySelectedModules(new Set());
+                      }}
+                    />
+                    <span className="text-sm font-medium text-foreground">All modules</span>
+                  </label>
+                  {!copyAllModules && (
+                    <div className="max-h-60 space-y-2 overflow-y-auto">
+                      {copySourceModules.map((m) => (
+                        <label key={m.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={copySelectedModules.has(m.id)}
+                            onChange={(e) => {
+                              setCopySelectedModules((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(m.id);
+                                else next.delete(m.id);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span className="text-sm text-foreground">
+                            {m.order}. {m.title}
+                          </span>
+                        </label>
+                      ))}
                     </div>
-                  ) : null}
-                </div>
+                  )}
+                </>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCopyStep("team")}>Back</Button>
+                <Button
+                  disabled={!copyAllModules && copySelectedModules.size === 0}
+                  onClick={() => setCopyStep("sessions")}
+                >
+                  Next
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                We will copy the full module structure from the selected team
-                into this one.
-              </p>
             </div>
-            {isCopying ? (
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      Copying module data...
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Please wait while we copy modules, sessions, and session
-                      items from the selected team.
-                    </p>
-                  </div>
+          )}
+
+          {copyStep === "sessions" && (
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={copyAllSessions}
+                  onChange={(e) => {
+                    setCopyAllSessions(e.target.checked);
+                    if (e.target.checked) setCopySelectedSessions(new Set());
+                  }}
+                />
+                <span className="text-sm font-medium text-foreground">All sessions in selected modules</span>
+              </label>
+              {!copyAllSessions && (
+                <div className="max-h-60 space-y-2 overflow-y-auto">
+                  {copyAvailableSessions.map((s) => (
+                    <label key={s.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={copySelectedSessions.has(s.id)}
+                        onChange={(e) => {
+                          setCopySelectedSessions((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(s.id);
+                            else next.delete(s.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span className="text-sm text-foreground">
+                        <span className="text-muted-foreground">{s.moduleTitle} ›</span> {s.title}
+                      </span>
+                    </label>
+                  ))}
                 </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCopyStep("modules")}>Back</Button>
+                <Button
+                  disabled={isCopying || (!copyAllSessions && copySelectedSessions.size === 0)}
+                  onClick={() => void executeCopy()}
+                >
+                  {isCopying ? "Copying..." : "Copy"}
+                </Button>
               </div>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setCopyModalOpen(false)}
-                disabled={isCopying}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => void copyModulesFromAnotherTeam()}
-                disabled={!copySourceTeam || isCopying}
-              >
-                {isCopying ? "Copying..." : "Copy modules"}
-              </Button>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </AdminShell>

@@ -59,8 +59,6 @@ export function AgeExperienceProvider({ children }: { children: React.ReactNode 
       try {
         const response = await apiRequest<{ item?: AgeExperienceConfig | null }>("/experience/age", {
           token,
-          skipCache: true,
-          forceRefresh: true,
         });
         if (!mounted) return;
         const nextConfig = response.item ?? defaultConfig;

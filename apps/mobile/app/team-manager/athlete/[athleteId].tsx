@@ -10,13 +10,14 @@ import {
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { Shadows } from "@/constants/theme";
+import { fonts } from "@/constants/theme";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
-import { Feather } from "@/components/ui/theme-icons";
+import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 import {
   fetchAthleteDetail,
   updateAthlete,
@@ -35,14 +36,13 @@ function getInitials(name: string | null | undefined): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function FieldLabel({ label }: { label: string }) {
-  const { colors } = useAppTheme();
+function FieldLabel({ label, isDark }: { label: string; isDark: boolean }) {
   return (
     <Text
       style={{
         fontSize: 11,
-        fontFamily: "Outfit",
-        color: colors.textSecondary,
+        fontFamily: fonts.bodyBold,
+        color: isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)",
         textTransform: "uppercase",
         letterSpacing: 0.8,
         marginBottom: 6,
@@ -68,18 +68,18 @@ function EditableField({
   keyboardType?: "default" | "numeric";
   placeholder?: string;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const { isDark } = useAppTheme();
 
   return (
     <View style={{ marginBottom: 18 }}>
-      <FieldLabel label={label} />
+      <FieldLabel label={label} isDark={isDark} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         multiline={multiline}
         keyboardType={keyboardType}
         placeholder={placeholder ?? `Enter ${label.toLowerCase()}…`}
-        placeholderTextColor={colors.textSecondary}
+        placeholderTextColor={isDark ? "hsl(220, 5%, 45%)" : "hsl(220, 5%, 55%)"}
         style={{
           borderRadius: 14,
           borderWidth: 1,
@@ -87,7 +87,7 @@ function EditableField({
           paddingVertical: multiline ? 14 : 12,
           fontSize: 15,
           fontFamily: "Outfit",
-          color: colors.text,
+          color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
           backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
           borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
           minHeight: multiline ? 96 : undefined,
@@ -99,10 +99,10 @@ function EditableField({
 }
 
 function ReadonlyField({ label, value }: { label: string; value: string }) {
-  const { colors, isDark } = useAppTheme();
+  const { isDark } = useAppTheme();
   return (
     <View style={{ marginBottom: 18 }}>
-      <FieldLabel label={label} />
+      <FieldLabel label={label} isDark={isDark} />
       <View
         style={{
           borderRadius: 14,
@@ -113,7 +113,13 @@ function ReadonlyField({ label, value }: { label: string; value: string }) {
           borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
         }}
       >
-        <Text style={{ fontSize: 15, fontFamily: "Outfit", color: colors.textSecondary }}>
+        <Text
+          style={{
+            fontSize: 15,
+            fontFamily: "Outfit",
+            color: isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)",
+          }}
+        >
           {value || "—"}
         </Text>
       </View>
@@ -127,13 +133,16 @@ export default function AthleteDetailScreen() {
   const { athleteId: athleteIdParam } = useLocalSearchParams<{ athleteId: string }>();
   const athleteId = Number(athleteIdParam);
 
-  const { token } = useAppSelector((state) => state.user);
+  const { token, appRole } = useAppSelector((state) => state.user);
+
+  if (appRole !== "team_manager") {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   const [athlete, setAthlete] = useState<AthleteDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Edit state
   const [displayName, setDisplayName] = useState("");
   const [trainingFreq, setTrainingFreq] = useState("");
   const [performanceGoals, setPerformanceGoals] = useState("");
@@ -146,6 +155,17 @@ export default function AthleteDetailScreen() {
   const [resettingPassword, setResettingPassword] = useState(false);
 
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const errorColor = isDark ? "hsl(0, 35%, 60%)" : "hsl(0, 40%, 48%)";
+  const errorBorder = isDark ? "hsla(0, 35%, 60%, 0.2)" : "hsla(0, 40%, 48%, 0.15)";
+  const errorBg = isDark ? "hsla(0, 35%, 60%, 0.08)" : "hsla(0, 40%, 48%, 0.05)";
+  const successColor = isDark ? "hsl(155, 30%, 60%)" : "hsl(155, 35%, 40%)";
+  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
 
   const loadAthlete = useCallback(
     async (forceRefresh = false) => {
@@ -264,20 +284,25 @@ export default function AthleteDetailScreen() {
           accessibilityLabel="Go back"
           onPress={() => router.back()}
           style={({ pressed }) => ({
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
             opacity: pressed ? 0.7 : 1,
             marginRight: 14,
-            padding: 4,
           })}
         >
-          <Feather name="arrow-left" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={20} color={textPrimary} />
         </Pressable>
         <Text
           numberOfLines={1}
           style={{
             flex: 1,
             fontSize: 18,
-            fontFamily: "OutfitBold",
-            color: colors.text,
+            fontFamily: fonts.bodyBold,
+            color: textPrimary,
             letterSpacing: -0.2,
           }}
         >
@@ -300,9 +325,9 @@ export default function AthleteDetailScreen() {
           </View>
         ) : error ? (
           <View style={{ paddingTop: 24 }}>
-            <Text style={{ fontSize: 14, fontFamily: "Outfit", color: "#ef4444" }}>{error}</Text>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit", color: errorColor }}>{error}</Text>
             <Pressable onPress={() => loadAthlete(true)} style={{ marginTop: 12 }}>
-              <Text style={{ fontSize: 14, fontFamily: "OutfitBold", color: colors.accent }}>
+              <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: colors.accent }}>
                 Try again
               </Text>
             </Pressable>
@@ -315,10 +340,10 @@ export default function AthleteDetailScreen() {
                 style={{
                   width: 80,
                   height: 80,
-                  borderRadius: 40,
+                  borderRadius: 24,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: colors.accent + "22",
+                  backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}14`,
                   marginBottom: 14,
                 }}
               >
@@ -332,7 +357,7 @@ export default function AthleteDetailScreen() {
                 style={{
                   fontSize: 22,
                   fontFamily: "TelmaBold",
-                  color: colors.text,
+                  color: textPrimary,
                   letterSpacing: -0.3,
                   textAlign: "center",
                 }}
@@ -343,8 +368,8 @@ export default function AthleteDetailScreen() {
                 <Text
                   style={{
                     fontSize: 13,
-                    fontFamily: "Outfit",
-                    color: colors.textSecondary,
+                    fontFamily: fonts.bodyMedium,
+                    color: labelColor,
                     marginTop: 4,
                     textAlign: "center",
                   }}
@@ -360,19 +385,18 @@ export default function AthleteDetailScreen() {
                 borderRadius: 20,
                 borderWidth: 1,
                 padding: 20,
-                backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                ...(isDark ? Shadows.none : Shadows.md),
+                backgroundColor: cardBg,
+                borderColor: cardBorder,
                 marginBottom: 16,
               }}
             >
               <Text
                 style={{
-                  fontSize: 13,
-                  fontFamily: "OutfitBold",
-                  color: colors.textSecondary,
+                  fontSize: 11,
+                  fontFamily: fonts.bodyBold,
+                  color: labelColor,
                   textTransform: "uppercase",
-                  letterSpacing: 0.8,
+                  letterSpacing: 1.0,
                   marginBottom: 16,
                 }}
               >
@@ -415,7 +439,7 @@ export default function AthleteDetailScreen() {
                   style={{
                     fontSize: 13,
                     fontFamily: "Outfit",
-                    color: "#ef4444",
+                    color: errorColor,
                     marginBottom: 10,
                   }}
                 >
@@ -427,7 +451,7 @@ export default function AthleteDetailScreen() {
                   style={{
                     fontSize: 13,
                     fontFamily: "Outfit",
-                    color: "#22c55e",
+                    color: successColor,
                     marginBottom: 10,
                   }}
                 >
@@ -446,13 +470,19 @@ export default function AthleteDetailScreen() {
                   justifyContent: "center",
                   backgroundColor: colors.accent,
                   opacity: pressed || saving ? 0.75 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
                 })}
               >
                 {saving ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color="hsl(220, 5%, 98%)" size="small" />
                 ) : (
                   <Text
-                    style={{ fontSize: 16, fontFamily: "OutfitBold", color: "#fff", letterSpacing: 0.1 }}
+                    style={{
+                      fontSize: 16,
+                      fontFamily: fonts.bodyBold,
+                      color: "hsl(220, 5%, 98%)",
+                      letterSpacing: 0.1,
+                    }}
                   >
                     Save Changes
                   </Text>
@@ -466,18 +496,17 @@ export default function AthleteDetailScreen() {
                 borderRadius: 20,
                 borderWidth: 1,
                 padding: 20,
-                backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-                borderColor: isDark ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.10)",
-                ...(isDark ? Shadows.none : Shadows.md),
+                backgroundColor: cardBg,
+                borderColor: errorBorder,
               }}
             >
               <Text
                 style={{
-                  fontSize: 13,
-                  fontFamily: "OutfitBold",
-                  color: "#ef4444",
+                  fontSize: 11,
+                  fontFamily: fonts.bodyBold,
+                  color: errorColor,
                   textTransform: "uppercase",
-                  letterSpacing: 0.8,
+                  letterSpacing: 1.0,
                   marginBottom: 14,
                 }}
               >
@@ -495,24 +524,22 @@ export default function AthleteDetailScreen() {
                   borderRadius: 14,
                   borderWidth: 1,
                   padding: 14,
-                  backgroundColor: isDark
-                    ? "rgba(239,68,68,0.08)"
-                    : "rgba(239,68,68,0.05)",
-                  borderColor: isDark ? "rgba(239,68,68,0.2)" : "rgba(239,68,68,0.15)",
+                  backgroundColor: errorBg,
+                  borderColor: errorBorder,
                   opacity: pressed || resettingPassword ? 0.7 : 1,
                 })}
               >
                 {resettingPassword ? (
-                  <ActivityIndicator color="#ef4444" size="small" />
+                  <ActivityIndicator color={errorColor} size="small" />
                 ) : (
-                  <Feather name="lock" size={20} color="#ef4444" />
+                  <Ionicons name="lock-closed-outline" size={20} color={errorColor} />
                 )}
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{
                       fontSize: 15,
-                      fontFamily: "OutfitBold",
-                      color: "#ef4444",
+                      fontFamily: fonts.bodyBold,
+                      color: errorColor,
                     }}
                   >
                     Reset Password
@@ -520,15 +547,15 @@ export default function AthleteDetailScreen() {
                   <Text
                     style={{
                       fontSize: 12,
-                      fontFamily: "Outfit",
-                      color: colors.textSecondary,
+                      fontFamily: fonts.bodyMedium,
+                      color: labelColor,
                       marginTop: 2,
                     }}
                   >
                     Send a password reset email to this athlete
                   </Text>
                 </View>
-                <Feather name="chevron-right" size={18} color="#ef4444" />
+                <Ionicons name="chevron-forward" size={17} color={errorColor} />
               </Pressable>
             </View>
           </>

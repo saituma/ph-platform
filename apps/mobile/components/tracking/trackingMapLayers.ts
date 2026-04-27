@@ -1,7 +1,7 @@
 import type { Region } from "react-native-maps";
 
 /** Road / street basemap vs aerial imagery. */
-export type TrackingMapStyle = "road" | "satellite";
+export type TrackingMapStyle = "road" | "satellite" | "hybrid" | "terrain";
 
 export type LatLng = { latitude: number; longitude: number };
 

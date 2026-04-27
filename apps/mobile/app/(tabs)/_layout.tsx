@@ -24,18 +24,15 @@ export const unstable_settings = {
 };
 
 export default function TabLayout() {
-  const {
-    hydrated,
-    token,
-    profile,
-    appRole,
-    apiUserRole,
-    programTier,
-    messagingAccessTiers,
-    isAuthenticated,
-    athleteUserId,
-  } = useAppSelector((state) => state.user);
-
+  const hydrated = useAppSelector((state) => state.user.hydrated);
+  const token = useAppSelector((state) => state.user.token);
+  const profile = useAppSelector((state) => state.user.profile);
+  const appRole = useAppSelector((state) => state.user.appRole);
+  const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
+  const programTier = useAppSelector((state) => state.user.programTier);
+  const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
   const forceLogout =
@@ -65,14 +62,12 @@ export default function TabLayout() {
           apiRequest<{ threads?: Array<{ type?: string; groupId?: number; id?: string }> }>("/messages/inbox", {
             token,
             headers: actingHeaders,
-            forceRefresh: true,
             suppressLog: true,
             suppressStatusCodes: [401, 403],
           }),
           apiRequest("/messages", {
             token,
             headers: actingHeaders,
-            forceRefresh: true,
             suppressLog: true,
             suppressStatusCodes: [401, 403],
           }),
@@ -92,7 +87,6 @@ export default function TabLayout() {
           void apiRequest(`/chat/groups/${groupId}/messages`, {
             token,
             headers: actingHeaders,
-            forceRefresh: true,
             suppressLog: true,
             suppressStatusCodes: [401, 403],
           });
@@ -113,24 +107,17 @@ export default function TabLayout() {
     if (!effectiveAuth || !bootstrapReady || didNormalizeLaunchRoute.current) return;
     if (!pathname) return;
 
-    let cancelled = false;
+    didNormalizeLaunchRoute.current = true;
+
     Linking.getInitialURL().then((url) => {
-      if (cancelled) return;
-      if (url) {
-        didNormalizeLaunchRoute.current = true;
-        return;
-      }
+      if (url) return;
       const routeName = parsePrimaryTabSegment(pathname);
       const normalizedPath = pathname.replace(/^\//, "").replace(/^\(tabs\)\/?/, "");
       const segments = normalizedPath.split("/").filter(Boolean);
       if (routeName === "programs" && segments.length === 1) {
         router.replace("/(tabs)");
       }
-      didNormalizeLaunchRoute.current = true;
     });
-    return () => {
-      cancelled = true;
-    };
   }, [effectiveAuth, bootstrapReady, pathname, router]);
 
   // Shared Logic Hooks

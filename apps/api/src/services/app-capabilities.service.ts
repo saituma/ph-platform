@@ -93,7 +93,7 @@ export function buildAppCapabilities(input: {
   const isTeamAthlete = role === "team_athlete" || hasTeam;
   const isYouth = role === "guardian" || role === "youth_athlete" || athleteType === "youth";
   const hasAssignedPlan = r >= 0;
-  const canUseNutrition = r >= 1 || isTeamAthlete;
+  const canUseNutrition = r >= 2 || isTeamAthlete;
   const canTrackProgress = isAdult || isTeamAthlete;
 
   return {
@@ -104,7 +104,7 @@ export function buildAppCapabilities(input: {
     groupChat: isTeamAthlete,
     nutrition: canUseNutrition,
     nutritionReview: false,
-    parentContent: isYouth && r >= 1,
+    parentContent: isYouth,
     progressTracking: canTrackProgress,
     teamTracking: isTeamAthlete,
     socialTracking: isAdult && !isTeamAthlete,

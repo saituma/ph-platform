@@ -10,6 +10,7 @@ import {
   createTrainingSessionItem,
   cleanupTrainingPlaceholderModules,
   copyTrainingModulesFromAudience,
+  copySelectedModulesToAudience,
   deleteTrainingModule,
   deleteTrainingModuleSession,
   deleteTrainingOtherContent,
@@ -63,6 +64,13 @@ const createAudienceSchema = z.object({
 const copyAudienceModulesSchema = z.object({
   sourceAudienceLabel: z.string().min(1).max(64),
   targetAudienceLabel: z.string().min(1).max(64),
+});
+
+const copySelectedModulesSchema = z.object({
+  sourceAudienceLabel: z.string().min(1).max(64),
+  targetAudienceLabel: z.string().min(1).max(64),
+  moduleIds: z.array(z.number().int()),
+  sessionIds: z.array(z.number().int()).nullable().optional(),
 });
 
 const updateModuleSchema = z.object({
@@ -184,6 +192,18 @@ export async function copyTrainingModulesFromAudienceHandler(req: Request, res: 
   const workspace = await copyTrainingModulesFromAudience({
     sourceAudienceLabel: input.sourceAudienceLabel,
     targetAudienceLabel: input.targetAudienceLabel,
+    createdBy: req.user!.id,
+  });
+  return res.status(200).json(workspace);
+}
+
+export async function copySelectedModulesToAudienceHandler(req: Request, res: Response) {
+  const input = copySelectedModulesSchema.parse(req.body);
+  const workspace = await copySelectedModulesToAudience({
+    sourceAudienceLabel: input.sourceAudienceLabel,
+    targetAudienceLabel: input.targetAudienceLabel,
+    moduleIds: input.moduleIds,
+    sessionIds: input.sessionIds ?? null,
     createdBy: req.user!.id,
   });
   return res.status(200).json(workspace);

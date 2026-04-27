@@ -6,7 +6,6 @@ import React, {
   useMemo,
   useRef,
   useState,
-  type MutableRefObject,
 } from "react";
 import {
   AppState,
@@ -104,6 +103,8 @@ export function InAppNotificationsProvider({
   };
 
   const isForeground = appState === "active";
+  const isForegroundRef = useRef(isForeground);
+  isForegroundRef.current = isForeground;
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", setAppState);
@@ -121,7 +122,7 @@ export function InAppNotificationsProvider({
 
   const notify = useCallback(
     (payload: InAppNotificationPayload) => {
-      if (!isForeground) return;
+      if (!isForegroundRef.current) return;
       const now = payload.timestamp ?? Date.now();
       const groupKey =
         payload.groupKey ?? payload.type ?? payload.title ?? "general";
@@ -176,15 +177,11 @@ export function InAppNotificationsProvider({
           .catch(() => {});
       }
     },
-    [isForeground],
+    [],
   );
 
-  // Keep a stable ref so the notification listener effect doesn't re-subscribe
-  // every time the app toggles between foreground and background.
   const notifyRef = useRef(notify);
-  useEffect(() => {
-    notifyRef.current = notify;
-  }, [notify]);
+  notifyRef.current = notify;
 
   useEffect(() => {
     items.forEach((item) => {
@@ -285,7 +282,7 @@ export function InAppNotificationsProvider({
       dismiss,
       isForeground,
     }),
-    [dismiss, isForeground, notify],
+    [dismiss, notify, isForeground],
   );
 
   return (

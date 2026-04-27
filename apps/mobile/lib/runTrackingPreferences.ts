@@ -3,6 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const KEY_BG_DEFAULT = "ph:run:bg_tracking_default:v1";
 const KEY_OSRM_DEFAULT = "ph:run:osrm_routing_default:v1";
 const KEY_OSRM_CONSENT = "ph:run:osrm_consent:v1";
+const KEY_AUTO_PAUSE = "ph:run:auto_pause:v1";
+const KEY_AUDIO_CUES = "ph:run:audio_cues:v1";
 
 function parseBool(raw: string | null): boolean | null {
   if (raw == null) return null;
@@ -50,4 +52,22 @@ export async function getOsrmRoutingConsentState(): Promise<OsrmConsentState | n
 
 export async function setOsrmRoutingConsentState(state: OsrmConsentState): Promise<void> {
   await AsyncStorage.setItem(KEY_OSRM_CONSENT, state);
+}
+
+export async function getAutoPauseDefault(): Promise<boolean> {
+  const v = await getBool(KEY_AUTO_PAUSE);
+  return v ?? true;
+}
+
+export async function setAutoPauseDefault(enabled: boolean): Promise<void> {
+  await setBool(KEY_AUTO_PAUSE, enabled);
+}
+
+export async function getAudioCuesDefault(): Promise<boolean> {
+  const v = await getBool(KEY_AUDIO_CUES);
+  return v ?? true;
+}
+
+export async function setAudioCuesDefault(enabled: boolean): Promise<void> {
+  await setBool(KEY_AUDIO_CUES, enabled);
 }

@@ -3,6 +3,8 @@ import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRefreshContext } from "@/context/RefreshContext";
+import { apiRequest } from "@/lib/api";
+import { useAppSelector } from "@/store/hooks";
 
 import React from "react";
 import { Pressable, View } from "react-native";
@@ -19,6 +21,7 @@ export default function ProfileSettingsScreen() {
   const { isSectionHidden } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const { colors } = useAppTheme();
+  const { token } = useAppSelector((state) => state.user);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
   const {
@@ -47,7 +50,26 @@ export default function ProfileSettingsScreen() {
   }
 
   const handleRefresh = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (!token) return;
+    try {
+      const me = await apiRequest<{
+        user?: {
+          name?: string | null;
+          email?: string | null;
+          profilePicture?: string | null;
+        };
+      }>("/auth/me", {
+        token,
+        suppressStatusCodes: [401, 403],
+        skipCache: true,
+        forceRefresh: true,
+      });
+      if (me.user) {
+        if (me.user.name) setName(me.user.name);
+      }
+    } catch {
+      /* keep existing profile */
+    }
   };
 
   return (

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import Animated, {
   FadeInDown,
   useSharedValue,
@@ -26,10 +27,19 @@ import { formatDurationClock, formatHoursMinutes } from "@/lib/tracking/runUtils
 import { useRunStore } from "@/store/useRunStore";
 import { ActiveRunBanner } from "@/components/tracking/ActiveRunBanner";
 import { useAppSelector } from "@/store/hooks";
+import type { ManagedAthlete } from "@/store/slices/userSlice";
 import {
   canAccessTrackingTab,
   shouldUseTeamTrackingFeatures,
 } from "@/lib/tracking/teamTrackingGate";
+import {
+  fetchLeaderboard,
+  fetchRunFeed,
+  type SocialLeaderboardItem,
+  type SocialRunFeedItem,
+} from "@/services/tracking/socialService";
+import { fetchTeamLocations, type UserLocation } from "@/services/tracking/locationService";
+import { relativeTime } from "@/lib/tracking/relativeTime";
 
 export default function TrackingHomeScreen() {
   const router = useRouter();
@@ -41,6 +51,7 @@ export default function TrackingHomeScreen() {
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
+  const token = useAppSelector((s) => s.user.token);
 
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [weeklyStats, setWeeklyStats] = useState(() => getWeeklySummaries(new Date(), userId));
@@ -156,6 +167,21 @@ export default function TrackingHomeScreen() {
 
   if (!canAccessTracking) return null;
 
+  if (isTeamManager) {
+    return (
+      <ManagerDashboard
+        colors={colors}
+        isDark={isDark}
+        insets={insets}
+        showTeamTab={showTeamTab}
+        token={token}
+        managedAthletes={managedAthletes}
+        authTeamMembership={authTeamMembership}
+        router={router}
+      />
+    );
+  }
+
   // Robis: tinted not pure, low-sat dark bg
   const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
   const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)";
@@ -178,28 +204,6 @@ export default function TrackingHomeScreen() {
             paddingHorizontal={0}
             showTeamTab={showTeamTab}
           />
-
-          {isTeamManager && (
-            <View
-              style={{
-                marginTop: spacing.sm,
-                borderRadius: 16,
-                backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.accentLight,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                gap: 4,
-              }}
-            >
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary }}>
-                Team tracking
-              </Text>
-              <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
-                Review athlete routes and team activity from the Team tab.
-              </Text>
-            </View>
-          )}
 
           <ActiveRunBanner />
         </View>
@@ -669,5 +673,1041 @@ function TrackingEmptyState({
         </Animated.View>
       </Animated.View>
     </View>
+  );
+}
+
+// ── Manager Dashboard ──────────────────────────────────────────────────────
+
+type ManagerFilter = "all" | "active" | "inactive";
+
+type AthleteWithStats = ManagedAthlete & {
+  kmTotal: number;
+  durationMinutesTotal: number;
+  rank: number | null;
+  lastRunDate: string | null;
+};
+
+function ManagerDashboard({
+  colors,
+  isDark,
+  insets,
+  showTeamTab,
+  token,
+  managedAthletes,
+  authTeamMembership,
+  router,
+}: {
+  colors: Record<string, string>;
+  isDark: boolean;
+  insets: { top: number; bottom: number };
+  showTeamTab: boolean;
+  token: string | null;
+  managedAthletes: ManagedAthlete[];
+  authTeamMembership: { team: string | null; teamId: number | null } | null;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const capabilities = useAppSelector((s) => s.user.capabilities);
+  const [filter, setFilter] = useState<ManagerFilter>("all");
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
+  const [recentRuns, setRecentRuns] = useState<SocialRunFeedItem[]>([]);
+  const [liveLocations, setLiveLocations] = useState<UserLocation[]>([]);
+
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
+  const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)";
+  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
+  const activeGreen = isDark ? "hsl(155, 30%, 55%)" : "hsl(155, 40%, 40%)";
+  const inactiveGray = isDark ? "hsl(220, 5%, 50%)" : "hsl(220, 5%, 55%)";
+
+  const fetchData = useCallback(async () => {
+    if (!token) return;
+    setFetchError(false);
+    try {
+      const [lb, runs, locs] = await Promise.all([
+        fetchLeaderboard(token, { windowDays: 7, limit: 100, useTeamFeed: true }),
+        fetchRunFeed(token, { limit: 50, windowDays: 7, useTeamFeed: true }),
+        fetchTeamLocations(token).catch(() => ({ locations: [] as UserLocation[] })),
+      ]);
+      setLeaderboard(lb?.items ?? []);
+      setRecentRuns(runs?.items ?? []);
+      setLiveLocations(locs?.locations ?? []);
+    } catch {
+      setFetchError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  }, [fetchData]);
+
+  const athletes: AthleteWithStats[] = useMemo(() => {
+    const lbMap = new Map<number, SocialLeaderboardItem>();
+    for (const item of leaderboard) lbMap.set(item.userId, item);
+
+    const runsMap = new Map<number, string>();
+    for (const run of recentRuns) {
+      if (!runsMap.has(run.userId)) runsMap.set(run.userId, run.date);
+    }
+
+    return managedAthletes.map((a) => {
+      const lb = a.userId ? lbMap.get(a.userId) : undefined;
+      return {
+        ...a,
+        kmTotal: lb?.kmTotal ?? 0,
+        durationMinutesTotal: lb?.durationMinutesTotal ?? 0,
+        rank: lb?.rank ?? null,
+        lastRunDate: (a.userId ? runsMap.get(a.userId) : null) ?? null,
+      };
+    });
+  }, [managedAthletes, leaderboard, recentRuns]);
+
+  const filtered = useMemo(() => {
+    let list = [...athletes];
+    if (filter === "active") {
+      list = list.filter((a) => a.kmTotal > 0);
+    } else if (filter === "inactive") {
+      list = list.filter((a) => a.kmTotal === 0);
+    }
+    list.sort((a, b) => b.kmTotal - a.kmTotal);
+    return list;
+  }, [athletes, filter]);
+
+  const teamTotalKm = useMemo(() => leaderboard.reduce((s, l) => s + l.kmTotal, 0), [leaderboard]);
+  const teamTotalMin = useMemo(() => leaderboard.reduce((s, l) => s + l.durationMinutesTotal, 0), [leaderboard]);
+  const activeCount = useMemo(() => athletes.filter((a) => a.kmTotal > 0).length, [athletes]);
+  const inactiveCount = athletes.length - activeCount;
+
+  const teamName = authTeamMembership?.team ?? managedAthletes[0]?.team ?? "Your Team";
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        bounces
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: trackingScrollBottomPad(insets) }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
+      >
+        <View style={{ paddingHorizontal: spacing.xl }}>
+          <TrackingHeaderTabs
+            active="running"
+            colors={colors}
+            isDark={isDark}
+            topInset={insets.top}
+            paddingHorizontal={0}
+            showTeamTab={showTeamTab}
+          />
+
+          {/* Team name */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <Ionicons name="shield-checkmark" size={18} color={colors.accent} />
+            <Text
+              style={{
+                fontFamily: fonts.bodyMedium,
+                fontSize: 13,
+                color: labelColor,
+              }}
+            >
+              {teamName} · Manager View
+            </Text>
+          </View>
+        </View>
+
+        {loading ? (
+          <View style={{ paddingVertical: 80, alignItems: "center" }}>
+            <ActivityIndicator color={colors.accent} size="large" />
+          </View>
+        ) : fetchError ? (
+          <View style={{ paddingVertical: 60, alignItems: "center", gap: 12, paddingHorizontal: spacing.xl }}>
+            <Ionicons name="cloud-offline-outline" size={36} color={labelColor} />
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: labelColor, textAlign: "center" }}>
+              Couldn't load team data. Pull down to retry.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: 12 }}>
+            {/* ── Overview cards ── */}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <ManagerStatCard
+                label="Team KM"
+                value={teamTotalKm.toFixed(1)}
+                icon="speedometer-outline"
+                accent={colors.accent}
+                isDark={isDark}
+                cardBg={cardBg}
+                cardBorder={cardBorder}
+              />
+              <ManagerStatCard
+                label="Team Time"
+                value={`${Math.floor(teamTotalMin / 60)}h ${Math.round(teamTotalMin % 60)}m`}
+                icon="time-outline"
+                accent={colors.accent}
+                isDark={isDark}
+                cardBg={cardBg}
+                cardBorder={cardBorder}
+              />
+            </View>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <ManagerStatCard
+                label="Active"
+                value={String(activeCount)}
+                icon="flash-outline"
+                accent={activeGreen}
+                isDark={isDark}
+                cardBg={cardBg}
+                cardBorder={cardBorder}
+              />
+              <ManagerStatCard
+                label="Inactive"
+                value={String(inactiveCount)}
+                icon="moon-outline"
+                accent={inactiveGray}
+                isDark={isDark}
+                cardBg={cardBg}
+                cardBorder={cardBorder}
+              />
+              <ManagerStatCard
+                label="Athletes"
+                value={String(managedAthletes.length)}
+                icon="people-outline"
+                accent={colors.accent}
+                isDark={isDark}
+                cardBg={cardBg}
+                cardBorder={cardBorder}
+              />
+            </View>
+
+            {/* ── Quick Actions ── */}
+            <Text
+              style={{
+                fontFamily: fonts.bodyBold,
+                fontSize: 11,
+                letterSpacing: 1.2,
+                color: labelColor,
+                textTransform: "uppercase",
+                paddingLeft: 4,
+                marginTop: 4,
+              }}
+            >
+              Quick Actions
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <ManagerQuickAction
+                icon="calendar-outline"
+                label="Schedule"
+                isDark={isDark}
+                accent={colors.accent}
+                cardBg={cardBg}
+                cardBorder={cardBorder}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(tabs)/schedule" as any);
+                }}
+              />
+              <ManagerQuickAction
+                icon="megaphone-outline"
+                label="Announce"
+                isDark={isDark}
+                accent={isDark ? "hsl(40, 30%, 55%)" : "hsl(40, 45%, 45%)"}
+                cardBg={cardBg}
+                cardBorder={cardBorder}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/announcements" as any);
+                }}
+              />
+              <ManagerQuickAction
+                icon="clipboard-outline"
+                label="Roster"
+                isDark={isDark}
+                accent={isDark ? "hsl(270, 25%, 65%)" : "hsl(270, 35%, 50%)"}
+                cardBg={cardBg}
+                cardBorder={cardBorder}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/team-manager/roster" as any);
+                }}
+              />
+              <ManagerQuickAction
+                icon="chatbubbles-outline"
+                label="Chat"
+                isDark={isDark}
+                accent={isDark ? "hsl(190, 25%, 55%)" : "hsl(190, 40%, 40%)"}
+                cardBg={cardBg}
+                cardBorder={cardBorder}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(tabs)/messages" as any);
+                }}
+              />
+            </View>
+
+            {/* ── Live athletes sharing location ── */}
+            {liveLocations.length > 0 && (
+              <>
+                <Text
+                  style={{
+                    fontFamily: fonts.bodyBold,
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                    color: labelColor,
+                    textTransform: "uppercase",
+                    paddingLeft: 4,
+                    marginTop: 4,
+                  }}
+                >
+                  Live Now · {liveLocations.length} {liveLocations.length === 1 ? "athlete" : "athletes"}
+                </Text>
+                <View
+                  style={{
+                    backgroundColor: cardBg,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor: cardBorder,
+                    overflow: "hidden",
+                  }}
+                >
+                  {liveLocations.map((loc, idx) => {
+                    const minutesAgo = Math.floor(
+                      (Date.now() - new Date(loc.recordedAt).getTime()) / 60000,
+                    );
+                    const isRecent = minutesAgo < 10;
+                    return (
+                      <View
+                        key={loc.userId}
+                        style={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 12,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 12,
+                          borderBottomWidth: idx < liveLocations.length - 1 ? 1 : 0,
+                          borderBottomColor: cardBorder,
+                        }}
+                      >
+                        <View>
+                          <ManagerAvatar
+                            uri={null}
+                            name={loc.name}
+                            size={36}
+                            isDark={isDark}
+                            accent={colors.accent}
+                          />
+                          <View
+                            style={{
+                              position: "absolute",
+                              bottom: -1,
+                              right: -1,
+                              width: 12,
+                              height: 12,
+                              borderRadius: 6,
+                              backgroundColor: isRecent ? activeGreen : (isDark ? "hsl(40, 30%, 55%)" : "hsl(40, 45%, 45%)"),
+                              borderWidth: 2,
+                              borderColor: cardBg,
+                            }}
+                          />
+                        </View>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text
+                            numberOfLines={1}
+                            style={{
+                              fontFamily: fonts.bodyBold,
+                              fontSize: 14,
+                              color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
+                            }}
+                          >
+                            {loc.name}
+                          </Text>
+                          <Text
+                            style={{
+                              fontFamily: fonts.bodyMedium,
+                              fontSize: 12,
+                              color: isRecent ? activeGreen : labelColor,
+                            }}
+                          >
+                            {isRecent ? "Sharing now" : `${minutesAgo}m ago`}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name="location"
+                          size={16}
+                          color={isRecent ? activeGreen : labelColor}
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
+            {/* ── Filter chips ── */}
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+              {(["all", "active", "inactive"] as ManagerFilter[]).map((f) => {
+                const selected = filter === f;
+                return (
+                  <Pressable
+                    key={f}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setFilter(f);
+                    }}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 7,
+                      borderRadius: 20,
+                      backgroundColor: selected
+                        ? colors.accent
+                        : isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+                      borderWidth: 1,
+                      borderColor: selected
+                        ? colors.accent
+                        : cardBorder,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: fonts.bodyBold,
+                        fontSize: 12,
+                        color: selected
+                          ? isDark ? "hsl(220,8%,10%)" : "#fafafa"
+                          : isDark ? "hsl(220,5%,65%)" : "hsl(220,5%,40%)",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {f === "all" ? `All (${athletes.length})` : f === "active" ? `Active (${activeCount})` : `Inactive (${inactiveCount})`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* ── Section label ── */}
+            <Text
+              style={{
+                fontFamily: fonts.bodyBold,
+                fontSize: 11,
+                letterSpacing: 1.2,
+                color: labelColor,
+                textTransform: "uppercase",
+                paddingLeft: 4,
+                marginTop: 4,
+              }}
+            >
+              Athletes · This Week
+            </Text>
+
+            {/* ── Athlete list ── */}
+            {filtered.length === 0 ? (
+              <View style={{ paddingVertical: 40, alignItems: "center", gap: 8 }}>
+                <Ionicons
+                  name={filter === "inactive" ? "moon-outline" : "flash-outline"}
+                  size={32}
+                  color={labelColor}
+                />
+                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: labelColor }}>
+                  {filter === "inactive" ? "All athletes are active this week" : "No athletes match this filter"}
+                </Text>
+              </View>
+            ) : (
+              <View
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: 24,
+                  borderWidth: 1,
+                  borderColor: cardBorder,
+                  overflow: "hidden",
+                }}
+              >
+                {filtered.map((athlete, idx) => (
+                  <AthleteRow
+                    key={athlete.id ?? athlete.userId ?? idx}
+                    athlete={athlete}
+                    rank={idx + 1}
+                    colors={colors}
+                    isDark={isDark}
+                    cardBorder={cardBorder}
+                    isLast={idx === filtered.length - 1}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push("/(tabs)/tracking/social" as any);
+                    }}
+                  />
+                ))}
+              </View>
+            )}
+
+            {/* ── Recent activity feed ── */}
+            {recentRuns.length > 0 && (
+              <>
+                <Text
+                  style={{
+                    fontFamily: fonts.bodyBold,
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                    color: labelColor,
+                    textTransform: "uppercase",
+                    paddingLeft: 4,
+                    marginTop: 8,
+                  }}
+                >
+                  Recent Activity
+                </Text>
+                <View
+                  style={{
+                    backgroundColor: cardBg,
+                    borderRadius: 24,
+                    borderWidth: 1,
+                    borderColor: cardBorder,
+                    overflow: "hidden",
+                  }}
+                >
+                  {recentRuns.slice(0, 8).map((run) => (
+                    <Pressable
+                      key={run.runLogId}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.runLogId)}` as any);
+                      }}
+                      style={({ pressed }) => ({
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        backgroundColor: pressed
+                          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
+                          : "transparent",
+                      })}
+                    >
+                      <ManagerAvatar
+                        uri={run.avatarUrl}
+                        name={run.name}
+                        size={36}
+                        isDark={isDark}
+                        accent={colors.accent}
+                      />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text
+                            numberOfLines={1}
+                            style={{
+                              fontFamily: fonts.bodyBold,
+                              fontSize: 14,
+                              color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
+                              flex: 1,
+                            }}
+                          >
+                            {run.name}
+                          </Text>
+                          <Text
+                            style={{
+                              fontFamily: fonts.bodyMedium,
+                              fontSize: 11,
+                              color: labelColor,
+                            }}
+                          >
+                            {relativeTime(run.date)}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.accent }}>
+                            {(run.distanceMeters / 1000).toFixed(1)} km
+                          </Text>
+                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: labelColor }}>
+                            {formatDurationClock(run.durationSeconds)}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={labelColor} />
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* ── Management links ── */}
+            <Text
+              style={{
+                fontFamily: fonts.bodyBold,
+                fontSize: 11,
+                letterSpacing: 1.2,
+                color: labelColor,
+                textTransform: "uppercase",
+                paddingLeft: 4,
+                marginTop: 8,
+              }}
+            >
+              Manage
+            </Text>
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: cardBorder,
+                overflow: "hidden",
+              }}
+            >
+              <ManagerLinkRow
+                icon="trophy-outline"
+                label="Team Feed & Leaderboard"
+                subtitle="Posts, challenges, and squad activity"
+                accent={colors.accent}
+                isDark={isDark}
+                cardBorder={cardBorder}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(tabs)/tracking/social" as any);
+                }}
+              />
+              <ManagerLinkRow
+                icon="settings-outline"
+                label="Team Tracking Settings"
+                subtitle="Privacy, sharing, and visibility"
+                accent={isDark ? "hsl(220,5%,65%)" : "hsl(220,5%,45%)"}
+                isDark={isDark}
+                cardBorder={cardBorder}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(tabs)/tracking/team-settings" as any);
+                }}
+              />
+              {capabilities?.schedule && (
+                <ManagerLinkRow
+                  icon="calendar-outline"
+                  label="Team Schedule"
+                  subtitle="Training sessions and events"
+                  accent={isDark ? "hsl(270, 25%, 65%)" : "hsl(270, 35%, 50%)"}
+                  isDark={isDark}
+                  cardBorder={cardBorder}
+                  isLast
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push("/(tabs)/schedule" as any);
+                  }}
+                />
+              )}
+            </View>
+          </View>
+        )}
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// ── ManagerStatCard ────────────────────────────────────────────────────────
+
+function ManagerStatCard({
+  label,
+  value,
+  icon,
+  accent,
+  isDark,
+  cardBg,
+  cardBorder,
+}: {
+  label: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  accent: string;
+  isDark: boolean;
+  cardBg: string;
+  cardBorder: string;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: cardBg,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: cardBorder,
+        padding: 14,
+        gap: 8,
+      }}
+    >
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 10,
+          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon} size={16} color={accent} />
+      </View>
+      <Text
+        style={{
+          fontFamily: fonts.heroDisplay,
+          fontSize: 22,
+          color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
+          letterSpacing: -0.5,
+        }}
+      >
+        {value}
+      </Text>
+      <Text
+        style={{
+          fontFamily: fonts.bodyBold,
+          fontSize: 10,
+          letterSpacing: 0.8,
+          color: isDark ? "hsl(220,5%,50%)" : "hsl(220,5%,48%)",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+// ── AthleteRow ─────────────────────────────────────────────────────────────
+
+function AthleteRow({
+  athlete,
+  rank,
+  colors,
+  isDark,
+  cardBorder,
+  isLast,
+  onPress,
+}: {
+  athlete: AthleteWithStats;
+  rank: number;
+  colors: Record<string, string>;
+  isDark: boolean;
+  cardBorder: string;
+  isLast: boolean;
+  onPress: () => void;
+}) {
+  const labelColor = isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)";
+  const isActive = athlete.kmTotal > 0;
+
+  const statusDot = isActive
+    ? isDark ? "hsl(155, 30%, 55%)" : "hsl(155, 40%, 40%)"
+    : isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,65%)";
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        backgroundColor: pressed
+          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
+          : "transparent",
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: cardBorder,
+      })}
+    >
+      {/* Rank */}
+      <View style={{ width: 28, alignItems: "center" }}>
+        <View
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            backgroundColor: rank <= 3 && isActive
+              ? rank === 1 ? "rgba(255,195,0,0.18)" : rank === 2 ? "rgba(192,192,192,0.22)" : "rgba(205,127,50,0.18)"
+              : "transparent",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.bodyBold,
+              fontSize: 12,
+              color: rank <= 3 && isActive
+                ? rank === 1 ? "#D4A017" : rank === 2 ? "#8E8E93" : "#B87333"
+                : labelColor,
+            }}
+          >
+            {rank}
+          </Text>
+        </View>
+      </View>
+
+      {/* Avatar with status dot */}
+      <View>
+        <ManagerAvatar
+          uri={athlete.profilePicture ?? null}
+          name={athlete.name ?? "?"}
+          size={42}
+          isDark={isDark}
+          accent={colors.accent}
+        />
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            right: 0,
+            width: 12,
+            height: 12,
+            borderRadius: 6,
+            backgroundColor: statusDot,
+            borderWidth: 2,
+            borderColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
+          }}
+        />
+      </View>
+
+      {/* Name + last activity */}
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text
+          numberOfLines={1}
+          style={{
+            fontFamily: fonts.bodyBold,
+            fontSize: 15,
+            color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
+          }}
+        >
+          {athlete.name ?? "Unknown"}
+        </Text>
+        <Text
+          style={{
+            fontFamily: fonts.bodyMedium,
+            fontSize: 12,
+            color: labelColor,
+          }}
+        >
+          {athlete.lastRunDate
+            ? `Last run ${relativeTime(athlete.lastRunDate)}`
+            : "No runs this week"}
+        </Text>
+      </View>
+
+      {/* Stats */}
+      <View style={{ alignItems: "flex-end", gap: 2 }}>
+        <Text
+          style={{
+            fontFamily: fonts.bodyBold,
+            fontSize: 15,
+            color: isActive ? colors.accent : labelColor,
+          }}
+        >
+          {athlete.kmTotal.toFixed(1)} km
+        </Text>
+        <Text
+          style={{
+            fontFamily: fonts.bodyMedium,
+            fontSize: 11,
+            color: labelColor,
+          }}
+        >
+          {Math.floor(athlete.durationMinutesTotal / 60)}h {Math.round(athlete.durationMinutesTotal % 60)}m
+        </Text>
+      </View>
+
+      <Ionicons name="chevron-forward" size={16} color={labelColor} />
+    </Pressable>
+  );
+}
+
+// ── ManagerAvatar ──────────────────────────────────────────────────────────
+
+function ManagerAvatar({
+  uri,
+  name,
+  size,
+  isDark,
+  accent,
+}: {
+  uri: string | null;
+  name: string;
+  size: number;
+  isDark: boolean;
+  accent: string;
+}) {
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+        contentFit="cover"
+      />
+    );
+  }
+  const initial = (name || "?").charAt(0).toUpperCase();
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: isDark ? "rgba(200,241,53,0.12)" : `${accent}18`,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: fonts.bodyBold,
+          fontSize: size * 0.4,
+          color: accent,
+        }}
+      >
+        {initial}
+      </Text>
+    </View>
+  );
+}
+
+// ── ManagerQuickAction ─────────────────────────────────────────────────────
+
+function ManagerQuickAction({
+  icon,
+  label,
+  isDark,
+  accent,
+  cardBg,
+  cardBorder,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  isDark: boolean;
+  accent: string;
+  cardBg: string;
+  cardBorder: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        backgroundColor: cardBg,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: cardBorder,
+        paddingVertical: 14,
+        alignItems: "center",
+        gap: 8,
+        opacity: pressed ? 0.75 : 1,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
+      })}
+    >
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon} size={18} color={accent} />
+      </View>
+      <Text
+        style={{
+          fontFamily: fonts.bodyBold,
+          fontSize: 11,
+          color: isDark ? "hsl(220,5%,70%)" : "hsl(220,5%,35%)",
+          textAlign: "center",
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+// ── ManagerLinkRow ─────────────────────────────────────────────────────────
+
+function ManagerLinkRow({
+  icon,
+  label,
+  subtitle,
+  accent,
+  isDark,
+  cardBorder,
+  isLast = false,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  subtitle: string;
+  accent: string;
+  isDark: boolean;
+  cardBorder: string;
+  isLast?: boolean;
+  onPress: () => void;
+}) {
+  const linkLabelColor = isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)";
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        backgroundColor: pressed
+          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
+          : "transparent",
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: cardBorder,
+      })}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon} size={19} color={accent} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text
+          style={{
+            fontFamily: fonts.bodyBold,
+            fontSize: 14,
+            color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
+          }}
+        >
+          {label}
+        </Text>
+        <Text
+          style={{
+            fontFamily: fonts.bodyMedium,
+            fontSize: 12,
+            color: linkLabelColor,
+          }}
+        >
+          {subtitle}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={17} color={linkLabelColor} />
+    </Pressable>
   );
 }

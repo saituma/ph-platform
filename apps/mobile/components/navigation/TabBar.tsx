@@ -1,11 +1,7 @@
 import React from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { BlurView } from "expo-blur";
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useReducedMotion,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import * as Haptics from "expo-haptics";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -109,27 +105,12 @@ const TabItem = React.memo(function TabItem({
   isDark: boolean;
 }) {
   const isActive = activeIndex === index;
-  const reduceMotion = useReducedMotion();
 
   const iconName = isActive ? tab.icon : (tab.iconOutline ?? tab.icon);
   const resolvedIcon = resolveTabIcon(iconName);
 
   const activeColor = colors.accent ?? colors.tint;
   const inactiveColor = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.35)";
-
-  // Active dot scale (spring-animated)
-  const dotStyle = useAnimatedStyle(() => {
-    const scale = reduceMotion
-      ? (isActive ? 1 : 0)
-      : withSpring(isActive ? 1 : 0, { damping: 18, stiffness: 350 });
-    const opacity = reduceMotion
-      ? (isActive ? 1 : 0)
-      : withSpring(isActive ? 1 : 0, { damping: 20, stiffness: 300 });
-    return {
-      transform: [{ scale }],
-      opacity,
-    };
-  });
 
   const handlePress = () => {
     if (index !== activeIndex) {
@@ -156,14 +137,18 @@ const TabItem = React.memo(function TabItem({
           strokeWidth={isActive ? 2.25 : 1.75}
         />
 
-        {/* Active dot indicator */}
-        <Animated.View
-          style={[
-            styles.activeDot,
-            { backgroundColor: activeColor },
-            dotStyle,
-          ]}
-        />
+        {/* Label */}
+        {tab.label ? (
+          <Animated.Text
+            style={[
+              styles.tabLabel,
+              { color: isActive ? activeColor : inactiveColor },
+            ]}
+            numberOfLines={1}
+          >
+            {tab.label}
+          </Animated.Text>
+        ) : null}
 
         {/* Badge */}
         {tab.badgeCount && tab.badgeCount > 0 ? (
@@ -277,12 +262,12 @@ const styles = StyleSheet.create({
   tabItemInner: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
+    gap: 3,
   },
-  activeDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+  tabLabel: {
+    fontSize: 10,
+    fontFamily: "Outfit-Medium",
+    letterSpacing: 0.1,
   },
   badgeContainer: {
     position: "absolute",

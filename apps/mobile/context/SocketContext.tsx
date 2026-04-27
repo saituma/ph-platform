@@ -223,7 +223,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const acting = athleteUserId ? Number(athleteUserId) : null;
     const actingUserId = Number.isFinite(acting as number) && (acting as number) > 0 ? (acting as number) : null;
     socketRef.current.emit("acting:join", actingUserId ? { actingUserId } : {});
-  }, [apiUserRole, appRole, athleteUserId, socket]);
+  }, [apiUserRole, appRole, athleteUserId]);
 
   const value = useMemo(
     () => ({

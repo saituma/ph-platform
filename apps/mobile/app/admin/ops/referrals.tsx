@@ -15,7 +15,9 @@ import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Shadows } from "@/constants/theme";
+import { useRouter, usePathname } from "expo-router";
+import { goBackOrFallbackTabs } from "@/lib/navigation/androidBackToTabs";
+import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 
 // --- Constants ---
 
@@ -69,11 +71,6 @@ function ActionButton({
         alignItems: "center",
         justifyContent: "center",
         opacity: (disabled || loading) ? 0.6 : 1,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: isDark ? 0.3 : 0.1,
-        shadowRadius: 8,
-        elevation: 4,
       }}
     >
       {loading ? (
@@ -237,6 +234,9 @@ function Dropdown({
 
 export default function AdminOpsReferralsScreen() {
   const { colors, isDark } = useAppTheme();
+  const router = useRouter();
+  const pathname = usePathname();
+  const reduceMotion = useReducedMotion();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const canLoad = Boolean(token && bootstrapReady);
@@ -483,12 +483,11 @@ export default function AdminOpsReferralsScreen() {
               placeholder="Search by name or guardian" 
             />
             {athleteSearch.length > 0 && !selectedAthleteId && (
-              <View 
+              <View
                 className="mb-6 rounded-[24px] border overflow-hidden"
-                style={{ 
+                style={{
                   backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
                   borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                  ...Shadows.md
                 }}
               >
                 {usersLoading ? <ActivityIndicator size="small" className="py-6" color={colors.accent} /> : 
@@ -713,13 +712,12 @@ export default function AdminOpsReferralsScreen() {
           const hasMeta = !!(meta.providerName || meta.organizationName || meta.location || meta.phone || meta.email || meta.specialty || meta.notes || meta.imageUrl);
           
           return (
-            <View 
-              key={item.id} 
+            <View
+              key={item.id}
               className="rounded-[36px] border p-8"
-              style={{ 
+              style={{
                 backgroundColor: isDark ? colors.cardElevated : colors.card,
                 borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                ...(isDark ? Shadows.none : Shadows.md)
               }}
             >
               <View className="flex-row items-center justify-between mb-6">
@@ -828,7 +826,23 @@ export default function AdminOpsReferralsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       <ThemedScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}>
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(360).springify()}
+          style={{ paddingTop: 20, paddingHorizontal: 24, marginBottom: 28 }}
+        >
+          <TouchableOpacity
+            onPress={() => goBackOrFallbackTabs(router, pathname)}
+            style={{
+              width: 40, height: 40, borderRadius: 20,
+              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
+              alignItems: "center", justifyContent: "center",
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              marginBottom: 20, alignSelf: "flex-start",
+            }}
+          >
+            <Feather name="chevron-left" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
             <View
               style={{
@@ -862,10 +876,13 @@ export default function AdminOpsReferralsScreen() {
               </Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Tab Switcher */}
-        <View style={{ paddingHorizontal: 24, marginBottom: 32 }}>
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.delay(120).duration(360).springify()}
+          style={{ paddingHorizontal: 24, marginBottom: 32 }}
+        >
           <View
             style={{
               flexDirection: "row",
@@ -923,7 +940,7 @@ export default function AdminOpsReferralsScreen() {
               );
             })}
           </View>
-        </View>
+        </Animated.View>
 
         {activeTab === "create" ? renderCreateForm() : (
           <View>

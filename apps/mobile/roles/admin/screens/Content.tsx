@@ -262,11 +262,11 @@ export default function AdminContentScreen() {
           style={{ paddingHorizontal: 24, marginBottom: 16 }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <View>
-              <Text style={{ fontFamily: "Clash-Bold", fontSize: 22, color: colors.textPrimary, letterSpacing: -0.4 }}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={{ fontFamily: "Clash-Bold", fontSize: 22, color: colors.textPrimary, letterSpacing: -0.4 }} numberOfLines={1}>
                 {headerTitle}
               </Text>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 2, lineHeight: 18 }}>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 2, lineHeight: 18 }} numberOfLines={2}>
                 {headerDescription}
               </Text>
             </View>
@@ -276,18 +276,18 @@ export default function AdminContentScreen() {
                 activeOpacity={0.8}
                 style={{
                   height: 40,
-                  paddingHorizontal: 16,
+                  paddingHorizontal: 14,
                   borderRadius: 14,
                   backgroundColor: colors.accent,
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 6,
-                  marginLeft: 12,
+                  flexShrink: 0,
                 }}
               >
                 <Feather name="plus" size={15} color={colors.textInverse} />
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase", color: colors.textInverse }}>
-                  {viewMode === "team" ? "Add Team" : "Add Group"}
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, letterSpacing: 0.4, textTransform: "uppercase", color: colors.textInverse }}>
+                  {viewMode === "team" ? "Team" : "Group"}
                 </Text>
               </TouchableOpacity>
             )}

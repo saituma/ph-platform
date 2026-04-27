@@ -26,6 +26,7 @@ import {
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 
 type NutritionLog = {
   id: number;
@@ -102,12 +103,6 @@ function ActionButton({
         alignItems: "center",
         justifyContent: "center",
         opacity: (disabled || loading) ? 0.6 : 1,
-        // Depth
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: isDark ? 0.3 : 0.1,
-        shadowRadius: 8,
-        elevation: 4,
       }}
     >
       {loading ? (
@@ -164,10 +159,6 @@ function FormInput({
           paddingTop: multiline ? 18 : 0,
           paddingBottom: multiline ? 18 : 0,
           borderWidth: isFocused ? 2 : 1,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: isFocused ? 0.05 : 0,
-          shadowRadius: 4,
         }}
       >
         {prefix && (
@@ -267,6 +258,7 @@ function SmallAction({
 export default function AdminNutritionScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
@@ -547,7 +539,10 @@ export default function AdminNutritionScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
         <ThemedScrollView showsVerticalScrollIndicator={false}>
           {/* Header */}
-          <View style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(360).springify()}
+            style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}
+          >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
               <View
                 style={{
@@ -581,10 +576,13 @@ export default function AdminNutritionScreen() {
                 </Text>
               </View>
             </View>
-          </View>
+          </Animated.View>
 
           {/* Adult / Youth Tab Switcher */}
-          <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(120).duration(360).springify()}
+            style={{ paddingHorizontal: 24, marginBottom: 24 }}
+          >
             <View
               style={{
                 flexDirection: "row",
@@ -641,10 +639,13 @@ export default function AdminNutritionScreen() {
                 );
               })}
             </View>
-          </View>
+          </Animated.View>
 
           {/* Search */}
-          <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(360).springify()}
+            style={{ paddingHorizontal: 24, marginBottom: 24 }}
+          >
             <View
               style={{
                 flexDirection: "row",
@@ -672,7 +673,7 @@ export default function AdminNutritionScreen() {
                 placeholderTextColor={colors.placeholder}
               />
             </View>
-          </View>
+          </Animated.View>
 
           {usersLoading && users.length === 0 ? (
             <View style={{ paddingHorizontal: 24, gap: 12 }}>

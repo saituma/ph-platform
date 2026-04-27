@@ -1,7 +1,7 @@
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
-import { Feather } from "@/components/ui/theme-icons";
-import { Shadows } from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { fonts } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, View } from "react-native";
@@ -26,26 +26,52 @@ export function MoreStackHeader({
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
 
+  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 30%, 97%)";
+  const cardBorder = isDark
+    ? "rgba(255,255,255,0.08)"
+    : "rgba(15,23,42,0.06)";
+  const accentSoft = isDark
+    ? "rgba(34,197,94,0.14)"
+    : "rgba(34,197,94,0.10)";
+
   return (
-    <View className="px-4 pb-2 pt-3" style={{ backgroundColor: colors.background }}>
+    <View style={{ paddingHorizontal: 16, paddingBottom: 8, paddingTop: 12, backgroundColor: colors.background }}>
       <View
-        className="overflow-hidden rounded-[30px] border px-4 pb-4 pt-4"
         style={{
-          backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-          ...(isDark ? Shadows.none : Shadows.md),
+          overflow: "hidden",
+          borderRadius: 24,
+          borderWidth: 1,
+          paddingHorizontal: 16,
+          paddingBottom: 16,
+          paddingTop: 16,
+          backgroundColor: cardBg,
+          borderColor: cardBorder,
         }}
       >
         <View
-          className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
-          style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.10)" }}
+          style={{
+            position: "absolute",
+            right: -40,
+            top: -32,
+            height: 112,
+            width: 112,
+            borderRadius: 56,
+            backgroundColor: accentSoft,
+          }}
         />
         <View
-          className="absolute -bottom-8 left-12 h-24 w-24 rounded-full"
-          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.04)" }}
+          style={{
+            position: "absolute",
+            bottom: -32,
+            left: 48,
+            height: 96,
+            width: 96,
+            borderRadius: 48,
+            backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.04)",
+          }}
         />
 
-        <View className="flex-row items-center justify-between gap-3">
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <Pressable
             onPress={() => {
               if (onBack) {
@@ -59,40 +85,64 @@ export function MoreStackHeader({
               }
             }}
             hitSlop={10}
-            className="h-11 w-11 items-center justify-center rounded-[18px] active:opacity-80"
-            style={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(255,255,255,0.85)",
-            }}
+            style={({ pressed }) => ({
+              height: 44,
+              width: 44,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 14,
+              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.85)",
+              opacity: pressed ? 0.8 : 1,
+            })}
           >
-            <Feather
-              name="arrow-left"
-              size={20}
-              color={colors.accent}
-              // Feather's arrow-left glyph is slightly right-heavy; nudge for optical centering.
-              style={{ transform: [{ translateX: -0.5 }] }}
-            />
+            <Ionicons name="arrow-back" size={20} color={colors.accent} />
           </Pressable>
 
           {rightSlot ?? (badge ? (
             <View
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.8)" }}
+              style={{
+                borderRadius: 99,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.8)",
+              }}
             >
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]" style={{ color: colors.accent }}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: fonts.bodyBold,
+                  textTransform: "uppercase",
+                  letterSpacing: 1.4,
+                  color: colors.accent,
+                }}
+              >
                 {badge}
               </Text>
             </View>
-          ) : <View className="w-11" />)}
+          ) : <View style={{ width: 44 }} />)}
         </View>
 
-        <View className="mt-4">
-          <Text className="font-telma-bold text-3xl font-bold tracking-tight" style={{ color: colors.text }}>
+        <View style={{ marginTop: 16 }}>
+          <Text
+            style={{
+              fontFamily: "TelmaBold",
+              fontSize: 28,
+              letterSpacing: -0.3,
+              color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
+            }}
+          >
             {title}
           </Text>
           {subtitle ? (
-            <Text className="mt-2 text-base leading-6 font-outfit" style={{ color: colors.textSecondary }}>
+            <Text
+              style={{
+                marginTop: 8,
+                fontSize: 15,
+                lineHeight: 22,
+                fontFamily: "Outfit",
+                color: isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,45%)",
+              }}
+            >
               {subtitle}
             </Text>
           ) : null}

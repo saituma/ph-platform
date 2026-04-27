@@ -5,9 +5,9 @@ import { subscribeToAdminOpsRequests } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect } from "react";
 import { Pressable, View } from "react-native";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 import { Feather } from "@/components/ui/theme-icons";
 
 const OPS_ITEMS = [
@@ -36,8 +36,8 @@ const OPS_ITEMS = [
 
 export default function AdminOpsScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useAppSafeAreaInsets();
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
   const pushSchedule = useCallback(
@@ -93,11 +93,11 @@ export default function AdminOpsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <Animated.View
-          entering={FadeInDown.delay(60).duration(380)}
+          entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(380).springify()}
           style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 32 }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
@@ -162,7 +162,7 @@ export default function AdminOpsScreen() {
         ) : (
           <View style={{ paddingHorizontal: 24, gap: 14 }}>
             {OPS_ITEMS.map((item, idx) => (
-              <Animated.View key={item.destination} entering={FadeInDown.delay(120 + idx * 70).duration(380)}>
+              <Animated.View key={item.destination} entering={reduceMotion ? undefined : FadeInDown.delay(120 + idx * 70).duration(380).springify()}>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => handleNav(item.destination)}
@@ -181,7 +181,6 @@ export default function AdminOpsScreen() {
                     style={{
                       height: 3,
                       backgroundColor: item.color,
-                      opacity: 0.7,
                     }}
                   />
                   <View style={{ flexDirection: "row", alignItems: "center", padding: 20 }}>
@@ -239,6 +238,6 @@ export default function AdminOpsScreen() {
           </View>
         )}
       </ThemedScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
