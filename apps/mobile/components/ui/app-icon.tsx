@@ -22,6 +22,7 @@ import {
   Send,
   Settings2,
   UserRound,
+  Users,
   type LucideIcon,
 } from "lucide-react-native";
 
@@ -47,6 +48,7 @@ export type AppIconName =
   | "sort"
   | "stats"
   | "tracking"
+  | "roster"
   | "user"
   | "heart"
   | "heart-filled";
@@ -84,6 +86,7 @@ const IOS_SYMBOLS: Record<AppIconName, SymbolViewProps["name"]> = {
   sort: "arrow.up.arrow.down",
   stats: "chart.bar",
   tracking: "figure.run",
+  roster: "person.2",
   user: "person.crop.circle",
 };
 
@@ -111,6 +114,7 @@ const ANDROID_ICONS: Record<AppIconName, LucideIcon> = {
   sort: ArrowUpDown,
   stats: BarChart3,
   tracking: Route,
+  roster: Users,
   user: UserRound,
 };
 
