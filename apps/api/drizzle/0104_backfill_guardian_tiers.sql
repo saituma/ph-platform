@@ -4,7 +4,7 @@ UPDATE "guardians" g
 SET "currentProgramTier" = sub.tier, "updatedAt" = NOW()
 FROM (
   SELECT a."guardianId",
-         (ARRAY['PHP','PHP_Premium','PHP_Premium_Plus','PHP_Pro'])[
+         ((ARRAY['PHP','PHP_Premium','PHP_Premium_Plus','PHP_Pro'])[
            MAX(
              CASE a."currentProgramTier"
                WHEN 'PHP'              THEN 1
@@ -13,7 +13,7 @@ FROM (
                WHEN 'PHP_Pro'          THEN 4
              END
            )
-         ] AS tier
+         ])::program_type AS tier
   FROM "athletes" a
   WHERE a."guardianId" IS NOT NULL
     AND a."currentProgramTier" IS NOT NULL
