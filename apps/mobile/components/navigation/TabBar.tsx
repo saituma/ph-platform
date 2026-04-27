@@ -43,6 +43,9 @@ function resolveTabIcon(icon: string): AppIconName {
     case "walk":
     case "walk-outline":
       return "tracking";
+    case "school":
+    case "school-outline":
+      return "parents";
     case "menu":
     case "menu-outline":
       return "menu";

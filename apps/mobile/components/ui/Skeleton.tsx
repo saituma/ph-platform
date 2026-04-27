@@ -63,47 +63,68 @@ export const SkeletonHomeScreen = memo(function SkeletonHomeScreen() {
   const { width } = useWindowDimensions();
   const cardW = width - SPACING.xl * 2;
   const statW = (cardW - SPACING.md * 2) / 3;
+  const videoH = Math.round((cardW * 9) / 16);
 
   return (
-    <View style={styles.screenPad}>
-      {/* Greeting header */}
-      <View style={styles.row}>
-        <SkeletonBox width={180} height={22} borderRadius={6} />
-        <SkeletonBox width={28} height={28} borderRadius={14} />
-      </View>
-
+    <View style={[styles.screenPad, { gap: SPACING.md }]}>
       {/* Hero card */}
-      <SkeletonBox
-        width={cardW}
-        height={200}
-        borderRadius={RADIUS.xl}
-        style={{ marginTop: SPACING.xl }}
-      />
+      <SkeletonBox width={cardW} height={200} borderRadius={RADIUS.xl} />
 
       {/* Quick stats row — 3 cards */}
-      <View style={[styles.row, { marginTop: SPACING.lg, gap: SPACING.md }]}>
+      <View style={[styles.row, { gap: SPACING.md }]}>
         {[0, 1, 2].map((i) => (
-          <SkeletonBox key={i} width={statW} height={88} borderRadius={RADIUS.lg} />
+          <SkeletonBox key={i} width={statW} height={80} borderRadius={RADIUS.lg} />
         ))}
       </View>
 
-      {/* Section header */}
-      <SkeletonBox
-        width={120}
-        height={17}
-        borderRadius={4}
-        style={{ marginTop: SPACING.xxl }}
-      />
+      {/* Quick links — 4 icon buttons in a row */}
+      <SkeletonBox width={cardW} height={100} borderRadius={RADIUS.xl} />
 
-      {/* Recent activity — 3 list rows */}
-      {[0, 1, 2].map((i) => (
-        <View key={i} style={[styles.listRow, { marginTop: i === 0 ? SPACING.md : SPACING.sm }]}>
-          <SkeletonBox width={40} height={40} borderRadius={RADIUS.sm} />
-          <View style={{ flex: 1, gap: SPACING.xs }}>
-            <SkeletonBox width="75%" height={16} borderRadius={4} />
-            <SkeletonBox width="50%" height={13} borderRadius={4} />
+      {/* Intro video */}
+      <View style={{ gap: SPACING.sm }}>
+        <SkeletonBox width={140} height={16} borderRadius={4} />
+        <SkeletonBox width={cardW} height={videoH} borderRadius={RADIUS.xl} />
+      </View>
+
+      {/* Admin story card */}
+      <View
+        style={{
+          width: cardW,
+          borderRadius: RADIUS.xl,
+          padding: SPACING.xl,
+          gap: SPACING.md,
+          overflow: "hidden",
+        }}
+      >
+        <SkeletonBox width={cardW} height={160} borderRadius={RADIUS.xl} />
+        <View style={{ gap: SPACING.sm }}>
+          <SkeletonBox width="60%" height={18} borderRadius={4} />
+          <SkeletonBox width="85%" height={13} borderRadius={4} />
+          <SkeletonBox width="70%" height={13} borderRadius={4} />
+        </View>
+      </View>
+
+      {/* Testimonials — 2 cards */}
+      <SkeletonBox width={100} height={16} borderRadius={4} />
+      {[0, 1].map((i) => (
+        <View
+          key={i}
+          style={{
+            width: cardW,
+            borderRadius: RADIUS.xl,
+            gap: SPACING.sm,
+            paddingVertical: SPACING.md,
+          }}
+        >
+          <View style={[styles.row, { justifyContent: "flex-start", gap: SPACING.md }]}>
+            <SkeletonBox width={44} height={44} borderRadius={22} />
+            <View style={{ gap: SPACING.xs }}>
+              <SkeletonBox width={120} height={15} borderRadius={4} />
+              <SkeletonBox width={80} height={12} borderRadius={4} />
+            </View>
           </View>
-          <SkeletonBox width={16} height={16} borderRadius={4} />
+          <SkeletonBox width="90%" height={13} borderRadius={4} />
+          <SkeletonBox width="75%" height={13} borderRadius={4} />
         </View>
       ))}
     </View>

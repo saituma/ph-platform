@@ -210,3 +210,57 @@ body::before {
   --sidebar-border: hsl(220 13% 87%);
   --sidebar-ring: hsl(142 70% 45%);
 }
+
+/* Athletic text utility */
+.text-athletic {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  font-weight: 900;
+}
+
+/* Nav link underline slide-in */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: hsl(var(--primary));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--duration-micro) var(--ease);
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+}
+
+/* Feature card entrance */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.feature-card {
+  animation: fade-up 0.6s cubic-bezier(0.25, 0, 0, 1) both;
+}
+.feature-card:nth-child(1) { animation-delay: 0ms; }
+.feature-card:nth-child(2) { animation-delay: 120ms; }
+.feature-card:nth-child(3) { animation-delay: 240ms; }
+
+/* Stat divider */
+.stat-divider {
+  width: 1px;
+  background: hsl(var(--border));
+  align-self: stretch;
+}

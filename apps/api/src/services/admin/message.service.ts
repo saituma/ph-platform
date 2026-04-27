@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { athleteTable, guardianTable, messageReceiptTable, messageTable, userTable } from "../../db/schema";
+import { athleteTable, guardianTable, messageReceiptTable, messageTable, teamTable, userTable } from "../../db/schema";
 import { getSocketServer } from "../../socket-hub";
 import { getAdminCoachIds, sendMessage } from "../message.service";
 import { attachDirectMessageReactions } from "../reaction.service";
@@ -79,6 +79,29 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
   const rawOtherUserIds = rawThreadStats.map((row) => Number(row.rawOtherId)).filter((id) => Number.isFinite(id));
   if (!rawOtherUserIds.length) return [];
 
+  // Team coaches (team managers) must only see messages from their own team athletes.
+  // Platform admins/coaches see all threads as before.
+  const [callerUser] = await db
+    .select({ role: userTable.role })
+    .from(userTable)
+    .where(eq(userTable.id, coachId))
+    .limit(1);
+
+  let filteredOtherUserIds = rawOtherUserIds;
+  if (callerUser?.role === "team_coach") {
+    const teamAthleteRows = await db
+      .select({ userId: athleteTable.userId })
+      .from(athleteTable)
+      .innerJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+      .where(eq(teamTable.adminId, coachId));
+    const teamAthleteIds = new Set(
+      teamAthleteRows.map((r) => r.userId).filter((id): id is number => id != null),
+    );
+    filteredOtherUserIds = rawOtherUserIds.filter((id) => teamAthleteIds.has(id));
+  }
+
+  if (!filteredOtherUserIds.length) return [];
+
   const latestMessageCandidates = await db
     .select({
       senderId: messageTable.senderId,
@@ -89,13 +112,14 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
     .from(messageTable)
     .where(
       or(
-        and(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, rawOtherUserIds)),
-        and(inArray(messageTable.senderId, rawOtherUserIds), inArray(messageTable.receiverId, adminIds)),
+        and(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, filteredOtherUserIds)),
+        and(inArray(messageTable.senderId, filteredOtherUserIds), inArray(messageTable.receiverId, adminIds)),
       ),
     )
     .orderBy(desc(messageTable.createdAt))
     .limit(Math.max(limit * 20, 200));
 
+  const filteredOtherSet = new Set(filteredOtherUserIds);
   const latestByRawUserId = new Map<number, { content: string; createdAt: Date | string }>();
   for (const row of latestMessageCandidates) {
     const rawOtherId = adminSet.has(row.senderId) ? row.receiverId : row.senderId;
@@ -111,6 +135,7 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
   for (const stat of rawThreadStats) {
     const rawOtherId = Number(stat.rawOtherId);
     if (!Number.isFinite(rawOtherId)) continue;
+    if (!filteredOtherSet.has(rawOtherId)) continue;
     const otherId = athleteToGuardian.get(rawOtherId) ?? rawOtherId;
     const latest = latestByRawUserId.get(rawOtherId);
     const preview = latest?.content ?? "Start the conversation";

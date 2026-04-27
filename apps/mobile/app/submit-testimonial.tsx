@@ -146,25 +146,23 @@ export default function SubmitTestimonialScreen() {
               <Text className="text-base font-outfit text-secondary leading-relaxed mb-8 text-center">
                 Your testimonial has been submitted and is pending review.
               </Text>
-              <Pressable
-                onPress={() => router.replace("/(tabs)/more")}
-                style={({ pressed }) => ({
-                  marginTop: 8,
-                  backgroundColor: colors.accent,
-                  borderRadius: 16,
-                  height: 56,
-                  width: "100%",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "row",
-                  gap: 8,
-                  opacity: pressed ? 0.8 : 1,
-                })}
-              >
-                <Feather name="arrow-left" size={18} color="#fff" />
-                <Text style={{ color: "#fff", fontFamily: "Outfit-Bold", fontSize: 16 }}>
-                  Back to More
-                </Text>
+              <Pressable onPress={() => router.replace("/(tabs)/more")} style={{ marginTop: 8, width: "100%" }}>
+                <View
+                  style={{
+                    height: 56,
+                    borderRadius: 20,
+                    backgroundColor: colors.accent,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                  }}
+                >
+                  <Feather name="arrow-left" size={18} color="#fff" />
+                  <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+                    Back to More
+                  </Text>
+                </View>
               </Pressable>
             </View>
           ) : (
@@ -246,23 +244,24 @@ export default function SubmitTestimonialScreen() {
               <Pressable
                 onPress={handleSubmit}
                 disabled={!canSubmit || isSubmitting}
-                style={({ pressed }) => ({
-                  marginTop: 8,
-                  backgroundColor: colors.accent,
-                  borderRadius: 16,
-                  height: 56,
-                  width: "100%",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "row",
-                  gap: 8,
-                  opacity: (!canSubmit || isSubmitting || pressed) ? 0.6 : 1,
-                })}
+                style={{ marginTop: 8, width: "100%", opacity: (!canSubmit || isSubmitting) ? 0.6 : 1 }}
               >
-                <Feather name="send" size={18} color="#fff" />
-                <Text style={{ color: "#fff", fontFamily: "Outfit-Bold", fontSize: 16 }}>
-                  {isSubmitting ? "Submitting…" : "Submit Testimonial"}
-                </Text>
+                <View
+                  style={{
+                    height: 56,
+                    borderRadius: 20,
+                    backgroundColor: colors.accent,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                  }}
+                >
+                  <Feather name="send" size={18} color="#fff" />
+                  <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+                    {isSubmitting ? "Submitting…" : "Submit Testimonial"}
+                  </Text>
+                </View>
               </Pressable>
             </>
           )}

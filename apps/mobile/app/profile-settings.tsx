@@ -109,30 +109,23 @@ export default function ProfileSettingsScreen() {
               managedAthleteCount={managedAthleteCount}
             />
 
-            <Pressable
-              onPress={handleSave}
-              disabled={isSaving}
-              style={({ pressed }) => ({
-                marginTop: 8,
-                backgroundColor: colors.accent,
-                borderRadius: 16,
-                height: 56,
-                width: "100%",
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: isSaving || pressed ? 0.75 : 1,
-              })}
-            >
-              <Text
+            <Pressable onPress={handleSave} disabled={isSaving} style={{ marginTop: 8 }}>
+              <View
                 style={{
-                  color: "#FFFFFF",
-                  fontSize: 16,
-                  fontFamily: "Outfit-SemiBold",
-                  letterSpacing: 0.2,
+                  height: 56,
+                  borderRadius: 20,
+                  backgroundColor: colors.accent,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  opacity: isSaving ? 0.75 : 1,
                 }}
               >
-                {isSaving ? "Saving…" : "Save Changes"}
-              </Text>
+                <Text style={{ color: "#fff", fontSize: 16, fontFamily: "ClashDisplay-Bold" }}>
+                  {isSaving ? "Saving…" : "Save Changes"}
+                </Text>
+              </View>
             </Pressable>
           </View>
         )}

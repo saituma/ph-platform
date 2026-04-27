@@ -9,6 +9,7 @@ import { Select } from "../../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Textarea } from "../../ui/textarea";
 import { ParentCourseMediaUpload } from "../../parent/config/parent-course-media-upload";
+import { GalleryManager } from "./GalleryManager";
 
 export type TestimonialEntry = {
   id?: string | number;
@@ -394,6 +395,7 @@ export function ContentTabs({
         <TabsTrigger value="profile">Profile</TabsTrigger>
         <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
         <TabsTrigger value="intro">Intro Video</TabsTrigger>
+        <TabsTrigger value="gallery">Gallery</TabsTrigger>
       </TabsList>
       <TabsContent value="profile">
         <div className="grid items-start gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -1088,6 +1090,9 @@ export function ContentTabs({
 	          </div>
 	        </div>
 	      </TabsContent>
+      <TabsContent value="gallery">
+        <GalleryManager />
+      </TabsContent>
     </Tabs>
   );
 }

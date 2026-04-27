@@ -822,6 +822,10 @@ export const apiSlice = createApi({
       query: () => "/content/home",
       providesTags: ["Content"],
     }),
+    getGalleryItems: builder.query<{ items: Array<{ id: number; url: string; thumbnail: string | null; caption: string; mediaType: "photo" | "video"; createdAt: string }> }, void>({
+      query: () => "/content/gallery",
+      providesTags: ["Content"],
+    }),
     getLegalContent: builder.query<{ items: any[] }, void>({
       query: () => "/content/legal",
       providesTags: ["Content"],
@@ -1600,6 +1604,7 @@ export const {
   useGetMessagesQuery,
   useGetParentContentQuery,
   useGetHomeContentQuery,
+  useGetGalleryItemsQuery,
   useGetLegalContentQuery,
   useGetAnnouncementsQuery,
   useGetOpenGraphQuery,

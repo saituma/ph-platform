@@ -97,7 +97,20 @@ export async function assertGlobalSocialDeprecated(userId: number): Promise<void
   throw new SocialAccessError("FORBIDDEN", "Global social feeds are not available");
 }
 
-export async function assertTeamMemberSocial(userId: number): Promise<{ teamId: number }> {
+export async function assertTeamMemberSocial(userId: number, role?: string | null): Promise<{ teamId: number }> {
+  // Team coaches are linked via teamTable.adminId, not the athlete table.
+  if (role === "team_coach") {
+    const [coachTeam] = await db
+      .select({ id: teamTable.id })
+      .from(teamTable)
+      .where(eq(teamTable.adminId, userId))
+      .limit(1);
+    if (!coachTeam) {
+      throw new SocialAccessError("NOT_TEAM", "No team found for this coach");
+    }
+    return { teamId: coachTeam.id };
+  }
+
   const athlete = await getAthleteForUser(userId);
   let teamId = athlete?.teamId ?? null;
 

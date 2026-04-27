@@ -12,9 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as TestimonialsDemoRouteImport } from './routes/testimonials-demo'
 import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
 import { Route as CtaDemoRouteImport } from './routes/cta-demo'
@@ -70,6 +72,11 @@ const TermsPrivacyRoute = TermsPrivacyRouteImport.update({
   path: '/terms-privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
@@ -83,6 +90,11 @@ const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeaturesRoute = FeaturesRouteImport.update({
@@ -289,9 +301,11 @@ export interface FileRoutesByFullPath {
   '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
   '/features': typeof FeaturesRoute
+  '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
+  '/register': typeof RegisterRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
@@ -336,9 +350,11 @@ export interface FileRoutesByTo {
   '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
   '/features': typeof FeaturesRoute
+  '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
+  '/register': typeof RegisterRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
@@ -384,9 +400,11 @@ export interface FileRoutesById {
   '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
   '/features': typeof FeaturesRoute
+  '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
+  '/register': typeof RegisterRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
@@ -433,9 +451,11 @@ export interface FileRouteTypes {
     | '/cta-demo'
     | '/education-faq'
     | '/features'
+    | '/gallery'
     | '/login'
     | '/payment-success'
     | '/portal'
+    | '/register'
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
@@ -480,9 +500,11 @@ export interface FileRouteTypes {
     | '/cta-demo'
     | '/education-faq'
     | '/features'
+    | '/gallery'
     | '/login'
     | '/payment-success'
     | '/portal'
+    | '/register'
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
@@ -527,9 +549,11 @@ export interface FileRouteTypes {
     | '/cta-demo'
     | '/education-faq'
     | '/features'
+    | '/gallery'
     | '/login'
     | '/payment-success'
     | '/portal'
+    | '/register'
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
@@ -575,9 +599,11 @@ export interface RootRouteChildren {
   CtaDemoRoute: typeof CtaDemoRoute
   EducationFaqRoute: typeof EducationFaqRoute
   FeaturesRoute: typeof FeaturesRoute
+  GalleryRoute: typeof GalleryRoute
   LoginRoute: typeof LoginRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   PortalRoute: typeof PortalRouteWithChildren
+  RegisterRoute: typeof RegisterRoute
   TermsPrivacyRoute: typeof TermsPrivacyRoute
   TestimonialsDemoRoute: typeof TestimonialsDemoRoute
   VerificationRoute: typeof VerificationRoute
@@ -615,6 +641,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsPrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/portal': {
       id: '/portal'
       path: '/portal'
@@ -634,6 +667,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/features': {
@@ -977,9 +1017,11 @@ const rootRouteChildren: RootRouteChildren = {
   CtaDemoRoute: CtaDemoRoute,
   EducationFaqRoute: EducationFaqRoute,
   FeaturesRoute: FeaturesRoute,
+  GalleryRoute: GalleryRoute,
   LoginRoute: LoginRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   PortalRoute: PortalRouteWithChildren,
+  RegisterRoute: RegisterRoute,
   TermsPrivacyRoute: TermsPrivacyRoute,
   TestimonialsDemoRoute: TestimonialsDemoRoute,
   VerificationRoute: VerificationRoute,

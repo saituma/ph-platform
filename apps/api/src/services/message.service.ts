@@ -159,6 +159,7 @@ export async function getLastAdminContact(userId: number) {
 export async function listThread(
   userId: number,
   options?: {
+    userRole?: string;
     includeVideoResponses?: boolean;
     limit?: number;
     cursorId?: number;
@@ -171,6 +172,10 @@ export async function listThread(
   if (manager) {
     adminIds.push(manager.id);
   }
+
+  // Team athletes may only DM their own team manager — never platform admins or other staff.
+  const isTeamAthleteUser = options?.userRole === "team_athlete";
+  const teamOnlyIds = isTeamAthleteUser ? (manager ? [manager.id] : []) : adminIds;
 
   const targetPeerId =
     typeof options?.peerUserId === "number" && Number.isFinite(options.peerUserId)
@@ -191,10 +196,10 @@ export async function listThread(
         : [targetPeerId]
       : null
     : targetPeerId != null
-      ? adminIds.includes(targetPeerId)
+      ? teamOnlyIds.includes(targetPeerId)
         ? [targetPeerId]
         : []
-      : adminIds;
+      : teamOnlyIds;
   if (!senderIsStaff && (!allowedPeerIds || allowedPeerIds.length === 0)) {
     return { messages: [], hasMore: false, nextCursor: null, teamManager: manager };
   }
@@ -306,6 +311,8 @@ export async function sendMessage(input: {
   replyToMessageId?: number | null;
   replyPreview?: string | null;
   clientId?: string | null;
+  /** Caller's role — used to enforce team-scoped messaging rules. */
+  senderRole?: string | null;
   /** When true, athletes without messaging-enabled tiers can still message a human coach (e.g. app feedback). */
   bypassMessagingTierForCoach?: boolean;
 }) {
@@ -347,20 +354,34 @@ export async function sendMessage(input: {
         throw new Error("AI_COACH_REQUIRES_PREMIUM");
       }
     } else if (adminIds.includes(resolvedReceiverId)) {
-      if (!input.bypassMessagingTierForCoach) {
-        // Team manager is `team_coach` (in adminIds) but athletes must always be able to DM them.
-        const myTeamManager = await getTeamManagerForUser(input.senderId);
-        const isMessagingMyTeamManager =
-          myTeamManager && myTeamManager.id === resolvedReceiverId;
-        if (!isMessagingMyTeamManager) {
-          const { getAthleteForUser } = await import("./user.service");
-          const { getMessagingAccessTiers } = await import("./messaging-policy.service");
-          const athlete = await getAthleteForUser(input.senderId);
-          const tier = athlete?.currentProgramTier ?? null;
-          const allowed = await getMessagingAccessTiers();
-          if (!tier || !(allowed as readonly string[]).includes(tier)) {
-            throw new Error("MESSAGING_DISABLED_FOR_TIER");
-          }
+      const myTeamManager = await getTeamManagerForUser(input.senderId);
+      const isMessagingMyTeamManager = myTeamManager && myTeamManager.id === resolvedReceiverId;
+
+      // Team athletes may only DM their own team manager.
+      if (input.senderRole === "team_athlete" && !isMessagingMyTeamManager) {
+        throw new Error("MESSAGING_DISABLED_FOR_TIER");
+      }
+
+      // Individual athletes cannot message a team_coach (team manager) at all.
+      if (input.senderRole === "adult_athlete" || input.senderRole === "youth_athlete") {
+        const [receiverUser] = await db
+          .select({ role: userTable.role })
+          .from(userTable)
+          .where(eq(userTable.id, resolvedReceiverId))
+          .limit(1);
+        if (receiverUser?.role === "team_coach") {
+          throw new Error("MESSAGING_DISABLED_FOR_TIER");
+        }
+      }
+
+      if (!input.bypassMessagingTierForCoach && !isMessagingMyTeamManager) {
+        const { getAthleteForUser } = await import("./user.service");
+        const { getMessagingAccessTiers } = await import("./messaging-policy.service");
+        const athlete = await getAthleteForUser(input.senderId);
+        const tier = athlete?.currentProgramTier ?? null;
+        const allowed = await getMessagingAccessTiers();
+        if (!tier || !(allowed as readonly string[]).includes(tier)) {
+          throw new Error("MESSAGING_DISABLED_FOR_TIER");
         }
       }
     }

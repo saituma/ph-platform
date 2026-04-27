@@ -80,13 +80,24 @@ export type SendFcmPushInput = {
 export async function sendFcmPush(input: SendFcmPushInput) {
   ensureFirebaseInitialized();
 
+  // Pure data message: expo-notifications' FirebaseMessagingService handles display,
+  // action buttons (Reply/Mark Read via categoryIdentifier), and the PendingIntent
+  // that lets getLastNotificationResponseAsync() work on cold start.
+  // A top-level notification field bypasses expo-notifications when the app is killed.
+  const messageData: Record<string, string> = {
+    ...input.data,
+    title: input.title,
+    body: input.body,
+  };
+  if (input.android?.channelId) {
+    messageData.channelId = input.android.channelId;
+  }
+
   return admin.messaging().send({
     token: input.token,
-    notification: { title: input.title, body: input.body },
-    data: input.data,
+    data: messageData,
     android: {
       priority: input.android?.priority ?? "high",
-      notification: input.android?.channelId ? { channelId: input.android.channelId } : undefined,
     },
   });
 }

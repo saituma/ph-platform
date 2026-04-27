@@ -32,6 +32,20 @@ export async function getHomeContent() {
   return db.select().from(contentTable).where(eq(contentTable.surface, "home")).orderBy(desc(contentTable.updatedAt));
 }
 
+export async function getGalleryItems() {
+  return db
+    .select()
+    .from(contentTable)
+    .where(
+      and(
+        eq(contentTable.surface, "home"),
+        eq(contentTable.category, "gallery"),
+        eq(contentTable.isActive, true),
+      ),
+    )
+    .orderBy(desc(contentTable.createdAt));
+}
+
 export async function getLegalContent() {
   return db.select().from(contentTable).where(eq(contentTable.surface, "legal"));
 }

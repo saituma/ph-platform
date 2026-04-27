@@ -27,6 +27,7 @@ export default function AdminProfileScreen() {
   const dispatch = useAppDispatch();
   const insets = useAppSafeAreaInsets();
   const isAuthenticated = useAppSelector((s) => s.user.isAuthenticated);
+  const token = useAppSelector((s) => s.user.token);
 
   const {
     profile,
@@ -62,12 +63,17 @@ export default function AdminProfileScreen() {
         text: "Sign out",
         style: "destructive",
         onPress: () => {
+          if (token) {
+            import("@/lib/pushRegistration").then(({ clearDevicePushToken }) => {
+              void clearDevicePushToken(token);
+            });
+          }
           dispatch(logout());
           router.replace("/(auth)/login");
         },
       },
     ]);
-  }, [dispatch, router]);
+  }, [dispatch, router, token]);
 
   const handleRefresh = async () => {
     await new Promise((r) => setTimeout(r, 1000));

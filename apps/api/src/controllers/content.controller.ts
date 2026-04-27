@@ -22,6 +22,7 @@ import {
   listStoriesForUser,
   listStoriesAdmin,
   replaceStories,
+  getGalleryItems,
 } from "../services/content.service";
 import { ProgramType, contentType } from "../db/schema";
 import { getAthleteForUser } from "../services/user.service";
@@ -586,6 +587,29 @@ export async function getParentCourseAiInsightController(req: Request, res: Resp
   } catch (error) {
     console.error("[Content Controller] Error getting parent course insight:", error);
     return res.status(500).json({ error: "Failed to generate AI insight" });
+  }
+}
+
+export async function listGalleryItems(_req: Request, res: Response) {
+  try {
+    const rows = await getGalleryItems();
+    const items = rows.map((row) => {
+      let body: Record<string, unknown> = {};
+      try { body = JSON.parse(row.body ?? "{}"); } catch {}
+      return {
+        id: row.id,
+        url: (body.url as string) ?? "",
+        thumbnail: (body.thumbnail as string) ?? null,
+        caption: (body.caption as string) ?? row.title ?? "",
+        mediaType: (body.mediaType as string) ?? (row.type === "video" ? "video" : "photo"),
+        tag: (body.tag as string) ?? null,
+        createdAt: row.createdAt,
+      };
+    });
+    return res.json({ items });
+  } catch (err) {
+    console.error("[Gallery] list error:", err);
+    return res.status(500).json({ error: "Failed to fetch gallery" });
   }
 }
 

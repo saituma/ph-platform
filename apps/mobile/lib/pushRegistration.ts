@@ -278,3 +278,38 @@ export async function registerDevicePushToken({
     return result;
   }
 }
+
+/**
+ * Called on logout. Tells the server to disassociate this device's push tokens
+ * from the current user so notifications stop arriving after account switch.
+ * Errors are swallowed — logout must never be blocked by a failed API call.
+ */
+export async function clearDevicePushToken(token: string): Promise<void> {
+  try {
+    let deviceId: string | undefined;
+    let devicePushToken: string | undefined;
+    try {
+      const Device = await import("expo-device");
+      const raw = (Device as any).default?.osBuildId ?? (Device as any).osBuildId ?? null;
+      if (raw && typeof raw === "string" && raw.trim()) deviceId = raw.trim();
+    } catch { /* ignore */ }
+
+    try {
+      const Notifications = await import("expo-notifications");
+      const result = await (Notifications as any).default?.getDevicePushTokenAsync?.() ??
+        await (Notifications as any).getDevicePushTokenAsync?.();
+      if (result?.data && typeof result.data === "string") devicePushToken = result.data;
+    } catch { /* ignore */ }
+
+    await apiRequest("/users/push-token", {
+      method: "DELETE",
+      token,
+      body: {
+        ...(deviceId ? { deviceId } : {}),
+        ...(devicePushToken ? { devicePushToken } : {}),
+      },
+      suppressStatusCodes: [401, 403, 404],
+      suppressLog: true,
+    });
+  } catch { /* never block logout */ }
+}

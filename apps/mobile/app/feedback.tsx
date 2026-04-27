@@ -1,7 +1,7 @@
-import { ActionButton } from "@/components/dashboard/ActionButton";
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { apiRequest } from "@/lib/api";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
@@ -155,8 +155,8 @@ export default function FeedbackScreen() {
             />
           </View>
 
-          <ActionButton
-            label={isSending ? "Sending…" : "Send Feedback"}
+          <Pressable
+            disabled={!feedback.trim() || isSending}
             onPress={async () => {
               const body = feedback.trim();
               if (!body || isSending) return;
@@ -182,11 +182,25 @@ export default function FeedbackScreen() {
                 setIsSending(false);
               }
             }}
-            color="bg-accent"
-            icon="send"
-            disabled={!feedback.trim() || isSending}
-            fullWidth={true}
-          />
+            style={{ opacity: (!feedback.trim() || isSending) ? 0.6 : 1 }}
+          >
+            <View
+              style={{
+                height: 56,
+                borderRadius: 20,
+                backgroundColor: colors.accent,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              <Ionicons name="send-outline" size={20} color="#fff" />
+              <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+                {isSending ? "Sending…" : "Send Feedback"}
+              </Text>
+            </View>
+          </Pressable>
         </ThemedScrollView>
       </KeyboardAvoidingView>
     </View>

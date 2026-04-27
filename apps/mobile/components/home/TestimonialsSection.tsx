@@ -12,6 +12,7 @@ import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated"
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { AppIcon } from "@/components/ui/app-icon";
+import { SkeletonBox } from "@/components/ui/Skeleton";
 import { radius, spacing } from "@/constants/theme";
 
 const AUTO_SCROLL_INTERVAL = 6000;
@@ -30,6 +31,7 @@ type TestimonialItem = {
 
 type TestimonialsSectionProps = {
   items?: TestimonialItem[] | null;
+  loading?: boolean;
 };
 
 function TestimonialCard({
@@ -146,7 +148,7 @@ function TestimonialCard({
   );
 }
 
-export function TestimonialsSection({ items }: TestimonialsSectionProps) {
+export function TestimonialsSection({ items, loading }: TestimonialsSectionProps) {
   const { width: screenWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
   const flatListRef = useRef<FlatList>(null);
@@ -179,7 +181,39 @@ export function TestimonialsSection({ items }: TestimonialsSectionProps) {
     return () => clearInterval(interval);
   }, [cardWidth, testimonials.length]);
 
-  if (!testimonials.length) return null;
+  if (!testimonials.length && !loading) return null;
+
+  if (loading) {
+    const skeletonCardW = screenWidth - 40;
+    return (
+      <View style={{ gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.xl }}>
+          <SkeletonBox width={140} height={20} borderRadius={4} />
+        </View>
+        {[0, 1].map((i) => (
+          <View
+            key={i}
+            style={{
+              width: skeletonCardW,
+              paddingHorizontal: 20,
+              gap: spacing.sm,
+              paddingVertical: spacing.md,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+              <SkeletonBox width={44} height={44} borderRadius={22} />
+              <View style={{ gap: 6 }}>
+                <SkeletonBox width={120} height={15} borderRadius={4} />
+                <SkeletonBox width={80} height={12} borderRadius={4} />
+              </View>
+            </View>
+            <SkeletonBox width="90%" height={13} borderRadius={4} />
+            <SkeletonBox width="75%" height={13} borderRadius={4} />
+          </View>
+        ))}
+      </View>
+    );
+  }
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / cardWidth);

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { Expo } from "expo-server-sdk";
 
 import { db } from "../db";
@@ -73,6 +73,23 @@ export async function savePushToken(req: Request, res: Response) {
     `[PushToken] Saving push token(s) for user ${req.user.id} deviceId=${deviceId ?? "none"}: expo=${expoPushToken ? expoPushToken.slice(0, 10) + "…" : "none"} device=${devicePushToken ? devicePushToken.slice(0, 10) + "…" : "none"}`,
   );
 
+  // Evict this device's tokens from any other user so a logout→login switch stops
+  // delivering old-user notifications to this device.
+  if (devicePushToken) {
+    await db
+      .update(userTable)
+      .set({ devicePushToken: null, devicePushTokenType: null, updatedAt: new Date() })
+      .where(and(eq(userTable.devicePushToken, devicePushToken), ne(userTable.id, req.user.id)));
+    await db
+      .delete(userDeviceTokensTable)
+      .where(and(eq(userDeviceTokensTable.devicePushToken, devicePushToken), ne(userDeviceTokensTable.userId, req.user.id)));
+  }
+  if (deviceId) {
+    await db
+      .delete(userDeviceTokensTable)
+      .where(and(eq(userDeviceTokensTable.deviceId, deviceId), ne(userDeviceTokensTable.userId, req.user.id)));
+  }
+
   // Always update the legacy single-token column for backwards compatibility.
   await db
     .update(userTable)
@@ -106,6 +123,40 @@ export async function savePushToken(req: Request, res: Response) {
     console.log(`[PushToken] Device token upserted for user ${req.user.id} deviceId=${deviceId}`);
   }
 
+  return res.status(200).json({ success: true });
+}
+
+const clearPushTokenSchema = z.object({
+  deviceId: z.string().min(1).max(255).optional(),
+  devicePushToken: z.string().min(1).optional(),
+});
+
+export async function clearPushToken(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const { deviceId, devicePushToken } = clearPushTokenSchema.parse(req.body ?? {});
+
+  // Clear legacy single-token columns.
+  await db
+    .update(userTable)
+    .set({ expoPushToken: null, devicePushToken: null, devicePushTokenType: null, updatedAt: new Date() })
+    .where(eq(userTable.id, req.user.id));
+
+  // Remove from per-device table — scope to a specific device if identifiers are provided.
+  if (deviceId) {
+    await db
+      .delete(userDeviceTokensTable)
+      .where(and(eq(userDeviceTokensTable.userId, req.user.id), eq(userDeviceTokensTable.deviceId, deviceId)));
+  } else if (devicePushToken) {
+    await db
+      .delete(userDeviceTokensTable)
+      .where(and(eq(userDeviceTokensTable.userId, req.user.id), eq(userDeviceTokensTable.devicePushToken, devicePushToken)));
+  } else {
+    await db.delete(userDeviceTokensTable).where(eq(userDeviceTokensTable.userId, req.user.id));
+  }
+
+  console.log(`[PushToken] Cleared push tokens for user ${req.user.id} deviceId=${deviceId ?? "none"}`);
   return res.status(200).json({ success: true });
 }
 

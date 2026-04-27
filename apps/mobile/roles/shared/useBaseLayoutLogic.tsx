@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { TabConfig } from "@/components/navigation";
 import React from "react";
 import { useSafePathname, useSafeRouter } from "@/hooks/navigation/useSafeExpoRouter";
@@ -37,16 +37,26 @@ export function parsePrimaryTabSegment(pathname: string): string {
 export function useBaseLayoutLogic(visibleTabs: TabConfig[], tabComponents: Record<string, React.ComponentType<any>>) {
   const pathname = useSafePathname("");
   const router = useSafeRouter();
+  const lastResolvedRef = useRef<{ pathname: string; index: number } | null>(null);
 
   const initialIndex = useMemo(() => {
-    // Avoid falling back to stale module state when the pathname is briefly empty.
-    if (!pathname) {
-      return 0;
-    }
+    if (!pathname) return lastResolvedRef.current?.index ?? 0;
 
     const routeName = parsePrimaryTabSegment(pathname);
     const index = visibleTabs.findIndex((tab) => tab.key === routeName);
-    return index >= 0 ? index : 0;
+
+    if (index >= 0) {
+      lastResolvedRef.current = { pathname, index };
+      return index;
+    }
+
+    // visibleTabs changed but the current tab key isn't in the new list yet —
+    // keep the previous index instead of snapping to 0.
+    if (lastResolvedRef.current !== null) {
+      return Math.min(lastResolvedRef.current.index, visibleTabs.length - 1);
+    }
+
+    return 0;
   }, [pathname, visibleTabs]);
 
   const handleIndexChange = useCallback(
