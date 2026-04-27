@@ -187,66 +187,65 @@ export default function AboutScreen() {
           onPress={() => void Linking.openURL(INSTAGRAM_URL)}
           accessibilityRole="link"
           accessibilityLabel="Follow PH Performance on Instagram"
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 16,
-            borderRadius: 20,
-            borderWidth: 1,
-            paddingHorizontal: 16,
-            paddingVertical: 16,
-            marginBottom: 16,
-            backgroundColor: cardBg,
-            borderColor: cardBorder,
-            opacity: pressed ? 0.9 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}
+          style={{ marginBottom: 16 }}
         >
           <View
             style={{
-              height: 48,
-              width: 48,
-              borderRadius: 16,
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
+              gap: 16,
+              borderRadius: 20,
               borderWidth: 1,
-              backgroundColor: isDark ? "hsla(340, 25%, 50%, 0.12)" : "hsla(340, 30%, 50%, 0.08)",
-              borderColor: isDark ? "hsla(340, 25%, 50%, 0.25)" : "hsla(340, 30%, 50%, 0.2)",
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
             }}
           >
-            <Ionicons name="logo-instagram" size={26} color={isDark ? "hsl(340, 35%, 65%)" : "hsl(340, 50%, 50%)"} />
+            <View
+              style={{
+                height: 48,
+                width: 48,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                backgroundColor: isDark ? "hsla(340, 25%, 50%, 0.12)" : "hsla(340, 30%, 50%, 0.08)",
+                borderColor: isDark ? "hsla(340, 25%, 50%, 0.25)" : "hsla(340, 30%, 50%, 0.2)",
+              }}
+            >
+              <Ionicons name="logo-instagram" size={26} color={isDark ? "hsl(340, 35%, 65%)" : "hsl(340, 50%, 50%)"} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
+                Instagram
+              </Text>
+              <Text style={{ fontSize: 13, fontFamily: "Outfit", marginTop: 2, color: labelColor }}>
+                @ph.perform — updates, drills, and community
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
-              Instagram
-            </Text>
-            <Text style={{ fontSize: 13, fontFamily: "Outfit", marginTop: 2, color: labelColor }}>
-              @ph.perform — updates, drills, and community
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={17} color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"} />
         </Pressable>
 
         {/* Primary CTA */}
-        <Pressable
-          onPress={() => void Linking.openURL(siteUrl)}
-          style={({ pressed }) => ({
-            height: 56,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            borderRadius: 16,
-            paddingHorizontal: 20,
-            backgroundColor: colors.accent,
-            opacity: pressed ? 0.85 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}
-        >
-          <Ionicons name="open-outline" size={20} color="hsl(220, 5%, 98%)" />
-          <Text style={{ fontSize: 15, fontFamily: fonts.bodyBold, color: "hsl(220, 5%, 98%)" }}>
-            Visit website
-          </Text>
+        <Pressable onPress={() => void Linking.openURL(siteUrl)}>
+          <View
+            style={{
+              height: 56,
+              borderRadius: 20,
+              backgroundColor: colors.accent,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+            }}
+          >
+            <Ionicons name="open-outline" size={20} color="#fff" />
+            <Text style={{ fontSize: 16, fontFamily: "ClashDisplay-Bold", color: "#fff" }}>
+              Visit Website
+            </Text>
+          </View>
         </Pressable>
 
         <Text

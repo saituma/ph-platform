@@ -1,8 +1,9 @@
 import React, { useEffect } from "react";
-import { View } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
+import { SkeletonBox } from "@/components/ui/Skeleton";
 import VideoPlayer from "@/components/ui/VideoPlayer";
 import { spacing } from "@/constants/theme";
 
@@ -11,14 +12,17 @@ type IntroVideoSectionProps = {
   posterUrl?: string | null;
   isTabActive?: boolean;
   tabIndex?: number;
+  loading?: boolean;
 };
 
 export function IntroVideoSection({
   introVideoUrl,
   posterUrl,
   tabIndex = 0,
+  loading,
 }: IntroVideoSectionProps) {
   const { isDark } = useAppTheme();
+  const { width } = useWindowDimensions();
 
   useEffect(() => {
     if (posterUrl) {
@@ -26,7 +30,10 @@ export function IntroVideoSection({
     }
   }, [posterUrl]);
 
-  if (!introVideoUrl) return null;
+  if (!introVideoUrl && !loading) return null;
+
+  const cardW = width - 40;
+  const videoH = Math.round((cardW * 9) / 16);
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -36,11 +43,15 @@ export function IntroVideoSection({
         </Text>
       </View>
 
-      <VideoPlayer
-        source={introVideoUrl}
-        thumbnail={posterUrl ?? undefined}
-        autoPlay={false}
-      />
+      {loading ? (
+        <SkeletonBox width={cardW} height={videoH} borderRadius={20} />
+      ) : (
+        <VideoPlayer
+          source={introVideoUrl!}
+          thumbnail={posterUrl ?? undefined}
+          autoPlay={false}
+        />
+      )}
     </View>
   );
 }

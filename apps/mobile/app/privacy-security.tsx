@@ -116,46 +116,24 @@ export default function PrivacySecurityScreen() {
           </Text>
         </View>
 
-        <View
-          style={{
-            borderRadius: 20,
-            borderWidth: 1,
-            overflow: "hidden",
-            marginBottom: 24,
-            backgroundColor: cardBg,
-            borderColor: cardBorder,
-          }}
-        >
-          <Pressable
-            onPress={() => router.navigate("/(auth)/change-password")}
-            style={({ pressed }) => ({
+        <Pressable onPress={() => router.navigate("/(auth)/change-password")} style={{ marginBottom: 24 }}>
+          <View
+            style={{
+              height: 56,
+              borderRadius: 20,
+              backgroundColor: colors.accent,
               flexDirection: "row",
               alignItems: "center",
-              padding: 20,
-              backgroundColor: pressed
-                ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
-                : "transparent",
-            })}
+              justifyContent: "center",
+              gap: 10,
+            }}
           >
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 12,
-                backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}14`,
-                marginRight: 16,
-              }}
-            >
-              <Ionicons name="key-outline" size={18} color={colors.accent} />
-            </View>
-            <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 15, color: textPrimary }}>
-              Change password
+            <Ionicons name="key-outline" size={20} color="#fff" />
+            <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+              Change Password
             </Text>
-            <Ionicons name="chevron-forward" size={17} color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"} />
-          </Pressable>
-        </View>
+          </View>
+        </Pressable>
 
         <View
           style={{
@@ -193,26 +171,22 @@ export default function PrivacySecurityScreen() {
               </Text>
             </Pressable>
           </View>
-          <Pressable
-            onPress={() => setDeleteOpen(true)}
-            style={({ pressed }) => ({
-              marginHorizontal: 20,
-              marginBottom: 20,
-              marginTop: 8,
-              height: 48,
-              borderRadius: 14,
-              borderWidth: 1,
-              alignItems: "center",
-              justifyContent: "center",
-              borderColor: dangerBorder,
-              backgroundColor: dangerBg,
-              opacity: pressed ? 0.9 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            })}
-          >
-            <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: dangerColor }}>
-              Delete my account…
-            </Text>
+          <Pressable onPress={() => setDeleteOpen(true)} style={{ marginHorizontal: 20, marginBottom: 20, marginTop: 8 }}>
+            <View
+              style={{
+                height: 52,
+                borderRadius: 16,
+                borderWidth: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                borderColor: dangerBorder,
+                backgroundColor: dangerBg,
+              }}
+            >
+              <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: dangerColor }}>
+                Delete my account…
+              </Text>
+            </View>
           </Pressable>
         </View>
       </ThemedScrollView>

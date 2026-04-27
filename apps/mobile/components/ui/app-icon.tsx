@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowUpDown,
   BarChart3,
+  GraduationCap,
   CalendarDays,
   ChevronRight,
   CirclePlus,
@@ -36,6 +37,7 @@ export type AppIconName =
   | "image"
   | "menu"
   | "more"
+  | "parents"
   | "play"
   | "programs"
   | "refresh"
@@ -72,6 +74,7 @@ const IOS_SYMBOLS: Record<AppIconName, SymbolViewProps["name"]> = {
   image: "photo",
   menu: "line.3.horizontal",
   more: "ellipsis",
+  parents: "graduationcap",
   play: "play.fill",
   programs: "figure.strengthtraining.traditional",
   refresh: "arrow.clockwise",
@@ -98,6 +101,7 @@ const ANDROID_ICONS: Record<AppIconName, LucideIcon> = {
   image: ImageIcon,
   menu: Menu,
   more: Ellipsis,
+  parents: GraduationCap,
   play: Play,
   programs: BarChart3,
   refresh: RefreshCw,

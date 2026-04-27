@@ -116,36 +116,39 @@ export default function Header() {
 		<header
 			className={`fixed top-0 left-0 right-0 z-50 transition-all ${
 				scrolled
-					? "bg-background/80 backdrop-blur-md border-b border-border py-3"
+					? "bg-background/90 backdrop-blur-md border-b border-primary/20 py-3"
 					: "bg-transparent py-5"
 			}`}
 			style={{ transitionDuration: "var(--duration-standard)", transitionTimingFunction: "var(--ease)" }}
 		>
 			<div className="mx-auto flex max-w-6xl items-center justify-between px-6">
 				<Link to="/" className="flex items-center gap-3 group">
-					<div className="w-9 h-9 rounded-lg overflow-hidden">
+					<div className="w-12 h-12 rounded-lg overflow-hidden ring-1 ring-primary/20 group-hover:ring-primary/50 transition-all" style={{ transitionDuration: "var(--duration-micro)" }}>
 						<img
 							src="/ph.jpg"
 							alt="PH Performance"
 							className="w-full h-full object-cover"
 						/>
 					</div>
-					<span className="hidden sm:inline-block text-lg font-bold tracking-tight text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+					<span
+						className="hidden sm:inline-block font-black uppercase tracking-widest text-foreground"
+						style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "0.12em" }}
+					>
 						PH <span className="text-primary">Performance</span>
 					</span>
 				</Link>
 
-				<nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
+				<nav className="hidden md:flex items-center gap-8">
 					<Link
 						to="/features"
-						className="hover:text-foreground transition-colors"
+						className="nav-link text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
 						style={{ transitionDuration: "var(--duration-micro)" }}
 					>
 						Features
 					</Link>
 					<Link
 						to="/about"
-						className="hover:text-foreground transition-colors"
+						className="nav-link text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
 						style={{ transitionDuration: "var(--duration-micro)" }}
 					>
 						About
@@ -162,7 +165,7 @@ export default function Header() {
 							<DropdownMenuTrigger asChild>
 								<Button
 									variant="ghost"
-									className="relative h-9 w-9 rounded-full p-0 hover:ring-2 hover:ring-primary/20 transition-all"
+									className="relative h-9 w-9 rounded-full p-0 hover:ring-2 hover:ring-primary/30 transition-all"
 									style={{ transitionDuration: "var(--duration-micro)" }}
 								>
 									<Avatar className="h-9 w-9">
@@ -233,18 +236,18 @@ export default function Header() {
 								variant="ghost"
 								size="sm"
 								asChild
-								className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+								className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
 								style={{ transitionDuration: "var(--duration-micro)" }}
 							>
 								<Link to="/login">Log In</Link>
 							</Button>
 							<Button
 								size="sm"
-								className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 rounded-lg transition-colors"
-								style={{ transitionDuration: "var(--duration-micro)" }}
 								asChild
+								className="bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-wider rounded-none px-5 text-xs transition-colors"
+								style={{ transitionDuration: "var(--duration-micro)" }}
 							>
-								<Link to="/">Get Started</Link>
+								<Link to="/register">Get Started</Link>
 							</Button>
 						</>
 					)}

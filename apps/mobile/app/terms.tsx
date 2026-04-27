@@ -1,12 +1,12 @@
-import { ActionButton } from "@/components/dashboard/ActionButton";
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
+import { Ionicons } from "@expo/vector-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import * as SecureStore from "expo-secure-store";
@@ -168,15 +168,24 @@ export default function TermsScreen() {
           </View>
         </View>
 
-        <View style={{ marginTop: 48 }}>
-          <ActionButton
-            label="I Understand"
-            onPress={() => router.replace("/(tabs)/more")}
-            color="bg-secondary"
-            icon="check"
-            fullWidth={true}
-          />
-        </View>
+        <Pressable onPress={() => router.replace("/(tabs)/more")} style={{ marginTop: 48 }}>
+          <View
+            style={{
+              height: 56,
+              borderRadius: 20,
+              backgroundColor: colors.accent,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+            }}
+          >
+            <Ionicons name="checkmark" size={20} color="#fff" />
+            <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+              I Understand
+            </Text>
+          </View>
+        </Pressable>
       </ThemedScrollView>
     </View>
   );

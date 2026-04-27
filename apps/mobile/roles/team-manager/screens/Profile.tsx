@@ -26,7 +26,7 @@ export default function TeamManagerProfileScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const insets = useAppSafeAreaInsets();
-  const { isAuthenticated, appRole } = useAppSelector((s) => s.user);
+  const { isAuthenticated, appRole, token } = useAppSelector((s) => s.user);
 
   const {
     profile,
@@ -62,12 +62,17 @@ export default function TeamManagerProfileScreen() {
         text: "Sign out",
         style: "destructive",
         onPress: () => {
+          if (token) {
+            import("@/lib/pushRegistration").then(({ clearDevicePushToken }) => {
+              void clearDevicePushToken(token);
+            });
+          }
           dispatch(logout());
           router.replace("/(auth)/login");
         },
       },
     ]);
-  }, [dispatch, router]);
+  }, [dispatch, router, token]);
 
   const handleRefresh = async () => {
     await new Promise((r) => setTimeout(r, 800));

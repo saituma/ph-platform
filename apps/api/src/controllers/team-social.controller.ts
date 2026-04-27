@@ -23,7 +23,7 @@ import { getRunLikes, likeRun, unlikeRun } from "../services/social-privacy.serv
 export async function teamLeaderboard(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const windowDays = req.query.windowDays ? Number(req.query.windowDays) : 7;
     const limit = req.query.limit ? Number(req.query.limit) : 50;
     const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
@@ -42,7 +42,7 @@ export async function teamLeaderboard(req: Request, res: Response) {
 export async function teamDirectory(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const limit = req.query.limit ? Number(req.query.limit) : 50;
     const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
     const out = await listAdults({ limit, cursor, teamId });
@@ -55,7 +55,7 @@ export async function teamDirectory(req: Request, res: Response) {
 export async function teamRuns(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const limit = req.query.limit ? Number(req.query.limit) : 20;
     const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
     const windowDays = req.query.windowDays ? Number(req.query.windowDays) : 0;
@@ -77,7 +77,7 @@ export async function teamRuns(req: Request, res: Response) {
 export async function teamRunDetail(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
@@ -96,7 +96,7 @@ export async function teamRunDetail(req: Request, res: Response) {
 export async function teamCommentsList(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
@@ -116,7 +116,7 @@ const createCommentSchema = z.object({
 export async function teamCommentsCreate(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
@@ -141,7 +141,7 @@ export async function teamCommentsCreate(req: Request, res: Response) {
 export async function teamCommentDelete(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -160,7 +160,7 @@ const editSchema = z.object({
 export async function teamCommentEdit(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -188,7 +188,7 @@ const reportSchema = z.object({
 export async function teamCommentReport(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -211,7 +211,7 @@ export async function teamCommentReport(req: Request, res: Response) {
 export async function teamCommentReactionsList(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -230,7 +230,7 @@ const reactionSchema = z.object({
 export async function teamCommentReactionSet(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -253,7 +253,7 @@ export async function teamCommentReactionSet(req: Request, res: Response) {
 export async function teamCommentReactionClear(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) {
       return res.status(400).json({ error: "Invalid commentId" });
@@ -271,7 +271,7 @@ export async function teamCommentReactionClear(req: Request, res: Response) {
 export async function teamRunLikesList(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
@@ -287,7 +287,7 @@ export async function teamRunLikesList(req: Request, res: Response) {
 export async function teamRunLikeCreate(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });
@@ -303,7 +303,7 @@ export async function teamRunLikeCreate(req: Request, res: Response) {
 export async function teamRunLikeDelete(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const runLogId = Number(req.params.runLogId);
     if (!Number.isFinite(runLogId)) {
       return res.status(400).json({ error: "Invalid runLogId" });

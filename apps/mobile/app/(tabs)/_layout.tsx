@@ -1,7 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { View } from "react-native";
-import * as Linking from "expo-linking";
-import { usePathname, useRouter } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { apiRequest } from "@/lib/api";
 import { isAdminRole } from "@/lib/isAdminRole";
@@ -16,7 +14,6 @@ import { YouthLayout } from "@/roles/youth/YouthLayout";
 import { usePushNotificationResponses } from "@/hooks/navigation/usePushNotificationResponses";
 import { useProfileSync } from "@/hooks/navigation/useProfileSync";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
-import { parsePrimaryTabSegment } from "@/roles/shared/useBaseLayoutLogic";
 
 // Ensure `router.replace("/(tabs)")` and cold starts land on Home, not Programs.
 export const unstable_settings = {
@@ -41,10 +38,6 @@ export default function TabLayout() {
   const effectiveAuth = forceLogout
     ? false
     : isAuthenticated && !!token && !!profile.id;
-
-  const pathname = usePathname();
-  const router = useRouter();
-  const didNormalizeLaunchRoute = useRef(false);
 
   const isAdmin = isAdminRole(apiUserRole);
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
@@ -99,25 +92,6 @@ export default function TabLayout() {
       cancelled = true;
     };
   }, [effectiveAuth, bootstrapReady, token, athleteUserId]);
-
-  // Cold start sometimes restores `/(tabs)/programs` as the shell route.
-  // Only normalize on the very first render — never after user interaction.
-  useEffect(() => {
-    if (didNormalizeLaunchRoute.current) return;
-    didNormalizeLaunchRoute.current = true;
-
-    if (!effectiveAuth || !bootstrapReady || !pathname) return;
-
-    Linking.getInitialURL().then((url) => {
-      if (url) return;
-      const routeName = parsePrimaryTabSegment(pathname);
-      const normalizedPath = pathname.replace(/^\//, "").replace(/^\(tabs\)\/?/, "");
-      const segments = normalizedPath.split("/").filter(Boolean);
-      if (routeName === "programs" && segments.length === 1) {
-        router.replace("/(tabs)");
-      }
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Shared Logic Hooks
   usePushNotificationResponses(effectiveAuth && bootstrapReady);

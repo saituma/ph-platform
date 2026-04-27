@@ -1,9 +1,9 @@
 import React from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
-import { ActionButton } from "@/components/dashboard/ActionButton";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 export function HelpFooter() {
@@ -24,13 +24,25 @@ export function HelpFooter() {
         For the fastest support, include the athlete name, device type, and a short description of what changed right before the issue started.
       </Text>
 
-      <ActionButton
-        label="Contact Support"
+      <Pressable
         onPress={() => router.push("/feedback")}
-        color="bg-accent"
-        icon="message-square"
-        fullWidth={true}
-      />
+        style={({ pressed }) => ({
+          height: 56,
+          borderRadius: 20,
+          backgroundColor: colors.accent,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          opacity: pressed ? 0.85 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+        })}
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
+        <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+          Contact Support
+        </Text>
+      </Pressable>
     </View>
   );
 }

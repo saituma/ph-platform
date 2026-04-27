@@ -34,8 +34,8 @@ export const TRACKING_TAB: TabConfig = {
 export const PARENT_PLATFORM_TAB: TabConfig = {
   key: "parent-platform",
   label: "Parents",
-  icon: "book",
-  iconOutline: "book-outline",
+  icon: "school",
+  iconOutline: "school-outline",
 };
 
 /**

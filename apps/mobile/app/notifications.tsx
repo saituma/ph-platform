@@ -1,4 +1,3 @@
-import { ActionButton } from "@/components/dashboard/ActionButton";
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Ionicons } from "@expo/vector-icons";
@@ -376,13 +375,25 @@ export default function NotificationsScreen() {
           />
         </View>
 
-        <ActionButton
-          label="Save Preferences"
+        <Pressable
           onPress={() => router.navigate("/(tabs)/more")}
-          color="bg-accent"
-          icon="check"
-          fullWidth={true}
-        />
+          style={({ pressed }) => ({
+            height: 56,
+            borderRadius: 20,
+            backgroundColor: colors.accent,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            opacity: pressed ? 0.85 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
+        >
+          <Ionicons name="checkmark" size={20} color="#fff" />
+          <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+            Save Preferences
+          </Text>
+        </Pressable>
       </ThemedScrollView>
     </SafeAreaView>
   );

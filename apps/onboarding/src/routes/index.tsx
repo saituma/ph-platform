@@ -1,5 +1,4 @@
 import {
-	ArrowRight,
 	ChartLineUp,
 	CircleNotch,
 	Users,
@@ -7,14 +6,17 @@ import {
 	WarningCircle,
 } from "@phosphor-icons/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import CTA from "#/components/shadcn-studio/blocks/cta-section-01/cta-section-01";
 import type { TestimonialItem } from "#/components/shadcn-studio/blocks/testimonials-component-18/testimonials-component-18";
 import TestimonialsComponent from "#/components/shadcn-studio/blocks/testimonials-component-18/testimonials-component-18";
-import { Button } from "#/components/ui/button";
+import { CoachVideoSection } from "#/components/home/CoachVideoSection";
+import { GallerySection } from "#/components/home/GallerySection";
 import { Input } from "#/components/ui/input";
+import { fetchGalleryItems, type GalleryApiItem } from "#/services/galleryService";
+import { PhoneMockup } from "#/components/ui/PhoneMockup";
 import { config } from "#/lib/config";
 
 /* ─── SEO / Structured Data ─── */
@@ -154,50 +156,11 @@ const FEATURES = [
 	},
 ];
 
-/* ─── IntersectionObserver for feature rows ─── */
-
-function useFeatureObserver() {
-	const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-	const setRef = useCallback(
-		(index: number) => (el: HTMLDivElement | null) => {
-			rowRefs.current[index] = el;
-		},
-		[],
-	);
-
-	useEffect(() => {
-		const observer = new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) {
-					if (entry.isIntersecting) {
-						const el = entry.target as HTMLElement;
-						const delay = Number(el.dataset.delay) || 0;
-						setTimeout(() => {
-							el.classList.add("is-visible");
-						}, delay);
-						observer.unobserve(el);
-					}
-				}
-			},
-			{ threshold: 0.15, rootMargin: "0px 0px -40px 0px" },
-		);
-
-		// Defer to ensure DOM is painted
-		const timeout = setTimeout(() => {
-			for (const el of rowRefs.current) {
-				if (el) observer.observe(el);
-			}
-		}, 100);
-
-		return () => {
-			clearTimeout(timeout);
-			observer.disconnect();
-		};
-	}, []);
-
-	return { setRef };
-}
+const STATS = [
+	{ value: "10K+", label: "Athletes" },
+	{ value: "500+", label: "Coaches" },
+	{ value: "4.9★", label: "Rating" },
+];
 
 /* ─── Component ─── */
 
@@ -207,8 +170,16 @@ function RouteComponent() {
 	const [error, setError] = useState<string | undefined>();
 	const [authReady, setAuthReady] = useState(false);
 	const [isAuthenticated, setIsAuthenticated] = useState(false);
+	const [galleryItems, setGalleryItems] = useState<GalleryApiItem[]>([]);
+	const [galleryLoading, setGalleryLoading] = useState(true);
 	const navigate = useNavigate();
-	const { setRef } = useFeatureObserver();
+
+	useEffect(() => {
+		fetchGalleryItems().then((data) => {
+			setGalleryItems(data);
+			setGalleryLoading(false);
+		});
+	}, []);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -310,80 +281,123 @@ function RouteComponent() {
 			<main>
 				{/* ━━━ Hero ━━━ */}
 				<section className="relative min-h-[100dvh] flex items-center px-6">
-					{/* Accent radial bloom — top-left, 8% opacity */}
+					{/* Background: stronger radial bloom + subtle grid */}
 					<div
-						className="absolute top-0 left-0 w-[60vw] h-[60vh] pointer-events-none -z-10"
+						className="absolute inset-0 pointer-events-none -z-10"
 						style={{
-							background: "radial-gradient(ellipse at 20% 20%, hsl(var(--primary) / 0.08), transparent 70%)",
+							background: "radial-gradient(ellipse at 15% 30%, hsl(var(--primary) / 0.14), transparent 60%)",
+						}}
+					/>
+					<div
+						className="absolute inset-0 pointer-events-none -z-10"
+						style={{
+							backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M 60 0 L 0 0 0 60' fill='none' stroke='rgba(255,255,255,0.025)' stroke-width='1'/%3E%3C/svg%3E")`,
+							backgroundSize: "60px 60px",
 						}}
 					/>
 
-					<div className="max-w-6xl mx-auto w-full py-24 md:py-32 flex flex-row items-center justify-between gap-6 md:gap-16 lg:gap-24">
+					<div className="max-w-6xl mx-auto w-full py-24 md:py-32 flex flex-col md:flex-row items-start md:items-center justify-between gap-12 md:gap-16 lg:gap-24">
 						{/* Copy side */}
-						<div className="hero-stagger flex-1 min-w-0 pr-2">
+						<div className="hero-stagger flex-1 min-w-0 w-full">
+							{/* Overline */}
+							<p
+								className="text-primary font-black mb-6"
+								style={{ fontSize: "0.65rem", letterSpacing: "0.22em", textTransform: "uppercase" }}
+							>
+								The Platform for Elite Athletes
+							</p>
+
+							{/* Headline */}
 							<h1
-								className="font-bold text-foreground leading-[1.08]"
-								style={{ fontSize: "clamp(1.75rem, 4vw, 7rem)", letterSpacing: "-0.02em" }}
+								className="font-black uppercase text-foreground"
+								style={{
+									fontFamily: "var(--font-display)",
+									fontSize: "clamp(3rem, 8vw, 9rem)",
+									letterSpacing: "-0.03em",
+									lineHeight: 0.95,
+								}}
 							>
 								Train Smarter.
 								<br />
 								<span className="text-primary">Recover Faster.</span>
 							</h1>
 
+							{/* Subheading */}
 							<p
-								className="mt-4 md:mt-6 text-muted-foreground max-w-lg"
-								style={{ fontSize: "clamp(0.875rem, 1.25vw, 1.125rem)", lineHeight: 1.6 }}
+								className="mt-6 text-muted-foreground max-w-lg"
+								style={{ fontSize: "clamp(0.9rem, 1.25vw, 1.1rem)", lineHeight: 1.65 }}
 							>
 								The professional platform for athletes and coaches who track
 								progress, optimize training, and push beyond limits.
 							</p>
 
+							{/* Stats bar */}
+							<div className="flex items-center gap-0 mt-8 border border-border/50 divide-x divide-border/50 w-fit">
+								{STATS.map((stat) => (
+									<div key={stat.label} className="px-5 py-3">
+										<p
+											className="font-black text-foreground uppercase"
+											style={{ fontFamily: "var(--font-display)", fontSize: "1.25rem", lineHeight: 1 }}
+										>
+											{stat.value}
+										</p>
+										<p
+											className="text-muted-foreground/60 font-bold uppercase mt-1"
+											style={{ fontSize: "0.6rem", letterSpacing: "0.15em" }}
+										>
+											{stat.label}
+										</p>
+									</div>
+								))}
+							</div>
+
 							{/* Auth states */}
 							{authReady && isAuthenticated && (
 								<div className="mt-8 max-w-md">
-									<div className="rounded-xl border border-border bg-card p-5">
-										<p className="text-sm font-semibold text-foreground">
+									<div className="border border-primary/20 bg-card p-5">
+										<p className="text-sm font-black uppercase tracking-wider text-foreground" style={{ fontFamily: "var(--font-display)" }}>
 											Welcome back.
 										</p>
 										<p className="mt-1 text-sm text-muted-foreground">
 											Continue to your portal dashboard.
 										</p>
 										<div className="mt-4 flex gap-3">
-											<Button
+											<button
 												type="button"
 												onClick={() => navigate({ to: "/portal/dashboard" })}
-												className="flex-1 text-xs md:text-sm"
+												className="flex-1 bg-primary text-primary-foreground font-black uppercase tracking-wider text-xs px-4 py-2.5 hover:bg-primary/90 active:scale-[0.98] transition-all"
+												style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
 											>
 												Go to Dashboard
-											</Button>
-											<Button
+											</button>
+											<button
 												type="button"
-												variant="outline"
 												onClick={() => {
 													localStorage.removeItem("auth_token");
 													localStorage.removeItem("user_type");
 													localStorage.removeItem("pending_email");
 													setIsAuthenticated(false);
 												}}
-												className="text-xs md:text-sm"
+												className="border border-border/60 text-muted-foreground font-bold uppercase tracking-wider text-xs px-4 py-2.5 hover:text-foreground hover:border-border transition-all"
+												style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
 											>
 												Sign Out
-											</Button>
+											</button>
 										</div>
 									</div>
 								</div>
 							)}
 
 							{authReady && !isAuthenticated && (
-								<div className="mt-6 md:mt-8 max-w-md space-y-3">
+								<div className="mt-8 max-w-md space-y-3">
 									<form
 										onSubmit={handleSubmit}
-										className={`flex w-full overflow-hidden rounded-xl transition-colors ${
+										className={`flex w-full overflow-hidden ${
 											error
-												? "ring-1 ring-destructive/40"
-												: "ring-1 ring-[rgba(255,255,255,0.12)] focus-within:ring-primary/60"
+												? "ring-1 ring-destructive/50"
+												: "ring-1 ring-border/60 focus-within:ring-primary/50"
 										}`}
-										style={{ transitionDuration: "var(--duration-standard)", transitionTimingFunction: "var(--ease)" }}
+										style={{ transition: `box-shadow var(--duration-standard) var(--ease)` }}
 									>
 										<Input
 											type="email"
@@ -395,115 +409,132 @@ function RouteComponent() {
 												if (error) setError(undefined);
 											}}
 											disabled={isLoading}
-											className="flex-1 border-0 h-10 md:h-12 px-4 md:px-5 focus-visible:ring-0 bg-transparent text-sm placeholder:text-muted-foreground/50 min-w-0"
+											className="flex-1 border-0 rounded-none h-12 px-5 focus-visible:ring-0 bg-card/80 text-sm placeholder:text-muted-foreground/40 min-w-0"
 										/>
 										<button
 											type="submit"
 											disabled={isLoading}
-											className="h-10 md:h-12 px-4 md:px-5 bg-card text-primary hover:text-foreground border-l border-[rgba(255,255,255,0.12)] transition-colors shrink-0 flex items-center justify-center"
+											className="h-12 px-6 bg-primary text-primary-foreground font-black uppercase tracking-wider text-xs shrink-0 flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-70"
 											style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
 										>
 											{isLoading ? (
 												<CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
 											) : (
-												<ArrowRight weight="bold" className="w-4 h-4" />
+												"Join Free"
 											)}
 										</button>
 									</form>
 									{error && (
-										<p className="text-xs md:text-sm text-destructive flex items-center gap-1.5 break-words">
+										<p className="text-xs text-destructive flex items-center gap-1.5 break-words">
 											<WarningCircle weight="fill" className="w-4 h-4 shrink-0" />
 											{error}
 										</p>
 									)}
-									<p className="text-muted-foreground/50 leading-tight" style={{ fontSize: "clamp(0.6rem, 1vw, 0.8rem)" }}>
-										Free 14-day trial · No credit card · Cancel anytime
-									</p>
 								</div>
 							)}
 						</div>
 
-						{/* App screenshot — clean container, no phone chrome */}
-						<div className="relative shrink-0 w-[120px] sm:w-[180px] md:w-[240px] lg:w-[260px]">
-							<div className="w-full rounded-2xl overflow-hidden ring-1 ring-[rgba(255,255,255,0.08)] animate-float">
-								<img
-									src="/home.png"
-									alt="PH Performance app — home screen"
-									className="w-full h-auto block"
-									onError={(e) => {
-										e.currentTarget.style.display = "none";
-									}}
-								/>
+						{/* Phone mockup */}
+						<div className="shrink-0 w-full max-w-[320px] mx-auto md:mx-0 md:w-[270px] lg:w-[300px] animate-float">
+							<div
+								style={{
+									filter: "drop-shadow(0 0 40px hsl(var(--primary) / 0.18)) drop-shadow(0 0 80px hsl(var(--primary) / 0.08))",
+								}}
+							>
+								<PhoneMockup src="/home.png" alt="PH Performance app — home screen" />
 							</div>
 						</div>
 					</div>
 				</section>
 
+				{/* ━━━ Coach Video ━━━ */}
+				<CoachVideoSection />
+
 				{/* ━━━ Features ━━━ */}
 				<section id="features" className="max-w-6xl mx-auto px-6 py-24 sm:py-32">
 					<div className="mb-16">
-						<p className="text-primary font-semibold mb-3" style={{ fontSize: "0.7rem", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-							How it works
+						<p
+							className="text-primary font-black mb-5"
+							style={{ fontSize: "0.65rem", letterSpacing: "0.22em", textTransform: "uppercase" }}
+						>
+							What We Offer
 						</p>
 						<h2
-							className="font-bold text-foreground"
-							style={{ fontSize: "clamp(1.75rem, 4vw, 3rem)", letterSpacing: "-0.02em" }}
+							className="font-black uppercase text-foreground"
+							style={{
+								fontFamily: "var(--font-display)",
+								fontSize: "clamp(2rem, 5vw, 4.5rem)",
+								letterSpacing: "-0.02em",
+								lineHeight: 1,
+							}}
 						>
-							Built for serious athletes
+							Built for Serious
+							<br />
+							<span className="text-primary">Athletes</span>
 						</h2>
 						<p
-							className="mt-3 text-muted-foreground max-w-lg"
-							style={{ fontSize: "clamp(1rem, 1.5vw, 1.125rem)", lineHeight: 1.6 }}
+							className="mt-5 text-muted-foreground max-w-lg"
+							style={{ fontSize: "clamp(0.9rem, 1.5vw, 1.1rem)", lineHeight: 1.65 }}
 						>
 							Professional tools that simplify elite performance management.
 						</p>
 					</div>
 
-					<div>
-						{FEATURES.map((feature, index) => (
+					{/* 3-column card grid */}
+					<div className="grid grid-cols-1 md:grid-cols-3 border border-border/40 divide-y md:divide-y-0 md:divide-x divide-border/40">
+						{FEATURES.map((feature) => (
 							<div
 								key={feature.title}
-								ref={setRef(index)}
-								data-delay={index * 100}
-								className="feature-row border-t border-border/40 py-10 sm:py-12 grid grid-cols-1 sm:grid-cols-[4rem_1fr_auto] gap-4 sm:gap-8 items-start"
+								className="feature-card group relative overflow-hidden p-10 hover:bg-card/50 transition-colors"
+								style={{ transitionDuration: "var(--duration-standard)", transitionTimingFunction: "var(--ease)" }}
 							>
-								{/* Number — hidden on mobile */}
+								{/* Large muted number behind */}
 								<span
-									className="hidden sm:block text-4xl font-bold text-muted-foreground/15 select-none"
-									style={{ fontFamily: "var(--font-display)", lineHeight: 1 }}
+									className="absolute top-4 right-4 font-black text-foreground/5 select-none leading-none pointer-events-none"
+									style={{ fontFamily: "var(--font-display)", fontSize: "8rem", lineHeight: 0.85 }}
+									aria-hidden
 								>
 									{feature.num}
 								</span>
 
-								{/* Content */}
-								<div>
+								<div className="relative z-10">
+									<div className="text-primary mb-8">
+										<feature.icon size={40} weight="fill" />
+									</div>
 									<h3
-										className="text-xl font-bold text-foreground"
-										style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
+										className="font-black uppercase text-foreground mb-4"
+										style={{
+											fontFamily: "var(--font-display)",
+											fontSize: "1.5rem",
+											letterSpacing: "-0.01em",
+											lineHeight: 1,
+										}}
 									>
 										{feature.title}
 									</h3>
 									<p
-										className="mt-2 text-muted-foreground max-w-lg"
-										style={{ lineHeight: 1.6 }}
+										className="text-muted-foreground leading-relaxed"
+										style={{ fontSize: "0.9rem", lineHeight: 1.7 }}
 									>
 										{feature.description}
 									</p>
 								</div>
 
-								{/* Icon */}
-								<div className="hidden sm:flex w-10 h-10 items-center justify-center text-primary/60">
-									<feature.icon size={24} weight="fill" />
-								</div>
+								{/* Bottom green bar on hover */}
+								<div
+									className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary origin-left scale-x-0 group-hover:scale-x-100"
+									style={{ transition: "transform var(--duration-standard) cubic-bezier(0.25, 0, 0, 1)" }}
+								/>
 							</div>
 						))}
-						{/* Bottom border */}
-						<div className="border-t border-border/40" />
 					</div>
 				</section>
 
 				{/* ━━━ Testimonials ━━━ */}
 				<TestimonialsComponent testimonials={testimonials} />
+
+				{/* ━━━ Gallery ━━━ */}
+				<GallerySection apiItems={galleryItems} isLoading={galleryLoading} />
 
 				{/* ━━━ CTA ━━━ */}
 				<CTA />

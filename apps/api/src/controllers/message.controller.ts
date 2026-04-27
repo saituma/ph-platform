@@ -7,6 +7,7 @@ import {
   sendMessage,
   getCoachUser,
   getLastAdminContact,
+  getTeamManagerForUser,
   isUserPremium,
   deleteDirectMessage,
 } from "../services/message.service";
@@ -115,7 +116,7 @@ export async function listInbox(req: Request, res: Response) {
     (includeAdminThreads == null && isTrainingStaff(role));
 
   const [threadPage, groups, adminThreads] = await Promise.all([
-    listThread(userId, { limit: pageLimit }),
+    listThread(userId, { limit: pageLimit, userRole: role ?? undefined }),
     listGroupsForUser(userId, { limit: Math.min(100, pageLimit) }),
     shouldIncludeAdminThreads ? listMessageThreadsAdmin(userId, { limit: pageLimit }) : Promise.resolve([]),
   ]);
@@ -302,11 +303,16 @@ export async function listInbox(req: Request, res: Response) {
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
 
-  // For non-staff users with no threads, inject the admin/coach as a default
-  // "contact your coach" thread so the inbox is never blank.
+  // For non-staff users with no threads, inject a default "contact your coach" thread.
+  // Team athletes must see only their team manager — never a random platform admin.
   if (!isTrainingStaff(role) && allThreads.length === 0) {
-    const defaultCoach = await getLastAdminContact(userId).catch(() => null)
-      ?? await getCoachUser().catch(() => null);
+    let defaultCoach;
+    if (role === "team_athlete") {
+      defaultCoach = await getTeamManagerForUser(userId).catch(() => null);
+    } else {
+      defaultCoach = await getLastAdminContact(userId).catch(() => null)
+        ?? await getCoachUser().catch(() => null);
+    }
     if (defaultCoach) {
       allThreads = [
         {
@@ -330,21 +336,27 @@ export async function listInbox(req: Request, res: Response) {
 
 export async function listMessages(req: Request, res: Response) {
   const userId = req.user!.id;
+  const role = req.user?.role ?? null;
   const { includeVideoResponses, limit, cursor, peerUserId } = listMessagesQuerySchema.parse(req.query ?? {});
 
   const [threadPage, lastCoach, premium] = await Promise.all([
     listThread(userId, {
+      userRole: role ?? undefined,
       includeVideoResponses: includeVideoResponses === "1" || includeVideoResponses === "true",
       limit,
       cursorId: cursor,
       peerUserId,
     }),
-    getLastAdminContact(userId),
+    // Team athletes only contact their team manager — skip the broad admin search.
+    role === "team_athlete" ? Promise.resolve(null) : getLastAdminContact(userId),
     isUserPremium(userId),
   ]);
 
   const manager = threadPage.teamManager;
-  const coach = lastCoach ?? manager ?? (await getCoachUser());
+  // Team athletes see only their team manager as the coach contact.
+  const coach = role === "team_athlete"
+    ? manager
+    : (lastCoach ?? manager ?? (await getCoachUser()));
 
   const coachesMap = new Map<number, any>();
   if (coach) coachesMap.set(coach.id, coach);
@@ -452,6 +464,7 @@ export async function sendMessageToCoach(req: Request, res: Response) {
     const message = await sendMessage({
       senderId: userId,
       receiverId: receiverId,
+      senderRole: req.user?.role ?? null,
       content: input.content,
       contentType: input.contentType,
       mediaUrl: input.mediaUrl,

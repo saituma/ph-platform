@@ -87,7 +87,7 @@ const HomeScreen = memo(function HomeScreen() {
   const bootstrapReady = useAppSelector(selectBootstrapReady);
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
 
-  const { homeContent, load: reloadHomeContent } = useHomeContent(token, bootstrapReady);
+  const { homeContent, isLoading: homeLoading, load: reloadHomeContent } = useHomeContent(token, bootstrapReady);
   const userId = profile?.id ?? null;
 
   const statsQuery = useWeeklyStats(userId);
@@ -95,7 +95,8 @@ const HomeScreen = memo(function HomeScreen() {
   const runStatus = useRunStore((s) => s.status);
   const isRunActive = runStatus === "running" || runStatus === "paused";
 
-  const isLoading = statsQuery.isLoading;
+  const isLoading = statsQuery.isLoading || !bootstrapReady;
+  const homeContentLoading = !homeContent;
   const stats = statsQuery.data;
   const hasTeam = appRole === "team" || appRole === "adult_athlete_team" || appRole === "youth_athlete_team_guardian";
   const showTracking = hasTeam || appRole === "adult_athlete" || appRole === "coach";
@@ -306,17 +307,18 @@ const HomeScreen = memo(function HomeScreen() {
             posterUrl={homeContent?.heroImageUrl}
             isTabActive={true}
             tabIndex={0}
+            loading={homeContentLoading}
           />
         </Animated.View>
 
         {/* ── Admin story ──────────────────────────────────────── */}
         <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(280).duration(300).springify()}>
-          <AdminStorySection story={homeContent?.adminStory} photoUrl={homeContent?.professionalPhoto} />
+          <AdminStorySection story={homeContent?.adminStory} photoUrl={homeContent?.professionalPhoto} loading={homeContentLoading} />
         </Animated.View>
 
         {/* ── Testimonials ─────────────────────────────────────── */}
         <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(340).duration(300).springify()}>
-          <TestimonialsSection items={homeContent?.testimonials} />
+          <TestimonialsSection items={homeContent?.testimonials} loading={homeContentLoading} />
         </Animated.View>
 
       </Animated.ScrollView>

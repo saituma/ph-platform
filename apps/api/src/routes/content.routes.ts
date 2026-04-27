@@ -25,6 +25,7 @@ import {
   getParentCourseAiInsightController,
   getContentAiInsightController,
   replaceStoriesHandler,
+  listGalleryItems,
 } from "../controllers/content.controller";
 
 const router = Router();
@@ -37,6 +38,7 @@ router.get("/stories", requireAuth, listStories);
 router.get("/content/stories", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listStoriesForAdmin);
 router.put("/content/stories", requireAuth, requireRole(["coach", "admin", "superAdmin"]), replaceStoriesHandler);
 router.get("/content/legal/public", listLegalContentPublic);
+router.get("/content/gallery", listGalleryItems);
 router.post("/content/testimonials/submit", requireAuth, submitTestimonial);
 router.get(
   "/content/testimonials/submissions",

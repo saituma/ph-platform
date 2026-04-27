@@ -142,10 +142,10 @@ export default function ActiveRunScreen() {
   // leaves the tab and comes back after stopping a run.
   useFocusEffect(
     useCallback(() => {
-      if (status !== "running" && status !== "paused") {
+      if (status !== "running" && status !== "paused" && !shareCardData) {
         router.replace("/(tabs)/tracking" as any);
       }
-    }, [status, router]),
+    }, [status, router, shareCardData]),
   );
 
   useEffect(() => {

@@ -573,9 +573,11 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
     });
 
     const commitmentExpiry = computePlanExpiryFromCommitment(input.planCommitmentMonths);
+    const provisionedTier = input.desiredProgramType ?? "PHP";
     await db
       .update(athleteTable)
       .set({
+        currentProgramTier: provisionedTier,
         planPaymentType: input.planPaymentType,
         planCommitmentMonths: input.planCommitmentMonths,
         planExpiresAt: commitmentExpiry,
@@ -583,6 +585,18 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
         updatedAt: new Date(),
       })
       .where(eq(athleteTable.id, onboardingResult.athleteId));
+
+    const [provisionedAthlete] = await db
+      .select({ guardianId: athleteTable.guardianId })
+      .from(athleteTable)
+      .where(eq(athleteTable.id, onboardingResult.athleteId))
+      .limit(1);
+    if (provisionedAthlete?.guardianId) {
+      await db
+        .update(guardianTable)
+        .set({ currentProgramTier: provisionedTier, updatedAt: new Date() })
+        .where(eq(guardianTable.id, provisionedAthlete.guardianId));
+    }
 
     if (onboardingResult.athleteUserId) {
       await db

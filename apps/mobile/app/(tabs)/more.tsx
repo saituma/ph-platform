@@ -16,7 +16,10 @@ import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   logout,
   updateProfile,
+  setCapabilities,
+  setProgramTier,
 } from "../../store/slices/userSlice";
+import type { AppCapabilities } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
 import { fonts } from "@/constants/theme";
 import {
@@ -108,6 +111,8 @@ export default function MoreScreen() {
               name?: string | null;
               email?: string | null;
               profilePicture?: string | null;
+              capabilities?: AppCapabilities | null;
+              programTier?: string | null;
             };
           }>("/auth/me", {
             token,
@@ -123,6 +128,8 @@ export default function MoreScreen() {
                 avatar: me.user.profilePicture ?? null,
               }),
             );
+            dispatch(setCapabilities(me.user.capabilities ?? null));
+            dispatch(setProgramTier(me.user.programTier ?? null));
           }
         } catch {
           /* keep existing profile */
@@ -542,6 +549,11 @@ export default function MoreScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Logout"
                 onPress={() => {
+                  if (token) {
+                    import("@/lib/pushRegistration").then(({ clearDevicePushToken }) => {
+                      void clearDevicePushToken(token);
+                    });
+                  }
                   dispatch(logout());
                   router.replace("/(auth)/login");
                 }}
@@ -605,8 +617,8 @@ function SectionLabel({ text, color }: { text: string; color: string }) {
         color,
         textTransform: "uppercase",
         letterSpacing: 1.2,
-        marginTop: 32,
-        marginBottom: 8,
+        marginTop: 24,
+        marginBottom: 12,
         paddingHorizontal: 4,
       }}
     >
@@ -634,24 +646,30 @@ function MenuItem({
   subtitleColor: string;
   isDark: boolean;
 }) {
+  const cardBg = isDark ? "#1A1D1A" : "#F0FAF4";
+  const cardBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(34,197,94,0.3)";
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      style={({ pressed }) => ({
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        marginVertical: 6,
-        borderRadius: 20,
-        borderCurve: "continuous",
-        backgroundColor: pressed
-          ? isDark
-            ? "rgba(255,255,255,0.04)"
-            : "rgba(0,0,0,0.03)"
-          : "transparent",
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-      })}
+      style={{ marginBottom: 16 }}
     >
+      <View
+        style={{
+          paddingHorizontal: 18,
+          paddingVertical: 18,
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: cardBorder,
+          backgroundColor: cardBg,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: isDark ? 0.3 : 0.06,
+          shadowRadius: 8,
+          elevation: 3,
+        }}
+      >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <View
           style={{
@@ -699,6 +717,7 @@ function MenuItem({
           size={18}
           color={isDark ? "hsl(220, 5%, 35%)" : "hsl(220, 5%, 72%)"}
         />
+      </View>
       </View>
     </Pressable>
   );
