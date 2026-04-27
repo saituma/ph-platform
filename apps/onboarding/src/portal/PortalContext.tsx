@@ -76,13 +76,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		if (!token) return;
 		const ms = msUntilExpiry(token);
+		console.log("[Portal] expiry check", { ms });
 		if (ms <= 0) {
+			console.log("[Portal] TOKEN CLEARED by expiry (ms<=0)");
 			localStorage.removeItem("auth_token");
 			setToken(null);
 			return;
 		}
 		if (ms === -1) return;
 		const timer = setTimeout(() => {
+			console.log("[Portal] TOKEN CLEARED by expiry timer");
 			localStorage.removeItem("auth_token");
 			setToken(null);
 		}, ms);
