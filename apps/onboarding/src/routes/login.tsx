@@ -15,6 +15,7 @@ import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
 import { config } from "#/lib/config";
+import { isTokenExpired } from "#/lib/token-expiry";
 
 export const Route = createFileRoute("/login")({
 	head: () => ({
@@ -80,9 +81,28 @@ function Login() {
 			if (!data?.accessToken || typeof data.accessToken !== "string") {
 				throw new Error("Login succeeded but no access token was returned");
 			}
+			if (isTokenExpired(data.accessToken)) {
+				throw new Error("Login token is already expired. Please check server JWT settings.");
+			}
 
 			localStorage.setItem("auth_token", data.accessToken);
 			localStorage.setItem("pending_email", email);
+
+			// Validate token immediately so portal never opens with a dead session.
+			const sessionCheck = await fetch(`${config.api.baseUrl}/api/auth/me`, {
+				headers: { Authorization: `Bearer ${data.accessToken}` },
+				cache: "no-store",
+			});
+			if (sessionCheck.status === 401 || sessionCheck.status === 403) {
+				localStorage.removeItem("auth_token");
+				localStorage.removeItem("pending_email");
+				throw new Error(
+					"Server rejected the new session token. Verify API JWT_SECRET and auth database consistency.",
+				);
+			}
+			if (!sessionCheck.ok) {
+				throw new Error("Login succeeded, but profile fetch failed. Please retry.");
+			}
 
 			toast.success("Welcome back!", {
 				description: "Redirecting to your dashboard...",
