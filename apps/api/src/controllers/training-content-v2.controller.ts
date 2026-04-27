@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 
-import { ProgramType, trainingOtherType, trainingSessionBlockType } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { db } from "../db";
+import { ProgramType, teamTable, trainingOtherType, trainingSessionBlockType } from "../db/schema";
 import {
   createTrainingAudience,
   createTrainingModule,
@@ -29,6 +31,7 @@ import {
   updateTrainingOtherTypeSetting,
   updateTrainingSessionItem,
 } from "../services/training-content-v2.service";
+import { isTeamManagerRole } from "../lib/user-roles";
 import { getAthleteForUser } from "../services/user.service";
 
 const audienceQuerySchema = z.object({
@@ -219,6 +222,26 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
   try {
     const parsed = mobileAgeQuerySchema.safeParse(req.query);
     const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
+
+    // Team coaches have no athlete profile. Look up their team directly.
+    if (!athlete && req.user && isTeamManagerRole(req.user.role)) {
+      const [team] = await db
+        .select({ name: teamTable.name, minAge: teamTable.minAge, maxAge: teamTable.maxAge })
+        .from(teamTable)
+        .where(eq(teamTable.adminId, req.user.id))
+        .limit(1);
+      if (team) {
+        const age = parsed.success ? parsed.data.age : (team.minAge ?? 15);
+        const workspace = await getTrainingContentMobileWorkspace({
+          age,
+          athleteId: null,
+          programTier: null,
+          team: team.name,
+        });
+        return res.status(200).json(workspace);
+      }
+    }
+
     const age = parsed.success ? parsed.data.age : (athlete?.age ?? null);
     if (!age) {
       return res.status(200).json({ age: null, tabs: ["Modules"], modules: [], others: [] });
