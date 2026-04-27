@@ -66,7 +66,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
 	// SSR hydration: server sets token to null (no window). Re-read on client mount.
 	useEffect(() => {
+		const raw = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
 		const stored = readStoredToken();
+		console.log("[Portal] hydration effect", { raw: !!raw, stored: !!stored, currentToken: !!token });
 		if (stored && stored !== token) setToken(stored);
 		setHydrated(true);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -136,17 +138,24 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
 	const age = useMemo(() => calculateAge(user?.birthDate), [user?.birthDate]);
 
+	const loading = !hydrated || (!!token && userLoading);
+	const error = userError
+		? userError instanceof Error
+			? userError.message
+			: String(userError)
+		: null;
+
+	useEffect(() => {
+		console.log("[Portal] state", { hydrated, token: !!token, loading, user: !!user, error, userLoading });
+	}, [hydrated, token, loading, user, error, userLoading]);
+
 	const value = useMemo<PortalContextValue>(
 		() => ({
 			token,
 			user: user ?? null,
 			age,
-			loading: !hydrated || (!!token && userLoading),
-			error: userError
-				? userError instanceof Error
-					? userError.message
-					: String(userError)
-				: null,
+			loading,
+			error,
 			refresh,
 			refreshUser: refresh,
 		}),
