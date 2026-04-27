@@ -28,7 +28,7 @@ export const Route = createFileRoute("/portal/dashboard")({
 			await queryClient.ensureQueryData({
 				queryKey: homeKeys.content(token),
 				queryFn: () => fetchHomeContent(token),
-			});
+			}).catch(() => null);
 		}
 	},
 	component: DashboardPage,

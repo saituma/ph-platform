@@ -83,19 +83,31 @@ function PortalGate() {
 	}
 
 	if (error || !user) {
+		const hasToken = !!localStorage.getItem("auth_token");
 		return (
 			<div className="flex h-screen items-center justify-center px-4">
 				<div className="text-center space-y-3">
 					<p className="text-sm text-muted-foreground">
-						{error || "Please log in again."}
+						{error || (hasToken ? "Could not load your account. The server may be temporarily unavailable." : "Please log in again.")}
 					</p>
-					<button
-						type="button"
-						onClick={() => navigate({ to: "/login" })}
-						className="inline-flex items-center justify-center rounded-2xl border border-border/60 bg-background/60 px-5 py-3 text-sm font-black uppercase tracking-wider hover:bg-accent transition-all"
-					>
-						Go to Login
-					</button>
+					<div className="flex flex-col sm:flex-row gap-2 justify-center">
+						{hasToken && (
+							<button
+								type="button"
+								onClick={() => void refresh()}
+								className="inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+							>
+								Retry
+							</button>
+						)}
+						<button
+							type="button"
+							onClick={() => navigate({ to: "/login" })}
+							className="inline-flex items-center justify-center rounded-2xl border border-border/60 bg-background/60 px-5 py-3 text-sm font-black uppercase tracking-wider hover:bg-accent transition-all"
+						>
+							Go to Login
+						</button>
+					</div>
 				</div>
 			</div>
 		);
