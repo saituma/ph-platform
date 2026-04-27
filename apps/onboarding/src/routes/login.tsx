@@ -14,7 +14,6 @@ import { z } from "zod";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
-import { authClient } from "#/lib/auth-client";
 import { config } from "#/lib/config";
 
 export const Route = createFileRoute("/login")({
@@ -68,19 +67,18 @@ function Login() {
 
 		setIsLoading(true);
 		try {
-			const signInResult = await authClient.signIn.email({ email, password });
-			if (signInResult.error) {
-				throw new Error(signInResult.error.message || "Invalid email or password");
-			}
-
-			// Exchange Better Auth session for app JWT
-			const tokenResponse = await fetch(`${config.api.baseUrl}/api/app/token`, {
+			// Authenticate directly against PH API (no Better Auth worker dependency).
+			const tokenResponse = await fetch(`${config.api.baseUrl}/api/auth/login`, {
 				method: "POST",
-				credentials: "include",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email, password }),
 			});
-			const data = await tokenResponse.json();
+			const data = await tokenResponse.json().catch(() => ({}));
 			if (!tokenResponse.ok) {
 				throw new Error(data.error || "Login failed");
+			}
+			if (!data?.accessToken || typeof data.accessToken !== "string") {
+				throw new Error("Login succeeded but no access token was returned");
 			}
 
 			localStorage.setItem("auth_token", data.accessToken);
