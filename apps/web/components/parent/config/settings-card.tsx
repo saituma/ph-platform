@@ -1,7 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Input } from "../../ui/input";
-import { Select } from "../../ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
+
+const APPROVAL_WORKFLOW_ITEMS = [
+  { label: "Manual review by coach", value: "manual" },
+  { label: "Auto-approve standard entries", value: "auto" },
+];
+
+const DEFAULT_TIER_ITEMS = [{ label: "PHP", value: "PHP" }];
 
 type SettingsCardProps = {
   approvalWorkflow: string;
@@ -32,31 +39,40 @@ export function SettingsCard({
       <CardContent className="grid gap-4 text-sm text-muted-foreground sm:grid-cols-2">
         <div>
           <p className="mb-2 font-medium text-foreground">Default Program Tier</p>
-          <Select value="PHP" disabled>
-            <option value="PHP">PHP</option>
+          <Select items={DEFAULT_TIER_ITEMS} value="PHP" disabled>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectPopup>
+              {DEFAULT_TIER_ITEMS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+              ))}
+            </SelectPopup>
           </Select>
         </div>
         <div>
           <p className="mb-2 font-medium text-foreground">Approval Workflow</p>
-          <Select value={approvalWorkflow} onChange={(event) => onSetApprovalWorkflow(event.target.value)}>
-            <option value="manual">Manual review by coach</option>
-            <option value="auto">Auto-approve standard entries</option>
+          <Select items={APPROVAL_WORKFLOW_ITEMS} value={approvalWorkflow} onValueChange={(v) => onSetApprovalWorkflow(v ?? "")}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectPopup>
+              {APPROVAL_WORKFLOW_ITEMS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+              ))}
+            </SelectPopup>
           </Select>
         </div>
         <div>
           <p className="mb-2 font-medium text-foreground">Terms Version</p>
-          <Input 
-            placeholder="1.0" 
-            value={termsVersion} 
-            onChange={(event) => onSetTermsVersion(event.target.value)} 
+          <Input
+            placeholder="1.0"
+            value={termsVersion}
+            onChange={(event) => onSetTermsVersion(event.target.value)}
           />
         </div>
         <div>
           <p className="mb-2 font-medium text-foreground">Privacy Version</p>
-          <Input 
-            placeholder="1.0" 
-            value={privacyVersion} 
-            onChange={(event) => onSetPrivacyVersion(event.target.value)} 
+          <Input
+            placeholder="1.0"
+            value={privacyVersion}
+            onChange={(event) => onSetPrivacyVersion(event.target.value)}
           />
         </div>
         <div className="sm:col-span-2">

@@ -27,7 +27,13 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
-import { Select } from "../../../components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../../components/ui/select";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
 import {
@@ -623,8 +629,8 @@ export default function UserDetailPage() {
       <div className="space-y-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <UserDetailBackBar />
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/training-snapshot">Client training snapshot</Link>
+          <Button variant="outline" size="sm" render={<Link href="/training-snapshot" />}>
+            Client training snapshot
           </Button>
         </div>
 
@@ -1078,17 +1084,26 @@ export default function UserDetailPage() {
 
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Week</span>
-                <Select
-                  value={String(planWeek)}
-                  onChange={(e) => setPlanWeek(Number(e.target.value))}
-                  className="min-w-[120px]"
-                >
-                  {(planWeeks.length ? planWeeks : [planWeek]).map((w) => (
-                    <option key={w} value={String(w)}>
-                      Week {w}
-                    </option>
-                  ))}
-                </Select>
+                {(() => {
+                  const weekItems = (planWeeks.length ? planWeeks : [planWeek]).map((w) => ({
+                    label: `Week ${w}`,
+                    value: String(w),
+                  }));
+                  return (
+                    <Select
+                      items={weekItems}
+                      value={String(planWeek)}
+                      onValueChange={(v) => setPlanWeek(Number(v ?? planWeek))}
+                    >
+                      <SelectTrigger className="min-w-[120px]"><SelectValue /></SelectTrigger>
+                      <SelectPopup>
+                        {weekItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                        ))}
+                      </SelectPopup>
+                    </Select>
+                  );
+                })()}
               </div>
             </div>
 
@@ -1405,23 +1420,34 @@ export default function UserDetailPage() {
                               Exercises
                             </div>
                             <div className="flex flex-wrap items-end gap-2">
-                              <Select
-                                value={selectedExerciseId}
-                                onChange={(e) =>
-                                  setAddExerciseSelection((prev) => ({
-                                    ...prev,
-                                    [session.id]: e.target.value,
-                                  }))
-                                }
-                                className="min-w-[240px]"
-                              >
-                                <option value="">Select exercise…</option>
-                                {exerciseOptions.map((ex) => (
-                                  <option key={ex.id} value={String(ex.id)}>
-                                    {ex.name}
-                                  </option>
-                                ))}
-                              </Select>
+                              {(() => {
+                                const exerciseItems = [
+                                  { label: "Select exercise…", value: "" },
+                                  ...exerciseOptions.map((ex) => ({
+                                    label: ex.name,
+                                    value: String(ex.id),
+                                  })),
+                                ];
+                                return (
+                                  <Select
+                                    items={exerciseItems}
+                                    value={selectedExerciseId}
+                                    onValueChange={(v) =>
+                                      setAddExerciseSelection((prev) => ({
+                                        ...prev,
+                                        [session.id]: v ?? "",
+                                      }))
+                                    }
+                                  >
+                                    <SelectTrigger className="min-w-[240px]"><SelectValue /></SelectTrigger>
+                                    <SelectPopup>
+                                      {exerciseItems.map((item) => (
+                                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                      ))}
+                                    </SelectPopup>
+                                  </Select>
+                                );
+                              })()}
                               <Button
                                 type="button"
                                 variant="outline"
@@ -2090,16 +2116,28 @@ export default function UserDetailPage() {
         >
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                value={programTier}
-                onChange={(e) => setProgramTier(e.target.value)}
-                className="min-w-[160px]"
-              >
-                <option value="PHP">PHP Program</option>
-                <option value="PHP_Premium">PHP Premium</option>
-                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
-                <option value="PHP_Pro">PHP Pro</option>
-              </Select>
+                  {(() => {
+                    const tierItems = [
+                      { label: "PHP Program", value: "PHP" },
+                      { label: "PHP Premium", value: "PHP_Premium" },
+                      { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
+                      { label: "PHP Pro", value: "PHP_Pro" },
+                    ];
+                    return (
+                      <Select
+                        items={tierItems}
+                        value={programTier}
+                        onValueChange={(v) => setProgramTier(v ?? "")}
+                      >
+                        <SelectTrigger className="min-w-[160px]"><SelectValue /></SelectTrigger>
+                        <SelectPopup>
+                          {tierItems.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    );
+                  })()}
               <Button
                 onClick={handleUpdateTier}
                 disabled={!athleteId || tierLoading}

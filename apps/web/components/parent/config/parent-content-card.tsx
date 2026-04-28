@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Select } from "../../ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { Badge } from "../../ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
@@ -54,6 +54,15 @@ const TIER_OPTIONS = [
   { value: "PHP_Premium", label: "PHP Premium" },
   { value: "PHP_Premium_Plus", label: "PHP Premium Plus" },
   { value: "PHP_Pro", label: "PHP Pro" },
+];
+
+const CONTENT_TYPE_ITEMS = CONTENT_TYPES.map((t) => ({ label: t.toUpperCase(), value: t }));
+
+const CATEGORY_ITEMS = CATEGORIES.map((cat) => ({ label: cat, value: cat }));
+
+const AGE_MODE_ITEMS = [
+  { label: "Min / Max range", value: "range" },
+  { label: "Exact ages", value: "exact" },
 ];
 
 export function ParentContentCard() {
@@ -341,31 +350,37 @@ export function ParentContentCard() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-                    {CATEGORIES.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
+                  <Select items={CATEGORY_ITEMS} value={category} onValueChange={(v) => setCategory(v ?? CATEGORIES[0])}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {CATEGORY_ITEMS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Type</Label>
-                  <Select value={type} onChange={(e) => setType(e.target.value as ContentType)}>
-                    {CONTENT_TYPES.map((item) => (
-                      <option key={item} value={item}>
-                        {item.toUpperCase()}
-                      </option>
-                    ))}
+                  <Select items={CONTENT_TYPE_ITEMS} value={type} onValueChange={(v) => setType((v ?? "article") as ContentType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {CONTENT_TYPE_ITEMS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Age Targeting</Label>
-                  <Select value={ageMode} onChange={(e) => setAgeMode(e.target.value as "range" | "exact")}>
-                    <option value="range">Min / Max range</option>
-                    <option value="exact">Exact ages</option>
+                  <Select items={AGE_MODE_ITEMS} value={ageMode} onValueChange={(v) => setAgeMode((v ?? "range") as "range" | "exact")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {AGE_MODE_ITEMS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
               </div>
@@ -392,12 +407,13 @@ export function ParentContentCard() {
               )}
               <div className="space-y-2">
                 <Label>Access Tier</Label>
-                <Select value={tier} onChange={(e) => setTier(e.target.value)}>
-                  {TIER_OPTIONS.map((item) => (
-                    <option key={item.value || "all"} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
+                <Select items={TIER_OPTIONS} value={tier} onValueChange={(v) => setTier(v ?? "")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    {TIER_OPTIONS.map((item) => (
+                      <SelectItem key={item.value || "all"} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectPopup>
                 </Select>
               </div>
               {error ? <p className="text-sm text-red-500">{error}</p> : null}

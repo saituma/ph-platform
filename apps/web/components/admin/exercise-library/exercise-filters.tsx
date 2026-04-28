@@ -1,6 +1,13 @@
+import { Search } from "lucide-react";
 import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { Select } from "../../ui/select";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "../../ui/input-group";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../ui/select";
 
 type ExerciseFiltersProps = {
   chips: string[];
@@ -12,6 +19,19 @@ type ExerciseFiltersProps = {
   status: string;
   onStatusChange: (value: string) => void;
 };
+
+const categoryItems = [
+  { label: "All categories", value: "" },
+  { label: "Power", value: "Power" },
+  { label: "Speed", value: "Speed" },
+  { label: "Recovery", value: "Recovery" },
+];
+
+const statusItems = [
+  { label: "All status", value: "" },
+  { label: "Uploaded", value: "Uploaded" },
+  { label: "Pending", value: "Pending" },
+];
 
 export function ExerciseFilters({
   chips,
@@ -39,22 +59,41 @@ export function ExerciseFilters({
         ))}
       </div>
       <div className="hidden flex-wrap gap-2 md:flex">
-        <Input
-          placeholder="Search exercises"
-          className="h-10 w-64"
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-        />
-        <Select className="w-40" value={category} onChange={(event) => onCategoryChange(event.target.value)}>
-          <option>All categories</option>
-          <option>Power</option>
-          <option>Speed</option>
-          <option>Recovery</option>
+        <InputGroup className="h-10 w-64">
+          <InputGroupAddon>
+            <Search className="h-4 w-4" />
+          </InputGroupAddon>
+          <InputGroupInput
+            placeholder="Search exercises"
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+          />
+        </InputGroup>
+
+        <Select
+          items={categoryItems}
+          value={category}
+          onValueChange={(v) => onCategoryChange(v ?? "")}
+        >
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectPopup>
+            {categoryItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectPopup>
         </Select>
-        <Select className="w-40" value={status} onChange={(event) => onStatusChange(event.target.value)}>
-          <option>All status</option>
-          <option>Uploaded</option>
-          <option>Pending</option>
+
+        <Select
+          items={statusItems}
+          value={status}
+          onValueChange={(v) => onStatusChange(v ?? "")}
+        >
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectPopup>
+            {statusItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectPopup>
         </Select>
       </div>
     </div>

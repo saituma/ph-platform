@@ -1,10 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Select } from "../../ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../ui/select";
 import { FieldConfig, FieldType } from "./types";
 import { FieldRow } from "./field-row";
 import { TeamLevelFieldRow } from "./team-level-field-row";
+
+const FIELD_TYPE_ITEMS = [
+  { label: "Text", value: "text" },
+  { label: "Number", value: "number" },
+  { label: "Dropdown", value: "dropdown" },
+  { label: "Date", value: "date" },
+];
 
 type FormFieldsCardProps = {
   fields: FieldConfig[];
@@ -127,11 +134,13 @@ export function FormFieldsCard(props: FormFieldsCardProps) {
               value={newFieldLabel}
               onChange={(event) => onSetNewFieldLabel(event.target.value)}
             />
-            <Select value={newFieldType} onChange={(event) => onSetNewFieldType(event.target.value as FieldType)}>
-              <option value="text">Text</option>
-              <option value="number">Number</option>
-              <option value="dropdown">Dropdown</option>
-              <option value="date">Date</option>
+            <Select items={FIELD_TYPE_ITEMS} value={newFieldType} onValueChange={(v) => onSetNewFieldType((v ?? "text") as FieldType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectPopup>
+                {FIELD_TYPE_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                ))}
+              </SelectPopup>
             </Select>
           </div>
           {newFieldType === "dropdown" ? (

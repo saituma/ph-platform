@@ -449,11 +449,9 @@ function NutritionDetails({
 
           {activeTab === "coach" ? (
             <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filter
-                </Button>
+              <PopoverTrigger render={<Button variant="outline" className="gap-2" />}>
+                <Filter className="h-4 w-4" />
+                Filter
               </PopoverTrigger>
               <PopoverContent align="end" className="w-[320px] p-4">
                 <div className="space-y-4">

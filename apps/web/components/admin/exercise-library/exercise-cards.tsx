@@ -19,7 +19,7 @@ export function ExerciseCards({ exercises, onSelect, onDelete }: ExerciseCardsPr
           <button type="button" className="w-full" onClick={() => onSelect(exercise)}>
             <div className="flex items-center justify-between">
               <p className="font-semibold text-foreground">{exercise.name}</p>
-              <Badge variant={exercise.videoStatus === "Uploaded" ? "accent" : "outline"}>
+              <Badge variant={exercise.videoStatus === "Uploaded" ? "secondary" : "outline"}>
                 {exercise.videoStatus || "Pending"}
               </Badge>
             </div>

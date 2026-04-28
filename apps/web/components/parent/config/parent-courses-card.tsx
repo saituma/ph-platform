@@ -6,7 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Select } from "../../ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { Badge } from "../../ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
@@ -196,7 +202,7 @@ export function ParentCoursesCard() {
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{course.modules.length} modules</Badge>
                   {course.modules.filter((module) => module.preview).length ? (
-                    <Badge variant="accent">Preview enabled</Badge>
+                    <Badge variant="secondary">Preview enabled</Badge>
                   ) : null}
                 </div>
               </div>
@@ -234,19 +240,29 @@ export function ParentCoursesCard() {
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <Select
-                    value={category}
-                    onChange={(e) => {
-                      setCategory(e.target.value);
-                      setError(null);
-                    }}
-                  >
-                    {PARENT_COURSE_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </Select>
+                  {(() => {
+                    const categoryItems = PARENT_COURSE_CATEGORIES.map((cat) => ({
+                      label: cat,
+                      value: cat,
+                    }));
+                    return (
+                      <Select
+                        items={categoryItems}
+                        value={category}
+                        onValueChange={(v) => {
+                          setCategory(v ?? "");
+                          setError(null);
+                        }}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectPopup>
+                          {categoryItems.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -303,19 +319,29 @@ export function ParentCoursesCard() {
                 </div>
                 <div className="space-y-2">
                   <Label>Program Tier</Label>
-                  <Select
-                    value={tier}
-                    onChange={(e) => {
-                      setTier(e.target.value);
-                      setError(null);
-                    }}
-                  >
-                    {PARENT_TIER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
+                  {(() => {
+                    const tierItems = PARENT_TIER_OPTIONS.map((option) => ({
+                      label: option.label,
+                      value: option.value,
+                    }));
+                    return (
+                      <Select
+                        items={tierItems}
+                        value={tier}
+                        onValueChange={(v) => {
+                          setTier(v ?? "");
+                          setError(null);
+                        }}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectPopup>
+                          {tierItems.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    );
+                  })()}
                 </div>
               </div>
 

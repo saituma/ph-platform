@@ -93,8 +93,8 @@ export default function TrainingSnapshotPage() {
                   When guardians complete onboarding, their athletes appear here so you can track training and open
                   each profile.
                 </p>
-                <Button className="mt-4" variant="outline" size="sm" asChild>
-                  <Link href="/users">Go to Users &amp; tiers</Link>
+                <Button className="mt-4" variant="outline" size="sm" render={<Link href="/users" />}>
+                  Go to Users &amp; tiers
                 </Button>
               </div>
             ) : null}
@@ -137,8 +137,8 @@ export default function TrainingSnapshotPage() {
                             )}
                           </td>
                           <td className="px-4 py-3.5 text-right">
-                            <Button variant="outline" size="sm" asChild>
-                              <Link href={`/users/${row.guardianUserId}`}>Open profile</Link>
+                            <Button variant="outline" size="sm" render={<Link href={`/users/${row.guardianUserId}`} />}>
+                              Open profile
                             </Button>
                           </td>
                         </tr>

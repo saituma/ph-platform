@@ -3,11 +3,13 @@
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Select } from "../../ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { cn } from "../../../lib/utils";
 import { ParentCourseModule, ModuleType, PARENT_MODULE_TYPES, createModuleId, normalizeModules } from "./parent-course-types";
 import { ParentCourseMediaUpload } from "./parent-course-media-upload";
+
+const MODULE_TYPE_ITEMS = PARENT_MODULE_TYPES.map((t) => ({ label: t.toUpperCase(), value: t }));
 
 type ParentCourseModulesEditorProps = {
   modules: ParentCourseModule[];
@@ -65,12 +67,13 @@ export function ParentCourseModulesEditor({
           <p className="text-xs text-muted-foreground">Order modules and flag preview items for PHP.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={newModuleType} onChange={(e) => onNewModuleTypeChange(e.target.value as ModuleType)}>
-            {PARENT_MODULE_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {value.toUpperCase()}
-              </option>
-            ))}
+          <Select items={MODULE_TYPE_ITEMS} value={newModuleType} onValueChange={(v) => onNewModuleTypeChange((v ?? "article") as ModuleType)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectPopup>
+              {MODULE_TYPE_ITEMS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+              ))}
+            </SelectPopup>
           </Select>
           <Button size="sm" variant="outline" onClick={addModule}>
             Add Module
@@ -125,14 +128,16 @@ export function ParentCourseModulesEditor({
                 <div className="space-y-2">
                   <Label>Type</Label>
                   <Select
+                    items={MODULE_TYPE_ITEMS}
                     value={module.type}
-                    onChange={(e) => updateModule(module.id, { type: e.target.value as ModuleType })}
+                    onValueChange={(v) => updateModule(module.id, { type: (v ?? "article") as ModuleType })}
                   >
-                    {PARENT_MODULE_TYPES.map((value) => (
-                      <option key={value} value={value}>
-                        {value.toUpperCase()}
-                      </option>
-                    ))}
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {MODULE_TYPE_ITEMS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
               </div>

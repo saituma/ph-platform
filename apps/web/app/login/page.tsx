@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LogIn } from "lucide-react";
 
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } from "../../components/ui/card";
+import { Field, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
+import { Spinner } from "../../components/ui/spinner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -53,53 +55,89 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-6">
-      <Card className="w-full max-w-md">
-        <CardHeader className="items-center">
-          <img src="/ph.jpg" alt="PH Performance" className="h-16 w-16 rounded-lg object-cover mb-2" />
-          <CardTitle>Admin Login</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={onSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
+      <div className="w-full max-w-sm">
+        {/* Branding above card */}
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <img
+            src="/ph.jpg"
+            alt="PH Performance"
+            className="h-16 w-16 rounded-2xl object-cover shadow-md"
+          />
+        </div>
+
+        <Card>
+          <CardHeader className="items-center text-center pb-2">
+            <CardTitle className="text-2xl">Admin Login</CardTitle>
+            <CardDescription>Sign in to access the dashboard</CardDescription>
+          </CardHeader>
+
+          <CardPanel className="pt-4">
+            <form className="space-y-5" onSubmit={onSubmit}>
+              <Field>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                   required
+                  autoComplete="email"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-            {error ? <p className="text-sm text-red-500">{error}</p> : null}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                    autoComplete="current-password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </Field>
+
+              {error ? (
+                <Alert variant="error">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <Spinner className="mr-2 h-4 w-4" />
+                ) : (
+                  <LogIn className="mr-2 h-4 w-4" />
+                )}
+                {loading ? "Signing in…" : "Sign In"}
+              </Button>
+            </form>
+          </CardPanel>
+
+          <CardFooter className="justify-center pt-2 pb-5">
+            <p className="text-xs text-muted-foreground">
+              PH Performance &mdash; Admin Portal
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }

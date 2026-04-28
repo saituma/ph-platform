@@ -134,7 +134,7 @@ export function TopAthleteRow({
   name: string;
   score: string;
   tier: string;
-  tierVariant: "primary" | "default";
+  tierVariant: "secondary" | "default";
 }) {
   const initials = name
     .split(/\s+/)

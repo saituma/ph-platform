@@ -42,7 +42,7 @@ export function ParentNav({ items, currentPath, collapsed = false }: ParentNavPr
               {collapsed ? null : item.label}
             </span>
             {!collapsed && item.badge ? (
-              <Badge variant="primary">{item.badge}</Badge>
+              <Badge variant="default">{item.badge}</Badge>
             ) : null}
           </Link>
         );

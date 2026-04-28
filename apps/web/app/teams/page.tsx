@@ -60,8 +60,8 @@ export default function TeamsPage() {
       title="Teams"
       subtitle="All teams created across onboarding imports."
       actions={
-        <Button asChild size="sm">
-          <Link href="/users/add-team">Add team</Link>
+        <Button size="sm" render={<Link href="/users/add-team" />}>
+          Add team
         </Button>
       }
     >
@@ -119,14 +119,10 @@ export default function TeamsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        asChild
+                        render={<Link href={`/exercise-library/teams/${encodeURIComponent(team.team)}`} />}
                         className="h-8"
                       >
-                        <Link
-                          href={`/exercise-library/teams/${encodeURIComponent(team.team)}`}
-                        >
-                          Post training
-                        </Link>
+                        Post training
                       </Button>
                     </div>
                     <p className="relative z-10 mt-2 text-xs text-muted-foreground">

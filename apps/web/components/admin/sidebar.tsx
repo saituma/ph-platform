@@ -20,16 +20,14 @@ import {
   LifeBuoy,
   Settings,
   SlidersHorizontal,
+  Star,
   Stethoscope,
   UserPlus,
   Users,
+  Video,
 } from "lucide-react";
 
 import { AdminNavGrouped, type NavGroup } from "./nav";
-import {
-  Card,
-  CardContent,
-} from "../ui/card";
 import { cn } from "../../lib/utils";
 import { ScrollArea } from "../ui/scroll-area";
 import { useGetThreadsQuery, useGetUsersQuery, useGetVideoUploadsQuery } from "../../lib/apiSlice";
@@ -168,7 +166,9 @@ export function AdminSidebarContent({
       title: "Content & parent hub",
       description: "Home CMS, parent portal, exercises, age UX",
       items: [
-        { label: "Content", href: "/content", icon: BookOpen },
+        { label: "Profile", href: "/content/profile", icon: BookOpen },
+        { label: "Testimonials", href: "/content/testimonials", icon: Star },
+        { label: "Intro Video", href: "/content/intro-video", icon: Video },
         { label: "Gallery", href: "/gallery", icon: Images },
         { label: "Parent Portal", href: "/parent", icon: Library },
         { label: "Training content", href: "/exercise-library", icon: BadgeCheck },
@@ -250,8 +250,8 @@ export function AdminSidebar({ collapsed = false }: AdminSidebarProps) {
         collapsed ? "w-20" : "w-72"
       )}
     >
-      <ScrollArea className="h-full">
-        <div className={cn("h-full py-6", collapsed ? "px-3" : "px-4")}>
+      <ScrollArea className="flex-1 min-h-0">
+        <div className={cn("py-6", collapsed ? "px-3" : "px-4")}>
           <AdminSidebarContent currentPath={pathname} collapsed={collapsed} />
         </div>
       </ScrollArea>

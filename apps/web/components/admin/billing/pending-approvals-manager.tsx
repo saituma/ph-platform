@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardPanel } from "../../ui/card";
+import { Empty, EmptyTitle, EmptyDescription } from "../../ui/empty";
+import { Frame, FramePanel } from "../../ui/frame";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
 import {
@@ -14,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
+import { Tabs, TabsList, TabsTab, TabsPanel } from "../../ui/tabs";
 import { getCsrfToken } from "./billing-admin-utils";
 
 type ApprovalRequest = {
@@ -56,13 +59,32 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function formatMoneyFromCents(amountCents: number | null | undefined, currency: string | null | undefined) {
+function formatMoneyFromCents(
+  amountCents: number | null | undefined,
+  currency: string | null | undefined
+) {
   if (amountCents == null) return null;
   const cur = (currency || "gbp").toUpperCase();
   try {
-    return new Intl.NumberFormat("en-GB", { style: "currency", currency: cur }).format(amountCents / 100);
+    return new Intl.NumberFormat("en-GB", { style: "currency", currency: cur }).format(
+      amountCents / 100
+    );
   } catch {
     return `${(amountCents / 100).toFixed(2)} ${cur}`;
+  }
+}
+
+function statusBadgeVariant(status: string | null | undefined) {
+  switch (status?.toLowerCase()) {
+    case "approved":
+      return "success" as const;
+    case "rejected":
+    case "declined":
+      return "error" as const;
+    case "pending":
+      return "warning" as const;
+    default:
+      return "secondary" as const;
   }
 }
 
@@ -84,7 +106,9 @@ export function PendingApprovalsManager() {
         fetch("/api/backend/admin/team-subscription-requests").then((res) => res.json()),
       ]);
       setRequests(Array.isArray(requestsRes?.requests) ? requestsRes.requests : []);
-      setTeamRequests(Array.isArray(teamRequestsRes?.requests) ? teamRequestsRes.requests : []);
+      setTeamRequests(
+        Array.isArray(teamRequestsRes?.requests) ? teamRequestsRes.requests : []
+      );
     } catch (error: unknown) {
       setActionError(getErrorMessage(error, "Failed to load approval requests."));
     } finally {
@@ -100,10 +124,13 @@ export function PendingApprovalsManager() {
     setActionError(null);
     try {
       const csrfToken = getCsrfToken();
-      const res = await fetch(`/api/backend/admin/subscription-requests/${requestId}/approve`, {
-        method: "POST",
-        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
-      });
+      const res = await fetch(
+        `/api/backend/admin/subscription-requests/${requestId}/approve`,
+        {
+          method: "POST",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+        }
+      );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload?.error || "Failed to approve request.");
@@ -118,10 +145,13 @@ export function PendingApprovalsManager() {
     setActionError(null);
     try {
       const csrfToken = getCsrfToken();
-      const res = await fetch(`/api/backend/admin/subscription-requests/${requestId}/reject`, {
-        method: "POST",
-        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
-      });
+      const res = await fetch(
+        `/api/backend/admin/subscription-requests/${requestId}/reject`,
+        {
+          method: "POST",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+        }
+      );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload?.error || "Failed to reject request.");
@@ -136,10 +166,13 @@ export function PendingApprovalsManager() {
     setActionError(null);
     try {
       const csrfToken = getCsrfToken();
-      const res = await fetch(`/api/backend/admin/subscription-requests/${requestId}/sync-payment`, {
-        method: "POST",
-        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
-      });
+      const res = await fetch(
+        `/api/backend/admin/subscription-requests/${requestId}/sync-payment`,
+        {
+          method: "POST",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+        }
+      );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload?.error || "Failed to sync payment.");
@@ -154,10 +187,13 @@ export function PendingApprovalsManager() {
     setActionError(null);
     try {
       const csrfToken = getCsrfToken();
-      const res = await fetch(`/api/backend/admin/team-subscription-requests/${requestId}/approve`, {
-        method: "POST",
-        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
-      });
+      const res = await fetch(
+        `/api/backend/admin/team-subscription-requests/${requestId}/approve`,
+        {
+          method: "POST",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+        }
+      );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload?.error || "Failed to approve team request.");
@@ -172,10 +208,13 @@ export function PendingApprovalsManager() {
     setActionError(null);
     try {
       const csrfToken = getCsrfToken();
-      const res = await fetch(`/api/backend/admin/team-subscription-requests/${requestId}/reject`, {
-        method: "POST",
-        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
-      });
+      const res = await fetch(
+        `/api/backend/admin/team-subscription-requests/${requestId}/reject`,
+        {
+          method: "POST",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+        }
+      );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload?.error || "Failed to reject team request.");
@@ -190,10 +229,13 @@ export function PendingApprovalsManager() {
     setActionError(null);
     try {
       const csrfToken = getCsrfToken();
-      const res = await fetch(`/api/backend/admin/team-subscription-requests/${requestId}/sync-payment`, {
-        method: "POST",
-        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
-      });
+      const res = await fetch(
+        `/api/backend/admin/team-subscription-requests/${requestId}/sync-payment`,
+        {
+          method: "POST",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+        }
+      );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload?.error || "Failed to sync payment.");
@@ -225,31 +267,42 @@ export function PendingApprovalsManager() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <CardTitle>Pending Approvals</CardTitle>
-          <CardDescription>
-            Review subscription change requests and approve the right plan access.
-          </CardDescription>
-        </div>
-        <Button variant="outline" onClick={loadRequests}>
-          Refresh approvals
-        </Button>
+      <CardHeader>
+        <CardTitle>Pending Approvals</CardTitle>
+        <CardDescription>
+          Review subscription change requests and approve the right plan access.
+        </CardDescription>
+        <CardAction>
+          <Button variant="outline" onClick={loadRequests}>
+            Refresh
+          </Button>
+        </CardAction>
       </CardHeader>
-      <CardContent className="space-y-6">
+
+      <CardPanel className="space-y-6">
         {actionError ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3 text-sm text-destructive-foreground">
             {actionError}
           </div>
         ) : null}
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "guardians" | "teams")}>
           <TabsList>
-            <TabsTrigger value="guardians">Guardians ({requests.length})</TabsTrigger>
-            <TabsTrigger value="teams">Teams ({teamRequests.length})</TabsTrigger>
+            <TabsTab value="guardians">
+              Guardians{" "}
+              <Badge variant="secondary" size="sm">
+                {requests.length}
+              </Badge>
+            </TabsTab>
+            <TabsTab value="teams">
+              Teams{" "}
+              <Badge variant="secondary" size="sm">
+                {teamRequests.length}
+              </Badge>
+            </TabsTab>
           </TabsList>
 
-          <TabsContent value="guardians" className="space-y-6">
+          <TabsPanel value="guardians" className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label htmlFor="guardian-approval-search">Search guardian</Label>
               <Input
@@ -257,72 +310,89 @@ export function PendingApprovalsManager() {
                 value={approvalSearch}
                 onChange={(event) => setApprovalSearch(event.target.value)}
                 placeholder="Search by guardian name"
+                className="max-w-sm"
               />
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Guardian</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-muted-foreground">
-                      Loading requests...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredRequests.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-muted-foreground">
-                      {approvalSearch.trim()
-                        ? "No approvals match that guardian name."
-                        : "No requests awaiting approval."}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredRequests.map((request) => (
-                    <TableRow key={request.requestId}>
-                      <TableCell>
-                        <div className="font-medium">{request.userName}</div>
-                        <div className="text-xs text-muted-foreground">{request.userEmail}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{request.planName}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {request.displayPrice} • {request.billingInterval}
-                        </div>
-                      </TableCell>
-                      <TableCell>{request.status}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={() => handleApprove(request.requestId)}>
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleSyncPayment(request.requestId)}
-                          >
-                            Sync
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleReject(request.requestId)}>
-                            Reject
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TabsContent>
+            {isLoading ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                Loading requests...
+              </div>
+            ) : filteredRequests.length === 0 ? (
+              <Empty className="py-10">
+                <EmptyTitle>No approvals</EmptyTitle>
+                <EmptyDescription>
+                  {approvalSearch.trim()
+                    ? "No approvals match that guardian name."
+                    : "No requests awaiting approval."}
+                </EmptyDescription>
+              </Empty>
+            ) : (
+              <Frame>
+                <FramePanel className="p-0 overflow-hidden">
+                  <Table variant="card">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Guardian</TableHead>
+                        <TableHead>Plan</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRequests.map((request) => (
+                        <TableRow key={request.requestId}>
+                          <TableCell>
+                            <div className="font-medium">{request.userName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {request.userEmail}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{request.planName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {request.displayPrice} • {request.billingInterval}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={statusBadgeVariant(request.status)}>
+                              {request.status ?? "—"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleApprove(request.requestId)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleSyncPayment(request.requestId)}
+                              >
+                                Sync
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReject(request.requestId)}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </FramePanel>
+              </Frame>
+            )}
+          </TabsPanel>
 
-          <TabsContent value="teams" className="space-y-6">
+          <TabsPanel value="teams" className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label htmlFor="team-approval-search">Search team</Label>
               <Input
@@ -330,90 +400,119 @@ export function PendingApprovalsManager() {
                 value={teamSearch}
                 onChange={(event) => setTeamSearch(event.target.value)}
                 placeholder="Search by team or admin"
+                className="max-w-sm"
               />
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Team</TableHead>
-                  <TableHead>Admin</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-muted-foreground">
-                      Loading requests...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredTeamRequests.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-muted-foreground">
-                      {teamSearch.trim() ? "No team approvals match that search." : "No team requests found."}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredTeamRequests.map((request) => {
-                    const amount =
-                      formatMoneyFromCents(request.paymentAmountCents, request.paymentCurrency) ??
-                      request.planDisplayPrice ??
-                      null;
-                    const interval =
-                      String(request.planBillingCycle ?? request.planBillingInterval ?? "")
-                        .replace(/_/g, " ")
-                        .trim() || null;
-                    return (
-                      <TableRow key={`team-${request.requestId}`}>
-                        <TableCell>
-                          <div className="font-medium">
-                            {request.teamName ?? "—"}{" "}
-                            {request.maxAthletes ? (
-                              <span className="text-xs text-muted-foreground">({request.maxAthletes} athletes)</span>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">{request.adminName ?? "—"}</div>
-                          <div className="text-xs text-muted-foreground">{request.adminEmail ?? ""}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">{request.planName ?? request.planTier ?? "—"}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {amount ? amount : "—"}
-                            {interval ? ` • ${interval}` : ""}
-                          </div>
-                        </TableCell>
-                        <TableCell>{request.status ?? request.paymentStatus ?? "—"}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleApproveTeam(request.requestId)}>
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => handleSyncTeamPayment(request.requestId)}
-                            >
-                              Sync
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleRejectTeam(request.requestId)}>
-                              Reject
-                            </Button>
-                          </div>
-                        </TableCell>
+            {isLoading ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                Loading requests...
+              </div>
+            ) : filteredTeamRequests.length === 0 ? (
+              <Empty className="py-10">
+                <EmptyTitle>No team approvals</EmptyTitle>
+                <EmptyDescription>
+                  {teamSearch.trim()
+                    ? "No team approvals match that search."
+                    : "No team requests found."}
+                </EmptyDescription>
+              </Empty>
+            ) : (
+              <Frame>
+                <FramePanel className="p-0 overflow-hidden">
+                  <Table variant="card">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Team</TableHead>
+                        <TableHead>Admin</TableHead>
+                        <TableHead>Plan</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead />
                       </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </TabsContent>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTeamRequests.map((request) => {
+                        const amount =
+                          formatMoneyFromCents(
+                            request.paymentAmountCents,
+                            request.paymentCurrency
+                          ) ??
+                          request.planDisplayPrice ??
+                          null;
+                        const interval =
+                          String(
+                            request.planBillingCycle ?? request.planBillingInterval ?? ""
+                          )
+                            .replace(/_/g, " ")
+                            .trim() || null;
+                        const status = request.status ?? request.paymentStatus ?? null;
+                        return (
+                          <TableRow key={`team-${request.requestId}`}>
+                            <TableCell>
+                              <div className="font-medium">
+                                {request.teamName ?? "—"}{" "}
+                                {request.maxAthletes ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    ({request.maxAthletes} athletes)
+                                  </span>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{request.adminName ?? "—"}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {request.adminEmail ?? ""}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">
+                                {request.planName ?? request.planTier ?? "—"}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {amount ? amount : "—"}
+                                {interval ? ` • ${interval}` : ""}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={statusBadgeVariant(status)}>
+                                {status ?? "—"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveTeam(request.requestId)}
+                                >
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleSyncTeamPayment(request.requestId)}
+                                >
+                                  Sync
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRejectTeam(request.requestId)}
+                                >
+                                  Reject
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </FramePanel>
+              </Frame>
+            )}
+          </TabsPanel>
         </Tabs>
-      </CardContent>
+      </CardPanel>
     </Card>
   );
 }

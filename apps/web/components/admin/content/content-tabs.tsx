@@ -5,7 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Select } from "../../ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Textarea } from "../../ui/textarea";
 import { ParentCourseMediaUpload } from "../../parent/config/parent-course-media-upload";
@@ -392,11 +398,13 @@ export function ContentTabs({
 
   return (
     <Tabs defaultValue={defaultTab ?? "profile"}>
-      <TabsList>
-        <TabsTrigger value="profile">Profile</TabsTrigger>
-        <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
-        <TabsTrigger value="intro">Intro Video</TabsTrigger>
-      </TabsList>
+      <div className="overflow-x-auto pb-1">
+        <TabsList className="min-w-max">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
+          <TabsTrigger value="intro">Intro Video</TabsTrigger>
+        </TabsList>
+      </div>
       <TabsContent value="profile">
         <div className="grid items-start gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
@@ -518,14 +526,27 @@ export function ContentTabs({
             </div>
             <div className="space-y-2">
               <Label>Format</Label>
-              <Select
-                value={testimonialMediaType}
-                onChange={(e) => setTestimonialMediaType(e.target.value as "text" | "image" | "video")}
-              >
-                <option value="text">Text quote</option>
-                <option value="image">Photo + optional quote</option>
-                <option value="video">Video (link or Shorts / Reel URL)</option>
-              </Select>
+              {(() => {
+                const formatItems = [
+                  { label: "Text quote", value: "text" },
+                  { label: "Photo + optional quote", value: "image" },
+                  { label: "Video (link or Shorts / Reel URL)", value: "video" },
+                ];
+                return (
+                  <Select
+                    items={formatItems}
+                    value={testimonialMediaType}
+                    onValueChange={(val) => setTestimonialMediaType((val ?? "text") as "text" | "image" | "video")}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {formatItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
+                );
+              })()}
             </div>
             <div className="space-y-2">
               <Label>Quote {testimonialMediaType === "text" ? "" : "(optional)"}</Label>
@@ -567,16 +588,29 @@ export function ContentTabs({
                 </div>
                 <div className="space-y-2">
                   <Label>Video shape</Label>
-                  <Select
-                    value={testimonialVideoAspect}
-                    onChange={(e) =>
-                      setTestimonialVideoAspect(e.target.value as "reel" | "landscape" | "square")
-                    }
-                  >
-                    <option value="reel">Vertical (9:16 — Reels / Shorts)</option>
-                    <option value="landscape">Landscape (16:9)</option>
-                    <option value="square">Square (1:1)</option>
-                  </Select>
+                  {(() => {
+                    const aspectItems = [
+                      { label: "Vertical (9:16 — Reels / Shorts)", value: "reel" },
+                      { label: "Landscape (16:9)", value: "landscape" },
+                      { label: "Square (1:1)", value: "square" },
+                    ];
+                    return (
+                      <Select
+                        items={aspectItems}
+                        value={testimonialVideoAspect}
+                        onValueChange={(val) =>
+                          setTestimonialVideoAspect((val ?? "reel") as "reel" | "landscape" | "square")
+                        }
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectPopup>
+                          {aspectItems.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    );
+                  })()}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Paste a direct file URL or a YouTube / Vimeo link. The app uses the same player as exercise videos.

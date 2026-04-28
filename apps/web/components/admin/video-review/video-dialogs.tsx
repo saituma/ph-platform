@@ -628,7 +628,7 @@ export function VideoDialogs({
                     </div>
                     <Badge
                       variant={
-                        video.status === "Priority" ? "primary" : "outline"
+                        video.status === "Priority" ? "default" : "outline"
                       }
                     >
                       {video.status}

@@ -1,17 +1,23 @@
-import * as React from "react";
+import { Separator as SeparatorPrimitive } from "@base-ui/react/separator";
+import type React from "react";
+import { cn } from "@/lib/utils";
 
-import { cn } from "../../lib/utils";
+export function Separator({
+  className,
+  orientation = "horizontal",
+  ...props
+}: SeparatorPrimitive.Props): React.ReactElement {
+  return (
+    <SeparatorPrimitive
+      className={cn(
+        "shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:w-px data-[orientation=vertical]:not-[[class^='h-']]:not-[[class*='_h-']]:self-stretch",
+        className,
+      )}
+      data-slot="separator"
+      orientation={orientation}
+      {...props}
+    />
+  );
+}
 
-const Separator = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("h-px w-full bg-border", className)}
-    {...props}
-  />
-));
-Separator.displayName = "Separator";
-
-export { Separator };
+export { SeparatorPrimitive };

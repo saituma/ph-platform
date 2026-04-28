@@ -36,7 +36,13 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { ScrollArea } from "../../components/ui/scroll-area";
-import { Select } from "../../components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../components/ui/select";
 import {
   Tabs,
   TabsContent,
@@ -1559,21 +1565,25 @@ export default function MessagingPage() {
       title="Messaging"
       subtitle="Announcements, inbox messaging, team groups, and communication stats."
     >
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="announcement" className="flex items-center gap-2">
-            <Megaphone className="h-4 w-4" /> Announcement
-          </TabsTrigger>
-          <TabsTrigger value="inbox" className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4" /> Inbox
-          </TabsTrigger>
-          <TabsTrigger value="teams" className="flex items-center gap-2">
-            <Users2 className="h-4 w-4" /> Teams
-          </TabsTrigger>
-          <TabsTrigger value="stats" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" /> Stats
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onValueChange={(v) => setTab(v ?? "")}>
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="min-w-max">
+            <TabsTrigger value="announcement" className="flex items-center gap-2">
+              <Megaphone className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Announcement</span>
+              <span className="sm:hidden">Announce</span>
+            </TabsTrigger>
+            <TabsTrigger value="inbox" className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 shrink-0" /> Inbox
+            </TabsTrigger>
+            <TabsTrigger value="teams" className="flex items-center gap-2">
+              <Users2 className="h-4 w-4 shrink-0" /> Teams
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 shrink-0" /> Stats
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="announcement">
           <div className="grid gap-6 lg:grid-cols-[1.05fr_1.4fr]">
@@ -1595,96 +1605,140 @@ export default function MessagingPage() {
                     <p className="text-xs text-muted-foreground">
                       Audience type
                     </p>
-                    <Select
-                      value={announcementAudienceType}
-                      onChange={(event) =>
-                        setAnnouncementAudienceType(
-                          event.target.value as
-                            | "all"
-                            | "youth"
-                            | "adult"
-                            | "team"
-                            | "group"
-                            | "tier",
-                        )
-                      }
-                    >
-                      <option value="all">All users</option>
-                      <option value="youth">Youth athletes</option>
-                      <option value="adult">Adult athletes</option>
-                      <option value="team">Specific team</option>
-                      <option value="group">Specific group</option>
-                      <option value="tier">Program tier</option>
-                    </Select>
+                    {(() => {
+                      const audienceTypeItems = [
+                        { label: "All users", value: "all" },
+                        { label: "Youth athletes", value: "youth" },
+                        { label: "Adult athletes", value: "adult" },
+                        { label: "Specific team", value: "team" },
+                        { label: "Specific group", value: "group" },
+                        { label: "Program tier", value: "tier" },
+                      ];
+                      return (
+                        <Select
+                          items={audienceTypeItems}
+                          value={announcementAudienceType}
+                          onValueChange={(v) =>
+                            setAnnouncementAudienceType(
+                              v as "all" | "youth" | "adult" | "team" | "group" | "tier",
+                            )
+                          }
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectPopup>
+                            {audienceTypeItems.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      );
+                    })()}
                   </div>
                   {announcementAudienceType === "team" ? (
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">Team</p>
-                      <Select
-                        value={announcementAudienceTeam}
-                        onChange={(event) =>
-                          setAnnouncementAudienceTeam(event.target.value)
-                        }
-                      >
-                        <option value="">Choose a team</option>
-                        {teams.map((team) => (
-                          <option key={team.team} value={team.team}>
-                            {team.team}
-                          </option>
-                        ))}
-                      </Select>
+                      {(() => {
+                        const teamItems = [
+                          { label: "Choose a team", value: "" },
+                          ...teams.map((team) => ({ label: team.team, value: team.team })),
+                        ];
+                        return (
+                          <Select
+                            items={teamItems}
+                            value={announcementAudienceTeam}
+                            onValueChange={(v) => setAnnouncementAudienceTeam(v ?? "")}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectPopup>
+                              {teamItems.map((item) => (
+                                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                              ))}
+                            </SelectPopup>
+                          </Select>
+                        );
+                      })()}
                     </div>
                   ) : null}
                   {announcementAudienceType === "group" ? (
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">Group</p>
-                      <Select
-                        value={announcementAudienceGroupId}
-                        onChange={(event) =>
-                          setAnnouncementAudienceGroupId(event.target.value)
-                        }
-                      >
-                        <option value="">Choose a group</option>
-                        {groups.map((group) => (
-                          <option key={group.id} value={String(group.id)}>
-                            {group.name ?? `Group ${group.id}`}
-                          </option>
-                        ))}
-                      </Select>
+                      {(() => {
+                        const groupItems = [
+                          { label: "Choose a group", value: "" },
+                          ...groups.map((group) => ({
+                            label: group.name ?? `Group ${group.id}`,
+                            value: String(group.id),
+                          })),
+                        ];
+                        return (
+                          <Select
+                            items={groupItems}
+                            value={announcementAudienceGroupId}
+                            onValueChange={(v) => setAnnouncementAudienceGroupId(v ?? "")}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectPopup>
+                              {groupItems.map((item) => (
+                                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                              ))}
+                            </SelectPopup>
+                          </Select>
+                        );
+                      })()}
                     </div>
                   ) : null}
                   {announcementAudienceType === "tier" ? (
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">Tier</p>
-                      <Select
-                        value={announcementAudienceTier}
-                        onChange={(event) =>
-                          setAnnouncementAudienceTier(event.target.value)
-                        }
-                      >
-                        <option value="">Choose a tier</option>
-                        <option value="PHP">PHP</option>
-                        <option value="PHP_Premium">PHP Premium</option>
-                        <option value="PHP_Premium_Plus">
-                          PHP Premium Plus
-                        </option>
-                        <option value="PHP_Pro">PHP Pro</option>
-                      </Select>
+                      {(() => {
+                        const tierItems = [
+                          { label: "Choose a tier", value: "" },
+                          { label: "PHP", value: "PHP" },
+                          { label: "PHP Premium", value: "PHP_Premium" },
+                          { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
+                          { label: "PHP Pro", value: "PHP_Pro" },
+                        ];
+                        return (
+                          <Select
+                            items={tierItems}
+                            value={announcementAudienceTier}
+                            onValueChange={(v) => setAnnouncementAudienceTier(v ?? "")}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectPopup>
+                              {tierItems.map((item) => (
+                                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                              ))}
+                            </SelectPopup>
+                          </Select>
+                        );
+                      })()}
                     </div>
                   ) : null}
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Timing</p>
-                    <Select
-                      value={announcementTimingType}
-                      onChange={(event) =>
-                        setAnnouncementTimingType(
-                          event.target.value as "permanent" | "scheduled",
-                        )
-                      }
-                    >
-                      <option value="permanent">Permanent</option>
-                      <option value="scheduled">Scheduled</option>
-                    </Select>
+                    {(() => {
+                      const timingItems = [
+                        { label: "Permanent", value: "permanent" },
+                        { label: "Scheduled", value: "scheduled" },
+                      ];
+                      return (
+                        <Select
+                          items={timingItems}
+                          value={announcementTimingType}
+                          onValueChange={(v) =>
+                            setAnnouncementTimingType(v as "permanent" | "scheduled")
+                          }
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectPopup>
+                            {timingItems.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      );
+                    })()}
                   </div>
                 </div>
                 {announcementTimingType === "scheduled" ? (
@@ -1783,37 +1837,55 @@ export default function MessagingPage() {
                                 <p className="text-xs text-muted-foreground">
                                   Status
                                 </p>
-                                <Select
-                                  value={
-                                    editAnnouncementIsActive ? "on" : "off"
-                                  }
-                                  onChange={(event) =>
-                                    setEditAnnouncementIsActive(
-                                      event.target.value === "on",
-                                    )
-                                  }
-                                >
-                                  <option value="on">On</option>
-                                  <option value="off">Off</option>
-                                </Select>
+                                {(() => {
+                                  const activeItems = [
+                                    { label: "On", value: "on" },
+                                    { label: "Off", value: "off" },
+                                  ];
+                                  return (
+                                    <Select
+                                      items={activeItems}
+                                      value={editAnnouncementIsActive ? "on" : "off"}
+                                      onValueChange={(v) =>
+                                        setEditAnnouncementIsActive(v === "on")
+                                      }
+                                    >
+                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectPopup>
+                                        {activeItems.map((item) => (
+                                          <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                        ))}
+                                      </SelectPopup>
+                                    </Select>
+                                  );
+                                })()}
                               </div>
                               <div className="space-y-1">
                                 <p className="text-xs text-muted-foreground">
                                   Timing
                                 </p>
-                                <Select
-                                  value={editAnnouncementTimingType}
-                                  onChange={(event) =>
-                                    setEditAnnouncementTimingType(
-                                      event.target.value as
-                                        | "permanent"
-                                        | "scheduled",
-                                    )
-                                  }
-                                >
-                                  <option value="permanent">Permanent</option>
-                                  <option value="scheduled">Scheduled</option>
-                                </Select>
+                                {(() => {
+                                  const editTimingItems = [
+                                    { label: "Permanent", value: "permanent" },
+                                    { label: "Scheduled", value: "scheduled" },
+                                  ];
+                                  return (
+                                    <Select
+                                      items={editTimingItems}
+                                      value={editAnnouncementTimingType}
+                                      onValueChange={(v) =>
+                                        setEditAnnouncementTimingType(v as "permanent" | "scheduled")
+                                      }
+                                    >
+                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectPopup>
+                                        {editTimingItems.map((item) => (
+                                          <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                        ))}
+                                      </SelectPopup>
+                                    </Select>
+                                  );
+                                })()}
                               </div>
                             </div>
                             {editAnnouncementTimingType === "scheduled" ? (
@@ -2332,17 +2404,28 @@ export default function MessagingPage() {
             />
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Group type</p>
-              <Select
-                value={newGroupCategory}
-                onChange={(event) =>
-                  setNewGroupCategory(
-                    event.target.value as "coach_group" | "team",
-                  )
-                }
-              >
-                <option value="coach_group">Coach group</option>
-                <option value="team">Team inbox</option>
-              </Select>
+              {(() => {
+                const groupCategoryItems = [
+                  { label: "Coach group", value: "coach_group" },
+                  { label: "Team inbox", value: "team" },
+                ];
+                return (
+                  <Select
+                    items={groupCategoryItems}
+                    value={newGroupCategory}
+                    onValueChange={(v) =>
+                      setNewGroupCategory(v as "coach_group" | "team")
+                    }
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {groupCategoryItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
+                );
+              })()}
             </div>
             <Input
               placeholder="Search members..."

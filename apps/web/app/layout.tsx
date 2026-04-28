@@ -4,8 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "./fullcalendar.css";
 import "./globals.css";
 import { Providers } from "./providers";
-import { SileoToaster } from "../components/ui/sileo-toaster";
-import { SonnerToaster } from "../components/ui/sonner-toaster";
+import { ToastProvider } from "../components/ui/toast";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff2",
@@ -54,9 +53,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
       >
         <Providers>
-          {children}
-          <SileoToaster />
-          <SonnerToaster />
+          <ToastProvider position="bottom-right">
+            {children}
+          </ToastProvider>
         </Providers>
       </body>
     </html>

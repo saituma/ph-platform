@@ -1,12 +1,12 @@
-import { sileo } from "sileo";
+import { toastManager } from "@/components/ui/toast";
 
 export const toast = {
   success: (title: string, description?: string) =>
-    sileo.success({ title, description }),
+    toastManager.add({ type: "success", title, description }),
   error: (title: string, description?: string) =>
-    sileo.error({ title, description }),
+    toastManager.add({ type: "error", title, description }),
   info: (title: string, description?: string) =>
-    sileo.info({ title, description }),
+    toastManager.add({ type: "info", title, description }),
   warning: (title: string, description?: string) =>
-    sileo.warning({ title, description }),
+    toastManager.add({ type: "warning", title, description }),
 };

@@ -40,7 +40,7 @@ export function UsersCards({
         >
           <div className="flex items-center justify-between">
             <p className="font-semibold text-foreground">{user.name}</p>
-            <Badge variant={user.tier === "Premium" ? "primary" : "default"}>
+            <Badge variant={user.tier === "Premium" ? "default" : "default"}>
               {user.tier}
             </Badge>
           </div>

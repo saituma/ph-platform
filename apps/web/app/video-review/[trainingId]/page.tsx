@@ -21,17 +21,6 @@ type VideoItem = {
   createdAt?: string | null;
 };
 
-type RawVideoUpload = {
-  id: number;
-  athleteName?: string | null;
-  athleteUserId?: number | null;
-  reviewedAt?: string | null;
-  createdAt?: string | null;
-  programSectionContentId?: number | null;
-  programSectionTitle?: string | null;
-  programSectionType?: string | null;
-};
-
 type AthleteCard = {
   id: string;
   name: string;
@@ -58,10 +47,16 @@ export default function TrainingDetailPage() {
   const { data: videosData, isLoading } = useGetVideoUploadsQuery();
 
   const videos = useMemo<VideoItem[]>(() => {
-    const items: RawVideoUpload[] = Array.isArray(videosData?.items) ? videosData.items : [];
-    return items.map((item) => {
+    const items = videosData?.items ?? [];
+    return items.map((item: any) => {
       const reviewed = Boolean(item.reviewedAt);
-      const status = reviewed ? "Reviewed" : "Awaiting";
+      const createdAt = item.createdAt ? new Date(item.createdAt) : null;
+      const daysOpen = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24) : 0;
+      const status = reviewed
+        ? "Reviewed"
+        : daysOpen >= 7
+          ? "Priority"
+          : "Awaiting";
       return {
         id: item.id,
         athlete: item.athleteName ?? "Athlete",
@@ -135,7 +130,7 @@ export default function TrainingDetailPage() {
                   <div className="text-xs text-muted-foreground">{athlete.uploads} uploads</div>
                 </div>
                 {athlete.awaiting > 0 ? (
-                  <Badge variant="accent">{athlete.awaiting} awaiting</Badge>
+                  <Badge variant="outline">{athlete.awaiting} awaiting</Badge>
                 ) : (
                   <Badge>Reviewed</Badge>
                 )}

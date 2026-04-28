@@ -11,11 +11,9 @@ export default function BillingPlansPage() {
       title="Subscription Plans"
       subtitle="Dynamic plan setup used by billing and tier-aware experiences."
       actions={
-        <Button asChild variant="outline">
-          <Link href="/billing">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Billing
-          </Link>
+        <Button render={<Link href="/billing" />} variant="outline">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Billing
         </Button>
       }
     >

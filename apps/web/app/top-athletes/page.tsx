@@ -9,9 +9,31 @@ import { TopAthleteRow } from "../../components/admin/dashboard/dashboard-overvi
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../components/ui/select";
 import { Skeleton } from "../../components/ui/skeleton";
 import { useGetDashboardQuery } from "../../lib/apiSlice";
+
+const tierFilterItems = [
+  { label: "All tiers", value: "all" },
+  { label: "Program", value: "program" },
+  { label: "Premium", value: "premium" },
+  { label: "Premium Plus", value: "premium-plus" },
+  { label: "Pro", value: "pro" },
+];
+
+const scoreFilterItems = [
+  { label: "Any activity", value: "all" },
+  { label: "1+ sessions (30d)", value: "1" },
+  { label: "2+ sessions (30d)", value: "2" },
+  { label: "3+ sessions (30d)", value: "3" },
+  { label: "5+ sessions (30d)", value: "5" },
+];
 
 type DashboardTopAthlete = {
   name: string;
@@ -72,6 +94,14 @@ export default function TopAthletesPage() {
     return Array.from(teams).sort((a, b) => a.localeCompare(b));
   }, [athletes]);
 
+  const teamFilterItems = useMemo(
+    () => [
+      { label: "All teams", value: "all" },
+      ...teamOptions.map((team) => ({ label: team, value: team })),
+    ],
+    [teamOptions]
+  );
+
   const filteredAthletes = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     const minSessions = scoreFilter === "all" ? 0 : Number.parseInt(scoreFilter, 10);
@@ -103,8 +133,8 @@ export default function TopAthletesPage() {
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             Refresh
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/">Back to Overview</Link>
+          <Button variant="outline" size="sm" render={<Link href="/" />}>
+            Back to Overview
           </Button>
         </div>
       }
@@ -125,38 +155,43 @@ export default function TopAthletesPage() {
               aria-label="Search athlete"
             />
             <Select
+              items={tierFilterItems}
               value={tierFilter}
-              onChange={(event) => setTierFilter(event.target.value as TierFilter)}
+              onValueChange={(value) => setTierFilter(value as TierFilter)}
               aria-label="Filter by tier"
             >
-              <option value="all">All tiers</option>
-              <option value="program">Program</option>
-              <option value="premium">Premium</option>
-              <option value="premium-plus">Premium Plus</option>
-              <option value="pro">Pro</option>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectPopup>
+                {tierFilterItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                ))}
+              </SelectPopup>
             </Select>
             <Select
+              items={scoreFilterItems}
               value={scoreFilter}
-              onChange={(event) => setScoreFilter(event.target.value as ScoreFilter)}
+              onValueChange={(value) => setScoreFilter(value as ScoreFilter)}
               aria-label="Filter by activity"
             >
-              <option value="all">Any activity</option>
-              <option value="1">1+ sessions (30d)</option>
-              <option value="2">2+ sessions (30d)</option>
-              <option value="3">3+ sessions (30d)</option>
-              <option value="5">5+ sessions (30d)</option>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectPopup>
+                {scoreFilterItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                ))}
+              </SelectPopup>
             </Select>
             <Select
+              items={teamFilterItems}
               value={teamFilter}
-              onChange={(event) => setTeamFilter(event.target.value)}
+              onValueChange={(v) => setTeamFilter(v ?? "")}
               aria-label="Filter by team"
             >
-              <option value="all">All teams</option>
-              {teamOptions.map((team) => (
-                <option key={team} value={team}>
-                  {team}
-                </option>
-              ))}
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectPopup>
+                {teamFilterItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                ))}
+              </SelectPopup>
             </Select>
           </div>
 
@@ -175,7 +210,7 @@ export default function TopAthletesPage() {
                   name={athlete.name}
                   score={`${athlete.scoreLabel} • Team: ${athlete.team}`}
                   tier={athlete.tier}
-                  tierVariant={athlete.tier === "Premium" ? "primary" : "default"}
+                  tierVariant={athlete.tier === "Premium" ? "secondary" : "default"}
                 />
               ))}
             </div>

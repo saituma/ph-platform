@@ -14,7 +14,13 @@ import {
 } from "../../../../../components/ui/card";
 import { Input } from "../../../../../components/ui/input";
 import { Label } from "../../../../../components/ui/label";
-import { Select } from "../../../../../components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../../../../components/ui/select";
 import { Textarea } from "../../../../../components/ui/textarea";
 import { SectionHeader } from "../../../../../components/admin/section-header";
 import {
@@ -372,10 +378,8 @@ export default function TeamMemberDetailPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/teams/${encodeURIComponent(teamName)}`}>
-                Back to team
-              </Link>
+            <Button variant="outline" size="sm" render={<Link href={`/teams/${encodeURIComponent(teamName)}`} />}>
+              Back to team
             </Button>
           </CardContent>
         </Card>
@@ -435,21 +439,34 @@ export default function TeamMemberDetailPage() {
                 </div>
                 <div className="space-y-1">
                   <Label>Program tier</Label>
-                  <Select
-                    value={form.currentProgramTier}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        currentProgramTier: event.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">No tier</option>
-                    <option value="PHP">PHP Program</option>
-                    <option value="PHP_Premium">PHP Premium</option>
-                    <option value="PHP_Premium_Plus">PHP Premium Plus</option>
-                    <option value="PHP_Pro">PHP Pro</option>
-                  </Select>
+                  {(() => {
+                    const programTierItems = [
+                      { label: "No tier", value: "" },
+                      { label: "PHP Program", value: "PHP" },
+                      { label: "PHP Premium", value: "PHP_Premium" },
+                      { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
+                      { label: "PHP Pro", value: "PHP_Pro" },
+                    ];
+                    return (
+                      <Select
+                        items={programTierItems}
+                        value={form.currentProgramTier}
+                        onValueChange={(value) =>
+                          setForm((current) => ({
+                            ...current,
+                            currentProgramTier: value ?? "",
+                          }))
+                        }
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectPopup>
+                          {programTierItems.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-1">
                   <Label>Guardian email</Label>

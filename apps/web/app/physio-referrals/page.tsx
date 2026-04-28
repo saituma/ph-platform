@@ -9,7 +9,7 @@ import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Textarea } from "../../components/ui/textarea";
 import {
@@ -779,7 +779,7 @@ export default function ReferralsPage() {
       title="Referrals"
       subtitle="Create coach-managed referrals for one athlete, an age range, or a grouped cohort."
     >
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v ?? "")}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Coach referrals</p>
@@ -787,10 +787,12 @@ export default function ReferralsPage() {
               Assign a referral to one athlete, an age-based segment, or a paid-program group without leaving this page.
             </p>
           </div>
-          <TabsList>
-            <TabsTrigger value="create">Create Referral</TabsTrigger>
-            <TabsTrigger value="existing">Existing Referrals</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="min-w-max">
+              <TabsTrigger value="create">Create Referral</TabsTrigger>
+              <TabsTrigger value="existing">Existing Referrals</TabsTrigger>
+            </TabsList>
+          </div>
         </div>
 
         <TabsContent value="create" className="mt-6">
@@ -811,28 +813,40 @@ export default function ReferralsPage() {
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target Mode</label>
-                  <Select
-                    value={targetMode}
-                    onChange={(event) => setTargetMode(event.target.value as TargetMode)}
-                    aria-label="Target mode"
-                  >
-                    <option value="single">Single Athlete</option>
-                    <option value="team">Team</option>
-                    <option value="age_range">Age Range</option>
-                    <option value="group">Group</option>
-                  </Select>
+                  {(() => {
+                    const targetModeItems = [
+                      { label: "Single Athlete", value: "single" },
+                      { label: "Team", value: "team" },
+                      { label: "Age Range", value: "age_range" },
+                      { label: "Group", value: "group" },
+                    ];
+                    return (
+                      <Select items={targetModeItems} value={targetMode} onValueChange={(v) => setTargetMode(v as TargetMode)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectPopup>
+                          {targetModeItems.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referral Type</label>
-                  <Select
-                    value={referralType}
-                    onChange={(event) => setReferralType(event.target.value)}
-                    aria-label="Referral type"
-                  >
-                    {REFERRAL_TYPE_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </Select>
+                  {(() => {
+                    const referralTypeItems = REFERRAL_TYPE_OPTIONS.map((option) => ({ label: option, value: option }));
+                    return (
+                      <Select items={referralTypeItems} value={referralType} onValueChange={(v) => setReferralType(v ?? "")}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectPopup>
+                          {referralTypeItems.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    );
+                  })()}
                 </div>
                 {referralType === "Other" ? (
                   <div className="space-y-1">
@@ -895,14 +909,22 @@ export default function ReferralsPage() {
               {targetMode === "team" ? (
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Team</label>
-                  <Select value={teamName} onChange={(event) => setTeamName(event.target.value)} aria-label="Select team">
-                    <option value="">Select a team</option>
-                    {teamOptions.map((team) => (
-                      <option key={team} value={team}>
-                        {team}
-                      </option>
-                    ))}
-                  </Select>
+                  {(() => {
+                    const teamSelectItems = [
+                      { label: "Select a team", value: "" },
+                      ...teamOptions.map((team) => ({ label: team, value: team })),
+                    ];
+                    return (
+                      <Select items={teamSelectItems} value={teamName} onValueChange={(v) => setTeamName(v ?? "")}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectPopup>
+                          {teamSelectItems.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    );
+                  })()}
                   <p className="text-xs text-muted-foreground">All athletes in this team are eligible (youth and adult).</p>
                 </div>
               ) : null}
@@ -912,10 +934,22 @@ export default function ReferralsPage() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1">
                       <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Age Option</label>
-                      <Select value={ageMode} onChange={(event) => setAgeMode(event.target.value as AgeMode)} aria-label="Age option">
-                        <option value="single_age">Single Age</option>
-                        <option value="range_age">Age Range</option>
-                      </Select>
+                      {(() => {
+                        const ageModeItems = [
+                          { label: "Single Age", value: "single_age" },
+                          { label: "Age Range", value: "range_age" },
+                        ];
+                        return (
+                          <Select items={ageModeItems} value={ageMode} onValueChange={(v) => setAgeMode(v as AgeMode)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectPopup>
+                              {ageModeItems.map((item) => (
+                                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                              ))}
+                            </SelectPopup>
+                          </Select>
+                        );
+                      })()}
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -958,14 +992,25 @@ export default function ReferralsPage() {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saved Group</label>
-                    <Select value={groupId} onChange={(event) => setGroupId(event.target.value)} aria-label="Select referral group">
-                      <option value="">Select a saved group</option>
-                      {referralGroups.map((group) => (
-                        <option key={group.id} value={String(group.id)}>
-                          {group.name} ({group.members.length}/{group.expectedSize})
-                        </option>
-                      ))}
-                    </Select>
+                    {(() => {
+                      const groupSelectItems = [
+                        { label: "Select a saved group", value: "" },
+                        ...referralGroups.map((group) => ({
+                          label: `${group.name} (${group.members.length}/${group.expectedSize})`,
+                          value: String(group.id),
+                        })),
+                      ];
+                      return (
+                        <Select items={groupSelectItems} value={groupId} onValueChange={(v) => setGroupId(v ?? "")}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectPopup>
+                            {groupSelectItems.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      );
+                    })()}
                     <p className="text-xs text-muted-foreground">
                       {selectedReferralGroup
                         ? `${selectedReferralGroup.members.length} athlete${selectedReferralGroup.members.length === 1 ? "" : "s"} in ${selectedReferralGroup.name}.`
@@ -1180,15 +1225,19 @@ export default function ReferralsPage() {
                         {editingId === entry.id ? (
                           <div className="mt-4 space-y-3">
                             <div className="grid gap-3 lg:grid-cols-[0.8fr_1.2fr]">
-                              <Select
-                                value={editReferralType}
-                                onChange={(event) => setEditReferralType(event.target.value)}
-                                aria-label="Edit referral type"
-                              >
-                                {REFERRAL_TYPE_OPTIONS.map((option) => (
-                                  <option key={option} value={option}>{option}</option>
-                                ))}
-                              </Select>
+                              {(() => {
+                                const editReferralTypeItems = REFERRAL_TYPE_OPTIONS.map((option) => ({ label: option, value: option }));
+                                return (
+                                  <Select items={editReferralTypeItems} value={editReferralType} onValueChange={(v) => setEditReferralType(v ?? "")}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectPopup>
+                                      {editReferralTypeItems.map((item) => (
+                                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                      ))}
+                                    </SelectPopup>
+                                  </Select>
+                                );
+                              })()}
                               {editReferralType === "Other" ? (
                                 <Input value={editCustomReferralType} onChange={(event) => setEditCustomReferralType(event.target.value)} placeholder="Custom referral type" />
                               ) : null}
