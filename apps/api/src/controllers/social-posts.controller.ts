@@ -33,7 +33,7 @@ const createPostSchema = z
 export async function teamPostsList(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const { teamId } = await assertTeamMemberSocial(req.user.id);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const limit = req.query.limit ? Number(req.query.limit) : 20;
     const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
     const out = await listSocialPosts({
@@ -51,7 +51,7 @@ export async function teamPostsList(req: Request, res: Response) {
 export async function teamPostsCreate(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const parsed = createPostSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
@@ -69,7 +69,7 @@ export async function teamPostsCreate(req: Request, res: Response) {
 export async function teamPostLikeCreate(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const postId = Number(req.params.postId);
     if (!Number.isFinite(postId)) return res.status(400).json({ error: "Invalid postId" });
     const out = await likeSocialPost(req.user.id, postId);
@@ -82,7 +82,7 @@ export async function teamPostLikeCreate(req: Request, res: Response) {
 export async function teamPostLikeDelete(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const postId = Number(req.params.postId);
     if (!Number.isFinite(postId)) return res.status(400).json({ error: "Invalid postId" });
     const out = await unlikeSocialPost(req.user.id, postId);
@@ -95,7 +95,7 @@ export async function teamPostLikeDelete(req: Request, res: Response) {
 export async function teamPostCommentsList(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const postId = Number(req.params.postId);
     if (!Number.isFinite(postId)) return res.status(400).json({ error: "Invalid postId" });
     const out = await listPostComments(postId);
@@ -113,7 +113,7 @@ export async function teamPostCommentsList(req: Request, res: Response) {
 export async function teamPostCommentsCreate(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const postId = Number(req.params.postId);
     if (!Number.isFinite(postId)) return res.status(400).json({ error: "Invalid postId" });
     const { content, parentId } = req.body;
@@ -135,7 +135,7 @@ export async function teamPostCommentsCreate(req: Request, res: Response) {
 export async function teamPostCommentDelete(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id);
+    await assertTeamMemberSocial(req.user.id, req.user.role);
     const commentId = Number(req.params.commentId);
     if (!Number.isFinite(commentId)) return res.status(400).json({ error: "Invalid commentId" });
     const out = await deletePostComment(req.user.id, commentId);

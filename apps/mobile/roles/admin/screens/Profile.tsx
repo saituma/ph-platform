@@ -1,6 +1,4 @@
-import { ActionButton } from "@/components/dashboard/ActionButton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
@@ -11,7 +9,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout } from "@/store/slices/userSlice";
 import { useRouter } from "expo-router";
 import React, { useCallback } from "react";
-import { Alert, Image, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Pressable, TouchableOpacity, View } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Animated, {
   Easing,
@@ -22,7 +20,7 @@ import Animated, {
 import { useEffect } from "react";
 
 export default function AdminProfileScreen() {
-  const { colors, isDark } = useAppTheme();
+  const { colors, isDark, toggleColorScheme } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const insets = useAppSafeAreaInsets();
@@ -86,8 +84,8 @@ export default function AdminProfileScreen() {
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
       >
         {/* ── Page title ── */}
-        <View style={{ paddingHorizontal: 24, paddingTop: 40, marginBottom: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 16, overflow: "hidden" }}>
+        <View style={{ paddingHorizontal: 24, paddingTop: 40, marginBottom: 24, flexDirection: "row", alignItems: "center" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <View style={{ width: 5, height: 36, borderRadius: 3, backgroundColor: colors.accent }} />
             <View>
               <Text
@@ -101,7 +99,6 @@ export default function AdminProfileScreen() {
               </Text>
             </View>
           </View>
-          <ThemeToggle size={52} iconSize={24} />
         </View>
 
         {/* ── Identity card ── */}
@@ -208,18 +205,80 @@ export default function AdminProfileScreen() {
                 onConfirmPending={handleConfirmAvatar}
               />
               <View className="mt-4">
-                <ActionButton
-                  label={isSaving ? "Saving…" : "Save Changes"}
-                  icon="check"
-                  color="bg-accent"
-                  iconColor="text-white"
+                <Pressable
                   onPress={handleSave}
-                  fullWidth
-                  size="xl"
-                />
+                  disabled={isSaving}
+                  style={({ pressed }) => ({ opacity: pressed || isSaving ? 0.8 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+                >
+                  <View
+                    style={{
+                      height: 56,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 10,
+                      borderRadius: 20,
+                      backgroundColor: colors.accent,
+                    }}
+                  >
+                    <Feather name="check" size={20} color="#FFFFFF" />
+                    <Text style={{ fontFamily: "ClashDisplay-Bold", fontSize: 16, color: "#FFFFFF" }}>
+                      {isSaving ? "Saving…" : "Save Changes"}
+                    </Text>
+                  </View>
+                </Pressable>
               </View>
             </View>
           </SectionGroup>
+
+          {/* ── Appearance ── */}
+          <View
+            style={{
+              flexDirection: "row",
+              backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+              borderRadius: 99,
+              padding: 4,
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => { if (isDark) toggleColorScheme(); }}
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 7,
+                paddingVertical: 11,
+                borderRadius: 99,
+                backgroundColor: !isDark ? colors.card : "transparent",
+                ...(!isDark ? { shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 } : {}),
+              }}
+            >
+              <Feather name="sun" size={16} color={!isDark ? colors.accent : "rgba(255,255,255,0.35)"} />
+              <Text style={{ fontFamily: "Outfit-Medium", fontSize: 13, color: !isDark ? colors.textPrimary : "rgba(255,255,255,0.35)" }}>
+                Light
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { if (!isDark) toggleColorScheme(); }}
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 7,
+                paddingVertical: 11,
+                borderRadius: 99,
+                backgroundColor: isDark ? colors.card : "transparent",
+                ...(isDark ? { shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 } : {}),
+              }}
+            >
+              <Feather name="moon" size={16} color={isDark ? colors.accent : "rgba(0,0,0,0.35)"} />
+              <Text style={{ fontFamily: "Outfit-Medium", fontSize: 13, color: isDark ? colors.textPrimary : "rgba(0,0,0,0.35)" }}>
+                Dark
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {/* ── Account settings ── */}
           <SectionGroup label="Account">
@@ -279,16 +338,27 @@ export default function AdminProfileScreen() {
           </SectionGroup>
 
           {/* ── Logout ── */}
-          <View>
-            <ActionButton
-              label="Sign Out"
-              icon="log-out"
-              color="bg-red-600"
-              iconColor="text-white"
-              onPress={handleLogout}
-              fullWidth
-            />
-          </View>
+          <Pressable
+            onPress={handleLogout}
+            style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+          >
+            <View
+              style={{
+                height: 56,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                borderRadius: 20,
+                backgroundColor: "#DC2626",
+              }}
+            >
+              <Feather name="log-out" size={20} color="#FFFFFF" />
+              <Text style={{ fontFamily: "ClashDisplay-Bold", fontSize: 16, color: "#FFFFFF" }}>
+                Sign Out
+              </Text>
+            </View>
+          </Pressable>
         </Animated.View>
       </ThemedScrollView>
     </View>

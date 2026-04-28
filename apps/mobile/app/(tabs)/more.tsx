@@ -1,6 +1,5 @@
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -10,7 +9,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
@@ -57,7 +56,7 @@ function formatAccessTierLabel(tier: string | null | undefined): string {
 }
 
 export default function MoreScreen() {
-  const { colors, isDark } = useAppTheme();
+  const { colors, isDark, toggleColorScheme } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const profile = useAppSelector((state) => state.user.profile);
@@ -186,9 +185,6 @@ export default function MoreScreen() {
             paddingHorizontal: 24,
             paddingTop: 28,
             paddingBottom: 20,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
           }}
         >
           <Text
@@ -202,7 +198,6 @@ export default function MoreScreen() {
           >
             More
           </Text>
-          <ThemeToggle size={52} iconSize={24} />
         </View>
 
         {/* Profile Card */}
@@ -392,6 +387,56 @@ export default function MoreScreen() {
             </View>
           ) : (
             <>
+              {/* Appearance switch */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+                  borderRadius: 99,
+                  padding: 4,
+                  marginBottom: 8,
+                }}
+              >
+                <Pressable
+                  onPress={() => { if (isDark) toggleColorScheme(); }}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 7,
+                    paddingVertical: 11,
+                    borderRadius: 99,
+                    backgroundColor: !isDark ? subtleBg : "transparent",
+                    ...(!isDark ? { shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 } : {}),
+                  }}
+                >
+                  <Feather name="sun" size={16} color={!isDark ? colors.accent : "rgba(255,255,255,0.35)"} />
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: !isDark ? textPrimary : "rgba(255,255,255,0.35)" }}>
+                    Light
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => { if (!isDark) toggleColorScheme(); }}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 7,
+                    paddingVertical: 11,
+                    borderRadius: 99,
+                    backgroundColor: isDark ? subtleBg : "transparent",
+                    ...(isDark ? { shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 } : {}),
+                  }}
+                >
+                  <Feather name="moon" size={16} color={isDark ? colors.accent : "rgba(0,0,0,0.35)"} />
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: isDark ? textPrimary : "rgba(0,0,0,0.35)" }}>
+                    Dark
+                  </Text>
+                </Pressable>
+              </View>
+
               <SectionLabel text="Account" color={labelColor} />
 
               <MenuItem
