@@ -2,10 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
+import {
+  Dialog,
+  DialogPopup,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogPanel,
+  DialogFooter,
+} from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Select } from "../../ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { useGetUserOnboardingQuery, useUpdateProgramTierMutation } from "../../../lib/apiSlice";
 
@@ -31,8 +45,30 @@ type BillingRequest = {
   createdAt?: string | null;
 };
 
+const PROGRAM_TIER_ITEMS = [
+  { label: "Approve & Assign PHP Program", value: "PHP" },
+  { label: "Approve & Assign PHP Premium", value: "PHP_Premium" },
+  { label: "Approve & Assign PHP Premium Plus", value: "PHP_Premium_Plus" },
+  { label: "Approve & Assign PHP Pro", value: "PHP_Pro" },
+];
+
+const ASSIGN_TIER_ITEMS = [
+  { label: "PHP Program", value: "PHP" },
+  { label: "PHP Premium", value: "PHP_Premium" },
+  { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
+  { label: "PHP Pro", value: "PHP_Pro" },
+];
+
+const NEW_USER_TIER_ITEMS = [
+  { label: "Program tier", value: "" },
+  { label: "PHP Program", value: "PHP" },
+  { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
+  { label: "PHP Premium", value: "PHP_Premium" },
+];
+
 export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsProps) {
   const [error, setError] = useState<string | null>(null);
+  const [newUserTier, setNewUserTier] = useState("");
   const [programTierSelection, setProgramTierSelection] = useState<{ userId: number; tier: string } | null>(null);
   const [billingStatus, setBillingStatus] = useState<{
     planTier?: string | null;
@@ -42,6 +78,7 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
     paymentStatus?: string | null;
     createdAt?: string | null;
   } | null>(null);
+
   const shouldFetch = Boolean(
     selectedUserId && (active === "review-onboarding" || active === "assign-program")
   );
@@ -59,6 +96,7 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
     selectedUserId && programTierSelection?.userId === selectedUserId
       ? programTierSelection.tier
       : resolvedTier;
+
   useEffect(() => {
     if (!selectedUserId || !shouldFetch) return;
     let activeRequest = true;
@@ -91,9 +129,10 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
       activeRequest = false;
     };
   }, [selectedUserId, shouldFetch]);
+
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogPopup>
         <DialogHeader>
           <DialogTitle>
             {active === "new-user" && "Create New User"}
@@ -104,27 +143,41 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
             {selectedUserId ? `Selected user #${selectedUserId}` : "Select a user."}
           </DialogDescription>
         </DialogHeader>
-        <div className="mt-6 space-y-4">
-          {active === "new-user" ? (
-            <>
+
+        {active === "new-user" ? (
+          <>
+            <DialogPanel className="space-y-4">
               <Input placeholder="Athlete name" />
               <Input placeholder="Parent email" />
-              <Select>
-                <option>Program tier</option>
-                <option>PHP Program</option>
-                <option>PHP Premium Plus</option>
-                <option>PHP Premium</option>
+              <Select
+                items={NEW_USER_TIER_ITEMS}
+                value={newUserTier}
+                onValueChange={(value) => setNewUserTier(value ?? "")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Program tier" />
+                </SelectTrigger>
+                <SelectPopup>
+                  {NEW_USER_TIER_ITEMS.filter((i) => i.value).map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
               </Select>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button onClick={onClose}>Create</Button>
-              </div>
-            </>
-          ) : null}
-          {active === "review-onboarding" ? (
-            <div className="space-y-4">
+            </DialogPanel>
+            <DialogFooter>
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={onClose}>Create</Button>
+            </DialogFooter>
+          </>
+        ) : null}
+
+        {active === "review-onboarding" ? (
+          <>
+            <DialogPanel className="space-y-4">
               {isFetching ? (
                 <div className="rounded-2xl border border-border bg-secondary/30 p-4 text-sm text-muted-foreground">
                   Loading onboarding details...
@@ -173,7 +226,9 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Injuries:</span>
                   <span className="font-medium">
-                    {onboarding?.athlete?.injuries ? JSON.stringify(onboarding.athlete.injuries) : "None"}
+                    {onboarding?.athlete?.injuries
+                      ? JSON.stringify(onboarding.athlete.injuries)
+                      : "None"}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -191,46 +246,55 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
               </div>
               <Textarea placeholder="Coach feedback or notes" />
               <Select
+                items={PROGRAM_TIER_ITEMS}
                 value={programTier}
-                onChange={(e) => {
-                  if (!selectedUserId) return;
-                  setProgramTierSelection({ userId: selectedUserId, tier: e.target.value });
+                onValueChange={(value) => {
+                  if (!selectedUserId || value == null) return;
+                  setProgramTierSelection({ userId: selectedUserId, tier: value });
                 }}
               >
-                <option value="PHP">Approve & Assign PHP Program</option>
-                <option value="PHP_Premium">Approve & Assign PHP Premium</option>
-                <option value="PHP_Premium_Plus">Approve & Assign PHP Premium Plus</option>
-                <option value="PHP_Pro">Approve & Assign PHP Pro</option>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup>
+                  {PROGRAM_TIER_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
               </Select>
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={async () => {
-                    if (!selectedUserId || !athleteId) {
-                      setError("Unable to resolve athlete for this user.");
-                      return;
-                    }
-                    setError(null);
-                    try {
-                      await updateProgramTier({ athleteId, programTier }).unwrap();
-                      onClose();
-                    } catch {
-                      setError("Failed to update tier");
-                      return;
-                    }
-                  }}
-                  disabled={isUpdatingTier}
-                >
-                  {isUpdatingTier ? "Saving..." : "Finalize Review"}
-                </Button>
-              </div>
-            </div>
-          ) : null}
-          {active === "assign-program" ? (
-            <>
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            </DialogPanel>
+            <DialogFooter>
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!selectedUserId || !athleteId) {
+                    setError("Unable to resolve athlete for this user.");
+                    return;
+                  }
+                  setError(null);
+                  try {
+                    await updateProgramTier({ athleteId, programTier }).unwrap();
+                    onClose();
+                  } catch {
+                    setError("Failed to update tier");
+                  }
+                }}
+                disabled={isUpdatingTier}
+              >
+                {isUpdatingTier ? "Saving..." : "Finalize Review"}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : null}
+
+        {active === "assign-program" ? (
+          <>
+            <DialogPanel className="space-y-4">
               <div className="rounded-2xl border border-border bg-secondary/20 p-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Current Tier:</span>
@@ -252,47 +316,53 @@ export function UsersDialogs({ active, onClose, selectedUserId }: UsersDialogsPr
                 ) : null}
               </div>
               <Select
+                items={ASSIGN_TIER_ITEMS}
                 value={programTier}
-                onChange={(e) => {
-                  if (!selectedUserId) return;
-                  setProgramTierSelection({ userId: selectedUserId, tier: e.target.value });
+                onValueChange={(value) => {
+                  if (!selectedUserId || value == null) return;
+                  setProgramTierSelection({ userId: selectedUserId, tier: value });
                 }}
               >
-                <option value="PHP">PHP Program</option>
-                <option value="PHP_Premium">PHP Premium</option>
-                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
-                <option value="PHP_Pro">PHP Pro</option>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup>
+                  {ASSIGN_TIER_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
               </Select>
               <Textarea placeholder="Assignment notes" />
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={async () => {
-                    if (!selectedUserId || !athleteId) {
-                      setError("Unable to resolve athlete for this user.");
-                      return;
-                    }
-                    setError(null);
-                    try {
-                      await updateProgramTier({ athleteId, programTier }).unwrap();
-                      onClose();
-                    } catch {
-                      setError("Failed to update tier");
-                      return;
-                    }
-                  }}
-                  disabled={isUpdatingTier}
-                >
-                  {isUpdatingTier ? "Assigning..." : "Assign"}
-                </Button>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </DialogContent>
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            </DialogPanel>
+            <DialogFooter>
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!selectedUserId || !athleteId) {
+                    setError("Unable to resolve athlete for this user.");
+                    return;
+                  }
+                  setError(null);
+                  try {
+                    await updateProgramTier({ athleteId, programTier }).unwrap();
+                    onClose();
+                  } catch {
+                    setError("Failed to update tier");
+                  }
+                }}
+                disabled={isUpdatingTier}
+              >
+                {isUpdatingTier ? "Assigning..." : "Assign"}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : null}
+      </DialogPopup>
     </Dialog>
   );
 }

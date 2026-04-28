@@ -1,5 +1,5 @@
 import { Badge } from "../../ui/badge";
-import { EmptyState } from "../empty-state";
+import { Empty, EmptyTitle, EmptyDescription } from "../../ui/empty";
 import { Skeleton } from "../../ui/skeleton";
 
 type Booking = {
@@ -16,6 +16,21 @@ type BookingsListProps = {
   isLoading?: boolean;
   onSelect: (booking: Booking) => void;
 };
+
+function getStatusBadgeVariant(status: string) {
+  switch (status) {
+    case "cancelled":
+    case "declined":
+      return "error" as const;
+    case "pending":
+    case "requested":
+      return "warning" as const;
+    case "confirmed":
+      return "success" as const;
+    default:
+      return "outline" as const;
+  }
+}
 
 export function BookingsList({ bookings, isLoading = false, onSelect }: BookingsListProps) {
   if (isLoading) {
@@ -42,10 +57,12 @@ export function BookingsList({ bookings, isLoading = false, onSelect }: Bookings
 
   if (bookings.length === 0) {
     return (
-      <EmptyState
-        title="No upcoming bookings"
-        description="Create a booking when you're ready to schedule a session."
-      />
+      <Empty>
+        <EmptyTitle>No upcoming bookings</EmptyTitle>
+        <EmptyDescription>
+          Create a booking when you&apos;re ready to schedule a session.
+        </EmptyDescription>
+      </Empty>
     );
   }
 
@@ -65,16 +82,9 @@ export function BookingsList({ bookings, isLoading = false, onSelect }: Bookings
           <div className="text-left sm:text-right">
             <p className="font-semibold text-foreground">{booking.time}</p>
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              <Badge variant="accent">{booking.type}</Badge>
+              <Badge variant="secondary">{booking.type}</Badge>
               {booking.status ? (
-                <Badge
-                  variant={booking.status === "pending" ? "outline" : "default"}
-                  className={
-                    booking.status === "cancelled" || booking.status === "declined"
-                      ? "border-red-300 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
-                      : undefined
-                  }
-                >
+                <Badge variant={getStatusBadgeVariant(booking.status)}>
                   {booking.status === "cancelled" ? "Cancelled by client" : booking.status}
                 </Badge>
               ) : null}

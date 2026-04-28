@@ -1,9 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import CommandPalette, { filterItems, getItemIndex } from "react-cmdk";
-import { Search } from "lucide-react";
+import {
+  Command,
+  CommandCollection,
+  CommandDialog,
+  CommandDialogPopup,
+  CommandEmpty,
+  CommandFooter,
+  CommandGroup,
+  CommandGroupLabel,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  CommandShortcut,
+} from "../ui/command";
 import {
   useGetAdminTeamsQuery,
   useGetBookingsQuery,
@@ -15,13 +28,13 @@ import {
   useGetUsersQuery,
   useGetVideoUploadsQuery,
 } from "../../lib/apiSlice";
-import "react-cmdk/dist/cmdk.css";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type PaletteItem = {
   id: string;
   children: string;
   href?: string;
-  closeOnSelect?: boolean;
   keywords?: string[];
   onClick?: () => void;
 };
@@ -30,6 +43,18 @@ type PaletteList = {
   id: string;
   heading: string;
   items: PaletteItem[];
+};
+
+type CmdItem = {
+  value: string;
+  label: string;
+  onSelect: () => void;
+};
+
+type CmdGroup = {
+  value: string;
+  heading: string;
+  items: CmdItem[];
 };
 
 type PaletteUser = {
@@ -113,10 +138,53 @@ type PaletteReferralEntry = {
   status?: string | null;
 };
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+
 const MAX_RESULTS_PER_GROUP = 10;
 const USER_SEARCH_MIN_QUERY_LENGTH = 2;
 const USER_SEARCH_FETCH_LIMIT = 50;
 const SEARCH_RESOURCE_FETCH_LIMIT = 50;
+
+const NAV_ITEMS: PaletteList = {
+  id: "pages",
+  heading: "Pages",
+  items: [
+    { id: "home", children: "Overview", href: "/", keywords: ["dashboard", "home"] },
+    { id: "users", children: "Users & Tiers", href: "/users", keywords: ["athletes", "guardians", "clients"] },
+    { id: "add-user", children: "Add user", href: "/users/add", keywords: ["new user", "create user"] },
+    { id: "add-team", children: "Add team", href: "/users/add-team", keywords: ["new team", "create team"] },
+    { id: "teams", children: "Teams", href: "/teams" },
+    { id: "coaching", children: "Coaching", href: "/coaching", keywords: ["coach", "sessions"] },
+    { id: "onboarding", children: "Onboarding", href: "/onboarding-config", keywords: ["onboard", "setup", "config"] },
+    { id: "training-snapshot", children: "Client training", href: "/training-snapshot", keywords: ["training", "snapshot"] },
+    { id: "top-athletes", children: "Top athletes", href: "/top-athletes", keywords: ["leaderboard", "ranking"] },
+    { id: "tracking", children: "Tracking", href: "/tracking", keywords: ["activity", "progress"] },
+    { id: "training-questionnaires", children: "Training answers", href: "/training-questionnaires", keywords: ["questionnaire", "answers", "forms"] },
+    { id: "stats", children: "Stats", href: "/stats", keywords: ["analytics", "statistics"] },
+    { id: "billing", children: "Billing", href: "/billing", keywords: ["payments", "invoices", "subscriptions"] },
+    { id: "billing-approvals", children: "Billing — Pending approvals", href: "/billing/pending-approvals", keywords: ["approve", "pending", "billing"] },
+    { id: "billing-plans", children: "Billing — Plans", href: "/billing/plans", keywords: ["plans", "tiers", "subscriptions"] },
+    { id: "content-profile", children: "Content — Profile", href: "/content/profile", keywords: ["admin story", "photo", "cms", "home content"] },
+    { id: "content-testimonials", children: "Content — Testimonials", href: "/content/testimonials", keywords: ["reviews", "submissions", "testimonials"] },
+    { id: "content-intro-video", children: "Content — Intro Video", href: "/content/intro-video", keywords: ["video", "intro", "audience", "cms"] },
+    { id: "gallery", children: "Gallery", href: "/gallery", keywords: ["photos", "images", "media"] },
+    { id: "parent", children: "Parent Portal", href: "/parent", keywords: ["guardian", "parent hub"] },
+    { id: "exercise-library", children: "Training content", href: "/exercise-library", keywords: ["exercises", "library", "workouts"] },
+    { id: "messaging", children: "Messaging", href: "/messaging", keywords: ["chat", "threads", "inbox"] },
+    { id: "video-review", children: "Video Feedback", href: "/video-review", keywords: ["video", "review", "uploads"] },
+    { id: "bookings", children: "Schedule", href: "/bookings", keywords: ["calendar", "sessions", "appointments"] },
+    { id: "nutrition", children: "Nutrition & Wellness", href: "/nutrition", keywords: ["food", "diary", "wellness", "nutrition"] },
+    { id: "referrals", children: "Referrals", href: "/physio-referrals", keywords: ["physio", "referral"] },
+    { id: "programs", children: "Programs", href: "/programs", keywords: ["plans", "curriculum"] },
+    { id: "support", children: "Support", href: "/support" },
+    { id: "settings", children: "Settings", href: "/settings" },
+    { id: "preferences", children: "Preferences", href: "/preferences", keywords: ["display", "theme", "language"] },
+    { id: "profile", children: "Profile", href: "/profile", keywords: ["account", "my profile"] },
+    { id: "search", children: "Search", href: "/search", keywords: ["find", "global search"] },
+  ],
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function normalize(value: unknown) {
   return String(value ?? "").toLowerCase();
@@ -129,169 +197,116 @@ function matchesQuery(query: string, values: unknown[]) {
 
 function toKeywords(values: unknown[]) {
   return values
-    .filter((value) => value != null && String(value).trim().length > 0)
-    .map((value) => String(value));
+    .filter((v) => v != null && String(v).trim().length > 0)
+    .map((v) => String(v));
 }
 
-function classifyGroupCategory(group: {
-  category?: string | null;
-  name?: string | null;
-}): PaletteGroupCategory {
-  if (
-    group?.category === "announcement" ||
-    group?.category === "coach_group" ||
-    group?.category === "team"
-  ) {
+function classifyGroupCategory(group: { category?: string | null; name?: string | null }): PaletteGroupCategory {
+  if (group?.category === "announcement" || group?.category === "coach_group" || group?.category === "team") {
     return group.category;
   }
-  const normalized = String(group?.name ?? "").trim().toLowerCase();
-  if (/(announce|announcement|broadcast)/i.test(normalized)) {
-    return "announcement";
-  }
-  if (/(team|squad|club)/i.test(normalized)) {
-    return "team";
-  }
+  const n = String(group?.name ?? "").toLowerCase();
+  if (/(announce|announcement|broadcast)/i.test(n)) return "announcement";
+  if (/(team|squad|club)/i.test(n)) return "team";
   return "coach_group";
 }
 
 function formatGroupLabel(category: PaletteGroupCategory, name: string) {
-  if (category === "announcement") {
-    return `Announcement: ${name}`;
-  }
-  if (category === "team") {
-    return `Team chat: ${name}`;
-  }
+  if (category === "announcement") return `Announcement: ${name}`;
+  if (category === "team") return `Team chat: ${name}`;
   return `Coach inbox: ${name}`;
 }
 
-const NAV_ITEMS: PaletteList = {
-  id: "pages",
-  heading: "Pages",
-  items: [
-    {
-      id: "home",
-      children: "Overview",
-      href: "/",
-      keywords: ["dashboard", "home"],
-    },
-    { id: "users", children: "Users & Tiers", href: "/users" },
-    { id: "add-user", children: "Add user", href: "/users/add" },
-    { id: "add-team", children: "Add team", href: "/users/add-team" },
-    { id: "teams", children: "Teams", href: "/teams" },
-    { id: "onboarding", children: "Onboarding", href: "/onboarding-config" },
-    {
-      id: "training-snapshot",
-      children: "Client training",
-      href: "/training-snapshot",
-    },
-    { id: "stats", children: "Stats", href: "/stats" },
-    { id: "billing", children: "Billing", href: "/billing" },
-    { id: "content", children: "Content", href: "/content" },
-    { id: "parent", children: "Parent Portal", href: "/parent" },
-    {
-      id: "exercise-library",
-      children: "Training content",
-      href: "/exercise-library",
-    },
-    { id: "messaging", children: "Messaging", href: "/messaging" },
-    { id: "video-review", children: "Video Feedback", href: "/video-review" },
-    { id: "bookings", children: "Schedule", href: "/bookings" },
-    { id: "food-diary", children: "Food Diary", href: "/food-diary" },
-    { id: "referrals", children: "Referrals", href: "/physio-referrals" },
-    { id: "programs", children: "Programs", href: "/programs" },
-    { id: "support", children: "Support", href: "/support" },
-    { id: "settings", children: "Settings", href: "/settings" },
-    { id: "profile", children: "Profile", href: "/profile" },
-  ],
-};
+function filterGroups(groups: PaletteList[], search: string): PaletteList[] {
+  if (!search.trim()) return groups;
+  const q = search.trim().toLowerCase();
+  return groups
+    .map((list) => ({
+      ...list,
+      items: list.items.filter((item) => {
+        const label = item.children.toLowerCase();
+        const kw = (item.keywords ?? []).join(" ").toLowerCase();
+        return label.includes(q) || kw.includes(q);
+      }),
+    }))
+    .filter((list) => list.items.length > 0);
+}
 
-export function GlobalCommandPalette() {
+// ─── Component ───────────────────────────────────────────────────────────────
+
+export function GlobalCommandPalette({
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+} = {}) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   const [search, setSearch] = useState("");
 
   const query = search.trim().toLowerCase();
   const trimmedSearch = search.trim();
 
-  const shouldFetchUsers = isOpen && query.length >= USER_SEARCH_MIN_QUERY_LENGTH;
-  const shouldFetchSearchResources = isOpen && query.length >= USER_SEARCH_MIN_QUERY_LENGTH;
+  const shouldFetchUsers = open && query.length >= USER_SEARCH_MIN_QUERY_LENGTH;
+  const shouldFetchResources = open && query.length >= USER_SEARCH_MIN_QUERY_LENGTH;
+
   const { data: usersData } = useGetUsersQuery(
-    shouldFetchUsers
-      ? {
-          q: trimmedSearch,
-          limit: USER_SEARCH_FETCH_LIMIT,
-        }
-      : undefined,
+    shouldFetchUsers ? { q: trimmedSearch, limit: USER_SEARCH_FETCH_LIMIT } : undefined,
     { skip: !shouldFetchUsers },
   );
-  const { data: teamsData } = useGetAdminTeamsQuery(undefined, {
-    skip: !isOpen,
-  });
+  const { data: teamsData } = useGetAdminTeamsQuery(undefined, { skip: !open });
   const { data: bookingsData } = useGetBookingsQuery(
-    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
-    {
-      skip: !shouldFetchSearchResources,
-    },
+    shouldFetchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    { skip: !shouldFetchResources },
   );
   const { data: threadsData } = useGetThreadsQuery(
-    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
-    {
-      skip: !shouldFetchSearchResources,
-    },
+    shouldFetchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    { skip: !shouldFetchResources },
   );
   const { data: videosData } = useGetVideoUploadsQuery(
-    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
-    {
-      skip: !shouldFetchSearchResources,
-    },
+    shouldFetchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    { skip: !shouldFetchResources },
   );
   const { data: programsData } = useGetProgramsQuery(
-    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
-    {
-      skip: !shouldFetchSearchResources,
-    },
+    shouldFetchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    { skip: !shouldFetchResources },
   );
   const { data: foodDiaryData } = useGetFoodDiaryQuery(
-    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
-    {
-      skip: !shouldFetchSearchResources,
-    },
+    shouldFetchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    { skip: !shouldFetchResources },
   );
   const { data: referralsData } = useGetPhysioReferralsQuery(
-    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
-    {
-      skip: !shouldFetchSearchResources,
-    },
+    shouldFetchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    { skip: !shouldFetchResources },
   );
   const { data: chatGroupsData } = useGetChatGroupsQuery(
-    shouldFetchSearchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
-    {
-      skip: !shouldFetchSearchResources,
-    },
+    shouldFetchResources ? { q: trimmedSearch, limit: SEARCH_RESOURCE_FETCH_LIMIT } : undefined,
+    { skip: !shouldFetchResources },
   );
 
+  // Cmd/Ctrl+K toggle
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
+    function handleKeyDown(e: KeyboardEvent) {
       const isMac = navigator?.platform?.toLowerCase().includes("mac");
-      const hasModifier = isMac ? event.metaKey : event.ctrlKey;
-
-      if (hasModifier && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        event.stopPropagation();
-        setIsOpen((current) => !current);
+      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(!open);
       }
     }
-
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Clear search when dialog closes
   useEffect(() => {
-    if (!isOpen) {
-      setSearch("");
-    }
-  }, [isOpen]);
+    if (!open) setSearch("");
+  }, [open]);
 
+  // ── Quick actions ──
   const quickActions: PaletteList = useMemo(
     () => ({
       id: "quick-actions",
@@ -299,550 +314,266 @@ export function GlobalCommandPalette() {
       items: [
         {
           id: "search-current",
-          children: query
-            ? `Search all data for \"${search.trim()}\"`
-            : "Search all data",
-          closeOnSelect: true,
-          onClick: () => {
-            const text = search.trim();
-            if (!text) return;
-            router.push(`/search?q=${encodeURIComponent(text)}`);
-          },
+          children: query ? `Search all data for "${trimmedSearch}"` : "Search all data",
           keywords: ["search", "find", "global", "results"],
+          onClick: () => {
+            if (!trimmedSearch) return;
+            router.push(`/search?q=${encodeURIComponent(trimmedSearch)}`);
+          },
         },
         {
           id: "go-bookings",
           children: "Create or review bookings",
-          closeOnSelect: true,
-          onClick: () => router.push("/bookings"),
           keywords: ["schedule", "calendar", "session"],
+          onClick: () => router.push("/bookings"),
         },
         {
           id: "go-messages",
           children: "Open messaging inbox",
-          closeOnSelect: true,
-          onClick: () => router.push("/messaging"),
           keywords: ["chat", "threads", "announcement"],
+          onClick: () => router.push("/messaging"),
         },
         {
           id: "logout",
           children: "Log out",
-          closeOnSelect: true,
+          keywords: ["sign out", "exit", "auth"],
           onClick: async () => {
             const csrfToken =
               document.cookie
                 .split(";")
-                .map((part) => part.trim())
-                .find((part) => part.startsWith("csrfToken="))
+                .map((p) => p.trim())
+                .find((p) => p.startsWith("csrfToken="))
                 ?.split("=")[1] ?? "";
-
             await fetch("/api/auth/logout", {
               method: "POST",
               headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
             });
-
-            const { clearDesktopNotificationPromptFlag } =
-              await import("@/lib/desktop-notifications");
+            const { clearDesktopNotificationPromptFlag } = await import("@/lib/desktop-notifications");
             clearDesktopNotificationPromptFlag();
             router.replace("/login");
           },
-          keywords: ["sign out", "exit", "auth"],
         },
       ],
     }),
-    [query, router, search],
+    [query, router, trimmedSearch],
   );
 
+  // ── Live data lists ──
   const dataLists = useMemo<PaletteList[]>(() => {
     const lists: PaletteList[] = [];
 
-    const userItems = (usersData?.users ?? []) as PaletteUser[];
-    const users = userItems
-      .filter((user) =>
-        matchesQuery(query, [
-          user?.name,
-          user?.email,
-          user?.role,
-          user?.team,
-          user?.programTier,
-          user?.currentProgramTier,
-          user?.guardianProgramTier,
-        ]),
-      )
+    const users = ((usersData?.users ?? []) as PaletteUser[])
+      .filter((u) => matchesQuery(query, [u?.name, u?.email, u?.role, u?.team, u?.programTier, u?.currentProgramTier, u?.guardianProgramTier]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((user) => ({
-        id: `user-${user.id}`,
-        children: `User: ${user?.name ?? user?.email ?? `#${user.id}`} ${user?.role ? `(${user.role})` : ""}`,
-        closeOnSelect: true,
-        onClick: () => router.push(`/users/${user.id}`),
-        keywords: toKeywords([
-          user?.name,
-          user?.email,
-          user?.role,
-          user?.team,
-          user?.programTier,
-          user?.currentProgramTier,
-          user?.guardianProgramTier,
-        ]),
+      .map((u) => ({
+        id: `user-${u.id}`,
+        children: `User: ${u?.name ?? u?.email ?? `#${u.id}`} ${u?.role ? `(${u.role})` : ""}`,
+        onClick: () => router.push(`/users/${u.id}`),
+        keywords: toKeywords([u?.name, u?.email, u?.role, u?.team, u?.programTier, u?.currentProgramTier, u?.guardianProgramTier]),
       }));
+    if (users.length) lists.push({ id: "users-live", heading: `Users (${users.length})`, items: users });
 
-    if (users.length) {
-      lists.push({
-        id: "users-live",
-        heading: `Users (${users.length})`,
-        items: users,
-      });
-    }
-
-    const teamItems = (teamsData?.teams ?? []) as PaletteTeam[];
-    const teams = teamItems
-      .filter((team) =>
-        matchesQuery(query, [
-          team?.team,
-          team?.memberCount,
-          team?.youthCount,
-          team?.adultCount,
-        ]),
-      )
+    const teams = ((teamsData?.teams ?? []) as PaletteTeam[])
+      .filter((t) => matchesQuery(query, [t?.team, t?.memberCount, t?.youthCount, t?.adultCount]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((team) => ({
-        id: `team-${team.team}`,
-        children: `Team: ${team.team} (${team.youthCount} youth, ${team.adultCount} adult)`,
-        closeOnSelect: true,
-        onClick: () => router.push(`/teams/${encodeURIComponent(team.team)}`),
-        keywords: toKeywords([
-          team?.team,
-          team?.memberCount,
-          team?.youthCount,
-          team?.adultCount,
-        ]),
+      .map((t) => ({
+        id: `team-${t.team}`,
+        children: `Team: ${t.team} (${t.youthCount} youth, ${t.adultCount} adult)`,
+        onClick: () => router.push(`/teams/${encodeURIComponent(t.team)}`),
+        keywords: toKeywords([t?.team, t?.memberCount, t?.youthCount, t?.adultCount]),
       }));
+    if (teams.length) lists.push({ id: "teams-live", heading: `Teams (${teams.length})`, items: teams });
 
-    if (teams.length) {
-      lists.push({
-        id: "teams-live",
-        heading: `Teams (${teams.length})`,
-        items: teams,
-      });
-    }
-
-    const bookingItems = (bookingsData?.bookings ?? []) as PaletteBooking[];
-    const bookings = bookingItems
-      .filter((booking) =>
-        matchesQuery(query, [
-          booking?.id,
-          booking?.name,
-          booking?.athlete,
-          booking?.athleteName,
-          booking?.serviceName,
-          booking?.type,
-          booking?.status,
-        ]),
-      )
+    const bookings = ((bookingsData?.bookings ?? []) as PaletteBooking[])
+      .filter((b) => matchesQuery(query, [b?.id, b?.name, b?.athlete, b?.athleteName, b?.serviceName, b?.type, b?.status]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((booking) => {
-        const bookingId = booking?.id;
-        const title =
-          booking?.name ??
-          booking?.serviceName ??
-          booking?.type ??
-          `Booking ${bookingId ?? ""}`;
-        const athlete = booking?.athlete ?? booking?.athleteName ?? "Athlete";
+      .map((b) => {
+        const bId = b?.id;
+        const title = b?.name ?? b?.serviceName ?? b?.type ?? `Booking ${bId ?? ""}`;
+        const athlete = b?.athlete ?? b?.athleteName ?? "Athlete";
         return {
-          id: `booking-${bookingId ?? title}`,
+          id: `booking-${bId ?? title}`,
           children: `Booking: ${title} - ${athlete}`,
-          closeOnSelect: true,
-          onClick: () => {
-            if (bookingId != null) {
-              router.push(`/bookings/${bookingId}`);
-              return;
-            }
-            router.push("/bookings");
-          },
-          keywords: toKeywords([
-            bookingId,
-            booking?.name,
-            booking?.athlete,
-            booking?.athleteName,
-            booking?.serviceName,
-            booking?.type,
-            booking?.status,
-          ]),
+          onClick: () => bId != null ? router.push(`/bookings/${bId}`) : router.push("/bookings"),
+          keywords: toKeywords([bId, b?.name, b?.athlete, b?.athleteName, b?.serviceName, b?.type, b?.status]),
         };
       });
+    if (bookings.length) lists.push({ id: "bookings-live", heading: `Bookings (${bookings.length})`, items: bookings });
 
-    if (bookings.length) {
-      lists.push({
-        id: "bookings-live",
-        heading: `Bookings (${bookings.length})`,
-        items: bookings,
-      });
-    }
-
-    const threadItems = (threadsData?.threads ?? []) as PaletteThread[];
-    const threads = threadItems
-      .filter((thread) =>
-        matchesQuery(query, [
-          thread?.name,
-          thread?.preview,
-          thread?.unread,
-          thread?.userId,
-        ]),
-      )
+    const threads = ((threadsData?.threads ?? []) as PaletteThread[])
+      .filter((t) => matchesQuery(query, [t?.name, t?.preview, t?.unread, t?.userId]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((thread) => ({
-        id: `thread-${thread.userId}`,
-        children: `Message: ${thread?.name ?? `User ${thread.userId}`} ${thread?.preview ? `- ${thread.preview}` : ""}`,
-        closeOnSelect: true,
-        onClick: () =>
-          router.push(
-            `/messaging?tab=inbox&userId=${encodeURIComponent(String(thread.userId))}`,
-          ),
-        keywords: toKeywords([
-          thread?.name,
-          thread?.preview,
-          thread?.userId,
-          thread?.unread,
-        ]),
+      .map((t) => ({
+        id: `thread-${t.userId}`,
+        children: `Message: ${t?.name ?? `User ${t.userId}`}${t?.preview ? ` - ${t.preview}` : ""}`,
+        onClick: () => router.push(`/messaging?tab=inbox&userId=${encodeURIComponent(String(t.userId))}`),
+        keywords: toKeywords([t?.name, t?.preview, t?.userId, t?.unread]),
       }));
+    if (threads.length) lists.push({ id: "threads-live", heading: `Messages (${threads.length})`, items: threads });
 
-    if (threads.length) {
-      lists.push({
-        id: "threads-live",
-        heading: `Messages (${threads.length})`,
-        items: threads,
-      });
-    }
-
-    const groupItems = (chatGroupsData?.groups ?? []) as PaletteGroup[];
-    const matchedGroups = groupItems
-      .filter((group) =>
-        matchesQuery(query, [group?.id, group?.name, group?.createdAt]),
-      )
-      .map((group) => {
-        const category = classifyGroupCategory(group);
-        const groupName = group?.name ?? `Group ${group.id}`;
-        return {
-          category,
-          item: {
-            id: `group-${group.id}`,
-            children: formatGroupLabel(category, groupName),
-            closeOnSelect: true,
-            onClick: () =>
-              router.push(
-                `/messaging?tab=inbox&groupId=${encodeURIComponent(String(group.id))}`,
-              ),
-            keywords: toKeywords([
-              group?.id,
-              group?.name,
-              group?.createdAt,
-              category,
-              category === "coach_group" ? "coach inbox" : null,
-              category === "team" ? "team inbox team chat" : null,
-              category === "announcement" ? "coach announcement broadcast" : null,
-            ]),
-          },
-        };
-      });
-
-    const announcementGroups = matchedGroups
-      .filter((group) => group.category === "announcement")
-      .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((group) => group.item);
-    if (announcementGroups.length) {
-      lists.push({
-        id: "groups-announcements-live",
-        heading: `Coach announcements (${announcementGroups.length})`,
-        items: announcementGroups,
-      });
-    }
-
-    const coachGroups = matchedGroups
-      .filter((group) => group.category === "coach_group")
-      .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((group) => group.item);
-    if (coachGroups.length) {
-      lists.push({
-        id: "groups-coach-live",
-        heading: `Coach inbox (${coachGroups.length})`,
-        items: coachGroups,
-      });
-    }
-
-    const teamGroups = matchedGroups
-      .filter((group) => group.category === "team")
-      .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((group) => group.item);
-    if (teamGroups.length) {
-      lists.push({
-        id: "groups-team-live",
-        heading: `Team inbox (${teamGroups.length})`,
-        items: teamGroups,
-      });
-    }
-
-    const videoItems = (videosData?.items ?? []) as PaletteVideo[];
-    const videos = videoItems
-      .filter((video) =>
-        matchesQuery(query, [
-          video?.id,
-          video?.athleteName,
-          video?.notes,
-          video?.feedback,
-        ]),
-      )
-      .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((video) => ({
-        id: `video-${video.id}`,
-        children: `Video: ${video?.athleteName ?? `Athlete ${video?.athleteId ?? ""}`} ${video?.notes ? `- ${video.notes}` : ""}`,
-        closeOnSelect: true,
-        onClick: () => {
-          const athleteId = Number(video?.athleteId);
-          if (!Number.isFinite(athleteId) || athleteId <= 0) {
-            router.push("/video-review");
-            return;
-          }
-          const tab = String(
-            video?.programSectionType ?? "program",
-          ).toLowerCase();
-          router.push(
-            `/video-review/athletes/${athleteId}?tab=${encodeURIComponent(tab)}&videoId=${encodeURIComponent(String(video.id))}`,
-          );
+    const groupItems = ((chatGroupsData?.groups ?? []) as PaletteGroup[]).filter((g) =>
+      matchesQuery(query, [g?.id, g?.name, g?.createdAt]),
+    );
+    const classified = groupItems.map((g) => {
+      const cat = classifyGroupCategory(g);
+      const name = g?.name ?? `Group ${g.id}`;
+      return {
+        cat,
+        item: {
+          id: `group-${g.id}`,
+          children: formatGroupLabel(cat, name),
+          onClick: () => router.push(`/messaging?tab=inbox&groupId=${encodeURIComponent(String(g.id))}`),
+          keywords: toKeywords([g?.id, g?.name, cat]),
         },
-        keywords: toKeywords([
-          video?.id,
-          video?.athleteName,
-          video?.notes,
-          video?.feedback,
-        ]),
-      }));
+      };
+    });
+    const announcements = classified.filter((x) => x.cat === "announcement").slice(0, MAX_RESULTS_PER_GROUP).map((x) => x.item);
+    const coachGroups = classified.filter((x) => x.cat === "coach_group").slice(0, MAX_RESULTS_PER_GROUP).map((x) => x.item);
+    const teamGroups = classified.filter((x) => x.cat === "team").slice(0, MAX_RESULTS_PER_GROUP).map((x) => x.item);
+    if (announcements.length) lists.push({ id: "groups-announcements-live", heading: `Coach announcements (${announcements.length})`, items: announcements });
+    if (coachGroups.length) lists.push({ id: "groups-coach-live", heading: `Coach inbox (${coachGroups.length})`, items: coachGroups });
+    if (teamGroups.length) lists.push({ id: "groups-team-live", heading: `Team inbox (${teamGroups.length})`, items: teamGroups });
 
-    if (videos.length) {
-      lists.push({
-        id: "videos-live",
-        heading: `Videos (${videos.length})`,
-        items: videos,
-      });
-    }
-
-    const programItems = (programsData?.programs ?? []) as PaletteProgram[];
-    const programs = programItems
-      .filter((program) =>
-        matchesQuery(query, [
-          program?.id,
-          program?.name,
-          program?.type,
-          program?.description,
-          program?.minAge,
-          program?.maxAge,
-        ]),
-      )
+    const videos = ((videosData?.items ?? []) as PaletteVideo[])
+      .filter((v) => matchesQuery(query, [v?.id, v?.athleteName, v?.notes, v?.feedback]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((program) => ({
-        id: `program-${program.id}`,
-        children: `Program: ${program?.name ?? `#${program.id}`} (${program?.type ?? "type n/a"})`,
-        closeOnSelect: true,
-        onClick: () =>
-          router.push(
-            `/programs?programId=${encodeURIComponent(String(program.id))}&action=manage`,
-          ),
-        keywords: toKeywords([
-          program?.id,
-          program?.name,
-          program?.type,
-          program?.description,
-          program?.minAge,
-          program?.maxAge,
-        ]),
+      .map((v) => ({
+        id: `video-${v.id}`,
+        children: `Video: ${v?.athleteName ?? `Athlete ${v?.athleteId ?? ""}`}${v?.notes ? ` - ${v.notes}` : ""}`,
+        onClick: () => {
+          const aId = Number(v?.athleteId);
+          if (!Number.isFinite(aId) || aId <= 0) { router.push("/video-review"); return; }
+          const tab = String(v?.programSectionType ?? "program").toLowerCase();
+          router.push(`/video-review/athletes/${aId}?tab=${encodeURIComponent(tab)}&videoId=${encodeURIComponent(String(v.id))}`);
+        },
+        keywords: toKeywords([v?.id, v?.athleteName, v?.notes, v?.feedback]),
       }));
+    if (videos.length) lists.push({ id: "videos-live", heading: `Videos (${videos.length})`, items: videos });
 
-    if (programs.length) {
-      lists.push({
-        id: "programs-live",
-        heading: `Programs (${programs.length})`,
-        items: programs,
-      });
-    }
-
-    const foodItems = (foodDiaryData?.items ?? []) as PaletteFoodEntry[];
-    const foodEntries = foodItems
-      .filter((entry) =>
-        matchesQuery(query, [
-          entry?.id,
-          entry?.athleteId,
-          entry?.athleteName,
-          entry?.guardianName,
-          entry?.guardianEmail,
-          entry?.notes,
-          entry?.feedback,
-        ]),
-      )
+    const programs = ((programsData?.programs ?? []) as PaletteProgram[])
+      .filter((p) => matchesQuery(query, [p?.id, p?.name, p?.type, p?.description, p?.minAge, p?.maxAge]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((entry) => ({
-        id: `food-${entry.id}`,
-        children: `Food diary: ${entry?.athleteName ?? `Athlete ${entry?.athleteId ?? ""}`} ${entry?.notes ? `- ${entry.notes}` : ""}`,
-        closeOnSelect: true,
-        onClick: () =>
-          router.push(
-            entry?.id ? `/food-diary/entry/${entry.id}` : "/food-diary",
-          ),
-        keywords: toKeywords([
-          entry?.id,
-          entry?.athleteId,
-          entry?.athleteName,
-          entry?.guardianName,
-          entry?.guardianEmail,
-          entry?.notes,
-          entry?.feedback,
-        ]),
+      .map((p) => ({
+        id: `program-${p.id}`,
+        children: `Program: ${p?.name ?? `#${p.id}`} (${p?.type ?? "type n/a"})`,
+        onClick: () => router.push(`/programs?programId=${encodeURIComponent(String(p.id))}&action=manage`),
+        keywords: toKeywords([p?.id, p?.name, p?.type, p?.description, p?.minAge, p?.maxAge]),
       }));
+    if (programs.length) lists.push({ id: "programs-live", heading: `Programs (${programs.length})`, items: programs });
 
-    if (foodEntries.length) {
-      lists.push({
-        id: "food-live",
-        heading: `Food diary (${foodEntries.length})`,
-        items: foodEntries,
-      });
-    }
-
-    const referralItems = (referralsData?.items ??
-      []) as PaletteReferralEntry[];
-    const referrals = referralItems
-      .filter((entry) =>
-        matchesQuery(query, [
-          entry?.id,
-          entry?.athleteId,
-          entry?.athleteName,
-          entry?.programTier,
-          entry?.referalLink,
-          entry?.status,
-        ]),
-      )
+    const foodEntries = ((foodDiaryData?.items ?? []) as PaletteFoodEntry[])
+      .filter((e) => matchesQuery(query, [e?.id, e?.athleteId, e?.athleteName, e?.guardianName, e?.guardianEmail, e?.notes, e?.feedback]))
       .slice(0, MAX_RESULTS_PER_GROUP)
-      .map((entry) => ({
-        id: `referral-${entry.id}`,
-        children: `Referral: ${entry?.athleteName ?? `Athlete ${entry?.athleteId ?? ""}`} ${entry?.programTier ? `(${entry.programTier})` : ""}`,
-        closeOnSelect: true,
-        onClick: () =>
-          router.push(
-            `/physio-referrals?tab=existing&entryId=${encodeURIComponent(String(entry.id))}&edit=1`,
-          ),
-        keywords: toKeywords([
-          entry?.id,
-          entry?.athleteId,
-          entry?.athleteName,
-          entry?.programTier,
-          entry?.referalLink,
-          entry?.status,
-        ]),
+      .map((e) => ({
+        id: `food-${e.id}`,
+        children: `Food diary: ${e?.athleteName ?? `Athlete ${e?.athleteId ?? ""}`}${e?.notes ? ` - ${e.notes}` : ""}`,
+        onClick: () => router.push("/nutrition"),
+        keywords: toKeywords([e?.id, e?.athleteId, e?.athleteName, e?.guardianName, e?.guardianEmail, e?.notes, e?.feedback]),
       }));
+    if (foodEntries.length) lists.push({ id: "food-live", heading: `Food diary (${foodEntries.length})`, items: foodEntries });
 
-    if (referrals.length) {
-      lists.push({
-        id: "referrals-live",
-        heading: `Referrals (${referrals.length})`,
-        items: referrals,
-      });
-    }
+    const referrals = ((referralsData?.items ?? []) as PaletteReferralEntry[])
+      .filter((e) => matchesQuery(query, [e?.id, e?.athleteId, e?.athleteName, e?.programTier, e?.referalLink, e?.status]))
+      .slice(0, MAX_RESULTS_PER_GROUP)
+      .map((e) => ({
+        id: `referral-${e.id}`,
+        children: `Referral: ${e?.athleteName ?? `Athlete ${e?.athleteId ?? ""}`}${e?.programTier ? ` (${e.programTier})` : ""}`,
+        onClick: () => router.push(`/physio-referrals?tab=existing&entryId=${encodeURIComponent(String(e.id))}&edit=1`),
+        keywords: toKeywords([e?.id, e?.athleteId, e?.athleteName, e?.programTier, e?.referalLink, e?.status]),
+      }));
+    if (referrals.length) lists.push({ id: "referrals-live", heading: `Referrals (${referrals.length})`, items: referrals });
 
     return lists;
-  }, [
-    bookingsData,
-    foodDiaryData,
-    programsData,
-    query,
-    referralsData,
-    router,
-    chatGroupsData,
-    teamsData,
-    threadsData,
-    usersData,
-    videosData,
-  ]);
+  }, [bookingsData, chatGroupsData, foodDiaryData, programsData, query, referralsData, router, teamsData, threadsData, usersData, videosData]);
 
   const totalDynamicItems = useMemo(
     () => dataLists.reduce((sum, list) => sum + list.items.length, 0),
     [dataLists],
   );
 
-  const paletteItems = useMemo(() => {
-    const allLists: PaletteList[] = [quickActions, NAV_ITEMS, ...dataLists];
-    return allLists.map((list) => ({
-      ...list,
+  // ── Combine → filter → convert to COSS Command format ──
+  const allGroups: PaletteList[] = useMemo(
+    () => [quickActions, NAV_ITEMS, ...dataLists],
+    [dataLists, quickActions],
+  );
+
+  const commandGroups = useMemo<CmdGroup[]>(() => {
+    const filtered = filterGroups(allGroups, search);
+    return filtered.map((list) => ({
+      value: list.id,
+      heading: list.heading,
       items: list.items.map((item) => ({
-        ...item,
-        closeOnSelect: item.closeOnSelect ?? true,
-        onClick:
-          item.onClick ??
-          (() => {
-            if (item.href) router.push(item.href);
-          }),
+        value: item.id,
+        label: item.children,
+        onSelect: () => {
+          item.onClick?.();
+          if (!item.onClick && item.href) router.push(item.href);
+          setOpen(false);
+          setSearch("");
+        },
       })),
     }));
-  }, [dataLists, quickActions, router]);
-
-  const filteredItems = useMemo(
-    () => filterItems(paletteItems, search, { filterOnListHeading: true }),
-    [paletteItems, search],
-  );
+  }, [allGroups, router, search]);
 
   return (
     <>
-      <button
-        type="button"
-        className="group flex w-full items-center gap-2 rounded-md border border-border bg-gradient-to-r from-background to-secondary/25 px-3 py-2 text-xs text-left shadow-sm transition hover:border-primary/40 hover:from-background hover:to-secondary/50"
-        onClick={() => setIsOpen(true)}
-      >
-        <Search className="h-3.5 w-3.5 text-muted-foreground transition group-hover:text-primary" />
-        <span className="flex-1 text-muted-foreground">
-          Find users, bookings, teams, messages, content...
-        </span>
-        <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          Ctrl/Cmd K
-        </kbd>
-      </button>
-
-      <CommandPalette
-        onChangeSearch={setSearch}
-        onChangeOpen={setIsOpen}
-        search={search}
-        isOpen={isOpen}
-        page="root"
-        placeholder="Search everything... users, teams, bookings, messages"
-        footer={
-          <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground">
-            <span>{totalDynamicItems} live results indexed</span>
-            <span>Enter to open</span>
-          </div>
-        }
-      >
-        <CommandPalette.Page id="root">
-          {filteredItems.length > 0 ? (
-            filteredItems.map((list) => (
-              <CommandPalette.List key={list.id} heading={list.heading}>
-                {list.items.map(({ id, ...item }) => (
-                  <CommandPalette.ListItem
-                    key={id}
-                    index={getItemIndex(filteredItems, id)}
-                    showType={false}
-                    {...item}
-                  />
-                ))}
-              </CommandPalette.List>
-            ))
-          ) : (
-            <CommandPalette.FreeSearchAction
-              label="Search app for"
-              onClick={() => {
-                const text = search.trim();
-                if (!text) return;
-                router.push(`/search?q=${encodeURIComponent(text)}`);
-                setIsOpen(false);
-              }}
-            />
-          )}
-        </CommandPalette.Page>
-      </CommandPalette>
+      <CommandDialog open={open} onOpenChange={setOpen}>
+        <CommandDialogPopup>
+          <Command
+            items={commandGroups}
+            value={search}
+            onValueChange={(v: string) => setSearch(v)}
+            mode="none"
+          >
+            <CommandInput placeholder="Search users, teams, bookings, messages, content…" />
+            <CommandEmpty>
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No results found.
+              </div>
+            </CommandEmpty>
+            <CommandList>
+              {(group: CmdGroup, index: number) => (
+                <React.Fragment key={group.value}>
+                  <CommandGroup items={group.items}>
+                    <CommandGroupLabel>{group.heading}</CommandGroupLabel>
+                    <CommandCollection>
+                      {(item: CmdItem) => (
+                        <CommandItem
+                          key={item.value}
+                          value={item.value}
+                          onClick={item.onSelect}
+                        >
+                          {item.label}
+                        </CommandItem>
+                      )}
+                    </CommandCollection>
+                  </CommandGroup>
+                  {index < commandGroups.length - 1 && <CommandSeparator />}
+                </React.Fragment>
+              )}
+            </CommandList>
+            <CommandFooter>
+              <span className="text-muted-foreground">
+                {totalDynamicItems > 0 ? `${totalDynamicItems} live results` : "Type to search live data"}
+              </span>
+              <span className="flex items-center gap-4">
+                <span className="flex items-center gap-1">
+                  <CommandShortcut>↑↓</CommandShortcut>
+                  <span>navigate</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <CommandShortcut>↵</CommandShortcut>
+                  <span>select</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <CommandShortcut>esc</CommandShortcut>
+                  <span>close</span>
+                </span>
+              </span>
+            </CommandFooter>
+          </Command>
+        </CommandDialogPopup>
+      </CommandDialog>
     </>
   );
 }

@@ -91,7 +91,7 @@ function NavLinkRow({
         {collapsed ? null : <span className="truncate">{item.label}</span>}
       </span>
       {!collapsed && item.badge ? (
-        <Badge variant="primary" className="shrink-0 border border-primary/20 bg-primary/15 text-[10px] text-primary">
+        <Badge variant="default" className="shrink-0 border border-primary/20 bg-primary/15 text-[10px] text-primary">
           {item.badge}
         </Badge>
       ) : null}

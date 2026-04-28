@@ -11,11 +11,9 @@ import { cn } from "../../../lib/utils";
 
 export function UserDetailBackBar({ href = "/users" }: { href?: string }) {
   return (
-    <Button variant="outline" size="sm" className="gap-1.5" asChild>
-      <Link href={href}>
-        <ArrowLeft className="h-4 w-4" />
-        Back to Users
-      </Link>
+    <Button variant="outline" size="sm" className="gap-1.5" render={<Link href={href} />}>
+      <ArrowLeft className="h-4 w-4" />
+      Back to Users
     </Button>
   );
 }
@@ -36,7 +34,7 @@ export function UserDetailSummaryStrip({
   athleteName?: string | null;
 }) {
   const tierVariant =
-    tierLabel === "Premium" ? "primary" : tierLabel === "Plus" ? "accent" : ("default" as const);
+    tierLabel === "Premium" ? "secondary" : tierLabel === "Plus" ? "info" : ("default" as const);
   return (
     <div className="overflow-hidden rounded-2xl border border-border/90 bg-gradient-to-br from-primary/[0.07] via-card to-card p-5 shadow-sm dark:from-primary/12">
       <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">

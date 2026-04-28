@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Select } from "../../ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../ui/select";
 import { Badge } from "../../ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import {
@@ -298,41 +298,47 @@ export function AgeExperienceCard() {
               </div>
               <div className="space-y-2">
                 <Label>Default Rule</Label>
-                <Select value={isDefault} onChange={(e) => setIsDefault(e.target.value)}>
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
+                <Select value={isDefault} onValueChange={(v) => setIsDefault(v ?? "")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="false">No</SelectItem>
+                    <SelectItem value="true">Yes</SelectItem>
+                  </SelectPopup>
                 </Select>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>UI Preset</Label>
-                  <Select value={uiPreset} onChange={(e) => setUiPreset(e.target.value)}>
-                    {UI_PRESETS.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
+                  <Select value={uiPreset} onValueChange={(v) => setUiPreset(v ?? "")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {UI_PRESETS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Font Size</Label>
-                  <Select value={fontSizeOption} onChange={(e) => setFontSizeOption(e.target.value)}>
-                    {FONT_SIZES.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
+                  <Select value={fontSizeOption} onValueChange={(v) => setFontSizeOption(v ?? "")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {FONT_SIZES.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Density</Label>
-                <Select value={density} onChange={(e) => setDensity(e.target.value)}>
-                  {DENSITIES.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
+                <Select value={density} onValueChange={(v) => setDensity(v ?? "")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    {DENSITIES.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectPopup>
                 </Select>
               </div>
               <div className="space-y-2">

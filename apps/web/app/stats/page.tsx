@@ -4,9 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import {
+  CardFrame,
+  CardFrameHeader,
+  CardFrameTitle,
+  CardFrameDescription,
+} from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
+import { Field, FieldLabel } from "../../components/ui/field";
+import { Skeleton } from "../../components/ui/skeleton";
 
 type PlanTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
 
@@ -53,12 +59,30 @@ function startsWithMonthlyInterval(interval?: string | null) {
   return normalized === "monthly" || normalized.endsWith("_months");
 }
 
-function getCommitmentMonths(interval?: string | null) {
-  const normalized = String(interval ?? "").trim().toLowerCase();
-  const matched = normalized.match(/^(\d+)_months$/);
-  if (!matched) return null;
-  const months = Number.parseInt(matched[1] ?? "", 10);
-  return Number.isFinite(months) ? months : null;
+/** A single metric display card using CardFrame */
+function MetricCard({
+  label,
+  value,
+  loading,
+}: {
+  label: string;
+  value: string;
+  loading?: boolean;
+}) {
+  return (
+    <CardFrame>
+      <CardFrameHeader>
+        <CardFrameDescription>{label}</CardFrameDescription>
+        {loading ? (
+          <Skeleton className="mt-1 h-8 w-28 rounded-md" />
+        ) : (
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+            {value}
+          </p>
+        )}
+      </CardFrameHeader>
+    </CardFrame>
+  );
 }
 
 export default function StatsPage() {
@@ -151,154 +175,159 @@ export default function StatsPage() {
     const projectedCommitmentValue = projectedMonthly * safeCommitment;
     const projectedYearly = projectedMonthly * 12;
 
-    return {
-      projectedMonthly,
-      projectedCommitmentValue,
-      projectedYearly,
-    };
+    return { projectedMonthly, projectedCommitmentValue, projectedYearly };
   }, [averageCommitmentMonths, averageMonthlyPrice, newAthletesPerMonth]);
 
   return (
     <AdminShell title="Stats" subtitle="Revenue view and income calculator for admin decisions.">
-      <div className="space-y-6">
-        <SectionHeader
-          title="Revenue Snapshot"
-          description={isLoading ? "Loading billing metrics..." : "Live metrics from subscription requests and approvals."}
-        />
+      <div className="space-y-8">
+        {/* Revenue Snapshot */}
+        <section className="space-y-4">
+          <SectionHeader
+            title="Revenue Snapshot"
+            description={
+              isLoading
+                ? "Loading billing metrics…"
+                : "Live metrics from subscription requests and approvals."
+            }
+          />
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Approved Revenue (Total)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{formatMoney(approvedRevenueTotal)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">MRR Estimate</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{formatMoney(monthlyRecurringEstimate)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Paid Requests</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{paidRequests.length}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Pending Approval Value</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{formatMoney(potentialRevenue)}</p>
-            </CardContent>
-          </Card>
-        </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard label="Approved Revenue (Total)" value={formatMoney(approvedRevenueTotal)} loading={isLoading} />
+            <MetricCard label="MRR Estimate" value={formatMoney(monthlyRecurringEstimate)} loading={isLoading} />
+            <MetricCard label="Paid Requests" value={String(paidRequests.length)} loading={isLoading} />
+            <MetricCard label="Pending Approval Value" value={formatMoney(potentialRevenue)} loading={isLoading} />
+          </div>
+        </section>
 
+        {/* Calculator + Revenue by Tier */}
         <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Income Calculator</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          {/* Income Calculator */}
+          <CardFrame>
+            <CardFrameHeader>
+              <CardFrameTitle>Income Calculator</CardFrameTitle>
+              <CardFrameDescription>
+                Estimate revenue from new athlete signups.
+              </CardFrameDescription>
+            </CardFrameHeader>
+
+            <div className="px-6 pb-6 space-y-5">
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="newAthletes">New Athletes / Month</Label>
+                <Field>
+                  <FieldLabel htmlFor="newAthletes">New Athletes / Month</FieldLabel>
                   <Input
                     id="newAthletes"
                     type="number"
                     value={newAthletesPerMonth}
                     onChange={(event) => setNewAthletesPerMonth(event.target.value)}
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="avgPrice">Average Monthly Price</Label>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="avgPrice">Avg Monthly Price</FieldLabel>
                   <Input
                     id="avgPrice"
                     type="number"
                     value={averageMonthlyPrice}
                     onChange={(event) => setAverageMonthlyPrice(event.target.value)}
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="avgCommitment">Average Commitment (Months)</Label>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="avgCommitment">Avg Commitment (Months)</FieldLabel>
                   <Input
                     id="avgCommitment"
                     type="number"
                     value={averageCommitmentMonths}
                     onChange={(event) => setAverageCommitmentMonths(event.target.value)}
                   />
-                </div>
+                </Field>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border border-border bg-secondary/40 p-4">
-                  <p className="text-xs text-muted-foreground">Projected Monthly Revenue</p>
-                  <p className="mt-1 text-lg font-semibold">{formatMoney(calculator.projectedMonthly)}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-secondary/40 p-4">
-                  <p className="text-xs text-muted-foreground">Projected 12-Month Revenue</p>
-                  <p className="mt-1 text-lg font-semibold">{formatMoney(calculator.projectedYearly)}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-secondary/40 p-4">
-                  <p className="text-xs text-muted-foreground">Commitment Contract Value</p>
-                  <p className="mt-1 text-lg font-semibold">{formatMoney(calculator.projectedCommitmentValue)}</p>
-                </div>
+                <CardFrame>
+                  <CardFrameHeader>
+                    <CardFrameDescription>Projected Monthly</CardFrameDescription>
+                    <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                      {formatMoney(calculator.projectedMonthly)}
+                    </p>
+                  </CardFrameHeader>
+                </CardFrame>
+                <CardFrame>
+                  <CardFrameHeader>
+                    <CardFrameDescription>Projected 12-Month</CardFrameDescription>
+                    <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                      {formatMoney(calculator.projectedYearly)}
+                    </p>
+                  </CardFrameHeader>
+                </CardFrame>
+                <CardFrame>
+                  <CardFrameHeader>
+                    <CardFrameDescription>Commitment Contract Value</CardFrameDescription>
+                    <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                      {formatMoney(calculator.projectedCommitmentValue)}
+                    </p>
+                  </CardFrameHeader>
+                </CardFrame>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardFrame>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Revenue by Tier (Approved)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          {/* Revenue by Tier */}
+          <CardFrame>
+            <CardFrameHeader>
+              <CardFrameTitle>Revenue by Tier</CardFrameTitle>
+              <CardFrameDescription>Approved subscriptions grouped by plan tier.</CardFrameDescription>
+            </CardFrameHeader>
+
+            <div className="px-6 pb-6 space-y-3">
               {!revenueByTier.length ? (
                 <p className="text-sm text-muted-foreground">No approved revenue yet.</p>
               ) : (
                 revenueByTier.map(([tier, summary]) => (
-                  <div key={tier} className="rounded-xl border border-border bg-secondary/35 p-3">
-                    <p className="text-sm font-semibold">{tier}</p>
-                    <p className="text-xs text-muted-foreground">{summary.count} approved requests</p>
-                    <p className="mt-1 text-sm">{formatMoney(summary.total)}</p>
-                  </div>
+                  <CardFrame key={tier}>
+                    <CardFrameHeader>
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{tier}</p>
+                          <CardFrameDescription>{summary.count} approved request{summary.count !== 1 ? "s" : ""}</CardFrameDescription>
+                        </div>
+                        <p className="text-sm font-semibold tabular-nums text-foreground">
+                          {formatMoney(summary.total)}
+                        </p>
+                      </div>
+                    </CardFrameHeader>
+                  </CardFrame>
                 ))
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </CardFrame>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Plan Coverage</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-border bg-secondary/35 p-3">
-              <p className="text-xs text-muted-foreground">Total Plans</p>
-              <p className="mt-1 text-lg font-semibold">{plans.length}</p>
-            </div>
-            <div className="rounded-xl border border-border bg-secondary/35 p-3">
-              <p className="text-xs text-muted-foreground">Active Plans</p>
-              <p className="mt-1 text-lg font-semibold">{plans.filter((plan) => plan.isActive).length}</p>
-            </div>
-            <div className="rounded-xl border border-border bg-secondary/35 p-3">
-              <p className="text-xs text-muted-foreground">Approved Requests</p>
-              <p className="mt-1 text-lg font-semibold">{approvedRequests.length}</p>
-            </div>
-            <div className="rounded-xl border border-border bg-secondary/35 p-3">
-              <p className="text-xs text-muted-foreground">Pending Approvals</p>
-              <p className="mt-1 text-lg font-semibold">
-                {requests.filter((request) => String(request.status ?? "").toLowerCase() === "pending_approval").length}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Plan Coverage */}
+        <section className="space-y-4">
+          <SectionHeader title="Plan Coverage" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard label="Total Plans" value={String(plans.length)} loading={isLoading} />
+            <MetricCard
+              label="Active Plans"
+              value={String(plans.filter((plan) => plan.isActive).length)}
+              loading={isLoading}
+            />
+            <MetricCard
+              label="Approved Requests"
+              value={String(approvedRequests.length)}
+              loading={isLoading}
+            />
+            <MetricCard
+              label="Pending Approvals"
+              value={String(
+                requests.filter(
+                  (request) => String(request.status ?? "").toLowerCase() === "pending_approval"
+                ).length
+              )}
+              loading={isLoading}
+            />
+          </div>
+        </section>
       </div>
     </AdminShell>
   );

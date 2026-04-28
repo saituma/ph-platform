@@ -1,6 +1,12 @@
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Select } from "../../ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../ui/select";
 import { FieldConfig, FieldType } from "./types";
 
 type FieldRowProps = {
@@ -31,15 +37,28 @@ export function FieldRow({
           value={field.label}
           onChange={(event) => onUpdateField(field.id, { label: event.target.value })}
         />
-        <Select
-          value={field.type}
-          onChange={(event) => onUpdateField(field.id, { type: event.target.value as FieldType })}
-        >
-          <option value="text">Text</option>
-          <option value="number">Number</option>
-          <option value="dropdown">Dropdown</option>
-          <option value="date">Date</option>
-        </Select>
+        {(() => {
+          const fieldTypeItems = [
+            { label: "Text", value: "text" },
+            { label: "Number", value: "number" },
+            { label: "Dropdown", value: "dropdown" },
+            { label: "Date", value: "date" },
+          ];
+          return (
+            <Select
+              items={fieldTypeItems}
+              value={field.type}
+              onValueChange={(v) => onUpdateField(field.id, { type: (v ?? "text") as FieldType })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectPopup>
+                {fieldTypeItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
+          );
+        })()}
       </div>
 
       {field.type === "dropdown" ? (

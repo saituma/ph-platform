@@ -11,11 +11,9 @@ export default function BillingPendingApprovalsPage() {
       title="Pending Approvals"
       subtitle="Review subscription change requests before access updates go live."
       actions={
-        <Button asChild variant="outline">
-          <Link href="/billing">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Billing
-          </Link>
+        <Button render={<Link href="/billing" />} variant="outline">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Billing
         </Button>
       }
     >

@@ -20,6 +20,7 @@ import {
 } from "../../../../../components/ui/dialog";
 import { Input } from "../../../../../components/ui/input";
 import { Textarea } from "../../../../../components/ui/textarea";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../../../../components/ui/select";
 import {
   AudienceWorkspace,
   OtherItem,
@@ -35,6 +36,8 @@ import {
   isInseasonScheduleEntry,
   parseWeeklySchedule,
 } from "./inseason-shared";
+
+const WEEKDAY_ITEMS = INSEASON_WEEKDAYS.map((day) => ({ label: day, value: day }));
 
 export function InseasonSchedulePage({
   audienceLabel,
@@ -332,22 +335,23 @@ export function InseasonSchedulePage({
                 <label className="text-sm font-medium text-foreground">
                   Weekly day
                 </label>
-                <select
-                  className="h-10 w-full rounded-full border border-input bg-background px-4 text-sm"
+                <Select
+                  items={WEEKDAY_ITEMS}
                   value={form.weekday}
-                  onChange={(event) =>
+                  onValueChange={(value) =>
                     setForm((current) => ({
                       ...current,
-                      weekday: event.target.value,
+                      weekday: value ?? "Monday",
                     }))
                   }
                 >
-                  {INSEASON_WEEKDAYS.map((weekday) => (
-                    <option key={weekday} value={weekday}>
-                      {weekday}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    {WEEKDAY_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">

@@ -79,7 +79,7 @@ export function CalendarPanel({ visible, onOpenSlots }: CalendarPanelProps) {
                     <p className="text-sm font-semibold text-foreground">{day.day}</p>
                     <p className="text-xs text-muted-foreground">{day.date}</p>
                   </div>
-                  <Badge variant="accent">{day.sessions.length}</Badge>
+                  <Badge variant="secondary">{day.sessions.length}</Badge>
                 </div>
                 <div className="mt-4 space-y-3">
                   {day.sessions.map((session) => (
@@ -111,7 +111,7 @@ export function CalendarPanel({ visible, onOpenSlots }: CalendarPanelProps) {
                   Daily 13:00 calls auto-scheduled for Premium.
                 </p>
               </div>
-              <Badge variant="accent">
+              <Badge variant="secondary">
                 {days.reduce(
                   (count, day) =>
                     count + day.sessions.filter((session) => session.time === fixedWindow).length,

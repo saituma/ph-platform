@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Select } from "../../ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../ui/select";
 import { Skeleton } from "../../ui/skeleton";
 import { useCreateAvailabilityMutation } from "../../../lib/apiSlice";
 
@@ -115,13 +115,13 @@ export function AvailabilityPanel({
               <Input type="number" min={0} max={59} placeholder="Min" value={endMinute} onChange={(event) => setEndMinute(event.target.value)} />
             </div>
           </div>
-          <Select value={serviceId} onChange={(event) => setServiceId(event.target.value)}>
-            <option value="">Service type</option>
-            {services.map((service) => (
-              <option key={service.id} value={String(service.id)}>
-                {service.name}
-              </option>
-            ))}
+          <Select value={serviceId} onValueChange={(v) => setServiceId(v ?? "")}>
+            <SelectTrigger><SelectValue placeholder="Service type" /></SelectTrigger>
+            <SelectPopup>
+              {services.map((service) => (
+                <SelectItem key={service.id} value={String(service.id)}>{service.name}</SelectItem>
+              ))}
+            </SelectPopup>
           </Select>
           {error ? <p className="text-sm text-red-500">{error}</p> : null}
           {success ? <p className="text-sm text-green-600">{success}</p> : null}

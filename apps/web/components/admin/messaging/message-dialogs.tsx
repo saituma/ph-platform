@@ -1,6 +1,13 @@
 "use client";
 
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
@@ -24,9 +31,7 @@ export function MessageDialogs({ active, onClose }: MessageDialogsProps) {
           <Input placeholder="Recipient" />
           <Textarea placeholder="Write your message..." />
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
+            <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
             <Button onClick={onClose}>Send</Button>
           </div>
         </div>

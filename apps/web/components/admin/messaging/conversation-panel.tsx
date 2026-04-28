@@ -261,7 +261,7 @@ export function ConversationPanel({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {profile?.tier ? <Badge variant="primary">{profile.tier}</Badge> : null}
+          {profile?.tier ? <Badge variant="default">{profile.tier}</Badge> : null}
           {profile?.tags?.map((tag) => (
             <Badge key={tag} variant="outline">
               {tag}

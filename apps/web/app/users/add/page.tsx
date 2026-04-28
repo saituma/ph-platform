@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Camera, Loader2, RefreshCw, User } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
-import { Select } from "../../../components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../../components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import {
   useCreateMediaUploadUrlMutation,
@@ -262,11 +262,9 @@ export default function AddUserPage() {
       title="Add user"
       subtitle="Create youth athletes with guardians or adult athletes with direct login access."
       actions={
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/users" className="inline-flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back to users
-          </Link>
+        <Button variant="outline" size="sm" render={<Link href="/users" />}>
+          <ArrowLeft className="h-4 w-4" />
+          Back to users
         </Button>
       }
     >
@@ -301,7 +299,7 @@ export default function AddUserPage() {
               <CardDescription>Choose who you are registering.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs value={formType} onValueChange={(value) => setFormType(value as "youth" | "adult")}>
+              <Tabs value={formType} onValueChange={(value) => setFormType((value ?? "youth") as "youth" | "adult")}>
                 <TabsList>
                   <TabsTrigger value="youth">Youth athlete</TabsTrigger>
                   <TabsTrigger value="adult">Adult athlete</TabsTrigger>
@@ -461,39 +459,52 @@ export default function AddUserPage() {
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="desiredProgramType">Desired program tier</Label>
                 <Select
-                  id="desiredProgramType"
+                  items={TIER_OPTIONS}
                   value={desiredProgramType}
-                  onChange={(ev) =>
-                    setDesiredProgramType(ev.target.value as "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro")
+                  onValueChange={(val) =>
+                    setDesiredProgramType((val ?? "PHP") as "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro")
                   }
                 >
-                  {TIER_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
+                  <SelectTrigger id="desiredProgramType"><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    {TIER_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectPopup>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="planPaymentType">Payment type</Label>
                 <Select
-                  id="planPaymentType"
+                  items={[
+                    { label: "Pay monthly", value: "monthly" },
+                    { label: "Pay upfront (full)", value: "upfront" },
+                  ]}
                   value={planPaymentType}
-                  onChange={(ev) => setPlanPaymentType(ev.target.value as "monthly" | "upfront")}
+                  onValueChange={(val) => setPlanPaymentType((val ?? "monthly") as "monthly" | "upfront")}
                 >
-                  <option value="monthly">Pay monthly</option>
-                  <option value="upfront">Pay upfront (full)</option>
+                  <SelectTrigger id="planPaymentType"><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="monthly">Pay monthly</SelectItem>
+                    <SelectItem value="upfront">Pay upfront (full)</SelectItem>
+                  </SelectPopup>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="planCommitmentMonths">Commitment</Label>
                 <Select
-                  id="planCommitmentMonths"
+                  items={[
+                    { label: "6 months", value: "6" },
+                    { label: "12 months", value: "12" },
+                  ]}
                   value={String(planCommitmentMonths)}
-                  onChange={(ev) => setPlanCommitmentMonths(Number(ev.target.value) as 6 | 12)}
+                  onValueChange={(val) => setPlanCommitmentMonths(Number(val ?? "6") as 6 | 12)}
                 >
-                  <option value="6">6 months</option>
-                  <option value="12">12 months</option>
+                  <SelectTrigger id="planCommitmentMonths"><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value="6">6 months</SelectItem>
+                    <SelectItem value="12">12 months</SelectItem>
+                  </SelectPopup>
                 </Select>
               </div>
             </CardContent>
@@ -665,11 +676,13 @@ export default function AddUserPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
-              <Tabs value={passwordMode} onValueChange={(value) => setPasswordMode(value as "generated" | "manual")}>
-                <TabsList>
-                  <TabsTrigger value="generated">Generate random password</TabsTrigger>
-                  <TabsTrigger value="manual">Admin sets password</TabsTrigger>
-                </TabsList>
+              <Tabs value={passwordMode} onValueChange={(value) => setPasswordMode((value ?? "generated") as "generated" | "manual")}>
+                <div className="overflow-x-auto pb-1">
+                  <TabsList className="min-w-max">
+                    <TabsTrigger value="generated">Generate random password</TabsTrigger>
+                    <TabsTrigger value="manual">Admin sets password</TabsTrigger>
+                  </TabsList>
+                </div>
               </Tabs>
 
               {passwordMode === "generated" ? (
@@ -710,8 +723,8 @@ export default function AddUserPage() {
           </Card>
 
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <Button type="button" variant="ghost" asChild>
-              <Link href="/users">Cancel</Link>
+            <Button type="button" variant="ghost" render={<Link href="/users" />}>
+              Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit || submitting || configLoading}>
               {submitting ? "Creating…" : formType === "youth" ? "Create youth user & send password" : "Create adult athlete & send password"}

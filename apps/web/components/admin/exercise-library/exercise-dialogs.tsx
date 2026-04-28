@@ -6,7 +6,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Select } from "../../ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import type { Exercise } from "./types";
 import { ParentCourseMediaUpload } from "../../parent/config/parent-course-media-upload";
@@ -118,15 +124,28 @@ export function ExerciseDialogs({
             value={form.name}
             onChange={(event) => handleChange("name", event.target.value)}
           />
-          <Select
-            value={form.category ?? ""}
-            onChange={(event) => handleChange("category", event.target.value)}
-          >
-            <option>Category</option>
-            <option>Power</option>
-            <option>Speed</option>
-            <option>Recovery</option>
-          </Select>
+          {(() => {
+            const categoryItems = [
+              { label: "Category", value: "" },
+              { label: "Power", value: "Power" },
+              { label: "Speed", value: "Speed" },
+              { label: "Recovery", value: "Recovery" },
+            ];
+            return (
+              <Select
+                items={categoryItems}
+                value={form.category ?? ""}
+                onValueChange={(v) => handleChange("category", v ?? "")}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  {categoryItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+            );
+          })()}
           <div className="grid gap-3 sm:grid-cols-4">
             <Input
               placeholder="Sets"

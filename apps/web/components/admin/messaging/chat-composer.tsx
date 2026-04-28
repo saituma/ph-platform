@@ -2,11 +2,12 @@
 
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
-import { Paperclip, Send, Smile, Image as ImageIcon, Sticker, Video, X } from "lucide-react";
+import { Image as ImageIcon, Paperclip, Send, Smile, Sticker, Video, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
-import { Textarea } from "../../ui/textarea";
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from "../../ui/input-group";
+import { Menu, MenuTrigger, MenuPopup, MenuItem } from "../../ui/menu";
 
 type EmojiPick = {
   native?: string;
@@ -42,18 +43,13 @@ export function ChatComposer({
   onPickGif,
 }: ChatComposerProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const emojiContainerRef = useRef<HTMLDivElement | null>(null);
-  const attachmentContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
       if (emojiContainerRef.current && !emojiContainerRef.current.contains(target)) {
         setShowEmojiPicker(false);
-      }
-      if (attachmentContainerRef.current && !attachmentContainerRef.current.contains(target)) {
-        setShowAttachmentMenu(false);
       }
     };
 
@@ -82,14 +78,12 @@ export function ChatComposer({
         </div>
       ) : null}
       <div className="flex items-end gap-2">
+        {/* Emoji picker */}
         <div ref={emojiContainerRef} className="relative">
           <Button
             variant="outline"
             size="icon"
-            onClick={() => {
-              setShowEmojiPicker((current) => !current);
-              setShowAttachmentMenu(false);
-            }}
+            onClick={() => setShowEmojiPicker((current) => !current)}
             aria-label="Open emoji picker"
           >
             <Smile className="h-4 w-4" />
@@ -106,78 +100,63 @@ export function ChatComposer({
             </div>
           ) : null}
         </div>
-        <div ref={attachmentContainerRef} className="relative">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => {
-              setShowAttachmentMenu((current) => !current);
-              setShowEmojiPicker(false);
-            }}
-            disabled={isUploading}
-            aria-label="Add attachment"
+
+        {/* Attachment menu */}
+        <Menu>
+          <MenuTrigger
+            render={
+              <Button variant="outline" size="icon" disabled={isUploading} aria-label="Add attachment" />
+            }
           >
             <Paperclip className="h-4 w-4" />
-          </Button>
-          {showAttachmentMenu ? (
-            <div className="absolute bottom-11 left-0 z-30 w-52 rounded-xl border border-border bg-card p-2 shadow-lg">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-secondary"
-                onClick={() => {
-                  setShowAttachmentMenu(false);
-                  onPickPhoto();
-                }}
-              >
-                <ImageIcon className="h-4 w-4" /> Photo
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-secondary"
-                onClick={() => {
-                  setShowAttachmentMenu(false);
-                  onPickVideo();
-                }}
-              >
-                <Video className="h-4 w-4" /> Video
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-secondary"
-                onClick={() => {
-                  setShowAttachmentMenu(false);
-                  onPickGif();
-                }}
-              >
-                <Sticker className="h-4 w-4" /> GIF (GIPHY)
-              </button>
-            </div>
-          ) : null}
-        </div>
-        <Textarea
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter") return;
-            if (event.shiftKey) return;
-            if ((event.nativeEvent as any)?.isComposing) return;
-            event.preventDefault();
-            if (!canSend || isSending || isUploading) return;
-            setShowEmojiPicker(false);
-            setShowAttachmentMenu(false);
-            onSend();
-          }}
-          placeholder={placeholder}
-          className="min-h-11 flex-1"
-        />
-        <Button
-          onClick={onSend}
-          size="icon"
-          disabled={!canSend || isSending}
-          aria-label="Send message"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
+          </MenuTrigger>
+          <MenuPopup align="start" side="top">
+            <MenuItem
+              onClick={() => onPickPhoto()}
+            >
+              <ImageIcon className="h-4 w-4" /> Photo
+            </MenuItem>
+            <MenuItem
+              onClick={() => onPickVideo()}
+            >
+              <Video className="h-4 w-4" /> Video
+            </MenuItem>
+            <MenuItem
+              onClick={() => onPickGif()}
+            >
+              <Sticker className="h-4 w-4" /> GIF (GIPHY)
+            </MenuItem>
+          </MenuPopup>
+        </Menu>
+
+        {/* Message input with send button */}
+        <InputGroup className="flex-1">
+          <InputGroupTextarea
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              if (event.shiftKey) return;
+              if ((event.nativeEvent as any)?.isComposing) return;
+              event.preventDefault();
+              if (!canSend || isSending || isUploading) return;
+              setShowEmojiPicker(false);
+              onSend();
+            }}
+            placeholder={placeholder}
+            className="min-h-11"
+          />
+          <InputGroupAddon align="inline-end">
+            <Button
+              onClick={onSend}
+              size="icon"
+              disabled={!canSend || isSending}
+              aria-label="Send message"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </InputGroupAddon>
+        </InputGroup>
       </div>
       {isUploading ? <p className="mt-2 text-xs text-muted-foreground">Uploading attachment...</p> : null}
     </div>

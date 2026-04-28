@@ -76,7 +76,7 @@ export default function TrainingQuestionnairesPage() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium text-foreground">{item.athleteName ?? `Athlete ${item.athleteId}`}</p>
-                        <Badge variant="accent">{labelSource(item.source)}</Badge>
+                        <Badge variant="secondary">{labelSource(item.source)}</Badge>
                         {item.teamName ? <Badge variant="outline">{item.teamName}</Badge> : null}
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">{item.title ?? "Untitled session"}</p>

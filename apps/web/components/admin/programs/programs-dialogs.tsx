@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Select } from "../../ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { useEffect, useMemo, useState } from "react";
 
@@ -120,11 +120,14 @@ export function ProgramsDialogs({
           {active === "create-template" ? (
             <>
               <Input placeholder="Template name" value={name} onChange={(e) => setName(e.target.value)} />
-              <Select value={type} onChange={(e) => setType(e.target.value)}>
-                <option value="PHP">PHP Program</option>
-                <option value="PHP_Premium">PHP Premium</option>
-                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
-                <option value="PHP_Pro">PHP Pro</option>
+              <Select value={type} onValueChange={(v) => setType(v ?? "")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="PHP">PHP Program</SelectItem>
+                  <SelectItem value="PHP_Premium">PHP Premium</SelectItem>
+                  <SelectItem value="PHP_Premium_Plus">PHP Premium Plus</SelectItem>
+                  <SelectItem value="PHP_Pro">PHP Pro</SelectItem>
+                </SelectPopup>
               </Select>
               <Textarea placeholder="Template summary" value={description} onChange={(e) => setDescription(e.target.value)} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -178,11 +181,14 @@ export function ProgramsDialogs({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
-              <Select value={type} onChange={(e) => setType(e.target.value)}>
-                <option value="PHP">PHP Program</option>
-                <option value="PHP_Premium">PHP Premium</option>
-                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
-                <option value="PHP_Pro">PHP Pro</option>
+              <Select value={type} onValueChange={(v) => setType(v ?? "")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="PHP">PHP Program</SelectItem>
+                  <SelectItem value="PHP_Premium">PHP Premium</SelectItem>
+                  <SelectItem value="PHP_Premium_Plus">PHP Premium Plus</SelectItem>
+                  <SelectItem value="PHP_Pro">PHP Pro</SelectItem>
+                </SelectPopup>
               </Select>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input
@@ -225,23 +231,27 @@ export function ProgramsDialogs({
           ) : null}
           {active === "assign" && selectedProgram ? (
             <>
-              <Select value={athleteId} onChange={(e) => setAthleteId(e.target.value)}>
-                <option value="">Select athlete</option>
-                {users
-                  .filter((user) => user.athleteId)
-                  .map((user) => (
-                    <option key={user.id} value={String(user.athleteId)}>
-                      {user.name || user.email} • Athlete #{user.athleteId}
-                    </option>
-                  ))}
+              <Select value={athleteId} onValueChange={(v) => setAthleteId(v ?? "")}>
+                <SelectTrigger><SelectValue placeholder="Select athlete" /></SelectTrigger>
+                <SelectPopup>
+                  {users
+                    .filter((user) => user.athleteId)
+                    .map((user) => (
+                      <SelectItem key={user.id} value={String(user.athleteId)}>
+                        {user.name || user.email} • Athlete #{user.athleteId}
+                      </SelectItem>
+                    ))}
+                </SelectPopup>
               </Select>
-              <Select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-                <option value="">Select template</option>
-                {assignTemplates.map((program) => (
-                  <option key={program.id} value={String(program.id)}>
-                    {program.name} ({programLabel(program.type)})
-                  </option>
-                ))}
+              <Select value={templateId} onValueChange={(v) => setTemplateId(v ?? "")}>
+                <SelectTrigger><SelectValue placeholder="Select template" /></SelectTrigger>
+                <SelectPopup>
+                  {assignTemplates.map((program) => (
+                    <SelectItem key={program.id} value={String(program.id)}>
+                      {program.name} ({programLabel(program.type)})
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
               </Select>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={onClose}>

@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "../../../../components/ui/dialog";
 import { Input } from "../../../../components/ui/input";
-import { Select } from "../../../../components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../../../components/ui/select";
 import { Textarea } from "../../../../components/ui/textarea";
 import {
   AudienceWorkspace,
@@ -36,6 +36,10 @@ import {
 
 const TIME_HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
 const TIME_MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+
+const WEEKDAY_ITEMS = INSEASON_WEEKDAYS.map((day) => ({ label: day, value: day }));
+const HOUR_ITEMS = TIME_HOUR_OPTIONS.map((h) => ({ label: h, value: h }));
+const MINUTE_ITEMS = TIME_MINUTE_OPTIONS.map((m) => ({ label: m, value: m }));
 
 function parseTimeForPicker(time: string) {
   const match = String(time).match(/^(\d{2}):(\d{2})$/);
@@ -299,50 +303,55 @@ export function InseasonSchedulePage({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Day</label>
-                <select
-                  className="h-10 w-full rounded-full border border-input bg-background px-4 text-sm"
+                <Select
+                  items={WEEKDAY_ITEMS}
                   value={form.weekday}
-                  onChange={(event) => setForm((current) => ({ ...current, weekday: event.target.value }))}
+                  onValueChange={(value) => setForm((current) => ({ ...current, weekday: value ?? "" }))}
                 >
-                  {INSEASON_WEEKDAYS.map((weekday) => (
-                    <option key={weekday} value={weekday}>
-                      {weekday}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    {WEEKDAY_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Time</label>
                 <div className="grid grid-cols-2 gap-2">
                   <Select
+                    items={HOUR_ITEMS}
                     value={pickedTime.hour}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       setForm((current) => ({
                         ...current,
-                        time: buildTimeFromPicker(event.target.value, pickedTime.minute),
+                        time: buildTimeFromPicker(value ?? "", pickedTime.minute),
                       }))
                     }
                   >
-                    {TIME_HOUR_OPTIONS.map((hour) => (
-                      <option key={hour} value={hour}>
-                        {hour}
-                      </option>
-                    ))}
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {HOUR_ITEMS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                   <Select
+                    items={MINUTE_ITEMS}
                     value={pickedTime.minute}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       setForm((current) => ({
                         ...current,
-                        time: buildTimeFromPicker(pickedTime.hour, event.target.value),
+                        time: buildTimeFromPicker(pickedTime.hour, value ?? ""),
                       }))
                     }
                   >
-                    {TIME_MINUTE_OPTIONS.map((minute) => (
-                      <option key={minute} value={minute}>
-                        {minute}
-                      </option>
-                    ))}
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {MINUTE_ITEMS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
               </div>

@@ -16,6 +16,7 @@ import {
 } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../../components/ui/select";
 
 type ApiErrorLike = {
   message?: string;
@@ -46,6 +47,23 @@ type Plan = {
   displayPrice: string;
   billingInterval: string;
 };
+
+const ATHLETE_TYPE_ITEMS = [
+  { label: "Youth Team (Parent Managed)", value: "youth" },
+  { label: "Adult Team (Self Managed)", value: "adult" },
+];
+
+const PAYMENT_METHOD_ITEMS = [
+  { label: "Stripe (Pay Immediately)", value: "pay_now" },
+  { label: "Stripe (Email Link to Admin)", value: "email_link" },
+  { label: "Cash / Manual (Offline Payment)", value: "cash" },
+];
+
+const BILLING_CYCLE_ITEMS = [
+  { label: "Monthly Recurring", value: "monthly" },
+  { label: "6 Months Upfront", value: "6months" },
+  { label: "Yearly Upfront (Best Value)", value: "yearly" },
+];
 
 export default function AddTeamPage() {
   const router = useRouter();
@@ -83,6 +101,10 @@ export default function AddTeamPage() {
 
   const selectedPlan = plans.find((p) => String(p.id) === planId);
   const unitPrice = selectedPlan ? parseFloat(selectedPlan.displayPrice.replace(/[^0-9.]/g, "")) : 0;
+  const planItems = [
+    { label: "Select a plan...", value: "" },
+    ...plans.map((p) => ({ label: `${p.name} (${p.displayPrice}/${p.billingInterval})`, value: String(p.id) })),
+  ];
   
   const multiplier = billingCycle === "6months" ? 6 : billingCycle === "yearly" ? 12 : 1;
   const intervalTotal = unitPrice * multiplier; 
@@ -153,11 +175,9 @@ export default function AddTeamPage() {
       title="Add team"
       subtitle="Register a new team with a subscription plan and athlete slots."
       actions={
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/users" className="inline-flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back to users
-          </Link>
+        <Button variant="outline" size="sm" render={<Link href="/users" />} className="inline-flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back to users
         </Button>
       }
     >
@@ -186,15 +206,18 @@ export default function AddTeamPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="athleteType">Team Type</Label>
-              <select
-                id="athleteType"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              <Select
+                items={ATHLETE_TYPE_ITEMS}
                 value={athleteType}
-                onChange={(e) => setAthleteType(e.target.value as any)}
+                onValueChange={(v) => setAthleteType((v ?? "youth") as "youth" | "adult")}
               >
-                <option value="youth">Youth Team (Parent Managed)</option>
-                <option value="adult">Adult Team (Self Managed)</option>
-              </select>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  {ATHLETE_TYPE_ITEMS.map((i) => (
+                    <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="minAge">Min Age (Optional)</Label>
@@ -227,30 +250,34 @@ export default function AddTeamPage() {
           <CardContent className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method</Label>
-              <select
-                id="paymentMethod"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              <Select
+                items={PAYMENT_METHOD_ITEMS}
                 value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as any)}
+                onValueChange={(v) => setPaymentMethod((v ?? "pay_now") as "pay_now" | "email_link" | "cash")}
               >
-                <option value="pay_now">Stripe (Pay Immediately)</option>
-                <option value="email_link">Stripe (Email Link to Admin)</option>
-                <option value="cash">Cash / Manual (Offline Payment)</option>
-              </select>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  {PAYMENT_METHOD_ITEMS.map((i) => (
+                    <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="billingCycle">Billing Cycle</Label>
-              <select
-                id="billingCycle"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              <Select
+                items={BILLING_CYCLE_ITEMS}
                 value={billingCycle}
-                onChange={(e) => setBillingCycle(e.target.value as any)}
+                onValueChange={(v) => setBillingCycle((v ?? "monthly") as "monthly" | "6months" | "yearly")}
               >
-                <option value="monthly">Monthly Recurring</option>
-                <option value="6months">6 Months Upfront</option>
-                <option value="yearly">Yearly Upfront (Best Value)</option>
-              </select>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  {BILLING_CYCLE_ITEMS.map((i) => (
+                    <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -266,19 +293,18 @@ export default function AddTeamPage() {
               {isLoadingPlans ? (
                 <div className="h-10 animate-pulse rounded-md bg-muted" />
               ) : (
-                <select
-                  id="plan"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                <Select
+                  items={planItems}
                   value={planId}
-                  onChange={(e) => setPlanId(e.target.value)}
+                  onValueChange={(v) => setPlanId(v ?? "")}
                 >
-                  <option value="">Select a plan...</option>
-                  {plans.map((p) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.name} ({p.displayPrice}/{p.billingInterval})
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger><SelectValue placeholder="Select a plan..." /></SelectTrigger>
+                  <SelectPopup>
+                    {planItems.map((i) => (
+                      <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
               )}
             </div>
 
@@ -330,8 +356,8 @@ export default function AddTeamPage() {
         </Card>
 
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <Button type="button" variant="ghost" asChild>
-            <Link href="/teams">Cancel</Link>
+          <Button type="button" variant="ghost" render={<Link href="/teams" />}>
+            Cancel
           </Button>
           <Button type="submit" disabled={!teamName.trim() || !planId || isSubmitting}>
             {isSubmitting 

@@ -25,10 +25,8 @@ export function OnboardingDialog({ open, onClose }: OnboardingDialogProps) {
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          <Button asChild>
-            <Link href="/onboarding-config" onClick={onClose}>
-              Open editor
-            </Link>
+          <Button render={<Link href="/onboarding-config" onClick={onClose} />}>
+            Open editor
           </Button>
         </div>
       </DialogContent>

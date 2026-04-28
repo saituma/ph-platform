@@ -193,7 +193,7 @@ export default function VideoReviewListPage() {
                   </div>
                 </div>
                 {athlete.awaiting > 0 ? (
-                  <Badge variant="accent">{athlete.awaiting} awaiting</Badge>
+                  <Badge variant="secondary">{athlete.awaiting} awaiting</Badge>
                 ) : (
                   <Badge>Reviewed</Badge>
                 )}

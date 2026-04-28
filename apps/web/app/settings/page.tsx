@@ -8,7 +8,13 @@ import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../components/ui/select";
 import { Skeleton } from "../../components/ui/skeleton";
 import { Textarea } from "../../components/ui/textarea";
 import {
@@ -18,6 +24,26 @@ import {
   useChangePasswordMutation,
   useCreateMediaUploadUrlMutation,
 } from "../../lib/apiSlice";
+
+const settingsTimezoneItems = [
+  { label: "America/New_York", value: "America/New_York" },
+  { label: "America/Chicago", value: "America/Chicago" },
+  { label: "America/Denver", value: "America/Denver" },
+  { label: "America/Los_Angeles", value: "America/Los_Angeles" },
+  { label: "America/Phoenix", value: "America/Phoenix" },
+  { label: "America/Toronto", value: "America/Toronto" },
+  { label: "America/Vancouver", value: "America/Vancouver" },
+  { label: "Europe/London", value: "Europe/London" },
+  { label: "Europe/Paris", value: "Europe/Paris" },
+  { label: "Europe/Berlin", value: "Europe/Berlin" },
+];
+
+const settingsNotifItems = [
+  { label: "Real-time", value: "Real-time" },
+  { label: "Daily", value: "Daily" },
+  { label: "Weekly", value: "Weekly" },
+  { label: "Off", value: "Off" },
+];
 
 type ProfileState = {
   name: string;
@@ -300,37 +326,37 @@ export default function SettingsPage() {
               <div>
                 <p className="mb-2 text-sm font-medium text-foreground">Timezone</p>
                 <Select
+                  items={settingsTimezoneItems}
                   value={preferences.timezone}
-                  disabled={isLoading}
-                  onChange={(event) =>
-                    setPreferences({ ...preferences, timezone: event.target.value })
+                  onValueChange={(value) =>
+                    setPreferences({ ...preferences, timezone: value ?? "" })
                   }
+                  disabled={isLoading}
                 >
-                  <option value="America/New_York">America/New_York</option>
-                  <option value="America/Chicago">America/Chicago</option>
-                  <option value="America/Denver">America/Denver</option>
-                  <option value="America/Los_Angeles">America/Los_Angeles</option>
-                  <option value="America/Phoenix">America/Phoenix</option>
-                  <option value="America/Toronto">America/Toronto</option>
-                  <option value="America/Vancouver">America/Vancouver</option>
-                  <option value="Europe/London">Europe/London</option>
-                  <option value="Europe/Paris">Europe/Paris</option>
-                  <option value="Europe/Berlin">Europe/Berlin</option>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    {settingsTimezoneItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectPopup>
                 </Select>
               </div>
               <div>
                 <p className="mb-2 text-sm font-medium text-foreground">Notification summary</p>
                 <Select
+                  items={settingsNotifItems}
                   value={preferences.notificationSummary}
-                  disabled={isLoading}
-                  onChange={(event) =>
-                    setPreferences({ ...preferences, notificationSummary: event.target.value })
+                  onValueChange={(value) =>
+                    setPreferences({ ...preferences, notificationSummary: value ?? "" })
                   }
+                  disabled={isLoading}
                 >
-                  <option value="Real-time">Real-time</option>
-                  <option value="Daily">Daily</option>
-                  <option value="Weekly">Weekly</option>
-                  <option value="Off">Off</option>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    {settingsNotifItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectPopup>
                 </Select>
               </div>
               <Button onClick={handleSavePreferences} disabled={isSavingPreferences || isLoading}>

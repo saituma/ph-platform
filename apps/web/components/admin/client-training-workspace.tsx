@@ -47,7 +47,7 @@ export function ClientTrainingPremiumBanner() {
       <Sparkles className="pointer-events-none absolute -right-2 -top-2 h-24 w-24 text-primary/[0.12]" aria-hidden />
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="max-w-2xl space-y-2">
-          <Badge variant="accent" className="text-[10px] uppercase tracking-wider">
+          <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
             Performance Hub · Coach
           </Badge>
           <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
@@ -140,10 +140,10 @@ export function PremiumExerciseProgress({ done, total }: { done: number; total: 
 
 export function tierBadgeProps(programTier: string | null | undefined): {
   label: string;
-  variant: "primary" | "accent" | "default";
+  variant: "secondary" | "info" | "default";
 } {
   const t = programTier ?? "";
-  if (t.includes("Premium")) return { label: "Premium", variant: "primary" };
-  if (t.includes("Plus")) return { label: "Plus", variant: "accent" };
+  if (t.includes("Premium")) return { label: "Premium", variant: "secondary" };
+  if (t.includes("Plus")) return { label: "Plus", variant: "info" };
   return { label: "Program", variant: "default" };
 }

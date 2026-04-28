@@ -13,8 +13,8 @@ export default function AdminSupportPage() {
       subtitle="Send product issues, ideas, and account questions to the coaching team. Messages appear in Messaging with an [App feedback — …] prefix."
     >
       <div className="mb-6 flex flex-wrap gap-3">
-        <Button variant="outline" asChild>
-          <Link href="/messaging">Open Messaging</Link>
+        <Button variant="outline" render={<Link href="/messaging" />}>
+          Open Messaging
         </Button>
       </div>
       <AppFeedbackPanel variant="admin" className="max-w-2xl" />

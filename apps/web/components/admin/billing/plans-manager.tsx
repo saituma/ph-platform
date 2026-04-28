@@ -3,17 +3,27 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "../../ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardPanel } from "../../ui/card";
 import {
   Dialog,
-  DialogContent,
-  DialogDescription,
+  DialogPopup,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogPanel,
+  DialogFooter,
 } from "../../ui/dialog";
+import { Empty, EmptyTitle, EmptyDescription } from "../../ui/empty";
+import { Frame, FramePanel } from "../../ui/frame";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Select } from "../../ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../ui/select";
 import {
   Table,
   TableBody,
@@ -22,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
+import { Badge } from "../../ui/badge";
 import {
   buildDisplayPrice,
   defaultForm,
@@ -33,6 +44,18 @@ import {
   type PlanTier,
   type SubscriptionPlan,
 } from "./billing-admin-utils";
+
+const TIER_ITEMS = [
+  { label: "PHP Program", value: "PHP" },
+  { label: "PHP Premium", value: "PHP_Premium" },
+  { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
+  { label: "PHP Pro", value: "PHP_Pro" },
+];
+
+const STATUS_ITEMS = [
+  { label: "Active", value: "active" },
+  { label: "Inactive", value: "inactive" },
+];
 
 export function PlansManager() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -135,68 +158,72 @@ export function PlansManager() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <CardTitle>Subscription Plans</CardTitle>
-          <CardDescription>
-            Dynamic pricing plans used across billing approvals and tier-driven experiences.
-          </CardDescription>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={openCreatePlan}>Add plan</Button>
-          <Button variant="outline" onClick={loadPlans}>
-            Refresh plans
-          </Button>
-        </div>
+      <CardHeader>
+        <CardTitle>Subscription Plans</CardTitle>
+        <CardDescription>
+          Dynamic pricing plans used across billing approvals and tier-driven experiences.
+        </CardDescription>
+        <CardAction>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={loadPlans}>
+              Refresh
+            </Button>
+            <Button onClick={openCreatePlan}>Add plan</Button>
+          </div>
+        </CardAction>
       </CardHeader>
-      <CardContent className="space-y-6">
+
+      <CardPanel className="space-y-4">
         {actionError ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3 text-sm text-destructive-foreground">
             {actionError}
           </div>
         ) : null}
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Tier</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground">
-                  Loading plans...
-                </TableCell>
-              </TableRow>
-            ) : plans.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground">
-                  No plans available.
-                </TableCell>
-              </TableRow>
-            ) : (
-              plans.map((plan) => (
-                <TableRow key={plan.id}>
-                  <TableCell className="font-medium">{plan.name}</TableCell>
-                  <TableCell>{plan.tier}</TableCell>
-                  <TableCell>{plan.displayPrice}</TableCell>
-                  <TableCell>{plan.isActive ? "Active" : "Inactive"}</TableCell>
-                  <TableCell>
-                    <Button variant="outline" size="sm" onClick={() => handleEditPlan(plan)}>
-                      Edit
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
+        {isLoading ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">Loading plans...</div>
+        ) : plans.length === 0 ? (
+          <Empty className="py-12">
+            <EmptyTitle>No plans yet</EmptyTitle>
+            <EmptyDescription>Add your first subscription plan to get started.</EmptyDescription>
+          </Empty>
+        ) : (
+          <Frame>
+            <FramePanel className="p-0 overflow-hidden">
+              <Table variant="card">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Tier</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {plans.map((plan) => (
+                    <TableRow key={plan.id}>
+                      <TableCell className="font-medium">{plan.name}</TableCell>
+                      <TableCell>{plan.tier}</TableCell>
+                      <TableCell>{plan.displayPrice}</TableCell>
+                      <TableCell>
+                        <Badge variant={plan.isActive ? "success" : "secondary"}>
+                          {plan.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => handleEditPlan(plan)}>
+                          Edit
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </FramePanel>
+          </Frame>
+        )}
+      </CardPanel>
 
       <Dialog
         open={isEditorOpen}
@@ -204,7 +231,7 @@ export function PlansManager() {
           if (!open) resetEditor();
         }}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogPopup className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isEditing ? "Edit Plan" : "Add Plan"}</DialogTitle>
             <DialogDescription>
@@ -214,95 +241,128 @@ export function PlansManager() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <div className="rounded-md bg-blue-50/50 p-3 text-sm text-blue-800 border border-blue-200">
-                <strong>Note:</strong> Mobile app subscription pricing is managed directly in Apple App Store Connect and Google Play Console via RevenueCat. The pricing below is read-only.
+          <DialogPanel className="space-y-4">
+            <div className="rounded-lg border border-info/30 bg-info/8 p-3 text-sm text-info-foreground">
+              <strong>Note:</strong> Mobile app subscription pricing is managed directly in Apple App Store Connect and Google Play Console via RevenueCat. The pricing below is read-only.
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="plan-name">Plan Name</Label>
+                <Input
+                  id="plan-name"
+                  value={form.name}
+                  onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder="PHP Premium (1:1)"
+                />
               </div>
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="plan-name">Plan Name</Label>
-              <Input
-                id="plan-name"
-                value={form.name}
-                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                placeholder="PHP Premium (1:1)"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="plan-tier">Tier</Label>
-              <Select
-                id="plan-tier"
-                value={form.tier}
-                onChange={(event) => setForm((prev) => ({ ...prev, tier: event.target.value as PlanTier }))}
-              >
-                <option value="PHP">PHP Program</option>
-                <option value="PHP_Premium">PHP Premium</option>
-                <option value="PHP_Premium_Plus">PHP Premium Plus</option>
-                <option value="PHP_Pro">PHP Pro</option>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="plan-status">Status</Label>
-              <Select
-                id="plan-status"
-                value={form.isActive ? "active" : "inactive"}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, isActive: event.target.value === "active" }))
-                }
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Monthly Price (Web Fallback)</Label>
-              <Input
-                value={form.monthlyPrice}
-                onChange={(event) => setForm((prev) => ({ ...prev, monthlyPrice: event.target.value }))}
-                placeholder="$29"
-                disabled
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Discount Type</Label>
-              <Input value="Percent" readOnly disabled />
-            </div>
-            <div className="space-y-2">
-              <Label>Monthly Discount (%)</Label>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground opacity-60">
-                <input
-                  type="checkbox"
-                  checked={form.monthlyDiscountEnabled}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, monthlyDiscountEnabled: event.target.checked }))
+
+              <div className="space-y-2">
+                <Label htmlFor="plan-tier">Tier</Label>
+                <Select
+                  items={TIER_ITEMS}
+                  value={form.tier}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, tier: (value ?? "PHP") as PlanTier }))
                   }
+                >
+                  <SelectTrigger id="plan-tier">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectPopup>
+                    {TIER_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plan-status">Status</Label>
+                <Select
+                  items={STATUS_ITEMS}
+                  value={form.isActive ? "active" : "inactive"}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, isActive: (value ?? "inactive") === "active" }))
+                  }
+                >
+                  <SelectTrigger id="plan-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectPopup>
+                    {STATUS_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Monthly Price (Web Fallback)</Label>
+                <Input
+                  value={form.monthlyPrice}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, monthlyPrice: event.target.value }))
+                  }
+                  placeholder="$29"
                   disabled
                 />
-                <span>Enable monthly discount</span>
-              </label>
-              <Input
-                value={form.monthlyDiscountValue}
-                onChange={(event) => setForm((prev) => ({ ...prev, monthlyDiscountValue: event.target.value }))}
-                placeholder="0"
-                disabled
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label>Display Price Preview</Label>
-              <Input value={buildDisplayPrice(form)} readOnly disabled />
-            </div>
-          </div>
+              </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={resetEditor}>
+              <div className="space-y-2">
+                <Label>Discount Type</Label>
+                <Input value="Percent" readOnly disabled />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Monthly Discount (%)</Label>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground opacity-60">
+                  <input
+                    type="checkbox"
+                    checked={form.monthlyDiscountEnabled}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, monthlyDiscountEnabled: event.target.checked }))
+                    }
+                    disabled
+                  />
+                  <span>Enable monthly discount</span>
+                </label>
+                <Input
+                  value={form.monthlyDiscountValue}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, monthlyDiscountValue: event.target.value }))
+                  }
+                  placeholder="0"
+                  disabled
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Display Price Preview</Label>
+                <Input value={buildDisplayPrice(form)} readOnly disabled />
+              </div>
+            </div>
+          </DialogPanel>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={resetEditor}>
               Cancel
             </Button>
             <Button onClick={handleSavePlan} disabled={isNameMissing || isSaving}>
-              {isSaving ? (isEditing ? "Saving..." : "Creating...") : isEditing ? "Save Changes" : "Create Plan"}
+              {isSaving
+                ? isEditing
+                  ? "Saving..."
+                  : "Creating..."
+                : isEditing
+                  ? "Save Changes"
+                  : "Create Plan"}
             </Button>
-          </div>
-        </DialogContent>
+          </DialogFooter>
+        </DialogPopup>
       </Dialog>
     </Card>
   );

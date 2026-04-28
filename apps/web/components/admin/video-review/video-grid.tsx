@@ -1,7 +1,7 @@
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { EmptyState } from "../empty-state";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "../../ui/empty";
 import { Skeleton } from "../../ui/skeleton";
 
 type VideoItem = {
@@ -41,10 +41,12 @@ export function VideoGrid({ videos, isLoading = false, onOpen }: VideoGridProps)
 
   if (videos.length === 0) {
     return (
-      <EmptyState
-        title="No videos to review"
-        description="Client uploads will appear here for feedback."
-      />
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>No videos to review</EmptyTitle>
+          <EmptyDescription>Client uploads will appear here for feedback.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
@@ -69,7 +71,7 @@ export function VideoGrid({ videos, isLoading = false, onOpen }: VideoGridProps)
               </div>
             )}
             <p className="text-sm text-foreground">{video.topic}</p>
-            <Badge variant={video.status === "Priority" ? "primary" : "outline"}>
+            <Badge variant={video.status === "Priority" ? "default" : "outline"}>
               {video.status}
             </Badge>
             <Button className="w-full" variant="outline" onClick={() => onOpen(video)}>

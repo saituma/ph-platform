@@ -1,16 +1,26 @@
-import * as React from "react";
+"use client";
 
-import { cn } from "../../lib/utils";
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRender } from "@base-ui/react/use-render";
+import type React from "react";
+import { cn } from "@/lib/utils";
 
-const Label = React.forwardRef<HTMLLabelElement, React.ComponentProps<"label">>(
-  ({ className, ...props }, ref) => (
-    <label
-      ref={ref}
-      className={cn("text-sm font-medium text-foreground", className)}
-      {...props}
-    />
-  )
-);
-Label.displayName = "Label";
+export function Label({
+  className,
+  render,
+  ...props
+}: useRender.ComponentProps<"label">): React.ReactElement {
+  const defaultProps = {
+    className: cn(
+      "inline-flex items-center gap-2 font-medium text-base/4.5 text-foreground sm:text-sm/4",
+      className,
+    ),
+    "data-slot": "label",
+  };
 
-export { Label };
+  return useRender({
+    defaultTagName: "label",
+    props: mergeProps<"label">(defaultProps, props),
+    render,
+  });
+}

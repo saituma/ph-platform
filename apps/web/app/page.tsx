@@ -448,7 +448,7 @@ export default function Home() {
                         name={athlete.name}
                         score={athlete.score}
                         tier={athlete.tier}
-                        tierVariant={athlete.tier === "Premium" ? "primary" : "default"}
+                        tierVariant={athlete.tier === "Premium" ? "secondary" : "default"}
                       />
                     )
                   )
@@ -559,7 +559,7 @@ export default function Home() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold text-foreground">{metric}</p>
-                      <Badge variant="accent">+6%</Badge>
+                      <Badge variant="secondary">+6%</Badge>
                     </div>
                     <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary/60 dark:bg-secondary/40">
                       <div

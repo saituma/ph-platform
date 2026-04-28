@@ -7,7 +7,13 @@ import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../components/ui/select";
 import { Textarea } from "../../components/ui/textarea";
 import {
   useGetAdminProfileQuery,
@@ -36,6 +42,50 @@ type PreferencesState = {
   workEndHour: string;
   workEndMinute: string;
 };
+
+const profileTimezoneItems = [
+  { label: "Europe/London", value: "Europe/London" },
+  { label: "Europe/Stockholm", value: "Europe/Stockholm" },
+  { label: "Europe/Paris", value: "Europe/Paris" },
+  { label: "Europe/Berlin", value: "Europe/Berlin" },
+  { label: "Europe/Madrid", value: "Europe/Madrid" },
+  { label: "Europe/Rome", value: "Europe/Rome" },
+  { label: "Europe/Oslo", value: "Europe/Oslo" },
+  { label: "Europe/Copenhagen", value: "Europe/Copenhagen" },
+  { label: "Europe/Brussels", value: "Europe/Brussels" },
+  { label: "Europe/Lisbon", value: "Europe/Lisbon" },
+  { label: "Europe/Amsterdam", value: "Europe/Amsterdam" },
+  { label: "Europe/Zurich", value: "Europe/Zurich" },
+  { label: "Europe/Dublin", value: "Europe/Dublin" },
+  { label: "Europe/Athens", value: "Europe/Athens" },
+  { label: "Europe/Prague", value: "Europe/Prague" },
+  { label: "Europe/Warsaw", value: "Europe/Warsaw" },
+  { label: "America/New_York", value: "America/New_York" },
+  { label: "America/Chicago", value: "America/Chicago" },
+  { label: "America/Denver", value: "America/Denver" },
+  { label: "America/Los_Angeles", value: "America/Los_Angeles" },
+  { label: "America/Phoenix", value: "America/Phoenix" },
+  { label: "America/Toronto", value: "America/Toronto" },
+  { label: "America/Vancouver", value: "America/Vancouver" },
+  { label: "America/Mexico_City", value: "America/Mexico_City" },
+  { label: "America/Sao_Paulo", value: "America/Sao_Paulo" },
+  { label: "America/Bogota", value: "America/Bogota" },
+  { label: "America/Argentina/Buenos_Aires", value: "America/Argentina/Buenos_Aires" },
+];
+
+const profileNotifItems = [
+  { label: "Real-time", value: "Real-time" },
+  { label: "Daily", value: "Daily" },
+  { label: "Weekly", value: "Weekly" },
+  { label: "Off", value: "Off" },
+];
+
+const hourItems = Array.from({ length: 24 }, (_, hour) => ({
+  label: String(hour).padStart(2, "0"),
+  value: String(hour).padStart(2, "0"),
+}));
+
+const minuteItems = ["00", "15", "30", "45"].map((m) => ({ label: m, value: m }));
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object") {
@@ -287,54 +337,37 @@ export default function ProfilePage() {
             <div>
               <p className="mb-2 text-sm font-medium text-foreground">Timezone</p>
               <Select
+                items={profileTimezoneItems}
                 value={preferences.timezone}
-                disabled={isLoading}
-                onChange={(event) =>
-                  setPreferencesDraft({ ...preferences, timezone: event.target.value })
+                onValueChange={(value) =>
+                  setPreferencesDraft({ ...preferences, timezone: value ?? "" })
                 }
+                disabled={isLoading}
               >
-                <option value="Europe/London">Europe/London</option>
-                <option value="Europe/Stockholm">Europe/Stockholm</option>
-                <option value="Europe/Paris">Europe/Paris</option>
-                <option value="Europe/Berlin">Europe/Berlin</option>
-                <option value="Europe/Madrid">Europe/Madrid</option>
-                <option value="Europe/Rome">Europe/Rome</option>
-                <option value="Europe/Oslo">Europe/Oslo</option>
-                <option value="Europe/Copenhagen">Europe/Copenhagen</option>
-                <option value="Europe/Brussels">Europe/Brussels</option>
-                <option value="Europe/Lisbon">Europe/Lisbon</option>
-                <option value="Europe/Amsterdam">Europe/Amsterdam</option>
-                <option value="Europe/Zurich">Europe/Zurich</option>
-                <option value="Europe/Dublin">Europe/Dublin</option>
-                <option value="Europe/Athens">Europe/Athens</option>
-                <option value="Europe/Prague">Europe/Prague</option>
-                <option value="Europe/Warsaw">Europe/Warsaw</option>
-                <option value="America/New_York">America/New_York</option>
-                <option value="America/Chicago">America/Chicago</option>
-                <option value="America/Denver">America/Denver</option>
-                <option value="America/Los_Angeles">America/Los_Angeles</option>
-                <option value="America/Phoenix">America/Phoenix</option>
-                <option value="America/Toronto">America/Toronto</option>
-                <option value="America/Vancouver">America/Vancouver</option>
-                <option value="America/Mexico_City">America/Mexico_City</option>
-                <option value="America/Sao_Paulo">America/Sao_Paulo</option>
-                <option value="America/Bogota">America/Bogota</option>
-                <option value="America/Argentina/Buenos_Aires">America/Argentina/Buenos_Aires</option>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  {profileTimezoneItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectPopup>
               </Select>
             </div>
             <div>
               <p className="mb-2 text-sm font-medium text-foreground">Notification summary</p>
               <Select
+                items={profileNotifItems}
                 value={preferences.notificationSummary}
-                disabled={isLoading}
-                onChange={(event) =>
-                  setPreferencesDraft({ ...preferences, notificationSummary: event.target.value })
+                onValueChange={(value) =>
+                  setPreferencesDraft({ ...preferences, notificationSummary: value ?? "" })
                 }
+                disabled={isLoading}
               >
-                <option value="Real-time">Real-time</option>
-                <option value="Daily">Daily</option>
-                <option value="Weekly">Weekly</option>
-                <option value="Off">Off</option>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  {profileNotifItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectPopup>
               </Select>
             </div>
             <div>
@@ -343,59 +376,67 @@ export default function ProfilePage() {
                 <div className="grid gap-2 sm:grid-cols-[auto_1fr_1fr] sm:items-center">
                   <span className="text-xs font-medium text-muted-foreground">Start</span>
                   <Select
+                    items={hourItems}
                     value={preferences.workStartHour}
-                    disabled={isLoading}
-                    onChange={(event) =>
-                      setPreferencesDraft({ ...preferences, workStartHour: event.target.value })
+                    onValueChange={(value) =>
+                      setPreferencesDraft({ ...preferences, workStartHour: value ?? "" })
                     }
+                    disabled={isLoading}
                   >
-                    {Array.from({ length: 24 }).map((_, hour) => (
-                      <option key={`start-hour-${hour}`} value={String(hour).padStart(2, "0")}>
-                        {String(hour).padStart(2, "0")}
-                      </option>
-                    ))}
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {hourItems.map((item) => (
+                        <SelectItem key={`start-hour-${item.value}`} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                   <Select
+                    items={minuteItems}
                     value={preferences.workStartMinute}
-                    disabled={isLoading}
-                    onChange={(event) =>
-                      setPreferencesDraft({ ...preferences, workStartMinute: event.target.value })
+                    onValueChange={(value) =>
+                      setPreferencesDraft({ ...preferences, workStartMinute: value ?? "" })
                     }
+                    disabled={isLoading}
                   >
-                    {["00", "15", "30", "45"].map((minute) => (
-                      <option key={`start-min-${minute}`} value={minute}>
-                        {minute}
-                      </option>
-                    ))}
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {minuteItems.map((item) => (
+                        <SelectItem key={`start-min-${item.value}`} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-[auto_1fr_1fr] sm:items-center">
                   <span className="text-xs font-medium text-muted-foreground">End</span>
                   <Select
+                    items={hourItems}
                     value={preferences.workEndHour}
-                    disabled={isLoading}
-                    onChange={(event) =>
-                      setPreferencesDraft({ ...preferences, workEndHour: event.target.value })
+                    onValueChange={(value) =>
+                      setPreferencesDraft({ ...preferences, workEndHour: value ?? "" })
                     }
+                    disabled={isLoading}
                   >
-                    {Array.from({ length: 24 }).map((_, hour) => (
-                      <option key={`end-hour-${hour}`} value={String(hour).padStart(2, "0")}>
-                        {String(hour).padStart(2, "0")}
-                      </option>
-                    ))}
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {hourItems.map((item) => (
+                        <SelectItem key={`end-hour-${item.value}`} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                   <Select
+                    items={minuteItems}
                     value={preferences.workEndMinute}
-                    disabled={isLoading}
-                    onChange={(event) =>
-                      setPreferencesDraft({ ...preferences, workEndMinute: event.target.value })
+                    onValueChange={(value) =>
+                      setPreferencesDraft({ ...preferences, workEndMinute: value ?? "" })
                     }
+                    disabled={isLoading}
                   >
-                    {["00", "15", "30", "45"].map((minute) => (
-                      <option key={`end-min-${minute}`} value={minute}>
-                        {minute}
-                      </option>
-                    ))}
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {minuteItems.map((item) => (
+                        <SelectItem key={`end-min-${item.value}`} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
               </div>

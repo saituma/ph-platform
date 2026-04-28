@@ -6,7 +6,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
-import { Select } from "../../ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { Card, CardContent, CardHeader } from "../../ui/card";
 import { SectionHeader } from "../section-header";
@@ -358,10 +358,13 @@ export function OnboardingConfigEditor() {
             <Label>Approval workflow</Label>
             <Select
               value={approvalWorkflow}
-              onChange={(e) => setApprovalWorkflow(e.target.value === "auto" ? "auto" : "manual")}
+              onValueChange={(v) => setApprovalWorkflow((v ?? "") === "auto" ? "auto" : "manual")}
             >
-              <option value="manual">Manual (coach review)</option>
-              <option value="auto">Auto</option>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectPopup>
+                <SelectItem value="manual">Manual (coach review)</SelectItem>
+                <SelectItem value="auto">Auto</SelectItem>
+              </SelectPopup>
             </Select>
           </div>
           <div className="space-y-2 md:col-span-2">
@@ -466,12 +469,13 @@ export function OnboardingConfigEditor() {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Type</Label>
-                  <Select value={field.type} onChange={(e) => updateField(index, { type: e.target.value as FieldType })}>
-                    {FIELD_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
+                  <Select value={field.type} onValueChange={(v) => updateField(index, { type: (v ?? "text") as FieldType })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {FIELD_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectPopup>
                   </Select>
                 </div>
               </div>
