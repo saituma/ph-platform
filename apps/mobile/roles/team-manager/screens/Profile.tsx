@@ -12,9 +12,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -23,7 +22,7 @@ import { useProfileSettings } from "@/components/more/profile/hooks/useProfileSe
 import { fonts } from "@/constants/theme";
 
 export default function TeamManagerProfileScreen() {
-  const { colors, isDark } = useAppTheme();
+  const { colors, isDark, toggleColorScheme } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const insets = useAppSafeAreaInsets();
@@ -79,44 +78,44 @@ export default function TeamManagerProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: heroBg, paddingTop: insets.top }}>
 
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 20,
+          paddingTop: 20,
+          paddingBottom: 20,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View
+            style={{
+              height: 22,
+              width: 5,
+              borderRadius: 99,
+              backgroundColor: colors.accent,
+            }}
+          />
+          <Text
+            style={{
+              fontSize: 32,
+              fontFamily: "TelmaBold",
+              color: textPrimary,
+              letterSpacing: -0.3,
+            }}
+          >
+            Profile
+          </Text>
+        </View>
+      </View>
+
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
+        overScrollMode="never"
       >
-        {/* Header lives outside Animated.View so its width is always correct */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 20,
-            paddingTop: 20,
-            paddingBottom: 20,
-          }}
-        >
-          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <View
-              style={{
-                height: 22,
-                width: 5,
-                borderRadius: 99,
-                backgroundColor: colors.accent,
-              }}
-            />
-            <Text
-              style={{
-                fontSize: 32,
-                fontFamily: "TelmaBold",
-                color: textPrimary,
-                letterSpacing: -0.3,
-              }}
-            >
-              Profile
-            </Text>
-          </View>
-          <ThemeToggle size={50} iconSize={26} />
-        </View>
-
         <Animated.View style={fadeStyle}>
 
           {/* ── Hero Section ─────────────────────────────── */}
@@ -287,6 +286,69 @@ export default function TeamManagerProfileScreen() {
                   backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)",
                 }}
               />
+            </View>
+
+            {/* ── Appearance Switch ─────────────────────────── */}
+            <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+                  borderRadius: 99,
+                  padding: 4,
+                }}
+              >
+                <Pressable
+                  onPress={() => { if (isDark) toggleColorScheme(); }}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 7,
+                    paddingVertical: 10,
+                    borderRadius: 99,
+                    backgroundColor: !isDark ? (colors.surfaceHigh || "#fff") : "transparent",
+                    ...((!isDark) ? {
+                      shadowColor: "#000",
+                      shadowOpacity: 0.08,
+                      shadowRadius: 6,
+                      shadowOffset: { width: 0, height: 2 },
+                      elevation: 2,
+                    } : {}),
+                  }}
+                >
+                  <Feather name="sun" size={16} color={!isDark ? colors.accent : (isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)")} />
+                  <Text style={{ fontSize: 13, fontFamily: fonts.bodyBold, color: !isDark ? textPrimary : "rgba(255,255,255,0.35)" }}>
+                    Light
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => { if (!isDark) toggleColorScheme(); }}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 7,
+                    paddingVertical: 10,
+                    borderRadius: 99,
+                    backgroundColor: isDark ? (colors.surfaceHigh || "#1a1a1a") : "transparent",
+                    ...(isDark ? {
+                      shadowColor: "#000",
+                      shadowOpacity: 0.2,
+                      shadowRadius: 6,
+                      shadowOffset: { width: 0, height: 2 },
+                      elevation: 2,
+                    } : {}),
+                  }}
+                >
+                  <Feather name="moon" size={16} color={isDark ? colors.accent : "rgba(0,0,0,0.35)"} />
+                  <Text style={{ fontSize: 13, fontFamily: fonts.bodyBold, color: isDark ? textPrimary : "rgba(0,0,0,0.35)" }}>
+                    Dark
+                  </Text>
+                </Pressable>
+              </View>
             </View>
 
             {/* ── Settings ──────────────────────────────────── */}
