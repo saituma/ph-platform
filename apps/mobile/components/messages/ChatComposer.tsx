@@ -141,7 +141,7 @@ export function ChatComposer({
 				</View>
 			)}
 
-			<View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
+			<View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
 				<View
 					style={[
 						styles.composerShell,
@@ -198,11 +198,8 @@ export function ChatComposer({
 							borderRadius: sendButtonSize / 2,
 						},
 						{
-							backgroundColor: canSend
-								? colors.accent
-								: isDark
-									? "rgba(255,255,255,0.12)"
-									: "rgba(0,0,0,0.08)",
+							backgroundColor: colors.accent,
+							opacity: canSend ? 1 : 0.5,
 						},
 					]}
 					onPressIn={() => (sendButtonScale.value = withSpring(0.85))}
@@ -211,7 +208,7 @@ export function ChatComposer({
 					{isUploading || disabled ? (
 						<ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
 					) : (
-						<Ionicons name="send" size={20} color="hsl(220, 5%, 98%)" />
+						<Ionicons name="arrow-up" size={20} color="hsl(220, 5%, 98%)" />
 					)}
 				</AnimatedPressable>
 			</View>
@@ -249,5 +246,7 @@ const styles = StyleSheet.create({
 	sendButton: {
 		alignItems: "center",
 		justifyContent: "center",
+		flexShrink: 0,
+		elevation: 2,
 	},
 });

@@ -9,6 +9,7 @@ import * as AdminBookingController from "../controllers/admin/booking.controller
 import * as AdminMessageController from "../controllers/admin/message.controller";
 import * as AdminAthletePlanController from "../controllers/admin/athlete-plan.controller";
 import * as AdminOnboardingConfigController from "../controllers/admin/onboarding-config.controller";
+import * as AdminPortalConfigController from "../controllers/admin/portal-config.controller";
 import * as AdminSettingsController from "../controllers/admin/settings.controller";
 import * as AdminVideoController from "../controllers/admin/video.controller";
 
@@ -52,6 +53,10 @@ router.get("/admin/php-plus-tabs", AdminOnboardingConfigController.getPhpPlusTab
 router.put("/admin/php-plus-tabs", AdminOnboardingConfigController.putPhpPlusTabsAdmin);
 router.post("/admin/php-plus-tabs", AdminOnboardingConfigController.postPhpPlusTabsAdmin);
 router.delete("/admin/php-plus-tabs", AdminOnboardingConfigController.deletePhpPlusTabsAdmin);
+
+// Portal Config (landing page copy)
+router.get("/admin/portal-config", AdminPortalConfigController.getPortalConfigDetails);
+router.put("/admin/portal-config", AdminPortalConfigController.updatePortalConfigDetails);
 
 // Bookings & Availability
 router.get("/admin/bookings", AdminBookingController.listBookings);

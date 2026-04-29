@@ -14,7 +14,29 @@ function formatTime(seconds: number): string {
 	return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function CoachVideoSection() {
+type CoachVideoSectionProps = {
+	eyebrow?: string;
+	titleLine1?: string;
+	titleLine2?: string;
+	body?: string;
+	name?: string;
+	role?: string;
+	watchLabel?: string;
+	photoUrl?: string;
+	videoUrl?: string;
+};
+
+export function CoachVideoSection({
+	eyebrow = "From the CEO",
+	titleLine1 = "Hear It",
+	titleLine2 = "Directly",
+	body = "Get a personal introduction to the platform and philosophy behind PH Performance — straight from the CEO who built it.",
+	name = "Piers Hatcliff",
+	role = "CEO · PH Performance",
+	watchLabel = "Watch Intro",
+	photoUrl = "/ph.jpg",
+	videoUrl = "/coach-intro.mp4",
+}: CoachVideoSectionProps = {}) {
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [isVisible, setIsVisible] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
@@ -93,7 +115,7 @@ export function CoachVideoSection() {
 							className="text-primary font-black mb-5"
 							style={{ fontSize: "0.65rem", letterSpacing: "0.22em", textTransform: "uppercase" }}
 						>
-							From the CEO
+							{eyebrow}
 						</p>
 						<h2
 							className="font-black uppercase text-foreground"
@@ -104,23 +126,23 @@ export function CoachVideoSection() {
 								lineHeight: 1,
 							}}
 						>
-							Hear It
+							{titleLine1}
 							<br />
-							<span className="text-primary">Directly</span>
+							<span className="text-primary">{titleLine2}</span>
 						</h2>
 						<p
 							className="mt-6 text-muted-foreground leading-relaxed"
 							style={{ fontSize: "0.95rem", lineHeight: 1.7 }}
 						>
-							Get a personal introduction to the platform and philosophy behind PH Performance — straight from the CEO who built it.
+							{body}
 						</p>
 
 						{/* Coach attribution */}
 						<div className="mt-10 flex items-center gap-4 border-t border-border/40 pt-8">
 							<div className="w-10 h-10 rounded-full overflow-hidden ring-1 ring-primary/20 shrink-0">
 								<img
-									src="/ph.jpg"
-									alt="Piers Hatcliff"
+									src={photoUrl}
+									alt={name}
 									className="w-full h-full object-cover"
 								/>
 							</div>
@@ -129,13 +151,13 @@ export function CoachVideoSection() {
 									className="font-black uppercase text-foreground"
 									style={{ fontFamily: "var(--font-display)", fontSize: "0.85rem", letterSpacing: "0.06em" }}
 								>
-									Piers Hatcliff
+									{name}
 								</p>
 								<p
 									className="text-primary/70 font-bold uppercase"
 									style={{ fontSize: "0.6rem", letterSpacing: "0.18em" }}
 								>
-									CEO · PH Performance
+									{role}
 								</p>
 							</div>
 						</div>
@@ -157,7 +179,7 @@ export function CoachVideoSection() {
 							>
 								<video
 									ref={videoRef}
-									src="/coach-intro.mp4"
+									src={videoUrl}
 									className="w-full h-full object-cover cursor-pointer"
 									playsInline
 									preload="metadata"
@@ -193,7 +215,7 @@ export function CoachVideoSection() {
 											className="text-white/60 font-black uppercase pointer-events-none"
 											style={{ fontSize: "0.6rem", letterSpacing: "0.2em" }}
 										>
-											Watch Intro
+											{watchLabel}
 										</p>
 									</div>
 								)}

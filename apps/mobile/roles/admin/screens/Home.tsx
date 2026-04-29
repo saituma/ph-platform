@@ -26,6 +26,7 @@ import Animated, {
 import { ADMIN_TAB_ROUTES } from "../tabs";
 import { Feather } from "@/components/ui/theme-icons";
 import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
+import { AdminHeader } from "@/components/admin/AdminUI";
 
 type AdminDashboard = {
     kpis: {
@@ -394,47 +395,19 @@ export default function AdminHomeScreen() {
                 onRefresh={() => loadDashboard(true)}
                 contentContainerStyle={{ paddingBottom: 56 + insets.bottom }}
             >
-                {/* ── Header ── */}
                 <Animated.View
                     entering={FadeInDown.delay(60).duration(380)}
-                    style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}
+                    style={{ marginBottom: 18 }}
                 >
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
-                        <View
-                            style={{
-                                width: 5,
-                                height: 36,
-                                borderRadius: 3,
-                                backgroundColor: colors.accent,
-                            }}
-                        />
-                        <View style={{ flex: 1 }}>
-                            <Text
-                                style={{
-                                    fontFamily: "Telma-Bold",
-                                    fontSize: 44,
-                                    color: colors.textPrimary,
-                                    letterSpacing: -1,
-                                    lineHeight: 48,
-                                }}
-                            >
-                                Admin Panel
-                            </Text>
-                            <Text
-                                style={{
-                                    fontFamily: "Outfit-Regular",
-                                    fontSize: 13,
-                                    color: colors.textSecondary,
-                                    marginTop: 2,
-                                }}
-                            >
-                                {today}
-                            </Text>
-                        </View>
-                        {loading && !data && (
+                    <AdminHeader
+                        eyebrow="Overview"
+                        title="Admin Panel"
+                        subtitle={today}
+                        tone="accent"
+                        right={loading && !data ? (
                             <ActivityIndicator size="small" color={colors.accent} />
-                        )}
-                    </View>
+                        ) : null}
+                    />
                 </Animated.View>
 
                 {/* ── Stats Grid (2×2) ── */}

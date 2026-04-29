@@ -375,7 +375,7 @@ function ToggleRow({
 
       <Switch
         value={value}
-        onValueChange={onToggle}
+        onValueChange={() => {}}
         trackColor={{
           false: isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.14)",
           true: accent,

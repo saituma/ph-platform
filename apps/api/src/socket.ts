@@ -7,7 +7,7 @@ import { getDbOutageRemainingMs, isLikelyDatabaseConnectivityFailure } from "./l
 import { verifyAccessToken } from "./lib/jwt";
 import { getUserByCognitoSub, getUserById, getGuardianAndAthlete } from "./services/user.service";
 import { createGroupMessage, listGroupsForUser, isGroupMember } from "./services/chat.service";
-import { sendMessage } from "./services/message.service";
+import { sendMessage, markMessageDelivered, markThreadRead } from "./services/message.service";
 import { setSocketServer } from "./socket-hub";
 import { db } from "./db";
 import { userTable } from "./db/schema";
@@ -47,8 +47,6 @@ export function initSocket(server: HttpServer) {
     .map((origin) => origin.trim())
     .filter(Boolean)
     .forEach(addOrigin);
-  // Match Express `app.ts`: when CORS_ORIGINS is production-only, Socket.IO must still allow local dev
-  // or the browser sees 400 + missing Access-Control-Allow-Origin on the polling handshake.
   addOrigin("http://localhost:3000");
   addOrigin("http://localhost:3001");
   addOrigin("http://127.0.0.1:3000");
@@ -69,16 +67,18 @@ export function initSocket(server: HttpServer) {
       },
       credentials: true,
     },
-    // More tolerant heartbeats for flaky networks / proxies.
-    pingInterval: 25000,
-    pingTimeout: 60000,
+    pingInterval: 10000,
+    pingTimeout: 20000,
+    // Replay missed events on reconnect (up to 2 min disconnect).
+    connectionStateRecovery: {
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      skipMiddlewares: true,
+    },
   });
   setSocketServer(io);
-  const onlineUsers = new Set<number>();
 
-  const broadcastPresence = () => {
-    io.emit("presence:update", Array.from(onlineUsers));
-  };
+  // Track online users for presence snapshot on connect.
+  const onlineUsers = new Set<number>();
 
   io.use(async (socket, next) => {
     try {
@@ -111,8 +111,6 @@ export function initSocket(server: HttpServer) {
       socket.data.role = typeof payload.role === "string" && payload.role.trim() ? payload.role : "guardian";
       socket.data.name = typeof payload.name === "string" && payload.name.trim() ? payload.name : "User";
 
-      // Prefer JWT claims for socket handshake; if claims are sparse, best-effort hydrate from DB.
-      // Transient DB outages should not be misreported as auth rejections.
       if (socket.data.role === "guardian" || socket.data.name === "User") {
         try {
           const user = await getUserById(userId);
@@ -158,11 +156,13 @@ export function initSocket(server: HttpServer) {
     const userId = socket.data.userId as number;
     socket.join(`user:${userId}`);
     if (["admin", "coach", "superAdmin"].includes(socket.data.role as string)) {
-      console.log(`[Socket] User ${userId} (${socket.data.role}) joined admin:all`);
       socket.join("admin:all");
     }
+
+    // Presence: send snapshot to new socket, then delta to everyone.
     onlineUsers.add(userId);
-    broadcastPresence();
+    socket.emit("presence:snapshot", Array.from(onlineUsers));
+    io.emit("presence:online", { userId });
 
     try {
       const groups = await listGroupsForUser(userId);
@@ -187,7 +187,6 @@ export function initSocket(server: HttpServer) {
         const ids = [userId, actingUserId].filter((value): value is number => Boolean(value) && Number.isFinite(value));
         let allowed = false;
         for (const candidateId of ids) {
-          // If we're joining on behalf of an acting user, ensure the guardian relation still holds.
           if (candidateId !== userId) {
             const { athlete } = await getGuardianAndAthlete(userId);
             if (!athlete || athlete.userId !== candidateId) continue;
@@ -224,7 +223,6 @@ export function initSocket(server: HttpServer) {
       socket.data.actingName = actingUser?.name ?? null;
       socket.join(`user:${actingUserId}`);
 
-      // Also join all group rooms for this acting user so group messages are live.
       try {
         const actingGroups = await listGroupsForUser(actingUserId);
         actingGroups.forEach((group) => socket.join(`group:${group.id}`));
@@ -252,16 +250,13 @@ export function initSocket(server: HttpServer) {
           (socket.data.actingUserId as number | null) ||
           userId;
 
-        // Safety check: ensure the actual user is allowed to act as this athlete
         if (senderId !== userId) {
           const { athlete } = await getGuardianAndAthlete(userId);
-          if (!athlete || athlete.userId !== senderId) {
-            return; // Not authorized to act as this user
-          }
+          if (!athlete || athlete.userId !== senderId) return;
         }
 
         try {
-          await sendMessage({
+          const saved = await sendMessage({
             senderId,
             receiverId: payload.toUserId,
             content: content || "Attachment",
@@ -271,6 +266,14 @@ export function initSocket(server: HttpServer) {
             replyPreview: payload.replyPreview ?? null,
             clientId: payload.clientId,
           });
+          // Single-tick ack: sender knows server saved it and has the real ID.
+          if (payload.clientId) {
+            socket.emit("message:ack", {
+              clientId: payload.clientId,
+              messageId: saved.id,
+              status: "sent",
+            });
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : "";
           if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "AI_COACH_REQUIRES_PREMIUM") {
@@ -303,12 +306,9 @@ export function initSocket(server: HttpServer) {
           (socket.data.actingUserId as number | null) ||
           userId;
 
-        // Safety check
         if (senderId !== userId) {
           const { athlete } = await getGuardianAndAthlete(userId);
-          if (!athlete || athlete.userId !== senderId) {
-            return;
-          }
+          if (!athlete || athlete.userId !== senderId) return;
         }
 
         const message = await createGroupMessage({
@@ -321,10 +321,37 @@ export function initSocket(server: HttpServer) {
           replyPreview: payload.replyPreview ?? null,
           clientId: payload.clientId ?? null,
         });
-        // createGroupMessage emits "group:message" (including clientId when provided)
-        void message;
+        if (payload.clientId) {
+          socket.emit("message:ack", {
+            clientId: payload.clientId,
+            messageId: message.id,
+            status: "sent",
+          });
+        }
       },
     );
+
+    // Double-tick: receiver confirms message rendered on their device.
+    socket.on("message:delivered", async (payload: { messageId?: number }) => {
+      const messageId = Number(payload?.messageId);
+      if (!messageId || !Number.isFinite(messageId)) return;
+      try {
+        await markMessageDelivered(messageId, userId);
+      } catch (error) {
+        console.warn("[Socket] message:delivered failed", error);
+      }
+    });
+
+    // Blue ticks: receiver marks thread as read via socket.
+    socket.on("message:read", async (payload: { peerUserId?: number }) => {
+      const peerUserId = Number(payload?.peerUserId);
+      if (!peerUserId || !Number.isFinite(peerUserId)) return;
+      try {
+        await markThreadRead(userId, peerUserId);
+      } catch (error) {
+        console.warn("[Socket] message:read failed", error);
+      }
+    });
 
     socket.on("typing:start", async (payload: { toUserId?: number; groupId?: number }) => {
       const name = (socket.data.actingName as string | null) ?? (socket.data.name as string);
@@ -374,7 +401,7 @@ export function initSocket(server: HttpServer) {
 
     socket.on("disconnect", () => {
       onlineUsers.delete(userId);
-      broadcastPresence();
+      io.emit("presence:offline", { userId });
       db.update(userTable)
         .set({ lastSeenAt: new Date() })
         .where(eq(userTable.id, userId))

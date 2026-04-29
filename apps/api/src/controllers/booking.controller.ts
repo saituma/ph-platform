@@ -47,7 +47,7 @@ const slotDefinitionSchema = z.object({
 const serviceTypeSchema = z.object({
   name: z.string().min(1),
   description: z.string().max(2000).optional().nullable(),
-  type: z.enum(["one_to_one", "semi_private", "in_person"]),
+  type: z.enum(["one_to_one", "semi_private", "in_person"]).optional().nullable(),
   durationMinutes: z.preprocess(
     (val) => (val === "" || val === null ? undefined : Number(val)),
     z.number().int().min(1),
@@ -88,10 +88,12 @@ const serviceTypeSchema = z.object({
     .nullable(),
   slotDefinitions: z.array(slotDefinitionSchema).optional(),
   isActive: z.boolean().optional(),
+  isBookable: z.boolean().optional(),
 });
 
 const serviceTypeUpdateSchema = serviceTypeSchema.partial().extend({
   isActive: z.boolean().optional(),
+  isBookable: z.boolean().optional(),
 });
 
 const availabilitySchema = z.object({
@@ -152,7 +154,7 @@ export async function createService(req: Request, res: Response) {
   const item = await createServiceType({
     name: input.name,
     description: input.description ?? null,
-    type: input.type,
+    type: input.type ?? null,
     durationMinutes: input.durationMinutes,
     capacity: input.capacity,
     totalSlots: input.totalSlots,
@@ -172,6 +174,7 @@ export async function createService(req: Request, res: Response) {
     slotIntervalMinutes: input.slotIntervalMinutes,
     slotDefinitions: input.slotDefinitions,
     isActive: input.isActive,
+    isBookable: input.isBookable,
     createdBy: req.user!.id,
   });
   return res.status(201).json({ item });

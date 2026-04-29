@@ -1,8 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
-  Pressable,
-  TextInput,
   Modal,
   Platform,
   ActivityIndicator,
@@ -11,11 +9,16 @@ import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import {
+  AdminBadge,
+  AdminEmptyState,
+  AdminInput,
+  AdminListRow,
+} from "@/components/admin/AdminUI";
+import {
   formatWhen,
   stripPreview,
   safeNumber,
 } from "@/lib/admin-messages-utils";
-import { SmallAction } from "../AdminShared";
 import { useAdminDms } from "@/hooks/admin/useAdminDms";
 import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
 import {
@@ -34,6 +37,11 @@ import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
 import type { MessageThread, TypingStatus } from "@/types/messages";
 import type { ChatMessage } from "@/constants/messages";
 import { useAppSelector } from "@/store/hooks";
+import { MessageCircle, Search } from "lucide-react-native";
+import {
+  appendCachedAdminDmMessage,
+  prefetchAdminDmThreadMessages,
+} from "@/lib/admin/adminMessageCache";
 
 interface Props {
   token: string | null;
@@ -107,6 +115,14 @@ export function AdminDmSection({
   }, [initialUserId]);
 
   useEffect(() => {
+    if (!token || !canLoad || dms.threads.length === 0) return;
+    const timeout = setTimeout(() => {
+      prefetchAdminDmThreadMessages(token, dms.threads);
+    }, 150);
+    return () => clearTimeout(timeout);
+  }, [canLoad, dms.threads, token]);
+
+  useEffect(() => {
     if (!socket || !dms.activeDmUserId) return;
 
     const handleNewMessage = (msg: DirectMessage) => {
@@ -115,6 +131,10 @@ export function AdminDmSection({
         (msg.senderId === myUserId && msg.receiverId === dms.activeDmUserId)
       ) {
         dms.setMessages((prev) => [...prev, msg]);
+      }
+      const threadUserId = msg.senderId === myUserId ? msg.receiverId : msg.senderId;
+      if (typeof threadUserId === "number") {
+        appendCachedAdminDmMessage(threadUserId, msg);
       }
     };
 
@@ -126,6 +146,7 @@ export function AdminDmSection({
 
   const handleSend = async () => {
     if (!dms.activeDmUserId || (!draft.trim() && !pendingAttachment)) return;
+    const receiverId = dms.activeDmUserId;
     setIsSending(true);
     try {
       let mediaUrl: string | undefined;
@@ -140,7 +161,7 @@ export function AdminDmSection({
       }
 
       const sent = await dms.sendDm({
-        receiverId: dms.activeDmUserId,
+        receiverId,
         content: draft.trim(),
         mediaUrl,
         contentType,
@@ -151,7 +172,10 @@ export function AdminDmSection({
       setDraft("");
       setPendingAttachment(null);
       setReplyTarget(null);
-      if (sent) dms.setMessages((prev) => [...prev, sent]);
+      if (sent) {
+        dms.setMessages((prev) => [...prev, sent]);
+        appendCachedAdminDmMessage(receiverId, sent);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -360,67 +384,77 @@ export function AdminDmSection({
   }, []);
 
   return (
-    <View className="gap-4">
-      <View
-        className="rounded-2xl border border-app/10 bg-card px-4 py-3"
-      >
-        <TextInput
-          className="text-[14px] font-outfit text-app"
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search by name..."
-          placeholderTextColor={colors.placeholder}
-        />
-      </View>
+    <View style={{ flex: 1, gap: 12, paddingHorizontal: 16 }}>
+      <AdminInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search people"
+        leftIcon={Search}
+        onClear={() => setQuery("")}
+      />
 
       {dms.threadsLoading && dms.threads.length === 0 ? (
-        <View className="gap-2">
-          <Skeleton width="100%" height={60} />
-          <Skeleton width="100%" height={60} />
-          <Skeleton width="100%" height={60} />
+        <View style={{ gap: 10 }}>
+          <Skeleton width="100%" height={74} />
+          <Skeleton width="100%" height={74} />
+          <Skeleton width="100%" height={74} />
         </View>
+      ) : dms.threads.length === 0 ? (
+        <AdminEmptyState
+          icon={MessageCircle}
+          title={query ? "No matching threads" : "No direct messages yet"}
+          description={
+            query
+              ? "Try a different name or clear the search."
+              : "New coach and athlete conversations will appear here."
+          }
+          tone="info"
+        />
       ) : (
-        <View className="gap-3">
+        <View style={{ gap: 10 }}>
           {dms.threads.map((t) => (
-            <Pressable
+            <AdminListRow
               key={t.userId}
+              title={t.name ?? `User ${t.userId}`}
+              subtitle={stripPreview(t.preview) || "No messages yet"}
+              meta={formatWhen(t.time)}
+              unreadCount={safeNumber(t.unread)}
+              tone="info"
+              leading={
+                <View
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 15,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "rgba(48,176,199,0.14)",
+                    borderWidth: 1,
+                    borderColor: "rgba(48,176,199,0.24)",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: "Outfit-Bold",
+                      fontSize: 13,
+                      color: "#30B0C7",
+                    }}
+                  >
+                    {getInitials(t.name) || "?"}
+                  </Text>
+                </View>
+              }
+              trailing={
+                t.premium ? (
+                  <AdminBadge tone="accent">Priority</AdminBadge>
+                ) : undefined
+              }
               onPress={() => {
                 dms.setActiveDmUserId(t.userId);
                 dms.setActiveDmName(t.name ?? `User ${t.userId}`);
                 dms.loadMessages(t.userId, true);
               }}
-              className="rounded-card border border-app/10 bg-card p-4 active:opacity-90"
-            >
-              <View className="flex-row items-center gap-3">
-                <View className="w-12 h-12 rounded-2xl bg-accent-light border border-app/10 items-center justify-center">
-                  <Text className="text-[12px] font-outfit-bold text-accent">
-                    {getInitials(t.name) || "?"}
-                  </Text>
-                </View>
-                <View className="flex-1">
-                  <View className="flex-row items-center justify-between gap-2">
-                    <Text className="text-[14px] font-clash font-bold text-app flex-1" numberOfLines={1}>
-                      {t.name ?? `User ${t.userId}`}
-                    </Text>
-                    <Text className="text-[10px] font-outfit text-secondary" numberOfLines={1}>
-                      {formatWhen(t.time)}
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center justify-between gap-2 mt-1">
-                    <Text className="text-[12px] font-outfit text-secondary flex-1" numberOfLines={1}>
-                      {stripPreview(t.preview)}
-                    </Text>
-                    {safeNumber(t.unread) > 0 ? (
-                      <View className="bg-accent px-2 py-0.5 rounded-full">
-                        <Text className="text-[10px] font-outfit-bold text-white">
-                          {safeNumber(t.unread) > 99 ? "99+" : String(t.unread)}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              </View>
-            </Pressable>
+            />
           ))}
         </View>
       )}

@@ -1,176 +1,183 @@
 import React from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Alert, Pressable, View, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { Text } from "@/components/ScaledText";
-import { fonts, radius } from "@/constants/theme";
+import { fonts } from "@/constants/theme";
+
+const PANEL_BG = "rgba(18,18,18,0.98)";
+const GREEN = "#22C55E";
+const WHITE = "#FFFFFF";
+const BLACK_TEXT = "#111111";
+const WHITE_TEXT = "#FFFFFF";
 
 export function ActiveRunActionDock({
   status,
-  colors,
-  isDark,
   onPrimaryPress,
-  onOpenSheet,
   onFinishRun,
+  bottomInset,
 }: {
   status: "idle" | "running" | "paused" | "stopped";
-  colors: Record<string, string>;
-  isDark: boolean;
+  colors?: Record<string, string>;
+  isDark?: boolean;
   onPrimaryPress: () => void;
-  onOpenSheet: () => void;
+  onOpenSheet?: () => void;
   onFinishRun: () => void;
+  bottomInset: number;
 }) {
   const isRunning = status === "running";
   const isPaused = status === "paused";
-  const isActive = isRunning || isPaused;
-  const primaryIcon = isRunning ? "pause" : "play";
 
   const handleFinish = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    Alert.alert(
-      "End run?",
-      "This will stop tracking and save your run.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "End Run",
-          style: "destructive",
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            onFinishRun();
-          },
+    Alert.alert("End run?", "This will stop tracking and save your run.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "End Run",
+        style: "destructive",
+        onPress: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          onFinishRun();
         },
-      ],
-    );
+      },
+    ]);
   };
 
   return (
-    <View style={{ alignItems: "center" }}>
-      <View
-        style={{
-          width: "100%",
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingHorizontal: 8,
-        }}
-      >
-        <DockButton
-          label="Settings"
-          icon="settings-outline"
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onOpenSheet();
-          }}
-          colors={colors}
-          isDark={isDark}
-          selected
-        />
+    <View
+      style={[
+        styles.container,
+        { paddingBottom: bottomInset + 12 },
+      ]}
+    >
+      {/* Drag handle */}
+      <View style={styles.handle} />
 
+      {isRunning ? (
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isRunning ? "Pause" : isPaused ? "Resume" : "Start"}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onPrimaryPress();
           }}
-          style={({ pressed }) => ({
-            width: 72,
-            height: 72,
-            borderRadius: 36,
-            backgroundColor: colors.accent,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pressed ? 0.92 : 1,
-            transform: [{ scale: pressed ? 0.96 : 1 }],
-            shadowColor: "#000",
-            shadowOpacity: 0.2,
-            shadowRadius: 12,
-            shadowOffset: { width: 0, height: 6 },
-            elevation: 8,
-          })}
+          style={styles.pauseBtn}
         >
-          <Ionicons name={primaryIcon as any} size={32} color="#fff" />
+          <Ionicons name="pause" size={26} color={WHITE_TEXT} />
+          <Text style={styles.pauseLabel}>Pause</Text>
         </Pressable>
 
-        {isActive ? (
-          <DockButton
-            label="End Run"
-            icon="stop-circle-outline"
+      ) : isPaused ? (
+        <View style={styles.row}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onPrimaryPress();
+            }}
+            style={styles.resumeBtn}
+          >
+            <Ionicons name="play" size={22} color={WHITE_TEXT} />
+            <Text style={styles.resumeLabel}>Resume</Text>
+          </Pressable>
+
+          <Pressable
             onPress={handleFinish}
-            colors={colors}
-            isDark={isDark}
-            danger
-          />
-        ) : (
-          <View style={{ width: 64 }} />
-        )}
-      </View>
+            style={styles.finishBtn}
+          >
+            <Ionicons name="stop" size={20} color={BLACK_TEXT} />
+            <Text style={styles.finishLabel}>Finish</Text>
+          </Pressable>
+        </View>
+
+      ) : (
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onPrimaryPress();
+          }}
+          style={styles.startBtn}
+        >
+          <Ionicons name="play" size={28} color={WHITE_TEXT} />
+          <Text style={styles.startLabel}>Start</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
 
-function DockButton({
-  label,
-  icon,
-  onPress,
-  colors,
-  isDark,
-  selected = false,
-  danger = false,
-}: {
-  label: string;
-  icon: string;
-  onPress: () => void;
-  colors: Record<string, string>;
-  isDark: boolean;
-  selected?: boolean;
-  danger?: boolean;
-}) {
-  const bg = danger
-    ? (isDark ? "rgba(220,90,90,0.16)" : "rgba(220,90,90,0.12)")
-    : selected
-    ? (isDark ? "rgba(52,199,89,0.15)" : "rgba(22,163,74,0.10)")
-    : (isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)");
-  const fg = danger ? "#D45A5A" : selected ? colors.accent : colors.textSecondary;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => ({
-        alignItems: "center",
-        gap: 6,
-        opacity: pressed ? 0.8 : 1,
-        transform: [{ scale: pressed ? 0.96 : 1 }],
-      })}
-    >
-      <View
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: bg,
-          borderWidth: danger ? 1 : 0,
-          borderColor: danger ? (isDark ? "rgba(220,90,90,0.34)" : "rgba(220,90,90,0.28)") : "transparent",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Ionicons name={icon as any} size={22} color={fg} />
-      </View>
-      <Text
-        numberOfLines={1}
-        style={{
-          fontFamily: fonts.bodyMedium,
-          fontSize: 12,
-          color: danger ? "#D45A5A" : colors.textPrimary,
-          textAlign: "center",
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: PANEL_BG,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  resumeBtn: {
+    flex: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: GREEN,
+    borderRadius: 50,
+    height: 64,
+  },
+  resumeLabel: {
+    fontFamily: fonts.accentBold,
+    fontSize: 20,
+    color: WHITE_TEXT,
+  },
+  finishBtn: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: WHITE,
+    borderRadius: 50,
+    height: 64,
+  },
+  finishLabel: {
+    fontFamily: fonts.accentBold,
+    fontSize: 20,
+    color: BLACK_TEXT,
+  },
+  pauseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14,
+    backgroundColor: GREEN,
+    borderRadius: 50,
+    height: 64,
+  },
+  pauseLabel: {
+    fontFamily: fonts.accentBold,
+    fontSize: 20,
+    color: WHITE_TEXT,
+  },
+  startBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14,
+    backgroundColor: GREEN,
+    borderRadius: 50,
+    height: 64,
+  },
+  startLabel: {
+    fontFamily: fonts.accentBold,
+    fontSize: 22,
+    color: WHITE_TEXT,
+  },
+});

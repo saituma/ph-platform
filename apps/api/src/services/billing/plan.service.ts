@@ -1,6 +1,19 @@
+import crypto from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
-import { subscriptionPlanTable, ProgramType } from "../../db/schema";
+import {
+  athleteTable,
+  subscriptionPlanTable,
+  userTable,
+  ProgramType,
+  AthleteType,
+} from "../../db/schema";
+import { getUserByEmail } from "../user.service";
+import { generateProvisionPassword, hashLocalProvisionPassword } from "../admin/user.service";
+import { createCheckoutSession } from "./request.service";
+import { sendPlanInviteEmail } from "../../lib/mailer/billing.mailer";
+import { createPlanInviteToken, verifyPlanInviteToken } from "../../lib/jwt";
+import { env } from "../../config/env";
 import {
   stripe,
   createStripePriceForPlan,
@@ -157,7 +170,12 @@ export async function quoteAthleteBillingCycleAmount(
     return { amount: cleaned, mode };
   }
 
-  // six_months: best-effort derived from monthly display if provided.
+  // six_months: prefer the admin-set explicit value (stored in oneTimePrice column),
+  // otherwise derive monthly × 6.
+  const explicit = (plan as { oneTimePrice?: string | null }).oneTimePrice ?? null;
+  if (explicit && explicit.trim()) {
+    return { amount: explicit.trim(), mode };
+  }
   const base = plan.monthlyPrice ?? plan.displayPrice ?? null;
   const cents = parsePriceToCents(base);
   if (!cents) return { amount: null, mode };
@@ -179,6 +197,7 @@ function parseDiscountConfig(input: {
   const empty = {
     monthly: null as string | null,
     yearly: null as string | null,
+    one_time: null as string | null,
     discountType: legacyType,
   };
 
@@ -186,10 +205,11 @@ function parseDiscountConfig(input: {
 
   if (appliesTo === "custom") {
     try {
-      const parsed = JSON.parse(rawValue) as { monthly?: unknown; yearly?: unknown };
+      const parsed = JSON.parse(rawValue) as { monthly?: unknown; yearly?: unknown; one_time?: unknown };
       return {
         monthly: parsed.monthly == null ? null : String(parsed.monthly).trim() || null,
         yearly: parsed.yearly == null ? null : String(parsed.yearly).trim() || null,
+        one_time: parsed.one_time == null ? null : String(parsed.one_time).trim() || null,
         discountType: legacyType,
       };
     } catch {
@@ -198,13 +218,16 @@ function parseDiscountConfig(input: {
   }
 
   if (appliesTo === "monthly") {
-    return { monthly: rawValue, yearly: null, discountType: legacyType };
+    return { monthly: rawValue, yearly: null, one_time: null, discountType: legacyType };
   }
   if (appliesTo === "yearly") {
-    return { monthly: null, yearly: rawValue, discountType: legacyType };
+    return { monthly: null, yearly: rawValue, one_time: null, discountType: legacyType };
   }
-  if (appliesTo === "both") {
-    return { monthly: rawValue, yearly: rawValue, discountType: legacyType };
+  if (appliesTo === "one_time") {
+    return { monthly: null, yearly: null, one_time: rawValue, discountType: legacyType };
+  }
+  if (appliesTo === "both" || appliesTo === "all") {
+    return { monthly: rawValue, yearly: rawValue, one_time: rawValue, discountType: legacyType };
   }
 
   return empty;
@@ -215,12 +238,17 @@ export function applyDiscountToAmount(input: {
   discountType?: string | null;
   discountValue?: string | null;
   discountAppliesTo?: string | null;
-  interval: "monthly" | "yearly";
+  interval: "monthly" | "yearly" | "one_time";
 }) {
   const { originalCents, interval } = input;
   const parsedDiscounts = parseDiscountConfig(input);
   const discountType = parsedDiscounts.discountType;
-  const intervalDiscountValue = interval === "monthly" ? parsedDiscounts.monthly : parsedDiscounts.yearly;
+  const intervalDiscountValue =
+    interval === "monthly"
+      ? parsedDiscounts.monthly
+      : interval === "yearly"
+        ? parsedDiscounts.yearly
+        : parsedDiscounts.one_time;
   if (!discountType || !intervalDiscountValue) {
     return originalCents;
   }
@@ -508,22 +536,27 @@ export async function createSubscriptionPlan(input: {
   stripePriceId: string;
   stripePriceIdMonthly?: string | null;
   stripePriceIdYearly?: string | null;
+  stripePriceIdOneTime?: string | null;
   displayPrice: string;
   billingInterval: string;
   monthlyPrice?: string | null;
   yearlyPrice?: string | null;
+  oneTimePrice?: string | null;
   discountType?: string | null;
   discountValue?: string | null;
   discountAppliesTo?: string | null;
+  features?: string[] | null;
   isActive?: boolean;
 }) {
   let stripePriceIdMonthly = input.stripePriceIdMonthly ?? null;
   let stripePriceIdYearly = input.stripePriceIdYearly ?? null;
+  let stripePriceIdOneTime = input.stripePriceIdOneTime ?? null;
   let stripePriceId = input.stripePriceId || "manual";
 
   if (stripe) {
     const monthlyAmount = parsePriceToCents(input.monthlyPrice);
     const yearlyAmount = parsePriceToCents(input.yearlyPrice);
+    const oneTimeAmount = parsePriceToCents(input.oneTimePrice);
     if (monthlyAmount) {
       const discountedMonthly = applyDiscountToAmount({
         originalCents: monthlyAmount,
@@ -556,6 +589,22 @@ export async function createSubscriptionPlan(input: {
       });
       if (!stripePriceId || stripePriceId === "manual") stripePriceId = stripePriceIdYearly;
     }
+    if (oneTimeAmount) {
+      const discountedOneTime = applyDiscountToAmount({
+        originalCents: oneTimeAmount,
+        discountType: input.discountType,
+        discountValue: input.discountValue,
+        discountAppliesTo: input.discountAppliesTo,
+        interval: "one_time",
+      });
+      stripePriceIdOneTime = await createStripePriceForPlan({
+        name: input.name,
+        tier: input.tier,
+        interval: "one_time",
+        unitAmount: discountedOneTime,
+      });
+      if (!stripePriceId || stripePriceId === "manual") stripePriceId = stripePriceIdOneTime;
+    }
   }
 
   const result = await db
@@ -566,13 +615,52 @@ export async function createSubscriptionPlan(input: {
       stripePriceId,
       stripePriceIdMonthly,
       stripePriceIdYearly,
+      stripePriceIdOneTime,
       displayPrice: input.displayPrice,
       billingInterval: input.billingInterval,
       monthlyPrice: input.monthlyPrice ?? null,
       yearlyPrice: input.yearlyPrice ?? null,
+      oneTimePrice: input.oneTimePrice ?? null,
       discountType: input.discountType ?? null,
       discountValue: input.discountValue ?? null,
       discountAppliesTo: input.discountAppliesTo ?? null,
+      features: input.features ?? null,
+      isActive: input.isActive ?? true,
+    })
+    .returning();
+  return result[0] ?? null;
+}
+
+export async function importStripePriceAsPlan(input: {
+  name: string;
+  tier: (typeof ProgramType.enumValues)[number];
+  stripePriceId: string;
+  interval: "monthly" | "yearly" | "one_time";
+  displayPrice: string;
+  priceLabel: string;
+  features?: string[] | null;
+  isActive?: boolean;
+}) {
+  const stripePriceIdMonthly = input.interval === "monthly" ? input.stripePriceId : null;
+  const stripePriceIdYearly = input.interval === "yearly" ? input.stripePriceId : null;
+  const stripePriceIdOneTime = input.interval === "one_time" ? input.stripePriceId : null;
+  const billingInterval = input.interval;
+
+  const result = await db
+    .insert(subscriptionPlanTable)
+    .values({
+      name: input.name,
+      tier: input.tier,
+      stripePriceId: input.stripePriceId,
+      stripePriceIdMonthly,
+      stripePriceIdYearly,
+      stripePriceIdOneTime,
+      displayPrice: input.displayPrice,
+      billingInterval,
+      monthlyPrice: input.interval === "monthly" ? input.priceLabel : null,
+      yearlyPrice: input.interval === "yearly" ? input.priceLabel : null,
+      oneTimePrice: input.interval === "one_time" ? input.priceLabel : null,
+      features: input.features ?? null,
       isActive: input.isActive ?? true,
     })
     .returning();
@@ -587,13 +675,16 @@ export async function updateSubscriptionPlan(
     stripePriceId: string;
     stripePriceIdMonthly: string | null;
     stripePriceIdYearly: string | null;
+    stripePriceIdOneTime: string | null;
     displayPrice: string;
     billingInterval: string;
     monthlyPrice: string | null;
     yearlyPrice: string | null;
+    oneTimePrice: string | null;
     discountType: string | null;
     discountValue: string | null;
     discountAppliesTo: string | null;
+    features: string[] | null;
     isActive: boolean;
   }>,
 ) {
@@ -609,16 +700,33 @@ export async function updateSubscriptionPlan(
 
   let stripePriceIdMonthly = input.stripePriceIdMonthly ?? existing.stripePriceIdMonthly ?? null;
   let stripePriceIdYearly = input.stripePriceIdYearly ?? existing.stripePriceIdYearly ?? null;
+  let stripePriceIdOneTime = input.stripePriceIdOneTime ?? existing.stripePriceIdOneTime ?? null;
   let stripePriceId = input.stripePriceId ?? existing.stripePriceId;
   if (stripe) {
     const nextName = input.name ?? existing.name;
     const nextTier = input.tier ?? existing.tier;
-    const monthlyAmount = parsePriceToCents(input.monthlyPrice ?? existing.monthlyPrice);
-    const yearlyAmount = parsePriceToCents(input.yearlyPrice ?? existing.yearlyPrice);
+    const nextMonthlyRaw = input.monthlyPrice ?? existing.monthlyPrice;
+    const nextYearlyRaw = input.yearlyPrice ?? existing.yearlyPrice;
+    const nextOneTimeRaw = input.oneTimePrice ?? existing.oneTimePrice;
+    const monthlyAmount = parsePriceToCents(nextMonthlyRaw);
+    const yearlyAmount = parsePriceToCents(nextYearlyRaw);
+    const oneTimeAmount = parsePriceToCents(nextOneTimeRaw);
     const discountType = input.discountType ?? existing.discountType ?? null;
     const discountValue = input.discountValue ?? existing.discountValue ?? null;
     const discountAppliesTo = input.discountAppliesTo ?? existing.discountAppliesTo ?? null;
-    if (monthlyAmount) {
+
+    const monthlyChanged =
+      "monthlyPrice" in input && (input.monthlyPrice ?? null) !== (existing.monthlyPrice ?? null);
+    const yearlyChanged =
+      "yearlyPrice" in input && (input.yearlyPrice ?? null) !== (existing.yearlyPrice ?? null);
+    const oneTimeChanged =
+      "oneTimePrice" in input && (input.oneTimePrice ?? null) !== (existing.oneTimePrice ?? null);
+    const discountChanged =
+      ("discountType" in input && (input.discountType ?? null) !== (existing.discountType ?? null)) ||
+      ("discountValue" in input && (input.discountValue ?? null) !== (existing.discountValue ?? null)) ||
+      ("discountAppliesTo" in input && (input.discountAppliesTo ?? null) !== (existing.discountAppliesTo ?? null));
+
+    if (monthlyAmount && (monthlyChanged || discountChanged || !stripePriceIdMonthly)) {
       const discountedMonthly = applyDiscountToAmount({
         originalCents: monthlyAmount,
         discountType,
@@ -634,7 +742,7 @@ export async function updateSubscriptionPlan(
       });
       stripePriceId = stripePriceIdMonthly;
     }
-    if (yearlyAmount) {
+    if (yearlyAmount && (yearlyChanged || discountChanged || !stripePriceIdYearly)) {
       const discountedYearly = applyDiscountToAmount({
         originalCents: yearlyAmount,
         discountType,
@@ -650,6 +758,22 @@ export async function updateSubscriptionPlan(
       });
       if (!stripePriceId || stripePriceId === "manual") stripePriceId = stripePriceIdYearly;
     }
+    if (oneTimeAmount && (oneTimeChanged || discountChanged || !stripePriceIdOneTime)) {
+      const discountedOneTime = applyDiscountToAmount({
+        originalCents: oneTimeAmount,
+        discountType,
+        discountValue,
+        discountAppliesTo,
+        interval: "one_time",
+      });
+      stripePriceIdOneTime = await createStripePriceForPlan({
+        name: nextName,
+        tier: nextTier,
+        interval: "one_time",
+        unitAmount: discountedOneTime,
+      });
+      if (!stripePriceId || stripePriceId === "manual") stripePriceId = stripePriceIdOneTime;
+    }
   }
   const result = await db
     .update(subscriptionPlanTable)
@@ -658,9 +782,242 @@ export async function updateSubscriptionPlan(
       stripePriceId,
       stripePriceIdMonthly,
       stripePriceIdYearly,
+      stripePriceIdOneTime,
       updatedAt: new Date(),
     })
     .where(eq(subscriptionPlanTable.id, planId))
     .returning();
   return result[0] ?? null;
+}
+
+export type InviteBillingCycle = "monthly" | "yearly" | "one_time";
+
+/**
+ * Generate a public invite token for the plan and email the invitee a link to
+ * `${ADMIN_WEB_URL}/invite/<token>` — a public page where they complete onboarding
+ * + payment in one step. No user/athlete/Stripe row is created here.
+ */
+export async function inviteUserToPlan(input: {
+  planId: number;
+  email: string;
+  invitedByUserId: number;
+  invitedByName?: string | null;
+}) {
+  const email = input.email.trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    throw { status: 400, message: "Invalid email." };
+  }
+
+  const planRows = await db
+    .select()
+    .from(subscriptionPlanTable)
+    .where(eq(subscriptionPlanTable.id, input.planId))
+    .limit(1);
+  const plan = planRows[0];
+  if (!plan || !plan.isActive) {
+    throw { status: 404, message: "Plan not found or inactive." };
+  }
+
+  // Pick a default summary amount for the email (the user picks the actual cycle on the public page).
+  const summaryAmount =
+    plan.monthlyPrice
+      ? `${plan.monthlyPrice}/mo`
+      : plan.oneTimePrice
+        ? `${plan.oneTimePrice} (6 months)`
+        : plan.yearlyPrice
+          ? `${plan.yearlyPrice} (1 year)`
+          : plan.displayPrice;
+
+  const token = await createPlanInviteToken({
+    planId: plan.id,
+    email,
+    invitedByUserId: input.invitedByUserId,
+    invitedByName: input.invitedByName ?? undefined,
+  });
+
+  const baseUrl = (env.adminWebUrl ?? "").replace(/\/+$/, "");
+  if (!baseUrl) {
+    throw { status: 500, message: "ADMIN_WEB_URL is not configured." };
+  }
+  const inviteUrl = `${baseUrl}/invite/${encodeURIComponent(token)}`;
+
+  await sendPlanInviteEmail({
+    to: email,
+    name: email.split("@")[0],
+    planName: plan.name,
+    planTier: String(plan.tier),
+    amountLabel: summaryAmount ?? null,
+    checkoutUrl: inviteUrl,
+    invitedByName: input.invitedByName ?? null,
+    loginCredentials: null,
+  });
+
+  return { email, inviteUrl };
+}
+
+/** Public summary of a plan from a valid invite token, used by the public invite page. */
+export async function getPlanInviteSummary(token: string) {
+  const decoded = await verifyPlanInviteToken(token);
+  const planRows = await db
+    .select()
+    .from(subscriptionPlanTable)
+    .where(eq(subscriptionPlanTable.id, decoded.planId))
+    .limit(1);
+  const plan = planRows[0];
+  if (!plan || !plan.isActive) {
+    throw { status: 404, message: "This invite is no longer valid." };
+  }
+  return {
+    email: decoded.email,
+    invitedByName: decoded.invitedByName,
+    plan: {
+      id: plan.id,
+      name: plan.name,
+      tier: plan.tier,
+      displayPrice: plan.displayPrice,
+      monthlyPrice: plan.monthlyPrice,
+      yearlyPrice: plan.yearlyPrice,
+      oneTimePrice: plan.oneTimePrice,
+      features: Array.isArray(plan.features) ? plan.features : [],
+      supports: {
+        monthly: Boolean(plan.stripePriceIdMonthly || plan.monthlyPrice),
+        yearly: Boolean(plan.stripePriceIdYearly || plan.yearlyPrice),
+        six_months: Boolean(plan.stripePriceIdOneTime || plan.oneTimePrice),
+      },
+    },
+  };
+}
+
+/**
+ * Public consume: the invitee fills onboarding answers and picks a billing cycle on the
+ * public invite page; we create their account + athlete + Stripe checkout in one shot,
+ * then return the Stripe URL. After they pay, the existing approval flow grants the tier.
+ */
+export async function consumePlanInvite(input: {
+  token: string;
+  fullName: string;
+  birthDate: string;
+  phone?: string | null;
+  trainingPerWeek?: number | null;
+  performanceGoals?: string | null;
+  injuries?: string | null;
+  billingCycle: "monthly" | "yearly" | "six_months";
+}) {
+  const decoded = await verifyPlanInviteToken(input.token);
+  const planRows = await db
+    .select()
+    .from(subscriptionPlanTable)
+    .where(eq(subscriptionPlanTable.id, decoded.planId))
+    .limit(1);
+  const plan = planRows[0];
+  if (!plan || !plan.isActive) {
+    throw { status: 404, message: "This invite is no longer valid." };
+  }
+
+  const fullName = input.fullName.trim();
+  if (!fullName) throw { status: 400, message: "Name is required." };
+
+  const birth = new Date(input.birthDate);
+  if (Number.isNaN(birth.getTime())) {
+    throw { status: 400, message: "Invalid date of birth." };
+  }
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age -= 1;
+  if (age < 13 || age > 120) {
+    throw { status: 400, message: "Invalid age." };
+  }
+  const athleteType = (age >= 18 ? "adult" : "youth") as (typeof AthleteType.enumValues)[number];
+
+  // Validate cycle support on the plan.
+  const supports = {
+    monthly: Boolean(plan.stripePriceIdMonthly || plan.monthlyPrice),
+    yearly: Boolean(plan.stripePriceIdYearly || plan.yearlyPrice),
+    six_months: Boolean(plan.stripePriceIdOneTime || plan.oneTimePrice),
+  };
+  if (!supports[input.billingCycle]) {
+    throw { status: 400, message: "This plan doesn't support that billing cycle." };
+  }
+
+  // Find or create user.
+  let user = await getUserByEmail(decoded.email);
+  let issuedTempPassword: string | null = null;
+  if (!user) {
+    issuedTempPassword = generateProvisionPassword();
+    const { hash, salt } = hashLocalProvisionPassword(issuedTempPassword);
+    const inserted = await db
+      .insert(userTable)
+      .values({
+        cognitoSub: `local:${crypto.randomUUID()}`,
+        name: fullName,
+        email: decoded.email,
+        role: athleteType === "adult" ? "adult_athlete" : "youth_athlete",
+        passwordHash: hash,
+        passwordSalt: salt,
+        emailVerified: true,
+      })
+      .returning();
+    user = inserted[0] ?? null;
+    if (!user) throw { status: 500, message: "Failed to create user." };
+  } else {
+    // Update display name if user kept the default.
+    await db.update(userTable).set({ name: fullName, updatedAt: new Date() }).where(eq(userTable.id, user.id));
+  }
+
+  // Find or create athlete row, populating the onboarding fields.
+  const existing = await db
+    .select()
+    .from(athleteTable)
+    .where(eq(athleteTable.userId, user.id))
+    .limit(1);
+  const onboardingFields = {
+    name: fullName,
+    age,
+    birthDate: input.birthDate,
+    athleteType,
+    trainingPerWeek: input.trainingPerWeek ?? 3,
+    performanceGoals: input.performanceGoals?.trim() || null,
+    injuries: input.injuries?.trim() ? { notes: input.injuries.trim() } : null,
+    extraResponses: input.phone?.trim() ? { phone: input.phone.trim() } : null,
+  };
+  let athleteId: number | null = existing[0]?.id ?? null;
+  if (!athleteId) {
+    const inserted = await db
+      .insert(athleteTable)
+      .values({
+        userId: user.id,
+        guardianId: null,
+        team: "",
+        ...onboardingFields,
+        onboardingCompleted: false,
+      })
+      .returning();
+    athleteId = inserted[0]?.id ?? null;
+  } else {
+    await db
+      .update(athleteTable)
+      .set({ ...onboardingFields, updatedAt: new Date() })
+      .where(eq(athleteTable.id, athleteId));
+  }
+  if (!athleteId) throw { status: 500, message: "Failed to create athlete profile." };
+
+  // Create Stripe checkout (existing flow handles approval + tier grant after payment).
+  const { session } = await createCheckoutSession({
+    userId: user.id,
+    userEmail: user.email,
+    athleteId,
+    planId: plan.id,
+    billingCycle: input.billingCycle,
+  });
+  if (!session.url) {
+    throw { status: 502, message: "Stripe did not return a checkout URL." };
+  }
+
+  return {
+    checkoutUrl: session.url,
+    sessionId: session.id,
+    issuedTempPassword,
+    email: user.email,
+  };
 }

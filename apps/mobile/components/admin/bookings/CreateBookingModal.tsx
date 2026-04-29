@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Modal, Platform, TextInput, TouchableOpacity, ActivityIndicator, Image } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Text } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Shadows } from "@/constants/theme";
@@ -22,6 +23,21 @@ interface CreateBookingModalProps {
 }
 
 // --- Internal Components ---
+
+function formatDateLabel(value: Date) {
+  return value.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatTimeLabel(value: Date) {
+  return value.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 function ActionButton({
   label,
@@ -289,15 +305,75 @@ export function CreateBookingModal({
               </View>
             </View>
 
-            {/* Date Time Note */}
-            <View className="p-8 rounded-[32px] bg-secondary/5 border border-app/5 mb-10">
-              <View className="flex-row items-center gap-3 mb-3">
-                <Feather name="info" size={18} color={colors.accent} />
-                <Text className="text-[11px] font-outfit-bold text-app uppercase tracking-[2px]">Scheduling Logic</Text>
-              </View>
-              <Text className="text-sm font-outfit text-textSecondary leading-relaxed italic">
-                Managed securely by the Service Type parameters. Manual calendar overrides have been disabled to prevent scheduling conflicts.
+            {/* Date + Time */}
+            <View className="mb-10">
+              <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2.5px] mb-4 ml-1">
+                Date & Time
               </Text>
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  onPress={() => form.setShowDatePicker(true)}
+                  activeOpacity={0.82}
+                  className="flex-1 rounded-[20px] border p-4"
+                  style={{
+                    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <View className="flex-row items-center gap-2 mb-2">
+                    <Feather name="calendar" size={15} color={colors.accent} />
+                    <Text className="text-[10px] font-outfit-bold text-textSecondary uppercase tracking-widest">Date</Text>
+                  </View>
+                  <Text className="text-[15px] font-outfit-bold text-app">
+                    {formatDateLabel(form.date)}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => form.setShowTimePicker(true)}
+                  activeOpacity={0.82}
+                  className="flex-1 rounded-[20px] border p-4"
+                  style={{
+                    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <View className="flex-row items-center gap-2 mb-2">
+                    <Feather name="clock" size={15} color={colors.accent} />
+                    <Text className="text-[10px] font-outfit-bold text-textSecondary uppercase tracking-widest">Time</Text>
+                  </View>
+                  <Text className="text-[15px] font-outfit-bold text-app">
+                    {formatTimeLabel(form.time)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {form.showDatePicker ? (
+                <DateTimePicker
+                  value={form.date}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "inline" : "default"}
+                  onChange={(_: unknown, selected?: Date) => {
+                    if (Platform.OS !== "ios") form.setShowDatePicker(false);
+                    if (selected) form.setDate(selected);
+                  }}
+                />
+              ) : null}
+              {form.showTimePicker ? (
+                <DateTimePicker
+                  value={form.time}
+                  mode="time"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={(_: unknown, selected?: Date) => {
+                    if (Platform.OS !== "ios") form.setShowTimePicker(false);
+                    if (selected) form.setTime(selected);
+                  }}
+                />
+              ) : null}
+              <View className="mt-4 p-5 rounded-[22px] bg-secondary/5 border border-app/5">
+                <Text className="text-sm font-outfit text-textSecondary leading-relaxed">
+                  Matches web `/bookings`: admin chooses guardian, service, date, time, status defaults to confirmed, then optional location and meeting link.
+                </Text>
+              </View>
             </View>
 
             {/* Additional Details */}

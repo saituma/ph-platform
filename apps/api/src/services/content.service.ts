@@ -573,6 +573,14 @@ export async function updateParentCourse(input: {
   return result[0] ?? null;
 }
 
+export async function deleteParentCourse(id: number) {
+  const result = await db
+    .delete(parentCourseTable)
+    .where(eq(parentCourseTable.id, id))
+    .returning();
+  return result[0] ?? null;
+}
+
 export async function getParentCourseAiInsight(courseId: number) {
   const course = await db.select().from(parentCourseTable).where(eq(parentCourseTable.id, courseId)).limit(1);
 

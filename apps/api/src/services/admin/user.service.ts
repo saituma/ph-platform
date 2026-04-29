@@ -444,7 +444,7 @@ export async function updateAthleteProgramTier(athleteId: number, tier: (typeof 
   return result[0] ?? null;
 }
 
-function generateProvisionPassword() {
+export function generateProvisionPassword() {
   const base = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
   let out = "";
   for (let i = 0; i < 20; i += 1) {
@@ -459,7 +459,7 @@ function resolveProvisionPassword(input?: string | null) {
   return candidate;
 }
 
-function hashLocalProvisionPassword(password: string) {
+export function hashLocalProvisionPassword(password: string) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(password, salt, 64).toString("hex");
   return { hash, salt };

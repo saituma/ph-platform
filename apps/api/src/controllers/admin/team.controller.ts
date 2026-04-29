@@ -117,15 +117,21 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
 }
 
 export async function getTeamAdminDetails(req: Request, res: Response) {
-  const teamName = z.string().min(1).parse(req.params.teamName);
-  if (!(await canAccessTeam(req, teamName))) {
-    return res.status(403).json({ error: "Forbidden" });
+  try {
+    const teamName = z.string().min(1).parse(req.params.teamName);
+    if (!(await canAccessTeam(req, teamName))) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const details = await getTeamDetailsAdmin(teamName);
+    if (!details) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+    return res.status(200).json(details);
+  } catch (error) {
+    const status = typeof (error as any)?.status === "number" ? (error as any).status : 500;
+    if (status >= 500) console.error("[getTeamAdminDetails]", error);
+    return res.status(status).json({ error: safeAdminErrorMessage(error, "Failed to load team details.") });
   }
-  const details = await getTeamDetailsAdmin(teamName);
-  if (!details) {
-    return res.status(404).json({ error: "Team not found" });
-  }
-  return res.status(200).json(details);
 }
 
 export async function getTeamMemberAdminDetails(req: Request, res: Response) {

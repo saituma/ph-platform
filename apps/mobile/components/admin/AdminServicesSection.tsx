@@ -19,18 +19,15 @@ import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
 interface Props {
   token: string | null;
   canLoad: boolean;
+  initialAction?: "createService" | null;
 }
 
 // --- Internal Components ---
 
 const SERVICE_TYPES = [
-  { label: "1-on-1 Session", value: "one_on_one" },
-  { label: "Semi-Private Session", value: "semi_private" },
-  { label: "Lift Lab 1:1", value: "lift_lab_1on1" },
-  { label: "Group Call", value: "group_call" },
-  { label: "Individual Call", value: "individual_call" },
-  { label: "Coach Call", value: "call" },
-  { label: "Role Model", value: "role_model" },
+  { label: "1-to-1 session", value: "one_to_one" },
+  { label: "Semi-private session", value: "semi_private" },
+  { label: "In-person session", value: "in_person" },
 ];
 
 const PROGRAM_TIERS = [
@@ -41,10 +38,48 @@ const PROGRAM_TIERS = [
 ];
 
 const TARGET_AUDIENCES = [
-  { label: "All Users", value: "all" },
+  { label: "All Clients", value: "all" },
   { label: "Youth Athletes", value: "youth" },
   { label: "Adult Athletes", value: "adult" },
 ];
+
+const WEEKDAY_OPTIONS = [
+  { label: "Monday", value: "1" },
+  { label: "Tuesday", value: "2" },
+  { label: "Wednesday", value: "3" },
+  { label: "Thursday", value: "4" },
+  { label: "Friday", value: "5" },
+  { label: "Saturday", value: "6" },
+  { label: "Sunday", value: "0" },
+];
+
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+  const value = String(i).padStart(2, "0");
+  return { label: value, value };
+});
+
+const MINUTE_OPTIONS = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map((value) => ({
+  label: value,
+  value,
+}));
+
+function getNextSevenDays() {
+  return Array.from({ length: 7 }, (_, index) => {
+    const d = new Date();
+    d.setDate(d.getDate() + index);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return {
+      value: `${yyyy}-${mm}-${dd}`,
+      label: d.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
+    };
+  });
+}
 
 function MultiSelect({
   label,
@@ -283,7 +318,7 @@ function FormField({ label, value, onChangeText, placeholder, keyboardType = "de
   );
 }
 
-export function AdminServicesSection({ token, canLoad }: Props) {
+export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const servicesHook = useAdminServices(token, canLoad);
@@ -291,16 +326,26 @@ export function AdminServicesSection({ token, canLoad }: Props) {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [serviceCreateName, setServiceCreateName] = useState("");
-  const [serviceCreateType, setServiceCreateType] = useState("call");
-  const [serviceCreateDurationMinutes, setServiceCreateDurationMinutes] = useState("30");
+  const [serviceCreateType, setServiceCreateType] = useState("one_to_one");
+  const [serviceCreateDurationMinutes, setServiceCreateDurationMinutes] = useState("60");
   const [serviceCreateDescription, setServiceCreateDescription] = useState("");
   const [serviceCreateCapacity, setServiceCreateCapacity] = useState("");
+  const [serviceCreateIsBookable, setServiceCreateIsBookable] = useState(true);
+  const [serviceCreateSchedule, setServiceCreateSchedule] = useState<"one_time" | "permanent">("one_time");
+  const [serviceCreateWeekday, setServiceCreateWeekday] = useState("1");
+  const [serviceCreateWeekHour, setServiceCreateWeekHour] = useState("09");
+  const [serviceCreateWeekMinute, setServiceCreateWeekMinute] = useState("00");
+  const [serviceCreateOneTimeDate, setServiceCreateOneTimeDate] = useState(
+    () => getNextSevenDays()[0]?.value ?? "",
+  );
+  const [serviceCreateOneTimeHour, setServiceCreateOneTimeHour] = useState("09");
+  const [serviceCreateOneTimeMinute, setServiceCreateOneTimeMinute] = useState("00");
   const [serviceCreateEligiblePlans, setServiceCreateEligiblePlans] = useState<string[]>([]);
   const [serviceCreateEligibleTargets, setServiceCreateEligibleTargets] = useState<string[]>([]);
 
   const [serviceDetailOpenId, setServiceDetailOpenId] = useState<number | null>(null);
   const [serviceEditName, setServiceEditName] = useState("");
-  const [serviceEditType, setServiceEditType] = useState("call");
+  const [serviceEditType, setServiceEditType] = useState("one_to_one");
   const [serviceEditDurationMinutes, setServiceEditDurationMinutes] = useState("30");
   const [serviceEditDescription, setServiceEditDescription] = useState("");
   const [serviceEditIsActive, setServiceEditIsActive] = useState(true);
@@ -315,6 +360,12 @@ export function AdminServicesSection({ token, canLoad }: Props) {
     }
   }, [canLoad]);
 
+  useEffect(() => {
+    if (initialAction === "createService") {
+      setCreateOpen(true);
+    }
+  }, [initialAction]);
+
   const teamOptions = useMemo(() => {
     return teams.map(t => ({ label: `Team: ${t.team}`, value: `team:${t.id}` }));
   }, [teams]);
@@ -328,7 +379,7 @@ export function AdminServicesSection({ token, canLoad }: Props) {
     const svc = servicesHook.services.find((s) => s.id === serviceDetailOpenId);
     if (!svc) return;
     setServiceEditName(String(svc.name ?? ""));
-    setServiceEditType(String(svc.type ?? "call"));
+    setServiceEditType(String(svc.type ?? "one_to_one"));
     setServiceEditDurationMinutes(String(svc.durationMinutes ?? 30));
     setServiceEditDescription(svc.description ?? "");
     setServiceEditIsActive(svc.isActive !== false);
@@ -339,20 +390,57 @@ export function AdminServicesSection({ token, canLoad }: Props) {
 
   const handleCreate = async () => {
     try {
+      const schedulePayload =
+        serviceCreateSchedule === "permanent"
+          ? {
+              schedulePattern: "weekly_recurring",
+              weeklyEntries: [
+                {
+                  weekday: Number(serviceCreateWeekday),
+                  time: `${serviceCreateWeekHour}:${serviceCreateWeekMinute}`,
+                },
+              ],
+              oneTimeDate: null,
+              oneTimeTime: null,
+            }
+          : {
+              schedulePattern: "one_time",
+              weeklyEntries: [],
+              oneTimeDate: serviceCreateOneTimeDate || null,
+              oneTimeTime: serviceCreateOneTimeDate
+                ? `${serviceCreateOneTimeHour}:${serviceCreateOneTimeMinute}`
+                : null,
+            };
       await servicesHook.createServiceType({
         name: serviceCreateName,
-        type: serviceCreateType,
+        type: serviceCreateIsBookable ? serviceCreateType : null,
         durationMinutes: serviceCreateDurationMinutes,
         description: serviceCreateDescription,
         capacity: serviceCreateCapacity,
+        totalSlots: serviceCreateCapacity,
         eligiblePlans: serviceCreateEligiblePlans,
         eligibleTargets: serviceCreateEligibleTargets,
         isActive: true,
+        isBookable: serviceCreateIsBookable,
+        ...schedulePayload,
+        slotMode: "shared_capacity",
+        slotIntervalMinutes: null,
+        slotDefinitions: [],
       });
       setCreateOpen(false);
       setServiceCreateName("");
+      setServiceCreateType("one_to_one");
+      setServiceCreateDurationMinutes("60");
       setServiceCreateDescription("");
       setServiceCreateCapacity("");
+      setServiceCreateIsBookable(true);
+      setServiceCreateSchedule("one_time");
+      setServiceCreateWeekday("1");
+      setServiceCreateWeekHour("09");
+      setServiceCreateWeekMinute("00");
+      setServiceCreateOneTimeDate(getNextSevenDays()[0]?.value ?? "");
+      setServiceCreateOneTimeHour("09");
+      setServiceCreateOneTimeMinute("00");
       setServiceCreateEligiblePlans([]);
       setServiceCreateEligibleTargets([]);
     } catch (e) {}
@@ -378,7 +466,7 @@ export function AdminServicesSection({ token, canLoad }: Props) {
   const handleToggleActive = async (service: any) => {
     try {
       await servicesHook.updateServiceType(service.id, {
-        isActive: !service.isActive,
+        isActive: !(service.isActive ?? true),
       });
     } catch (e) {}
   };
@@ -420,9 +508,18 @@ export function AdminServicesSection({ token, canLoad }: Props) {
                   <Text className="text-lg font-clash font-bold text-app" numberOfLines={1}>
                     {s.name}
                   </Text>
-                  <Text className="text-xs font-outfit text-textSecondary uppercase tracking-wider mt-1">
-                    {s.type?.replace(/_/g, ' ')}
-                  </Text>
+                  <View className="flex-row flex-wrap items-center gap-2 mt-1">
+                    {s.isBookable === false ? (
+                      <View className="px-2 py-1 rounded-lg bg-secondary/10 border border-app/10">
+                        <Text className="text-[10px] font-outfit-bold text-textSecondary uppercase tracking-wider">
+                          Non-bookable
+                        </Text>
+                      </View>
+                    ) : null}
+                    <Text className="text-xs font-outfit text-textSecondary uppercase tracking-wider">
+                      {s.type ? s.type.replace(/_/g, " ") : "Schedule item"}
+                    </Text>
+                  </View>
                 </View>
                 <TouchableOpacity 
                   onPress={() => handleToggleActive(s)}
@@ -445,13 +542,20 @@ export function AdminServicesSection({ token, canLoad }: Props) {
                   <Feather name="clock" size={12} color={colors.accent} />
                   <Text className="text-xs font-outfit-bold text-app">{s.durationMinutes}m</Text>
                 </View>
-                {s.programTier && (
-                  <View className="flex-row items-center gap-1.5 bg-secondary/5 px-3 py-2 rounded-xl">
-                    <Feather name="shield" size={12} color={colors.accent} />
-                    <Text className="text-xs font-outfit-bold text-app">{s.programTier}</Text>
-                  </View>
-                )}
+                <View className="flex-row items-center gap-1.5 bg-secondary/5 px-3 py-2 rounded-xl">
+                  <Feather name="users" size={12} color={colors.accent} />
+                  <Text className="text-xs font-outfit-bold text-app">
+                    {s.totalSlots != null
+                      ? `${s.remainingTotalSlots ?? "—"} / ${s.totalSlots} slots`
+                      : s.capacity != null
+                        ? `${s.capacity} capacity`
+                        : "Unlimited"}
+                  </Text>
+                </View>
               </View>
+              <Text className="text-[10px] font-outfit text-textSecondary uppercase tracking-wider mb-5" numberOfLines={2}>
+                Target: {s.eligibleTargets?.length ? s.eligibleTargets.join(", ") : "All"} · Tier: {s.eligiblePlans?.length ? s.eligiblePlans.join(", ") : s.programTier ?? "All"}
+              </Text>
 
               <View className="flex-row gap-3">
                 <TouchableOpacity 
@@ -486,9 +590,93 @@ export function AdminServicesSection({ token, canLoad }: Props) {
           <ThemedScrollView className="p-6">
             <FormField label="Service Name" value={serviceCreateName} onChangeText={setServiceCreateName} placeholder="e.g. 1:1 Session" />
             <FormField label="Description" value={serviceCreateDescription} onChangeText={setServiceCreateDescription} placeholder="Describe the session..." multiline />
-            <Dropdown label="Service Type" value={serviceCreateType} onSelect={setServiceCreateType} options={SERVICE_TYPES} />
+            <View className="mb-6">
+              <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
+                Booking Mode
+              </Text>
+              <View className="flex-row gap-3">
+                {[
+                  { label: "Bookable", value: true, detail: "Clients can request" },
+                  { label: "Non-bookable", value: false, detail: "Visible only" },
+                ].map((item) => {
+                  const active = serviceCreateIsBookable === item.value;
+                  return (
+                    <TouchableOpacity
+                      key={item.label}
+                      onPress={() => setServiceCreateIsBookable(item.value)}
+                      className="flex-1 rounded-[18px] border p-4"
+                      style={{
+                        backgroundColor: active ? `${colors.accent}16` : isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+                        borderColor: active ? `${colors.accent}45` : isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+                      }}
+                    >
+                      <Text className="text-[14px] font-outfit-bold text-app">{item.label}</Text>
+                      <Text className="text-[11px] font-outfit text-textSecondary mt-1">{item.detail}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {serviceCreateIsBookable ? (
+              <Dropdown label="Service Type" value={serviceCreateType} onSelect={setServiceCreateType} options={SERVICE_TYPES} />
+            ) : null}
             <FormField label="Duration (Minutes)" value={serviceCreateDurationMinutes} onChangeText={setServiceCreateDurationMinutes} keyboardType="numeric" />
-            <FormField label="Slots (Capacity)" value={serviceCreateCapacity} onChangeText={setServiceCreateCapacity} keyboardType="numeric" placeholder="Leave empty for unlimited" />
+            {serviceCreateIsBookable ? (
+              <FormField label="Slots Available" value={serviceCreateCapacity} onChangeText={setServiceCreateCapacity} keyboardType="numeric" placeholder="Leave empty for unlimited" />
+            ) : null}
+
+            <View className="mb-6 rounded-[24px] border p-5" style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)", backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF" }}>
+              <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3">
+                Schedule
+              </Text>
+              <View className="flex-row gap-3 mb-5">
+                {[
+                  { label: "Temporary", value: "one_time" as const },
+                  { label: "Permanent", value: "permanent" as const },
+                ].map((item) => {
+                  const active = serviceCreateSchedule === item.value;
+                  return (
+                    <TouchableOpacity
+                      key={item.value}
+                      onPress={() => setServiceCreateSchedule(item.value)}
+                      className="flex-1 h-11 rounded-2xl items-center justify-center"
+                      style={{ backgroundColor: active ? colors.accent : isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)" }}
+                    >
+                      <Text className="text-xs font-outfit-bold uppercase tracking-wider" style={{ color: active ? colors.textInverse : colors.textSecondary }}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {serviceCreateSchedule === "permanent" ? (
+                <>
+                  <Dropdown label="Day of Week" value={serviceCreateWeekday} onSelect={setServiceCreateWeekday} options={WEEKDAY_OPTIONS} />
+                  <View className="flex-row gap-3">
+                    <View className="flex-1">
+                      <Dropdown label="Hour" value={serviceCreateWeekHour} onSelect={setServiceCreateWeekHour} options={HOUR_OPTIONS} />
+                    </View>
+                    <View className="flex-1">
+                      <Dropdown label="Minute" value={serviceCreateWeekMinute} onSelect={setServiceCreateWeekMinute} options={MINUTE_OPTIONS} />
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Dropdown label="Date" value={serviceCreateOneTimeDate} onSelect={setServiceCreateOneTimeDate} options={getNextSevenDays()} />
+                  <View className="flex-row gap-3">
+                    <View className="flex-1">
+                      <Dropdown label="Hour" value={serviceCreateOneTimeHour} onSelect={setServiceCreateOneTimeHour} options={HOUR_OPTIONS} />
+                    </View>
+                    <View className="flex-1">
+                      <Dropdown label="Minute" value={serviceCreateOneTimeMinute} onSelect={setServiceCreateOneTimeMinute} options={MINUTE_OPTIONS} />
+                    </View>
+                  </View>
+                </>
+              )}
+            </View>
             
             <MultiSelect 
               label="Eligible Tiers" 

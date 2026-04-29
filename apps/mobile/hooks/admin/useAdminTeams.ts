@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 
 export type AdminTeamSummary = {
@@ -14,10 +14,14 @@ export function useAdminTeams(token: string | null, canLoad: boolean) {
   const [teams, setTeams] = useState<AdminTeamSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Single-flight: dedupe overlapping calls (initial mount + manual refresh tap).
+  const inFlightRef = useRef(false);
 
   const load = useCallback(
     async (forceRefresh: boolean) => {
       if (!token || !canLoad) return;
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
       setLoading(true);
       setError(null);
       try {
@@ -36,6 +40,7 @@ export function useAdminTeams(token: string | null, canLoad: boolean) {
         setTeams([]);
       } finally {
         setLoading(false);
+        inFlightRef.current = false;
       }
     },
     [canLoad, token],

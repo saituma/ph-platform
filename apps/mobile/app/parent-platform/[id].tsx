@@ -6,7 +6,8 @@ import { useAppSelector } from "@/store/hooks";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Image, Linking, TouchableOpacity, View } from "react-native";
+import { Linking, TouchableOpacity, View } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { isYoutubeUrl, VideoPlayer } from "@/components/media/VideoPlayer";
 import * as WebBrowser from "expo-web-browser";
@@ -15,6 +16,29 @@ import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
 
 import { MarkdownText } from "@/components/ui/MarkdownText";
+
+function AutoImage({
+  uri,
+  borderRadius = 0,
+  style,
+}: {
+  uri: string;
+  borderRadius?: number;
+  style?: object;
+}) {
+  const [aspectRatio, setAspectRatio] = useState(16 / 9);
+  return (
+    <ExpoImage
+      source={{ uri }}
+      style={[{ width: "100%", aspectRatio, borderRadius }, style]}
+      contentFit="cover"
+      onLoad={(e) => {
+        const { width, height } = e.source;
+        if (width > 0 && height > 0) setAspectRatio(width / height);
+      }}
+    />
+  );
+}
 
 type ParentCourseModule = {
   id: string;
@@ -122,6 +146,10 @@ export default function ParentCourseDetail() {
     typeof url === "string" && /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(url);
   const isImageDataUrl = (url?: string) =>
     typeof url === "string" && url.startsWith("data:image/");
+  const isImageUrl = (url?: string) =>
+    typeof url === "string" &&
+    (/\.(jpg|jpeg|png|gif|webp|heic|avif|bmp)(\?|#|$)/i.test(url) ||
+      url.startsWith("data:image/"));
 
   const isLocked = false;
   const hasParentProgramAccess = true;
@@ -165,11 +193,7 @@ export default function ParentCourseDetail() {
           <View className="space-y-6">
             <View className="rounded-[28px] border border-app/10 bg-input px-6 py-5">
               {item.coverImage ? (
-                <Image
-                  source={{ uri: item.coverImage }}
-                  className="h-40 w-full rounded-2xl mb-4"
-                  resizeMode="cover"
-                />
+                <AutoImage uri={item.coverImage} borderRadius={16} style={{ marginBottom: 16 }} />
               ) : null}
               <View className="flex-row flex-wrap items-center gap-2 mb-3">
                 {item.category ? (
@@ -232,7 +256,10 @@ export default function ParentCourseDetail() {
                             Open PDF
                           </Text>
                         </TouchableOpacity>
-                      ) : module.mediaUrl ? (
+                      ) : module.mediaUrl &&
+                        !isImageUrl(module.mediaUrl) &&
+                        !isVideoUrl(module.mediaUrl) &&
+                        !isYoutubeUrl(module.mediaUrl) ? (
                         <TouchableOpacity
                           onPress={() => openMedia(module.mediaUrl)}
                           className="rounded-2xl bg-accent px-4 py-2"
@@ -270,6 +297,11 @@ export default function ParentCourseDetail() {
                             ignoreTabFocus
                           />
                         )}
+                      </View>
+                    ) : null}
+                    {isImageUrl(module.mediaUrl) ? (
+                      <View className="mt-3 rounded-2xl overflow-hidden">
+                        <AutoImage uri={module.mediaUrl!} borderRadius={16} />
                       </View>
                     ) : null}
                     {module.content ? (

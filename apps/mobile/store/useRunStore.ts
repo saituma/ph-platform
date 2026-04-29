@@ -40,10 +40,15 @@ interface RunStore {
   isAutoPaused: boolean;
   /** Timestamp when speed last dropped below auto-pause threshold. */
   autoPauseStillSince: number | null;
+  /** Timestamp of the last manual resume — used to enforce a grace window before auto-pause re-engages. */
+  lastManualResumeAt: number | null;
   /** Audio cues: announce km splits via TTS. */
   audioCuesEnabled: boolean;
   /** Tracks the last km announced to avoid repeats. */
   lastAnnouncedKm: number;
+  /** Latest unfiltered GPS fix — for map camera. Subscribers select this directly so
+   *  per-second GPS updates only re-render the map, not the whole screen. */
+  liveCoordinate: { latitude: number; longitude: number } | null;
 
   startRun: () => void;
   pauseRun: () => void;
@@ -65,6 +70,7 @@ interface RunStore {
   setAutoPauseStillSince: (ts: number | null) => void;
   setAudioCuesEnabled: (enabled: boolean) => void;
   consumeKmAnnouncement: () => number | null;
+  setLiveCoordinate: (coord: { latitude: number; longitude: number } | null) => void;
 }
 
 const MIN_RUN_SEGMENT_METERS = 12;
@@ -90,24 +96,32 @@ export const useRunStore = create<RunStore>((set, get) => ({
   shareLiveLocationEnabled: false,
   isAutoPaused: false,
   autoPauseStillSince: null,
+  lastManualResumeAt: null,
   audioCuesEnabled: true,
   lastAnnouncedKm: 0,
+  liveCoordinate: null,
 
   startRun: () => {
     const every = get().progressNotifyEveryMeters;
+    const now = Date.now();
     set({
       status: "running",
-      startTime: Date.now(),
+      startTime: now,
       pauseStart: null,
       totalPausedMs: 0,
       distanceMeters: 0,
       distanceOverrideMeters: null,
       coordinates: [],
       elapsedSeconds: 0,
-      warmupUntil: Date.now() + 8000,
+      warmupUntil: now + 8000,
       currentRunId: Crypto.randomUUID(),
       nextProgressNotifyAtMeters:
         typeof every === "number" && Number.isFinite(every) && every >= 100 ? every : null,
+      // Seed grace timestamp so auto-pause doesn't fire immediately at run start
+      // before the user has had a chance to begin moving.
+      lastManualResumeAt: now,
+      autoPauseStillSince: null,
+      isAutoPaused: false,
     });
   },
 
@@ -126,6 +140,10 @@ export const useRunStore = create<RunStore>((set, get) => ({
         status: "running",
         totalPausedMs: state.totalPausedMs + pausedMs,
         pauseStart: null,
+        // Reset auto-pause state so the timer starts fresh after resume.
+        autoPauseStillSince: null,
+        isAutoPaused: false,
+        lastManualResumeAt: now,
       };
     });
   },
@@ -155,6 +173,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
       shareLiveLocationEnabled: false,
       isAutoPaused: false,
       autoPauseStillSince: null,
+      lastManualResumeAt: null,
       lastAnnouncedKm: 0,
     });
   },
@@ -261,6 +280,17 @@ export const useRunStore = create<RunStore>((set, get) => ({
   setAutoPaused: (paused) => set({ isAutoPaused: paused }),
   setAutoPauseStillSince: (ts) => set({ autoPauseStillSince: ts }),
   setAudioCuesEnabled: (enabled) => set({ audioCuesEnabled: enabled }),
+
+  setLiveCoordinate: (coord) => {
+    // Bail out if the coord hasn't actually changed — prevents redundant re-renders
+    // when the GPS reports the same lat/lng (common when stationary).
+    const prev = get().liveCoordinate;
+    if (prev && coord && prev.latitude === coord.latitude && prev.longitude === coord.longitude) {
+      return;
+    }
+    if (!prev && !coord) return;
+    set({ liveCoordinate: coord });
+  },
 
   consumeKmAnnouncement: () => {
     const { distanceMeters, lastAnnouncedKm } = get();

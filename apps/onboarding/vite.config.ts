@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => {
 	).replace(/\/+$/, "");
 
 	return {
+		base: env.VITE_BASE_PATH || "/",
 		resolve: {
 			tsconfigPaths: true,
 			dedupe: [
@@ -51,7 +52,7 @@ export default defineConfig(({ mode }) => {
 			neon,
 			tailwindcss(),
 			tanstackStart(),
-			nitro({ preset: "vercel", serverDir: "./server" }),
+			nitro({ preset: (process.env.NITRO_PRESET ?? "vercel") as "vercel" | "node-server", serverDir: "./server" }),
 			viteReact(),
 		],
 	};

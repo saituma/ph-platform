@@ -98,6 +98,9 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 		if (inboxFilter === "team") {
 			return sortedThreads.filter((thread) => thread.channelType === "team");
 		}
+		// "all" filter in team mode: show every thread — team chats, coach groups,
+		// direct messages (including admin and coach DMs). The Direct/Team pills
+		// let the user narrow down when they want.
 		return sortedThreads;
 	}, [inboxFilter, mode, sortedThreads]);
 
@@ -326,58 +329,58 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 				</View>
 			)}
 
-			{/* ── Inline Announcement Row (Telegram-style pinned) ── */}
+			{/* ── Announcement Button ── */}
 			{!announcementsLoading && announcementsMeta && (
-				<Pressable
-					onPress={handleOpenAnnouncements}
-					style={({ pressed }) => [
-						styles.announcementRow,
-						{
-							backgroundColor: pressed
-								? isDark
-									? "rgba(255,255,255,0.04)"
-									: "rgba(0,0,0,0.02)"
-								: "transparent",
-							borderBottomColor: isDark
-								? "rgba(255,255,255,0.06)"
-								: "rgba(0,0,0,0.04)",
-						},
-					]}
-				>
-					<View
-						style={[
-							styles.announcementIcon,
+				<View style={styles.announcementWrapper}>
+					<Pressable
+						onPress={handleOpenAnnouncements}
+						style={({ pressed }) => [
+							styles.announcementBtn,
 							{
 								backgroundColor: isDark
-									? "rgba(200,241,53,0.1)"
-									: "rgba(34,197,94,0.08)",
+									? pressed ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.05)"
+									: pressed ? "rgba(0,0,0,0.05)" : "#fff",
+								borderColor: isDark
+									? "rgba(255,255,255,0.10)"
+									: "rgba(0,0,0,0.07)",
 							},
 						]}
 					>
-						<Ionicons name="megaphone" size={14} color={colors.accent} />
-					</View>
-
-					<View style={styles.announcementContent}>
-						<Text
-							style={[
-								styles.announcementTitle,
-								{ fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
-							]}
-							numberOfLines={1}
-						>
-							{announcementsMeta.title}
-						</Text>
-						<Text
-							style={[
-								styles.announcementSnippet,
-								{ fontFamily: "Outfit-Regular", color: colors.textSecondary },
-							]}
-							numberOfLines={1}
-						>
-							{announcementsMeta.snippet}
-						</Text>
-					</View>
-
+						<View style={styles.announcementLeft}>
+							<View
+								style={[
+									styles.announcementIcon,
+									{
+										backgroundColor: isDark
+											? "rgba(200,241,53,0.12)"
+											: "rgba(34,197,94,0.10)",
+									},
+								]}
+							>
+								<Ionicons name="megaphone" size={20} color={colors.accent} />
+							</View>
+							<View style={styles.announcementContent}>
+								<Text
+									style={[
+										styles.announcementTitle,
+										{ fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
+									]}
+									numberOfLines={1}
+								>
+									{announcementsMeta.title}
+								</Text>
+								<Text
+									style={[
+										styles.announcementSnippet,
+										{ fontFamily: "Outfit-Regular", color: colors.textSecondary },
+									]}
+									numberOfLines={1}
+								>
+									{announcementsMeta.snippet}
+								</Text>
+							</View>
+						</View>
+					</Pressable>
 					{announcementsMeta.count > 0 && (
 						<View
 							style={[
@@ -385,19 +388,12 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 								{ backgroundColor: colors.accent },
 							]}
 						>
-							<Text
-								style={[
-									styles.announcementBadgeText,
-									{ fontFamily: "Outfit-Bold" },
-								]}
-							>
+							<Text style={[styles.announcementBadgeText, { fontFamily: "Outfit-Bold" }]}>
 								{announcementsMeta.count}
 							</Text>
 						</View>
 					)}
-
-					<Ionicons name="chevron-forward" size={16} color={colors.textDim} />
-				</Pressable>
+				</View>
 			)}
 
 			{/* ── Thread List ─────────────────────────────────────── */}
@@ -477,42 +473,64 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		letterSpacing: -0.1,
 	},
-	announcementRow: {
+	announcementWrapper: {
+		marginHorizontal: 16,
+		marginBottom: 24,
+		position: "relative",
+	},
+	announcementBtn: {
 		flexDirection: "row",
 		alignItems: "center",
-		paddingHorizontal: 16,
-		paddingVertical: 12,
-		marginHorizontal: 16,
-		marginBottom: 12,
-		borderRadius: 20,
-		gap: 12,
+		paddingHorizontal: 18,
+		paddingVertical: 16,
+		borderRadius: 22,
+		borderWidth: 1,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.08,
+		shadowRadius: 6,
+		elevation: 3,
+	},
+	announcementLeft: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 14,
+		minWidth: 0,
 	},
 	announcementIcon: {
-		width: 36,
-		height: 36,
-		borderRadius: 12,
+		width: 52,
+		height: 52,
+		borderRadius: 16,
 		alignItems: "center",
 		justifyContent: "center",
+		flexShrink: 0,
 	},
 	announcementContent: {
 		flex: 1,
-		gap: 2,
+		gap: 4,
+		minWidth: 0,
 	},
 	announcementTitle: {
-		fontSize: 15,
-		letterSpacing: -0.2,
+		fontSize: 16,
+		letterSpacing: -0.3,
 	},
 	announcementSnippet: {
 		fontSize: 13,
-		opacity: 0.8,
+		opacity: 0.75,
 	},
 	announcementBadge: {
+		position: "absolute",
+		top: -10,
+		left: 52,
 		minWidth: 24,
 		height: 24,
 		borderRadius: 12,
 		alignItems: "center",
 		justifyContent: "center",
-		paddingHorizontal: 8,
+		paddingHorizontal: 6,
+		zIndex: 10,
+		elevation: 10,
 	},
 	announcementBadgeText: {
 		fontSize: 12,

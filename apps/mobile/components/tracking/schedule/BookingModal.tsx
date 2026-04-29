@@ -27,6 +27,7 @@ interface BookingModalProps {
   servicesError: string | null;
   canCreateBookings: boolean;
   onSuccess: (startsAt: Date) => void;
+  initialServiceId?: number | null;
 }
 
 export function BookingModal({
@@ -38,6 +39,7 @@ export function BookingModal({
   servicesError,
   canCreateBookings,
   onSuccess,
+  initialServiceId,
 }: BookingModalProps) {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
@@ -97,14 +99,14 @@ export function BookingModal({
       return;
     }
     if (hasUserSelectedService.current && selectedServiceId) return;
-    if (
-      !selectedServiceId ||
-      !activeServices.some((s) => s.id === selectedServiceId)
-    ) {
-      const next = activeServices[0];
+    const preferred = initialServiceId
+      ? activeServices.find((s) => s.id === initialServiceId)
+      : null;
+    const next = preferred ?? activeServices[0];
+    if (!selectedServiceId || !activeServices.some((s) => s.id === selectedServiceId)) {
       setSelectedServiceId(next.id);
     }
-  }, [visible, activeServices, selectedServiceId]);
+  }, [visible, activeServices, selectedServiceId, initialServiceId]);
 
   const notifyBookingConfirmed = useCallback(async (startsAt?: Date | null) => {
     try {

@@ -18,6 +18,7 @@ import { Badge } from "../../ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import {
   useCreateParentCourseMutation,
+  useDeleteParentCourseMutation,
   useGetParentCoursesQuery,
   useUpdateParentCourseMutation,
 } from "../../../lib/apiSlice";
@@ -48,8 +49,10 @@ export function ParentCoursesCard() {
   const { data, refetch, isLoading } = useGetParentCoursesQuery();
   const [createCourse, { isLoading: isCreating }] = useCreateParentCourseMutation();
   const [updateCourse, { isLoading: isUpdating }] = useUpdateParentCourseMutation();
+  const [deleteCourse, { isLoading: isDeleting }] = useDeleteParentCourseMutation();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [editingCourse, setEditingCourse] = useState<ParentCourse | null>(null);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
@@ -112,6 +115,16 @@ export function ParentCoursesCard() {
       return false;
     }
     return true;
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteCourse({ id }).unwrap();
+      setDeleteConfirmId(null);
+      refetch();
+    } catch {
+      setError("Failed to delete course.");
+    }
   };
 
   const handleSave = async (keepOpen = false) => {
@@ -194,9 +207,18 @@ export function ParentCoursesCard() {
                       {course.category} • {course.programTier ?? "All tiers"} • {formatAgeRange()}
                     </p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => openEditCourse(course)}>
-                    Edit
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openEditCourse(course)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setDeleteConfirmId(course.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{course.summary}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -374,6 +396,29 @@ export function ParentCoursesCard() {
                   {editingCourse ? "Update Course" : "Publish Course"}
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete course?</DialogTitle>
+              <DialogDescription>
+                This will permanently delete the course and all its modules. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setDeleteConfirmId(null)} disabled={isDeleting}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={isDeleting}
+                onClick={() => deleteConfirmId !== null && handleDelete(deleteConfirmId)}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

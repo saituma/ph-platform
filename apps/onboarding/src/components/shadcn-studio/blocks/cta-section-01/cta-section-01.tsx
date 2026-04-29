@@ -1,4 +1,20 @@
-const CTA = () => {
+type CTAProps = {
+	eyebrow?: string;
+	headingLine1?: string;
+	headingLine2?: string;
+	body?: string;
+	appStoreLabel?: string;
+	playStoreLabel?: string;
+};
+
+const CTA = ({
+	eyebrow = "Join 10,000+ Elite Athletes Today",
+	headingLine1 = "Start Tracking",
+	headingLine2 = "Everything.",
+	body = "Join the elite teams and athletes who rely on PH Performance. Download the mobile app to get started.",
+	appStoreLabel = "App Store",
+	playStoreLabel = "Google Play",
+}: CTAProps = {}) => {
 	return (
 		<section className="relative overflow-hidden border-t border-primary/20 bg-primary/5 py-28 sm:py-40">
 			{/* Accent radial bloom */}
@@ -14,7 +30,7 @@ const CTA = () => {
 					className="text-primary font-black mb-6"
 					style={{ fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase" }}
 				>
-					Join 10,000+ Elite Athletes Today
+					{eyebrow}
 				</p>
 
 				<h2
@@ -26,16 +42,16 @@ const CTA = () => {
 						lineHeight: 1,
 					}}
 				>
-					Start Tracking
+					{headingLine1}
 					<br />
-					<span className="text-primary">Everything.</span>
+					<span className="text-primary">{headingLine2}</span>
 				</h2>
 
 				<p
 					className="mt-8 text-muted-foreground max-w-xl mx-auto"
 					style={{ fontSize: "clamp(1rem, 1.5vw, 1.125rem)", lineHeight: 1.6 }}
 				>
-					Join the elite teams and athletes who rely on PH Performance. Download the mobile app to get started.
+					{body}
 				</p>
 
 				<div className="mt-12 flex flex-wrap items-center justify-center gap-4">
@@ -46,7 +62,7 @@ const CTA = () => {
 					>
 						<img
 							src="/apple-app-store.svg"
-							alt="App Store"
+							alt={appStoreLabel}
 							className="size-8"
 						/>
 						<div className="flex flex-col items-start">
@@ -57,7 +73,7 @@ const CTA = () => {
 								className="font-black uppercase tracking-wider leading-tight mt-1"
 								style={{ fontFamily: "var(--font-display)", fontSize: "1rem" }}
 							>
-								App Store
+								{appStoreLabel}
 							</span>
 						</div>
 					</a>
@@ -69,7 +85,7 @@ const CTA = () => {
 					>
 						<img
 							src="/svgs/google.svg"
-							alt="Google Play"
+							alt={playStoreLabel}
 							className="size-8"
 						/>
 						<div className="flex flex-col items-start">
@@ -80,7 +96,7 @@ const CTA = () => {
 								className="font-black uppercase tracking-wider leading-tight mt-1"
 								style={{ fontFamily: "var(--font-display)", fontSize: "1rem" }}
 							>
-								Google Play
+								{playStoreLabel}
 							</span>
 						</div>
 					</a>

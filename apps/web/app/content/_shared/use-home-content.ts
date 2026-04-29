@@ -16,10 +16,20 @@ export function useHomeContent() {
   const [updateContent] = useUpdateContentMutation();
   const { data: homeData, refetch: refetchHome } = useGetHomeContentQuery();
 
-  const homeItem = (homeData?.items ?? [])[0] ?? null;
+  const allItems = (homeData?.items ?? []) as Array<{ id?: number; body?: unknown; title?: string; content?: string; programTier?: unknown }>;
+  const homeItem = allItems[0] ?? null;
+  // Merge body JSON across every home row (oldest first → newest wins) so fields
+  // saved in older rows (e.g. intro video) remain visible alongside the newest.
   let homeBody: HomeDraft = {};
-  if (homeItem?.body && typeof homeItem.body === "string") {
-    try { homeBody = JSON.parse(homeItem.body) as HomeDraft; } catch { homeBody = {}; }
+  for (const item of [...allItems].reverse()) {
+    if (item?.body && typeof item.body === "string") {
+      try {
+        const parsed = JSON.parse(item.body) as HomeDraft;
+        homeBody = { ...homeBody, ...parsed };
+      } catch {
+        // ignore malformed rows
+      }
+    }
   }
   const baseHomeTitle = homeItem?.title?.trim() || homeItem?.content?.trim() || (homeBody.headline as string | undefined)?.trim() || "Home";
 

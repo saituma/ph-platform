@@ -40,25 +40,36 @@ export function useAdminServices(token: string | null, canLoad: boolean) {
 
   const createServiceType = useCallback(async (params: {
     name: string;
-    type: string;
+    type?: string | null;
     durationMinutes: string;
     description?: string;
     capacity?: string;
+    totalSlots?: string;
     isActive?: boolean;
+    isBookable?: boolean;
     defaultLocation?: string;
     defaultMeetingLink?: string;
     eligiblePlans?: string[];
     eligibleTargets?: string[];
+    schedulePattern?: string;
+    weeklyEntries?: { weekday: number; time: string }[];
+    oneTimeDate?: string | null;
+    oneTimeTime?: string | null;
+    slotMode?: string;
+    slotIntervalMinutes?: number | null;
+    slotDefinitions?: { time: string; capacity?: number | null }[];
   }) => {
     if (!canLoad || !token) return;
     const name = params.name.trim();
-    const type = params.type.trim();
+    const type = params.type?.trim() || null;
     const durationMinutes = parseIntOrUndefined(params.durationMinutes ?? "");
     const capacity = parseIntOrUndefined(params.capacity ?? "");
+    const totalSlots = parseIntOrUndefined(params.totalSlots ?? "");
     const isActive = params.isActive !== false;
+    const isBookable = params.isBookable !== false;
 
     if (!name) throw new Error("Name is required");
-    if (!type) throw new Error("Type is required");
+    if (isBookable && !type) throw new Error("Type is required");
     if (!durationMinutes || durationMinutes < 1) throw new Error("Duration minutes is required");
 
     setServiceCreateBusy(true);
@@ -69,6 +80,7 @@ export function useAdminServices(token: string | null, canLoad: boolean) {
         durationMinutes,
         description: params.description,
         ...(capacity !== undefined ? { capacity } : {}),
+        ...(totalSlots !== undefined ? { totalSlots } : {}),
         ...(params.defaultLocation?.trim().length
           ? { defaultLocation: params.defaultLocation.trim() }
           : {}),
@@ -76,8 +88,16 @@ export function useAdminServices(token: string | null, canLoad: boolean) {
           ? { defaultMeetingLink: params.defaultMeetingLink.trim() }
           : {}),
         isActive,
+        isBookable,
         eligiblePlans: params.eligiblePlans,
         eligibleTargets: params.eligibleTargets,
+        schedulePattern: params.schedulePattern,
+        weeklyEntries: params.weeklyEntries,
+        oneTimeDate: params.oneTimeDate ?? null,
+        oneTimeTime: params.oneTimeTime ?? null,
+        slotMode: params.slotMode,
+        slotIntervalMinutes: params.slotIntervalMinutes ?? null,
+        slotDefinitions: params.slotDefinitions ?? [],
       };
 
       await apiRequest("/bookings/services", {

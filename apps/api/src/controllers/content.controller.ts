@@ -16,6 +16,7 @@ import {
   listParentCourses,
   createParentCourse,
   updateParentCourse,
+  deleteParentCourse,
   getTestimonialSubmissions,
   updateContentCategory,
   getParentCourseAiInsight,
@@ -577,6 +578,15 @@ export async function updateParentCourseHandler(req: Request, res: Response) {
     return res.status(404).json({ error: "Course not found" });
   }
   return res.status(200).json({ item });
+}
+
+export async function deleteParentCourseHandler(req: Request, res: Response) {
+  const courseId = z.coerce.number().int().min(1).parse(req.params.courseId);
+  const deleted = await deleteParentCourse(courseId);
+  if (!deleted) {
+    return res.status(404).json({ error: "Course not found" });
+  }
+  return res.status(200).json({ deleted: true });
 }
 
 export async function getParentCourseAiInsightController(req: Request, res: Response) {

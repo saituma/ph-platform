@@ -230,7 +230,7 @@ export async function getServiceTypeById(id: number) {
 export async function createServiceType(input: {
   name: string;
   description?: string | null;
-  type: ServiceTypeKind;
+  type?: ServiceTypeKind | null;
   durationMinutes: number;
   capacity?: number | null;
   totalSlots?: number | null;
@@ -250,6 +250,7 @@ export async function createServiceType(input: {
   slotIntervalMinutes?: number | null;
   slotDefinitions?: SlotDefinition[] | null;
   isActive?: boolean | null;
+  isBookable?: boolean | null;
   createdBy: number;
 }) {
   const programTier = input.programTier ?? null;
@@ -282,6 +283,7 @@ export async function createServiceType(input: {
       slotIntervalMinutes: input.slotIntervalMinutes ?? null,
       slotDefinitions: input.slotDefinitions ?? [],
       isActive: input.isActive ?? true,
+      isBookable: input.isBookable ?? true,
       createdBy: input.createdBy,
     })
     .returning();
@@ -314,6 +316,7 @@ export async function updateServiceType(
     slotIntervalMinutes?: number | null;
     slotDefinitions?: SlotDefinition[] | null;
     isActive?: boolean | null;
+    isBookable?: boolean | null;
   },
 ) {
   const existing = await db.select().from(serviceTypeTable).where(eq(serviceTypeTable.id, id)).limit(1);
@@ -360,6 +363,7 @@ export async function updateServiceType(
         input.slotIntervalMinutes !== undefined ? input.slotIntervalMinutes : (existing[0].slotIntervalMinutes ?? null),
       slotDefinitions: input.slotDefinitions ?? existing[0].slotDefinitions ?? [],
       isActive: input.isActive ?? existing[0].isActive ?? true,
+      isBookable: input.isBookable !== undefined ? (input.isBookable ?? true) : ((existing[0] as any).isBookable ?? true),
       updatedAt: new Date(),
     })
     .where(eq(serviceTypeTable.id, id))
@@ -416,6 +420,10 @@ export async function createBooking(input: {
 
   if (serviceType[0].isActive === false) {
     throw new Error("Service type not available");
+  }
+
+  if ((serviceType[0] as any).isBookable === false) {
+    throw new Error("This service is not open for booking");
   }
 
   if (!serviceAllowsAthlete(serviceType[0], input.viewerAthlete ?? null)) {

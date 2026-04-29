@@ -5,8 +5,26 @@ import {
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 
+import { usePortalConfig } from "../hooks/usePortalConfig";
+
 export default function Footer() {
+	const portalCfg = usePortalConfig();
 	const year = new Date().getFullYear();
+	const tagline = portalCfg.footer.tagline ||
+		"Empowering elite athletes and teams with professional tracking, performance analytics, and specialized coaching tools.";
+	const platformLinks = portalCfg.footer.platformLinks.length
+		? portalCfg.footer.platformLinks
+		: [
+			{ label: "Features", href: "/features" },
+			{ label: "About Us", href: "/about" },
+		];
+	const legalLinks = portalCfg.footer.legalLinks.length
+		? portalCfg.footer.legalLinks
+		: [
+			{ label: "Terms of Service", href: "/terms-privacy" },
+			{ label: "Privacy Policy", href: "/terms-privacy" },
+		];
+	const copyright = portalCfg.footer.copyright || `© ${year} PH Performance. All rights reserved.`;
 
 	return (
 		<footer className="border-t border-border/40 bg-background py-24 px-6 md:px-8 overflow-hidden relative">
@@ -18,7 +36,7 @@ export default function Footer() {
 							<div className="w-10 h-10 overflow-hidden ring-1 ring-primary/20 group-hover:ring-primary/50 transition-all duration-300">
 								<img
 									src="/ph.jpg"
-									alt="PH Performance"
+									alt={portalCfg.footer.brand}
 									className="w-full h-full object-cover"
 								/>
 							</div>
@@ -26,12 +44,11 @@ export default function Footer() {
 								className="font-black uppercase tracking-widest text-foreground group-hover:text-primary transition-colors"
 								style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "0.12em", transitionDuration: "var(--duration-micro)" }}
 							>
-								PH <span className="text-primary">Performance</span>
+								{portalCfg.footer.brand}
 							</span>
 						</Link>
 						<p className="text-sm text-muted-foreground/60 leading-relaxed max-w-sm">
-							Empowering elite athletes and teams with professional tracking,
-							performance analytics, and specialized coaching tools.
+							{tagline}
 						</p>
 						<div className="flex gap-5">
 							<a
@@ -66,24 +83,17 @@ export default function Footer() {
 							Platform
 						</h3>
 						<ul className="space-y-4">
-							<li>
-								<Link
-									to="/features"
-									className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-primary transition-all hover:translate-x-1 inline-block"
-									style={{ transitionDuration: "var(--duration-micro)" }}
-								>
-									Features
-								</Link>
-							</li>
-							<li>
-								<Link
-									to="/about"
-									className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-primary transition-all hover:translate-x-1 inline-block"
-									style={{ transitionDuration: "var(--duration-micro)" }}
-								>
-									About Us
-								</Link>
-							</li>
+							{platformLinks.map((link) => (
+								<li key={`${link.label}-${link.href}`}>
+									<a
+										href={link.href}
+										className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-primary transition-all hover:translate-x-1 inline-block"
+										style={{ transitionDuration: "var(--duration-micro)" }}
+									>
+										{link.label}
+									</a>
+								</li>
+							))}
 						</ul>
 					</div>
 
@@ -95,24 +105,17 @@ export default function Footer() {
 							Legal
 						</h3>
 						<ul className="space-y-4">
-							<li>
-								<Link
-									to="/terms-privacy"
-									className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-primary transition-all hover:translate-x-1 inline-block"
-									style={{ transitionDuration: "var(--duration-micro)" }}
-								>
-									Terms of Service
-								</Link>
-							</li>
-							<li>
-								<Link
-									to="/terms-privacy"
-									className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-primary transition-all hover:translate-x-1 inline-block"
-									style={{ transitionDuration: "var(--duration-micro)" }}
-								>
-									Privacy Policy
-								</Link>
-							</li>
+							{legalLinks.map((link) => (
+								<li key={`${link.label}-${link.href}`}>
+									<a
+										href={link.href}
+										className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-primary transition-all hover:translate-x-1 inline-block"
+										style={{ transitionDuration: "var(--duration-micro)" }}
+									>
+										{link.label}
+									</a>
+								</li>
+							))}
 						</ul>
 					</div>
 				</div>
@@ -122,7 +125,7 @@ export default function Footer() {
 						className="font-black uppercase text-muted-foreground/30"
 						style={{ fontSize: "0.6rem", letterSpacing: "0.2em" }}
 					>
-						&copy; {year} PH Performance. All rights reserved.
+						{copyright}
 					</p>
 					<div className="flex items-center gap-8">
 						<a

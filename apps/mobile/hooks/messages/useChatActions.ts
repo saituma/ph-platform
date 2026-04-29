@@ -20,6 +20,7 @@ import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
 import {
   classifyGroupThread,
+  mapCoachToThread,
 } from "@/lib/messages/mappers/threadMapper";
 import {
   mapApiDirectMessageToChatMessage,
@@ -61,6 +62,10 @@ export function useChatActions({
 }: ChatActionsParams) {
   // Track IDs of messages pending deletion so background reloads don't re-add them
   const pendingDeleteIds = useRef<Set<string>>(new Set());
+  // Single-flight: drop overlapping loadMessages calls. Fixes the storm of
+  // back-to-back /messages requests when the hook deps churn (logs showed 14+
+  // calls in seconds — every one is a full /messages + /inbox round-trip).
+  const inFlightLoadRef = useRef(false);
 
   const loadMessages = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -68,6 +73,11 @@ export function useChatActions({
         setIsLoading(false);
         return;
       }
+      if (inFlightLoadRef.current) {
+        console.log("[DEBUG-msg] loadMessages: skipped (already in flight)");
+        return;
+      }
+      inFlightLoadRef.current = true;
       const silent = options?.silent ?? false;
       if (!silent) setIsLoading(true);
 
@@ -164,7 +174,18 @@ export function useChatActions({
           mapApiDirectMessageToChatMessage(msg, selfId, coaches, profileName),
         );
 
-        const sortedThreads = [...inboxThreads].sort(
+        // Surface every coach available to this user as a tappable thread, even if
+        // there's no message history yet. Otherwise team managers / athletes whose
+        // coach hasn't messaged them first have no way to start a chat. Skip any
+        // coach that already has an inbox thread (that one has live unread/preview).
+        const inboxThreadIds = new Set(inboxThreads.map((t) => t.id));
+        const coachThreads = (coaches ?? [])
+          .filter((coach) => coach?.id != null && !inboxThreadIds.has(String(coach.id)))
+          .map((coach) =>
+            mapCoachToThread(coach, orderedDirectMessages, isPremium),
+          );
+
+        const sortedThreads = [...inboxThreads, ...coachThreads].sort(
           (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
         );
         // Preserve real-time "Online" status that presence:update wrote before this
@@ -209,6 +230,15 @@ export function useChatActions({
             seen.add(String(msg.id));
             next.push(msg);
           }
+          console.log(
+            "[DEBUG-msg] loadMessages reconcile:",
+            "prev=", prev.length,
+            "mappedFromServer=", mappedMessages.length,
+            "preservedConfirmed=", confirmedDirect.length,
+            "preservedOptimistic=", optimisticDirect.length,
+            "preservedGroup=", groupMessages.length,
+            "next=", next.length,
+          );
           return next;
         });
         schedulePrefetchChatMessageMedia(mappedMessages);
@@ -243,11 +273,21 @@ export function useChatActions({
                     typeof m.id === "string" &&
                     m.id.startsWith("client-"),
                 );
+                // Preserve confirmed group messages from prev state — protects
+                // against just-sent messages disappearing when the server hasn't
+                // indexed them yet by the time this prefetch fires.
+                const confirmedInGroup = prev.filter(
+                  (m) =>
+                    m.threadId === threadKey &&
+                    !(typeof m.id === "string" && m.id.startsWith("client-")) &&
+                    !pendingDeleteIds.current.has(m.id),
+                );
                 const seen = new Set<string>();
                 const next: ChatMessage[] = [];
                 for (const msg of [
                   ...nonGroup,
                   ...mappedGroupMessages,
+                  ...confirmedInGroup,
                   ...optimistic,
                 ]) {
                   if (!msg?.id || seen.has(msg.id)) continue;
@@ -266,14 +306,23 @@ export function useChatActions({
         console.warn("Failed to load messages", error);
       } finally {
         if (!silent) setIsLoading(false);
+        inFlightLoadRef.current = false;
       }
     },
     [actingHeaders, effectiveProfileId, profileName, programTier, token, setIsLoading, setThreads, setMessages],
   );
 
+  // Single-flight per groupId so a flurry of group-message loads doesn't pile up.
+  const inFlightGroupLoadRef = useRef<Set<number>>(new Set());
+
   const loadGroupMessages = useCallback(
     async (groupId: number, options?: { silent?: boolean }) => {
       if (!token) return;
+      if (inFlightGroupLoadRef.current.has(groupId)) {
+        console.log("[DEBUG-msg] loadGroupMessages: skipped (in flight)", groupId);
+        return;
+      }
+      inFlightGroupLoadRef.current.add(groupId);
       const silent = options?.silent ?? false;
       if (!silent) setIsThreadLoading(true);
 
@@ -306,11 +355,28 @@ export function useChatActions({
               typeof msg.id === "string" &&
               msg.id.startsWith("client-"),
           );
+          // Preserve confirmed group messages already in state that may not be
+          // in the server response yet (race: a just-sent message gets confirmed
+          // by the API but the next /messages fetch happens before the server
+          // has indexed it — without this, sent group messages would disappear).
+          const confirmedInGroup = prev.filter(
+            (msg) =>
+              msg.threadId === threadKey &&
+              !(typeof msg.id === "string" && msg.id.startsWith("client-")) &&
+              !pendingDeleteIds.current.has(msg.id),
+          );
 
           const dIds = pendingDeleteIds.current;
           const seen = new Set<string>();
           const next: ChatMessage[] = [];
-          for (const msg of [...remaining.filter((m) => !dIds.has(m.id)), ...mappedMessages.filter((m) => !dIds.has(m.id)), ...optimistic]) {
+          // Order matters: mappedMessages first → server version wins on duplicate id
+          // (so server-side edits/reactions take precedence over our local copy).
+          for (const msg of [
+            ...remaining.filter((m) => !dIds.has(m.id)),
+            ...mappedMessages.filter((m) => !dIds.has(m.id)),
+            ...confirmedInGroup,
+            ...optimistic,
+          ]) {
             if (!msg?.id) continue;
             if (seen.has(msg.id)) continue;
             seen.add(msg.id);
@@ -376,6 +442,7 @@ export function useChatActions({
         console.warn("Failed to load group messages", error);
       } finally {
         if (!silent) setIsThreadLoading(false);
+        inFlightGroupLoadRef.current.delete(groupId);
       }
     },
     [actingHeaders, effectiveProfileId, token, setIsThreadLoading, setGroupMembers, setMessages, setThreads],

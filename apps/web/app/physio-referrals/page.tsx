@@ -347,20 +347,23 @@ export default function ReferralsPage() {
 
   const athleteOptions = useMemo(() => {
     const users = (usersData?.users ?? []) as ReferralUser[];
-    return users
-      .filter((user) => user.athleteId)
-      .map((user) => {
-        const tier = (user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null) as string | null;
-        const team = String(user.team ?? "").trim();
-        const athleteName = String(user.athleteName ?? "Athlete").trim() || "Athlete";
-        return {
-          athleteId: Number(user.athleteId),
-          athleteAge: typeof user.athleteAge === "number" ? user.athleteAge : null,
-          tier: tier ?? "",
-          team: team || "Unknown",
-          label: `${athleteName} • ${tier ?? "PHP"} • ${team || "Unknown"}`,
-        } satisfies AthleteOption;
+    const byId = new Map<number, AthleteOption>();
+    for (const user of users) {
+      if (!user.athleteId) continue;
+      const id = Number(user.athleteId);
+      if (byId.has(id)) continue;
+      const tier = (user.programTier ?? user.guardianProgramTier ?? user.currentProgramTier ?? null) as string | null;
+      const team = String(user.team ?? "").trim();
+      const athleteName = String(user.athleteName ?? "Athlete").trim() || "Athlete";
+      byId.set(id, {
+        athleteId: id,
+        athleteAge: typeof user.athleteAge === "number" ? user.athleteAge : null,
+        tier: tier ?? "",
+        team: team || "Unknown",
+        label: `${athleteName} • ${tier ?? "PHP"} • ${team || "Unknown"}`,
       });
+    }
+    return Array.from(byId.values());
   }, [usersData]);
 
   const athleteTierById = useMemo(() => {

@@ -8,7 +8,7 @@ import { useProfileSettings } from "@/components/more/profile/hooks/useProfileSe
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout } from "@/store/slices/userSlice";
 import { useRouter } from "expo-router";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { Alert, Image, Pressable, TouchableOpacity, View } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Animated, {
@@ -17,7 +17,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useEffect } from "react";
+import { AdminHeader, AdminScreen } from "@/components/admin/AdminUI";
 
 export default function AdminProfileScreen() {
   const { colors, isDark, toggleColorScheme } = useAppTheme();
@@ -78,28 +78,17 @@ export default function AdminProfileScreen() {
   };
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top }}>
+    <AdminScreen>
       <ThemedScrollView
         onRefresh={handleRefresh}
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
       >
-        {/* ── Page title ── */}
-        <View style={{ paddingHorizontal: 24, paddingTop: 40, marginBottom: 24, flexDirection: "row", alignItems: "center" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <View style={{ width: 5, height: 36, borderRadius: 3, backgroundColor: colors.accent }} />
-            <View>
-              <Text
-                style={{ fontFamily: "Telma-Bold", fontSize: 44, color: colors.textPrimary, letterSpacing: -1, lineHeight: 48 }}
-                numberOfLines={1}
-              >
-                Profile
-              </Text>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                Account · Settings · Theme
-              </Text>
-            </View>
-          </View>
-        </View>
+        <AdminHeader
+          eyebrow="Account"
+          title="Profile"
+          subtitle="Account, settings, and theme"
+          tone="accent"
+        />
 
         {/* ── Identity card ── */}
         <View className="px-6 mb-6">
@@ -361,7 +350,7 @@ export default function AdminProfileScreen() {
           </Pressable>
         </Animated.View>
       </ThemedScrollView>
-    </View>
+    </AdminScreen>
   );
 }
 

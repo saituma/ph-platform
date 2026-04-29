@@ -29,6 +29,7 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Feather } from "@/components/ui/theme-icons";
+import { AdminHeader } from "@/components/admin/AdminUI";
 
 import { ADMIN_TAB_ROUTES } from "../tabs";
 
@@ -500,21 +501,13 @@ export default function AdminVideosScreen() {
       <View style={{ flex: 1 }}>
         <ThemedScrollView onRefresh={() => void load(true)}>
           <View style={{ height: insets.top }} />
-        <View className="pt-10 mb-8 px-6">
-          <View className="flex-row items-center gap-3">
-            <View className="h-8 w-1.5 rounded-full bg-accent" />
-            <View className="flex-1">
-              <Text
-                className="text-5xl font-telma-bold text-app tracking-tight"
-                numberOfLines={1}
-              >
-                Videos
-              </Text>
-              <Text className="text-base font-outfit text-textSecondary">
-                {headerLine}
-              </Text>
-            </View>
-          </View>
+        <View style={{ marginBottom: 18 }}>
+          <AdminHeader
+            eyebrow="Review"
+            title="Videos"
+            subtitle={headerLine}
+            tone="accent"
+          />
         </View>
 
         <View className="px-6 pb-32">

@@ -79,13 +79,24 @@ export type ServiceType = {
   description?: string | null;
   durationMinutes?: number | null;
   capacity?: number | null;
+  totalSlots?: number | null;
+  remainingTotalSlots?: number | null;
   isActive?: boolean | null;
+  isBookable?: boolean | null;
   defaultLocation?: string | null;
   defaultMeetingLink?: string | null;
   programTier?: string | null;
   eligiblePlans?: string[] | null;
   eligibleTargets?: string[] | null;
   schedulePattern?: string | null;
+  recurrenceEndMode?: string | null;
+  recurrenceCount?: number | null;
+  weeklyEntries?: { weekday: number; time: string }[] | null;
+  oneTimeDate?: string | null;
+  oneTimeTime?: string | null;
+  slotMode?: string | null;
+  slotIntervalMinutes?: number | null;
+  slotDefinitions?: { time: string; capacity?: number | null }[] | null;
   schedulePatternOptions?: any | null;
 };
 

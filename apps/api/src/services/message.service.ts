@@ -682,6 +682,35 @@ export async function deleteDirectMessage(input: { messageId: number; userId: nu
   return { deleted: true };
 }
 
+export async function markMessageDelivered(messageId: number, receiverUserId: number) {
+  const now = new Date();
+  await db
+    .update(messageReceiptTable)
+    .set({ deliveredAt: now })
+    .where(
+      and(
+        eq(messageReceiptTable.messageId, messageId),
+        eq(messageReceiptTable.userId, receiverUserId),
+        isNull(messageReceiptTable.deliveredAt),
+      ),
+    );
+  const rows = await db
+    .select({ senderId: messageTable.senderId })
+    .from(messageTable)
+    .where(eq(messageTable.id, messageId))
+    .limit(1);
+  const senderId = rows[0]?.senderId;
+  if (senderId && senderId !== receiverUserId) {
+    const io = getSocketServer();
+    io?.to(`user:${senderId}`).emit("message:status", {
+      messageId,
+      status: "delivered",
+      byUserId: receiverUserId,
+      at: now.toISOString(),
+    });
+  }
+}
+
 export async function isUserPremium(userId: number): Promise<boolean> {
   const { getAthleteForUser } = await import("./user.service");
   const athlete = await getAthleteForUser(userId);

@@ -21,7 +21,7 @@ function deleteServiceErrorMessage(err: unknown): string {
 export type BookingServiceRow = {
   id: number;
   name: string;
-  type: string;
+  type?: string | null;
   durationMinutes: number;
   capacity?: number | null;
   totalSlots?: number | null;
@@ -35,6 +35,7 @@ export type BookingServiceRow = {
   oneTimeTime?: string | null;
   slotMode?: string | null;
   isActive?: boolean | null;
+  isBookable?: boolean | null;
 };
 
 const TIER_LABELS: Record<string, string> = {
@@ -160,12 +161,19 @@ export function BookingServicesPanel({
                   >
                     <td className="px-4 py-3 font-medium text-foreground">
                       <div>
-                        <div>{row.name}</div>
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Target: {targets}</div>
+                        <div className="flex items-center gap-2">
+                          {row.name}
+                          {row.isBookable === false && (
+                            <Badge variant="secondary" className="text-[10px] font-normal">Non-bookable</Badge>
+                          )}
+                        </div>
+                        {row.isBookable !== false && (
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Target: {targets}</div>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {BOOKING_TYPE_LABELS[row.type] ?? row.type}
+                      {row.type ? (BOOKING_TYPE_LABELS[row.type] ?? row.type) : "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {row.durationMinutes} min

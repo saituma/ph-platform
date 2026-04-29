@@ -153,7 +153,14 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
 
 export async function startLocationTracking() {
   try {
-    const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+    // Bail out immediately if the task is already running — no permission calls needed.
+    const alreadyRunning = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+    if (alreadyRunning) {
+      return;
+    }
+
+    // Check foreground permission without prompting (the foreground watch already granted it).
+    const { status: fgStatus } = await Location.getForegroundPermissionsAsync();
     if (fgStatus !== "granted") {
       console.warn("Permission to access location in foreground was denied");
       return;
@@ -184,11 +191,6 @@ export async function startLocationTracking() {
       return;
     }
 
-    const alreadyRunning = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
-    if (alreadyRunning) {
-      return;
-    }
-
     await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
       accuracy: Location.Accuracy.BestForNavigation,
       activityType: Location.ActivityType.Fitness,
@@ -208,8 +210,16 @@ export async function startLocationTracking() {
 export async function stopLocationTracking() {
   try {
     const hasTask = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
-    if (hasTask) {
+    if (!hasTask) return;
+    try {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    } catch (innerErr: any) {
+      // TaskNotFoundException happens when the task was already torn down between
+      // the isTaskRegisteredAsync check and stopLocationUpdatesAsync. Benign.
+      const msg = String(innerErr?.message ?? innerErr);
+      if (!msg.includes("TaskNotFoundException") && !msg.includes("not found")) {
+        console.warn("stopLocationTracking inner", innerErr);
+      }
     }
   } catch (e) {
     console.warn("stopLocationTracking", e);

@@ -28,6 +28,10 @@ import {
   createCheckoutSession,
   createPaymentSheetIntent,
   createSubscriptionPlan,
+  importStripePriceAsPlan,
+  inviteUserToPlan,
+  getPlanInviteSummary,
+  consumePlanInvite,
   confirmPaymentSheetIntent,
   getLatestSubscriptionRequest,
   enrichPlansWithBillingQuotes,
@@ -66,12 +70,12 @@ function postgresSqlstate(error: unknown): string | undefined {
 
 const checkoutSchema = z.object({
   planId: z.coerce.number().int().min(1),
-  billingCycle: z.enum(["monthly", "six_months", "yearly"]).optional(),
+  billingCycle: z.enum(["monthly", "six_months", "yearly", "one_time"]).optional(),
   interval: z.literal("monthly").optional(),
 });
 
 const listPlansQuerySchema = z.object({
-  billingCycle: z.enum(["monthly", "six_months", "yearly"]).optional(),
+  billingCycle: z.enum(["monthly", "six_months", "yearly", "one_time"]).optional(),
 });
 
 const confirmSchema = z.object({
@@ -92,15 +96,42 @@ const planCreateSchema = z.object({
   stripePriceId: z.string().optional(),
   displayPrice: z.string().min(1),
   billingInterval: z.string().min(1),
-  monthlyPrice: z.string().optional(),
-  yearlyPrice: z.string().optional(),
-  discountType: z.string().optional(),
-  discountValue: z.string().optional(),
-  discountAppliesTo: z.string().optional(),
+  monthlyPrice: z.string().optional().nullable(),
+  yearlyPrice: z.string().optional().nullable(),
+  oneTimePrice: z.string().optional().nullable(),
+  discountType: z.string().optional().nullable(),
+  discountValue: z.string().optional().nullable(),
+  discountAppliesTo: z.string().optional().nullable(),
+  features: z.array(z.string()).optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
 const planUpdateSchema = planCreateSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+
+const planInviteSchema = z.object({
+  email: z.string().trim().email(),
+});
+
+const planInviteConsumeSchema = z.object({
+  fullName: z.string().trim().min(1),
+  birthDate: z.string().trim().min(8),
+  phone: z.string().trim().optional().nullable(),
+  trainingPerWeek: z.coerce.number().int().min(1).max(14).optional().nullable(),
+  performanceGoals: z.string().trim().optional().nullable(),
+  injuries: z.string().trim().optional().nullable(),
+  billingCycle: z.enum(["monthly", "yearly", "six_months"]),
+});
+
+const planImportSchema = z.object({
+  name: z.string().min(1),
+  tier: z.enum(ProgramType.enumValues),
+  stripePriceId: z.string().min(1),
+  interval: z.enum(["monthly", "yearly", "one_time"]),
+  displayPrice: z.string().min(1),
+  priceLabel: z.string().min(1),
+  features: z.array(z.string()).optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
@@ -111,7 +142,7 @@ const downgradeSchema = z.object({
 export async function listPlans(req: Request, res: Response) {
   const parsed = listPlansQuerySchema.safeParse(req.query);
   let plans = await listSubscriptionPlans({ includeInactive: true });
-  if (parsed.success && parsed.data.billingCycle) {
+  if (parsed.success && parsed.data.billingCycle && parsed.data.billingCycle !== "one_time") {
     plans = await enrichPlansWithBillingQuotes(plans, parsed.data.billingCycle);
   }
   return res.status(200).json({ plans });
@@ -620,6 +651,45 @@ export async function listPlansAdmin(_req: Request, res: Response) {
   return res.status(200).json({ plans });
 }
 
+export async function listStripePricesAdmin(_req: Request, res: Response) {
+  const { stripe } = await import("../services/billing/stripe.service");
+  if (!stripe) {
+    return res.status(503).json({ error: "Stripe is not configured" });
+  }
+  try {
+    const [productsPage, pricesPage] = await Promise.all([
+      stripe.products.list({ active: true, limit: 100 }),
+      stripe.prices.list({ active: true, limit: 100 }),
+    ]);
+
+    const pricesByProduct: Record<string, typeof pricesPage.data> = {};
+    for (const price of pricesPage.data) {
+      const productId = typeof price.product === "string" ? price.product : (price.product as { id: string }).id;
+      if (!pricesByProduct[productId]) pricesByProduct[productId] = [];
+      pricesByProduct[productId].push(price);
+    }
+
+    const products = productsPage.data.map((product) => ({
+      stripeProductId: product.id,
+      name: product.name,
+      description: product.description ?? null,
+      prices: (pricesByProduct[product.id] ?? []).map((price) => ({
+        stripePriceId: price.id,
+        lookupKey: price.lookup_key ?? null,
+        currency: price.currency,
+        unitAmount: price.unit_amount ?? null,
+        interval: price.recurring?.interval ?? null,
+        intervalCount: price.recurring?.interval_count ?? null,
+      })),
+    }));
+
+    return res.status(200).json({ products });
+  } catch (error: any) {
+    console.error("[listStripePricesAdmin]", error);
+    return res.status(500).json({ error: error?.message ?? "Failed to fetch Stripe prices" });
+  }
+}
+
 export async function createPlanAdmin(req: Request, res: Response) {
   const parsed = planCreateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -630,6 +700,66 @@ export async function createPlanAdmin(req: Request, res: Response) {
     ...parsed.data,
     stripePriceId,
   });
+  return res.status(201).json({ plan });
+}
+
+export async function invitePlanUserAdmin(req: Request, res: Response) {
+  const planId = z.coerce.number().int().min(1).parse(req.params.planId);
+  const parsed = planInviteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+  }
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    const result = await inviteUserToPlan({
+      planId,
+      email: parsed.data.email,
+      invitedByUserId: req.user.id,
+      invitedByName: req.user.name ?? null,
+    });
+    return res.status(200).json({ invite: result });
+  } catch (err: any) {
+    const status = typeof err?.status === "number" ? err.status : 500;
+    return res.status(status).json({ error: err?.message ?? "Failed to send invite." });
+  }
+}
+
+export async function getPlanInviteSummaryPublic(req: Request, res: Response) {
+  const token = String(req.params.token ?? "").trim();
+  if (!token) return res.status(400).json({ error: "Token is required." });
+  try {
+    const summary = await getPlanInviteSummary(token);
+    return res.status(200).json(summary);
+  } catch (err: any) {
+    const status = typeof err?.status === "number" ? err.status : 401;
+    return res.status(status).json({ error: err?.message ?? "Invalid invite." });
+  }
+}
+
+export async function consumePlanInvitePublic(req: Request, res: Response) {
+  const token = String(req.params.token ?? "").trim();
+  if (!token) return res.status(400).json({ error: "Token is required." });
+  const parsed = planInviteConsumeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+  }
+  try {
+    const result = await consumePlanInvite({ token, ...parsed.data });
+    return res.status(200).json(result);
+  } catch (err: any) {
+    const status = typeof err?.status === "number" ? err.status : 500;
+    return res.status(status).json({ error: err?.message ?? "Failed to start checkout." });
+  }
+}
+
+export async function importPlanAdmin(req: Request, res: Response) {
+  const parsed = planImportSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+  }
+  const plan = await importStripePriceAsPlan(parsed.data);
   return res.status(201).json({ plan });
 }
 

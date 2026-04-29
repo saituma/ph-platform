@@ -63,8 +63,9 @@ type ServiceType = {
   id: number;
   name: string;
   description?: string | null;
-  type: string;
+  type?: string | null;
   durationMinutes: number;
+  isBookable?: boolean | null;
   capacity?: number | null;
   attendeeVisibility?: boolean | null;
   defaultLocation?: string | null;
@@ -148,7 +149,6 @@ const PROGRAM_TIERS = [
 ];
 
 const TARGET_AUDIENCES = [
-  { label: "All Users", value: "all" },
   { label: "Youth Athletes", value: "youth" },
   { label: "Adult Athletes", value: "adult" },
 ];
@@ -166,7 +166,40 @@ const BOOKING_STATUS_ITEMS = [
   { label: "Cancelled", value: "cancelled" },
 ];
 
-type ServiceAudienceMode = "non_team" | "team_all" | "team_specific";
+const WEEKDAY_ITEMS = [
+  { label: "Monday", value: "1" },
+  { label: "Tuesday", value: "2" },
+  { label: "Wednesday", value: "3" },
+  { label: "Thursday", value: "4" },
+  { label: "Friday", value: "5" },
+  { label: "Saturday", value: "6" },
+  { label: "Sunday", value: "0" },
+];
+
+const HOUR_ITEMS = Array.from({ length: 24 }, (_, i) => ({
+  label: String(i).padStart(2, "0"),
+  value: String(i).padStart(2, "0"),
+}));
+
+const MINUTE_ITEMS = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map(
+  (m) => ({ label: m, value: m }),
+);
+
+function getNextSevenDays(): { label: string; value: string }[] {
+  const days: { label: string; value: string }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    days.push({ label, value: `${yyyy}-${mm}-${dd}` });
+  }
+  return days;
+}
+
+type ServiceAudienceMode = "all_clients" | "non_team" | "team_all" | "team_specific";
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: "Confirmed",
@@ -227,10 +260,17 @@ export function BookingsDialogs({
 }: BookingsDialogsProps) {
   const [serviceName, setServiceName] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
+  const [isBookable, setIsBookable] = useState(true);
   const [serviceType, setServiceType] = useState("one_to_one");
   const [durationMinutes, setDurationMinutes] = useState("");
-  const [capacity, setCapacity] = useState("");
-  const [totalSlots, setTotalSlots] = useState("");
+  const [slotsAvailable, setSlotsAvailable] = useState("");
+  const [newServiceSchedule, setNewServiceSchedule] = useState<"permanent" | "one_time">("one_time");
+  const [newServiceWeekday, setNewServiceWeekday] = useState<string>("1");
+  const [newServiceWeekHour, setNewServiceWeekHour] = useState<string>("09");
+  const [newServiceWeekMinute, setNewServiceWeekMinute] = useState<string>("00");
+  const [newServiceOneTimeDate, setNewServiceOneTimeDate] = useState<string>("");
+  const [newServiceOneTimeHour, setNewServiceOneTimeHour] = useState<string>("09");
+  const [newServiceOneTimeMinute, setNewServiceOneTimeMinute] = useState<string>("00");
   const [eligiblePlans, setEligiblePlans] = useState<string[]>([]);
   const [eligibleTargets, setEligibleTargets] = useState<string[]>([]);
   const [audienceMode, setAudienceMode] = useState<ServiceAudienceMode>("non_team");
@@ -286,14 +326,21 @@ export function BookingsDialogs({
     if (active === "new-service") {
       setServiceName("");
       setServiceDescription("");
+      setIsBookable(true);
       setServiceType("one_to_one");
       setDurationMinutes(String(DEFAULT_SERVICE_DURATION_MINUTES.one_to_one));
-      setCapacity("");
-      setTotalSlots("");
+      setSlotsAvailable("");
       setEligiblePlans([]);
       setEligibleTargets([]);
       setAudienceMode("non_team");
       setSelectedTeamIds([]);
+      setNewServiceSchedule("one_time");
+      setNewServiceWeekday("1");
+      setNewServiceWeekHour("09");
+      setNewServiceWeekMinute("00");
+      setNewServiceOneTimeDate("");
+      setNewServiceOneTimeHour("09");
+      setNewServiceOneTimeMinute("00");
       setError(null);
       return;
     }
@@ -316,10 +363,10 @@ export function BookingsDialogs({
     if (active === "edit-service" && selectedService) {
       setServiceName(selectedService.name ?? "");
       setServiceDescription(selectedService.description ?? "");
+      setIsBookable(selectedService.isBookable !== false);
       setServiceType(selectedService.type ?? "one_to_one");
       setDurationMinutes(String(selectedService.durationMinutes ?? 30));
-      setCapacity(selectedService.capacity != null ? String(selectedService.capacity) : "");
-      setTotalSlots(selectedService.totalSlots != null ? String(selectedService.totalSlots) : "");
+      setSlotsAvailable(selectedService.totalSlots != null ? String(selectedService.totalSlots) : "");
       setEligiblePlans(selectedService.eligiblePlans ?? []);
 
       const targets = selectedService.eligibleTargets ?? [];
@@ -361,6 +408,10 @@ export function BookingsDialogs({
           setEligibleTargets([]);
           setSelectedTeamIds(uniqSorted);
         }
+      } else if (nonTeamVals.includes("all")) {
+        setAudienceMode("all_clients");
+        setEligibleTargets([]);
+        setSelectedTeamIds([]);
       } else {
         setAudienceMode("non_team");
         setEligibleTargets(nonTeamVals);
@@ -406,7 +457,9 @@ export function BookingsDialogs({
   }, [teamsData]);
 
   const teamAudience =
-    audienceMode === "team_all" || audienceMode === "team_specific";
+    audienceMode === "all_clients" ||
+    audienceMode === "team_all" ||
+    audienceMode === "team_specific";
 
   const calendarDays = useMemo(() => {
     const start = new Date();
@@ -486,9 +539,9 @@ export function BookingsDialogs({
           </DialogTitle>
           <DialogDescription>
             {active === "new-service" &&
-              "Set name, who can book, capacity, and total booking slots."}
+              "Set name, type, schedule, audience, and available slots."}
             {active === "edit-service" &&
-              "Update who can book, capacity, and total booking slots."}
+              "Update audience, schedule, and available slots."}
             {active === "new-booking" && "Choose a guardian, service, and time."}
             {active === "calendar" && "Bookings scheduled for the next seven days."}
             {active === "booking-details" && selectedBooking
@@ -528,6 +581,38 @@ export function BookingsDialogs({
                 />
               </div>
 
+              {/* Bookable toggle */}
+              <div className="space-y-2 rounded-lg border border-border p-3">
+                <Label>Booking mode</Label>
+                <div className="flex gap-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="booking-mode"
+                      checked={isBookable}
+                      onChange={() => setIsBookable(true)}
+                    />
+                    <span>
+                      <span className="font-medium">Bookable</span>
+                      <span className="block text-xs text-muted-foreground">Athletes can request to book this service.</span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="booking-mode"
+                      checked={!isBookable}
+                      onChange={() => setIsBookable(false)}
+                    />
+                    <span>
+                      <span className="font-medium">Non-bookable</span>
+                      <span className="block text-xs text-muted-foreground">Visible on schedule but athletes cannot book it.</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {isBookable ? (
               <div className="space-y-1">
                 <Label htmlFor="service-type">Type</Label>
                 <Select
@@ -559,16 +644,187 @@ export function BookingsDialogs({
                   </SelectPopup>
                 </Select>
               </div>
+              ) : null}
+
+              {/* Schedule type */}
+              <div className="space-y-3 rounded-lg border border-border p-3">
+                <Label>Schedule</Label>
+                <div className="flex gap-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="schedule-type"
+                      checked={newServiceSchedule === "one_time"}
+                      onChange={() => setNewServiceSchedule("one_time")}
+                    />
+                    <span className="font-medium">Temporary</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="schedule-type"
+                      checked={newServiceSchedule === "permanent"}
+                      onChange={() => setNewServiceSchedule("permanent")}
+                    />
+                    <span className="font-medium">Permanent</span>
+                  </label>
+                </div>
+
+                {newServiceSchedule === "permanent" ? (
+                  <div className="space-y-3 pt-1">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Day of week</Label>
+                      <Select
+                        items={WEEKDAY_ITEMS}
+                        value={newServiceWeekday}
+                        onValueChange={(v) => setNewServiceWeekday(v ?? "1")}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectPopup>
+                          {WEEKDAY_ITEMS.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectPopup>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Time</Label>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          items={HOUR_ITEMS}
+                          value={newServiceWeekHour}
+                          onValueChange={(v) => setNewServiceWeekHour(v ?? "09")}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectPopup>
+                            {HOUR_ITEMS.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                        <span className="text-muted-foreground">:</span>
+                        <Select
+                          items={MINUTE_ITEMS}
+                          value={newServiceWeekMinute}
+                          onValueChange={(v) => setNewServiceWeekMinute(v ?? "00")}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectPopup>
+                            {MINUTE_ITEMS.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 pt-1">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Date</Label>
+                      {(() => {
+                        const nextSevenDays = getNextSevenDays();
+                        return (
+                          <Select
+                            items={nextSevenDays}
+                            value={newServiceOneTimeDate}
+                            onValueChange={(v) => setNewServiceOneTimeDate(v ?? "")}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select date" />
+                            </SelectTrigger>
+                            <SelectPopup>
+                              {nextSevenDays.map((item) => (
+                                <SelectItem key={item.value} value={item.value}>
+                                  {item.label}
+                                </SelectItem>
+                              ))}
+                            </SelectPopup>
+                          </Select>
+                        );
+                      })()}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Time</Label>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          items={HOUR_ITEMS}
+                          value={newServiceOneTimeHour}
+                          onValueChange={(v) => setNewServiceOneTimeHour(v ?? "09")}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectPopup>
+                            {HOUR_ITEMS.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                        <span className="text-muted-foreground">:</span>
+                        <Select
+                          items={MINUTE_ITEMS}
+                          value={newServiceOneTimeMinute}
+                          onValueChange={(v) => setNewServiceOneTimeMinute(v ?? "00")}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectPopup>
+                            {MINUTE_ITEMS.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectPopup>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Audience selector */}
               <div className="space-y-2 rounded-lg border border-border p-3">
                 <Label>Audience</Label>
                 <p className="text-xs text-muted-foreground">
-                  Non-team uses program athletes (by age or everyone). Team services apply to
-                  rostered team athletes only; program tier filters are not used for team-only
-                  services.
+                  Choose who can see this service.
                 </p>
                 <div className="space-y-2 pt-1">
+                  <label className="flex cursor-pointer items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="service-audience"
+                      className="mt-1"
+                      checked={audienceMode === "all_clients"}
+                      onChange={() => {
+                        setAudienceMode("all_clients");
+                        setEligibleTargets([]);
+                        setSelectedTeamIds([]);
+                        setEligiblePlans([]);
+                      }}
+                    />
+                    <span>
+                      <span className="font-medium text-foreground">All Clients</span>
+                      <span className="block text-muted-foreground">
+                        Every registered client can see this service — no age or tier filter.
+                      </span>
+                    </span>
+                  </label>
                   <label className="flex cursor-pointer items-start gap-2 text-sm">
                     <input
                       type="radio"
@@ -578,16 +834,13 @@ export function BookingsDialogs({
                       onChange={() => {
                         setAudienceMode("non_team");
                         setSelectedTeamIds([]);
-                        setEligibleTargets((prev) => {
-                          const kept = prev.filter((t) => !t.startsWith("team:"));
-                          return kept.length ? kept : ["all"];
-                        });
+                        setEligibleTargets([]);
                       }}
                     />
                     <span>
                       <span className="font-medium text-foreground">Non-team</span>
                       <span className="block text-muted-foreground">
-                        Youth, adult, or all program athletes (not scoped to a team roster).
+                        Program athletes filtered by age group and eligible plan tier.
                       </span>
                     </span>
                   </label>
@@ -635,7 +888,7 @@ export function BookingsDialogs({
 
               {audienceMode === "non_team" ? (
                 <div className="space-y-2">
-                  <Label>Who can book (non-team)</Label>
+                  <Label>Age group</Label>
                   <div className="space-y-2 rounded-lg border border-border p-3">
                     {TARGET_AUDIENCES.map((target) => (
                       <label key={target.value} className="flex items-center gap-2 text-sm">
@@ -653,6 +906,9 @@ export function BookingsDialogs({
                         {target.label}
                       </label>
                     ))}
+                    <p className="pt-1 text-xs text-muted-foreground">
+                      Leave both unchecked to allow all program athletes regardless of age.
+                    </p>
                   </div>
                 </div>
               ) : null}
@@ -711,33 +967,19 @@ export function BookingsDialogs({
                 </div>
               ) : null}
 
+              {isBookable ? (
               <div className="space-y-1">
-                <Label htmlFor="capacity">Capacity (per session)</Label>
+                <Label htmlFor="slots-available">Slots available</Label>
                 <Input
-                  id="capacity"
-                  type="number"
-                  placeholder="Unlimited"
-                  value={capacity}
-                  onChange={(e) => setCapacity(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1 rounded-lg border border-border p-3">
-                <Label htmlFor="total-slots">Slots (total bookings)</Label>
-                <p className="mb-2 text-xs text-muted-foreground">
-                  How many athletes can book this service in total. Each booking counts down; when
-                  it hits zero the service turns off for families until you raise this number or
-                  turn it back on.
-                </p>
-                <Input
-                  id="total-slots"
+                  id="slots-available"
                   type="number"
                   min={1}
                   placeholder="Unlimited (leave empty)"
-                  value={totalSlots}
-                  onChange={(e) => setTotalSlots(e.target.value)}
+                  value={slotsAvailable}
+                  onChange={(e) => setSlotsAvailable(e.target.value)}
                 />
               </div>
+              ) : null}
 
               {error ? <p className="text-sm text-destructive">{error}</p> : null}
             </DialogPanel>
@@ -759,7 +1001,7 @@ export function BookingsDialogs({
                   }
                   if (audienceMode === "team_all" && teamsWithIds.length === 0) {
                     setError(
-                      "No teams exist yet. Use non-team audience or create teams first.",
+                      "No teams exist yet. Use All Clients or create teams first.",
                     );
                     return;
                   }
@@ -783,36 +1025,49 @@ export function BookingsDialogs({
                               ? selectedService.slotDefinitions
                               : [],
                           }
-                        : {
-                            schedulePattern: "one_time" as const,
-                            weeklyEntries: [] as { weekday: number; time: string }[],
-                            oneTimeDate: null,
-                            oneTimeTime: null,
-                            slotMode: "shared_capacity",
-                            slotIntervalMinutes: null,
-                            slotDefinitions: [] as { time: string; capacity?: number }[],
-                          };
+                        : newServiceSchedule === "permanent"
+                          ? {
+                              schedulePattern: "weekly_recurring" as const,
+                              weeklyEntries: [{ weekday: Number(newServiceWeekday), time: `${newServiceWeekHour}:${newServiceWeekMinute}` }] as { weekday: number; time: string }[],
+                              oneTimeDate: null,
+                              oneTimeTime: null,
+                              slotMode: "shared_capacity",
+                              slotIntervalMinutes: null,
+                              slotDefinitions: [] as { time: string; capacity?: number }[],
+                            }
+                          : {
+                              schedulePattern: "one_time" as const,
+                              weeklyEntries: [] as { weekday: number; time: string }[],
+                              oneTimeDate: newServiceOneTimeDate || null,
+                              oneTimeTime: newServiceOneTimeDate ? `${newServiceOneTimeHour}:${newServiceOneTimeMinute}` : null,
+                              slotMode: "shared_capacity",
+                              slotIntervalMinutes: null,
+                              slotDefinitions: [] as { time: string; capacity?: number }[],
+                            };
                     const eligibleTargetsPayload =
-                      audienceMode === "team_all"
-                        ? teamsWithIds.map((t) => `team:${t.id}`)
-                        : audienceMode === "team_specific"
-                          ? selectedTeamIds.map((id) => `team:${id}`)
-                          : eligibleTargets;
+                      audienceMode === "all_clients"
+                        ? ["all"]
+                        : audienceMode === "team_all"
+                          ? teamsWithIds.map((t) => `team:${t.id}`)
+                          : audienceMode === "team_specific"
+                            ? selectedTeamIds.map((id) => `team:${id}`)
+                            : eligibleTargets;
                     const eligiblePlansPayload = teamAudience ? [] : eligiblePlans;
                     const payload = {
                       name: serviceName.trim(),
                       description: serviceDescription.trim() || null,
-                      type: serviceType,
+                      type: isBookable ? serviceType : null,
                       durationMinutes:
                         Number.isFinite(duration) && duration > 0
                           ? duration
                           : fallbackDuration,
-                      capacity: capacity ? Number(capacity) : null,
-                      totalSlots: totalSlots.trim() ? Number(totalSlots) : null,
+                      capacity: isBookable && slotsAvailable.trim() ? Number(slotsAvailable) : null,
+                      totalSlots: isBookable && slotsAvailable.trim() ? Number(slotsAvailable) : null,
                       eligiblePlans: eligiblePlansPayload,
                       eligibleTargets: eligibleTargetsPayload,
                       ...schedulePayload,
                       isActive: active === "edit-service" ? selectedService?.isActive : true,
+                      isBookable,
                     };
                     if (active === "new-service") {
                       await createService(payload).unwrap();

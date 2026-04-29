@@ -7,7 +7,6 @@ import { io, type Socket } from "socket.io-client";
 import {
   Activity,
   BadgeCheck,
-  BookOpen,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -21,8 +20,11 @@ import {
   Settings,
   SlidersHorizontal,
   Stethoscope,
+  UserCircle,
   UserPlus,
   Users,
+  Video,
+  Quote,
 } from "lucide-react";
 
 import {
@@ -70,7 +72,7 @@ const NAV = [
       { label: "Add User", href: "/users/add", icon: UserPlus },
       { label: "Add Team", href: "/users/add-team", icon: Users },
       { label: "Teams", href: "/teams", icon: Users },
-      { label: "Onboarding", href: "/onboarding-config", icon: SlidersHorizontal },
+      { label: "Portal Config", href: "/portal-config", icon: SlidersHorizontal },
       { label: "Client Training", href: "/training-snapshot", icon: ClipboardList },
       { label: "Tracking", href: "/tracking", icon: Activity },
       { label: "Training Answers", href: "/training-questionnaires", icon: ClipboardCheck },
@@ -81,7 +83,9 @@ const NAV = [
   {
     label: "Content",
     items: [
-      { label: "Content", href: "/content", icon: BookOpen },
+      { label: "Profile", href: "/content/profile", icon: UserCircle },
+      { label: "Testimonials", href: "/content/testimonials", icon: Quote },
+      { label: "Intro Video", href: "/content/intro-video", icon: Video },
       { label: "Gallery", href: "/gallery", icon: Images },
       { label: "Parent Portal", href: "/parent", icon: Library },
       { label: "Training Content", href: "/exercise-library", icon: BadgeCheck },

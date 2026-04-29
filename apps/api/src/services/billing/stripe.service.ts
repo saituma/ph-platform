@@ -273,16 +273,27 @@ export function checkoutModeForBillingCycle(cycle: AthleteBillingCycle): "subscr
 export async function createStripePriceForPlan(input: {
   name: string;
   tier: (typeof ProgramType.enumValues)[number];
-  interval: "monthly" | "yearly";
+  interval: "monthly" | "yearly" | "one_time";
   unitAmount: number;
 }) {
   const stripeClient = getStripeClient();
+  // Only "monthly" is a recurring subscription. "yearly" is a one-time payment for 1-year access,
+  // and "one_time" is a one-time payment for 6 months of access. This matches our billing model.
+  const intervalLabel =
+    input.interval === "yearly" ? "1 year" : input.interval === "one_time" ? "6 months" : "Monthly";
+  // The DB column is `stripePriceIdOneTime`, but semantically this is a 6-month one-time payment,
+  // so we tag the Stripe price with the `_six_months` lookup key to match athlete checkout's existing convention.
+  const lookupSuffix = input.interval === "one_time" ? "six_months" : input.interval;
+  const lookupKey = `${input.tier.toLowerCase()}_${lookupSuffix}`;
+  const isRecurring = input.interval === "monthly";
   const price = await stripeClient.prices.create({
     unit_amount: input.unitAmount,
     currency: "gbp",
-    recurring: { interval: input.interval === "yearly" ? "year" : "month" },
+    lookup_key: lookupKey,
+    transfer_lookup_key: true,
+    ...(isRecurring ? { recurring: { interval: "month" } } : {}),
     product_data: {
-      name: `${input.name} - ${input.interval === "yearly" ? "Yearly" : "Monthly"}`,
+      name: `${input.name} - ${intervalLabel}`,
       metadata: { tier: input.tier },
     },
   });

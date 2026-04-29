@@ -9,21 +9,12 @@ import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "../../components/ui/dialog";
-import { Input } from "../../components/ui/input";
-import {
   fromStorageAudienceLabel,
   AudienceSummary,
   PROGRAM_TIERS,
   isYouthAgeAudienceLabel,
   isAdultStorageAudienceLabel,
   isTeamStorageAudienceLabel,
-  toTeamStorageAudienceLabel,
   fromTeamStorageAudienceLabel,
   normalizeAudienceLabelInput,
   trainingContentRequest,
@@ -58,8 +49,6 @@ export default function ExerciseLibraryAudiencePage() {
         ? "adult"
         : "youth",
   );
-  const [modalOpen, setModalOpen] = useState(false);
-  const [audienceInput, setAudienceInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [teamError, setTeamError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -116,8 +105,6 @@ export default function ExerciseLibraryAudiencePage() {
     else if (mode === "adult") setViewMode("adult");
     else setViewMode("youth");
   }, [searchParams]);
-
-  const normalizedAudience = normalizeAudienceLabelInput(audienceInput);
 
   const youthCards = useMemo<AudienceCard[]>(() => {
     const youthAudiences = audiences.filter((audience) =>
@@ -269,19 +256,6 @@ export default function ExerciseLibraryAudiencePage() {
                       : "Start with ages 7 to 18. Open any card to manage modules, sessions, warm-up, sessions A/B/C, mobility, recovery, and cool-down content."
                 }
               />
-              {viewMode !== "adult" ? (
-                <Button
-                  className="w-full sm:w-auto"
-                  onClick={() => {
-                    setAudienceInput("");
-                    setModalOpen(true);
-                  }}
-                >
-                  {viewMode === "team"
-                    ? "+ Add team training"
-                    : "+ Add age or range"}
-                </Button>
-              ) : null}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -338,60 +312,6 @@ export default function ExerciseLibraryAudiencePage() {
         </Card>
       </div>
 
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogHeader>
-          <DialogTitle>
-            {viewMode === "team" ? "Add team training" : "Add age group"}
-          </DialogTitle>
-          <DialogDescription>
-            {viewMode === "team"
-              ? "Enter the exact name of the team to create a training space for them."
-              : "Enter a value like 7, 8, 12, 7-18, or All."}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 pt-4">
-          <Input
-            placeholder={
-              viewMode === "team" ? "e.g. U14 Elite" : "7, 8, 12, 7-18, All"
-            }
-            value={audienceInput}
-            onChange={(event) => setAudienceInput(event.target.value)}
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!normalizedAudience) return;
-                try {
-                  const label =
-                    viewMode === "team"
-                      ? toTeamStorageAudienceLabel(audienceInput)
-                      : normalizedAudience;
-
-                  await trainingContentRequest("/admin/audiences", {
-                    method: "POST",
-                    body: JSON.stringify({ label }),
-                  });
-                  setAudienceInput("");
-                  setModalOpen(false);
-                  await loadAudiences();
-                } catch (err) {
-                  setError(
-                    err instanceof Error
-                      ? err.message
-                      : "Failed to create audience.",
-                  );
-                }
-              }}
-              disabled={!audienceInput.trim()}
-            >
-              Save
-            </Button>
-          </div>
-        </div>
-      </Dialog>
     </AdminShell>
   );
 }

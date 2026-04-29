@@ -8,6 +8,7 @@ import {
   Share,
   Platform,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -15,11 +16,12 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
+import MapView, { Polyline } from "react-native-maps";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
 import { captureRef } from "react-native-view-shot";
-import { RotateCcw, Share2, X, Users } from "lucide-react-native";
+import { RotateCcw, Share2, X, Users, Map } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { fonts, radius } from "@/constants/theme";
 import {
@@ -33,7 +35,7 @@ import { createSocialPost } from "@/services/tracking/socialService";
 const { height: SH } = Dimensions.get("window");
 
 type Coord = { latitude: number; longitude: number };
-type Phase = "camera" | "preview";
+type Phase = "camera" | "preview" | "map";
 
 interface RunShareCardProps {
   visible: boolean;
@@ -156,6 +158,48 @@ export function RunShareCard({
   const [facing, setFacing] = useState<"front" | "back">("back");
   const [teamPosted, setTeamPosted] = useState(false);
 
+  const [mapSnapshotUri, setMapSnapshotUri] = useState<string | null>(null);
+  const [mapSnapshotLoading, setMapSnapshotLoading] = useState(false);
+  const hiddenMapRef = useRef<MapView>(null);
+
+  // Compute bounding region for the route
+  const routeRegion = useMemo(() => {
+    if (coordinates.length < 2) return null;
+    const lats = coordinates.map((c) => c.latitude);
+    const lngs = coordinates.map((c) => c.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const pad = 0.0015;
+    return {
+      latitude: (minLat + maxLat) / 2,
+      longitude: (minLng + maxLng) / 2,
+      latitudeDelta: Math.max(0.004, maxLat - minLat + pad),
+      longitudeDelta: Math.max(0.004, maxLng - minLng + pad),
+    };
+  }, [coordinates]);
+
+  // Take map snapshot once after the hidden MapView renders
+  const handleHiddenMapReady = useCallback(() => {
+    if (mapSnapshotUri || !routeRegion) return;
+    setMapSnapshotLoading(true);
+    setTimeout(async () => {
+      try {
+        const uri = await hiddenMapRef.current?.takeSnapshot({
+          format: "jpg",
+          quality: 0.92,
+          result: "file",
+        });
+        if (uri) setMapSnapshotUri(uri);
+      } catch {
+        // ignore — map card just won't show
+      } finally {
+        setMapSnapshotLoading(false);
+      }
+    }, 1800); // give tiles time to load
+  }, [mapSnapshotUri, routeRegion]);
+
   const scaleShutter = useSharedValue(1);
   const scaleShare = useSharedValue(1);
 
@@ -201,45 +245,11 @@ export function RunShareCard({
     setPhase("camera");
   };
 
-  const handleShare = useCallback(async () => {
-    if (sharing) return;
-    setSharing(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const handleUseMap = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPhase("map");
+  };
 
-    // Post to team feed silently
-    if (isTeamMember && token && !teamPosted) {
-      createSocialPost(token, { content: `🏃 ${distLabel} km in ${timeLabel} at ${paceMinPerKm}/km` }, { useTeamFeed: true }).catch(() => {});
-      setTeamPosted(true);
-    }
-
-    try {
-      // Capture the preview view (photo + stats overlay + branding) as a single image
-      // so the shared file already has everything baked in.
-      const compositeUri = previewRef.current
-        ? await captureRef(previewRef, { format: "jpg", quality: 0.92 })
-        : photoUri;
-
-      if (!compositeUri) {
-        await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
-        return;
-      }
-
-      if (Platform.OS === "ios") {
-        await Share.share({ url: compositeUri }).catch(() => {});
-      } else {
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(compositeUri).catch(() => {});
-        } else {
-          await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
-        }
-      }
-    } catch (e) {
-      console.warn("[RunShareCard] share failed:", e);
-    } finally {
-      setSharing(false);
-    }
-  }, [sharing, photoUri, isTeamMember, token, teamPosted, distLabel, timeLabel, paceMinPerKm]);
 
   const handleClose = () => {
     Haptics.selectionAsync();
@@ -290,6 +300,9 @@ export function RunShareCard({
     </>
   );
 
+  // Map preview ref — used for capturing map card
+  const mapPreviewRef = useRef<View>(null);
+
   if (!visible) return null;
 
   // ── permission gate ────────────────────────────────────────────
@@ -321,6 +334,32 @@ export function RunShareCard({
     <Modal visible animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
       <View style={styles.root}>
 
+        {/* Hidden off-screen MapView — generates the snapshot */}
+        {routeRegion && !mapSnapshotUri && (
+          <MapView
+            ref={hiddenMapRef}
+            style={{ position: "absolute", width: 600, height: 800, left: -1200, top: 0 }}
+            initialRegion={routeRegion}
+            mapType="standard"
+            onMapReady={handleHiddenMapReady}
+            pitchEnabled={false}
+            rotateEnabled={false}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            toolbarEnabled={false}
+            showsCompass={false}
+            showsUserLocation={false}
+          >
+            {coordinates.length > 1 && (
+              <Polyline
+                coordinates={coordinates}
+                strokeColor={GREEN}
+                strokeWidth={5}
+              />
+            )}
+          </MapView>
+        )}
+
         {phase === "camera" ? (
           /* ── Camera phase: live viewfinder + overlay (not captured) ── */
           <>
@@ -333,6 +372,28 @@ export function RunShareCard({
             <View style={styles.vignetteBottom} />
             {StatsOverlay}
           </>
+        ) : phase === "map" ? (
+          /* ── Map phase: map snapshot as background with stats ── */
+          <View
+            ref={mapPreviewRef}
+            collapsable={false}
+            style={StyleSheet.absoluteFillObject}
+          >
+            {mapSnapshotUri ? (
+              <Image
+                source={{ uri: mapSnapshotUri }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#0a0a0a", alignItems: "center", justifyContent: "center" }]}>
+                <ActivityIndicator color={GREEN} size="large" />
+              </View>
+            )}
+            <View style={styles.vignetteTop} />
+            <View style={styles.vignetteBottom} />
+            {StatsOverlay}
+          </View>
         ) : (
           /* ── Preview phase: captured view with stats baked in ── */
           /* collapsable={false} ensures Android doesn't optimise the view away for captureRef */
@@ -374,6 +435,21 @@ export function RunShareCard({
           </Pressable>
         )}
 
+        {/* ── Map Card button (camera phase, when route exists) ── */}
+        {phase === "camera" && coordinates.length > 1 && (
+          <Pressable
+            onPress={handleUseMap}
+            style={[styles.mapCardBtn, { top: insets.top + 68 }]}
+            hitSlop={12}
+          >
+            {mapSnapshotLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Map size={18} color="#fff" strokeWidth={2.5} />
+            )}
+          </Pressable>
+        )}
+
         {/* ── Bottom controls (always outside capturable view) ── */}
         <View style={[styles.controls, { paddingBottom: insets.bottom + 28 }]}>
           {phase === "camera" ? (
@@ -394,11 +470,46 @@ export function RunShareCard({
               </Pressable>
             </>
           ) : (
-            /* ── Preview: share + retake ── */
+            /* ── Preview / Map: share + retake ── */
             <>
               <Animated.View style={[shareStyle, styles.shareWrap]}>
                 <Pressable
-                  onPress={handleShare}
+                  onPress={async () => {
+                    if (sharing) return;
+                    setSharing(true);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                    if (isTeamMember && token && !teamPosted) {
+                      createSocialPost(token, { content: `🏃 ${distLabel} km in ${timeLabel} at ${paceMinPerKm}/km` }, { useTeamFeed: true }).catch(() => {});
+                      setTeamPosted(true);
+                    }
+
+                    try {
+                      const targetRef = phase === "map" ? mapPreviewRef : previewRef;
+                      const compositeUri = targetRef.current
+                        ? await captureRef(targetRef, { format: "jpg", quality: 0.92 })
+                        : (phase === "map" ? mapSnapshotUri : photoUri);
+
+                      if (!compositeUri) {
+                        await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
+                        return;
+                      }
+                      if (Platform.OS === "ios") {
+                        await Share.share({ url: compositeUri }).catch(() => {});
+                      } else {
+                        const canShare = await Sharing.isAvailableAsync();
+                        if (canShare) {
+                          await Sharing.shareAsync(compositeUri).catch(() => {});
+                        } else {
+                          await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
+                        }
+                      }
+                    } catch (e) {
+                      console.warn("[RunShareCard] share failed:", e);
+                    } finally {
+                      setSharing(false);
+                    }
+                  }}
                   onPressIn={() => (scaleShare.value = withSpring(0.96, { damping: 15, stiffness: 300 }))}
                   onPressOut={() => (scaleShare.value = withSpring(1, { damping: 15, stiffness: 300 }))}
                   disabled={sharing}
@@ -423,9 +534,20 @@ export function RunShareCard({
                 </View>
               )}
 
-              <Pressable onPress={handleRetake} style={styles.retakeRow} disabled={sharing}>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  if (phase === "map") {
+                    setPhase("camera");
+                  } else {
+                    handleRetake();
+                  }
+                }}
+                style={styles.retakeRow}
+                disabled={sharing}
+              >
                 <RotateCcw size={14} color="rgba(255,255,255,0.5)" strokeWidth={2} />
-                <Text style={styles.retakeText}>Retake photo</Text>
+                <Text style={styles.retakeText}>{phase === "map" ? "Back to camera" : "Retake photo"}</Text>
               </Pressable>
             </>
           )}
@@ -545,6 +667,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  mapCardBtn: {
+    position: "absolute",
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
   },
   controls: {
     position: "absolute",

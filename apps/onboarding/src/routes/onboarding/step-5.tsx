@@ -61,12 +61,12 @@ const BILLING_OPTIONS: {
 	},
 	{
 		id: "six_months",
-		title: "6 months upfront",
+		title: "6 months",
 		description: "One payment",
 	},
 	{
 		id: "yearly",
-		title: "Yearly upfront",
+		title: "1 year",
 		description: "One payment",
 	},
 ];
@@ -160,7 +160,7 @@ function dedupePlansByTier(plans: any[]) {
 function priceSuffix(cycle: BillingCycle) {
 	if (cycle === "monthly") return "per month";
 	if (cycle === "six_months") return "for 6 months";
-	return "per year";
+	return "for 1 year";
 }
 
 function OnboardingStep5() {
@@ -458,11 +458,16 @@ function OnboardingStep5() {
 					{plans.map((plan) => {
 						const isSelected = selectedPlan === plan.tier;
 						const displayPrice =
-							plan.billingQuote?.amount ??
-							plan.pricing?.monthly?.discounted ??
-							plan.pricing?.badge ??
-							plan.displayPrice ??
-							"—";
+							billingCycle === "yearly"
+								? (plan.billingQuote?.amount ?? plan.yearlyPrice ?? plan.pricing?.yearly?.discounted ?? plan.displayPrice ?? "—")
+								: billingCycle === "six_months"
+									? (plan.billingQuote?.amount ?? plan.oneTimePrice ?? plan.displayPrice ?? "—")
+									: (plan.billingQuote?.amount ??
+										plan.pricing?.monthly?.discounted ??
+										plan.pricing?.badge ??
+										plan.monthlyPrice ??
+										plan.displayPrice ??
+										"—");
 						const meta = TIER_METADATA[plan.tier] ?? {
 							cardTitle: String(plan.name || "Plan").trim() || "Plan",
 							tierLine: plan.tier,
@@ -477,11 +482,12 @@ function OnboardingStep5() {
 						};
 						const Icon = meta.icon;
 						const title = planCardTitle(plan);
+						// Prefer admin-curated features from the DB plan; fall back to the hardcoded
+						// per-tier defaults only if the admin hasn't set any.
 						const featureList =
-							TIER_METADATA[plan.tier]?.features ??
-							(Array.isArray(plan.features) && plan.features.length > 0
+							Array.isArray(plan.features) && plan.features.length > 0
 								? plan.features
-								: meta.features);
+								: (TIER_METADATA[plan.tier]?.features ?? meta.features);
 
 						return (
 							<Card

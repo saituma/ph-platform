@@ -37,8 +37,10 @@ export type ServiceType = {
   defaultMeetingLink?: string | null;
   programTier?: string | null;
   isActive?: boolean | null;
+  isBookable?: boolean | null;
   /** one_time | weekly_recurring — from API */
   schedulePattern?: string | null;
+  weeklyEntries?: { weekday: number; time: string }[] | null;
 };
 
 export type GeneratedAvailabilitySlot = {

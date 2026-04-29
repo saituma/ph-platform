@@ -29,8 +29,10 @@ const LEAFLET_HTML = `<!DOCTYPE html>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    html, body { margin:0; padding:0; height:100%; }
-    #map { height:100%; width:100%; }
+    /* Match the dark app theme so any re-paint/re-layout doesn't flash white through the WebView. */
+    html, body { margin:0; padding:0; height:100%; background-color:#0a0a0b; }
+    #map { height:100%; width:100%; background-color:#0a0a0b; }
+    .leaflet-container { background-color:#0a0a0b !important; }
     .rn-m div { box-sizing: border-box; }
   </style>
 </head>
@@ -313,6 +315,14 @@ export const OsmWebMapView = forwardRef<TrackingMapViewRef, OsmWebMapViewProps>(
           domStorageEnabled
           onMessage={onMessage}
           mixedContentMode="compatibility"
+          // Prevent the Android WebView's default-white surface from flashing through
+          // during re-renders/layout passes (e.g. when the action dock changes height
+          // on pause/resume). Combined with the dark `background-color` baked into the
+          // Leaflet HTML body, no white can leak through.
+          androidLayerType="hardware"
+          containerStyle={styles.fill}
+          renderLoading={() => <View style={styles.fill} />}
+          startInLoadingState
         />
       </View>
     );

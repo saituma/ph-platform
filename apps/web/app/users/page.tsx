@@ -29,6 +29,7 @@ type AdminUser = {
   onboardingCompleted?: boolean | null;
   createdAt?: string | null;
   athleteId?: number | null;
+  athleteName?: string | null;
   athleteType?: "youth" | "adult" | null;
   programTier?: string | null;
   guardianProgramTier?: string | null;
@@ -67,18 +68,22 @@ function UsersPageContent() {
   const [deleteUser] = useDeleteUserMutation();
 
   const users = useMemo(() => {
+    const CLIENT_ROLES = new Set([
+      "guardian",
+      "adult_athlete",
+      "youth_athlete",
+      "team_athlete",
+      "athlete", // legacy
+    ]);
     const source = ((usersData?.users ?? []) as AdminUser[]).filter(
       (user) =>
-        user.role === "guardian" ||
-        (user.role === "athlete" &&
-          (user.athleteType === "adult" ||
-            // Fallback for older API responses that may not yet include athleteType.
-            !String(user.email ?? "").endsWith("@athlete.local"))),
+        CLIENT_ROLES.has(user.role ?? "") &&
+        !String(user.email ?? "").endsWith("@athlete.local"),
     );
     const mapped: UsersListItem[] = source.map((user) => {
       const resolvedTier = user.programTier ?? user.guardianProgramTier ?? null;
       const tierLabel =
-        user.role === "admin" || user.role === "superAdmin"
+        user.role === "admin" || user.role === "superAdmin" || user.role === "team_coach"
           ? "Admin"
           : resolvedTier === "PHP_Pro"
             ? "Pro"
@@ -98,16 +103,23 @@ function UsersPageContent() {
             : tierLabel === "Plus"
               ? 2
               : 3;
+      const isGuardian = user.role === "guardian";
+      // For guardians: display the athlete's name (the child), guardian info goes in Guardian column.
+      // For adults: display the user account name — athleteName is an internal record and may be a placeholder.
+      const displayName = isGuardian
+        ? (user.athleteName ?? user.name ?? user.email ?? `User ${user.id}`)
+        : (user.name ?? user.athleteName ?? user.email ?? `User ${user.id}`);
       return {
         id: user.id,
-        name: user.name ?? user.email ?? `User ${user.id}`,
+        name: displayName,
         email: user.email ?? undefined,
         isBlocked: Boolean(user.isBlocked),
-        athleteType: user.athleteType === "youth" ? "Youth" : "Adult",
-        guardianName:
-          user.athleteType === "youth" ? (user.name ?? undefined) : undefined,
-        guardianEmail:
-          user.athleteType === "youth" ? (user.email ?? undefined) : undefined,
+        athleteType:
+          user.athleteType === "youth" || user.role === "youth_athlete"
+            ? "Youth"
+            : "Adult",
+        guardianName: isGuardian ? (user.name ?? undefined) : undefined,
+        guardianEmail: isGuardian ? (user.email ?? undefined) : undefined,
         tier: tierLabel,
         status: user.isBlocked ? "Blocked" : "Active",
         lastActive: "Recently",

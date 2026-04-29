@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
@@ -32,8 +31,7 @@ import {
 import { fonts, radius, spacing } from "@/constants/theme";
 
 import { useRunStore } from "../../../store/useRunStore";
-import { useAppSelector } from "@/store/hooks";
-import { saveRunRecord } from "../../../lib/sqliteRuns";
+import { updateRunFeedback } from "../../../lib/sqliteRuns";
 import { pushRunsToCloud } from "../../../lib/runSync";
 
 import { EffortSelector } from "../../../components/tracking/EffortSelector";
@@ -43,7 +41,6 @@ import {
 } from "../../../components/tracking/FeelTagSelector";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text as ScaledText } from "@/components/ScaledText";
-import { estimateCalories } from "../../../lib/tracking/runUtils";
 import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
@@ -55,14 +52,9 @@ export default function FeedbackScreen() {
   const { colors, isDark } = useAppTheme();
   const {
     status,
-    distanceMeters,
-    distanceOverrideMeters,
-    elapsedSeconds,
-    coordinates,
     resetRun,
     currentRunId,
   } = useRunStore();
-  const userId = useAppSelector((s) => s.user.profile.id ?? null);
 
   useEffect(() => {
     if (status !== "stopped") {
@@ -106,45 +98,18 @@ export default function FeedbackScreen() {
   };
 
   const handleSave = () => {
-    if (effort === null) return;
+    if (effort === null || !currentRunId) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
-      const finalDistanceMeters =
-        typeof distanceOverrideMeters === "number"
-          ? distanceOverrideMeters
-          : distanceMeters;
-      const distanceKm = finalDistanceMeters / 1000;
-      const avg_speed =
-        distanceKm > 0 && elapsedSeconds > 0
-          ? distanceKm / (elapsedSeconds / 3600)
-          : 0;
-      const avg_pace =
-        distanceKm > 0 && elapsedSeconds > 0
-          ? elapsedSeconds / 60 / distanceKm
-          : 0;
-      const calories = estimateCalories(finalDistanceMeters);
-
-      const rpeEffort = effort * 2;
-
-      saveRunRecord({
-        id: currentRunId ?? Crypto.randomUUID(),
-        date: new Date().toISOString(),
-        distance_meters: finalDistanceMeters,
-        duration_seconds: elapsedSeconds,
-        avg_pace: Number.isNaN(avg_pace) || !isFinite(avg_pace) ? 0 : avg_pace,
-        avg_speed:
-          Number.isNaN(avg_speed) || !isFinite(avg_speed) ? 0 : avg_speed,
-        calories,
-        coordinates: JSON.stringify(coordinates),
-        effort_level: rpeEffort,
+      updateRunFeedback(currentRunId, {
+        effort_level: effort * 2,
         feel_tags: JSON.stringify(
           selectedTags
             .map((st) => FEEL_TAGS.find((t) => t.id === st)?.label)
             .filter(Boolean),
         ),
         notes,
-        user_id: userId,
       });
 
       pushRunsToCloud();
