@@ -9,6 +9,7 @@ import { getAthleteForUser } from "../services/user.service";
 import { getProgramSectionContentById } from "../services/program-section.service";
 import { getTrainingSessionItemById } from "../services/training-content-v2.service";
 import { MediaKey, MediaFolder } from "../lib/media-key";
+import { athleteHasFeature } from "../services/billing/feature-access.service";
 import { db } from "../db";
 import {
   ProgramType,
@@ -113,9 +114,12 @@ export async function createVideo(req: Request, res: Response) {
   }
   const teamTierFallback = await resolveTeamPlanTierForAthlete(athlete);
   const effectiveTier = athlete.currentProgramTier ?? teamTierFallback;
-  const eligibleTiers = new Set(["PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]);
-  if (!effectiveTier || !eligibleTiers.has(effectiveTier)) {
-    return res.status(403).json({ error: "Video uploads are available for Premium members only." });
+  if (!effectiveTier) {
+    return res.status(403).json({ error: "No active plan." });
+  }
+  // Feature-gate: video upload requires the `video_upload` feature key on the user's plan.
+  if (!(await athleteHasFeature(athlete.id, "video_upload"))) {
+    return res.status(403).json({ error: "Video uploads are not included in your plan." });
   }
   if (!input.programSectionContentId) {
     return res.status(400).json({ error: "Training section is required for video uploads." });

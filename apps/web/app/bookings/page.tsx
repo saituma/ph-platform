@@ -38,7 +38,7 @@ type ServiceType = {
   id: number;
   name: string;
   description?: string | null;
-  type: string;
+  type?: string | null;
   durationMinutes: number;
   capacity?: number | null;
   totalSlots?: number | null;

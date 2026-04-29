@@ -359,9 +359,11 @@ export function PlansManager() {
         isSaving={isSaving}
         actionError={actionError}
         allFeatures={Array.from(
-          new Set([
-            ...FLAT_FEATURE_CATALOG,
-            ...plans.flatMap((p) => (Array.isArray(p.features) ? p.features : [])),
+          new Set<string>([
+            ...FLAT_FEATURE_CATALOG.map((entry) => entry.key),
+            ...plans.flatMap((p) =>
+              Array.isArray(p.features) ? (p.features.filter((s) => typeof s === "string") as string[]) : [],
+            ),
           ]),
         )}
       />
@@ -887,53 +889,54 @@ function FeaturesEditor({
   allFeatures,
   onChange,
 }: {
-  features: string[];
-  allFeatures: string[];
+  features: string[]; // stable feature keys
+  allFeatures: string[]; // pool of keys seen across all plans (for legacy / custom)
   onChange: (next: string[]) => void;
 }) {
-  const selected = useMemo(() => new Set(features.map((f) => f.trim())), [features]);
+  const selected = useMemo(() => new Set(features), [features]);
 
   // Anything in `allFeatures` that isn't in the curated catalog → render under "Custom".
-  const catalogSet = useMemo(() => new Set(FEATURE_CATALOG.flatMap((g) => g.features)), []);
+  const catalogKeySet = useMemo(
+    () => new Set(FEATURE_CATALOG.flatMap((g) => g.features.map((f) => f.key))),
+    [],
+  );
   const customOptions = useMemo(() => {
     const out = new Set<string>();
-    for (const f of allFeatures) {
-      const v = f.trim();
-      if (v && !catalogSet.has(v)) out.add(v);
+    for (const k of allFeatures) {
+      if (k && !catalogKeySet.has(k)) out.add(k);
     }
-    for (const f of features) {
-      const v = f.trim();
-      if (v && !catalogSet.has(v)) out.add(v);
+    for (const k of features) {
+      if (k && !catalogKeySet.has(k)) out.add(k);
     }
     return Array.from(out).sort((a, b) => a.localeCompare(b));
-  }, [allFeatures, features, catalogSet]);
+  }, [allFeatures, features, catalogKeySet]);
 
-  const toggle = (feature: string, checked: boolean) => {
+  const toggle = (key: string, checked: boolean) => {
     if (checked) {
-      if (!selected.has(feature)) onChange([...features, feature]);
+      if (!selected.has(key)) onChange([...features, key]);
     } else {
-      onChange(features.filter((f) => f !== feature));
+      onChange(features.filter((f) => f !== key));
     }
   };
 
-  const renderGroup = (label: string, feats: string[]) => (
+  const renderGroup = (label: string, feats: Array<{ key: string; label: string }>) => (
     <div key={label} className="space-y-2">
       <div className="text-[10px] font-bold uppercase tracking-[1.3px] text-muted-foreground">
         {label}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {feats.map((feature) => {
-          const id = `feat-${label}-${feature.replace(/\s+/g, "-")}`;
-          const checked = selected.has(feature);
+          const id = `feat-${label}-${feature.key}`;
+          const checked = selected.has(feature.key);
           return (
-            <div key={feature} className="flex items-center gap-2">
+            <div key={feature.key} className="flex items-center gap-2">
               <Checkbox
                 id={id}
                 checked={checked}
-                onCheckedChange={(v) => toggle(feature, Boolean(v))}
+                onCheckedChange={(v) => toggle(feature.key, Boolean(v))}
               />
               <Label htmlFor={id} className="text-sm font-normal">
-                {feature}
+                {feature.label}
               </Label>
             </div>
           );
@@ -958,7 +961,12 @@ function FeaturesEditor({
 
       <div className="space-y-4">
         {FEATURE_CATALOG.map((group) => renderGroup(group.group, group.features))}
-        {customOptions.length > 0 ? renderGroup("Custom", customOptions) : null}
+        {customOptions.length > 0
+          ? renderGroup(
+              "Custom",
+              customOptions.map((key) => ({ key, label: key })),
+            )
+          : null}
       </div>
     </div>
   );
