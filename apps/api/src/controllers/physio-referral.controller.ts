@@ -24,6 +24,7 @@ import { getSocketServer } from "../socket-hub";
 import { sendPushNotification } from "../services/push.service";
 import { createReferralGroup, getReferralGroupAthletes, listReferralGroups } from "../services/referral-group.service";
 import { sendReferralAssignedEmail } from "../lib/mailer";
+import { athleteHasFeature } from "../services/billing/feature-access.service";
 
 const physioMetadataSchema = z
   .object({
@@ -373,6 +374,10 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
   const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
   if (!athleteTier) {
     return res.status(400).json({ error: "Athlete program tier is missing." });
+  }
+  // Feature-gate: physio referrals are only available to plans that include `physio_referrals`.
+  if (!(await athleteHasFeature(input.athleteId, "physio_referrals"))) {
+    return res.status(403).json({ error: "Physio referrals are not included in your plan." });
   }
   const nextReferralType = normalizeReferralType(input.metadata?.referralType);
   const existingEntries = await getPhysioReferralsForAthlete(input.athleteId);

@@ -1,5 +1,7 @@
 "use client";
 
+import { FEATURE_GROUPS, FEATURE_LABELS, normalizeFeatureKeys } from "../../../lib/billing-features";
+
 export type PlanTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
 
 export type SubscriptionPlan = {
@@ -66,69 +68,19 @@ export const TIER_ITEMS: { label: string; value: PlanTier }[] = [
 
 /**
  * Curated catalog of features that exist in the product. Surfaced as checkboxes
- * in the plan editor so admins don't start from a blank slate. Custom features
- * added per-plan get appended to this list.
+ * in the plan editor. Each entry pairs a stable `key` (what's stored in `plan.features`
+ * and used by gates) with a human `label` (shown in the UI). Source of truth lives in
+ * `lib/billing-features.ts` — this re-exposes it for the admin editor.
  */
-export const FEATURE_CATALOG: Array<{ group: string; features: string[] }> = [
-  {
-    group: "Core",
-    features: [
-      "Coach module access",
-      "Messaging features",
-      "Schedule & calendar",
-      "Mobile app access",
-      "Progress tracking",
-    ],
-  },
-  {
-    group: "Training",
-    features: [
-      "Full programs library",
-      "Warm-up & cool-down library",
-      "Mobility & recovery sessions",
-      "In-season program",
-      "Off-season program",
-      "Movement screening",
-      "Stretching & foam rolling",
-      "Advanced periodization",
-      "Competition windows",
-      "1:1 review blocks",
-      "Bespoke progression",
-    ],
-  },
-  {
-    group: "Coaching",
-    features: [
-      "Video upload for coach response",
-      "Priority messaging",
-      "Faster coach turnaround",
-      "Semi-private sessions (small group coaching)",
-      "Bookings (1:1 calls)",
-      "Physio referrals",
-    ],
-  },
-  {
-    group: "Family & education",
-    features: [
-      "Parent platform",
-      "Parent education",
-      "Nutrition logging",
-      "Nutrition & food diaries",
-      "Submit food diary",
-    ],
-  },
-  {
-    group: "Community",
-    features: [
-      "Social feed",
-      "Run tracking & sharing",
-      "Achievements & streaks",
-      "Referral rewards",
-    ],
-  },
-];
+export type FeatureCatalogEntry = { key: string; label: string };
 
-export const FLAT_FEATURE_CATALOG: string[] = FEATURE_CATALOG.flatMap((g) => g.features);
+export const FEATURE_CATALOG: Array<{ group: string; features: FeatureCatalogEntry[] }> =
+  FEATURE_GROUPS.map((group) => ({
+    group: group.group,
+    features: group.keys.map((key) => ({ key, label: FEATURE_LABELS[key] })),
+  }));
+
+export const FLAT_FEATURE_CATALOG: FeatureCatalogEntry[] = FEATURE_CATALOG.flatMap((g) => g.features);
 
 export const defaultFormState: PlanFormState = {
   id: null,
@@ -214,7 +166,8 @@ export function planToFormState(plan: SubscriptionPlan): PlanFormState {
             label: d.label ?? null,
           }))
       : [],
-    features: Array.isArray(plan.features) ? plan.features.filter((s): s is string => typeof s === "string") : [],
+    // Normalize legacy label-stored features into stable keys.
+    features: normalizeFeatureKeys(plan.features as unknown[] | null | undefined),
     yearlyAuto: false,
     oneTimeAuto: false,
   };
@@ -290,7 +243,7 @@ export function planFormToPayload(form: PlanFormState) {
         label: d.label?.trim() || null,
       }))
       .filter((d) => d.value.length > 0),
-    features: form.features.map((s) => s.trim()).filter(Boolean),
+    features: normalizeFeatureKeys(form.features),
     isActive: form.isActive,
   };
 }

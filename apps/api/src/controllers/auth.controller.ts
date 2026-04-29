@@ -29,6 +29,7 @@ import {
 import { and, desc, eq } from "drizzle-orm";
 import { isTrainingStaff } from "../lib/user-roles";
 import { isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
+import { featuresForTier, getFeaturesForAthlete } from "../services/billing/feature-access.service";
 
 type TeamForMeRow = {
   id: number;
@@ -442,6 +443,11 @@ export async function getMe(req: Request, res: Response) {
       trainingStats: athlete?.trainingStats ?? null,
       allAthletes: athlete?.allAthletes ?? null,
       capabilities,
+      // Plan-level feature keys ("video_upload", "physio_referrals", etc.) for client-side gating.
+      // Computed from the user's current plan; falls back to tier defaults when a plan has no features set.
+      planFeatures: athlete?.id
+        ? Array.from(await getFeaturesForAthlete(Number(athlete.id)))
+        : Array.from(featuresForTier(programTier ?? null)),
       messagingAccessTiers,
       // Never let merged athlete/guardian payloads override the authenticated account identity.
       role: user.role,
