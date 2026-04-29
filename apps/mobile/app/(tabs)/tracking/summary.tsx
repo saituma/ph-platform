@@ -49,6 +49,7 @@ import {
   EFFORT_PENDING_FEEDBACK,
   initSQLiteRuns,
   saveRunRecord,
+  updateRunFeedback,
 } from "../../../lib/sqliteRuns";
 import { haversineDistance } from "../../../lib/haversine";
 import { TrackingMapView } from "../../../components/tracking/TrackingMapView";
@@ -143,6 +144,7 @@ export default function RunSummaryScreen() {
         feel_tags: "[]",
         notes: "",
         user_id: userId,
+        sport: null,
       });
       persistedThisSummaryRef.current = true;
     } catch (e) {
@@ -176,27 +178,10 @@ export default function RunSummaryScreen() {
       typeof distanceOverrideMeters === "number"
         ? distanceOverrideMeters
         : distanceMeters;
-    const distanceKm = finalDistanceMeters / 1000;
-    const avg_speed =
-      distanceKm > 0 && elapsedSeconds > 0
-        ? distanceKm / (elapsedSeconds / 3600)
-        : 0;
-    const avg_pace =
-      distanceKm > 0 && elapsedSeconds > 0
-        ? elapsedSeconds / 60 / distanceKm
-        : 0;
 
     try {
       initSQLiteRuns();
-      saveRunRecord({
-        id: currentRunId ?? Crypto.randomUUID(),
-        date: new Date().toISOString(),
-        distance_meters: finalDistanceMeters,
-        duration_seconds: elapsedSeconds,
-        avg_pace: Number.isNaN(avg_pace) || !isFinite(avg_pace) ? 0 : avg_pace,
-        avg_speed: Number.isNaN(avg_speed) || !isFinite(avg_speed) ? 0 : avg_speed,
-        calories: estimateCalories(finalDistanceMeters),
-        coordinates: JSON.stringify(coordinates),
+      updateRunFeedback(currentRunId ?? "", {
         effort_level: effort !== null ? effort * 2 : 0,
         feel_tags: JSON.stringify(
           selectedTags
@@ -204,7 +189,6 @@ export default function RunSummaryScreen() {
             .filter(Boolean),
         ),
         notes,
-        user_id: userId,
       });
       pushRunsToCloud();
     } catch (e) {
@@ -230,7 +214,9 @@ export default function RunSummaryScreen() {
     );
   };
 
-  const metrics = calculateRunMetrics(distanceMeters, elapsedSeconds, coordinates, 70);
+  const finalDistanceMetersDisplay =
+    typeof distanceOverrideMeters === "number" ? distanceOverrideMeters : distanceMeters;
+  const metrics = calculateRunMetrics(finalDistanceMetersDisplay, elapsedSeconds, coordinates, 70);
 
   const splitPoints = useMemo(() => {
     const points: Array<{ latitude: number; longitude: number; altitude?: number | null }> = [];
@@ -425,7 +411,7 @@ export default function RunSummaryScreen() {
                 </Text>
                 <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
                   <Text style={{ fontFamily: fonts.heroNumber, fontSize: 64, color: colors.textPrimary, letterSpacing: -2, fontVariant: ["tabular-nums"], lineHeight: 68 }}>
-                    {distanceMeters === 0 && elapsedSeconds < 2 ? "0.00" : formatDistanceKm(distanceMeters, 2)}
+                    {finalDistanceMetersDisplay === 0 && elapsedSeconds < 2 ? "0.00" : formatDistanceKm(finalDistanceMetersDisplay, 2)}
                   </Text>
                   <Text style={{ fontFamily: fonts.labelMedium, fontSize: 16, color: colors.textSecondary, marginBottom: 10, letterSpacing: 1 }}>
                     KM

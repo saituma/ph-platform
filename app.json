@@ -7,6 +7,12 @@
       "eas": {
         "projectId": "0a5da2db-d3dd-401e-b42c-4d7eacec808e"
       }
+    },
+    "ios": {
+      "bundleIdentifier": "com.phperformance.com",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }

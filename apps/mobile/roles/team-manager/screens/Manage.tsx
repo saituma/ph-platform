@@ -7,7 +7,9 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { fonts } from "@/constants/theme";
+import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterService";
+import { TEAM_MANAGER_TAB_ROUTES } from "@/roles/team-manager/tabs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TeamManagerManageScreen
@@ -17,7 +19,6 @@ export default function TeamManagerManageScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const { authTeamMembership, appRole, token } = useAppSelector((s) => s.user);
-  const bootstrapReady = useAppSelector((s) => s.app.bootstrapReady);
 
   const [roster, setRoster] = useState<RosterResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,18 +42,18 @@ export default function TeamManagerManageScreen() {
     roster?.team?.name?.trim() || authTeamMembership?.team || "Your Team";
 
   const loadRoster = useCallback(async (forceRefresh = false) => {
-    if (!token || !bootstrapReady) return;
+    if (!token) return;
     try {
       const res = await fetchRoster(token, forceRefresh);
       setRoster(res ?? null);
     } catch {
       // silent
     }
-  }, [token, bootstrapReady]);
+  }, [token]);
 
   useEffect(() => {
-    if (bootstrapReady) void loadRoster();
-  }, [loadRoster, bootstrapReady]);
+    void loadRoster();
+  }, [loadRoster]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -148,6 +149,7 @@ export default function TeamManagerManageScreen() {
                 alignItems: "center",
                 gap: 8,
                 flexWrap: "wrap",
+                marginBottom: 20,
               }}
             >
               <CountBadge
@@ -170,6 +172,64 @@ export default function TeamManagerManageScreen() {
                   icon="body-outline"
                 />
               )}
+            </View>
+
+            {/* ── Add Athlete CTA ── */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Pressable
+                onPress={() => router.push("/team-manager/add-athlete" as any)}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 7,
+                  backgroundColor: colors.accent,
+                  paddingHorizontal: 18,
+                  paddingVertical: 11,
+                  borderRadius: 22,
+                  opacity: pressed ? 0.82 : 1,
+                  transform: [{ scale: pressed ? 0.96 : 1 }],
+                })}
+              >
+                <Ionicons name="person-add" size={15} color="#000" />
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontFamily: fonts.bodyBold,
+                    color: "#000",
+                  }}
+                >
+                  Add Athlete
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push("/team-manager/roster")}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 7,
+                  backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)",
+                  paddingHorizontal: 18,
+                  paddingVertical: 11,
+                  borderRadius: 22,
+                  opacity: pressed ? 0.72 : 1,
+                })}
+              >
+                <Ionicons
+                  name="people-outline"
+                  size={15}
+                  color={isDark ? "hsl(148,5%,75%)" : "hsl(148,28%,20%)"}
+                />
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontFamily: fonts.bodyBold,
+                    color: isDark ? "hsl(148,5%,75%)" : "hsl(148,28%,20%)",
+                  }}
+                >
+                  View All
+                </Text>
+              </Pressable>
             </View>
           </View>
 
@@ -370,23 +430,30 @@ export default function TeamManagerManageScreen() {
                   subtitle="View and manage training sessions"
                   accent={colors.purple}
                   isFirst
-                  onPress={() => router.push("/(tabs)/schedule")}
+                  onPress={() => {
+                    const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "schedule");
+                    if (idx >= 0) requestGlobalTabChange(idx);
+                  }}
                 />
                 <ManageRow
                   icon="trophy-outline"
                   label="Leaderboard"
                   subtitle="View rankings and weekly activity"
                   accent={colors.amber}
-                  onPress={() =>
-                    router.push("/(tabs)/tracking/social" as any)
-                  }
+                  onPress={() => {
+                    const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "tracking");
+                    if (idx >= 0) requestGlobalTabChange(idx);
+                  }}
                 />
                 <ManageRow
                   icon="analytics-outline"
                   label="Athlete Activity"
                   subtitle="Monitor runs and performance stats"
                   accent={colors.coral}
-                  onPress={() => router.push("/(tabs)/tracking" as any)}
+                  onPress={() => {
+                    const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "tracking");
+                    if (idx >= 0) requestGlobalTabChange(idx);
+                  }}
                 />
               </View>
             </View>
@@ -409,9 +476,11 @@ export default function TeamManagerManageScreen() {
                   subtitle="Control who can see team activity"
                   accent={colors.purple}
                   isFirst
-                  onPress={() =>
-                    router.push("/(tabs)/tracking/team-settings" as any)
-                  }
+                  onPress={() => {
+                    const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "tracking");
+                    if (idx >= 0) requestGlobalTabChange(idx);
+                    setTimeout(() => router.push("/(tabs)/tracking/team-settings" as any), 300);
+                  }}
                 />
               </View>
             </View>

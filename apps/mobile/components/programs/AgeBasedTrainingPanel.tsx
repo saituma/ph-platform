@@ -1,5 +1,6 @@
 import React from "react";
 import { Alert, Pressable, View } from "react-native";
+import { useRouter } from "expo-router";
 
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -51,6 +52,7 @@ type OtherGroup = {
     title: string;
     body: string;
     scheduleNote?: string | null;
+    videoUrl?: string | null;
     metadata?: {
       kind?: string | null;
       scheduleDay?: string | null;
@@ -75,6 +77,7 @@ export function AgeBasedTrainingPanel({
   activeTab: string;
   onOpenModule: (moduleId: number) => void;
 }) {
+  const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const modules = workspace?.modules ?? [];
@@ -203,8 +206,9 @@ export function AgeBasedTrainingPanel({
   return (
     <View className="gap-4">
       {(group?.items ?? []).map((item) => (
-        <View
+        <Pressable
           key={item.id}
+          onPress={() => router.push(`/programs/training-other/${item.id}` as never)}
           className="rounded-[28px] border px-5 py-5"
           style={{
             backgroundColor: colors.card,
@@ -263,7 +267,7 @@ export function AgeBasedTrainingPanel({
               </Text>
             </>
           )}
-        </View>
+        </Pressable>
       ))}
       {!group?.items.length ? (
         <View

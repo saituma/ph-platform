@@ -254,6 +254,7 @@ export function useMessagesController() {
       if (currentThread.id.startsWith("group:")) {
         const groupId = Number(currentThread.id.replace("group:", ""));
         const clientId = `client-${Date.now()}`;
+        console.log("[DEBUG-msg] group send: optimistic ADD", { clientId, groupId, text: trimmed.slice(0, 40) });
         const previewLabel =
           trimmed ||
           getMediaPreviewLabel(payload.contentType, Boolean(payload.mediaUrl));
@@ -364,10 +365,21 @@ export function useMessagesController() {
               void Image.prefetch(serverMsg.mediaUrl);
             }
           } else {
-            setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
+            // API returned 2xx but no `message` object in the response.
+            // The message was almost certainly saved on the server — keep the
+            // optimistic visible and let loadGroupMessages reconcile it with
+            // the real server-side row when the server has indexed it.
+            console.warn(
+              "[DEBUG-msg] group send: success without message.id — keeping optimistic, reconciling via loadGroupMessages",
+              { clientId, response: created },
+            );
             void loadGroupMessages(groupId, { silent: true });
           }
         } catch (err) {
+          console.warn(
+            "[DEBUG-msg] group send: API threw — removing optimistic and restoring draft",
+            { clientId, err },
+          );
           setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
           void loadGroupMessages(groupId, { silent: true });
           throw err;
@@ -378,6 +390,7 @@ export function useMessagesController() {
       const toUserId = Number(currentThread.id);
       if (!Number.isFinite(toUserId) || toUserId <= 0) return;
       const clientId = `client-${Date.now()}`;
+      console.log("[DEBUG-msg] direct send: optimistic ADD", { clientId, toUserId, text: trimmed.slice(0, 40) });
       setMessages((prev) => [
         ...prev,
         {
@@ -436,6 +449,7 @@ export function useMessagesController() {
         });
         const serverMsg = created?.message;
         if (serverMsg?.id) {
+          console.log("[DEBUG-msg] direct send: API success with id =", serverMsg.id, "clientId =", clientId);
           const mapped = mapApiDirectMessageToChatMessage(
             serverMsg,
             String(effectiveProfileId),
@@ -451,7 +465,13 @@ export function useMessagesController() {
             return [...withoutDuplicateId, nextMapped];
           });
         } else {
-          setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
+          // API returned 2xx but no `message` object — server almost certainly
+          // saved it. Keep the optimistic visible; loadMessages will replace it
+          // with the canonical version when the server has indexed it.
+          console.warn(
+            "[DEBUG-msg] direct send: success without message.id — keeping optimistic, reconciling via loadMessages",
+            { clientId, response: created },
+          );
           void loadMessages({ silent: true });
         }
         if (payload.mediaUrl && payload.contentType === "image") {
@@ -463,6 +483,10 @@ export function useMessagesController() {
           void Image.prefetch(serverMsg.mediaUrl);
         }
       } catch (err) {
+        console.warn(
+          "[DEBUG-msg] direct send: API threw — removing optimistic and restoring draft",
+          { clientId, err },
+        );
         setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
         void loadMessages({ silent: true });
         throw err;

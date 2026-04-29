@@ -202,14 +202,20 @@ export async function copyTrainingModulesFromAudienceHandler(req: Request, res: 
 
 export async function copySelectedModulesToAudienceHandler(req: Request, res: Response) {
   const input = copySelectedModulesSchema.parse(req.body);
-  const workspace = await copySelectedModulesToAudience({
-    sourceAudienceLabel: input.sourceAudienceLabel,
-    targetAudienceLabel: input.targetAudienceLabel,
-    moduleIds: input.moduleIds,
-    sessionIds: input.sessionIds ?? null,
-    createdBy: req.user!.id,
-  });
-  return res.status(200).json(workspace);
+  try {
+    const workspace = await copySelectedModulesToAudience({
+      sourceAudienceLabel: input.sourceAudienceLabel,
+      targetAudienceLabel: input.targetAudienceLabel,
+      moduleIds: input.moduleIds,
+      sessionIds: input.sessionIds ?? null,
+      createdBy: req.user!.id,
+    });
+    return res.status(200).json(workspace);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Copy failed.";
+    console.error("[copy-selected] failed", err);
+    return res.status(400).json({ error: message });
+  }
 }
 
 export async function getTrainingContentAdminWorkspaceHandler(req: Request, res: Response) {

@@ -160,3 +160,63 @@ ${textP(`Your coach has approved your <strong>${tier}</strong> plan. You now hav
     console.warn("[Mailer] sendSubscriptionApprovedUserEmail skipped:", err);
   }
 }
+
+export async function sendPlanInviteEmail(input: {
+  to: string;
+  name: string;
+  planName: string;
+  planTier: string;
+  amountLabel?: string | null;
+  checkoutUrl: string;
+  invitedByName?: string | null;
+  /** Provided when this invite created a brand-new account; included in the email so they can log into mobile after paying. */
+  loginCredentials?: { email: string; temporaryPassword: string } | null;
+}) {
+  try {
+    const tierLabel = formatProgramTierLabel(input.planTier);
+    const subject = `You're invited to join ${input.planName}`;
+    const plan = escapeHtml(input.planName);
+    const tier = escapeHtml(tierLabel);
+    const amount = input.amountLabel ? escapeHtml(input.amountLabel) : null;
+    const inviter = input.invitedByName ? escapeHtml(input.invitedByName) : "Your coach";
+    const safeUrl = escapeHtml(input.checkoutUrl);
+
+    const bodyHtml = `
+${greetingLine(input.name, input.to)}
+${textP(`${inviter} has invited you to join the <strong>${plan}</strong> plan <span style="color:${E.muted};">(${tier})</span>.`)}
+${amount ? textP(`Plan: <strong>${amount}</strong>.`) : ""}
+${textP(`Click below to complete a quick onboarding form and pay — it takes about a minute.`)}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td style="border-radius:10px;background:#16a34a;">
+      <a href="${safeUrl}" style="display:inline-block;padding:14px 28px;font-family:${E.font};font-weight:700;font-size:15px;color:#ffffff;text-decoration:none;border-radius:10px;">
+        Complete onboarding & pay
+      </a>
+    </td>
+  </tr>
+</table>
+${textP(`<span style="color:${E.muted};font-size:13px;">Or paste this link into your browser:<br/><span style="word-break:break-all;">${safeUrl}</span></span>`, "0")}
+${input.loginCredentials ? `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;margin:16px 0 0;">
+  <tr>
+    <td style="padding:18px 22px;font-size:14px;color:#166534;line-height:1.6;font-family:${E.font};">
+      <strong style="display:block;margin-bottom:8px;font-size:13px;letter-spacing:0.04em;text-transform:uppercase;">Your mobile app login</strong>
+      <div style="margin-bottom:4px;">Email: <strong>${escapeHtml(input.loginCredentials.email)}</strong></div>
+      <div>Temporary password: <strong style="font-family:monospace;background:#fff;padding:2px 6px;border-radius:4px;border:1px solid #bbf7d0;">${escapeHtml(input.loginCredentials.temporaryPassword)}</strong></div>
+      <div style="margin-top:10px;font-size:12px;color:#166534;">Sign in to the PH Performance app after completing payment. Please change this password from your profile settings.</div>
+    </td>
+  </tr>
+</table>` : ""}
+${textP(`<span style="color:${E.muted};font-size:13px;">Didn't expect this email? You can safely ignore it.</span>`, "16px")}`;
+
+    const html = emailLayout({
+      preheader: `${inviter} invited you to join ${input.planName}.`,
+      eyebrow: "Plan invitation",
+      headline: `Join ${input.planName}`,
+      bodyHtml,
+    });
+    await deliverEmail({ to: input.to, subject, html });
+  } catch (err) {
+    console.warn("[Mailer] sendPlanInviteEmail skipped:", err);
+  }
+}

@@ -277,6 +277,20 @@ export const onboardingConfigTable = pgTable("onboarding_configs", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const portalConfigTable = pgTable("portal_configs", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  nav: jsonb(),
+  hero: jsonb(),
+  ceoIntro: jsonb(),
+  features: jsonb(),
+  testimonials: jsonb(),
+  cta: jsonb(),
+  footer: jsonb(),
+  updatedBy: integer().references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
 export const ageExperienceTable = pgTable("age_experience_rules", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   title: varchar({ length: 255 }).notNull(),
@@ -1052,13 +1066,16 @@ export const subscriptionPlanTable = pgTable("subscription_plans", {
   stripePriceId: varchar({ length: 255 }).notNull(),
   stripePriceIdMonthly: varchar({ length: 255 }),
   stripePriceIdYearly: varchar({ length: 255 }),
+  stripePriceIdOneTime: varchar({ length: 255 }),
   displayPrice: varchar({ length: 100 }).notNull(),
   billingInterval: varchar({ length: 50 }).notNull(),
   monthlyPrice: varchar({ length: 100 }),
   yearlyPrice: varchar({ length: 100 }),
+  oneTimePrice: varchar({ length: 100 }),
   discountType: varchar({ length: 20 }),
   discountValue: varchar({ length: 50 }),
   discountAppliesTo: varchar({ length: 20 }),
+  features: jsonb().$type<string[]>(),
   isActive: boolean().notNull().default(true),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
@@ -1193,6 +1210,7 @@ export const serviceTypeTable = pgTable("service_types", {
   slotIntervalMinutes: integer(),
   slotDefinitions: jsonb(),
   isActive: boolean().notNull().default(true),
+  isBookable: boolean().notNull().default(true),
   createdBy: integer()
     .notNull()
     .references(() => userTable.id),

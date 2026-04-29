@@ -52,6 +52,28 @@ function getGreeting(): string {
   return "Good evening";
 }
 
+type IntroAudience = "team" | "youth" | "adult";
+
+function audienceFromAppRole(role: string | null | undefined): IntroAudience | null {
+  if (!role) return null;
+  if (role === "team" || role.endsWith("_team") || role.endsWith("_team_guardian")) return "team";
+  if (role.startsWith("youth")) return "youth";
+  if (role.startsWith("adult")) return "adult";
+  return null;
+}
+
+function pickIntroVideoForRole(
+  introVideos: Array<{ url: string; roles: Array<IntroAudience> }> | null | undefined,
+  fallback: string | null | undefined,
+  audience: IntroAudience | null,
+): string | null {
+  if (audience && Array.isArray(introVideos)) {
+    const match = introVideos.find((rule) => rule?.roles?.includes(audience))?.url;
+    if (match) return match;
+  }
+  return fallback ?? null;
+}
+
 function formatKm(m: number): string {
   return (m / 1000).toFixed(1);
 }
@@ -303,7 +325,11 @@ const HomeScreen = memo(function HomeScreen() {
         {/* ── Intro video ──────────────────────────────────────── */}
         <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(220).duration(300).springify()}>
           <IntroVideoSection
-            introVideoUrl={homeContent?.introVideoUrl}
+            introVideoUrl={pickIntroVideoForRole(
+              homeContent?.introVideos,
+              homeContent?.introVideoUrl,
+              audienceFromAppRole(appRole),
+            )}
             posterUrl={homeContent?.heroImageUrl}
             isTabActive={true}
             tabIndex={0}

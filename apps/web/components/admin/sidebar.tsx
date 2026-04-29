@@ -153,7 +153,7 @@ export function AdminSidebarContent({
         { label: "Add user", href: "/users/add", icon: UserPlus },
         { label: "Add team", href: "/users/add-team", icon: Users },
         { label: "Teams", href: "/teams", icon: Users },
-        { label: "Onboarding", href: "/onboarding-config", icon: SlidersHorizontal },
+        { label: "Portal Config", href: "/portal-config", icon: SlidersHorizontal },
         { label: "Client training", href: "/training-snapshot", icon: ClipboardList },
         { label: "Tracking", href: "/tracking", icon: Activity },
         { label: "Training answers", href: "/training-questionnaires", icon: ClipboardCheck },

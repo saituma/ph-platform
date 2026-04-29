@@ -1,7 +1,10 @@
 import { useCallback, useState } from "react";
 import { apiRequest } from "@/lib/api";
-import { AdminDmThread, DirectMessage, PendingAttachment } from "@/types/admin-messages";
-import { safeNumber } from "@/lib/admin-messages-utils";
+import { AdminDmThread, DirectMessage } from "@/types/admin-messages";
+import {
+  getCachedAdminDmMessages,
+  setCachedAdminDmMessages,
+} from "@/lib/admin/adminMessageCache";
 
 export function useAdminDms(token: string | null, canLoad: boolean) {
   const [threads, setThreads] = useState<AdminDmThread[]>([]);
@@ -47,7 +50,11 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
 
   const loadMessages = useCallback(async (userId: number, forceRefresh: boolean) => {
     if (!token || !canLoad) return;
-    setMessagesLoading(true);
+    const cached = getCachedAdminDmMessages(userId);
+    if (cached) {
+      setMessages(cached);
+    }
+    setMessagesLoading(!cached);
     setMessagesError(null);
     try {
       const res = await apiRequest<{ messages?: DirectMessage[] }>(
@@ -59,7 +66,11 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
           suppressStatusCodes: [403],
         }
       );
-      setMessages(Array.isArray(res?.messages) ? res.messages.reverse() : []);
+      const nextMessages = Array.isArray(res?.messages)
+        ? [...res.messages].reverse()
+        : [];
+      setCachedAdminDmMessages(userId, nextMessages);
+      setMessages(nextMessages);
       void apiRequest(`/admin/messages/${userId}/read`, {
         method: "POST",
         token,

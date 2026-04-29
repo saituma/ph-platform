@@ -743,6 +743,41 @@
       "when": 1777895200000,
       "tag": "0105_fix_athlete_41_tier",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1777981600000,
+      "tag": "0106_add_service_type_is_bookable",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1777459399476,
+      "tag": "0107_plain_the_hunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1778068000000,
+      "tag": "0108_portal_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1777462137378,
+      "tag": "0109_fast_george_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1778154400000,
+      "tag": "0110_portal_config_extra_sections",
+      "breakpoints": true
     }
   ]
 }

@@ -333,6 +333,137 @@ const TeamBanner = memo(function TeamBanner() {
   );
 });
 
+// ── Service schedule helpers ─────────────────────────────────────────
+
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatServiceSchedule(service: import("@/components/tracking/schedule/types").ServiceType): string {
+  if (service.schedulePattern === "weekly_recurring" && Array.isArray(service.weeklyEntries) && service.weeklyEntries.length > 0) {
+    const entry = service.weeklyEntries[0];
+    const dayName = WEEKDAY_NAMES[entry.weekday] ?? "Weekly";
+    const [h, m] = entry.time.split(":").map(Number);
+    const ampm = (h ?? 0) >= 12 ? "PM" : "AM";
+    const hour12 = ((h ?? 0) % 12) || 12;
+    const min = String(m ?? 0).padStart(2, "0");
+    return `Every ${dayName} at ${hour12}:${min} ${ampm}`;
+  }
+  if (service.oneTimeDate) {
+    const d = new Date(`${service.oneTimeDate}T${service.oneTimeTime ?? "12:00"}:00`);
+    const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    const [h, m] = (service.oneTimeTime ?? "12:00").split(":").map(Number);
+    const ampm = (h ?? 0) >= 12 ? "PM" : "AM";
+    const hour12 = ((h ?? 0) % 12) || 12;
+    const min = String(m ?? 0).padStart(2, "0");
+    return `${label} · ${hour12}:${min} ${ampm}`;
+  }
+  return "Flexible timing";
+}
+
+// ── Pinned service card ──────────────────────────────────────────────
+
+interface ServiceCardProps {
+  service: import("@/components/tracking/schedule/types").ServiceType;
+  onBook?: () => void;
+  isDark: boolean;
+  colors: Record<string, string>;
+}
+
+const ServiceCard = memo(function ServiceCard({ service, onBook, isDark, colors }: ServiceCardProps) {
+  const scheduleLabel = useMemo(() => formatServiceSchedule(service), [service]);
+  const isRecurring = service.schedulePattern === "weekly_recurring";
+  const bookable = service.isBookable !== false;
+
+  return (
+    <View style={[
+      sc.card,
+      { backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF", shadowColor: isDark ? "transparent" : "#000" },
+    ]}>
+      <View style={[sc.dot, { backgroundColor: isRecurring ? "#6366F1" : "#22C55E" }]} />
+      <View style={sc.body}>
+        <Text style={[sc.name, { color: colors.textPrimary, fontFamily: "Outfit-SemiBold" }]} numberOfLines={1}>
+          {service.name}
+        </Text>
+        <View style={sc.row}>
+          <Ionicons
+            name={isRecurring ? "repeat-outline" : "calendar-outline"}
+            size={11}
+            color={isRecurring ? "#6366F1" : "#22C55E"}
+          />
+          <Text style={[sc.schedule, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+            {scheduleLabel}
+          </Text>
+        </View>
+        {service.durationMinutes > 0 && (
+          <Text style={[sc.duration, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+            {service.durationMinutes < 60
+              ? `${service.durationMinutes}m`
+              : `${Math.floor(service.durationMinutes / 60)}h${service.durationMinutes % 60 ? ` ${service.durationMinutes % 60}m` : ""}`}
+          </Text>
+        )}
+      </View>
+      {bookable && onBook ? (
+        <Pressable
+          onPress={onBook}
+          style={({ pressed }) => [sc.bookBtn, { backgroundColor: colors.accent, opacity: pressed ? 0.8 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Book ${service.name}`}
+        >
+          <Text style={[sc.bookBtnText, { fontFamily: "Outfit-SemiBold" }]}>Book</Text>
+        </Pressable>
+      ) : (
+        <View style={[sc.infoTag, { backgroundColor: `${colors.textSecondary}18` }]}>
+          <Text style={[sc.infoTagText, { color: colors.textSecondary, fontFamily: "Outfit-Medium" }]}>
+            Info
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+});
+
+// ── Services panel ───────────────────────────────────────────────────
+
+interface ServicesPanelProps {
+  bookable: import("@/components/tracking/schedule/types").ServiceType[];
+  nonBookable: import("@/components/tracking/schedule/types").ServiceType[];
+  onBook: (serviceId: number) => void;
+  isDark: boolean;
+  colors: Record<string, string>;
+}
+
+const ServicesPanel = memo(function ServicesPanel({ bookable, nonBookable, onBook, isDark, colors }: ServicesPanelProps) {
+  if (bookable.length === 0 && nonBookable.length === 0) return null;
+  const all = [...bookable, ...nonBookable];
+  return (
+    <View style={sp.wrapper}>
+      <SectionLabel icon="storefront-outline" label="Services" count={all.length} accent="#6366F1" />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={sp.scroll}
+      >
+        {bookable.map((svc) => (
+          <ServiceCard
+            key={svc.id}
+            service={svc}
+            onBook={() => onBook(svc.id)}
+            isDark={isDark}
+            colors={colors}
+          />
+        ))}
+        {nonBookable.map((svc) => (
+          <ServiceCard
+            key={svc.id}
+            service={svc}
+            isDark={isDark}
+            colors={colors}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+});
+
 // ── Main screen ──────────────────────────────────────────────────────
 
 export default memo(function ScheduleScreen() {
@@ -358,6 +489,7 @@ export default memo(function ScheduleScreen() {
   const queryClient = useQueryClient();
 
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingServiceId, setBookingServiceId] = useState<number | null>(null);
   const [pastOpen, setPastOpen] = useState(false);
 
   // Re-prefetch on each tab focus so data stays fresh
@@ -396,12 +528,14 @@ export default memo(function ScheduleScreen() {
   const bookingServices = useMemo(() => {
     const base = hasPhpPlusPlanFeatures(programTier)
       ? services
-      : services.filter((s) => String(s.type).toLowerCase() !== "semi_private");
+      : services.filter((s) => String(s.type ?? "").toLowerCase() !== "semi_private");
 
     return base.filter((s) => {
       const targets = s.eligibleTargets;
       // No restriction set — visible to everyone
       if (!Array.isArray(targets) || targets.length === 0) return true;
+      // Explicitly set to all clients
+      if (targets.includes("all")) return true;
       // Check youth/adult audience match
       if (userAthleteType && targets.includes(userAthleteType)) return true;
       // Check team membership match (format: "team:123")
@@ -410,6 +544,15 @@ export default memo(function ScheduleScreen() {
       return false;
     });
   }, [services, programTier, userAthleteType, userTeamId]);
+
+  const bookableServices = useMemo(
+    () => bookingServices.filter((s) => s.isBookable !== false),
+    [bookingServices],
+  );
+  const nonBookableServices = useMemo(
+    () => bookingServices.filter((s) => s.isBookable === false),
+    [bookingServices],
+  );
 
   // ── Partition events ─────────────────────────────────────────
   const nowMs = Date.now();
@@ -493,6 +636,13 @@ export default memo(function ScheduleScreen() {
 
   const openBooking = useCallback(() => {
     if (services.length === 0) refreshServices();
+    setBookingServiceId(null);
+    setBookingOpen(true);
+  }, [services.length, refreshServices]);
+
+  const openBookingForService = useCallback((serviceId: number) => {
+    if (services.length === 0) refreshServices();
+    setBookingServiceId(serviceId);
     setBookingOpen(true);
   }, [services.length, refreshServices]);
 
@@ -523,6 +673,17 @@ export default memo(function ScheduleScreen() {
 
       {/* ── Team banner ── */}
       {!canBook && <TeamBanner />}
+
+      {/* ── Pinned services ── */}
+      {(bookableServices.length > 0 || nonBookableServices.length > 0) && (
+        <ServicesPanel
+          bookable={bookableServices}
+          nonBookable={nonBookableServices}
+          onBook={openBookingForService}
+          isDark={isDark}
+          colors={colors as Record<string, string>}
+        />
+      )}
 
       {/* ── Main scroll ── */}
       <ScrollView
@@ -643,13 +804,14 @@ export default memo(function ScheduleScreen() {
       {/* ── Booking modal ── */}
       <BookingModal
         visible={bookingOpen}
-        onClose={() => setBookingOpen(false)}
+        onClose={() => { setBookingOpen(false); setBookingServiceId(null); }}
         token={token}
-        services={bookingServices}
+        services={bookableServices}
         servicesLoading={servicesLoading}
         servicesError={servicesError}
         canCreateBookings={canBook}
         onSuccess={refreshEvents}
+        initialServiceId={bookingServiceId}
       />
     </View>
   );
@@ -739,6 +901,9 @@ const s = StyleSheet.create({
   },
   pastToggleText: { fontSize: 13 },
 
+  // Services panel
+  servicesSection: { marginBottom: 4 },
+
   // FAB
   fabWrap: { position: "absolute", left: 20, right: 20 },
   fabBtn: {
@@ -749,4 +914,36 @@ const s = StyleSheet.create({
     elevation: 6,
   },
   fabLabel: { fontSize: 16, color: "#FFF", letterSpacing: -0.1 },
+});
+
+// ── Service card styles ───────────────────────────────────────────────
+
+const sc = StyleSheet.create({
+  card: {
+    width: 220, flexDirection: "row", alignItems: "center", gap: 10,
+    borderRadius: 18, padding: 14, marginRight: 12,
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6,
+    elevation: 2,
+  },
+  dot: { width: 8, height: 8, borderRadius: 4, alignSelf: "flex-start", marginTop: 4, flexShrink: 0 },
+  body: { flex: 1, gap: 3 },
+  name: { fontSize: 14, letterSpacing: -0.1 },
+  row: { flexDirection: "row", alignItems: "center", gap: 4 },
+  schedule: { fontSize: 11, flex: 1 },
+  duration: { fontSize: 11, opacity: 0.6 },
+  bookBtn: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexShrink: 0,
+  },
+  bookBtnText: { fontSize: 12, color: "#FFF" },
+  infoTag: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, flexShrink: 0,
+  },
+  infoTagText: { fontSize: 11 },
+});
+
+// ── Services panel styles ─────────────────────────────────────────────
+
+const sp = StyleSheet.create({
+  wrapper: { paddingHorizontal: 20, marginBottom: 8 },
+  scroll: { paddingVertical: 4 },
 });

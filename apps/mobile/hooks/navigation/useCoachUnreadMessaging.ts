@@ -1,15 +1,31 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { runWhenIdle } from "@/lib/scheduling/idle";
+import { useSocket } from "@/context/SocketContext";
+import { useAppSelector } from "@/store/hooks";
 
+/**
+ * Drives the messaging tab badge for admin/coach roles.
+ *
+ * Sums unread across DM threads + group chats. Real-time updates via socket
+ * events (read receipts, new messages); the 60s poll is a safety-net for
+ * transient disconnects.
+ */
 export function useCoachUnreadMessaging(token: string | null, enabled: boolean) {
   const [unreadCount, setUnreadCount] = useState(0);
+  const inFlightRef = useRef(false);
+  const { socket } = useSocket();
+  const profileId = useAppSelector((s) => s.user.profile.id ?? null);
 
   const syncAdminUnread = useCallback(async () => {
     if (!token || !enabled) {
       setUnreadCount(0);
       return;
     }
+    // Drop overlapping calls so a flurry of socket events doesn't hammer the API.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
     try {
       const [threadsRes, groupsRes] = await Promise.all([
         apiRequest<{ threads?: any[] }>("/admin/messages/threads?limit=200", {
@@ -37,9 +53,12 @@ export function useCoachUnreadMessaging(token: string | null, enabled: boolean) 
       setUnreadCount(Math.max(0, dmUnread + groupUnread));
     } catch {
       setUnreadCount(0);
+    } finally {
+      inFlightRef.current = false;
     }
   }, [enabled, token]);
 
+  // Initial fetch + low-frequency safety-net poll.
   useEffect(() => {
     if (!token || !enabled) {
       setUnreadCount(0);
@@ -52,7 +71,7 @@ export function useCoachUnreadMessaging(token: string | null, enabled: boolean) 
     });
     const timer = setInterval(() => {
       if (active) syncAdminUnread();
-    }, 30000);
+    }, 60000);
 
     return () => {
       active = false;
@@ -60,6 +79,50 @@ export function useCoachUnreadMessaging(token: string | null, enabled: boolean) 
       task?.cancel?.();
     };
   }, [enabled, syncAdminUnread, token]);
+
+  // Real-time updates via socket events.
+  useEffect(() => {
+    if (!socket || !enabled || profileId == null) return;
+    const myId = String(profileId);
+
+    const handleMessageNew = (payload: any) => {
+      const senderId = String(payload?.senderId ?? "");
+      if (!senderId || senderId === myId) return;
+      const receiverId = String(payload?.receiverId ?? "");
+      if (receiverId !== myId) return;
+      setUnreadCount((c) => c + 1);
+    };
+
+    const handleGroupMessage = (payload: any) => {
+      const senderId = String(payload?.senderId ?? "");
+      if (!senderId || senderId === myId) return;
+      setUnreadCount((c) => c + 1);
+    };
+
+    const handleMessageRead = (payload: any) => {
+      const readerUserId = String(payload?.readerUserId ?? "");
+      if (readerUserId !== myId) return;
+      void syncAdminUnread();
+    };
+
+    const handleGroupRead = (payload: any) => {
+      const readerUserId = String(payload?.readerUserId ?? "");
+      if (readerUserId !== myId) return;
+      void syncAdminUnread();
+    };
+
+    socket.on("message:new", handleMessageNew);
+    socket.on("group:message", handleGroupMessage);
+    socket.on("message:read", handleMessageRead);
+    socket.on("group:read", handleGroupRead);
+
+    return () => {
+      socket.off("message:new", handleMessageNew);
+      socket.off("group:message", handleGroupMessage);
+      socket.off("message:read", handleMessageRead);
+      socket.off("group:read", handleGroupRead);
+    };
+  }, [socket, enabled, profileId, syncAdminUnread]);
 
   return { unreadCount, setUnreadCount, syncAdminUnread };
 }

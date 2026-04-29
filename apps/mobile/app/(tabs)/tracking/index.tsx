@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Path } from "react-native-svg";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import Animated, {
@@ -27,6 +28,7 @@ import { formatDurationClock, formatHoursMinutes } from "@/lib/tracking/runUtils
 import { useRunStore } from "@/store/useRunStore";
 import { ActiveRunBanner } from "@/components/tracking/ActiveRunBanner";
 import { useAppSelector } from "@/store/hooks";
+import { ActiveRunSportSheet, type SportId } from "@/components/tracking/active-run/ActiveRunSportSheet";
 import type { ManagedAthlete } from "@/store/slices/userSlice";
 import {
   canAccessTrackingTab,
@@ -40,6 +42,12 @@ import {
 } from "@/services/tracking/socialService";
 import { fetchTeamLocations, type UserLocation } from "@/services/tracking/locationService";
 import { relativeTime } from "@/lib/tracking/relativeTime";
+
+const SPORT_CATEGORIES: { label: string; icon: string; sports: string[] }[] = [
+  { label: "Foot Sports", icon: "shoe-sneaker", sports: ["run", "trail_run", "walk", "hike", "virtual_run", "treadmill"] },
+  { label: "Cycle Sports", icon: "bike", sports: ["ride"] },
+  { label: "Water Sports", icon: "swim", sports: ["swim"] },
+];
 
 export default function TrackingHomeScreen() {
   const router = useRouter();
@@ -126,6 +134,25 @@ export default function TrackingHomeScreen() {
     firstManagedAthlete: managedAthletes[0] ?? null,
   });
 
+  const categorizedRuns = useMemo(() => {
+    const sections: { label: string; icon: string; data: RunRecord[] }[] = [];
+    for (const cat of SPORT_CATEGORIES) {
+      const matching = runs.filter((r) => cat.sports.includes(r.sport ?? "run"));
+      if (matching.length > 0) {
+        sections.push({ label: cat.label, icon: cat.icon, data: matching });
+      }
+    }
+    // Uncategorized (sport is null/unknown and not in any category)
+    const allCategorizedSports = SPORT_CATEGORIES.flatMap((c) => c.sports);
+    const uncategorized = runs.filter((r) => !allCategorizedSports.includes(r.sport ?? "run"));
+    if (uncategorized.length > 0) {
+      sections.push({ label: "Other", icon: "run", data: uncategorized });
+    }
+    return sections;
+  }, [runs]);
+
+  const hasCategorized = categorizedRuns.length > 1 || (categorizedRuns.length === 1 && categorizedRuns[0]!.label !== "Foot Sports");
+
   const latestRun = runs[0] ?? null;
   const weeklyRunCountLabel = `${weeklyStats.numRuns} ${weeklyStats.numRuns === 1 ? "run" : "runs"} this week`;
   const averageRunDistanceKm =
@@ -137,13 +164,21 @@ export default function TrackingHomeScreen() {
     : "No runs yet";
 
   const runStatus = useRunStore((s) => s.status);
+  const [sportSheetOpen, setSportSheetOpen] = useState(false);
+  const [selectedSport, setSelectedSport] = useState<SportId>("run");
 
-  // When a run is already active, jump straight to the live stats screen.
-  useEffect(() => {
-    if (runStatus === "running" || runStatus === "paused") {
-      router.replace("/(tabs)/tracking/active-run" as any);
-    }
-  }, [runStatus, router]);
+  // When a run is already active and the user lands on / returns to this screen,
+  // jump straight to the live stats screen. Crucially, this is `useFocusEffect`
+  // (not `useEffect`) — otherwise this fires on every store status change while
+  // the user is on /active-run, re-mounting that screen and wiping its local state
+  // (mapStyle, sheet positions, etc.).
+  useFocusEffect(
+    useCallback(() => {
+      if (runStatus === "running" || runStatus === "paused") {
+        router.replace("/(tabs)/tracking/active-run" as any);
+      }
+    }, [runStatus, router]),
+  );
 
   const handleStartRun = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -151,13 +186,7 @@ export default function TrackingHomeScreen() {
       router.replace("/(tabs)/tracking/active-run" as any);
       return;
     }
-    const store = useRunStore.getState();
-    store.resetRun();
-    store.setDestination(null);
-    store.setGoalKm(null);
-    store.setProgressNotifyEveryMeters(null);
-    store.startRun();
-    router.push("/(tabs)/tracking/active-run" as any);
+    setSportSheetOpen(true);
   }, [router, runStatus]);
 
   useEffect(() => {
@@ -189,6 +218,7 @@ export default function TrackingHomeScreen() {
   const separatorColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
 
   return (
+    <>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         bounces
@@ -374,11 +404,11 @@ export default function TrackingHomeScreen() {
             />
           </Pressable>
 
-          {/* ── Recent runs ── */}
+          {/* ── Recent runs (categorized) ── */}
           <View style={{ gap: 8 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
               <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
-                Recent runs
+                Activities
               </Text>
               <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,42%)" : "hsl(220,5%,55%)" }}>
                 {runs.length} total
@@ -387,66 +417,52 @@ export default function TrackingHomeScreen() {
 
             {runs.length === 0 ? (
               <TrackingEmptyState onStartRun={handleStartRun} colors={colors} isDark={isDark} />
-            ) : (
-              <View
-                style={{
-                  backgroundColor: cardBg,
-                  borderRadius: 24,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
-                  overflow: "hidden",
-                }}
-              >
-                {runs.slice(0, 6).map((run, idx) => (
-                  <Pressable
-                    key={run.id}
-                    onPress={() =>
-                      router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any)
-                    }
-                    style={({ pressed }) => ({
-                      paddingHorizontal: 20,
-                      paddingVertical: 14,
-                      backgroundColor: pressed
-                        ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
-                        : "transparent",
-                    })}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
-                        {/* Accent bar */}
-                        <View style={{ width: 3, height: 36, borderRadius: 2, backgroundColor: colors.accent, opacity: 0.55 }} />
-                        <View style={{ flex: 1 }}>
-                          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
-                            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 18, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
-                              {formatKm(run.distance_meters)}
-                            </Text>
-                            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
-                              km
-                            </Text>
-                          </View>
-                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,54%)", marginTop: 1 }}>
-                            {new Date(run.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: isDark ? "hsl(220,5%,56%)" : "hsl(220,5%,44%)" }}>
-                        {formatDurationClock(run.duration_seconds)}
+            ) : hasCategorized ? (
+              /* ── Multi-sport: show by category ── */
+              <View style={{ gap: 12 }}>
+                {categorizedRuns.map((section) => (
+                  <View key={section.label} style={{ gap: 6 }}>
+                    {/* Section header */}
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
+                      <MaterialCommunityIcons name={section.icon as any} size={14} color={colors.accent} />
+                      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.8, color: isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,48%)", textTransform: "uppercase" }}>
+                        {section.label}
                       </Text>
                     </View>
-
-                    {idx < Math.min(runs.length, 6) - 1 && (
-                      <View
-                        style={{
-                          position: "absolute",
-                          bottom: 0,
-                          left: 35,
-                          right: 20,
-                          height: 1,
-                          backgroundColor: separatorColor,
-                        }}
-                      />
-                    )}
-                  </Pressable>
+                    {/* Runs card */}
+                    <View style={{ backgroundColor: cardBg, borderRadius: 20, borderWidth: 1, borderColor: cardBorder, overflow: "hidden" }}>
+                      {section.data.slice(0, 5).map((run, idx) => (
+                        <RunRow
+                          key={run.id}
+                          run={run}
+                          idx={idx}
+                          total={Math.min(section.data.length, 5)}
+                          colors={colors}
+                          isDark={isDark}
+                          separatorColor={separatorColor}
+                          formatKm={formatKm}
+                          onPress={() => router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              /* ── Single sport: plain list ── */
+              <View style={{ backgroundColor: cardBg, borderRadius: 24, borderWidth: 1, borderColor: cardBorder, overflow: "hidden" }}>
+                {runs.slice(0, 6).map((run, idx) => (
+                  <RunRow
+                    key={run.id}
+                    run={run}
+                    idx={idx}
+                    total={Math.min(runs.length, 6)}
+                    colors={colors}
+                    isDark={isDark}
+                    separatorColor={separatorColor}
+                    formatKm={formatKm}
+                    onPress={() => router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any)}
+                  />
                 ))}
               </View>
             )}
@@ -463,6 +479,7 @@ export default function TrackingHomeScreen() {
           bottom: trackingScrollBottomPad(insets) + 20,
           right: 20,
           zIndex: 99,
+          opacity: sportSheetOpen ? 0 : 1,
           // Light mode only shadow
           ...(isDark
             ? {}
@@ -499,6 +516,87 @@ export default function TrackingHomeScreen() {
         </Animated.View>
       </View>
     </View>
+
+    <ActiveRunSportSheet
+      open={sportSheetOpen}
+      selectedSport={selectedSport}
+      onSelect={(sport) => {
+        setSelectedSport(sport);
+        setSportSheetOpen(false);
+        const store = useRunStore.getState();
+        store.resetRun();
+        store.setDestination(null);
+        store.setGoalKm(null);
+        store.setProgressNotifyEveryMeters(null);
+        store.startRun();
+        store.pauseRun();
+        router.push("/(tabs)/tracking/active-run" as any);
+      }}
+      onClose={() => setSportSheetOpen(false)}
+      colors={colors}
+    />
+    </>
+  );
+}
+
+// ── RunRow ───────────────────────────────────────────────────────────────────
+
+function RunRow({
+  run,
+  idx,
+  total,
+  colors,
+  isDark,
+  separatorColor,
+  formatKm,
+  onPress,
+}: {
+  run: RunRecord;
+  idx: number;
+  total: number;
+  colors: Record<string, string>;
+  isDark: boolean;
+  separatorColor: string;
+  formatKm: (m: number) => string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        backgroundColor: pressed
+          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
+          : "transparent",
+      })}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+          <View style={{ width: 3, height: 36, borderRadius: 2, backgroundColor: colors.accent, opacity: 0.55 }} />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 18, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
+                {formatKm(run.distance_meters)}
+              </Text>
+              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                km
+              </Text>
+            </View>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,54%)", marginTop: 1 }}>
+              {new Date(run.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+            </Text>
+          </View>
+        </View>
+        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: isDark ? "hsl(220,5%,56%)" : "hsl(220,5%,44%)" }}>
+          {formatDurationClock(run.duration_seconds)}
+        </Text>
+      </View>
+
+      {idx < total - 1 && (
+        <View style={{ position: "absolute", bottom: 0, left: 35, right: 20, height: 1, backgroundColor: separatorColor }} />
+      )}
+    </Pressable>
   );
 }
 

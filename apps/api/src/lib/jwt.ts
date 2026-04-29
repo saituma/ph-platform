@@ -41,3 +41,45 @@ export async function createLocalToken(input: {
 export function decodeAccessToken(token: string) {
   return decodeJwt(token);
 }
+
+/**
+ * Sign a single-use invite token (carries plan id + email so the public invite page
+ * doesn't need a DB-backed nonce table). 14-day expiry.
+ */
+export async function createPlanInviteToken(input: {
+  planId: number;
+  email: string;
+  invitedByUserId?: number;
+  invitedByName?: string;
+}) {
+  const secret = new TextEncoder().encode(env.jwtSecret);
+  return await new SignJWT({
+    purpose: "plan_invite",
+    plan_id: input.planId,
+    email: input.email,
+    invited_by_user_id: input.invitedByUserId ?? null,
+    invited_by_name: input.invitedByName ?? null,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("14d")
+    .sign(secret);
+}
+
+export async function verifyPlanInviteToken(token: string) {
+  const payload = await verifyAccessToken(token);
+  if (payload.purpose !== "plan_invite") {
+    throw new Error("Invalid invite token");
+  }
+  const planId = Number(payload.plan_id);
+  const email = typeof payload.email === "string" ? payload.email : "";
+  if (!Number.isFinite(planId) || planId < 1 || !email) {
+    throw new Error("Invalid invite payload");
+  }
+  return {
+    planId,
+    email,
+    invitedByName:
+      typeof payload.invited_by_name === "string" ? payload.invited_by_name : null,
+  };
+}

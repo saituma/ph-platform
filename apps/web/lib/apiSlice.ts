@@ -376,6 +376,7 @@ export const apiSlice = createApi({
     "Services",
     "Dashboard",
     "OnboardingConfig",
+    "PortalConfig",
     "ParentCourses",
     "TestimonialSubmissions",
     "Availability",
@@ -1062,6 +1063,13 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["ParentCourses"],
     }),
+    deleteParentCourse: builder.mutation<{ deleted: boolean }, { id: number }>({
+      query: ({ id }) => ({
+        url: `/content/parent-courses/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["ParentCourses"],
+    }),
     updateContent: builder.mutation<
       { item: any },
       { id: number; data: ApiPayload }
@@ -1468,6 +1476,34 @@ export const apiSlice = createApi({
         body,
       }),
     }),
+    getPortalConfig: builder.query<{ config: any }, void>({
+      query: () => "/admin/portal-config",
+      providesTags: ["PortalConfig"],
+    }),
+    getAppFeedback: builder.query<
+      {
+        items: Array<{
+          id: number;
+          senderId: number;
+          senderName: string;
+          senderEmail: string;
+          category: string;
+          message: string;
+          createdAt: string;
+        }>;
+      },
+      void
+    >({
+      query: () => "/admin/app-feedback",
+    }),
+    updatePortalConfig: builder.mutation<{ config: any }, ApiPayload>({
+      query: (body) => ({
+        url: "/admin/portal-config",
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["PortalConfig"],
+    }),
     getChatGroups: builder.query<
       { groups: any[] },
       { q?: string; limit?: number } | void
@@ -1634,6 +1670,7 @@ export const {
   useCreateMediaUploadUrlMutation,
   useCreateParentCourseMutation,
   useUpdateParentCourseMutation,
+  useDeleteParentCourseMutation,
   useUpdateContentMutation,
   useMarkThreadReadMutation,
   useSendMessageMutation,
@@ -1671,6 +1708,9 @@ export const {
   useUpdateOnboardingConfigMutation,
   useGetPhpPlusTabsQuery,
   useUpdatePhpPlusTabsMutation,
+  useGetPortalConfigQuery,
+  useUpdatePortalConfigMutation,
+  useGetAppFeedbackQuery,
   useGetChatGroupsQuery,
   useCreateChatGroupMutation,
   useAddChatGroupMembersMutation,

@@ -11,6 +11,10 @@ import {
   createTeamCheckout,
   createPaymentSheet,
   createPlanAdmin,
+  importPlanAdmin,
+  invitePlanUserAdmin,
+  getPlanInviteSummaryPublic,
+  consumePlanInvitePublic,
   downgradePlan,
   getBillingStatus,
   getPaymentReceipt,
@@ -18,6 +22,7 @@ import {
   listTeamRequestsAdmin,
   listPlans,
   listPlansAdmin,
+  listStripePricesAdmin,
   listRequestsAdmin,
   rejectRequestAdmin,
   rejectTeamRequestAdmin,
@@ -30,6 +35,9 @@ import {
 const router = Router();
 
 router.get("/billing/plans", listPlans);
+// Public invite endpoints (no auth — token is the credential).
+router.get("/public/plan-invites/:token", getPlanInviteSummaryPublic);
+router.post("/public/plan-invites/:token/checkout", consumePlanInvitePublic);
 router.get("/billing/public-plans", listPlans);
 router.get("/billing/status", requireAuth, getBillingStatus);
 router.post("/billing/checkout", requireAuth, createCheckout);
@@ -43,7 +51,20 @@ router.post("/billing/downgrade", requireAuth, downgradePlan);
 router.get("/billing/invoices", requireAuth, listInvoices);
 
 router.get("/admin/subscription-plans", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listPlansAdmin);
+router.get("/admin/stripe-prices", requireAuth, requireRole(["admin", "superAdmin"]), listStripePricesAdmin);
 router.post("/admin/subscription-plans", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createPlanAdmin);
+router.post(
+  "/admin/subscription-plans/import",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  importPlanAdmin,
+);
+router.post(
+  "/admin/subscription-plans/:planId/invites",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  invitePlanUserAdmin,
+);
 router.put(
   "/admin/subscription-plans/:planId",
   requireAuth,

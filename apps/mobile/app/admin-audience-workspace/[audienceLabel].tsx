@@ -21,6 +21,70 @@ import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated"
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
+import { VideoPlayer } from "@/components/media/VideoPlayer";
+
+type OtherSectionConfig = {
+  type: string;
+  label: string;
+  summary: string;
+  concept: "content" | "age-schedule";
+};
+
+const OTHER_SECTION_CONFIGS: OtherSectionConfig[] = [
+  {
+    type: "warmup",
+    label: "Warm-Up",
+    summary: "Warm-up content is editable from this section.",
+    concept: "content",
+  },
+  {
+    type: "cooldown",
+    label: "Cool-Down",
+    summary: "Cool-down content is editable from this section.",
+    concept: "content",
+  },
+  {
+    type: "mobility",
+    label: "Mobility",
+    summary: "Mobility content and plan-specific locking are managed inline from the Others tab.",
+    concept: "content",
+  },
+  {
+    type: "recovery",
+    label: "Recovery",
+    summary: "Recovery content and plan-specific locking are managed inline from the Others tab.",
+    concept: "content",
+  },
+  {
+    type: "inseason",
+    label: "In-Season Program",
+    summary: "This section branches into age groups and weekly scheduling.",
+    concept: "age-schedule",
+  },
+  {
+    type: "offseason",
+    label: "Off-Season Program",
+    summary: "Off-season program content is isolated in this section.",
+    concept: "content",
+  },
+  {
+    type: "education",
+    label: "Education",
+    summary: "Education content and plan-specific locking are managed inline from the Others tab.",
+    concept: "content",
+  },
+];
+
+function getOtherSectionConfig(type: string): OtherSectionConfig {
+  return (
+    OTHER_SECTION_CONFIGS.find((item) => item.type === type) ?? {
+      type,
+      label: type,
+      summary: "Supporting program content.",
+      concept: "content",
+    }
+  );
+}
 
 export default function AdminAudienceWorkspaceScreen() {
   const { colors, isDark } = useAppTheme();
@@ -44,7 +108,15 @@ export default function AdminAudienceWorkspaceScreen() {
   const [moduleForm, setModuleForm] = useState({ id: null as number | null, title: "" });
 
   const [otherModalOpen, setOtherModalOpen] = useState(false);
-  const [otherForm, setOtherForm] = useState({ id: null as number | null, title: "", body: "", type: "" });
+  const [otherForm, setOtherForm] = useState({
+    id: null as number | null,
+    title: "",
+    body: "",
+    type: "",
+    scheduleNote: "",
+    videoUrl: "",
+    order: "",
+  });
 
   const [lockModalOpen, setLockModalOpen] = useState(false);
   const [lockModalMode, setLockModalMode] = useState<"lock" | "unlock">("lock");
@@ -66,6 +138,7 @@ export default function AdminAudienceWorkspaceScreen() {
   const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const chipBg     = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)";
   const divider    = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
+  const activeOtherSection = getOtherSectionConfig(otherForm.type);
 
   const handleSaveModule = async () => {
     if (!moduleForm.title.trim()) return;
@@ -83,12 +156,21 @@ export default function AdminAudienceWorkspaceScreen() {
   };
 
   const handleSaveOther = async () => {
-    if (!otherForm.title.trim()) return;
+    if (!otherForm.title.trim() || !otherForm.body.trim()) return;
+    const payload = {
+      title: otherForm.title.trim(),
+      body: otherForm.body.trim(),
+      type: otherForm.type,
+      scheduleNote: otherForm.scheduleNote.trim() || null,
+      videoUrl: otherForm.videoUrl.trim() || null,
+      order: otherForm.order.trim() ? Number(otherForm.order) : undefined,
+      metadata: null,
+    };
     try {
       if (otherForm.id) {
-        await otherHook.updateOther(otherForm.id, { title: otherForm.title, body: otherForm.body });
+        await otherHook.updateOther(otherForm.id, payload);
       } else {
-        await otherHook.createOther({ audienceLabel: rawLabel, title: otherForm.title, body: otherForm.body, type: otherForm.type });
+        await otherHook.createOther({ audienceLabel: rawLabel, ...payload });
       }
       setOtherModalOpen(false);
       loadWorkspace(true);
@@ -456,79 +538,249 @@ export default function AdminAudienceWorkspaceScreen() {
 
             /* ── Others tab ───────────────────────────────────────── */
             <View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 }}>
-                <View style={{ width: 3, height: 18, borderRadius: 2, backgroundColor: colors.accent }} />
-                <Text style={{ fontFamily: "Clash-Bold", fontSize: 18, color: colors.textPrimary, letterSpacing: -0.3 }}>
-                  Categorized Items
+              <View
+                style={{
+                  borderRadius: 22,
+                  borderWidth: 1,
+                  backgroundColor: cardBg,
+                  borderColor: cardBorder,
+                  padding: 18,
+                  marginBottom: 14,
+                }}
+              >
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.1 }}>
+                  Other Editable Content
+                </Text>
+                <Text style={{ fontFamily: "Clash-Bold", fontSize: 20, color: colors.textPrimary, letterSpacing: -0.4, marginTop: 6 }}>
+                  Supporting content
+                </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, lineHeight: 19, marginTop: 4 }}>
+                  Manage warm-up, cool-down, mobility, recovery, in-season, off-season, and education content for this plan.
                 </Text>
               </View>
 
-              {workspace?.others.map((group) => (
-                <View key={group.type} style={{ marginBottom: 28 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.2 }}>
-                      {group.label}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => { setOtherForm({ id: null, title: "", body: "", type: group.type }); setOtherModalOpen(true); }}
+              <View style={{ gap: 14 }}>
+                {(workspace?.others ?? []).map((group) => {
+                  const section = getOtherSectionConfig(group.type);
+                  const sortedItems = [...group.items].sort((a, b) => a.order - b.order);
+
+                  return (
+                    <View
+                      key={group.type}
                       style={{
-                        height: 32, paddingHorizontal: 12, borderRadius: 10,
-                        backgroundColor: `${colors.accent}15`,
-                        flexDirection: "row", alignItems: "center", gap: 5,
+                        borderRadius: 22,
+                        borderWidth: 1,
+                        backgroundColor: cardBg,
+                        borderColor: cardBorder,
+                        overflow: "hidden",
                       }}
                     >
-                      <Feather name="plus" size={12} color={colors.accent} />
-                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.accent, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                        Add
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {group.items.length === 0 ? (
-                    <View style={{
-                      paddingVertical: 28, alignItems: "center",
-                      borderWidth: 1, borderStyle: "dashed",
-                      borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.1)",
-                      borderRadius: 16,
-                    }}>
-                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary }}>No items.</Text>
-                    </View>
-                  ) : (
-                    <View style={{ gap: 8 }}>
-                      {group.items.sort((a, b) => a.order - b.order).map((item) => (
-                        <TouchableOpacity
-                          key={item.id}
-                          onPress={() => { setOtherForm({ id: item.id, title: item.title, body: item.body || "", type: group.type }); setOtherModalOpen(true); }}
-                          activeOpacity={0.85}
-                          style={{
-                            flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                            padding: 16, borderRadius: 16,
-                            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                            borderWidth: 1, borderColor: divider,
-                          }}
-                        >
-                          <View style={{ flex: 1, marginRight: 12 }}>
-                            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>
-                              {item.title}
-                            </Text>
-                            {item.body ? (
-                              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
-                                {item.body}
+                      <View style={{ padding: 18, borderBottomWidth: 1, borderBottomColor: divider }}>
+                        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                              <View style={{ width: 3, height: 18, borderRadius: 2, backgroundColor: colors.accent }} />
+                              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.1 }}>
+                                {section.concept === "age-schedule" ? "Schedule content" : "Content"}
                               </Text>
-                            ) : null}
+                            </View>
+                            <Text style={{ fontFamily: "Clash-Bold", fontSize: 19, color: colors.textPrimary, letterSpacing: -0.3, marginTop: 8 }}>
+                              {section.label}
+                            </Text>
+                            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, lineHeight: 18, marginTop: 4 }}>
+                              {section.summary}
+                            </Text>
                           </View>
                           <TouchableOpacity
-                            onPress={() => handleDeleteOther(item.id, item.title)}
-                            style={{ padding: 4 }}
+                            onPress={() => {
+                              setOtherForm({
+                                id: null,
+                                title: "",
+                                body: "",
+                                type: group.type,
+                                scheduleNote: "",
+                                videoUrl: "",
+                                order: "",
+                              });
+                              setOtherModalOpen(true);
+                            }}
+                            activeOpacity={0.82}
+                            style={{
+                              height: 38,
+                              paddingHorizontal: 13,
+                              borderRadius: 13,
+                              backgroundColor: colors.accent,
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
                           >
-                            <Feather name="trash-2" size={15} color={colors.danger} style={{ opacity: 0.55 }} />
+                            <Feather name="plus" size={14} color={colors.textInverse} />
+                            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textInverse, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                              Add
+                            </Text>
                           </TouchableOpacity>
-                        </TouchableOpacity>
-                      ))}
+                        </View>
+                      </View>
+
+                      <View style={{ padding: 14, gap: 10 }}>
+                        {sortedItems.length === 0 ? (
+                          <View
+                            style={{
+                              paddingVertical: 26,
+                              alignItems: "center",
+                              borderWidth: 1,
+                              borderStyle: "dashed",
+                              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.1)",
+                              borderRadius: 16,
+                            }}
+                          >
+                            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary }}>
+                              No content created yet.
+                            </Text>
+                          </View>
+                        ) : (
+                          sortedItems.map((item) => (
+                            <View
+                              key={item.id}
+                              style={{
+                                padding: 16,
+                                borderRadius: 18,
+                                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+                                borderWidth: 1,
+                                borderColor: divider,
+                              }}
+                            >
+                              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+                                <View
+                                  style={{
+                                    minWidth: 34,
+                                    height: 28,
+                                    paddingHorizontal: 8,
+                                    borderRadius: 10,
+                                    backgroundColor: `${colors.accent}18`,
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.accent }}>
+                                    {item.order}
+                                  </Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: colors.textPrimary }} numberOfLines={2}>
+                                    {item.title}
+                                  </Text>
+                                  {item.scheduleNote ? (
+                                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.accent, marginTop: 4 }} numberOfLines={2}>
+                                      {item.scheduleNote}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                              </View>
+
+                              {item.body ? (
+                                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, lineHeight: 19, marginTop: 10 }}>
+                                  {item.body}
+                                </Text>
+                              ) : null}
+
+                              {item.videoUrl ? (
+                                <View
+                                  style={{
+                                    marginTop: 10,
+                                    borderRadius: 16,
+                                    overflow: "hidden",
+                                    borderWidth: 1,
+                                    borderColor: divider,
+                                    backgroundColor: isDark ? "rgba(0,0,0,0.28)" : "rgba(15,23,42,0.04)",
+                                  }}
+                                >
+                                  <VideoPlayer
+                                    uri={item.videoUrl}
+                                    height={170}
+                                    autoPlay={false}
+                                    initialMuted
+                                    isLooping={false}
+                                  />
+                                </View>
+                              ) : null}
+
+                              <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    setOtherForm({
+                                      id: item.id,
+                                      title: item.title,
+                                      body: item.body || "",
+                                      type: group.type,
+                                      scheduleNote: item.scheduleNote ?? "",
+                                      videoUrl: item.videoUrl ?? "",
+                                      order: String(item.order),
+                                    });
+                                    setOtherModalOpen(true);
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    height: 38,
+                                    borderRadius: 12,
+                                    backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexDirection: "row",
+                                    gap: 6,
+                                    borderWidth: 1,
+                                    borderColor: divider,
+                                  }}
+                                >
+                                  <Feather name="edit-2" size={14} color={colors.textPrimary} />
+                                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textPrimary, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                                    Edit
+                                  </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => handleDeleteOther(item.id, item.title)}
+                                  style={{
+                                    flex: 1,
+                                    height: 38,
+                                    borderRadius: 12,
+                                    backgroundColor: "rgba(239,68,68,0.1)",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexDirection: "row",
+                                    gap: 6,
+                                    borderWidth: 1,
+                                    borderColor: "rgba(239,68,68,0.2)",
+                                  }}
+                                >
+                                  <Feather name="trash-2" size={14} color={colors.danger} />
+                                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.danger, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                                    Delete
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          ))
+                        )}
+                      </View>
                     </View>
-                  )}
-                </View>
-              ))}
+                  );
+                })}
+
+                {(workspace?.others.length === 0) && (
+                  <View style={{
+                    paddingVertical: 56, alignItems: "center", justifyContent: "center",
+                    borderWidth: 1, borderStyle: "dashed",
+                    borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.12)",
+                    borderRadius: 20, gap: 10,
+                  }}>
+                    <Feather name="file-text" size={28} color={colors.textSecondary} style={{ opacity: 0.35 }} />
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary }}>
+                      No other content sections yet.
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           )}
         </View>
@@ -600,74 +852,171 @@ export default function AdminAudienceWorkspaceScreen() {
           style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", padding: 24 }}
           onPress={() => setOtherModalOpen(false)}
         >
-          <View style={{
-            width: "100%", maxWidth: 380, borderRadius: 28, padding: 28,
-            backgroundColor: isDark ? "hsl(220,10%,10%)" : "#FFFFFF",
-            borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-          }}>
-            <Text style={{ fontFamily: "Clash-Bold", fontSize: 22, color: colors.textPrimary, letterSpacing: -0.4, marginBottom: 20 }}>
-              {otherForm.id ? "Edit Item" : "New Item"}
-            </Text>
-            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
-              Title
-            </Text>
-            <View style={{
-              borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, height: 52, justifyContent: "center", marginBottom: 16,
-              backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
-            }}>
-              <TextInput
-                value={otherForm.title}
-                onChangeText={(t) => setOtherForm((prev) => ({ ...prev, title: t }))}
-                placeholder="Title..."
-                placeholderTextColor={colors.placeholder}
-                style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: colors.textPrimary }}
-                cursorColor={colors.accent}
-              />
-            </View>
-            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
-              Description
-            </Text>
-            <View style={{
-              borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 14, minHeight: 96, marginBottom: 24,
-              backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
-            }}>
-              <TextInput
-                value={otherForm.body}
-                onChangeText={(t) => setOtherForm((prev) => ({ ...prev, body: t }))}
-                placeholder="Description..."
-                placeholderTextColor={colors.placeholder}
-                multiline
-                style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: colors.textPrimary }}
-                cursorColor={colors.accent}
-              />
-            </View>
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <TouchableOpacity
-                onPress={() => setOtherModalOpen(false)}
-                style={{
-                  flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-                }}
-              >
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textPrimary, letterSpacing: 0.5, textTransform: "uppercase" }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleSaveOther}
-                disabled={!otherForm.title.trim() || otherHook.isBusy}
-                style={{
-                  flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
-                  backgroundColor: colors.accent, opacity: otherHook.isBusy ? 0.6 : 1,
-                }}
-              >
-                {otherHook.isBusy
-                  ? <ActivityIndicator color={colors.textInverse} size="small" />
-                  : <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textInverse, letterSpacing: 0.5, textTransform: "uppercase" }}>Save</Text>
-                }
-              </TouchableOpacity>
-            </View>
-          </View>
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 390,
+              maxHeight: "88%",
+              borderRadius: 28,
+              backgroundColor: isDark ? "hsl(220,10%,10%)" : "#FFFFFF",
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              overflow: "hidden",
+            }}
+          >
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ padding: 28 }}
+            >
+              <Text style={{ fontFamily: "Clash-Bold", fontSize: 22, color: colors.textPrimary, letterSpacing: -0.4 }}>
+                {otherForm.id ? "Edit content" : `Add ${activeOtherSection.label} content`}
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, lineHeight: 18, marginTop: 6, marginBottom: 20 }}>
+                Add or update admin content for {activeOtherSection.label}.
+              </Text>
+
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
+                Title
+              </Text>
+              <View style={{
+                borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, height: 52, justifyContent: "center", marginBottom: 16,
+                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+              }}>
+                <TextInput
+                  value={otherForm.title}
+                  onChangeText={(t) => setOtherForm((prev) => ({ ...prev, title: t }))}
+                  placeholder="Title"
+                  placeholderTextColor={colors.placeholder}
+                  style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: colors.textPrimary }}
+                  cursorColor={colors.accent}
+                />
+              </View>
+
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
+                Body
+              </Text>
+              <View style={{
+                borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 14, minHeight: 110, marginBottom: 16,
+                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+              }}>
+                <TextInput
+                  value={otherForm.body}
+                  onChangeText={(t) => setOtherForm((prev) => ({ ...prev, body: t }))}
+                  placeholder="Content body"
+                  placeholderTextColor={colors.placeholder}
+                  multiline
+                  style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: colors.textPrimary, minHeight: 82, textAlignVertical: "top" }}
+                  cursorColor={colors.accent}
+                />
+              </View>
+
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
+                Schedule note
+              </Text>
+              <View style={{
+                borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, height: 52, justifyContent: "center", marginBottom: 16,
+                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+              }}>
+                <TextInput
+                  value={otherForm.scheduleNote}
+                  onChangeText={(t) => setOtherForm((prev) => ({ ...prev, scheduleNote: t }))}
+                  placeholder="Optional schedule note"
+                  placeholderTextColor={colors.placeholder}
+                  style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: colors.textPrimary }}
+                  cursorColor={colors.accent}
+                />
+              </View>
+
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
+                Video URL
+              </Text>
+              <View style={{
+                borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, height: 52, justifyContent: "center", marginBottom: 16,
+                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+              }}>
+                <TextInput
+                  value={otherForm.videoUrl}
+                  onChangeText={(t) => setOtherForm((prev) => ({ ...prev, videoUrl: t }))}
+                  placeholder="https://..."
+                  placeholderTextColor={colors.placeholder}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                  style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: colors.textPrimary }}
+                  cursorColor={colors.accent}
+                />
+              </View>
+              {otherForm.videoUrl.trim() ? (
+                <View
+                  style={{
+                    marginTop: -8,
+                    marginBottom: 16,
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    borderWidth: 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+                  }}
+                >
+                  <VideoPlayer
+                    uri={otherForm.videoUrl.trim()}
+                    height={180}
+                    autoPlay={false}
+                    initialMuted
+                    isLooping={false}
+                  />
+                </View>
+              ) : null}
+
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
+                Order
+              </Text>
+              <View style={{
+                borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, height: 52, justifyContent: "center", marginBottom: 24,
+                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+              }}>
+                <TextInput
+                  value={otherForm.order}
+                  onChangeText={(t) => setOtherForm((prev) => ({ ...prev, order: t.replace(/[^0-9]/g, "") }))}
+                  placeholder="Optional display order"
+                  placeholderTextColor={colors.placeholder}
+                  keyboardType="number-pad"
+                  style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: colors.textPrimary }}
+                  cursorColor={colors.accent}
+                />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <TouchableOpacity
+                  onPress={() => setOtherModalOpen(false)}
+                  style={{
+                    flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textPrimary, letterSpacing: 0.5, textTransform: "uppercase" }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleSaveOther}
+                  disabled={!otherForm.title.trim() || !otherForm.body.trim() || otherHook.isBusy}
+                  style={{
+                    flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
+                    backgroundColor: colors.accent, opacity: otherHook.isBusy ? 0.6 : 1,
+                  }}
+                >
+                  {otherHook.isBusy
+                    ? <ActivityIndicator color={colors.textInverse} size="small" />
+                    : <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textInverse, letterSpacing: 0.5, textTransform: "uppercase" }}>Save</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </Pressable>
         </Pressable>
       </Modal>
 

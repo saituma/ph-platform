@@ -105,18 +105,17 @@ async function migrateEachJournalEntryInOwnTransaction(
     )
   `);
 
-  for (const migration of migrations) {
-    const latestRows = await db.execute(
-      sql`select id, hash, created_at from ${sql.identifier(migrationsSchema)}.${sql.identifier(
-        migrationsTable,
-      )} order by created_at desc limit 1`,
-    );
-    const latest = latestRows.rows[0] as { created_at?: number | string } | undefined;
-    const lastMillis = latest?.created_at != null ? Number(latest.created_at) : null;
+  // Load every hash already recorded as applied. Hash-based tracking is the durable
+  // way to decide what's pending — earlier versions of this runner used the highest
+  // `created_at` as a cursor, which broke when journal `when` values weren't monotonic
+  // (newer migrations with smaller `when` than older ones got silently skipped).
+  const appliedRows = await db.execute(
+    sql`select hash from ${sql.identifier(migrationsSchema)}.${sql.identifier(migrationsTable)}`,
+  );
+  const appliedHashes = new Set(appliedRows.rows.map((r: any) => String(r.hash)));
 
-    if (lastMillis !== null && lastMillis >= migration.folderMillis) {
-      continue;
-    }
+  for (const migration of migrations) {
+    if (appliedHashes.has(migration.hash)) continue;
 
     await db.transaction(async (tx) => {
       for (const stmt of migration.sql) {
@@ -128,6 +127,7 @@ async function migrateEachJournalEntryInOwnTransaction(
         sql`insert into ${sql.identifier(migrationsSchema)}.${sql.identifier(migrationsTable)} ("hash", "created_at") values (${migration.hash}, ${migration.folderMillis})`,
       );
     });
+    appliedHashes.add(migration.hash);
   }
 }
 

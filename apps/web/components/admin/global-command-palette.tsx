@@ -155,7 +155,7 @@ const NAV_ITEMS: PaletteList = {
     { id: "add-team", children: "Add team", href: "/users/add-team", keywords: ["new team", "create team"] },
     { id: "teams", children: "Teams", href: "/teams" },
     { id: "coaching", children: "Coaching", href: "/coaching", keywords: ["coach", "sessions"] },
-    { id: "onboarding", children: "Onboarding", href: "/onboarding-config", keywords: ["onboard", "setup", "config"] },
+    { id: "portal-config", children: "Portal Config", href: "/portal-config", keywords: ["portal", "landing", "marketing", "copy"] },
     { id: "training-snapshot", children: "Client training", href: "/training-snapshot", keywords: ["training", "snapshot"] },
     { id: "top-athletes", children: "Top athletes", href: "/top-athletes", keywords: ["leaderboard", "ranking"] },
     { id: "tracking", children: "Tracking", href: "/tracking", keywords: ["activity", "progress"] },

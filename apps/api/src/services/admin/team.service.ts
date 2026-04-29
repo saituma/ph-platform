@@ -347,6 +347,22 @@ export async function getTeamDetailsAdmin(teamName: string) {
   const team = teamRows[0];
   if (!team) return null;
 
+  const sessionsCompletedExpr = sql<number>`(SELECT count(*) FROM ${athleteTrainingSessionCompletionTable} WHERE ${athleteTrainingSessionCompletionTable.athleteId} = ${athleteTable.id})`;
+  const modulesCompletedExpr = sql<number>`(
+    SELECT count(DISTINCT m.id)
+    FROM ${trainingModuleTable} m
+    WHERE NOT EXISTS (
+      SELECT 1 FROM ${trainingModuleSessionTable} s
+      WHERE s."moduleId" = m.id
+      AND NOT EXISTS (
+        SELECT 1 FROM ${athleteTrainingSessionCompletionTable} c
+        WHERE c."athleteId" = ${athleteTable.id}
+        AND c."sessionId" = s.id
+      )
+    )
+    AND EXISTS (SELECT 1 FROM ${trainingModuleSessionTable} s2 WHERE s2."moduleId" = m.id)
+  )`;
+
   const rows = await db
     .select({
       athleteId: athleteTable.id,
@@ -364,27 +380,14 @@ export async function getTeamDetailsAdmin(teamName: string) {
       guardianEmail: guardianTable.email,
       guardianPhone: guardianTable.phoneNumber,
       relationToAthlete: guardianTable.relationToAthlete,
-      sessionsCompleted: sql<number>`(SELECT count(*) FROM ${athleteTrainingSessionCompletionTable} WHERE ${athleteTrainingSessionCompletionTable.athleteId} = ${athleteTable.id})`,
-      modulesCompleted: sql<number>`(
-        SELECT count(DISTINCT m.id)
-        FROM ${trainingModuleTable} m
-        WHERE NOT EXISTS (
-          SELECT 1 FROM ${trainingModuleSessionTable} s
-          WHERE s."moduleId" = m.id
-          AND NOT EXISTS (
-            SELECT 1 FROM ${athleteTrainingSessionCompletionTable} c
-            WHERE c."athleteId" = ${athleteTable.id}
-            AND c."sessionId" = s.id
-          )
-        )
-        AND EXISTS (SELECT 1 FROM ${trainingModuleSessionTable} s2 WHERE s2."moduleId" = m.id)
-      )`,
+      sessionsCompleted: sessionsCompletedExpr,
+      modulesCompleted: modulesCompletedExpr,
     })
     .from(athleteTable)
     .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
     .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
     .where(and(eq(athleteTable.teamId, team.id), eq(userTable.isDeleted, false)))
-    .orderBy(desc(sql`sessions_completed`), asc(athleteTable.name));
+    .orderBy(desc(sessionsCompletedExpr), asc(athleteTable.name));
 
   const memberCount = rows.length;
   const guardianCount = new Set(rows.map((row) => row.guardianId).filter((id) => id != null)).size;

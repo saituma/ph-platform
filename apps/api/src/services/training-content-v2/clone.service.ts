@@ -73,9 +73,9 @@ export async function copyTrainingModulesFromAudience(input: {
           .insert(trainingModuleSessionTable)
           .values({
             moduleId: createdModule.id,
-            title: sourceSession.title,
-            dayLength: sourceSession.dayLength,
-            order: sourceSession.order,
+            title: sourceSession.title ?? "Untitled session",
+            dayLength: sourceSession.dayLength ?? 7,
+            order: sourceSession.order ?? 1,
           })
           .returning();
 
@@ -101,12 +101,12 @@ export async function copyTrainingModulesFromAudience(input: {
           await tx.insert(trainingSessionItemTable).values({
             sessionId: createdSession.id,
             blockType: sourceItem.blockType as (typeof trainingSessionBlockType.enumValues)[number],
-            title: sourceItem.title,
-            body: sourceItem.body,
+            title: sourceItem.title ?? "Untitled item",
+            body: sourceItem.body ?? "",
             videoUrl: sourceItem.videoUrl ?? null,
             allowVideoUpload: Boolean(sourceItem.allowVideoUpload),
             metadata: sourceItem.metadata ?? null,
-            order: sourceItem.order,
+            order: sourceItem.order ?? 1,
             createdBy: input.createdBy,
           });
         }
@@ -188,9 +188,9 @@ export async function copySelectedModulesToAudience(input: {
           .insert(trainingModuleSessionTable)
           .values({
             moduleId: createdModule.id,
-            title: sourceSession.title,
-            dayLength: sourceSession.dayLength,
-            order: sourceSession.order,
+            title: sourceSession.title ?? "Untitled session",
+            dayLength: sourceSession.dayLength ?? 7,
+            order: sourceSession.order ?? 1,
           })
           .returning();
 
@@ -198,12 +198,12 @@ export async function copySelectedModulesToAudience(input: {
           await tx.insert(trainingSessionItemTable).values({
             sessionId: createdSession.id,
             blockType: sourceItem.blockType as (typeof trainingSessionBlockType.enumValues)[number],
-            title: sourceItem.title,
-            body: sourceItem.body,
+            title: sourceItem.title ?? "Untitled item",
+            body: sourceItem.body ?? "",
             videoUrl: sourceItem.videoUrl ?? null,
             allowVideoUpload: Boolean(sourceItem.allowVideoUpload),
             metadata: sourceItem.metadata ?? null,
-            order: sourceItem.order,
+            order: sourceItem.order ?? 1,
             createdBy: input.createdBy,
           });
         }

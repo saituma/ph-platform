@@ -123,6 +123,9 @@ const TabItem = React.memo(function TabItem({
 
   const activeColor = colors.accent ?? colors.tint;
   const inactiveColor = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.35)";
+  const activeBg = isDark
+    ? "rgba(52,199,89,0.14)"
+    : "rgba(22,163,74,0.10)";
 
   const handlePress = () => {
     if (index !== activeIndex) {
@@ -139,7 +142,17 @@ const TabItem = React.memo(function TabItem({
       accessibilityState={{ selected: isActive }}
       style={styles.tabItemContainer}
     >
-      <View style={styles.tabItemInner}>
+      <View
+        style={[
+          styles.tabItemInner,
+          isActive && {
+            backgroundColor: activeBg,
+            borderColor: isDark
+              ? "rgba(52,199,89,0.24)"
+              : "rgba(22,163,74,0.18)",
+          },
+        ]}
+      >
         {/* Icon */}
         <AppIcon
           name={resolvedIcon}
@@ -172,7 +185,11 @@ const TabItem = React.memo(function TabItem({
                 borderColor: isDark ? "#111111" : colors.surface,
               },
             ]}
-          />
+          >
+            <Animated.Text style={styles.badgeText} numberOfLines={1}>
+              {tab.badgeCount > 99 ? "99+" : tab.badgeCount}
+            </Animated.Text>
+          </View>
         ) : null}
       </View>
     </Pressable>
@@ -275,6 +292,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 3,
+    minWidth: 46,
+    minHeight: 46,
+    paddingHorizontal: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   tabLabel: {
     fontSize: 10,
@@ -283,15 +306,22 @@ const styles = StyleSheet.create({
   },
   badgeContainer: {
     position: "absolute",
-    top: -4,
+    top: -6,
     right: -8,
-    minWidth: 14,
-    height: 14,
-    borderRadius: 7,
-    paddingHorizontal: 3,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     zIndex: 3,
+  },
+  badgeText: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 9,
+    lineHeight: 11,
+    color: "#FFFFFF",
+    includeFontPadding: false,
   },
 });

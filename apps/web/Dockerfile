@@ -4,12 +4,14 @@ WORKDIR /app
 RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
 COPY apps/web/package.json apps/web/tsconfig.json ./apps/web/
 
 RUN pnpm install --filter web...
 
 COPY apps/web/app ./apps/web/app
 COPY apps/web/components ./apps/web/components
+COPY apps/web/hooks ./apps/web/hooks
 COPY apps/web/lib ./apps/web/lib
 COPY apps/web/public ./apps/web/public
 COPY apps/web/next.config.ts ./apps/web/next.config.ts
@@ -33,4 +35,4 @@ COPY --from=base /app/apps/web/next.config.ts ./apps/web/next.config.ts
 ENV NODE_ENV=production
 WORKDIR /app/apps/web
 
-CMD ["node", "node_modules/next/dist/bin/next", "start", "-p", "3000"]
+CMD ["node", "/app/node_modules/next/dist/bin/next", "start", "-p", "3000"]

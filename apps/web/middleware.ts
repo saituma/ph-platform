@@ -108,6 +108,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/api/backend") ||
+    pathname.startsWith("/invite/") ||
     publicPaths.includes(pathname)
   ) {
     return applyCsrfCookie(req, NextResponse.next());

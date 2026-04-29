@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   ProgramType,
@@ -139,20 +139,12 @@ export async function getTrainingSessionItemById(id: number) {
 
 export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
   const normalizedAudienceLabel = normalizeAudienceLabel(audienceLabel);
-  const [modules, sessions, items, others, otherSettings, moduleLocks] = await Promise.all([
+  const [modules, others, otherSettings, moduleLocks] = await Promise.all([
     db
       .select()
       .from(trainingModuleTable)
       .where(eq(trainingModuleTable.audienceLabel, normalizedAudienceLabel))
       .orderBy(asc(trainingModuleTable.order), asc(trainingModuleTable.id)),
-    db
-      .select()
-      .from(trainingModuleSessionTable)
-      .orderBy(asc(trainingModuleSessionTable.order), asc(trainingModuleSessionTable.id)),
-    db
-      .select()
-      .from(trainingSessionItemTable)
-      .orderBy(asc(trainingSessionItemTable.order), asc(trainingSessionItemTable.id)),
     db
       .select()
       .from(trainingOtherContentTable)
@@ -166,10 +158,22 @@ export async function listTrainingContentAdminWorkspace(audienceLabel: string) {
     getTrainingModuleTierLocks(normalizedAudienceLabel),
   ]);
 
-  const moduleIds = new Set(modules.map((module) => module.id));
-  const filteredSessions = sessions.filter((session) => moduleIds.has(session.moduleId));
-  const sessionIds = new Set(filteredSessions.map((session) => session.id));
-  const filteredItems = items.filter((item) => sessionIds.has(item.sessionId));
+  const moduleIdList = modules.map((module) => module.id);
+  const filteredSessions = moduleIdList.length
+    ? await db
+        .select()
+        .from(trainingModuleSessionTable)
+        .where(inArray(trainingModuleSessionTable.moduleId, moduleIdList))
+        .orderBy(asc(trainingModuleSessionTable.order), asc(trainingModuleSessionTable.id))
+    : [];
+  const sessionIdList = filteredSessions.map((session) => session.id);
+  const filteredItems = sessionIdList.length
+    ? await db
+        .select()
+        .from(trainingSessionItemTable)
+        .where(inArray(trainingSessionItemTable.sessionId, sessionIdList))
+        .orderBy(asc(trainingSessionItemTable.order), asc(trainingSessionItemTable.id))
+    : [];
   const sessionLocks = await getTrainingSessionTierLocks(modules.map((module) => module.id));
   const moduleLockMap = new Map<number, (typeof ProgramType.enumValues)[number][]>();
   for (const lock of moduleLocks) {

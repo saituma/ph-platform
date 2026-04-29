@@ -18,6 +18,7 @@ import { Input } from "#/components/ui/input";
 import { fetchGalleryItems, type GalleryApiItem } from "#/services/galleryService";
 import { PhoneMockup } from "#/components/ui/PhoneMockup";
 import { config } from "#/lib/config";
+import { usePortalConfig } from "#/hooks/usePortalConfig";
 
 /* ─── SEO / Structured Data ─── */
 
@@ -165,6 +166,7 @@ const STATS = [
 /* ─── Component ─── */
 
 function RouteComponent() {
+	const portalCfg = usePortalConfig();
 	const [email, setEmail] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | undefined>();
@@ -173,6 +175,47 @@ function RouteComponent() {
 	const [galleryItems, setGalleryItems] = useState<GalleryApiItem[]>([]);
 	const [galleryLoading, setGalleryLoading] = useState(true);
 	const navigate = useNavigate();
+
+	const splitLast = (text: string | undefined | null) => {
+		const parts = (text ?? "").trim().split(/\s+/).filter(Boolean);
+		if (parts.length <= 1) return { head: "", tail: parts[0] ?? "" };
+		return { head: parts.slice(0, -1).join(" "), tail: parts[parts.length - 1] };
+	};
+	const splitFirst2 = (text: string | undefined | null) => {
+		const parts = (text ?? "").trim().split(/\s+/).filter(Boolean);
+		if (parts.length === 0) return { head: "", tail: "" };
+		if (parts.length === 1) return { head: parts[0], tail: "" };
+		return { head: parts.slice(0, 2).join(" "), tail: parts.slice(2).join(" ") };
+	};
+
+	const safeTestimonialItems = Array.isArray(portalCfg.testimonials?.items) ? portalCfg.testimonials.items : [];
+	const configuredTestimonials: TestimonialItem[] = safeTestimonialItems.length
+		? safeTestimonialItems.map((t) => {
+			const roleStr = typeof t?.role === "string" ? t.role : "";
+			const [roleVal, companyVal] = roleStr.split("·").map((s) => s.trim());
+			return {
+				name: typeof t?.name === "string" ? t.name : "",
+				role: roleVal || roleStr,
+				company: companyVal || "",
+				rating: 5,
+				content: typeof t?.quote === "string" ? t.quote : "",
+			};
+		})
+		: testimonials;
+	const safeFeatureItems = Array.isArray(portalCfg.features?.items) ? portalCfg.features.items : [];
+	const featuresFromConfig = safeFeatureItems.length
+		? safeFeatureItems.map((f, i) => ({
+			num: String(i + 1).padStart(2, "0"),
+			icon: FEATURES[i % FEATURES.length].icon,
+			title: typeof f?.title === "string" ? f.title : "",
+			description: typeof f?.body === "string" ? f.body : "",
+		}))
+		: FEATURES;
+	const stats = Array.isArray(portalCfg.hero?.stats) && portalCfg.hero.stats.length ? portalCfg.hero.stats : STATS;
+	const featuresSubheading = splitLast(portalCfg.features?.subheading);
+	const testimonialsHeading = splitLast(portalCfg.testimonials?.heading);
+	const ctaHeading = splitLast(portalCfg.cta?.heading);
+	const ceoTitle = splitFirst2(portalCfg.ceoIntro?.title);
 
 	useEffect(() => {
 		fetchGalleryItems().then((data) => {
@@ -304,7 +347,7 @@ function RouteComponent() {
 								className="text-primary font-black mb-6"
 								style={{ fontSize: "0.65rem", letterSpacing: "0.22em", textTransform: "uppercase" }}
 							>
-								The Platform for Elite Athletes
+								{portalCfg.hero?.eyebrow ?? ""}
 							</p>
 
 							{/* Headline */}
@@ -317,9 +360,9 @@ function RouteComponent() {
 									lineHeight: 0.95,
 								}}
 							>
-								Train Smarter.
+								{portalCfg.hero?.title ?? ""}
 								<br />
-								<span className="text-primary">Recover Faster.</span>
+								<span className="text-primary">{portalCfg.hero?.titleAccent ?? ""}</span>
 							</h1>
 
 							{/* Subheading */}
@@ -327,13 +370,12 @@ function RouteComponent() {
 								className="mt-6 text-muted-foreground max-w-lg"
 								style={{ fontSize: "clamp(0.9rem, 1.25vw, 1.1rem)", lineHeight: 1.65 }}
 							>
-								The professional platform for athletes and coaches who track
-								progress, optimize training, and push beyond limits.
+								{portalCfg.hero?.subtitle ?? ""}
 							</p>
 
 							{/* Stats bar */}
 							<div className="flex items-center gap-0 mt-8 border border-border/50 divide-x divide-border/50 w-fit">
-								{STATS.map((stat) => (
+								{stats.map((stat) => (
 									<div key={stat.label} className="px-5 py-3">
 										<p
 											className="font-black text-foreground uppercase"
@@ -401,7 +443,7 @@ function RouteComponent() {
 									>
 										<Input
 											type="email"
-											placeholder="Enter your email"
+											placeholder={portalCfg.hero?.emailPlaceholder ?? "Enter your email"}
 											aria-label="Email address"
 											value={email}
 											onChange={(e) => {
@@ -420,7 +462,7 @@ function RouteComponent() {
 											{isLoading ? (
 												<CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
 											) : (
-												"Join Free"
+												portalCfg.hero?.emailCtaLabel ?? "Join Free"
 											)}
 										</button>
 									</form>
@@ -441,14 +483,27 @@ function RouteComponent() {
 									filter: "drop-shadow(0 0 40px hsl(var(--primary) / 0.18)) drop-shadow(0 0 80px hsl(var(--primary) / 0.08))",
 								}}
 							>
-								<PhoneMockup src="/home.png" alt="PH Performance app — home screen" />
+								<PhoneMockup
+									src={portalCfg.hero?.mobileScreenshotUrl || "/home.png"}
+									alt="PH Performance app — home screen"
+								/>
 							</div>
 						</div>
 					</div>
 				</section>
 
 				{/* ━━━ Coach Video ━━━ */}
-				<CoachVideoSection />
+				<CoachVideoSection
+					eyebrow={portalCfg.ceoIntro?.eyebrow}
+					titleLine1={ceoTitle.head}
+					titleLine2={ceoTitle.tail}
+					body={portalCfg.ceoIntro?.body}
+					name={portalCfg.ceoIntro?.name}
+					role={portalCfg.ceoIntro?.role}
+					watchLabel={portalCfg.ceoIntro?.watchLabel}
+					photoUrl={portalCfg.ceoIntro?.photoUrl || undefined}
+					videoUrl={portalCfg.ceoIntro?.videoUrl || undefined}
+				/>
 
 				{/* ━━━ Features ━━━ */}
 				<section id="features" className="max-w-6xl mx-auto px-6 py-24 sm:py-32">
@@ -457,7 +512,7 @@ function RouteComponent() {
 							className="text-primary font-black mb-5"
 							style={{ fontSize: "0.65rem", letterSpacing: "0.22em", textTransform: "uppercase" }}
 						>
-							What We Offer
+							{portalCfg.features?.heading ?? ""}
 						</p>
 						<h2
 							className="font-black uppercase text-foreground"
@@ -468,21 +523,21 @@ function RouteComponent() {
 								lineHeight: 1,
 							}}
 						>
-							Built for Serious
+							{featuresSubheading.head}
 							<br />
-							<span className="text-primary">Athletes</span>
+							<span className="text-primary">{featuresSubheading.tail}</span>
 						</h2>
 						<p
 							className="mt-5 text-muted-foreground max-w-lg"
 							style={{ fontSize: "clamp(0.9rem, 1.5vw, 1.1rem)", lineHeight: 1.65 }}
 						>
-							Professional tools that simplify elite performance management.
+							{portalCfg.features?.description ?? ""}
 						</p>
 					</div>
 
 					{/* 3-column card grid */}
 					<div className="grid grid-cols-1 md:grid-cols-3 border border-border/40 divide-y md:divide-y-0 md:divide-x divide-border/40">
-						{FEATURES.map((feature) => (
+						{featuresFromConfig.map((feature) => (
 							<div
 								key={feature.title}
 								className="feature-card group relative overflow-hidden p-10 hover:bg-card/50 transition-colors"
@@ -531,13 +586,25 @@ function RouteComponent() {
 				</section>
 
 				{/* ━━━ Testimonials ━━━ */}
-				<TestimonialsComponent testimonials={testimonials} />
+				<TestimonialsComponent
+					testimonials={configuredTestimonials}
+					eyebrow={portalCfg.testimonials?.eyebrow}
+					headingLine1={testimonialsHeading.head}
+					headingLine2={testimonialsHeading.tail}
+				/>
 
 				{/* ━━━ Gallery ━━━ */}
 				<GallerySection apiItems={galleryItems} isLoading={galleryLoading} />
 
 				{/* ━━━ CTA ━━━ */}
-				<CTA />
+				<CTA
+					eyebrow={portalCfg.cta?.eyebrow}
+					headingLine1={ctaHeading.head}
+					headingLine2={ctaHeading.tail}
+					body={portalCfg.cta?.body}
+					appStoreLabel={portalCfg.cta?.appStoreLabel}
+					playStoreLabel={portalCfg.cta?.playStoreLabel}
+				/>
 			</main>
 		</div>
 	);

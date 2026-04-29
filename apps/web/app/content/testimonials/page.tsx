@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Star } from "lucide-react";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
@@ -15,6 +16,13 @@ import {
 } from "../../../components/ui/select";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { Textarea } from "../../../components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 import { ParentCourseMediaUpload } from "../../../components/parent/config/parent-course-media-upload";
 import { useHomeContent } from "../_shared/use-home-content";
 import {
@@ -32,7 +40,47 @@ export type TestimonialEntry = {
   photoUrl?: string;
   videoUrl?: string;
   aspectRatio?: "reel" | "landscape" | "square";
+  rating?: number;
 };
+
+function StarRating({
+  value,
+  onChange,
+  readOnly = false,
+  size = 20,
+}: {
+  value: number;
+  onChange?: (v: number) => void;
+  readOnly?: boolean;
+  size?: number;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((n) => {
+        const filled = n <= value;
+        const Icon = (
+          <Star
+            width={size}
+            height={size}
+            className={filled ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}
+          />
+        );
+        if (readOnly) return <span key={n}>{Icon}</span>;
+        return (
+          <button
+            key={n}
+            type="button"
+            aria-label={`${n} stars`}
+            onClick={() => onChange?.(value === n ? 0 : n)}
+            className="transition hover:scale-110"
+          >
+            {Icon}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 type SubmissionBody = {
   name?: string;
@@ -57,7 +105,9 @@ export default function ContentTestimonialsPage() {
   const [testimonialMediaType, setTestimonialMediaType] = useState<"text" | "image" | "video">("text");
   const [testimonialVideoUrl, setTestimonialVideoUrl] = useState("");
   const [testimonialVideoAspect, setTestimonialVideoAspect] = useState<"reel" | "landscape" | "square">("reel");
+  const [testimonialRating, setTestimonialRating] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [viewingIndex, setViewingIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!initialized && homeBody.testimonials !== undefined) {
@@ -132,26 +182,28 @@ export default function ContentTestimonialsPage() {
                 onChange={(e) => setTestimonialQuote(e.target.value)}
               />
             </div>
-            {testimonialMediaType === "image" ? (
-              <div className="space-y-2">
-                <Label>Photo</Label>
-                <ParentCourseMediaUpload
-                  label={testimonialPhoto ? "Replace Photo" : "Upload Photo"}
-                  folder="home/testimonials"
-                  accept="image/*"
-                  maxSizeMb={10}
-                  onUploaded={(url) => setTestimonialPhoto(url)}
-                />
-                {testimonialPhoto ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
-                    <span className="break-all text-muted-foreground">{testimonialPhoto}</span>
-                    <Button size="sm" variant="outline" onClick={() => setTestimonialPhoto("")}>
-                      Remove
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+            <div className="space-y-2">
+              <Label>Photo (optional)</Label>
+              <ParentCourseMediaUpload
+                label={testimonialPhoto ? "Replace Photo" : "Upload Photo"}
+                folder="home/testimonials"
+                accept="image/*"
+                maxSizeMb={10}
+                onUploaded={(url) => setTestimonialPhoto(url)}
+              />
+              {testimonialPhoto ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/30 px-3 py-2 text-xs">
+                  <span className="break-all text-muted-foreground">{testimonialPhoto}</span>
+                  <Button size="sm" variant="outline" onClick={() => setTestimonialPhoto("")}>
+                    Remove
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <Label>Rating (optional)</Label>
+              <StarRating value={testimonialRating} onChange={setTestimonialRating} />
+            </div>
             {testimonialMediaType === "video" ? (
               <div className="space-y-3">
                 <div className="space-y-2">
@@ -193,8 +245,6 @@ export default function ContentTestimonialsPage() {
                 </p>
               </div>
             ) : null}
-          </div>
-          <div className="space-y-4">
             <Button
               className="w-full"
               onClick={() => {
@@ -211,22 +261,26 @@ export default function ContentTestimonialsPage() {
                   quote: quote || "",
                   mediaType: testimonialMediaType,
                 };
-                if (testimonialMediaType === "image" && photo) entry.photoUrl = photo;
+                if (photo) entry.photoUrl = photo;
                 if (testimonialMediaType === "video") {
                   entry.videoUrl = video;
                   entry.aspectRatio = testimonialVideoAspect;
                 }
+                if (testimonialRating > 0) entry.rating = testimonialRating;
                 setTestimonialName("");
                 setTestimonialQuote("");
                 setTestimonialPhoto("");
                 setTestimonialVideoUrl("");
                 setTestimonialMediaType("text");
                 setTestimonialVideoAspect("reel");
+                setTestimonialRating(0);
                 setHomeTestimonials((prev) => [...prev, entry as TestimonialEntry]);
               }}
             >
               Add Testimonial
             </Button>
+          </div>
+          <div className="space-y-4">
             <Button
               className="w-full"
               variant="outline"
@@ -258,43 +312,49 @@ export default function ContentTestimonialsPage() {
                 {homeTestimonials.map((item, index: number) => (
                   <div
                     key={item?.id ?? `testimonial-${index}`}
-                    className="rounded-2xl border border-border bg-secondary/30 p-3 text-xs"
+                    className="cursor-pointer rounded-2xl border border-border bg-secondary/30 p-3 text-xs transition hover:border-primary/40 hover:bg-secondary/50"
+                    onClick={() => setViewingIndex(index)}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-foreground">
                           {item?.name ?? "Unnamed"}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        {typeof item?.rating === "number" && item.rating > 0 ? (
+                          <div className="mt-1">
+                            <StarRating value={item.rating} readOnly size={14} />
+                          </div>
+                        ) : null}
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
                           {item?.mediaType === "video"
                             ? item?.videoUrl ?? "Video"
                             : item?.quote ?? ""}
                         </p>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          setHomeTestimonials((prev) =>
-                            prev.filter((_, i: number) => i !== index)
-                          )
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    {item?.photoUrl ? (
-                      <div className="mt-3 h-16 w-16 overflow-hidden rounded-xl border border-border bg-secondary/40">
-                        <img
-                          src={item.photoUrl}
-                          alt={`Testimonial ${item?.name ?? ""}`}
-                          className="h-full w-full object-cover"
-                        />
+                      <div className="flex items-center gap-2">
+                        {item?.photoUrl ? (
+                          <div className="h-12 w-12 overflow-hidden rounded-xl border border-border bg-secondary/40">
+                            <img
+                              src={item.photoUrl}
+                              alt={`Testimonial ${item?.name ?? ""}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHomeTestimonials((prev) =>
+                              prev.filter((_, i: number) => i !== index)
+                            );
+                          }}
+                        >
+                          Remove
+                        </Button>
                       </div>
-                    ) : null}
-                    {item?.mediaType === "video" && item?.videoUrl ? (
-                      <p className="mt-2 text-[10px] text-muted-foreground break-all">{item.videoUrl}</p>
-                    ) : null}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -373,6 +433,73 @@ export default function ContentTestimonialsPage() {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={viewingIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewingIndex(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          {(() => {
+            if (viewingIndex === null) return null;
+            const item = homeTestimonials[viewingIndex];
+            if (!item) return null;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{item.name ?? "Testimonial"}</DialogTitle>
+                  <DialogDescription>
+                    {item.mediaType === "video"
+                      ? "Video testimonial"
+                      : item.mediaType === "image"
+                      ? "Photo testimonial"
+                      : "Text testimonial"}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  {item.photoUrl ? (
+                    <div className="overflow-hidden rounded-2xl border border-border bg-secondary/40">
+                      <img
+                        src={item.photoUrl}
+                        alt={`Testimonial ${item.name ?? ""}`}
+                        className="max-h-80 w-full object-cover"
+                      />
+                    </div>
+                  ) : null}
+                  {typeof item.rating === "number" && item.rating > 0 ? (
+                    <div>
+                      <Label className="mb-2 block">Rating</Label>
+                      <StarRating value={item.rating} readOnly size={24} />
+                    </div>
+                  ) : null}
+                  {item.quote ? (
+                    <div>
+                      <Label className="mb-2 block">Quote</Label>
+                      <p className="rounded-2xl border border-border bg-secondary/20 p-3 text-sm text-foreground">
+                        “{item.quote}”
+                      </p>
+                    </div>
+                  ) : null}
+                  {item.mediaType === "video" && item.videoUrl ? (
+                    <div>
+                      <Label className="mb-2 block">Video URL ({item.aspectRatio ?? "reel"})</Label>
+                      <p className="break-all rounded-2xl border border-border bg-secondary/20 p-3 text-xs text-muted-foreground">
+                        {item.videoUrl}
+                      </p>
+                    </div>
+                  ) : null}
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setViewingIndex(null)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }

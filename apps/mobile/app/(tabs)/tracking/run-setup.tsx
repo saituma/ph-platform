@@ -378,23 +378,23 @@ export default function RunSetupScreen() {
                   {["500m", "1km", "2km", "5km"].map((val) => (
                     <Pressable
                       key={val}
-                      onPress={() => setNotifEveryText(val.replace("m", ""))}
+                      onPress={() => setNotifEveryText(val)}
                       style={({ pressed }) => ({
                         flex: 1,
                         height: 36,
                         borderRadius: radius.lg,
-                        backgroundColor: notifEveryText === val.replace("m", "") || (val === "1km" && notifEveryText === "1000") ? colors.accent : cardBg,
+                        backgroundColor: notifEveryText === val ? colors.accent : cardBg,
                         borderWidth: 1,
-                        borderColor: notifEveryText === val.replace("m", "") ? colors.accent : colors.border,
+                        borderColor: notifEveryText === val ? colors.accent : colors.border,
                         alignItems: "center",
                         justifyContent: "center",
                         opacity: pressed ? 0.8 : 1,
                       })}
                     >
-                      <Text style={{ 
-                        fontFamily: fonts.bodyBold, 
-                        fontSize: 12, 
-                        color: notifEveryText === val.replace("m", "") ? "#FFF" : colors.textSecondary 
+                      <Text style={{
+                        fontFamily: fonts.bodyBold,
+                        fontSize: 12,
+                        color: notifEveryText === val ? "#FFF" : colors.textSecondary
                       }}>
                         {val}
                       </Text>

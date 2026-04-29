@@ -41,10 +41,6 @@ export default function AdminOpsScheduleScreen() {
   const canLoad = Boolean(token && bootstrapReady);
 
   const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
-  if (!canAccess) {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
-
   const incomingTab = asScheduleTab(params?.tab);
   const incomingAction =
     typeof params?.action === "string" ? params.action : undefined;
@@ -70,6 +66,12 @@ export default function AdminOpsScheduleScreen() {
 
   const initialBookingAction =
     incomingAction === "createBooking" ? "createBooking" : null;
+  const initialServiceAction =
+    incomingAction === "createService" ? "createService" : null;
+
+  if (!canAccess) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
@@ -221,7 +223,11 @@ export default function AdminOpsScheduleScreen() {
                 />
               )}
               {tab === "services" && (
-                <AdminServicesSection token={token} canLoad={canLoad} />
+                <AdminServicesSection
+                  token={token}
+                  canLoad={canLoad}
+                  initialAction={initialServiceAction}
+                />
               )}
             </View>
           )}

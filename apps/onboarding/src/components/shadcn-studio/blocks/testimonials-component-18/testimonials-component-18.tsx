@@ -10,10 +10,16 @@ export type TestimonialItem = {
 
 type TestimonialsComponentProps = {
 	testimonials: TestimonialItem[];
+	eyebrow?: string;
+	headingLine1?: string;
+	headingLine2?: string;
 };
 
 const TestimonialsComponent = ({
 	testimonials,
+	eyebrow = "Trusted by the best",
+	headingLine1 = "Athletes Who",
+	headingLine2 = "Push Limits",
 }: TestimonialsComponentProps) => {
 	return (
 		<section className="py-24 sm:py-32 overflow-hidden border-t border-border/40">
@@ -22,7 +28,7 @@ const TestimonialsComponent = ({
 					className="text-primary font-black mb-4"
 					style={{ fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase" }}
 				>
-					Trusted by the best
+					{eyebrow}
 				</p>
 				<h2
 					className="font-black text-foreground uppercase"
@@ -33,9 +39,9 @@ const TestimonialsComponent = ({
 						lineHeight: 1,
 					}}
 				>
-					Athletes Who&nbsp;
+					{headingLine1}&nbsp;
 					<br className="hidden sm:block" />
-					<span className="text-primary">Push Limits</span>
+					<span className="text-primary">{headingLine2}</span>
 				</h2>
 			</div>
 

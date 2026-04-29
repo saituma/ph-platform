@@ -25,9 +25,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@/components/ui/theme-icons";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+import { AdminHeader, AdminScreen } from "@/components/admin/AdminUI";
 
 type ViewMode = "youth" | "adult" | "team";
 
@@ -48,7 +47,6 @@ const MODE_TABS: { key: ViewMode; label: string; icon: string }[] = [
 
 export default function AdminContentScreen() {
   const { colors, isDark } = useAppTheme();
-  const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const token = useAppSelector((state) => state.user.token);
@@ -179,25 +177,19 @@ export default function AdminContentScreen() {
   const iconBg    = isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.04)";
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+    <AdminScreen>
       <ThemedScrollView showsVerticalScrollIndicator={false} onRefresh={() => loadAudiences(true)}>
 
-        {/* ── Header ──────────────────────────────────────────────── */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(360).springify()}
-          style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}
+          style={{ marginBottom: 18 }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 }}>
-            <View style={{ width: 5, height: 36, borderRadius: 3, backgroundColor: colors.accent }} />
-            <View>
-              <Text style={{ fontFamily: "Telma-Bold", fontSize: 44, color: colors.textPrimary, letterSpacing: -1, lineHeight: 48 }}>
-                Content
-              </Text>
-            </View>
-          </View>
-          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 4, marginLeft: 17 }}>
-            Exercise library & training content.
-          </Text>
+          <AdminHeader
+            eyebrow="Training"
+            title="Content"
+            subtitle="Exercise library and training content"
+            tone="info"
+          />
         </Animated.View>
 
         {/* ── Mode tabs ───────────────────────────────────────────── */}
@@ -503,6 +495,6 @@ export default function AdminContentScreen() {
           </View>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </AdminScreen>
   );
 }

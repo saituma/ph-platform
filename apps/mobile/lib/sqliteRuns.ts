@@ -17,6 +17,7 @@ export interface RunRecord {
   notes: string;
   synced_at: string | null;
   user_id: string | null;
+  sport: string | null;
 }
 
 const db = SQLite.openDatabaseSync("tracking_premium.db"); // new db name to prevent schema mismatch
@@ -52,6 +53,9 @@ export function initSQLiteRuns() {
     if (!colNames.includes("user_id")) {
       db.execSync("ALTER TABLE runs ADD COLUMN user_id TEXT;");
     }
+    if (!colNames.includes("sport")) {
+      db.execSync("ALTER TABLE runs ADD COLUMN sport TEXT;");
+    }
   } catch {
     // ignore — columns likely already exist
   }
@@ -74,8 +78,8 @@ function ensureInitialized() {
 export function saveRunRecord(run: Omit<RunRecord, "synced_at">) {
   ensureInitialized();
   return db.runSync(
-    `INSERT OR REPLACE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+    `INSERT OR REPLACE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id, sport)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
     [
       run.id,
       run.date,
@@ -89,6 +93,7 @@ export function saveRunRecord(run: Omit<RunRecord, "synced_at">) {
       run.feel_tags,
       run.notes,
       run.user_id ?? null,
+      run.sport ?? null,
     ],
   );
 }
@@ -196,6 +201,14 @@ export function getUnsyncedRuns(userId?: string | null): RunRecord[] {
     return db.getAllSync<RunRecord>("SELECT * FROM runs WHERE synced_at IS NULL AND user_id = ?", [userId]);
   }
   return db.getAllSync<RunRecord>("SELECT * FROM runs WHERE synced_at IS NULL AND user_id IS NULL");
+}
+
+export function updateRunFeedback(id: string, feedback: { effort_level: number; feel_tags: string; notes: string }) {
+  ensureInitialized();
+  db.runSync(
+    "UPDATE runs SET effort_level = ?, feel_tags = ?, notes = ?, synced_at = NULL WHERE id = ?",
+    [feedback.effort_level, feedback.feel_tags, feedback.notes, id],
+  );
 }
 
 export function deleteRunRecord(id: string) {

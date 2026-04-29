@@ -136,7 +136,7 @@ export async function createCheckoutSession(input: {
   planId: number;
   /** @deprecated use billingCycle */
   interval?: "monthly" | "yearly";
-  billingCycle?: AthleteBillingCycle;
+  billingCycle?: AthleteBillingCycle | "one_time";
 }) {
   const plans = await db
     .select()
@@ -148,21 +148,36 @@ export async function createCheckoutSession(input: {
     throw new Error("Plan not available");
   }
 
-  const billingCycle: AthleteBillingCycle = input.billingCycle ?? "monthly";
-  const priceId = await ensureAthleteCheckoutPriceId(plan, billingCycle);
-  const mode = checkoutModeForBillingCycle(billingCycle);
+  const billingCycle = input.billingCycle ?? "monthly";
+  let priceId: string;
+  let mode: "subscription" | "payment";
+  if (billingCycle === "one_time") {
+    if (!plan.stripePriceIdOneTime) {
+      throw new Error(`Plan is not configured for Stripe payments (one_time price missing for plan #${plan.id}).`);
+    }
+    priceId = plan.stripePriceIdOneTime;
+    mode = "payment";
+  } else if (billingCycle === "six_months" && plan.stripePriceIdOneTime) {
+    // 6-months one-time payments live in `stripePriceIdOneTime` (with Stripe lookup key `<tier>_six_months`).
+    priceId = plan.stripePriceIdOneTime;
+    mode = "payment";
+  } else {
+    priceId = await ensureAthleteCheckoutPriceId(plan, billingCycle);
+    mode = checkoutModeForBillingCycle(billingCycle);
+  }
 
   const stripeClient = getStripeClient();
   try {
     await stripeClient.prices.retrieve(priceId);
   } catch (error: unknown) {
     if (isStripeNotFoundError(error)) {
-      const expectedLookupKey = lookupKeyForAthleteBilling(plan.tier, billingCycle);
       const stripeMode = stripeModeFromSecretKey(process.env.STRIPE_SECRET_KEY);
+      const hint =
+        billingCycle === "one_time"
+          ? `Recreate the plan's one-time Stripe price (currently "${plan.stripePriceIdOneTime ?? "unset"}").`
+          : `Create/activate a Stripe Price with lookup key "${lookupKeyForAthleteBilling(plan.tier, billingCycle)}" in Stripe (${stripeMode} mode), or update the plan's Stripe price id to a valid one in the same Stripe account/mode.`;
       throw new Error(
-        `Stripe could not find price "${priceId}" for plan #${plan.id} (${plan.tier}, ${billingCycle}). ` +
-          `Create/activate a Stripe Price with lookup key "${expectedLookupKey}" in Stripe (${stripeMode} mode), ` +
-          `or update the plan's Stripe price id to a valid one in the same Stripe account/mode.`,
+        `Stripe could not find price "${priceId}" for plan #${plan.id} (${plan.tier}, ${billingCycle}). ${hint}`,
       );
     }
     throw error;
@@ -622,10 +637,13 @@ export async function approveSubscriptionRequest(requestId: number) {
       return { row: null as null, planApprovedEmail: null as null };
     }
 
-    const cycle = request.planBillingCycle as AthleteBillingCycle | null;
-    const planExpiresAt = cycle
-      ? computeAthleteAccessEnd(cycle, new Date())
-      : computePlanPeriodEnd(request.billingInterval, new Date());
+    const cycleRaw = (request.planBillingCycle ?? "").toLowerCase();
+    const planExpiresAt =
+      cycleRaw === "one_time"
+        ? null
+        : cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly"
+          ? computeAthleteAccessEnd(cycleRaw as AthleteBillingCycle, new Date())
+          : computePlanPeriodEnd(request.billingInterval, new Date());
 
     const tierPayload: {
       currentProgramTier: typeof request.planTier;
@@ -633,17 +651,24 @@ export async function approveSubscriptionRequest(requestId: number) {
       planRenewalReminderSentAt: null;
       planPaymentType?: "monthly" | "upfront";
       planCommitmentMonths?: number | null;
+      onboardingCompleted: boolean;
+      onboardingCompletedAt: Date;
       updatedAt: Date;
     } = {
       currentProgramTier: request.planTier,
       planExpiresAt,
       planRenewalReminderSentAt: null,
+      onboardingCompleted: true,
+      onboardingCompletedAt: new Date(),
       updatedAt: new Date(),
     };
 
-    if (cycle) {
-      tierPayload.planPaymentType = cycle === "monthly" ? "monthly" : "upfront";
-      tierPayload.planCommitmentMonths = cycle === "monthly" ? 1 : cycle === "six_months" ? 6 : 12;
+    if (cycleRaw === "one_time") {
+      tierPayload.planPaymentType = "upfront";
+      tierPayload.planCommitmentMonths = null;
+    } else if (cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly") {
+      tierPayload.planPaymentType = cycleRaw === "monthly" ? "monthly" : "upfront";
+      tierPayload.planCommitmentMonths = cycleRaw === "monthly" ? 1 : cycleRaw === "six_months" ? 6 : 12;
     }
 
     if (request.guardianId) {

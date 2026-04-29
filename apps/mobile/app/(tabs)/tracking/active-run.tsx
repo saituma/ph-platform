@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Pressable, ActivityIndicator } from "react-native";
+import { View, Pressable, ActivityIndicator, BackHandler, Alert } from "react-native";
 import { Text } from "@/components/ScaledText";
 import * as Crypto from "expo-crypto";
-import { initSQLiteRuns, saveRunRecord } from "../../../lib/sqliteRuns";
+import { EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveRunRecord } from "../../../lib/sqliteRuns";
 import { estimateCalories } from "../../../lib/tracking/runUtils";
 import { pushRunsToCloud } from "../../../lib/runSync";
 import { announceRunComplete } from "../../../lib/tracking/audioCues";
@@ -46,6 +46,9 @@ import { ActiveRunMapControls } from "../../../components/tracking/active-run/Ac
 import { ActiveRunStatsCard } from "../../../components/tracking/active-run/ActiveRunStatsCard";
 import { ActiveRunActionDock } from "../../../components/tracking/active-run/ActiveRunActionDock";
 import { ActiveRunLayersSheet, type ActiveRunLayersSheetIndex } from "../../../components/tracking/active-run/ActiveRunLayersSheet";
+import { ActiveRunExpandedView } from "../../../components/tracking/active-run/ActiveRunExpandedView";
+import { ActiveRunSportSheet, type SportId } from "../../../components/tracking/active-run/ActiveRunSportSheet";
+import { ActiveRunStartSheet } from "../../../components/tracking/active-run/ActiveRunStartSheet";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
@@ -53,19 +56,26 @@ export default function ActiveRunScreen() {
   const insets = useAppSafeAreaInsets();
   const { setIsTabBarVisible } = useTabVisibility();
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
-  const {
-    status,
-    startRun,
-    pauseRun,
-    resumeRun,
-    stopRun,
-    resetRun,
-    elapsedSeconds,
-    distanceMeters,
-    coordinates,
-    destination,
-    setDestination,
-  } = useRunStore();
+  // Track whether the user has explicitly started a run this session.
+  // Prevents useFocusEffect from redirecting before the user presses Start.
+  const hasStartedRef = React.useRef(false);
+  // Tracks whether background tracking is currently active. Used to debounce so that
+  // pause/resume transitions don't repeatedly call startLocationTracking — which would
+  // re-prompt the "Location Disclosure" alert on every press (the white flash).
+  const trackingActiveRef = React.useRef(false);
+  // Surgical subscriptions — only fields whose changes the parent must react to.
+  // elapsedSeconds, distanceMeters, coordinates, liveCoordinate are intentionally NOT
+  // subscribed here — their displayers (LiveMap, ActiveRunStatsCard, ActiveRunExpandedView)
+  // self-subscribe so per-tick updates don't re-render this whole 700-line screen.
+  const status = useRunStore((s) => s.status);
+  const destination = useRunStore((s) => s.destination);
+  // Actions are stable refs — subscribing is free.
+  const startRun = useRunStore((s) => s.startRun);
+  const pauseRun = useRunStore((s) => s.pauseRun);
+  const resumeRun = useRunStore((s) => s.resumeRun);
+  const stopRun = useRunStore((s) => s.stopRun);
+  const resetRun = useRunStore((s) => s.resetRun);
+  const setDestination = useRunStore((s) => s.setDestination);
 
   const [backgroundTrackingEnabled, setBackgroundTrackingEnabled] =
     useState(false);
@@ -77,10 +87,14 @@ export default function ActiveRunScreen() {
   const [layersSheetIndex, setLayersSheetIndex] = useState<ActiveRunLayersSheetIndex>(-1);
   const [pointsOfInterestEnabled, setPointsOfInterestEnabled] = useState(true);
   const [showRunSheetHint, setShowRunSheetHint] = useState(true);
+  const [expandedStats, setExpandedStats] = useState(false);
+  const [sportSheetOpen, setSportSheetOpen] = useState(false);
+  const [startSheetOpen, setStartSheetOpen] = useState(false);
+  const [selectedSport, setSelectedSport] = useState<SportId>("run");
   const [shareCardData, setShareCardData] = useState<{
     distanceMeters: number;
     elapsedSeconds: number;
-    coordinates: typeof coordinates;
+    coordinates: { latitude: number; longitude: number; timestamp: number; altitude?: number | null }[];
   } | null>(null);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
@@ -91,16 +105,15 @@ export default function ActiveRunScreen() {
     gpsError,
     followUser,
     setFollowUser,
-    activeRegion,
+    initialRegion,
     toastMessage,
-    startForegroundWatch,
     stopForegroundWatch,
     setupLocationAndPermissions,
-    lastCoordinate,
     routePolyline,
     routeMetrics,
     isFetchingRoute,
     isWarmedUp,
+    recordMapInteraction,
   } = useRunTrackingEngine(toastTranslateY, insets.top, {
     osrmRoutingEnabled,
     autoPauseEnabled,
@@ -109,7 +122,6 @@ export default function ActiveRunScreen() {
 
   const bottomSafeInset = Math.max(insets.bottom, 12);
   const showWarmupBanner = !isWarmedUp && status === "running";
-  const warmupSecondsLeft = Math.max(0, 8 - elapsedSeconds);
 
   // Design Tokens
   const glassBg = isDark ? "rgba(10,10,10,0.65)" : "rgba(255,255,255,0.78)";
@@ -137,12 +149,41 @@ export default function ActiveRunScreen() {
     };
   }, [setIsTabBarVisible]);
 
+  // Intercept Android hardware back during an active run.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (status === "running" || status === "paused") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          "Leave run?",
+          "If you leave now your run data won't be saved. End your run properly to keep it.",
+          [
+            { text: "Stay", style: "cancel" },
+            {
+              text: "Leave anyway",
+              style: "destructive",
+              onPress: () => {
+                resetRun();
+                router.replace("/(tabs)/tracking" as any);
+              },
+            },
+          ],
+        );
+        return true; // consumed — prevent default back
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [status, resetRun, router]);
+
   // If this screen gains focus but there's no active run, go back to the
   // tracking home. This prevents the screen from re-appearing when the user
   // leaves the tab and comes back after stopping a run.
   useFocusEffect(
     useCallback(() => {
-      if (status !== "running" && status !== "paused" && !shareCardData) {
+      // Only redirect if the user already started a run and it's now neither running nor paused.
+      // Without this guard, navigating here before pressing Start would immediately redirect back.
+      if (hasStartedRef.current && status !== "running" && status !== "paused" && !shareCardData) {
         router.replace("/(tabs)/tracking" as any);
       }
     }, [status, router, shareCardData]),
@@ -186,38 +227,33 @@ export default function ActiveRunScreen() {
     };
   }, [stopForegroundWatch]);
 
-  const isAutoPaused = useRunStore((s) => s.isAutoPaused);
-
   useEffect(() => {
-    if (!hasGps) return;
-    // Keep GPS alive during auto-pause so we can detect movement for auto-resume
-    if (status === "running" || (status === "paused" && isAutoPaused)) {
-      startForegroundWatch().catch(() => null);
-      if (backgroundTrackingEnabled) {
-        startLocationTracking().catch(() => null);
-      } else {
-        stopLocationTracking().catch(() => null);
-      }
-    } else {
-      stopForegroundWatch();
+    if (!hasGps || !backgroundTrackingEnabled) return;
+    const shouldBeActive = status === "running" || status === "paused";
+    // Only start/stop on actual transition into/out of an active run — not on every
+    // pause/resume. Avoids re-prompting the OS "Location Disclosure" alert (which
+    // looks like a white flash) and avoids the foreground-service notification re-flicker.
+    if (shouldBeActive && !trackingActiveRef.current) {
+      trackingActiveRef.current = true;
+      startLocationTracking().catch(() => null);
+    } else if (!shouldBeActive && trackingActiveRef.current) {
+      trackingActiveRef.current = false;
       stopLocationTracking().catch(() => null);
     }
-  }, [
-    backgroundTrackingEnabled,
-    hasGps,
-    isAutoPaused,
-    startForegroundWatch,
-    status,
-    stopForegroundWatch,
-  ]);
+  }, [backgroundTrackingEnabled, hasGps, status]);
+
 
   const handleFinishRun = () => {
+    setExpandedStats(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     stopRun();
 
-    const finalDistance = distanceMeters;
-    const finalSeconds = elapsedSeconds;
-    const finalCoords = coordinates;
+    // Read latest values imperatively — no need to subscribe up here.
+    const snap = useRunStore.getState();
+    const finalDistance = snap.distanceMeters;
+    const finalSeconds = snap.elapsedSeconds;
+    const finalCoords = snap.coordinates;
+    const finalRunId = snap.currentRunId;
 
     const distanceKm = finalDistance / 1000;
     const avg_speed = distanceKm > 0 && finalSeconds > 0 ? distanceKm / (finalSeconds / 3600) : 0;
@@ -226,7 +262,7 @@ export default function ActiveRunScreen() {
     try {
       initSQLiteRuns();
       saveRunRecord({
-        id: Crypto.randomUUID(),
+        id: finalRunId ?? Crypto.randomUUID(),
         date: new Date().toISOString(),
         distance_meters: finalDistance,
         duration_seconds: finalSeconds,
@@ -234,10 +270,11 @@ export default function ActiveRunScreen() {
         avg_speed: Number.isFinite(avg_speed) ? avg_speed : 0,
         calories: estimateCalories(finalDistance),
         coordinates: JSON.stringify(finalCoords),
-        effort_level: 0,
+        effort_level: EFFORT_PENDING_FEEDBACK,
         feel_tags: "[]",
         notes: "",
         user_id: userId,
+        sport: selectedSport,
       });
       pushRunsToCloud();
     } catch (e) {
@@ -266,6 +303,15 @@ export default function ActiveRunScreen() {
   const toastStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: toastTranslateY.value }],
   }));
+
+  const handleManualMove = useCallback(() => {
+    setFollowUser(false);
+    recordMapInteraction();
+  }, [recordMapInteraction]);
+  const handleMapPress = useCallback((coord: { latitude: number; longitude: number }) => {
+    setDestination(coord);
+    setSheetIndex(-1);
+  }, [setDestination]);
 
   if (!hasGps) {
     return (
@@ -336,20 +382,18 @@ export default function ActiveRunScreen() {
       return;
     }
     if (status === "idle") {
-      startRun();
+      setStartSheetOpen(true);
       return;
     }
   };
 
-  const isSheetOpen = sheetIndex >= 0 || layersSheetIndex >= 0;
   const showRunDock = sheetIndex === -1 && layersSheetIndex === -1;
-  const statsBottom = bottomSafeInset + 196;
   const controlsBottom =
     layersSheetIndex >= 0
       ? bottomSafeInset + 336
       : sheetIndex >= 0
         ? bottomSafeInset + 336
-        : bottomSafeInset + 392;
+        : bottomSafeInset + 270;
 
   return (
     <>
@@ -358,26 +402,21 @@ export default function ActiveRunScreen() {
           headerShown: false,
           presentation: "fullScreenModal",
           animation: "fade",
+          gestureEnabled: status !== "running" && status !== "paused",
         }}
       />
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <Animated.View style={screenStyle}>
         <LiveMap
-          activeRegion={activeRegion}
-          coordinates={coordinates}
-          lastCoordinate={lastCoordinate}
-          destination={destination}
+          initialRegion={initialRegion}
           isDark={isDark}
           colors={colors}
           followUser={followUser}
           routePolyline={routePolyline}
-          onManualMove={() => setFollowUser(false)}
+          onManualMove={handleManualMove}
           mapStyle={mapStyle}
           showsPointsOfInterest={pointsOfInterestEnabled}
-          onPress={(coord) => {
-            setDestination(coord);
-            setSheetIndex(-1);
-          }}
+          onPress={handleMapPress}
         />
 
         {/* Top-left exit */}
@@ -447,7 +486,7 @@ export default function ActiveRunScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.accentBold, fontSize: 12, color: colors.textPrimary }}>
-                GPS STABILIZING ({warmupSecondsLeft}s)
+                GPS STABILIZING…
               </Text>
               <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>
                 Stand still for best accuracy
@@ -547,27 +586,6 @@ export default function ActiveRunScreen() {
           </View>
         ) : null}
 
-        {!isSheetOpen ? (
-          <>
-            <View
-              style={{
-                position: "absolute",
-                left: 18,
-                right: 18,
-                bottom: statsBottom,
-                zIndex: 25,
-              }}
-            >
-              <ActiveRunStatsCard
-                elapsedSeconds={elapsedSeconds}
-                distanceMeters={distanceMeters}
-                colors={colors}
-                isDark={isDark}
-              />
-            </View>
-          </>
-        ) : null}
-
         {showRunDock ? (
           <View
             style={{
@@ -576,23 +594,20 @@ export default function ActiveRunScreen() {
               right: 0,
               bottom: 0,
               zIndex: 30,
-              backgroundColor: isDark ? "rgba(18,18,18,0.96)" : "rgba(255,255,255,0.98)",
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
-              paddingTop: 12,
-              paddingHorizontal: 20,
-              paddingBottom: bottomSafeInset,
             }}
           >
+            <ActiveRunStatsCard
+              sportName={selectedSport}
+              onExpandPress={() => setExpandedStats(true)}
+              onSportPress={() => setSportSheetOpen(true)}
+            />
             <ActiveRunActionDock
               status={status}
               colors={colors}
               isDark={isDark}
               onPrimaryPress={handlePrimaryPress}
-              onOpenSheet={() => setSheetIndex(0)}
               onFinishRun={handleFinishRun}
+              bottomInset={bottomSafeInset}
             />
           </View>
         ) : null}
@@ -656,6 +671,39 @@ export default function ActiveRunScreen() {
         />
         </Animated.View>
       </SafeAreaView>
+
+      <ActiveRunStartSheet
+        open={startSheetOpen}
+        onSelect={(sport) => {
+          setSelectedSport(sport);
+          setStartSheetOpen(false);
+          hasStartedRef.current = true;
+          startRun();
+        }}
+        onClose={() => setStartSheetOpen(false)}
+        colors={colors}
+      />
+
+      <ActiveRunSportSheet
+        open={sportSheetOpen}
+        selectedSport={selectedSport}
+        onSelect={(sport) => {
+          setSelectedSport(sport);
+          setSportSheetOpen(false);
+        }}
+        onClose={() => setSportSheetOpen(false)}
+        colors={colors}
+      />
+
+      {expandedStats && (
+        <ActiveRunExpandedView
+          colors={colors}
+          onCollapse={() => setExpandedStats(false)}
+          onPrimaryPress={handlePrimaryPress}
+          onFinishRun={handleFinishRun}
+          bottomInset={bottomSafeInset}
+        />
+      )}
 
       {shareCardData && (
         <RunShareCard

@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { View, Pressable, TextInput, Image } from "react-native";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+import { View, Pressable, Image } from "react-native";
 import { useAppSelector } from "@/store/hooks";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
@@ -8,10 +7,17 @@ import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Feather } from "@/components/ui/theme-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { Search, Users as UsersIcon } from "lucide-react-native";
 
 import { useAdminUsers } from "@/hooks/admin/useAdminUsers";
 import { AdminUserDetailModal } from "@/components/admin/AdminUserDetailModal";
 import { AdminUser } from "@/types/admin";
+import {
+  AdminEmptyState,
+  AdminHeader,
+  AdminInput,
+  AdminScreen,
+} from "@/components/admin/AdminUI";
 
 const ROLE_COLORS: Record<string, { color: string; bg: string }> = {
   admin: { color: "#7B61FF", bg: "rgba(123,97,255,0.12)" },
@@ -160,8 +166,7 @@ function UserCard({
 }
 
 export default function AdminUsersScreen() {
-  const { colors, isDark } = useAppTheme();
-  const insets = useAppSafeAreaInsets();
+  const { isDark } = useAppTheme();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
@@ -188,79 +193,33 @@ export default function AdminUsersScreen() {
   const blockedCount = useMemo(() => users.filter(u => u.isBlocked).length, [users]);
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top }}>
+    <AdminScreen>
       <ThemedScrollView
         onRefresh={() => load(searchQuery.trim() ? searchQuery.trim() : undefined, true)}
       >
-        {/* Header */}
         <Animated.View
           entering={FadeInDown.delay(60).duration(360)}
-          style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 24 }}
+          style={{ marginBottom: 18 }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
-            <View style={{ width: 5, height: 36, borderRadius: 3, backgroundColor: "#34C759" }} />
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  fontFamily: "Telma-Bold",
-                  fontSize: 44,
-                  color: colors.textPrimary,
-                  letterSpacing: -1,
-                  lineHeight: 48,
-                }}
-              >
-                Users
-              </Text>
-              <Text
-                style={{
-                  fontFamily: "Outfit-Regular",
-                  fontSize: 13,
-                  color: colors.textSecondary,
-                  marginTop: 2,
-                }}
-              >
-                {loading && users.length === 0
-                  ? "Loading…"
-                  : `${users.length} registered · ${blockedCount > 0 ? `${blockedCount} blocked` : "none blocked"}`}
-              </Text>
-            </View>
-          </View>
-
-          {/* Search bar */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-              borderRadius: 18,
-              borderWidth: 1,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-              marginTop: 16,
-            }}
-          >
-            <Feather name="search" size={16} color={colors.textSecondary} />
-            <TextInput
-              placeholder="Search by name, email or role…"
-              placeholderTextColor={(colors as any).placeholder ?? colors.textSecondary}
+          <AdminHeader
+            eyebrow="Directory"
+            title="Users"
+            subtitle={
+              loading && users.length === 0
+                ? "Loading users"
+                : `${users.length} registered · ${blockedCount > 0 ? `${blockedCount} blocked` : "none blocked"}`
+            }
+            tone="success"
+          />
+          <View style={{ paddingHorizontal: 20 }}>
+            <AdminInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              style={{
-                flex: 1,
-                fontFamily: "Outfit-Regular",
-                fontSize: 15,
-                color: colors.text,
-              }}
-              autoCorrect={false}
+              placeholder="Search by name, email, or role"
+              leftIcon={Search}
+              onClear={() => setSearchQuery("")}
               autoCapitalize="none"
             />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery("")}>
-                <Feather name="x" size={16} color={colors.textSecondary} />
-              </Pressable>
-            )}
           </View>
         </Animated.View>
 
@@ -292,24 +251,16 @@ export default function AdminUsersScreen() {
               </Text>
             </View>
           ) : filteredUsers.length === 0 ? (
-            <View style={{ paddingVertical: 48, alignItems: "center" }}>
-              <View
-                style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 16,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(52,199,89,0.12)" : "rgba(52,199,89,0.08)",
-                  marginBottom: 14,
-                }}
-              >
-                <Feather name="users" size={24} color="#34C759" />
-              </View>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 15, color: colors.textSecondary }}>
-                {searchQuery ? "No users match your search." : "No users found."}
-              </Text>
-            </View>
+            <AdminEmptyState
+              icon={UsersIcon}
+              title={searchQuery ? "No matching users" : "No users found"}
+              description={
+                searchQuery
+                  ? "Clear the search or try another name, email, or role."
+                  : "Users will appear here after they register."
+              }
+              tone="success"
+            />
           ) : (
             <View style={{ gap: 8 }}>
               {filteredUsers.map((u) => (
@@ -335,6 +286,6 @@ export default function AdminUsersScreen() {
         token={token}
         isBusy={isBusy}
       />
-    </View>
+    </AdminScreen>
   );
 }

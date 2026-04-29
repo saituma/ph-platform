@@ -36,9 +36,10 @@ export async function pushRunsToCloud(): Promise<void> {
   try {
     const token = store.getState().user.token;
     if (!token) return;
+    const userId = store.getState().user.profile.id ?? null;
 
     initSQLiteRuns();
-    const unsynced = getUnsyncedRuns().filter(
+    const unsynced = getUnsyncedRuns(userId).filter(
       (r) => r.effort_level !== EFFORT_PENDING_FEEDBACK,
     );
     if (!unsynced.length) return;

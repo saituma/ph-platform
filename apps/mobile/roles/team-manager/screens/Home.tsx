@@ -29,7 +29,6 @@ export default function TeamManagerHomeScreen() {
   const insets = useAppSafeAreaInsets();
   const { authTeamMembership, token, appRole } =
     useAppSelector((state) => state.user);
-  const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
   const [refreshing, setRefreshing] = useState(false);
   const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
@@ -66,7 +65,7 @@ export default function TeamManagerHomeScreen() {
   );
 
   const fetchData = useCallback(async (forceRefresh = false) => {
-    if (!token || !bootstrapReady) return;
+    if (!token) return;
     try {
       const [rosterRes, leaderboardRes] = await Promise.allSettled([
         fetchRoster(token, forceRefresh),
@@ -79,11 +78,16 @@ export default function TeamManagerHomeScreen() {
     } finally {
       setLoaded(true);
     }
-  }, [token, bootstrapReady]);
+  }, [token]);
 
   useEffect(() => {
-    if (bootstrapReady) void fetchData();
-  }, [fetchData, bootstrapReady]);
+    void fetchData();
+    // Safety net: never leave the user staring at skeletons. After 5s, show the
+    // actual layout (with whatever data has arrived, or zeros) — fetchData's
+    // setLoaded(true) in finally still runs when it eventually resolves.
+    const fallback = setTimeout(() => setLoaded(true), 5000);
+    return () => clearTimeout(fallback);
+  }, [fetchData]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {

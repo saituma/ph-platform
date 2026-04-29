@@ -27,11 +27,16 @@ export default function FeedbackScreen() {
   const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
   const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
 
-  const categories = [
-    "Bug Report",
-    "Feature Request",
-    "General Feedback",
-    "Other",
+  const categories: Array<{
+    id: string;
+    label: string;
+    description: string;
+    icon: React.ComponentProps<typeof Ionicons>["name"];
+  }> = [
+    { id: "Bug Report", label: "Bug Report", description: "Something broken", icon: "bug-outline" },
+    { id: "Feature Request", label: "Feature", description: "New idea", icon: "bulb-outline" },
+    { id: "General Feedback", label: "Feedback", description: "General thoughts", icon: "chatbubbles-outline" },
+    { id: "Other", label: "Other", description: "Anything else", icon: "ellipsis-horizontal-circle-outline" },
   ];
 
   return (
@@ -79,37 +84,98 @@ export default function FeedbackScreen() {
           >
             Select Category
           </Text>
-          <View style={{ flexDirection: "row", gap: 8, marginBottom: 32 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 12,
+              marginBottom: 32,
+            }}
+          >
             {categories.map((cat) => {
-              const isActive = category === cat;
+              const isActive = category === cat.id;
+              const iconBg = isActive
+                ? "rgba(255,255,255,0.18)"
+                : isDark
+                  ? "rgba(255,255,255,0.06)"
+                  : "rgba(15,23,42,0.04)";
+              const iconColor = isActive ? "#fff" : colors.accent;
               return (
                 <Pressable
-                  key={cat}
-                  onPress={() => setCategory(cat)}
+                  key={cat.id}
+                  onPress={() => setCategory(cat.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
                   style={({ pressed }) => ({
-                    flex: 1,
-                    height: 52,
-                    borderRadius: 14,
-                    borderWidth: 1,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    paddingHorizontal: 8,
+                    flexBasis: "47%",
+                    flexGrow: 1,
+                    minHeight: 96,
+                    borderRadius: 20,
+                    borderWidth: 1.5,
+                    paddingHorizontal: 14,
+                    paddingVertical: 14,
                     backgroundColor: isActive ? colors.accent : cardBg,
                     borderColor: isActive ? colors.accent : cardBorder,
-                    opacity: pressed ? 0.85 : 1,
-                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                    opacity: pressed ? 0.9 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                    overflow: "hidden",
                   })}
                 >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 12,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: iconBg,
+                      }}
+                    >
+                      <Ionicons name={cat.icon} size={18} color={iconColor} />
+                    </View>
+                    {isActive ? (
+                      <View
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 11,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: "rgba(255,255,255,0.22)",
+                        }}
+                      >
+                        <Ionicons name="checkmark" size={14} color="#fff" />
+                      </View>
+                    ) : null}
+                  </View>
                   <Text
-                    numberOfLines={2}
+                    numberOfLines={1}
                     style={{
                       fontFamily: fonts.bodyBold,
-                      fontSize: 11,
-                      textAlign: "center",
+                      fontSize: 14,
                       color: isActive ? "#fff" : textPrimary,
                     }}
                   >
-                    {cat}
+                    {cat.label}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: "Outfit",
+                      fontSize: 11,
+                      marginTop: 2,
+                      color: isActive ? "rgba(255,255,255,0.8)" : labelColor,
+                    }}
+                  >
+                    {cat.description}
                   </Text>
                 </Pressable>
               );

@@ -4,21 +4,21 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   TextInput,
   View,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
-import { fonts } from "@/constants/theme";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
-import {
-  createAthlete,
-} from "@/services/teamManager/rosterService";
+import { createAthlete } from "@/services/teamManager/rosterService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AddAthleteScreen
@@ -38,6 +38,7 @@ export default function AddAthleteScreen() {
 
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [addedName, setAddedName] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -49,9 +50,12 @@ export default function AddAthleteScreen() {
     return <ReplaceOnce href="/(tabs)" />;
   }
 
-  const cardBg = colors.surfaceHigh;
-  const cardBorder = isDark ? colors.borderMid : colors.borderMid;
-  const inputBg = isDark ? colors.surfaceHigher : colors.inputBackground;
+  const screenBg = isDark ? colors.background : "#F4F6F8";
+  const cardBg = isDark ? "hsl(220,8%,13%)" : "#fff";
+  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)";
+  const inputBg = isDark ? "hsl(220,8%,17%)" : "#F7F9FB";
+  const inputBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)";
+  const labelColor = isDark ? "hsl(220,5%,50%)" : "hsl(220,5%,46%)";
 
   function validate(): boolean {
     const next: Record<string, string> = {};
@@ -106,19 +110,14 @@ export default function AddAthleteScreen() {
         age: parseInt(age, 10),
         customPassword: showPasswordField && customPassword ? customPassword : undefined,
       });
+      setAddedName(name.trim());
       setSuccess(true);
-      // Navigate back to roster after a brief success moment
       setTimeout(() => {
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace("/team-manager/roster");
-        }
-      }, 1400);
+        if (router.canGoBack()) router.back();
+        else router.replace("/team-manager/roster");
+      }, 1800);
     } catch (e) {
-      const msg =
-        e instanceof Error ? e.message : "Failed to add athlete. Please try again.";
-      setServerError(msg);
+      setServerError(e instanceof Error ? e.message : "Failed to add athlete. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -131,196 +130,146 @@ export default function AddAthleteScreen() {
     setCustomPassword("");
     setShowPasswordField(false);
     setSuccess(false);
+    setAddedName("");
     setErrors({});
     setServerError(null);
   }
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={[styles.screen, { backgroundColor: screenBg }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
-      {/* Nav bar */}
+      {/* ── Nav bar ── */}
       <View
-        style={{
-          paddingTop: insets.top + 12,
-          paddingHorizontal: 20,
-          paddingBottom: 12,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-          backgroundColor: colors.background,
-          borderBottomWidth: 1,
-          borderBottomColor: cardBorder,
-        }}
+        style={[
+          styles.navbar,
+          {
+            paddingTop: insets.top + 10,
+            backgroundColor: screenBg,
+            borderBottomColor: cardBorder,
+          },
+        ]}
       >
         <Pressable
           onPress={() => router.back()}
           accessibilityLabel="Go back"
-          style={({ pressed }) => ({
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: pressed
-              ? isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"
-              : cardBg,
-            borderWidth: 1,
-            borderColor: cardBorder,
-          })}
+          style={({ pressed }) => [
+            styles.backBtn,
+            {
+              backgroundColor: pressed
+                ? isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"
+                : cardBg,
+              borderColor: cardBorder,
+            },
+          ]}
         >
           <Ionicons
             name="chevron-back"
-            size={18}
-            color={isDark ? "hsl(220,5%,75%)" : "hsl(220,8%,30%)"}
+            size={19}
+            color={isDark ? "hsl(220,5%,72%)" : "hsl(220,8%,28%)"}
           />
         </Pressable>
         <Text
-          style={{
-            fontSize: 17,
-            fontFamily: fonts.heading2,
-            color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)",
-            flex: 1,
-          }}
+          style={[
+            styles.navTitle,
+            { color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)" },
+          ]}
         >
           Add Athlete
         </Text>
+        <View style={styles.navSpacer} />
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 24,
-          paddingBottom: 40 + insets.bottom,
-        }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 24 },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Success state */}
         {success ? (
-          <View
-            style={{
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: colors.borderLime,
-              backgroundColor: isDark
-                ? "rgba(52,199,89,0.07)"
-                : "rgba(22,163,74,0.06)",
-              padding: 32,
-              alignItems: "center",
-              gap: 12,
-            }}
+          /* ── Success State ── */
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            style={[styles.successCard, { borderColor: colors.borderLime, backgroundColor: isDark ? "rgba(52,199,89,0.07)" : "rgba(22,163,74,0.05)" }]}
           >
-            <View
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 18,
-                backgroundColor: isDark
-                  ? "rgba(52,199,89,0.15)"
-                  : "rgba(22,163,74,0.12)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons name="checkmark" size={28} color={colors.accent} />
+            <View style={[styles.successIcon, { backgroundColor: isDark ? "rgba(52,199,89,0.18)" : "rgba(22,163,74,0.14)" }]}>
+              <Ionicons name="checkmark" size={32} color={colors.accent} />
             </View>
-            <Text
-              style={{
-                fontSize: 18,
-                fontFamily: fonts.heading2,
-                color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)",
-                textAlign: "center",
-              }}
-            >
-              {name.trim()} added
+            <Text style={[styles.successTitle, { color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)" }]}>
+              {addedName} added!
             </Text>
-            <Text
-              style={{
-                fontSize: 13,
-                fontFamily: fonts.bodyRegular,
-                color: colors.textSecondary,
-                textAlign: "center",
-              }}
-            >
+            <Text style={[styles.successSub, { color: labelColor }]}>
               The athlete has been added to your team.
             </Text>
             <Pressable
               onPress={handleAddAnother}
-              style={({ pressed }) => ({
-                marginTop: 8,
-                paddingHorizontal: 20,
-                paddingVertical: 10,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: colors.accent,
-                opacity: pressed ? 0.7 : 1,
-              })}
+              style={({ pressed }) => [
+                styles.addAnotherBtn,
+                { borderColor: colors.accent, opacity: pressed ? 0.72 : 1 },
+              ]}
             >
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontFamily: fonts.bodyBold,
-                  color: colors.accent,
-                }}
-              >
+              <Ionicons name="person-add-outline" size={15} color={colors.accent} />
+              <Text style={[styles.addAnotherBtnText, { color: colors.accent }]}>
                 Add another athlete
               </Text>
             </Pressable>
-          </View>
+          </Animated.View>
         ) : (
-          <View style={{ gap: 20 }}>
-            {/* Server error */}
+          <Animated.View entering={FadeInDown.duration(280)} style={styles.formWrap}>
+
+            {/* ── Hero section ── */}
+            <View style={styles.hero}>
+              <View
+                style={[
+                  styles.heroIconWrap,
+                  { backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}14` },
+                ]}
+              >
+                <Ionicons name="person-add" size={28} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.heroTitle,
+                    { color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)" },
+                  ]}
+                >
+                  New Athlete
+                </Text>
+                <Text style={[styles.heroSub, { color: labelColor }]}>
+                  Fill in the details to add a team member
+                </Text>
+              </View>
+            </View>
+
+            {/* ── Server error ── */}
             {serverError && (
               <View
-                style={{
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: isDark
-                    ? "rgba(255,107,107,0.3)"
-                    : "rgba(239,68,68,0.2)",
-                  backgroundColor: isDark
-                    ? "rgba(255,107,107,0.08)"
-                    : "rgba(239,68,68,0.06)",
-                  padding: 14,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 10,
-                }}
+                style={[
+                  styles.errorBanner,
+                  {
+                    borderColor: isDark ? "rgba(255,107,107,0.3)" : "rgba(239,68,68,0.2)",
+                    backgroundColor: isDark ? "rgba(255,107,107,0.08)" : "rgba(239,68,68,0.06)",
+                  },
+                ]}
               >
-                <Ionicons
-                  name="alert-circle-outline"
-                  size={18}
-                  color={colors.danger}
-                />
-                <Text
-                  style={{
-                    flex: 1,
-                    fontSize: 13,
-                    fontFamily: fonts.bodyRegular,
-                    color: colors.danger,
-                  }}
-                >
+                <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={[styles.errorBannerText, { color: colors.danger }]}>
                   {serverError}
                 </Text>
               </View>
             )}
 
-            {/* Form card */}
-            <View
-              style={{
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                backgroundColor: cardBg,
-                overflow: "hidden",
-              }}
-            >
-              {/* Name */}
-              <FormField
+            {/* ── Athlete Info card ── */}
+            <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <Text style={[styles.sectionLabel, { color: labelColor }]}>ATHLETE INFO</Text>
+
+              <Field
                 label="Full Name"
                 value={name}
                 onChangeText={(v) => {
@@ -330,34 +279,37 @@ export default function AddAthleteScreen() {
                 placeholder="e.g. Jordan Smith"
                 error={errors.name}
                 inputBg={inputBg}
-                cardBorder={cardBorder}
+                inputBorder={errors.name ? (isDark ? "rgba(255,107,107,0.5)" : "rgba(239,68,68,0.4)") : inputBorder}
+                isDark={isDark}
                 returnKeyType="next"
                 onSubmitEditing={() => usernameRef.current?.focus()}
-                isFirst
               />
 
-              {/* Username */}
-              <FormField
+              <Divider isDark={isDark} />
+
+              <Field
                 ref={usernameRef}
                 label="Username"
+                hint="No spaces. Used to log in."
                 value={username}
                 onChangeText={(v) => {
                   setUsername(v.replace(/\s/g, ""));
                   if (errors.username) setErrors((p) => ({ ...p, username: "" }));
                 }}
                 placeholder="e.g. jordan_smith"
-                hint="Used to log in. No spaces allowed."
                 error={errors.username}
                 inputBg={inputBg}
-                cardBorder={cardBorder}
+                inputBorder={errors.username ? (isDark ? "rgba(255,107,107,0.5)" : "rgba(239,68,68,0.4)") : inputBorder}
+                isDark={isDark}
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="next"
                 onSubmitEditing={() => ageRef.current?.focus()}
               />
 
-              {/* Age */}
-              <FormField
+              <Divider isDark={isDark} />
+
+              <Field
                 ref={ageRef}
                 label="Age"
                 value={age}
@@ -368,162 +320,116 @@ export default function AddAthleteScreen() {
                 placeholder="e.g. 16"
                 error={errors.age}
                 inputBg={inputBg}
-                cardBorder={cardBorder}
+                inputBorder={errors.age ? (isDark ? "rgba(255,107,107,0.5)" : "rgba(239,68,68,0.4)") : inputBorder}
+                isDark={isDark}
                 keyboardType="number-pad"
                 returnKeyType="done"
               />
             </View>
 
-            {/* Optional password section */}
-            <View>
-              <Pressable
-                onPress={() => setShowPasswordField((v) => !v)}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  paddingVertical: 4,
-                  opacity: pressed ? 0.7 : 1,
-                })}
-                accessibilityLabel="Toggle custom password"
-              >
-                <View
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: 6,
-                    borderWidth: 1.5,
-                    borderColor: showPasswordField
-                      ? colors.accent
-                      : isDark
-                        ? colors.borderStrong
-                        : colors.borderMid,
-                    backgroundColor: showPasswordField
-                      ? colors.accent
-                      : "transparent",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {showPasswordField && (
-                    <Ionicons name="checkmark" size={12} color={colors.background} />
-                  )}
+            {/* ── Password card ── */}
+            <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <View style={styles.passwordToggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.passwordToggleTitle, { color: isDark ? "hsl(220,5%,88%)" : "hsl(220,8%,14%)" }]}>
+                    Custom Password
+                  </Text>
+                  <Text style={[styles.passwordToggleSub, { color: labelColor }]}>
+                    If not set, athlete creates one on first login
+                  </Text>
                 </View>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontFamily: fonts.bodyMedium,
-                    color: isDark ? "hsl(220,5%,75%)" : "hsl(220,8%,30%)",
+                <Switch
+                  value={showPasswordField}
+                  onValueChange={setShowPasswordField}
+                  trackColor={{
+                    false: isDark ? "hsl(220,8%,25%)" : "hsl(220,5%,80%)",
+                    true: colors.accent,
                   }}
-                >
-                  Set a custom password
-                </Text>
-              </Pressable>
+                  thumbColor={showPasswordField ? "#fff" : isDark ? "hsl(220,5%,60%)" : "#fff"}
+                />
+              </View>
 
               {showPasswordField && (
-                <View
-                  style={{
-                    marginTop: 12,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: cardBorder,
-                    backgroundColor: cardBg,
-                    overflow: "hidden",
-                  }}
-                >
-                  <FormField
+                <>
+                  <Divider isDark={isDark} />
+                  <Field
                     ref={passwordRef}
                     label="Password"
+                    hint="8–20 chars · uppercase · lowercase · number · symbol"
                     value={customPassword}
                     onChangeText={(v) => {
                       setCustomPassword(v);
-                      if (errors.customPassword)
-                        setErrors((p) => ({ ...p, customPassword: "" }));
+                      if (errors.customPassword) setErrors((p) => ({ ...p, customPassword: "" }));
                     }}
-                    placeholder="8–20 chars, mixed case, number, symbol"
-                    hint="Must be 8–20 characters with uppercase, lowercase, a number, and a symbol."
+                    placeholder="Enter password"
                     error={errors.customPassword}
                     inputBg={inputBg}
-                    cardBorder={cardBorder}
+                    inputBorder={errors.customPassword ? (isDark ? "rgba(255,107,107,0.5)" : "rgba(239,68,68,0.4)") : inputBorder}
+                    isDark={isDark}
                     secureTextEntry={!showPassword}
                     returnKeyType="done"
-                    isFirst
                     rightAction={
-                      <Pressable
-                        onPress={() => setShowPassword((v) => !v)}
-                        hitSlop={8}
-                      >
+                      <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
                         <Ionicons
                           name={showPassword ? "eye-off-outline" : "eye-outline"}
                           size={18}
-                          color={isDark ? "hsl(220,5%,50%)" : "hsl(220,5%,55%)"}
+                          color={labelColor}
                         />
                       </Pressable>
                     }
                   />
-                </View>
+                </>
               )}
             </View>
 
-            {/* Submit */}
-            <Pressable
-              onPress={handleSubmit}
-              disabled={submitting}
-              accessibilityLabel="Add athlete"
-              style={({ pressed }) => ({
-                borderRadius: 16,
-                backgroundColor: submitting
-                  ? isDark
-                    ? "rgba(52,199,89,0.4)"
-                    : "rgba(22,163,74,0.4)"
-                  : colors.accent,
-                paddingVertical: 16,
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: pressed ? 0.85 : 1,
-                transform: [{ scale: pressed ? 0.98 : 1 }],
-              })}
-            >
-              {submitting ? (
-                <ActivityIndicator color={colors.background} size="small" />
-              ) : (
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontFamily: fonts.bodyBold,
-                    color: colors.background,
-                    letterSpacing: 0.1,
-                  }}
-                >
-                  Add Athlete
-                </Text>
-              )}
-            </Pressable>
-
-            {/* Info note */}
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: fonts.bodyRegular,
-                color: colors.textSecondary,
-                textAlign: "center",
-                lineHeight: 18,
-              }}
-            >
-              If no password is set, the athlete will be prompted to create one on first login.
-            </Text>
-          </View>
+          </Animated.View>
         )}
       </ScrollView>
+
+      {/* ── Sticky footer button (hidden on success) ── */}
+      {!success && (
+        <View
+          style={[
+            styles.stickyFooter,
+            {
+              paddingBottom: insets.bottom + 12,
+              backgroundColor: screenBg,
+              borderTopColor: cardBorder,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={handleSubmit}
+            disabled={submitting}
+            accessibilityLabel="Add athlete"
+            android_ripple={{ color: "rgba(255,255,255,0.25)", borderless: false }}
+            style={({ pressed }) => ({
+              borderRadius: 18,
+              overflow: "hidden",
+              opacity: submitting ? 0.6 : pressed ? 0.86 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
+          >
+            <View style={styles.submitBtn}>
+              {submitting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="person-add-outline" size={18} color="#fff" />
+                  <Text style={styles.submitBtnText}>Add Athlete</Text>
+                </>
+              )}
+            </View>
+          </Pressable>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FormField
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Field ─────────────────────────────────────────────────────────────────────
 
-const FormField = React.forwardRef<
+const Field = React.forwardRef<
   TextInput,
   {
     label: string;
@@ -533,7 +439,8 @@ const FormField = React.forwardRef<
     hint?: string;
     error?: string;
     inputBg: string;
-    cardBorder: string;
+    inputBorder: string;
+    isDark: boolean;
     isFirst?: boolean;
     secureTextEntry?: boolean;
     keyboardType?: "default" | "number-pad" | "email-address";
@@ -543,7 +450,7 @@ const FormField = React.forwardRef<
     onSubmitEditing?: () => void;
     rightAction?: React.ReactNode;
   }
->(function FormField(
+>(function Field(
   {
     label,
     value,
@@ -552,8 +459,8 @@ const FormField = React.forwardRef<
     hint,
     error,
     inputBg,
-    cardBorder,
-    isFirst,
+    inputBorder,
+    isDark,
     secureTextEntry,
     keyboardType = "default",
     autoCapitalize = "words",
@@ -564,98 +471,276 @@ const FormField = React.forwardRef<
   },
   ref,
 ) {
-  const { colors, isDark } = useAppTheme();
-
   return (
-    <View>
-      {!isFirst && (
-        <View
-          style={{
-            height: 1,
-            backgroundColor: isDark ? colors.borderSubtle : colors.borderMid,
-            marginLeft: 16,
-          }}
+    <View style={styles.field}>
+      <Text style={[styles.fieldLabel, { color: isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,44%)" }]}>
+        {label}
+      </Text>
+      <View
+        style={[
+          styles.fieldInputRow,
+          { backgroundColor: inputBg, borderColor: inputBorder },
+        ]}
+      >
+        <TextInput
+          ref={ref}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={isDark ? "hsl(220,5%,36%)" : "hsl(220,5%,64%)"}
+          style={[
+            styles.fieldInput,
+            { color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,10%)" },
+          ]}
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
+          returnKeyType={returnKeyType}
+          onSubmitEditing={onSubmitEditing}
+          submitBehavior={returnKeyType === "done" ? "blurAndSubmit" : "submit"}
         />
-      )}
-      <View style={{ padding: 16, gap: 8 }}>
-        <Text
-          style={{
-            fontSize: 11,
-            fontFamily: fonts.labelBold,
-            color: isDark ? "hsl(220,5%,50%)" : "hsl(220,5%,46%)",
-            textTransform: "uppercase",
-            letterSpacing: 0.8,
-          }}
-        >
-          {label}
-        </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: error
-              ? isDark
-                ? "rgba(255,107,107,0.5)"
-                : "rgba(239,68,68,0.4)"
-              : cardBorder,
-            backgroundColor: inputBg,
-            paddingHorizontal: 14,
-            paddingVertical: 12,
-            gap: 8,
-          }}
-        >
-          <TextInput
-            ref={ref}
-            value={value}
-            onChangeText={onChangeText}
-            placeholder={placeholder}
-            placeholderTextColor={
-              isDark ? "hsl(220,5%,38%)" : "hsl(220,5%,62%)"
-            }
-            style={{
-              flex: 1,
-              fontSize: 15,
-              fontFamily: fonts.bodyRegular,
-              color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,10%)",
-              padding: 0,
-            }}
-            secureTextEntry={secureTextEntry}
-            keyboardType={keyboardType}
-            autoCapitalize={autoCapitalize}
-            autoCorrect={autoCorrect}
-            returnKeyType={returnKeyType}
-            onSubmitEditing={onSubmitEditing}
-            blurOnSubmit={returnKeyType === "done"}
-          />
-          {rightAction}
-        </View>
-        {hint && !error && (
-          <Text
-            style={{
-              fontSize: 11,
-              fontFamily: fonts.bodyRegular,
-              color: isDark ? "hsl(220,5%,42%)" : "hsl(220,5%,58%)",
-              lineHeight: 16,
-            }}
-          >
-            {hint}
-          </Text>
-        )}
-        {error && (
-          <Text
-            style={{
-              fontSize: 11,
-              fontFamily: fonts.bodyMedium,
-              color: colors.danger,
-              lineHeight: 16,
-            }}
-          >
-            {error}
-          </Text>
-        )}
+        {rightAction}
       </View>
+      {hint && !error && (
+        <Text style={[styles.fieldHint, { color: isDark ? "hsl(220,5%,40%)" : "hsl(220,5%,58%)" }]}>
+          {hint}
+        </Text>
+      )}
+      {error && (
+        <Text style={styles.fieldError}>{error}</Text>
+      )}
     </View>
   );
+});
+
+// ── Divider ───────────────────────────────────────────────────────────────────
+
+function Divider({ isDark }: { isDark: boolean }) {
+  return (
+    <View
+      style={[
+        styles.divider,
+        { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" },
+      ]}
+    />
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  navbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  navTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontFamily: "Outfit-SemiBold",
+    letterSpacing: -0.2,
+  },
+  navSpacer: {
+    width: 38,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  formWrap: {
+    gap: 16,
+  },
+  // Hero
+  hero: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 4,
+  },
+  heroIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontFamily: "Chillax-Semibold",
+    letterSpacing: -0.4,
+  },
+  heroSub: {
+    fontSize: 13,
+    fontFamily: "Outfit-Regular",
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  // Error banner
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Outfit-Regular",
+    lineHeight: 18,
+  },
+  // Section card
+  sectionCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontFamily: "Outfit-Bold",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  // Field
+  field: {
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontFamily: "Outfit-SemiBold",
+    letterSpacing: 0.2,
+  },
+  fieldInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 8,
+  },
+  fieldInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Outfit-Regular",
+    padding: 0,
+  },
+  fieldHint: {
+    fontSize: 11,
+    fontFamily: "Outfit-Regular",
+    lineHeight: 16,
+  },
+  fieldError: {
+    fontSize: 11,
+    fontFamily: "Outfit-Medium",
+    color: "hsl(0,60%,55%)",
+    lineHeight: 16,
+  },
+  divider: {
+    height: 1,
+    marginHorizontal: 18,
+  },
+  // Password toggle
+  passwordToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  passwordToggleTitle: {
+    fontSize: 15,
+    fontFamily: "Outfit-SemiBold",
+  },
+  passwordToggleSub: {
+    fontSize: 12,
+    fontFamily: "Outfit-Regular",
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  // Sticky footer
+  stickyFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  // Submit
+  submitBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    borderRadius: 18,
+    paddingVertical: 17,
+    backgroundColor: "#22c55e",
+  },
+  submitBtnText: {
+    fontSize: 16,
+    fontFamily: "Outfit-Bold",
+    color: "#fff",
+    letterSpacing: 0.1,
+  },
+  // Success
+  successCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 36,
+    alignItems: "center",
+    gap: 10,
+  },
+  successIcon: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontFamily: "Chillax-Semibold",
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  successSub: {
+    fontSize: 14,
+    fontFamily: "Outfit-Regular",
+    textAlign: "center",
+    lineHeight: 21,
+  },
+  addAnotherBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginTop: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 22,
+    borderWidth: 1.5,
+  },
+  addAnotherBtnText: {
+    fontSize: 14,
+    fontFamily: "Outfit-SemiBold",
+  },
 });

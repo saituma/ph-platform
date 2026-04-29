@@ -44,26 +44,29 @@ export function AdminBookingsSection({
     handleUpdateStatus,
   } = useAdminBookingsController(token, canLoad, services, initialAction);
 
-  const [selectedService, setSelectedService] = useState<string>("All Services");
-  const [selectedType, setSelectedType] = useState<string>("All Types");
-
-  const serviceOptions = useMemo(() => ["All Services", ...Array.from(new Set(services.map(s => s.name).filter(Boolean)))], [services]);
-  const typeOptions = ["All Types", "one_to_one", "semi_private", "call", "group_call"];
+  const [activeChip, setActiveChip] = useState("All");
+  const chips = ["All", "Group", "Individual", "Lift Lab", "Premium"];
 
   const filteredBookings = useMemo(() => {
     return bookingsHook.bookings.filter(b => {
-      const matchService = selectedService === "All Services" || b.serviceName === selectedService;
-      const matchType = selectedType === "All Types" || b.serviceType === selectedType;
-      return matchService && matchType;
+      const type = b.serviceType ?? b.type ?? "";
+      if (activeChip === "All") return true;
+      if (activeChip === "Group") return ["group_call", "semi_private"].includes(type);
+      if (activeChip === "Individual") return ["individual_call", "one_on_one", "one_to_one"].includes(type);
+      if (activeChip === "Lift Lab") return type === "lift_lab_1on1";
+      if (activeChip === "Premium") return type === "role_model";
+      return true;
     });
-  }, [bookingsHook.bookings, selectedService, selectedType]);
+  }, [activeChip, bookingsHook.bookings]);
 
   const upcomingBookings = useMemo(() => {
     const now = Date.now();
     return filteredBookings
       .filter((b) => {
+        const status = b.status?.toLowerCase();
+        if (status === "cancelled" || status === "declined") return false;
         const ms = bookingStartMs(b);
-        return ms > 0 && ms >= now;
+        return ms === 0 || ms >= now;
       })
       .sort((a, b) => bookingStartMs(a) - bookingStartMs(b));
   }, [filteredBookings]);
@@ -72,10 +75,19 @@ export function AdminBookingsSection({
     const now = Date.now();
     return filteredBookings
       .filter((b) => {
+        const status = b.status?.toLowerCase();
+        if (status === "cancelled" || status === "declined") return false;
         const ms = bookingStartMs(b);
         return ms > 0 && ms < now;
       })
       .sort((a, b) => bookingStartMs(b) - bookingStartMs(a));
+  }, [filteredBookings]);
+
+  const cancelledBookings = useMemo(() => {
+    return filteredBookings.filter((b) => {
+      const status = b.status?.toLowerCase();
+      return status === "cancelled" || status === "declined";
+    });
   }, [filteredBookings]);
 
   return (
@@ -107,22 +119,31 @@ export function AdminBookingsSection({
           </View>
         </View>
         
-        <View className="flex-row gap-3">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-            <View className="flex-row gap-2">
-              <FilterChip 
-                label={selectedService} 
-                options={serviceOptions} 
-                onSelect={setSelectedService} 
-              />
-              <FilterChip 
-                label={selectedType} 
-                options={typeOptions} 
-                onSelect={setSelectedType} 
-              />
-            </View>
-          </ScrollView>
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View className="flex-row gap-2">
+            {chips.map((chip) => {
+              const isActive = activeChip === chip;
+              return (
+                <TouchableOpacity
+                  key={chip}
+                  onPress={() => setActiveChip(chip)}
+                  className="h-10 px-4 rounded-full border items-center justify-center"
+                  style={{
+                    backgroundColor: isActive ? colors.accent : isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF",
+                    borderColor: isActive ? colors.accent : isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+                  }}
+                >
+                  <Text
+                    className="text-xs font-outfit-bold"
+                    style={{ color: isActive ? colors.textInverse : colors.textSecondary }}
+                  >
+                    {chip}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
       </View>
 
       {/* Upcoming List */}
@@ -187,6 +208,38 @@ export function AdminBookingsSection({
               </View>
               <View className="h-8 px-4 rounded-lg bg-secondary/10 items-center justify-center">
                 <Text className="text-[10px] font-outfit-bold text-app uppercase">View</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Cancelled / Declined */}
+      <View className="mt-10 mb-6">
+        <Text className="text-xl font-clash font-bold text-app mb-2">Cancelled</Text>
+        <Text className="text-sm font-outfit text-textSecondary">Declined and cancelled bookings.</Text>
+      </View>
+
+      {cancelledBookings.length === 0 ? (
+        <View className="py-8 items-center justify-center border border-dashed border-app/20 rounded-[32px]">
+          <Text className="text-textSecondary font-outfit italic">No cancelled bookings.</Text>
+        </View>
+      ) : (
+        <View className="gap-3">
+          {cancelledBookings.slice(0, 10).map((b) => (
+            <TouchableOpacity
+              key={b.id}
+              onPress={() => detail.setOpenId(b.id)}
+              className="flex-row items-center justify-between p-5 rounded-2xl bg-red-500/5 border border-red-500/10"
+            >
+              <View className="flex-1">
+                <Text className="font-outfit-bold text-app" numberOfLines={1}>{b.serviceName}</Text>
+                <Text className="text-xs font-outfit text-textSecondary mt-0.5">
+                  {b.athleteName} • {b.status}
+                </Text>
+              </View>
+              <View className="h-8 px-4 rounded-lg bg-red-500/10 items-center justify-center">
+                <Text className="text-[10px] font-outfit-bold text-red-400 uppercase">View</Text>
               </View>
             </TouchableOpacity>
           ))}

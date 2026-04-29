@@ -103,7 +103,7 @@ const PAGE_RESULTS: PageResult[] = [
   { id: "add-user", label: "Add user", href: "/users/add", keywords: ["create", "register", "athlete"] },
   { id: "add-team", label: "Add team", href: "/users/add-team", keywords: ["create", "team"] },
   { id: "teams", label: "Teams", href: "/teams", keywords: ["team", "squad"] },
-  { id: "onboarding", label: "Onboarding", href: "/onboarding-config", keywords: ["onboarding", "forms"] },
+  { id: "portal-config", label: "Portal Config", href: "/portal-config", keywords: ["portal", "landing", "marketing", "copy"] },
   { id: "training", label: "Client training", href: "/training-snapshot", keywords: ["training", "snapshot"] },
   { id: "billing", label: "Billing", href: "/billing", keywords: ["payment", "invoice"] },
   { id: "content", label: "Content", href: "/content", keywords: ["cms"] },

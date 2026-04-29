@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { config } from "../lib/config";
+import { usePortalConfig } from "../hooks/usePortalConfig";
 import ThemeToggle from "./ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -16,6 +17,7 @@ import {
 } from "./ui/dropdown-menu";
 
 export default function Header() {
+	const portalCfg = usePortalConfig();
 	const [scrolled, setScrolled] = useState(false);
 	const [isPending, setIsPending] = useState(true);
 	const [sessionUser, setSessionUser] = useState<{
@@ -126,7 +128,7 @@ export default function Header() {
 					<div className="w-12 h-12 rounded-lg overflow-hidden ring-1 ring-primary/20 group-hover:ring-primary/50 transition-all" style={{ transitionDuration: "var(--duration-micro)" }}>
 						<img
 							src="/ph.jpg"
-							alt="PH Performance"
+							alt={portalCfg.nav.brand}
 							className="w-full h-full object-cover"
 						/>
 					</div>
@@ -134,25 +136,21 @@ export default function Header() {
 						className="hidden sm:inline-block font-black uppercase tracking-widest text-foreground"
 						style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "0.12em" }}
 					>
-						PH <span className="text-primary">Performance</span>
+						{portalCfg.nav.brand}
 					</span>
 				</Link>
 
 				<nav className="hidden md:flex items-center gap-8">
-					<Link
-						to="/features"
-						className="nav-link text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-						style={{ transitionDuration: "var(--duration-micro)" }}
-					>
-						Features
-					</Link>
-					<Link
-						to="/about"
-						className="nav-link text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-						style={{ transitionDuration: "var(--duration-micro)" }}
-					>
-						About
-					</Link>
+					{portalCfg.nav.links.map((link) => (
+						<a
+							key={`${link.label}-${link.href}`}
+							href={link.href}
+							className="nav-link text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+							style={{ transitionDuration: "var(--duration-micro)" }}
+						>
+							{link.label}
+						</a>
+					))}
 				</nav>
 
 				<div className="flex items-center gap-3">
@@ -239,7 +237,7 @@ export default function Header() {
 								className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
 								style={{ transitionDuration: "var(--duration-micro)" }}
 							>
-								<Link to="/login">Log In</Link>
+								<Link to="/login">{portalCfg.nav.loginLabel}</Link>
 							</Button>
 							<Button
 								size="sm"
@@ -247,7 +245,7 @@ export default function Header() {
 								className="bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-wider rounded-none px-5 text-xs transition-colors"
 								style={{ transitionDuration: "var(--duration-micro)" }}
 							>
-								<Link to="/register">Get Started</Link>
+								<Link to="/register">{portalCfg.nav.getStartedLabel}</Link>
 							</Button>
 						</>
 					)}

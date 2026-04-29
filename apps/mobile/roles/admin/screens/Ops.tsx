@@ -5,10 +5,10 @@ import { subscribeToAdminOpsRequests } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect } from "react";
 import { Pressable, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 import { Feather } from "@/components/ui/theme-icons";
+import { AdminHeader, AdminScreen } from "@/components/admin/AdminUI";
 
 const OPS_ITEMS = [
   {
@@ -93,47 +93,18 @@ export default function AdminOpsScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+    <AdminScreen>
       <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Header */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(380).springify()}
-          style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 32 }}
+          style={{ marginBottom: 18 }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
-            <View
-              style={{
-                width: 5,
-                height: 36,
-                borderRadius: 3,
-                backgroundColor: colors.accent,
-              }}
-            />
-            <View>
-              <Text
-                style={{
-                  fontFamily: "Telma-Bold",
-                  fontSize: 44,
-                  color: colors.textPrimary,
-                  letterSpacing: -1,
-                  lineHeight: 48,
-                }}
-                numberOfLines={1}
-              >
-                Ops Hub
-              </Text>
-              <Text
-                style={{
-                  fontFamily: "Outfit-Regular",
-                  fontSize: 13,
-                  color: colors.textSecondary,
-                  marginTop: 2,
-                }}
-              >
-                Schedules, nutrition & referral tools
-              </Text>
-            </View>
-          </View>
+          <AdminHeader
+            eyebrow="Operations"
+            title="Ops Hub"
+            subtitle="Schedules, nutrition, and referral tools"
+            tone="warning"
+          />
         </Animated.View>
 
         {!bootstrapReady ? (
@@ -238,6 +209,6 @@ export default function AdminOpsScreen() {
           </View>
         )}
       </ThemedScrollView>
-    </SafeAreaView>
+    </AdminScreen>
   );
 }

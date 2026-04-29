@@ -1,11 +1,18 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { ChatGroup, GroupMessage, GroupMember, AdminUserResult } from "@/types/admin-messages";
+import {
+  getCachedAdminGroupMessages,
+  setCachedAdminGroupMessages,
+} from "@/lib/admin/adminMessageCache";
 
 export function useAdminGroups(token: string | null, canLoad: boolean) {
   const [groups, setGroups] = useState<ChatGroup[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
+  // Single-flight: drops overlapping loadGroups calls so that quick query typing,
+  // tab switches, and refreshes don't pile up parallel API requests.
+  const inFlightLoadRef = useRef(false);
 
   const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
   const [activeGroupName, setActiveGroupName] = useState<string>("");
@@ -16,6 +23,8 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
   const loadGroups = useCallback(
     async (query: string, forceRefresh: boolean) => {
       if (!token || !canLoad) return;
+      if (inFlightLoadRef.current) return;
+      inFlightLoadRef.current = true;
       setGroupsLoading(true);
       setGroupsError(null);
       try {
@@ -39,6 +48,7 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
         setGroups([]);
       } finally {
         setGroupsLoading(false);
+        inFlightLoadRef.current = false;
       }
     },
     [canLoad, token],
@@ -46,7 +56,11 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
 
   const loadMessages = useCallback(async (groupId: number, forceRefresh: boolean) => {
     if (!token || !canLoad) return;
-    setMessagesLoading(true);
+    const cached = getCachedAdminGroupMessages(groupId);
+    if (cached) {
+      setMessages(cached);
+    }
+    setMessagesLoading(!cached);
     setMessagesError(null);
     try {
       const res = await apiRequest<{ messages?: GroupMessage[] }>(
@@ -58,13 +72,38 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
           suppressStatusCodes: [401, 403],
         }
       );
-      setMessages(Array.isArray(res?.messages) ? res.messages.reverse() : []);
+      const nextMessages = Array.isArray(res?.messages)
+        ? [...res.messages].reverse()
+        : [];
+      setCachedAdminGroupMessages(groupId, nextMessages);
+      setMessages(nextMessages);
     } catch (e) {
       setMessagesError(e instanceof Error ? e.message : "Failed to load group messages");
     } finally {
       setMessagesLoading(false);
     }
   }, [canLoad, token]);
+
+  const markGroupRead = useCallback(
+    async (groupId: number) => {
+      if (!token || !canLoad) return;
+      // Optimistic local update so the badge clears immediately.
+      setGroups((prev) =>
+        prev.map((g) => (g.id === groupId ? { ...g, unreadCount: 0 } : g)),
+      );
+      try {
+        await apiRequest(`/chat/groups/${groupId}/read`, {
+          method: "POST",
+          token,
+          skipCache: true,
+          suppressStatusCodes: [401, 403, 404],
+        });
+      } catch {
+        // Server failure is non-fatal; the badge will re-sync on next group fetch.
+      }
+    },
+    [canLoad, token],
+  );
 
   const sendGroupMessage = useCallback(async (params: {
     groupId: number;
@@ -160,6 +199,7 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
     setMessages,
     loadGroups,
     loadMessages,
+    markGroupRead,
     sendGroupMessage,
     createGroup,
     addMembers,

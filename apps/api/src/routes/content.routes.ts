@@ -22,6 +22,7 @@ import {
   getParentCourseHandler,
   createParentCourseHandler,
   updateParentCourseHandler,
+  deleteParentCourseHandler,
   getParentCourseAiInsightController,
   getContentAiInsightController,
   replaceStoriesHandler,
@@ -77,6 +78,12 @@ router.put(
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
   updateParentCourseHandler,
+);
+router.delete(
+  "/content/parent-courses/:courseId",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  deleteParentCourseHandler,
 );
 
 export default router;
