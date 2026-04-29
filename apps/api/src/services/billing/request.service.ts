@@ -148,6 +148,51 @@ export async function createCheckoutSession(input: {
     throw new Error("Plan not available");
   }
 
+  // Anti-duplicate: a user can only have one active subscription per (athlete, plan).
+  // If they're already approved or awaiting review for this plan, block the new checkout.
+  // If they have an unfinished `pending_payment` for the same plan, reuse the existing
+  // Stripe checkout session URL instead of creating a fresh one (prevents accidental double pays).
+  const existingForPlan = await db
+    .select()
+    .from(subscriptionRequestTable)
+    .where(
+      and(
+        eq(subscriptionRequestTable.userId, input.userId),
+        eq(subscriptionRequestTable.athleteId, input.athleteId),
+        eq(subscriptionRequestTable.planId, input.planId),
+      ),
+    )
+    .orderBy(desc(subscriptionRequestTable.createdAt));
+
+  const alreadyActive = existingForPlan.find(
+    (r) => r.status === "approved" || r.status === "pending_approval",
+  );
+  if (alreadyActive) {
+    const reason =
+      alreadyActive.status === "approved"
+        ? "You already have an active subscription for this plan."
+        : "Your previous payment is awaiting coach review — please wait.";
+    const err = new Error(reason) as Error & { statusCode?: number; code?: string };
+    err.statusCode = 409;
+    err.code = "subscription_already_exists";
+    throw err;
+  }
+
+  const reusable = existingForPlan.find(
+    (r) => r.status === "pending_payment" && r.stripeSessionId,
+  );
+  if (reusable && reusable.stripeSessionId) {
+    try {
+      const stripeClient = getStripeClient();
+      const existing = await stripeClient.checkout.sessions.retrieve(reusable.stripeSessionId);
+      if (existing.url && existing.status === "open") {
+        return { session: existing, request: reusable };
+      }
+    } catch {
+      // Stale session — fall through and create a new one below.
+    }
+  }
+
   const billingCycle = input.billingCycle ?? "monthly";
   let priceId: string;
   let mode: "subscription" | "payment";

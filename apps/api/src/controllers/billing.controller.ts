@@ -102,6 +102,17 @@ const planCreateSchema = z.object({
   discountType: z.string().optional().nullable(),
   discountValue: z.string().optional().nullable(),
   discountAppliesTo: z.string().optional().nullable(),
+  discounts: z
+    .array(
+      z.object({
+        type: z.enum(["percent", "amount"]),
+        value: z.string(),
+        appliesTo: z.enum(["monthly", "yearly", "six_months", "all", "custom"]),
+        label: z.string().optional().nullable(),
+      }),
+    )
+    .optional()
+    .nullable(),
   features: z.array(z.string()).optional().nullable(),
   isActive: z.boolean().optional(),
 });
@@ -609,6 +620,85 @@ export async function confirmCheckout(req: Request, res: Response) {
       });
     }
 
+    return res.status(500).json({ error: message });
+  }
+}
+
+/**
+ * Public variant of `confirmCheckout` — no auth required because the Stripe session ID itself
+ * is the credential (only the paying user knows it). Verifies the session is `paid` before
+ * doing any state changes. Used by the success page when the visitor isn't signed in
+ * (e.g. invite-flow checkouts where the user pays before logging in).
+ */
+export async function confirmCheckoutPublic(req: Request, res: Response) {
+  const parsed = confirmSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+  }
+  try {
+    if (!env.stripeSecretKey) {
+      return res.status(500).json({ error: "Stripe is not configured" });
+    }
+
+    const stripe = getStripeClient();
+    const session = await stripe.checkout.sessions.retrieve(parsed.data.sessionId, {
+      expand: ["line_items.data.price"],
+    });
+    const paymentStatus = session.payment_status ?? "unpaid";
+    if (paymentStatus !== "paid") {
+      return res.status(409).json({ error: "Checkout session is not paid yet.", paymentStatus });
+    }
+
+    const meta = (session.metadata ?? {}) as Record<string, string | undefined>;
+    const metaType = String(meta.type ?? "").trim().toLowerCase();
+    if (metaType === "team_subscription") {
+      // Public flow doesn't currently support team checkouts; fall back to no-op success.
+      return res.status(200).json({ teamRequest: null, paymentStatus, receipt: null });
+    }
+
+    const request = await updateRequestFromStripeSession(session);
+    let receipt: ReturnType<typeof buildClientCheckoutReceipt> | null = null;
+    if (request) {
+      const [athleteExtra] = await db
+        .select({
+          payerEmail: userTable.email,
+          payerName: userTable.name,
+          payerRole: userTable.role,
+          athleteName: athleteTable.name,
+          planName: subscriptionPlanTable.name,
+          planTier: subscriptionPlanTable.tier,
+        })
+        .from(subscriptionRequestTable)
+        .innerJoin(userTable, eq(subscriptionRequestTable.userId, userTable.id))
+        .leftJoin(athleteTable, eq(subscriptionRequestTable.athleteId, athleteTable.id))
+        .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
+        .where(eq(subscriptionRequestTable.id, request.id))
+        .limit(1);
+      receipt = buildClientCheckoutReceipt(session, {
+        kind: "athlete",
+        receiptPublicId: request.receiptPublicId,
+        internalRequestId: request.id,
+        status: request.status,
+        paymentStatus: request.paymentStatus,
+        planBillingCycle: request.planBillingCycle,
+        payer: athleteExtra
+          ? { email: athleteExtra.payerEmail, name: athleteExtra.payerName, role: athleteExtra.payerRole }
+          : undefined,
+        athlete: athleteExtra
+          ? { id: request.athleteId, name: athleteExtra.athleteName }
+          : { id: request.athleteId, name: null },
+        plan:
+          athleteExtra?.planName != null
+            ? { id: request.planId, name: athleteExtra.planName, tier: athleteExtra.planTier ?? "" }
+            : null,
+      });
+    }
+    return res.status(200).json({ request, paymentStatus, receipt });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to confirm payment";
+    if (isStripeCheckoutSessionNotFoundError(error)) {
+      return res.status(404).json({ error: "Checkout session not found." });
+    }
     return res.status(500).json({ error: message });
   }
 }

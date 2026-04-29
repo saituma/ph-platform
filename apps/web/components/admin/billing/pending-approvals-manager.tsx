@@ -246,15 +246,29 @@ export function PendingApprovalsManager() {
     }
   };
 
-  const filteredRequests = useMemo(
-    () =>
-      requests.filter((request) =>
-        String(request?.userName ?? "")
-          .toLowerCase()
-          .includes(approvalSearch.trim().toLowerCase())
-      ),
-    [approvalSearch, requests]
-  );
+  const filteredRequests = useMemo(() => {
+    // Dedupe by (userId, planId): when the same user has multiple checkout attempts for the
+    // same plan, keep the most advanced one (approved > pending_approval > pending_payment > rejected).
+    const rank: Record<string, number> = {
+      approved: 4,
+      pending_approval: 3,
+      pending_payment: 2,
+      rejected: 1,
+    };
+    const score = (s: string | null | undefined) => rank[String(s ?? "").toLowerCase()] ?? 0;
+    const best = new Map<string, (typeof requests)[number]>();
+    for (const r of requests) {
+      const key = `${(r as any).userId ?? "?"}::${(r as any).planId ?? "?"}`;
+      const cur = best.get(key);
+      if (!cur || score(r.status) > score(cur.status)) best.set(key, r);
+    }
+    const deduped = Array.from(best.values());
+    return deduped.filter((request) =>
+      String(request?.userName ?? "")
+        .toLowerCase()
+        .includes(approvalSearch.trim().toLowerCase()),
+    );
+  }, [approvalSearch, requests]);
 
   const filteredTeamRequests = useMemo(() => {
     const query = teamSearch.trim().toLowerCase();
@@ -361,12 +375,23 @@ export function PendingApprovalsManager() {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleApprove(request.requestId)}
-                              >
-                                Approve
-                              </Button>
+                              {request.status === "approved" ? (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  disabled
+                                  className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-400"
+                                >
+                                  ✓ Approved
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApprove(request.requestId)}
+                                >
+                                  Approve
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="secondary"
@@ -378,6 +403,7 @@ export function PendingApprovalsManager() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleReject(request.requestId)}
+                                disabled={request.status === "approved"}
                               >
                                 Reject
                               </Button>
@@ -480,12 +506,23 @@ export function PendingApprovalsManager() {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleApproveTeam(request.requestId)}
-                                >
-                                  Approve
-                                </Button>
+                                {status === "approved" ? (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    disabled
+                                    className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-400"
+                                  >
+                                    ✓ Approved
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleApproveTeam(request.requestId)}
+                                  >
+                                    Approve
+                                  </Button>
+                                )}
                                 <Button
                                   size="sm"
                                   variant="secondary"
@@ -497,6 +534,7 @@ export function PendingApprovalsManager() {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleRejectTeam(request.requestId)}
+                                  disabled={status === "approved"}
                                 >
                                   Reject
                                 </Button>

@@ -110,42 +110,49 @@
       [
         "expo-widgets",
         {
+          "groupIdentifier": "group.com.clientreachai.phperformance",
           "widgets": [
             {
               "name": "PHSummary",
-              "label": "PH Performance Summary",
+              "displayName": "PH Performance Summary",
               "description": "See your training progress and next session at a glance.",
-              "resourceName": "ph_summary_widget"
+              "resourceName": "ph_summary_widget",
+              "supportedFamilies": ["systemSmall", "systemMedium", "systemLarge"]
             },
             {
               "name": "PHNextSession",
-              "label": "PH Next Session",
+              "displayName": "PH Next Session",
               "description": "View your upcoming training session.",
-              "resourceName": "ph_next_session_widget"
+              "resourceName": "ph_next_session_widget",
+              "supportedFamilies": ["systemSmall", "systemMedium"]
             },
             {
               "name": "PHWeeklyStats",
-              "label": "PH Weekly Stats",
+              "displayName": "PH Weekly Stats",
               "description": "Track your weekly running and training goals.",
-              "resourceName": "ph_weekly_stats_widget"
+              "resourceName": "ph_weekly_stats_widget",
+              "supportedFamilies": ["systemSmall", "systemMedium", "systemLarge"]
             },
             {
               "name": "PHCurrentModule",
-              "label": "PH Current Module",
+              "displayName": "PH Current Module",
               "description": "See which training module you are currently working on.",
-              "resourceName": "ph_current_module_widget"
+              "resourceName": "ph_current_module_widget",
+              "supportedFamilies": ["systemSmall", "systemMedium"]
             },
             {
               "name": "PHSchedule",
-              "label": "PH Training Schedule",
+              "displayName": "PH Training Schedule",
               "description": "Your upcoming bookings and session times.",
-              "resourceName": "ph_schedule_widget"
+              "resourceName": "ph_schedule_widget",
+              "supportedFamilies": ["systemMedium", "systemLarge"]
             },
             {
               "name": "PHQuickActions",
-              "label": "PH Quick Actions",
+              "displayName": "PH Quick Actions",
               "description": "Quickly start a run, message your coach, or log nutrition.",
-              "resourceName": "ph_quick_actions_widget"
+              "resourceName": "ph_quick_actions_widget",
+              "supportedFamilies": ["systemSmall", "systemMedium"]
             }
           ]
         }

@@ -76,7 +76,6 @@ function OnboardingSuccess() {
 		if (!sessionId) return;
 
 		const token = localStorage.getItem("auth_token");
-		if (!token) return;
 
 		// React Strict Mode runs effects twice in dev; avoid duplicate POSTs.
 		const storageKey = `ph_billing_confirm:${sessionId}`;
@@ -86,11 +85,15 @@ function OnboardingSuccess() {
 		sessionStorage.setItem(storageKey, "pending");
 
 		const baseUrl = config.api.baseUrl;
-		void fetch(`${baseUrl}/api/billing/confirm`, {
+		// If signed in, use the authed endpoint (full validation incl. team checkouts).
+		// Otherwise fall back to the public endpoint — used after invite-flow checkouts where
+		// the user pays before logging in. The Stripe session_id is the credential there.
+		const url = token ? `${baseUrl}/api/billing/confirm` : `${baseUrl}/api/public/billing/confirm`;
+		void fetch(url, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${token}`,
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
 			},
 			body: JSON.stringify({ sessionId }),
 		})

@@ -1075,6 +1075,15 @@ export const subscriptionPlanTable = pgTable("subscription_plans", {
   discountType: varchar({ length: 20 }),
   discountValue: varchar({ length: 50 }),
   discountAppliesTo: varchar({ length: 20 }),
+  /** Array of discount rules. When non-empty, takes precedence over the legacy single-discount triple. */
+  discounts: jsonb().$type<
+    Array<{
+      type: "percent" | "amount";
+      value: string;
+      appliesTo: "monthly" | "yearly" | "six_months" | "all" | "custom";
+      label?: string | null;
+    }>
+  >(),
   features: jsonb().$type<string[]>(),
   isActive: boolean().notNull().default(true),
   createdAt: timestamp().notNull().defaultNow(),

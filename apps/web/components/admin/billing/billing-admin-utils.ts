@@ -18,8 +18,16 @@ export type SubscriptionPlan = {
   discountType: string | null;
   discountValue: string | null;
   discountAppliesTo: string | null;
+  discounts: DiscountRule[] | null;
   features: string[] | null;
   isActive: boolean;
+};
+
+export type DiscountRule = {
+  type: "percent" | "amount";
+  value: string;
+  appliesTo: "monthly" | "yearly" | "six_months" | "all" | "custom";
+  label?: string | null;
 };
 
 export type DiscountType = "none" | "percent" | "amount";
@@ -45,6 +53,7 @@ export type PlanFormState = {
   discountValueMonthly: string;
   discountValueYearly: string;
   discountValueOneTime: string;
+  discounts: DiscountRule[];
   features: string[];
 };
 
@@ -141,6 +150,7 @@ export const defaultFormState: PlanFormState = {
   discountValueMonthly: "",
   discountValueYearly: "",
   discountValueOneTime: "",
+  discounts: [],
   features: [],
 };
 
@@ -194,6 +204,16 @@ export function planToFormState(plan: SubscriptionPlan): PlanFormState {
     discountValueMonthly: valueMonthly,
     discountValueYearly: valueYearly,
     discountValueOneTime: valueOneTime,
+    discounts: Array.isArray(plan.discounts)
+      ? plan.discounts
+          .filter((d): d is DiscountRule => Boolean(d) && (d as any).type && (d as any).value && (d as any).appliesTo)
+          .map((d) => ({
+            type: (d.type as DiscountRule["type"]) ?? "percent",
+            value: String(d.value ?? ""),
+            appliesTo: (d.appliesTo as DiscountRule["appliesTo"]) ?? "all",
+            label: d.label ?? null,
+          }))
+      : [],
     features: Array.isArray(plan.features) ? plan.features.filter((s): s is string => typeof s === "string") : [],
     yearlyAuto: false,
     oneTimeAuto: false,
@@ -262,6 +282,14 @@ export function planFormToPayload(form: PlanFormState) {
     discountType,
     discountValue,
     discountAppliesTo,
+    discounts: form.discounts
+      .map((d) => ({
+        type: d.type,
+        value: String(d.value ?? "").trim(),
+        appliesTo: d.appliesTo,
+        label: d.label?.trim() || null,
+      }))
+      .filter((d) => d.value.length > 0),
     features: form.features.map((s) => s.trim()).filter(Boolean),
     isActive: form.isActive,
   };
