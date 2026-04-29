@@ -1,8 +1,6 @@
 import * as React from 'react'
 import { createLazyFileRoute, useNavigate } from '@tanstack/react-router'
-import { z } from 'zod'
 import { useForm } from '@tanstack/react-form'
-import { zodValidator } from '@tanstack/zod-form-adapter'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
@@ -23,7 +21,6 @@ function LoginPage() {
       email: '',
       password: '',
     },
-    validatorAdapter: zodValidator(),
     onSubmit: async ({ value }) => {
       setIsLoading(true)
       setError(null)
@@ -35,7 +32,12 @@ function LoginPage() {
         
         if (response.accessToken) {
           localStorage.setItem('auth_token', response.accessToken)
-          // Redirect to home
+          const me = await apiClient('/auth/me')
+          if (me?.user?.role !== 'superAdmin') {
+            localStorage.removeItem('auth_token')
+            setError('Access denied: superAdmin account required.')
+            return
+          }
           navigate({ to: '/' })
         } else {
           setError('Login failed: No access token received')
@@ -49,11 +51,11 @@ function LoginPage() {
   })
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
-      <Card className="w-full max-w-md border-zinc-800 bg-zinc-900 text-zinc-50">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold tracking-tight">Super Admin Login</CardTitle>
-          <CardDescription className="text-zinc-400">
+          <CardDescription className="text-muted-foreground">
             Enter your credentials to access the command center.
           </CardDescription>
         </CardHeader>
@@ -74,12 +76,16 @@ function LoginPage() {
               <form.Field
                 name="email"
                 validators={{
-                  onChange: z.string().email('Invalid email address'),
+                  onChange: ({ value }) => {
+                    if (!value) return 'Email is required'
+                    const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+                    return isValid ? undefined : 'Invalid email address'
+                  },
                 }}
               >
                 {(field) => (
                   <>
-                    <Label htmlFor={field.name} className="text-zinc-300">Email</Label>
+                    <Label htmlFor={field.name}>Email</Label>
                     <Input
                       id={field.name}
                       name={field.name}
@@ -87,7 +93,7 @@ function LoginPage() {
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                       placeholder="admin@example.com"
-                      className="border-zinc-800 bg-zinc-950 text-zinc-50 focus-visible:ring-zinc-700"
+                      className=""
                     />
                     {field.state.meta.errors ? (
                       <p className="text-xs text-red-500">{field.state.meta.errors.join(', ')}</p>
@@ -100,12 +106,15 @@ function LoginPage() {
               <form.Field
                 name="password"
                 validators={{
-                  onChange: z.string().min(8, 'Password must be at least 8 characters'),
+                  onChange: ({ value }) => {
+                    if (!value) return 'Password is required'
+                    return value.length >= 8 ? undefined : 'Password must be at least 8 characters'
+                  },
                 }}
               >
                 {(field) => (
                   <>
-                    <Label htmlFor={field.name} className="text-zinc-300">Password</Label>
+                    <Label htmlFor={field.name}>Password</Label>
                     <Input
                       id={field.name}
                       name={field.name}
@@ -113,7 +122,7 @@ function LoginPage() {
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      className="border-zinc-800 bg-zinc-950 text-zinc-50 focus-visible:ring-zinc-700"
+                      className=""
                     />
                     {field.state.meta.errors ? (
                       <p className="text-xs text-red-500">{field.state.meta.errors.join(', ')}</p>
@@ -131,7 +140,7 @@ function LoginPage() {
                 <Button
                   type="submit"
                   disabled={!canSubmit || isLoading || isSubmitting}
-                  className="w-full bg-zinc-50 text-zinc-950 hover:bg-zinc-200"
+                  className="w-full"
                 >
                   {isLoading || isSubmitting ? 'Logging in...' : 'Sign In'}
                 </Button>

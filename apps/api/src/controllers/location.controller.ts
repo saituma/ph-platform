@@ -17,15 +17,25 @@ const locationSchema = z.object({
 });
 
 export async function recordLocation(req: Request, res: Response) {
-  const input = locationSchema.parse(req.body);
-  const location = await recordUserLocation({
-    userId: req.user!.id,
-    latitude: input.latitude,
-    longitude: input.longitude,
-    accuracy: input.accuracy ?? null,
-    routePoints: input.routePoints ?? null,
-  });
-  return res.status(200).json({ location });
+  try {
+    const input = locationSchema.parse(req.body);
+    const location = await recordUserLocation({
+      userId: req.user!.id,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      accuracy: input.accuracy ?? null,
+      routePoints: input.routePoints ?? null,
+    });
+    return res.status(200).json({ location });
+  } catch (err: any) {
+    const message = err instanceof Error ? err.message : "Failed to record location";
+    // Helpful diagnostics so clients can quickly see why telemetry writes fail.
+    return res.status(500).json({
+      error: "Failed to record location",
+      detail: message,
+      code: err?.code ?? null,
+    });
+  }
 }
 
 export async function listUserLocations(req: Request, res: Response) {
