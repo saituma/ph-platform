@@ -12,5 +12,6 @@ router.get("/super-admin/stats", SuperAdminController.getSystemStats);
 router.get("/super-admin/admins", SuperAdminController.listAdmins);
 router.post("/super-admin/users/:userId/role", SuperAdminController.updateUserRole);
 router.get("/super-admin/audit-logs", SuperAdminController.getAuditLogs);
+router.post("/super-admin/events", SuperAdminController.trackSuperAdminEvent);
 
 export default router;
