@@ -46,6 +46,7 @@ import {
   planFormToPayload,
   planToFormState,
   type DiscountAppliesTo,
+  type DiscountRule,
   type DiscountType,
   type PlanFormState,
   type PlanTier,
@@ -612,26 +613,6 @@ function PlanEditorDialog({
   const isEditing = form?.id != null;
   const update = (patch: Partial<PlanFormState>) => onChange(form ? { ...form, ...patch } : form);
 
-  const discountTypeItems = useMemo(
-    () => [
-      { label: "No discount", value: "none" as DiscountType },
-      { label: "Percent off", value: "percent" as DiscountType },
-      { label: "Fixed amount", value: "amount" as DiscountType },
-    ],
-    [],
-  );
-
-  const discountAppliesItems = useMemo(
-    () => [
-      { label: "All intervals", value: "all" as DiscountAppliesTo },
-      { label: "Monthly only", value: "monthly" as DiscountAppliesTo },
-      { label: "Yearly only", value: "yearly" as DiscountAppliesTo },
-      { label: "One-time only", value: "one_time" as DiscountAppliesTo },
-      { label: "Custom per interval", value: "custom" as DiscountAppliesTo },
-    ],
-    [],
-  );
-
   return (
     <Dialog open={form !== null} onOpenChange={(open) => { if (!open) onCancel(); }}>
       <DialogPopup className="sm:max-w-2xl">
@@ -728,98 +709,10 @@ function PlanEditorDialog({
               />
             </div>
 
-            <div className="space-y-3 rounded-xl border border-border p-4">
-              <div className="text-sm font-medium">Discount (optional)</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="discount-type">Type</Label>
-                  <Select
-                    items={discountTypeItems}
-                    value={form.discountType}
-                    onValueChange={(v) => update({ discountType: (v ?? "none") as DiscountType })}
-                  >
-                    <SelectTrigger id="discount-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectPopup>
-                      {discountTypeItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                </div>
-
-                {form.discountType !== "none" ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="discount-applies">Applies to</Label>
-                    <Select
-                      items={discountAppliesItems}
-                      value={form.discountAppliesTo}
-                      onValueChange={(v) => update({ discountAppliesTo: (v ?? "all") as DiscountAppliesTo })}
-                    >
-                      <SelectTrigger id="discount-applies">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectPopup>
-                        {discountAppliesItems.map((item) => (
-                          <SelectItem key={item.value} value={item.value}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                      </SelectPopup>
-                    </Select>
-                  </div>
-                ) : null}
-              </div>
-
-              {form.discountType !== "none" && form.discountAppliesTo !== "custom" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="discount-value">
-                    Value {form.discountType === "percent" ? "(%)" : "(amount, e.g. £15)"}
-                  </Label>
-                  <Input
-                    id="discount-value"
-                    value={form.discountValue}
-                    onChange={(e) => update({ discountValue: e.target.value })}
-                    placeholder={form.discountType === "percent" ? "10" : "£15"}
-                  />
-                </div>
-              ) : null}
-
-              {form.discountType !== "none" && form.discountAppliesTo === "custom" ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="discount-monthly">Monthly</Label>
-                    <Input
-                      id="discount-monthly"
-                      value={form.discountValueMonthly}
-                      onChange={(e) => update({ discountValueMonthly: e.target.value })}
-                      placeholder={form.discountType === "percent" ? "10" : "£5"}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="discount-yearly">Yearly</Label>
-                    <Input
-                      id="discount-yearly"
-                      value={form.discountValueYearly}
-                      onChange={(e) => update({ discountValueYearly: e.target.value })}
-                      placeholder={form.discountType === "percent" ? "20" : "£40"}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="discount-onetime">One-time</Label>
-                    <Input
-                      id="discount-onetime"
-                      value={form.discountValueOneTime}
-                      onChange={(e) => update({ discountValueOneTime: e.target.value })}
-                      placeholder={form.discountType === "percent" ? "15" : "£75"}
-                    />
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <DiscountsEditor
+              discounts={form.discounts}
+              onChange={(discounts) => update({ discounts })}
+            />
 
             <FeaturesEditor
               features={form.features}
@@ -854,6 +747,138 @@ function PlanEditorDialog({
         </DialogFooter>
       </DialogPopup>
     </Dialog>
+  );
+}
+
+function DiscountsEditor({
+  discounts,
+  onChange,
+}: {
+  discounts: DiscountRule[];
+  onChange: (next: DiscountRule[]) => void;
+}) {
+  const TYPE_ITEMS: { label: string; value: DiscountRule["type"] }[] = [
+    { label: "Percent off", value: "percent" },
+    { label: "Fixed amount", value: "amount" },
+  ];
+  const APPLIES_ITEMS: { label: string; value: DiscountRule["appliesTo"] }[] = [
+    { label: "All intervals", value: "all" },
+    { label: "Monthly only", value: "monthly" },
+    { label: "6 months only", value: "six_months" },
+    { label: "1 year only", value: "yearly" },
+  ];
+
+  const updateAt = (i: number, patch: Partial<DiscountRule>) =>
+    onChange(discounts.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
+  const remove = (i: number) => onChange(discounts.filter((_, idx) => idx !== i));
+  const add = () =>
+    onChange([
+      ...discounts,
+      { type: "percent", value: "", appliesTo: "all", label: null },
+    ]);
+
+  const formatRuleSummary = (d: DiscountRule) => {
+    const v = String(d.value ?? "").replace(/[^\d.]/g, "");
+    const num = Number(v);
+    if (!Number.isFinite(num) || num <= 0) return null;
+    if (d.type === "percent") return `${num}%`;
+    return `£${num}`;
+  };
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-medium">Discounts (optional)</div>
+          <p className="text-xs text-muted-foreground">
+            Stack as many as you like — each rule applies to the chosen cycle. Multiple percent rules compound multiplicatively.
+          </p>
+        </div>
+        <div className="text-xs text-muted-foreground">{discounts.length} rule{discounts.length === 1 ? "" : "s"}</div>
+      </div>
+
+      {discounts.length > 0 ? (
+        <div className="space-y-2">
+          {discounts.map((d, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-1 sm:grid-cols-[140px_160px_1fr_1fr_auto] gap-2 items-end rounded-lg border border-border/60 bg-secondary/30 p-3"
+            >
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Type</Label>
+                <Select
+                  items={TYPE_ITEMS}
+                  value={d.type}
+                  onValueChange={(v) => updateAt(i, { type: (v ?? "percent") as DiscountRule["type"] })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectPopup>
+                    {TYPE_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Applies to</Label>
+                <Select
+                  items={APPLIES_ITEMS}
+                  value={d.appliesTo}
+                  onValueChange={(v) => updateAt(i, { appliesTo: (v ?? "all") as DiscountRule["appliesTo"] })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectPopup>
+                    {APPLIES_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Value {d.type === "percent" ? "(%)" : "(amount)"}
+                </Label>
+                <Input
+                  value={d.value}
+                  onChange={(e) => updateAt(i, { value: e.target.value })}
+                  placeholder={d.type === "percent" ? "10" : "£15"}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Label (optional)</Label>
+                <Input
+                  value={d.label ?? ""}
+                  onChange={(e) => updateAt(i, { label: e.target.value })}
+                  placeholder="Early bird"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                {formatRuleSummary(d) ? (
+                  <Badge variant="secondary" className="font-bold">
+                    {formatRuleSummary(d)} off
+                  </Badge>
+                ) : null}
+                <Button variant="ghost" size="sm" onClick={() => remove(i)}>
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <Button variant="outline" size="sm" onClick={add}>
+        + Add discount
+      </Button>
+    </div>
   );
 }
 

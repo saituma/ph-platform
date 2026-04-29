@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { BookOpen, GraduationCap, Users, ChevronRight } from "lucide-react";
+import { BookOpen, Users, ChevronRight } from "lucide-react";
 
 import { ParentShell } from "../../components/parent/shell";
 import { useGetParentCoursesQuery } from "../../lib/apiSlice";
@@ -18,15 +18,6 @@ const CONFIG_CARDS = [
     icon: BookOpen,
     color: "from-violet-500/20 to-purple-600/20 border-violet-500/30 hover:border-violet-500/60",
     iconBg: "bg-violet-500/20 text-violet-600 dark:text-violet-400",
-  },
-  {
-    id: "php-plus",
-    href: "/parent/php-plus",
-    title: "PHP Premium Plus Programs",
-    description: "Choose which programs are included for PHP Premium Plus subscribers.",
-    icon: GraduationCap,
-    color: "from-amber-500/20 to-orange-600/20 border-amber-500/30 hover:border-amber-500/60",
-    iconBg: "bg-amber-500/20 text-amber-600 dark:text-amber-400",
   },
   {
     id: "completed",

@@ -12,6 +12,9 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
+import { Badge } from "#/components/ui/badge";
+import { Separator } from "#/components/ui/separator";
+import { Skeleton } from "#/components/ui/skeleton";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
@@ -135,7 +138,10 @@ const TIER_METADATA: Record<
 	},
 };
 
-function planCardTitle(plan: { tier: string }) {
+function planCardTitle(plan: { tier: string; name?: string | null }) {
+	// Prefer the admin-set plan.name so renames in the admin portal flow through.
+	const fromAdmin = String(plan.name ?? "").trim();
+	if (fromAdmin) return fromAdmin;
 	const meta = TIER_METADATA[plan.tier];
 	if (meta?.cardTitle) return meta.cardTitle;
 	return plan.tier;
@@ -148,11 +154,21 @@ function formatTierLine(tier: string) {
 }
 
 function dedupePlansByTier(plans: any[]) {
+	// Multiple plans can exist per tier (e.g. legacy + new). Keep the most-recently-updated
+	// one so admin edits show up on the next onboarding page load. Falls back to higher id
+	// when `updatedAt` is missing.
+	const score = (p: any): number => {
+		if (p?.updatedAt) {
+			const t = new Date(p.updatedAt).getTime();
+			if (Number.isFinite(t)) return t;
+		}
+		return Number(p?.id ?? 0);
+	};
 	const best = new Map<string, any>();
 	for (const p of plans) {
 		const tier = p.tier as string;
 		const cur = best.get(tier);
-		if (!cur || Number(p.id) > Number(cur.id)) best.set(tier, p);
+		if (!cur || score(p) > score(cur)) best.set(tier, p);
 	}
 	return [...best.values()];
 }
@@ -161,6 +177,82 @@ function priceSuffix(cycle: BillingCycle) {
 	if (cycle === "monthly") return "per month";
 	if (cycle === "six_months") return "for 6 months";
 	return "for 1 year";
+}
+
+/**
+ * Resolve { original, discounted, percentOff } for a plan card.
+ * Original = admin's typed-in price (pre-discount). Discounted = live Stripe price (already reduced).
+ * Returns null for percentOff when no detectable discount, so the card can render without a badge.
+ */
+function resolvePlanPricing(plan: any, cycle: BillingCycle, displayPrice: string) {
+	const origRaw =
+		cycle === "yearly"
+			? plan.yearlyPrice
+			: cycle === "six_months"
+				? plan.oneTimePrice
+				: plan.monthlyPrice;
+	const original = String(origRaw ?? "").trim() || null;
+	const discounted = String(displayPrice ?? "").trim() || null;
+
+	const a = parseMoneyToNumber(original ?? "");
+	const b = parseMoneyToNumber(discounted ?? "");
+	let percentOff: number | null = null;
+	let displayOriginal = original;
+	let displayDiscounted = discounted;
+
+	if (a && b && b < a) {
+		percentOff = Math.round(((a - b) / a) * 100);
+		if (percentOff <= 0) percentOff = null;
+	}
+
+	// Helper that maps the cycle to the rule's `appliesTo` field.
+	const ruleApplies = (rule: any): boolean => {
+		const at = String(rule?.appliesTo ?? "").toLowerCase();
+		if (!at) return false;
+		if (at === "all" || at === "both") return true;
+		if (cycle === "monthly" && at === "monthly") return true;
+		if (cycle === "yearly" && at === "yearly") return true;
+		if (cycle === "six_months" && (at === "six_months" || at === "one_time")) return true;
+		return false;
+	};
+
+	// When admin uses the new array `discounts`, stack every applicable rule into a combined percent.
+	if (!percentOff && Array.isArray(plan?.discounts) && plan.discounts.length > 0) {
+		const applicable = plan.discounts.filter(ruleApplies);
+		let remaining = 1;
+		for (const rule of applicable) {
+			if (rule.type !== "percent") continue;
+			const v = Number(String(rule.value ?? "").replace(/[^\d.]/g, ""));
+			if (Number.isFinite(v) && v > 0 && v < 100) remaining *= 1 - v / 100;
+		}
+		const stackedPercent = Math.round((1 - remaining) * 100);
+		if (stackedPercent > 0 && stackedPercent < 100) {
+			percentOff = stackedPercent;
+			if (a) {
+				const symbol = detectCurrencySymbol(original ?? discounted ?? "");
+				const implied = a * remaining;
+				displayDiscounted = formatMoney(symbol, Math.round(implied * 100) / 100);
+				displayOriginal = original;
+			}
+		}
+	}
+
+	// Legacy fallback: single discountType/Value triple.
+	if (!percentOff && plan?.discountType === "percent" && plan?.discountValue) {
+		const v = Number(String(plan.discountValue).replace(/[^\d.]/g, ""));
+		if (Number.isFinite(v) && v > 0 && v < 100) {
+			percentOff = Math.round(v);
+			if (a) {
+				const symbol = detectCurrencySymbol(original ?? discounted ?? "");
+				const implied = a * (1 - v / 100);
+				displayDiscounted = formatMoney(symbol, Math.round(implied * 100) / 100);
+				displayOriginal = original;
+			}
+		}
+	}
+
+	const showOriginal = percentOff != null && displayOriginal && displayOriginal !== displayDiscounted;
+	return { original: displayOriginal, discounted: displayDiscounted, percentOff, showOriginal };
 }
 
 function OnboardingStep5() {
@@ -182,7 +274,11 @@ function OnboardingStep5() {
 		try {
 			const baseUrl = config.api.baseUrl;
 			const params = new URLSearchParams({ billingCycle });
-			const response = await fetch(`${baseUrl}/api/billing/plans?${params.toString()}`);
+			// Bypass any HTTP cache so admin edits show up immediately on refresh.
+			const response = await fetch(`${baseUrl}/api/billing/plans?${params.toString()}`, {
+				cache: "no-store",
+				headers: { "Cache-Control": "no-cache" },
+			});
 			if (response.ok) {
 				const data = await response.json();
 				const activePlans = dedupePlansByTier(
@@ -337,9 +433,25 @@ function OnboardingStep5() {
 
 	if (isLoading && plans.length === 0) {
 		return (
-			<div className="flex h-[60vh] items-center justify-center">
-				<CircleNotch className="w-10 h-10 animate-spin text-primary" />
-			</div>
+			<main className="mx-auto max-w-7xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
+				<div className="space-y-12">
+					<div className="space-y-4 text-center max-w-2xl mx-auto">
+						<Skeleton className="h-3 w-24 mx-auto" />
+						<Skeleton className="h-12 w-80 mx-auto" />
+						<Skeleton className="h-5 w-96 mx-auto" />
+					</div>
+					<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl mx-auto">
+						<Skeleton className="h-20 w-full rounded-2xl" />
+						<Skeleton className="h-20 w-full rounded-2xl" />
+						<Skeleton className="h-20 w-full rounded-2xl" />
+					</div>
+					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+						{[0, 1, 2, 3].map((i) => (
+							<Skeleton key={i} className="h-[480px] w-full rounded-3xl" />
+						))}
+					</div>
+				</div>
+			</main>
 		);
 	}
 
@@ -384,55 +496,75 @@ function OnboardingStep5() {
 				</div>
 
 				{isTeam && (
-					<div className="max-w-3xl mx-auto rounded-3xl border border-primary/20 bg-primary/5 p-6">
-						<p className="text-xs font-black uppercase tracking-widest text-primary">Team Pricing</p>
-						<p className="mt-2 text-sm text-muted-foreground font-medium">
-							Total is calculated as <span className="font-black text-foreground">plan price × athletes</span>.
-						</p>
-						<div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+					<Card className="max-w-3xl mx-auto rounded-3xl border-primary/20 bg-primary/5 p-6">
+						<div className="flex items-center justify-between flex-wrap gap-2">
+							<Badge variant="secondary" className="text-[10px] font-black uppercase tracking-widest">
+								Team Pricing
+							</Badge>
+							<p className="text-xs text-muted-foreground font-medium">
+								Total = <span className="font-black text-foreground">plan price × athletes</span>
+							</p>
+						</div>
+						<Separator className="my-4 bg-primary/10" />
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
 							<div className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3">
 								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Team</p>
-								<p className="mt-1 text-sm font-bold">{teamCheckout?.teamName ?? "Your team"}</p>
+								<p className="mt-1 text-sm font-bold truncate">{teamCheckout?.teamName ?? "Your team"}</p>
 							</div>
 							<div className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3">
 								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Athletes</p>
 								<p className="mt-1 text-sm font-bold">{teamSize ?? "—"}</p>
 							</div>
 							<div className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3">
-								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Estimated Total</p>
+								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Estimated</p>
 								<p className="mt-1 text-sm font-bold">
-									{estimatedTotal == null ? "Select a plan" : formatMoney(currencySymbol, estimatedTotal)}
+									{estimatedTotal == null ? "—" : formatMoney(currencySymbol, estimatedTotal)}
 								</p>
 							</div>
 						</div>
 						{!teamCheckout?.teamId && (
-							<p className="mt-3 text-xs font-semibold text-destructive">
+							<p className="mt-4 text-xs font-semibold text-destructive">
 								Missing team id. Go back to Step 2 and re-submit team details.
 							</p>
 						)}
-					</div>
+					</Card>
 				)}
 
 				<div className="max-w-3xl mx-auto space-y-3">
 					<p className="text-center text-xs font-bold uppercase tracking-widest text-muted-foreground">
 						Billing
 					</p>
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+					<div
+						role="radiogroup"
+						aria-label="Billing cycle"
+						className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+					>
 						{BILLING_OPTIONS.map((opt) => {
 							const active = billingCycle === opt.id;
+							const savings =
+								opt.id === "yearly" ? "Save up to 20%" : opt.id === "six_months" ? "Save up to 10%" : null;
 							return (
 								<button
 									key={opt.id}
 									type="button"
+									role="radio"
+									aria-checked={active}
 									onClick={() => setBillingCycle(opt.id)}
 									className={cn(
-										"rounded-2xl border-2 p-4 text-left transition-all",
+										"relative rounded-2xl border-2 p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
 										active
 											? "border-primary bg-primary/[0.06] shadow-md ring-2 ring-primary/10"
 											: "border-border/60 bg-card/40 hover:border-primary/30",
 									)}
 								>
-									<p className="text-sm font-black uppercase tracking-tight">{opt.title}</p>
+									<div className="flex items-center justify-between">
+										<p className="text-sm font-black uppercase tracking-tight">{opt.title}</p>
+										{savings && (
+											<Badge variant="default" className="text-[9px] font-black uppercase tracking-wider">
+												{savings}
+											</Badge>
+										)}
+									</div>
 									<p className="text-[11px] font-semibold text-muted-foreground mt-1">
 										{opt.description}
 									</p>
@@ -442,13 +574,9 @@ function OnboardingStep5() {
 					</div>
 				</div>
 
-				{isLoading ? (
-					<div className="flex justify-center py-8">
-						<CircleNotch className="w-8 h-8 animate-spin text-primary" />
-					</div>
-				) : null}
-
 				<div
+					role="radiogroup"
+					aria-label="Subscription plan"
 					className={cn(
 						"grid gap-6 transition-opacity",
 						isLoading ? "opacity-50 pointer-events-none" : "opacity-100",
@@ -457,6 +585,7 @@ function OnboardingStep5() {
 				>
 					{plans.map((plan) => {
 						const isSelected = selectedPlan === plan.tier;
+						const isPopular = plan.tier === "PHP_Premium_Plus";
 						const displayPrice =
 							billingCycle === "yearly"
 								? (plan.billingQuote?.amount ?? plan.yearlyPrice ?? plan.pricing?.yearly?.discounted ?? plan.displayPrice ?? "—")
@@ -492,25 +621,55 @@ function OnboardingStep5() {
 						return (
 							<Card
 								key={plan.id}
+								role="radio"
+								aria-checked={isSelected}
+								tabIndex={0}
 								onClick={() => setSelectedPlan(plan.tier)}
+								onKeyDown={(e) => {
+									if (e.key === " " || e.key === "Enter") {
+										e.preventDefault();
+										setSelectedPlan(plan.tier);
+									}
+								}}
 								className={cn(
-									"relative p-5 sm:p-8 flex flex-col h-full rounded-3xl border-2 transition-all duration-300 cursor-pointer",
+									"relative p-5 sm:p-7 flex flex-col h-full rounded-3xl border-2 transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
 									isSelected
 										? "border-primary bg-primary/[0.02] shadow-xl ring-4 ring-primary/5 scale-[1.02]"
 										: "border-border/60 bg-card/50 hover:border-primary/40",
+									isPopular && !isSelected && "border-primary/40",
 								)}
 							>
-								<div className="space-y-6 flex-1">
+								{isPopular && (
+									<div className="absolute -top-3 left-1/2 -translate-x-1/2">
+										<Badge
+											variant="default"
+											className="text-[9px] font-black uppercase tracking-widest px-3 py-1 shadow-md"
+										>
+											Most Popular
+										</Badge>
+									</div>
+								)}
+								<div className="space-y-5 flex-1">
 									<div className="flex items-center justify-between">
 										<div
 											className={cn(
-												"p-3 rounded-2xl",
+												"p-3 rounded-2xl transition-colors",
 												isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary",
 											)}
 										>
 											<Icon size={28} weight="bold" />
 										</div>
-										{isSelected && <Check size={20} weight="bold" className="text-primary" />}
+										<div
+											className={cn(
+												"flex items-center justify-center w-7 h-7 rounded-full border-2 transition-all",
+												isSelected
+													? "bg-primary border-primary text-primary-foreground"
+													: "border-border/60 text-transparent",
+											)}
+											aria-hidden
+										>
+											<Check size={14} weight="bold" />
+										</div>
 									</div>
 
 									<div className="space-y-1">
@@ -520,26 +679,55 @@ function OnboardingStep5() {
 										</p>
 									</div>
 
-									<div className="flex flex-col gap-1 py-2 border-y border-border/20">
-										<div className="flex items-baseline gap-2 flex-wrap">
-											<span className="text-4xl font-black text-foreground">{displayPrice}</span>
-										</div>
-										<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-											{priceSuffix(billingCycle)}
-											{billingCycle === "monthly" ? " · subscription" : " · one-time"}
-										</span>
-									</div>
+									<Separator />
 
-									<div className="space-y-4 flex-1">
-										{featureList.map((feature: string, i: number) => (
-											<div key={i} className="flex items-start gap-3">
-												<Check size={14} weight="bold" className="text-primary mt-0.5 shrink-0" />
-												<span className="text-[13px] font-bold text-foreground/80 leading-tight">
-													{feature}
+									{(() => {
+										const pricing = resolvePlanPricing(plan, billingCycle, displayPrice);
+										return (
+											<div className="flex flex-col gap-1.5">
+												<div className="flex items-baseline gap-2 flex-wrap">
+													<span className="text-4xl font-black text-foreground">
+														{pricing.discounted ?? "—"}
+													</span>
+													{pricing.showOriginal ? (
+														<span
+															className="text-base font-semibold text-muted-foreground/70 line-through decoration-2 decoration-rose-400/70"
+															aria-label={`Original price ${pricing.original}`}
+														>
+															{pricing.original}
+														</span>
+													) : null}
+													{pricing.percentOff ? (
+														<Badge
+															variant="secondary"
+															className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider"
+														>
+															Save {pricing.percentOff}%
+														</Badge>
+													) : null}
+												</div>
+												<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+													{priceSuffix(billingCycle)}
+													{billingCycle === "monthly" ? " · subscription" : " · one-time"}
 												</span>
 											</div>
+										);
+									})()}
+
+									<Separator />
+
+									<ul className="space-y-3 flex-1">
+										{featureList.map((feature: string, i: number) => (
+											<li key={i} className="flex items-start gap-3">
+												<div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
+													<Check size={10} weight="bold" className="text-primary" />
+												</div>
+												<span className="text-[13px] font-semibold text-foreground/85 leading-snug">
+													{feature}
+												</span>
+											</li>
 										))}
-									</div>
+									</ul>
 								</div>
 							</Card>
 						);

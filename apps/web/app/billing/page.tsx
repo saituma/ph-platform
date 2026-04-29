@@ -54,7 +54,11 @@ export default function BillingOverviewPage() {
       setSummary({
         planCount: plans.length,
         activePlanCount: plans.filter((plan) => plan.isActive).length,
-        pendingApprovalCount: requests.filter((request) => request.status === "pending").length,
+        // Match the actual schema: requests can be in `pending_payment` (not yet paid) or
+        // `pending_approval` (paid, awaiting coach review). Both count as "awaiting review".
+        pendingApprovalCount: requests.filter(
+          (r) => r.status === "pending_payment" || r.status === "pending_approval",
+        ).length,
       });
     } catch {
       setSummary(DEFAULT_SUMMARY);

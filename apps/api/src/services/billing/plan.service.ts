@@ -12,6 +12,7 @@ import { getUserByEmail } from "../user.service";
 import { generateProvisionPassword, hashLocalProvisionPassword } from "../admin/user.service";
 import { createCheckoutSession } from "./request.service";
 import { sendPlanInviteEmail } from "../../lib/mailer/billing.mailer";
+import { sendAdminWelcomeCredentialsEmail } from "../../lib/mailer";
 import { createPlanInviteToken, verifyPlanInviteToken } from "../../lib/jwt";
 import { env } from "../../config/env";
 import {
@@ -233,14 +234,70 @@ function parseDiscountConfig(input: {
   return empty;
 }
 
+export type DiscountRule = {
+  type: "percent" | "amount";
+  value: string;
+  appliesTo: "monthly" | "yearly" | "six_months" | "all" | "custom";
+  label?: string | null;
+};
+
+/**
+ * Apply a single percent or amount discount to a base cents amount.
+ * Returns the resulting cents (>= 0). Returns the input when the rule is invalid.
+ */
+function applySingleDiscount(originalCents: number, type: string, value: string | null | undefined): number {
+  if (!type || !value) return originalCents;
+  if (type === "percent") {
+    const cleaned = String(value).replace(/[^\d.]/g, "");
+    const percent = Number(cleaned);
+    if (!Number.isFinite(percent) || percent <= 0 || percent >= 100) return originalCents;
+    const next = Math.round(originalCents * (1 - percent / 100));
+    return next > 0 ? next : originalCents;
+  }
+  if (type === "amount") {
+    const offCents = parsePriceToCents(value);
+    if (!offCents || offCents <= 0) return originalCents;
+    // For an "amount" rule we treat the value as an absolute "off" amount, not a final price.
+    // (Earlier code interpreted it as a final price; clamp to non-negative.)
+    const next = originalCents - offCents;
+    return next > 0 ? next : 0;
+  }
+  return originalCents;
+}
+
+function ruleAppliesToInterval(rule: DiscountRule, interval: "monthly" | "yearly" | "one_time"): boolean {
+  const at = String(rule.appliesTo ?? "").toLowerCase();
+  if (!at) return false;
+  if (at === "all" || at === "both") return true;
+  if (at === interval) return true;
+  // map admin's "six_months" rule onto the "one_time" column (6 months payment).
+  if (at === "six_months" && interval === "one_time") return true;
+  if (at === "one_time" && interval === "one_time") return true;
+  return false;
+}
+
 export function applyDiscountToAmount(input: {
   originalCents: number;
   discountType?: string | null;
   discountValue?: string | null;
   discountAppliesTo?: string | null;
+  /** Optional array of rules; when present, stacks them multiplicatively (percent) or sums (amount). */
+  discounts?: DiscountRule[] | null;
   interval: "monthly" | "yearly" | "one_time";
 }) {
   const { originalCents, interval } = input;
+
+  // New path: stack every rule that applies to this interval.
+  if (Array.isArray(input.discounts) && input.discounts.length > 0) {
+    let cents = originalCents;
+    for (const rule of input.discounts) {
+      if (!ruleAppliesToInterval(rule, interval)) continue;
+      cents = applySingleDiscount(cents, String(rule.type), rule.value);
+    }
+    return cents;
+  }
+
+  // Legacy path: single discountType/Value/AppliesTo triple via parseDiscountConfig.
   const parsedDiscounts = parseDiscountConfig(input);
   const discountType = parsedDiscounts.discountType;
   const intervalDiscountValue =
@@ -249,21 +306,8 @@ export function applyDiscountToAmount(input: {
       : interval === "yearly"
         ? parsedDiscounts.yearly
         : parsedDiscounts.one_time;
-  if (!discountType || !intervalDiscountValue) {
-    return originalCents;
-  }
-  if (discountType === "percent") {
-    const percent = Number(intervalDiscountValue);
-    if (!Number.isFinite(percent) || percent <= 0) return originalCents;
-    const discounted = Math.round(originalCents * (1 - percent / 100));
-    return discounted > 0 ? discounted : originalCents;
-  }
-  if (discountType === "amount") {
-    const discounted = parsePriceToCents(intervalDiscountValue);
-    if (!discounted || discounted <= 0) return originalCents;
-    return discounted;
-  }
-  return originalCents;
+  if (!discountType || !intervalDiscountValue) return originalCents;
+  return applySingleDiscount(originalCents, String(discountType), intervalDiscountValue);
 }
 
 function buildPublicPlanPricing(plan: {
@@ -545,6 +589,7 @@ export async function createSubscriptionPlan(input: {
   discountType?: string | null;
   discountValue?: string | null;
   discountAppliesTo?: string | null;
+  discounts?: DiscountRule[] | null;
   features?: string[] | null;
   isActive?: boolean;
 }) {
@@ -563,6 +608,7 @@ export async function createSubscriptionPlan(input: {
         discountType: input.discountType,
         discountValue: input.discountValue,
         discountAppliesTo: input.discountAppliesTo,
+        discounts: input.discounts ?? null,
         interval: "monthly",
       });
       stripePriceIdMonthly = await createStripePriceForPlan({
@@ -579,6 +625,7 @@ export async function createSubscriptionPlan(input: {
         discountType: input.discountType,
         discountValue: input.discountValue,
         discountAppliesTo: input.discountAppliesTo,
+        discounts: input.discounts ?? null,
         interval: "yearly",
       });
       stripePriceIdYearly = await createStripePriceForPlan({
@@ -595,6 +642,7 @@ export async function createSubscriptionPlan(input: {
         discountType: input.discountType,
         discountValue: input.discountValue,
         discountAppliesTo: input.discountAppliesTo,
+        discounts: input.discounts ?? null,
         interval: "one_time",
       });
       stripePriceIdOneTime = await createStripePriceForPlan({
@@ -624,6 +672,7 @@ export async function createSubscriptionPlan(input: {
       discountType: input.discountType ?? null,
       discountValue: input.discountValue ?? null,
       discountAppliesTo: input.discountAppliesTo ?? null,
+      discounts: input.discounts ?? null,
       features: input.features ?? null,
       isActive: input.isActive ?? true,
     })
@@ -684,6 +733,7 @@ export async function updateSubscriptionPlan(
     discountType: string | null;
     discountValue: string | null;
     discountAppliesTo: string | null;
+    discounts: DiscountRule[] | null;
     features: string[] | null;
     isActive: boolean;
   }>,
@@ -714,6 +764,7 @@ export async function updateSubscriptionPlan(
     const discountType = input.discountType ?? existing.discountType ?? null;
     const discountValue = input.discountValue ?? existing.discountValue ?? null;
     const discountAppliesTo = input.discountAppliesTo ?? existing.discountAppliesTo ?? null;
+    const discounts = ("discounts" in input ? input.discounts : (existing.discounts as DiscountRule[] | null)) ?? null;
 
     const monthlyChanged =
       "monthlyPrice" in input && (input.monthlyPrice ?? null) !== (existing.monthlyPrice ?? null);
@@ -724,7 +775,8 @@ export async function updateSubscriptionPlan(
     const discountChanged =
       ("discountType" in input && (input.discountType ?? null) !== (existing.discountType ?? null)) ||
       ("discountValue" in input && (input.discountValue ?? null) !== (existing.discountValue ?? null)) ||
-      ("discountAppliesTo" in input && (input.discountAppliesTo ?? null) !== (existing.discountAppliesTo ?? null));
+      ("discountAppliesTo" in input && (input.discountAppliesTo ?? null) !== (existing.discountAppliesTo ?? null)) ||
+      ("discounts" in input && JSON.stringify(input.discounts ?? null) !== JSON.stringify(existing.discounts ?? null));
 
     if (monthlyAmount && (monthlyChanged || discountChanged || !stripePriceIdMonthly)) {
       const discountedMonthly = applyDiscountToAmount({
@@ -732,6 +784,7 @@ export async function updateSubscriptionPlan(
         discountType,
         discountValue,
         discountAppliesTo,
+        discounts,
         interval: "monthly",
       });
       stripePriceIdMonthly = await createStripePriceForPlan({
@@ -748,6 +801,7 @@ export async function updateSubscriptionPlan(
         discountType,
         discountValue,
         discountAppliesTo,
+        discounts,
         interval: "yearly",
       });
       stripePriceIdYearly = await createStripePriceForPlan({
@@ -764,6 +818,7 @@ export async function updateSubscriptionPlan(
         discountType,
         discountValue,
         discountAppliesTo,
+        discounts,
         interval: "one_time",
       });
       stripePriceIdOneTime = await createStripePriceForPlan({
@@ -1012,6 +1067,16 @@ export async function consumePlanInvite(input: {
   });
   if (!session.url) {
     throw { status: 502, message: "Stripe did not return a checkout URL." };
+  }
+
+  // For brand-new accounts, email the mobile login credentials so the user can sign in
+  // immediately after paying. (Existing accounts already have a password.)
+  if (issuedTempPassword) {
+    await sendAdminWelcomeCredentialsEmail({
+      to: user.email,
+      guardianName: fullName,
+      temporaryPassword: issuedTempPassword,
+    });
   }
 
   return {

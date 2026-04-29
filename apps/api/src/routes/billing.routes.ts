@@ -6,6 +6,7 @@ import {
   approveRequestAdmin,
   approveTeamRequestAdmin,
   confirmCheckout,
+  confirmCheckoutPublic,
   confirmPaymentSheet,
   createCheckout,
   createTeamCheckout,
@@ -46,6 +47,8 @@ router.post("/billing/payment-sheet", requireAuth, createPaymentSheet);
 router.post("/billing/payment-sheet/confirm", requireAuth, confirmPaymentSheet);
 router.post("/billing/revenuecat/verify", requireAuth, verifyRevenueCatPurchase);
 router.post("/billing/confirm", requireAuth, confirmCheckout);
+// Public variant for unauthenticated invite-flow returns (Stripe session_id is the credential).
+router.post("/public/billing/confirm", confirmCheckoutPublic);
 router.get("/billing/receipt/:receiptId", requireAuth, getPaymentReceipt);
 router.post("/billing/downgrade", requireAuth, downgradePlan);
 router.get("/billing/invoices", requireAuth, listInvoices);
