@@ -6,7 +6,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../../../components/admin/shell";
 import { SectionHeader } from "../../../../../components/admin/section-header";
@@ -119,6 +119,14 @@ function SortableSessionCard({
 }
 
 export default function ModuleSessionsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ModuleSessionsPageInner />
+    </Suspense>
+  );
+}
+
+function ModuleSessionsPageInner() {
   const params = useParams<{ audienceLabel: string; moduleId: string }>();
   const searchParams = useSearchParams();
   const audienceLabel = useMemo(

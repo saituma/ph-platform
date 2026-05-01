@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -29,6 +29,14 @@ type GridProgram = {
 };
 
 export default function ProgramsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProgramsPageInner />
+    </Suspense>
+  );
+}
+
+function ProgramsPageInner() {
   const searchParams = useSearchParams();
   const { data: programsData, isLoading: programsLoading } = useGetProgramsQuery();
   const { data: usersData } = useGetUsersQuery();

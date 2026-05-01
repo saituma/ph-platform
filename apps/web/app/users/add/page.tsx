@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
+import { Suspense, useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Camera, Loader2, RefreshCw, User } from "lucide-react";
 import { toast } from "@/lib/toast";
@@ -51,6 +51,14 @@ function generateAdminProvisionPassword() {
 }
 
 export default function AddUserPage() {
+  return (
+    <Suspense fallback={null}>
+      <AddUserPageInner />
+    </Suspense>
+  );
+}
+
+function AddUserPageInner() {
   const searchParams = useSearchParams();
   const { data: configData, isLoading: configLoading } = useGetOnboardingConfigQuery();
   const [provision, { isLoading: isSubmitting }] = useProvisionGuardianMutation();

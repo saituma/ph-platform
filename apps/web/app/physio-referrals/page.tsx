@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -295,6 +295,14 @@ function PartnerDetailsForm({
 }
 
 export default function ReferralsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReferralsPageInner />
+    </Suspense>
+  );
+}
+
+function ReferralsPageInner() {
   const searchParams = useSearchParams();
   const { data, isLoading } = useGetPhysioReferralsQuery();
   const { data: referralGroupsData } = useGetReferralGroupsQuery();

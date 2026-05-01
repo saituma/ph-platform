@@ -17,7 +17,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../../components/admin/shell";
 import { SectionHeader } from "../../../../components/admin/section-header";
@@ -128,6 +128,14 @@ function SortableModuleCard({
 }
 
 export default function TeamDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <TeamDetailPageInner />
+    </Suspense>
+  );
+}
+
+function TeamDetailPageInner() {
   const params = useParams<{ teamName: string }>();
   const searchParams = useSearchParams();
   const audienceLabel = useMemo(

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../../../components/admin/shell";
 import { SectionHeader } from "../../../../../components/admin/section-header";
@@ -28,6 +28,14 @@ import { InseasonListPage } from "../inseason-list-page";
 import { getOtherSectionConfig } from "../shared";
 
 export default function OtherContentDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <OtherContentDetailPageInner />
+    </Suspense>
+  );
+}
+
+function OtherContentDetailPageInner() {
   const params = useParams<{ audienceLabel: string; type: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();

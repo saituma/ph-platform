@@ -2,7 +2,7 @@
 
 import { skipToken } from "@reduxjs/toolkit/query";
 import { BarChart3, MessageCircle, Megaphone, Users2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
 
@@ -220,6 +220,14 @@ function canonicalTeamMatchKey(value?: string | null) {
 }
 
 export default function MessagingPage() {
+  return (
+    <Suspense fallback={null}>
+      <MessagingPageInner />
+    </Suspense>
+  );
+}
+
+function MessagingPageInner() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState("inbox");
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../../../components/admin/shell";
@@ -56,6 +56,14 @@ type RawVideoUpload = {
 };
 
 export default function AthleteVideoHistoryPage() {
+  return (
+    <Suspense fallback={null}>
+      <AthleteVideoHistoryPageInner />
+    </Suspense>
+  );
+}
+
+function AthleteVideoHistoryPageInner() {
   const router = useRouter();
   const params = useParams<{ athleteId: string }>();
   const searchParams = useSearchParams();

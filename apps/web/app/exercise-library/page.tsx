@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
@@ -39,6 +39,14 @@ type TeamSummary = {
 };
 
 export default function ExerciseLibraryAudiencePage() {
+  return (
+    <Suspense fallback={null}>
+      <ExerciseLibraryAudiencePageInner />
+    </Suspense>
+  );
+}
+
+function ExerciseLibraryAudiencePageInner() {
   const searchParams = useSearchParams();
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);

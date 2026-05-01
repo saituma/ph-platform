@@ -1,13 +1,21 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 
 import { isProgramTierAudienceLabel, normalizeAudienceLabelInput } from "../../../../../../components/admin/training-content-v2/api";
 import { InseasonSchedulePage } from "../../inseason-schedule-page";
 import { getOtherSectionConfig } from "../../shared";
 
 export default function OtherContentItemDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <OtherContentItemDetailPageInner />
+    </Suspense>
+  );
+}
+
+function OtherContentItemDetailPageInner() {
   const params = useParams<{ audienceLabel: string; type: string; itemId: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();

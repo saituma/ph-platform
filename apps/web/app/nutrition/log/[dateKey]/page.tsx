@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, Loader2, MessageSquareText, Video } from "lucide-react";
 
@@ -78,6 +78,14 @@ function logLines(log: NutritionLog | null): string[] {
 }
 
 export default function NutritionLogDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <NutritionLogDetailPageInner />
+    </Suspense>
+  );
+}
+
+function NutritionLogDetailPageInner() {
   const router = useRouter();
   const params = useParams<{ dateKey: string }>();
   const searchParams = useSearchParams();
