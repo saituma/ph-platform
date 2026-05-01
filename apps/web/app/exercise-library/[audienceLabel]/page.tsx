@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { SectionHeader } from "../../../components/admin/section-header";
@@ -58,6 +58,14 @@ function buildModuleTitle(name: string, focus: string) {
 }
 
 export default function AudienceDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <AudienceDetailPageInner />
+    </Suspense>
+  );
+}
+
+function AudienceDetailPageInner() {
   const params = useParams<{ audienceLabel: string }>();
   const searchParams = useSearchParams();
   const audienceLabel = useMemo(

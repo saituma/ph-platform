@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminShell } from "../../../../../../../components/admin/shell";
 import { SectionHeader } from "../../../../../../../components/admin/section-header";
@@ -50,6 +50,14 @@ function createEmptyItemForm() {
 }
 
 export default function SessionDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <SessionDetailPageInner />
+    </Suspense>
+  );
+}
+
+function SessionDetailPageInner() {
   const params = useParams<{ audienceLabel: string; moduleId: string; sessionId: string }>();
   const searchParams = useSearchParams();
   const audienceLabel = useMemo(
