@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "heroku-build": "turbo run build --filter=web",
-    "build": "turbo run build",
+    "build": "turbo run build --filter=web",
+    "build:all": "turbo run build",
     "start": "pnpm --filter web start",
     "db:migrate": "pnpm --filter api db:migrate",
     "test": "turbo run test",

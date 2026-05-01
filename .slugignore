@@ -1,0 +1,12 @@
+apps/docs
+apps/showcase
+apps/onboarding
+apps/superadmin
+apps/mobile
+android
+e2e
+qa-audit-results
+scan_report.json
+stripe.tar.gz
+test-*.ts
+test-*.mjs
