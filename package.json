@@ -29,11 +29,6 @@
     "@playwright/test": "^1.55.0",
     "turbo": "^2.8.1"
   },
-  "dependencies": {
-    "expo": "~55.0.7",
-    "react": "19.2.0",
-    "react-native": "0.83.2"
-  },
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
