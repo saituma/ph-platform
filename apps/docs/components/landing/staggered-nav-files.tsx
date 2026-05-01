@@ -120,8 +120,12 @@ export function StaggeredNavFiles() {
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [mobileView, setMobileView] = useState<"docs" | "nav">("docs");
 	const [mobileDocSection, setMobileDocSection] = useState(-1);
-	const productsTimeout = useRef<NodeJS.Timeout>(undefined);
-	const resourcesTimeout = useRef<NodeJS.Timeout>(undefined);
+	const productsTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined,
+	);
+	const resourcesTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined,
+	);
 
 	useEffect(() => {
 		document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
