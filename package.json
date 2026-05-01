@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "heroku-build": "turbo run build --filter=web",
-    "build": "turbo run build --filter=web",
+    "heroku-build": "turbo run build --filter=api",
+    "build": "turbo run build --filter=api",
     "build:all": "turbo run build",
-    "start": "pnpm --filter web start",
+    "start": "pnpm --filter api start",
     "db:migrate": "pnpm --filter api db:migrate",
     "test": "turbo run test",
     "test:watch": "turbo run test --watch",
