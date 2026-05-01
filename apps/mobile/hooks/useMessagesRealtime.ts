@@ -34,6 +34,8 @@ type UseMessagesRealtimeParams = {
   currentThread: MessageThread | null;
   groupMembers: Record<number, Record<number, { name: string; avatar?: string | null }>>;
   loadMessages: (options?: { silent?: boolean }) => void;
+  /** Called on socket reconnect to invalidate the TanStack Query thread cache. */
+  invalidateThreads?: () => void;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   setThreads: React.Dispatch<React.SetStateAction<MessageThread[]>>;
   setTypingStatus: React.Dispatch<React.SetStateAction<TypingStatus>>;
@@ -44,6 +46,7 @@ export function useMessagesRealtime({
   draft,
   currentThread,
   groupMembers,
+  invalidateThreads,
   setMessages,
   setThreads,
   setTypingStatus,
@@ -59,6 +62,7 @@ export function useMessagesRealtime({
   const setMessagesRef = useRef(setMessages);
   const setThreadsRef = useRef(setThreads);
   const setTypingStatusRef = useRef(setTypingStatus);
+  const invalidateThreadsRef = useRef(invalidateThreads);
 
   // Keep refs in sync
   useEffect(() => { profileIdRef.current = profileId; }, [profileId]);
@@ -67,6 +71,7 @@ export function useMessagesRealtime({
   useEffect(() => { setMessagesRef.current = setMessages; }, [setMessages]);
   useEffect(() => { setThreadsRef.current = setThreads; }, [setThreads]);
   useEffect(() => { setTypingStatusRef.current = setTypingStatus; }, [setTypingStatus]);
+  useEffect(() => { invalidateThreadsRef.current = invalidateThreads; }, [invalidateThreads]);
 
   useEffect(() => {
     if (!socket) return;
@@ -361,6 +366,11 @@ export function useMessagesRealtime({
       );
     };
 
+    // Invalidate the TQ thread cache whenever the socket (re)connects so we
+    // immediately get fresh data after a disconnect/reconnect cycle.
+    const handleConnect = () => { invalidateThreadsRef.current?.(); };
+
+    socket.on("connect", handleConnect);
     socket.on("message:new", handleMessageNew);
     socket.on("group:message", handleGroupMessage);
     socket.on("typing:update", handleTypingUpdate);
@@ -373,6 +383,7 @@ export function useMessagesRealtime({
     socket.on("presence:update", handlePresenceUpdate);
 
     return () => {
+      socket.off("connect", handleConnect);
       socket.off("message:new", handleMessageNew);
       socket.off("group:message", handleGroupMessage);
       socket.off("typing:update", handleTypingUpdate);

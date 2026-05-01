@@ -2,7 +2,6 @@ import "@/lib/debug/updateDepthProbe";
 import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 import { FontScaleProvider } from "@/context/FontScaleContext";
 import { RefreshProvider } from "@/context/RefreshContext";
-import { RoleProvider } from "@/context/RoleContext";
 import { SocketProvider } from "@/context/SocketContext";
 import { TabVisibilityProvider } from "@/context/TabVisibilityContext";
 import { InAppNotificationsProvider } from "@/context/InAppNotificationsContext";
@@ -40,6 +39,7 @@ import { runStartupSelfTest } from "@/lib/startupDiagnostics";
 import { useAppSelector } from "@/store/hooks";
 import * as SplashScreen from "expo-splash-screen";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
+import { Sentry } from "@/lib/sentry";
 
 // Ensure cold start lands in the main tab shell (Home), not a deep stack route.
 export const unstable_settings = {
@@ -63,10 +63,7 @@ const QueryWrapper = ({ children }: { children: ReactElement }) => (
 );
 
 function isExpoGo(): boolean {
-  return (
-    Constants.appOwnership === "expo" ||
-    Constants.executionEnvironment === ExecutionEnvironment.StoreClient
-  );
+  return Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 }
 
 /**
@@ -112,7 +109,7 @@ function StartupSplashController() {
   return null;
 }
 
-export default function RootLayout() {
+function RootLayout() {
   useEffect(() => {
     void runStartupSelfTest();
   }, []);
@@ -139,7 +136,6 @@ export default function RootLayout() {
         QueryWrapper,
         AppThemeProvider,
         HeroAppProvider,
-        RoleProvider,
         AgeExperienceProvider,
         TabVisibilityProvider,
         RefreshProvider,
@@ -283,3 +279,5 @@ export default function RootLayout() {
     </Compose>
   );
 }
+
+export default Sentry.wrap(RootLayout);

@@ -206,7 +206,19 @@ export const {
   setAuthTeamMembership,
   setPlanFeatures,
   logout,
-} =
-  userSlice.actions;
+} = userSlice.actions;
 
 export default userSlice.reducer;
+
+/** True when the signed-in user is staff (coach, admin, team manager) and should NOT act as an athlete. */
+export function selectIsStaffRole(state: { user: UserState }): boolean {
+  const { appRole, apiUserRole } = state.user;
+  if (appRole === "coach" || appRole === "team_manager") return true;
+  const normalized = String(apiUserRole ?? "").trim().toLowerCase();
+  return (
+    normalized === "admin" ||
+    normalized === "superadmin" ||
+    normalized === "team_coach" ||
+    normalized === "program_coach"
+  );
+}

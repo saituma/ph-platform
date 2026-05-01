@@ -1,118 +1,99 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { apiRequest } from "@/lib/api";
+import { useAdminMutation } from "./useAdminQuery";
 import { ModuleSession, SessionItem } from "./useAdminAudienceWorkspace";
 
 export function useAdminSessions(token: string | null, canLoad: boolean) {
-  const [isBusy, setIsBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { run: createSession, busy: b1, error: e1 } = useAdminMutation(
+    useCallback(
+      async (params: { moduleId: number; title: string }) => {
+        if (!token || !canLoad) return;
+        return apiRequest<{ id: number }>("/training-content-v2/sessions", {
+          method: "POST",
+          token,
+          body: params,
+        });
+      },
+      [token, canLoad],
+    ),
+  );
 
-  const createSession = useCallback(async (moduleId: number, title: string) => {
-    if (!token || !canLoad) return;
-    setIsBusy(true);
-    setError(null);
-    try {
-      const res = await apiRequest<{ id: number }>("/training-content-v2/sessions", {
-        method: "POST",
-        token,
-        body: { moduleId, title },
-      });
-      return res;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create session");
-      throw e;
-    } finally {
-      setIsBusy(false);
-    }
-  }, [token, canLoad]);
+  const { run: updateSession, busy: b2, error: e2 } = useAdminMutation(
+    useCallback(
+      async (params: { sessionId: number; data: Partial<ModuleSession> }) => {
+        if (!token || !canLoad) return;
+        await apiRequest(`/training-content-v2/sessions/${params.sessionId}`, {
+          method: "PUT",
+          token,
+          body: params.data,
+        });
+      },
+      [token, canLoad],
+    ),
+  );
 
-  const updateSession = useCallback(async (sessionId: number, data: Partial<ModuleSession>) => {
-    if (!token || !canLoad) return;
-    setIsBusy(true);
-    setError(null);
-    try {
-      await apiRequest(`/training-content-v2/sessions/${sessionId}`, {
-        method: "PUT",
-        token,
-        body: data,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update session");
-      throw e;
-    } finally {
-      setIsBusy(false);
-    }
-  }, [token, canLoad]);
+  const { run: deleteSession, busy: b3, error: e3 } = useAdminMutation(
+    useCallback(
+      async (sessionId: number) => {
+        if (!token || !canLoad) return;
+        await apiRequest(`/training-content-v2/sessions/${sessionId}`, {
+          method: "DELETE",
+          token,
+        });
+      },
+      [token, canLoad],
+    ),
+  );
 
-  const deleteSession = useCallback(async (sessionId: number) => {
-    if (!token || !canLoad) return;
-    setIsBusy(true);
-    setError(null);
-    try {
-      await apiRequest(`/training-content-v2/sessions/${sessionId}`, {
-        method: "DELETE",
-        token,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete session");
-      throw e;
-    } finally {
-      setIsBusy(false);
-    }
-  }, [token, canLoad]);
+  const { run: createItem, busy: b4, error: e4 } = useAdminMutation(
+    useCallback(
+      async (params: { sessionId: number; data: Partial<SessionItem> }) => {
+        if (!token || !canLoad) return;
+        return apiRequest<{ id: number }>("/training-content-v2/items", {
+          method: "POST",
+          token,
+          body: { ...params.data, sessionId: params.sessionId },
+        });
+      },
+      [token, canLoad],
+    ),
+  );
 
-  const createItem = useCallback(async (sessionId: number, data: Partial<SessionItem>) => {
-    if (!token || !canLoad) return;
-    setIsBusy(true);
-    setError(null);
-    try {
-      const res = await apiRequest<{ id: number }>("/training-content-v2/items", {
-        method: "POST",
-        token,
-        body: { ...data, sessionId },
-      });
-      return res;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create item");
-      throw e;
-    } finally {
-      setIsBusy(false);
-    }
-  }, [token, canLoad]);
+  const { run: updateItem, busy: b5, error: e5 } = useAdminMutation(
+    useCallback(
+      async (params: { itemId: number; data: Partial<SessionItem> }) => {
+        if (!token || !canLoad) return;
+        await apiRequest(`/training-content-v2/items/${params.itemId}`, {
+          method: "PUT",
+          token,
+          body: params.data,
+        });
+      },
+      [token, canLoad],
+    ),
+  );
 
-  const updateItem = useCallback(async (itemId: number, data: Partial<SessionItem>) => {
-    if (!token || !canLoad) return;
-    setIsBusy(true);
-    setError(null);
-    try {
-      await apiRequest(`/training-content-v2/items/${itemId}`, {
-        method: "PUT",
-        token,
-        body: data,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update item");
-      throw e;
-    } finally {
-      setIsBusy(false);
-    }
-  }, [token, canLoad]);
+  const { run: deleteItem, busy: b6, error: e6 } = useAdminMutation(
+    useCallback(
+      async (itemId: number) => {
+        if (!token || !canLoad) return;
+        await apiRequest(`/training-content-v2/items/${itemId}`, {
+          method: "DELETE",
+          token,
+        });
+      },
+      [token, canLoad],
+    ),
+  );
 
-  const deleteItem = useCallback(async (itemId: number) => {
-    if (!token || !canLoad) return;
-    setIsBusy(true);
-    setError(null);
-    try {
-      await apiRequest(`/training-content-v2/items/${itemId}`, {
-        method: "DELETE",
-        token,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete item");
-      throw e;
-    } finally {
-      setIsBusy(false);
-    }
-  }, [token, canLoad]);
-
-  return { isBusy, error, createSession, updateSession, deleteSession, createItem, updateItem, deleteItem };
+  return {
+    isBusy: b1 || b2 || b3 || b4 || b5 || b6,
+    error: e1 ?? e2 ?? e3 ?? e4 ?? e5 ?? e6,
+    createSession: (moduleId: number, title: string) => createSession({ moduleId, title }),
+    updateSession: (sessionId: number, data: Partial<ModuleSession>) => updateSession({ sessionId, data }),
+    deleteSession,
+    createItem: (sessionId: number, data: Partial<SessionItem>) => createItem({ sessionId, data }),
+    updateItem: (itemId: number, data: Partial<SessionItem>) => updateItem({ itemId, data }),
+    deleteItem,
+  };
 }

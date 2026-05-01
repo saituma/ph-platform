@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback } from "react";
 import { apiRequest } from "@/lib/api";
+import { useAdminQuery } from "./useAdminQuery";
 
 export type AdminTeamSummary = {
   id: number;
@@ -11,41 +12,22 @@ export type AdminTeamSummary = {
 };
 
 export function useAdminTeams(token: string | null, canLoad: boolean) {
-  const [teams, setTeams] = useState<AdminTeamSummary[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Single-flight: dedupe overlapping calls (initial mount + manual refresh tap).
-  const inFlightRef = useRef(false);
+  const fetcher = useCallback(
+    (forceRefresh: boolean) =>
+      apiRequest<{ teams?: AdminTeamSummary[] }>("/admin/teams", {
+        token,
+        suppressStatusCodes: [403],
+        skipCache: forceRefresh,
+        forceRefresh,
+      }).then((res) => (Array.isArray(res?.teams) ? res.teams : [])),
+    [token],
+  );
 
-  const load = useCallback(
-    async (forceRefresh: boolean) => {
-      if (!token || !canLoad) return;
-      if (inFlightRef.current) return;
-      inFlightRef.current = true;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<{ teams?: AdminTeamSummary[] }>(
-          "/admin/teams",
-          {
-            token,
-            suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
-          },
-        );
-        setTeams(Array.isArray(res?.teams) ? res.teams : []);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load teams");
-        setTeams([]);
-      } finally {
-        setLoading(false);
-        inFlightRef.current = false;
-      }
-    },
-    [canLoad, token],
+  const { data: teams, loading, error, load } = useAdminQuery(
+    fetcher,
+    [] as AdminTeamSummary[],
+    Boolean(token) && canLoad,
   );
 
   return { teams, loading, error, load };
 }
-

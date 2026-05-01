@@ -9,6 +9,7 @@ import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -87,7 +88,7 @@ function formatTime(sec: number): string {
 
 function useWeeklyStats(userId: string | null) {
   return useQuery({
-    queryKey: ["home", "weeklyStats", userId],
+    queryKey: queryKeys.home.weeklyStats(userId ?? 0),
     queryFn: () => getWeeklySummaries(new Date(), userId),
     staleTime: 5 * 60 * 1000,
   });
@@ -125,7 +126,7 @@ const HomeScreen = memo(function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      queryClient.prefetchQuery({ queryKey: ["home", "weeklyStats", userId], queryFn: () => getWeeklySummaries(new Date(), userId) });
+      queryClient.prefetchQuery({ queryKey: queryKeys.home.weeklyStats(userId ?? 0), queryFn: () => getWeeklySummaries(new Date(), userId) });
     }, [queryClient, userId]),
   );
 
@@ -137,7 +138,7 @@ const HomeScreen = memo(function HomeScreen() {
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
-      queryClient.refetchQueries({ queryKey: ["home", "weeklyStats"] }),
+      queryClient.refetchQueries({ queryKey: queryKeys.home.all() }),
       reloadHomeContent(true),
     ]);
   }, [queryClient, reloadHomeContent]);

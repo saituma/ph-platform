@@ -15,7 +15,7 @@ import { fonts } from "@/constants/theme";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { apiRequest } from "@/lib/api";
+import { messagesApi } from "@/lib/apiClient/messages";
 import * as Haptics from "expo-haptics";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams } from "expo-router";
@@ -138,7 +138,7 @@ export default function ThreadScreen() {
 
   const handlePinMessage = React.useCallback(async (message: ChatMessage) => {
     try {
-      await apiRequest(`/messages/${message.id}/pin`, { token, method: "PUT" });
+      await messagesApi.pinMessage(message.id, { token });
     } catch (e) {
       console.warn("[pin] failed:", e);
     }

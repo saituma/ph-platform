@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { apiRequest } from "@/lib/api";
+import { useAdminQuery, useAdminMutation } from "./useAdminQuery";
 
 export type AudienceSummary = {
   label: string;
@@ -8,51 +9,34 @@ export type AudienceSummary = {
 };
 
 export function useAdminAudiences(token: string | null, canLoad: boolean) {
-  const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(
-    async (forceRefresh = false) => {
-      if (!token || !canLoad) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<{ items?: AudienceSummary[] }>(
-          "/training-content-v2/admin/audiences",
-          {
-            token,
-            forceRefresh,
-            skipCache: forceRefresh,
-            suppressStatusCodes: [403],
-          }
-        );
-        setAudiences(res?.items ?? []);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load audiences");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [token, canLoad]
+  const fetcher = useCallback(
+    (forceRefresh: boolean) =>
+      apiRequest<{ items?: AudienceSummary[] }>(
+        "/training-content-v2/admin/audiences",
+        { token, forceRefresh, skipCache: forceRefresh, suppressStatusCodes: [403] },
+      ).then((res) => res?.items ?? []),
+    [token],
   );
 
-  const createAudience = useCallback(
-    async (label: string) => {
-      if (!token || !canLoad) return;
-      try {
+  const { data: audiences, loading, error, load, setError } = useAdminQuery(
+    fetcher,
+    [] as AudienceSummary[],
+    Boolean(token) && canLoad,
+  );
+
+  const { run: createAudience } = useAdminMutation(
+    useCallback(
+      async (label: string) => {
         await apiRequest("/training-content-v2/admin/audiences", {
           method: "POST",
           token,
           body: { label },
         });
         await load(true);
-      } catch (e) {
-        throw e;
-      }
-    },
-    [token, canLoad, load]
+      },
+      [token, load],
+    ),
   );
 
-  return { audiences, loading, error, load, createAudience };
+  return { audiences, loading, error, setError, load, createAudience };
 }

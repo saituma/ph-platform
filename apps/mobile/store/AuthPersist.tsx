@@ -1,4 +1,3 @@
-import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useAppDispatch, useAppSelector } from "./hooks";
@@ -23,22 +22,19 @@ import {
   type AppCapabilities,
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
-import { getApiBaseUrl } from "@/lib/apiBaseUrl";
+import {
+  hydrateFromStorage,
+  persistCredentials,
+  clearCredentials,
+  refreshAccessToken,
+  forceLogout,
+} from "@/lib/auth/session";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
 import { resolveAppRole } from "@/lib/appRole";
 import { hasAssignedTeam } from "@/lib/teamMembership";
 import { enrichTeamFieldsIfOnboardingHasThem } from "@/lib/auth/enrichTeamFromOnboarding";
 import { parseTeamIdFromApi } from "@/lib/tracking/teamTrackingGate";
 import { promptBatteryOptimizationConsentOnce } from "@/lib/batteryOptimizationConsent";
-
-const STORAGE_KEYS = {
-  token: "authToken",
-  refreshToken: "authRefreshToken",
-  id: "profileId",
-  name: "profileName",
-  email: "profileEmail",
-  avatar: "profileAvatar",
-};
 
 const isUnauthorizedError = (error: unknown) => {
   const message =
@@ -58,170 +54,95 @@ export function AuthPersist() {
   const profile = useAppSelector((state) => state.user.profile);
   const bootstrapReady = useAppSelector(selectBootstrapReady);
   const pushRegistration = useAppSelector(selectPushRegistration);
-  const isAuthRoute = false;
   const [hydrated, setHydratedState] = useState(false);
   const lastSavedToken = useRef<string | null>(null);
   const lastSavedRefreshToken = useRef<string | null>(null);
   const lastPushToken = useRef<string | null>(null);
 
+  // ── Startup hydration ────────────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
     dispatch(setBootstrapReady(false));
+
     (async () => {
       try {
-        const forceLogout =
+        if (
           process.env.EXPO_PUBLIC_FORCE_LOGOUT === "1" ||
-          process.env.EXPO_PUBLIC_FORCE_LOGOUT === "true";
-        if (forceLogout) {
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.token);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.id);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
-          dispatch(logout());
+          process.env.EXPO_PUBLIC_FORCE_LOGOUT === "true"
+        ) {
+          await forceLogout();
           return;
         }
-        const storedTokenRaw = await SecureStore.getItemAsync(
-          STORAGE_KEYS.token,
-        );
-        const storedRefreshToken = await SecureStore.getItemAsync(
-          STORAGE_KEYS.refreshToken,
-        );
-        const storedId = await SecureStore.getItemAsync(STORAGE_KEYS.id);
-        const storedName = await SecureStore.getItemAsync(STORAGE_KEYS.name);
-        const storedEmail = await SecureStore.getItemAsync(STORAGE_KEYS.email);
-        const storedAvatar = await SecureStore.getItemAsync(
-          STORAGE_KEYS.avatar,
-        );
-        let storedToken = storedTokenRaw?.trim() ?? null;
-        const hasRefreshToken =
-          Boolean(storedRefreshToken) &&
-          storedRefreshToken !== "null" &&
-          storedRefreshToken !== "undefined";
-        let hasValidToken =
-          Boolean(storedToken) &&
-          storedToken !== "null" &&
-          storedToken !== "undefined";
 
-        if (!mounted) return;
-        if (!hasValidToken && hasRefreshToken) {
-          try {
-            const baseUrl = getApiBaseUrl();
-            const normalizedBaseUrl = baseUrl
-              ?.replace(/\/+$/, "")
-              .endsWith("/api")
-              ? baseUrl.replace(/\/+$/, "")
-              : `${baseUrl?.replace(/\/+$/, "")}/api`;
-            const refreshResponse = await fetch(
-              `${normalizedBaseUrl}/auth/refresh`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ refreshToken: storedRefreshToken }),
-              },
-            );
-            if (refreshResponse.ok) {
-              const payload = await refreshResponse.json().catch(() => null);
-              const refreshedToken =
-                typeof payload?.idToken === "string"
-                  ? payload.idToken
-                  : typeof payload?.accessToken === "string"
-                    ? payload.accessToken
-                    : null;
-              const refreshedRefreshToken =
-                typeof payload?.refreshToken === "string" &&
-                payload.refreshToken.trim().length
-                  ? payload.refreshToken.trim()
-                  : storedRefreshToken;
-              if (refreshedToken) {
-                await SecureStore.setItemAsync(
-                  STORAGE_KEYS.token,
-                  refreshedToken,
-                );
-                await SecureStore.setItemAsync(
-                  STORAGE_KEYS.refreshToken,
-                  refreshedRefreshToken ?? "",
-                );
-                storedToken = refreshedToken;
-                hasValidToken = true;
-              }
-            }
-          } catch {
-            // Continue to logout path if refresh fails.
+        let session = await hydrateFromStorage();
+
+        // No token but have a refresh token — try a silent refresh before giving up.
+        if (!session.token && session.refreshToken) {
+          const refreshed = await refreshAccessToken();
+          if (refreshed) {
+            session = await hydrateFromStorage();
           }
         }
 
-        if (!hasValidToken) {
+        if (!mounted) return;
+
+        if (!session.token) {
           dispatch(logout());
           return;
         }
 
+        // Validate the token is still accepted by the server.
         let tokenIsValid = true;
         try {
           await apiRequest("/auth/me", {
-            token: storedToken,
+            token: session.token,
             suppressStatusCodes: [401, 403],
-            // Hydration owns clearing SecureStore on invalid session; avoid duplicate global logout.
             skipSessionInvalidateOn401: true,
           });
         } catch (error) {
           if (isUnauthorizedError(error)) {
             tokenIsValid = false;
           }
-          // Network / timeout: keep stored session so the user stays signed in offline or flaky networks.
+          // Network/timeout: keep session so user stays signed in offline.
         }
 
         if (!mounted) return;
+
         if (!tokenIsValid) {
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.token);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.id);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
-          await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
-          dispatch(logout());
+          await clearCredentials();
           return;
         }
 
-        const currentTokenRaw = await SecureStore.getItemAsync(
-          STORAGE_KEYS.token,
-        );
-        const currentRefreshToken = await SecureStore.getItemAsync(
-          STORAGE_KEYS.refreshToken,
-        );
-        const activeToken = currentTokenRaw?.trim() || storedToken;
+        // Re-read after potential refresh above to get the freshest values.
+        const fresh = await hydrateFromStorage();
+        const activeToken = fresh.token ?? session.token;
 
         dispatch(
           setCredentials({
-            token: activeToken!,
-            refreshToken: currentRefreshToken ?? storedRefreshToken ?? null,
-            profile: {
-              id: storedId ?? null,
-              name: storedName ?? null,
-              email: storedEmail ?? null,
-              avatar: storedAvatar ?? null,
-            },
+            token: activeToken,
+            refreshToken: fresh.refreshToken ?? session.refreshToken ?? null,
+            profile: fresh.profile,
           }),
         );
         lastSavedToken.current = activeToken;
         lastSavedRefreshToken.current =
-          currentRefreshToken ?? storedRefreshToken ?? null;
+          fresh.refreshToken ?? session.refreshToken ?? null;
       } finally {
         if (!mounted) return;
         setHydratedState(true);
         dispatch(setHydrated(true));
       }
     })();
+
     return () => {
       mounted = false;
     };
-  }, [dispatch, isAuthRoute]);
+  }, [dispatch]);
 
+  // ── Bootstrap sync (profile + athletes + push) ───────────────────────────────
   useEffect(() => {
     if (!hydrated || !isAuthenticated || !token) return;
     let active = true;
-    let initialized = false;
     let latestUserRole: string | null = null;
     let latestOnboardingAthlete: {
       onboardingCompleted?: boolean;
@@ -230,7 +151,6 @@ export function AuthPersist() {
       team?: string | null;
       teamId?: number | null;
     } | null = null;
-    /** From GET /auth/me — used when /onboarding/athletes is empty (e.g. athlete logged in without a guardian row). */
     let latestMeAthleteHint: {
       athleteType?: "youth" | "adult" | null;
       team?: string | null;
@@ -252,17 +172,18 @@ export function AuthPersist() {
       const idMe = parseTeamIdFromApi(latestMeAthleteHint?.teamId);
       const teamIdForRole = idOnboarding ?? idMe ?? null;
       const athleteTypeForRole =
-        latestOnboardingAthlete?.athleteType ?? latestMeAthleteHint?.athleteType ?? null;
-      const athleteForRole = {
-        team: teamForRole,
-        teamId: teamIdForRole,
-        athleteType: athleteTypeForRole,
-      };
+        latestOnboardingAthlete?.athleteType ??
+        latestMeAthleteHint?.athleteType ??
+        null;
       dispatch(
         setAppRole(
           resolveAppRole({
             userRole: effectiveUserRole,
-            athlete: athleteForRole,
+            athlete: {
+              team: teamForRole,
+              teamId: teamIdForRole,
+              athleteType: athleteTypeForRole,
+            },
           }),
         ),
       );
@@ -297,7 +218,6 @@ export function AuthPersist() {
         }>("/auth/me", {
           token,
           suppressStatusCodes: [401, 403],
-          // Avoid stale cached /auth/me (team label / teamId) after server or roster changes.
           forceRefresh: true,
         });
         if (!active || !me.user) return;
@@ -331,7 +251,10 @@ export function AuthPersist() {
           }),
         );
         if (__DEV__ && me.user.debugProgramAccess) {
-          console.log("[AuthPersist] debugProgramAccess", me.user.debugProgramAccess);
+          console.log(
+            "[AuthPersist] debugProgramAccess",
+            me.user.debugProgramAccess,
+          );
         }
         syncResolvedAppRole();
       } catch {
@@ -372,10 +295,7 @@ export function AuthPersist() {
 
     const syncPushToken = async () => {
       try {
-        const result = await registerDevicePushToken({
-          token,
-          dispatch,
-        });
+        const result = await registerDevicePushToken({ token, dispatch });
         if (result.expoPushToken) {
           lastPushToken.current = result.expoPushToken;
         }
@@ -396,16 +316,9 @@ export function AuthPersist() {
       syncPushToken(),
     ]).then(() => {
       if (!active) return;
-      // One dispatch after profile + onboarding refs are both updated — avoids
-      // swapping tab layouts twice (home "reloading") when parallel syncs finish out of order.
       syncResolvedAppRole();
       dispatch(setBootstrapReady(true));
-      initialized = true;
     });
-
-    const interval = setInterval(() => {
-      /* Periodic background syncs */
-    }, 30000);
 
     const appStateSub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
@@ -416,12 +329,11 @@ export function AuthPersist() {
 
     return () => {
       active = false;
-      clearInterval(interval);
       appStateSub.remove();
     };
   }, [dispatch, hydrated, isAuthenticated, token]);
 
-  /** Until the API stores a push token, remote notifications cannot be sent (see Render `no_expo_token_for_user`). */
+  // ── Retry push token registration until synced ───────────────────────────────
   useEffect(() => {
     if (!hydrated || !isAuthenticated || !token || !bootstrapReady) return;
     if (pushRegistration.lastSyncedAt) return;
@@ -449,6 +361,7 @@ export function AuthPersist() {
     pushRegistration.support,
   ]);
 
+  // ── Persist token changes to SecureStore ─────────────────────────────────────
   useEffect(() => {
     if (!hydrated) return;
     (async () => {
@@ -457,50 +370,19 @@ export function AuthPersist() {
           lastSavedToken.current === token &&
           lastSavedRefreshToken.current === (refreshToken ?? null);
         if (!tokenUnchanged) {
-          await SecureStore.setItemAsync(STORAGE_KEYS.token, token);
-          if (refreshToken) {
-            await SecureStore.setItemAsync(
-              STORAGE_KEYS.refreshToken,
-              refreshToken,
-            );
-          } else {
-            await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
-          }
-          await SecureStore.setItemAsync(STORAGE_KEYS.id, profile.id ?? "");
-          await SecureStore.setItemAsync(STORAGE_KEYS.name, profile.name ?? "");
-          await SecureStore.setItemAsync(
-            STORAGE_KEYS.email,
-            profile.email ?? "",
-          );
-          await SecureStore.setItemAsync(
-            STORAGE_KEYS.avatar,
-            profile.avatar ?? "",
-          );
+          await persistCredentials({ token, refreshToken: refreshToken ?? null, profile });
           lastSavedToken.current = token;
           lastSavedRefreshToken.current = refreshToken ?? null;
         }
       } else {
         dispatch(setBootstrapReady(false));
-        await SecureStore.deleteItemAsync(STORAGE_KEYS.token);
-        await SecureStore.deleteItemAsync(STORAGE_KEYS.refreshToken);
-        await SecureStore.deleteItemAsync(STORAGE_KEYS.id);
-        await SecureStore.deleteItemAsync(STORAGE_KEYS.name);
-        await SecureStore.deleteItemAsync(STORAGE_KEYS.email);
-        await SecureStore.deleteItemAsync(STORAGE_KEYS.avatar);
+        await clearCredentials();
+        clearApiCache();
         lastSavedToken.current = null;
         lastSavedRefreshToken.current = null;
-        clearApiCache();
-        // navigation disabled outside router context
       }
     })();
-  }, [
-    hydrated,
-    isAuthenticated,
-    token,
-    refreshToken,
-    profile,
-    isAuthRoute,
-  ]);
+  }, [hydrated, isAuthenticated, token, refreshToken, profile]);
 
   return null;
 }
