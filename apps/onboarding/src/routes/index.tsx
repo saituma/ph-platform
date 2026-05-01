@@ -347,9 +347,9 @@ function RouteComponent() {
 										)}
 
 										{/* Headline */}
-										<h1 className="pt-3 sm:pt-4 text-2xl md:text-3xl xl:text-4xl text-neutral-800 dark:text-neutral-200 tracking-tight leading-tight text-balance">
+										<h1 className="pt-3 sm:pt-4 text-2xl md:text-3xl xl:text-4xl text-primary tracking-tight leading-tight text-balance">
 											{portalCfg.hero?.title ?? "The most comprehensive"}{" "}
-											<span className="text-foreground">{portalCfg.hero?.titleAccent ?? "performance platform"}</span>
+											<span className="text-primary/90">{portalCfg.hero?.titleAccent ?? "performance platform"}</span>
 										</h1>
 
 										{/* Subtitle */}
@@ -366,7 +366,7 @@ function RouteComponent() {
 													<button
 														type="button"
 														onClick={() => navigate({ to: "/portal/dashboard" })}
-														className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 bg-neutral-900 text-neutral-100 dark:bg-neutral-100 dark:text-neutral-900 text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
+														className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 bg-primary text-primary-foreground text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
 													>
 														Go to Dashboard
 													</button>
@@ -395,7 +395,7 @@ function RouteComponent() {
 													<button
 														type="button"
 														onClick={() => navigate({ to: "/register" })}
-														className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 bg-neutral-900 text-neutral-100 dark:bg-neutral-100 dark:text-neutral-900 text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
+														className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 bg-primary text-primary-foreground text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
 													>
 														Get Started
 													</button>
@@ -469,7 +469,7 @@ function RouteComponent() {
 												<button
 													type="submit"
 													disabled={isLoading}
-													className="h-10 px-5 bg-foreground text-background font-mono text-xs uppercase tracking-wider shrink-0 flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-70"
+													className="h-10 px-5 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider shrink-0 flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-70"
 												>
 													{isLoading ? (
 														<CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
@@ -525,9 +525,9 @@ function RouteComponent() {
 							<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-4">
 								{portalCfg.features?.heading ?? "Capabilities"}
 							</p>
-							<h2 className="text-2xl md:text-3xl xl:text-4xl tracking-tight leading-tight text-balance">
+							<h2 className="text-2xl md:text-3xl xl:text-4xl tracking-tight leading-tight text-balance text-primary">
 								{featuresSubheading.head}{" "}
-								<span className="text-foreground/60">{featuresSubheading.tail}</span>
+								<span className="text-primary/60">{featuresSubheading.tail}</span>
 							</h2>
 							{portalCfg.features?.description && (
 								<p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-lg">
@@ -591,9 +591,9 @@ function RouteComponent() {
 							<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-4">
 								{portalCfg.cta?.eyebrow ?? "Get Started"}
 							</p>
-							<h2 className="text-2xl md:text-3xl xl:text-4xl tracking-tight leading-tight text-balance mb-4">
+							<h2 className="text-2xl md:text-3xl xl:text-4xl tracking-tight leading-tight text-balance mb-4 text-primary">
 								{ctaHeading.head}{" "}
-								<span className="text-foreground/60">{ctaHeading.tail}</span>
+								<span className="text-primary/60">{ctaHeading.tail}</span>
 							</h2>
 							{portalCfg.cta?.body && (
 								<p className="text-sm text-muted-foreground leading-relaxed max-w-md mb-8">
@@ -604,7 +604,7 @@ function RouteComponent() {
 								<button
 									type="button"
 									onClick={() => navigate({ to: "/register" })}
-									className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-foreground text-background text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
+									className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-primary text-primary-foreground text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
 								>
 									Get Started Free
 								</button>

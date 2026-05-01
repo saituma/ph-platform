@@ -307,7 +307,7 @@ export default function Header() {
 						) : (
 							<Link
 								to="/register"
-								className="flex items-center cursor-pointer gap-1.5 px-5 py-3 bg-foreground text-background hover:opacity-90 transition-colors duration-150"
+								className="flex items-center cursor-pointer gap-1.5 px-5 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-colors duration-150"
 							>
 								<span className="font-mono text-xs uppercase tracking-wider">
 									{portalCfg.nav.getStartedLabel || "get-started"}
@@ -364,7 +364,7 @@ export default function Header() {
 									<Link
 										to="/register"
 										onClick={() => setMobileMenuOpen(false)}
-										className="flex items-center justify-center gap-1.5 w-full py-3 bg-foreground text-background font-mono text-sm uppercase tracking-wider transition-opacity hover:opacity-90"
+										className="flex items-center justify-center gap-1.5 w-full py-3 bg-primary text-primary-foreground font-mono text-sm uppercase tracking-wider transition-opacity hover:opacity-90"
 									>
 										get-started
 										<svg className="h-2.5 w-2.5 opacity-50" viewBox="0 0 10 10" fill="none">

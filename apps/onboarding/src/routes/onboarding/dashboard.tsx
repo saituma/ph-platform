@@ -142,7 +142,7 @@ function Dashboard() {
 				<Button
 					type="button"
 					onClick={() => void refresh()}
-					className="bg-foreground text-background font-mono text-xs uppercase tracking-wider"
+					className="bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider"
 				>
 					Retry
 				</Button>
@@ -302,7 +302,7 @@ function Dashboard() {
 							<Link to="/onboarding/step-1">
 								<Button
 									size="sm"
-									className="h-8 px-4 bg-foreground text-background font-mono text-[10px] uppercase tracking-wider"
+									className="h-8 px-4 bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-wider"
 								>
 									Finish Onboarding
 								</Button>

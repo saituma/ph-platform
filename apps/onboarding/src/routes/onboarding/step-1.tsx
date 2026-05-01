@@ -159,7 +159,7 @@ function OnboardingStep1() {
 											className={cn(
 												"h-full transition-all duration-300 border cursor-pointer hover:border-foreground/20 group",
 												isSelected
-													? "border-foreground bg-foreground text-background"
+													? "border-foreground bg-primary text-primary-foreground"
 													: "border-foreground/[0.06] bg-card"
 											)}
 										>
@@ -289,7 +289,7 @@ function OnboardingStep1() {
 						onClick={() => mutation.mutate()}
 						disabled={!canContinue}
 						size="lg"
-						className="w-full sm:w-auto sm:min-w-[240px] h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-50"
+						className="w-full sm:w-auto sm:min-w-[240px] h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-50"
 					>
 						{mutation.isPending ? (
 							<CircleNotch className="w-5 h-5 animate-spin" />

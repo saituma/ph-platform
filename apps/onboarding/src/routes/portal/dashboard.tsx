@@ -92,7 +92,7 @@ function DashboardPage() {
 					</p>
 					<Link
 						to="/login"
-						className="inline-block bg-foreground text-background px-5 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
+						className="inline-block bg-primary text-primary-foreground px-5 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
 					>
 						Go to Login
 					</Link>
@@ -510,7 +510,7 @@ function AthleteDashboard({
 								href={homeContent.introVideoUrl}
 								target="_blank"
 								rel="noopener noreferrer"
-								className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
+								className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
 							>
 								<TrendingUp className="h-4 w-4" />
 								Watch Intro

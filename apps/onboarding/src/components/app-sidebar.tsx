@@ -130,7 +130,7 @@ export function AppSidebar() {
 					className={cn(
 						"transition-colors duration-150 h-9",
 						active
-							? "bg-foreground text-background font-medium"
+							? "bg-primary text-primary-foreground font-medium"
 							: "text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]",
 					)}
 				>
@@ -162,7 +162,7 @@ export function AppSidebar() {
 									to="/portal/dashboard"
 									className="flex items-center gap-2"
 								>
-									<div className="flex aspect-square size-7 items-center justify-center bg-foreground text-background">
+									<div className="flex aspect-square size-7 items-center justify-center bg-primary text-primary-foreground">
 										<Dumbbell className="h-4 w-4" />
 									</div>
 									<div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden ml-1">
@@ -175,7 +175,7 @@ export function AppSidebar() {
 									</div>
 								</Link>
 							) : (
-								<div className="flex aspect-square size-7 items-center justify-center bg-foreground text-background">
+								<div className="flex aspect-square size-7 items-center justify-center bg-primary text-primary-foreground">
 									<PanelLeftOpen className="h-4 w-4" />
 								</div>
 							)}

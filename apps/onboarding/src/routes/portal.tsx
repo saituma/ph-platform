@@ -60,7 +60,7 @@ function PortalInner() {
 					<button
 						type="button"
 						onClick={() => void refresh()}
-						className="bg-foreground text-background px-6 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
+						className="bg-primary text-primary-foreground px-6 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
 					>
 						Retry
 					</button>
@@ -185,7 +185,7 @@ function OnboardingGate({ user, isTeam, onboardingIncomplete, needsPlan }: {
 				)}
 				<div className="mt-8 flex flex-col sm:flex-row gap-3">
 					<button type="button" onClick={primaryAction}
-						className="flex-1 inline-flex items-center justify-center bg-foreground text-background px-5 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all">
+						className="flex-1 inline-flex items-center justify-center bg-primary text-primary-foreground px-5 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all">
 						{onboardingIncomplete ? (isTeam ? "Add Team Details" : "Continue Onboarding") : "Choose a Plan"}
 					</button>
 					<button type="button"

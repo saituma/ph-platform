@@ -329,7 +329,7 @@ function OnboardingSuccess() {
 
 				<div className="flex flex-col items-center space-y-6 pt-4">
 					<Link to="/" className="w-full max-w-xs">
-						<Button className="w-full h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider transition-all hover:opacity-90 active:scale-[0.98]">
+						<Button className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider transition-all hover:opacity-90 active:scale-[0.98]">
 							Go to Homepage
 							<ArrowRight weight="bold" className="ml-2 w-5 h-5" />
 						</Button>
