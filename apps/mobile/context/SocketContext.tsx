@@ -10,7 +10,14 @@ import { io, Socket } from "socket.io-client";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { useAppSelector } from "@/store/hooks";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
-
+import { useActingUser } from "@/hooks/useActingUser";
+import { useAppDispatch } from "@/store/hooks";
+import {
+  socketConnected,
+  socketDisconnected,
+  socketConnectError,
+  socketReset,
+} from "@/store/slices/socketSlice";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -27,46 +34,21 @@ const SocketContext = createContext<SocketContextType>({
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const token = useAppSelector((state) => state.user.token);
-  const profileId = useAppSelector((state) => state.user.profile?.id);
-  const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
-  const appRole = useAppSelector((state) => state.user.appRole);
-  const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
+  const { actingUserId, isStaff } = useActingUser();
+  const dispatch = useAppDispatch();
 
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [, setActiveThreadId] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
-  const activeThreadIdRef = useRef<string | null>(null);
-  const effectiveProfileIdRef = useRef<string>("");
-  const athleteUserIdRef = useRef<number | null>(null);
+  const actingUserIdRef = useRef<number | null>(null);
   const connectErrorCountRef = useRef(0);
 
+  // Keep ref in sync so the `connect` handler always reads the latest value.
   useEffect(() => {
-    activeThreadIdRef.current = activeThreadId;
-  }, [activeThreadId]);
+    actingUserIdRef.current = isStaff ? null : actingUserId;
+  }, [actingUserId, isStaff]);
 
-  useEffect(() => {
-    const effectiveProfileId = String(profileId ?? "");
-    effectiveProfileIdRef.current = effectiveProfileId;
-  }, [profileId]);
-
-  useEffect(() => {
-    const normalizedRole = String(apiUserRole ?? "").trim().toLowerCase();
-    const isStaffRole =
-      appRole === "team_manager" ||
-      appRole === "coach" ||
-      normalizedRole === "admin" ||
-      normalizedRole === "superadmin" ||
-      normalizedRole === "coach" ||
-      normalizedRole === "team_coach" ||
-      normalizedRole === "program_coach";
-    if (isStaffRole) {
-      athleteUserIdRef.current = null;
-      return;
-    }
-    const acting = athleteUserId ? Number(athleteUserId) : null;
-    athleteUserIdRef.current = Number.isFinite(acting as number) && (acting as number) > 0 ? (acting as number) : null;
-  }, [apiUserRole, appRole, athleteUserId]);
-
+  // ── Socket lifecycle ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!token) {
       if (__DEV__) console.log("[Socket] Skipping connect: missing token");
@@ -74,6 +56,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         socketRef.current.disconnect();
         socketRef.current = null;
         setSocket(null);
+        dispatch(socketReset());
       }
       return;
     }
@@ -103,21 +86,25 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     const emitActingJoin = () => {
-      const actingUserId = athleteUserIdRef.current;
-      newSocket.emit("acting:join", actingUserId ? { actingUserId } : {});
+      const id = actingUserIdRef.current;
+      newSocket.emit("acting:join", id ? { actingUserId: id } : {});
     };
 
     newSocket.on("connect", () => {
       if (__DEV__) console.log("[Socket] Global connected");
       connectErrorCountRef.current = 0;
+      dispatch(socketConnected());
       emitActingJoin();
     });
 
     newSocket.on("disconnect", (reason) => {
       if (__DEV__) console.log("[Socket] Global disconnected", reason);
+      dispatch(socketDisconnected(String(reason)));
     });
+
     newSocket.on("connect_error", (error) => {
       connectErrorCountRef.current += 1;
+      dispatch(socketConnectError());
       if (__DEV__) {
         console.log("[Socket] connect_error", {
           attempt: connectErrorCountRef.current,
@@ -133,13 +120,21 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     }) => {
       void scheduleLocalNotification({
         title: "Referral update",
-        body: payload?.content?.trim() || "A new referral has been shared with you.",
+        body:
+          payload?.content?.trim() ||
+          "A new referral has been shared with you.",
         data: {
           type: "physio-referral",
           screen: "physio-referral",
           url: "/physio-referral",
-          athleteId: payload?.athleteId != null ? String(payload.athleteId) : undefined,
-          referralId: payload?.referralId != null ? String(payload.referralId) : undefined,
+          athleteId:
+            payload?.athleteId != null
+              ? String(payload.athleteId)
+              : undefined,
+          referralId:
+            payload?.referralId != null
+              ? String(payload.referralId)
+              : undefined,
         },
         channelId: "account",
       });
@@ -158,10 +153,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     };
 
-    newSocket.on("physio:referral:updated", onReferralUpdated);
-    newSocket.on("physio:referral:deleted", onReferralDeleted);
-
-    const onProgramChanged = (payload: any) => {
+    const onProgramChanged = (payload: { message?: string }) => {
       void scheduleLocalNotification({
         title: "Program Update",
         body: payload?.message || "Your training program has been updated.",
@@ -170,7 +162,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     };
 
-    const onScheduleChanged = (payload: any) => {
+    const onScheduleChanged = (payload: { message?: string }) => {
       void scheduleLocalNotification({
         title: "Schedule Update",
         body: payload?.message || "A change was made to your schedule.",
@@ -179,12 +171,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     };
 
+    newSocket.on("physio:referral:updated", onReferralUpdated);
+    newSocket.on("physio:referral:deleted", onReferralDeleted);
     newSocket.on("program:changed", onProgramChanged);
     newSocket.on("schedule:changed", onScheduleChanged);
 
-    // Message and group chat alerts are delivered via server-side Expo push so they appear
-    // in the system tray when the app is backgrounded or killed. Foreground handling uses
-    // addNotificationReceivedListener in InAppNotificationsContext (no duplicate local socket notifications).
+    // Message/group alerts delivered via server-side Expo push (system tray when backgrounded).
+    // Foreground handling uses addNotificationReceivedListener in InAppNotificationsContext.
 
     socketRef.current = newSocket;
     setSocket(newSocket);
@@ -197,41 +190,32 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       newSocket.disconnect();
       socketRef.current = null;
       setSocket(null);
+      dispatch(socketReset());
     };
   }, [token]);
 
-  // No role-based socket room switching for guardians; messages are guardian-only.
-
-  // Re-emit when acting user changes; initial connect is handled in the `connect` listener above.
-  // Intentionally omit connection state from React — `setIsConnected` used to re-render the whole
-  // tree on every connect and trigger update-depth loops in react-native-screen-transitions + navigator.
+  // Re-emit acting:join when the acting user changes after initial connect.
+  // Intentionally omit connection state from React — triggering setIsConnected
+  // re-renders the whole tree on every connect event, causing update-depth loops
+  // in react-native-screen-transitions.
   useEffect(() => {
     if (!socketRef.current?.connected) return;
-    const normalizedRole = String(apiUserRole ?? "").trim().toLowerCase();
-    const isStaffRole =
-      appRole === "team_manager" ||
-      appRole === "coach" ||
-      normalizedRole === "admin" ||
-      normalizedRole === "superadmin" ||
-      normalizedRole === "coach" ||
-      normalizedRole === "team_coach" ||
-      normalizedRole === "program_coach";
-    if (isStaffRole) {
-      socketRef.current.emit("acting:join", {});
-      return;
-    }
-    const acting = athleteUserId ? Number(athleteUserId) : null;
-    const actingUserId = Number.isFinite(acting as number) && (acting as number) > 0 ? (acting as number) : null;
-    socketRef.current.emit("acting:join", actingUserId ? { actingUserId } : {});
-  }, [apiUserRole, appRole, athleteUserId]);
+    const id = isStaff ? null : actingUserId;
+    socketRef.current.emit("acting:join", id ? { actingUserId: id } : {});
+  }, [actingUserId, isStaff]);
+
+  const handleSetActiveThreadId = (id: string | null) => {
+    setActiveThreadId(id);
+  };
 
   const value = useMemo(
     () => ({
       socket,
       isConnected: socket?.connected ?? false,
-      setActiveThreadId,
+      setActiveThreadId: handleSetActiveThreadId,
     }),
-    [socket, setActiveThreadId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [socket],
   );
 
   return (

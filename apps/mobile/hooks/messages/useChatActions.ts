@@ -15,7 +15,7 @@ function formatLastSeenStatic(isoString: string): string {
 
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread } from "@/types/messages";
-import { apiRequest } from "@/lib/api";
+import { messagesApi } from "@/lib/apiClient/messages";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
 import {
@@ -27,7 +27,7 @@ import {
   mapApiGroupMessageToChatMessage,
 } from "@/lib/messages/mappers/messageMapper";
 import { schedulePrefetchChatMessageMedia } from "@/lib/messages/prefetchChatMedia";
-import { ApiChatMessage, ChatMessagesResponse } from "@/types/chat-api";
+import { ApiChatMessage, ChatMessagesResponse, InboxResponse } from "@/types/chat-api";
 
 interface ChatActionsParams {
   token: string | null;
@@ -38,6 +38,8 @@ interface ChatActionsParams {
   profileName: string | null;
   programTier: string | null;
   socket: Socket | null;
+  /** Triggers a TanStack Query refetch of the thread list — dedup and caching handled by TQ. */
+  refetchThreads: () => Promise<unknown>;
   setThreads: React.Dispatch<React.SetStateAction<MessageThread[]>>;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
@@ -54,6 +56,7 @@ export function useChatActions({
   profileName,
   programTier,
   socket,
+  refetchThreads,
   setThreads,
   setMessages,
   setIsLoading,
@@ -62,263 +65,235 @@ export function useChatActions({
 }: ChatActionsParams) {
   // Track IDs of messages pending deletion so background reloads don't re-add them
   const pendingDeleteIds = useRef<Set<string>>(new Set());
-  // Single-flight: drop overlapping loadMessages calls. Fixes the storm of
-  // back-to-back /messages requests when the hook deps churn (logs showed 14+
-  // calls in seconds — every one is a full /messages + /inbox round-trip).
-  const inFlightLoadRef = useRef(false);
-  // Set to true when a load is skipped because one is already in flight.
-  // The finally block checks this and fires a follow-up silent reload so the
-  // socket reconnect / focus trigger that was dropped is never lost.
-  const pendingReloadRef = useRef(false);
 
-  const loadMessages = useCallback(
-    async (options?: { silent?: boolean }) => {
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
-      if (inFlightLoadRef.current) {
-        pendingReloadRef.current = true;
-        return;
-      }
-      inFlightLoadRef.current = true;
-      const silent = options?.silent ?? false;
-      if (!silent) setIsLoading(true);
-
-      try {
-        const [inboxData, data] = await Promise.all([
-          chatService.fetchInbox(token, actingHeaders),
-          apiRequest<ChatMessagesResponse>("/messages", {
-            token,
-            headers: actingHeaders,
-            suppressStatusCodes: [401, 403],
-          }),
-        ]);
-
-        const selfId = String(effectiveProfileId ?? "");
-        const isPremium = hasPaidProgramTier(programTier);
-        const coaches = data.coaches ?? (data.coach ? [data.coach] : []);
-        const inboxThreads = (inboxData.threads ?? [])
-          .filter((thread) => {
-            if (thread.type !== "group") return true;
+  /**
+   * Processes raw server responses into threads/messages state.
+   * Called by the useEffect in useMessagesController that watches threadsQuery.data,
+   * so TanStack Query owns the fetch and its dedup/caching; this owns the mapping.
+   */
+  const applyFetchedData = useCallback(
+    (inboxData: InboxResponse, data: ChatMessagesResponse) => {
+      const selfId = String(effectiveProfileId ?? "");
+      const isPremium = hasPaidProgramTier(programTier);
+      const coaches = data.coaches ?? (data.coach ? [data.coach] : []);
+      const inboxThreads = (inboxData.threads ?? [])
+        .filter((thread) => {
+          if (thread.type !== "group") return true;
+          const category = classifyGroupThread({
+            id: Number(thread.groupId ?? 0),
+            name: thread.name,
+            category: thread.groupCategory ?? undefined,
+            createdAt: thread.updatedAt,
+          });
+          return category !== "announcement";
+        })
+        .map((thread): MessageThread => {
+          const updatedAtMs = new Date(thread.updatedAt ?? 0).getTime();
+          const time = Number.isFinite(updatedAtMs)
+            ? new Date(updatedAtMs).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "";
+          if (thread.type === "group") {
             const category = classifyGroupThread({
               id: Number(thread.groupId ?? 0),
               name: thread.name,
               category: thread.groupCategory ?? undefined,
               createdAt: thread.updatedAt,
             });
-            return category !== "announcement";
-          })
-          .map((thread): MessageThread => {
-            const updatedAtMs = new Date(thread.updatedAt ?? 0).getTime();
-            const time = Number.isFinite(updatedAtMs)
-              ? new Date(updatedAtMs).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "";
-            if (thread.type === "group") {
-              const category = classifyGroupThread({
-                id: Number(thread.groupId ?? 0),
-                name: thread.name,
-                category: thread.groupCategory ?? undefined,
-                createdAt: thread.updatedAt,
-              });
-              return {
-                id:
-                  thread.id ||
-                  `group:${String(thread.groupId ?? "").trim()}`,
-                name: thread.name,
-                role: category === "team" ? "Team" : "Group",
-                channelType: category,
-                groupLabel: category === "team" ? "Team inbox" : "Coach group",
-                preview: thread.preview,
-                senderName:
-                  String(thread.lastMessageSenderName ?? "").trim() || undefined,
-                time,
-                pinned: false,
-                premium: false,
-                unread: Number(thread.unread ?? 0) || 0,
-                lastSeen: "Active",
-                responseTime: "Group updates",
-                updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
-                avatarUrl: thread.avatarUrl ?? null,
-              };
-            }
-            const directId =
-              Number(thread.peerUserId) > 0
-                ? String(thread.peerUserId)
-                : String(thread.id ?? "").replace(/^direct:/, "");
             return {
-              id: directId,
+              id:
+                thread.id ||
+                `group:${String(thread.groupId ?? "").trim()}`,
               name: thread.name,
-              role: thread.role ?? "Coach",
-              channelType: "direct",
-              groupLabel: "Direct message",
+              role: category === "team" ? "Team" : "Group",
+              channelType: category,
+              groupLabel: category === "team" ? "Team inbox" : "Coach group",
               preview: thread.preview,
+              senderName:
+                String(thread.lastMessageSenderName ?? "").trim() || undefined,
               time,
               pinned: false,
-              premium: isPremium,
+              premium: false,
               unread: Number(thread.unread ?? 0) || 0,
-              lastSeen: thread.lastSeenAt ? formatLastSeenStatic(thread.lastSeenAt) : "Active",
-              responseTime: isPremium
-                ? "Priority response window"
-                : "Standard response window",
+              lastSeen: "Active",
+              responseTime: "Group updates",
               updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
               avatarUrl: thread.avatarUrl ?? null,
-              isAi: false,
-              lastSeenAt: thread.lastSeenAt ?? null,
             };
-          });
-
-        const orderedDirectMessages = [...(data.messages ?? [])].sort(
-          (a, b) => Number(a.id ?? 0) - Number(b.id ?? 0),
-        );
-        const mappedMessages = orderedDirectMessages.map((msg) =>
-          mapApiDirectMessageToChatMessage(msg, selfId, coaches, profileName),
-        );
-
-        // Surface every coach available to this user as a tappable thread, even if
-        // there's no message history yet. Otherwise team managers / athletes whose
-        // coach hasn't messaged them first have no way to start a chat. Skip any
-        // coach that already has an inbox thread (that one has live unread/preview).
-        const inboxThreadIds = new Set(inboxThreads.map((t) => t.id));
-        const coachThreads = (coaches ?? [])
-          .filter((coach) => coach?.id != null && !inboxThreadIds.has(String(coach.id)))
-          .map((coach) =>
-            mapCoachToThread(coach, orderedDirectMessages, isPremium),
-          );
-
-        const sortedThreads = [...inboxThreads, ...coachThreads].sort(
-          (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
-        );
-        // Preserve real-time "Online" status that presence:update wrote before this
-        // fetch completed — a full array replace would wipe it.
-        setThreads((prev) => {
-          const onlineIds = new Set(
-            prev.filter((t) => t.lastSeen === "Online").map((t) => t.id),
-          );
-          return sortedThreads.map((t) =>
-            onlineIds.has(t.id) ? { ...t, lastSeen: "Online" } : t,
-          );
-        });
-        const deletedIds = pendingDeleteIds.current;
-        setMessages((prev) => {
-          const groupMessages = prev.filter((m) =>
-            String(m.threadId ?? "").startsWith("group:") && !deletedIds.has(m.id),
-          );
-          const optimisticDirect = prev.filter(
-            (m) =>
-              !String(m.threadId ?? "").startsWith("group:") &&
-              typeof m.id === "string" &&
-              m.id.startsWith("client-"),
-          );
-          // Preserve confirmed direct messages already in state that may not be
-          // in the server response yet (race: sent just before this fetch fired).
-          const confirmedDirect = prev.filter(
-            (m) =>
-              !String(m.threadId ?? "").startsWith("group:") &&
-              !(typeof m.id === "string" && m.id.startsWith("client-")) &&
-              !deletedIds.has(m.id),
-          );
-          const seen = new Set<string>();
-          const next: ChatMessage[] = [];
-          for (const msg of [
-            ...groupMessages,
-            ...mappedMessages.filter((m) => !deletedIds.has(m.id)),
-            ...confirmedDirect,
-            ...optimisticDirect,
-          ]) {
-            if (!msg?.id) continue;
-            if (seen.has(String(msg.id))) continue;
-            seen.add(String(msg.id));
-            next.push(msg);
           }
-          console.log(
-            "[DEBUG-msg] loadMessages reconcile:",
-            "prev=", prev.length,
-            "mappedFromServer=", mappedMessages.length,
-            "preservedConfirmed=", confirmedDirect.length,
-            "preservedOptimistic=", optimisticDirect.length,
-            "preservedGroup=", groupMessages.length,
-            "next=", next.length,
-          );
-          return next;
+          const directId =
+            Number(thread.peerUserId) > 0
+              ? String(thread.peerUserId)
+              : String(thread.id ?? "").replace(/^direct:/, "");
+          return {
+            id: directId,
+            name: thread.name,
+            role: thread.role ?? "Coach",
+            channelType: "direct",
+            groupLabel: "Direct message",
+            preview: thread.preview,
+            time,
+            pinned: false,
+            premium: isPremium,
+            unread: Number(thread.unread ?? 0) || 0,
+            lastSeen: thread.lastSeenAt ? formatLastSeenStatic(thread.lastSeenAt) : "Active",
+            responseTime: isPremium
+              ? "Priority response window"
+              : "Standard response window",
+            updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
+            avatarUrl: thread.avatarUrl ?? null,
+            isAi: false,
+            lastSeenAt: thread.lastSeenAt ?? null,
+          };
         });
-        schedulePrefetchChatMessageMedia(mappedMessages);
 
-        const topGroupIds = sortedThreads
-          .filter((thread) => String(thread.id).startsWith("group:"))
-          .slice(0, 3)
-          .map((thread) => Number(String(thread.id).replace("group:", "")))
-          .filter((id) => Number.isFinite(id) && id > 0);
-        for (const groupId of topGroupIds) {
-          void chatService
-            .fetchGroupMessages(token, groupId, actingHeaders)
-            .then((groupData) => {
-              const mappedGroupMessages = (groupData.messages ?? [])
-                .slice()
-                .sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0))
-                .map((msg) =>
-                  mapApiGroupMessageToChatMessage(
-                    msg,
-                    groupId,
-                    selfId,
-                    {},
-                  ),
-                );
-              if (!mappedGroupMessages.length) return;
-              setMessages((prev) => {
-                const threadKey = `group:${groupId}`;
-                const nonGroup = prev.filter((m) => m.threadId !== threadKey);
-                const optimistic = prev.filter(
-                  (m) =>
-                    m.threadId === threadKey &&
-                    typeof m.id === "string" &&
-                    m.id.startsWith("client-"),
-                );
-                // Preserve confirmed group messages from prev state — protects
-                // against just-sent messages disappearing when the server hasn't
-                // indexed them yet by the time this prefetch fires.
-                const confirmedInGroup = prev.filter(
-                  (m) =>
-                    m.threadId === threadKey &&
-                    !(typeof m.id === "string" && m.id.startsWith("client-")) &&
-                    !pendingDeleteIds.current.has(m.id),
-                );
-                const seen = new Set<string>();
-                const next: ChatMessage[] = [];
-                for (const msg of [
-                  ...nonGroup,
-                  ...mappedGroupMessages,
-                  ...confirmedInGroup,
-                  ...optimistic,
-                ]) {
-                  if (!msg?.id || seen.has(msg.id)) continue;
-                  seen.add(msg.id);
-                  next.push(msg);
-                }
-                return next;
-              });
-              schedulePrefetchChatMessageMedia(mappedGroupMessages);
-            })
-            .catch(() => {
-              // Silent prefetch failure should not affect UX.
+      const orderedDirectMessages = [...(data.messages ?? [])].sort(
+        (a, b) => Number(a.id ?? 0) - Number(b.id ?? 0),
+      );
+      const mappedMessages = orderedDirectMessages.map((msg) =>
+        mapApiDirectMessageToChatMessage(msg, selfId, coaches, profileName),
+      );
+
+      // Surface every coach as a tappable thread even without message history.
+      const inboxThreadIds = new Set(inboxThreads.map((t) => t.id));
+      const coachThreads = (coaches ?? [])
+        .filter((coach) => coach?.id != null && !inboxThreadIds.has(String(coach.id)))
+        .map((coach) =>
+          mapCoachToThread(coach, orderedDirectMessages, isPremium),
+        );
+
+      const sortedThreads = [...inboxThreads, ...coachThreads].sort(
+        (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
+      );
+      // Preserve real-time "Online" status that presence:update wrote before
+      // this fetch completed — a full array replace would wipe it.
+      setThreads((prev) => {
+        const onlineIds = new Set(
+          prev.filter((t) => t.lastSeen === "Online").map((t) => t.id),
+        );
+        return sortedThreads.map((t) =>
+          onlineIds.has(t.id) ? { ...t, lastSeen: "Online" } : t,
+        );
+      });
+      const deletedIds = pendingDeleteIds.current;
+      setMessages((prev) => {
+        const groupMessages = prev.filter((m) =>
+          String(m.threadId ?? "").startsWith("group:") && !deletedIds.has(m.id),
+        );
+        const optimisticDirect = prev.filter(
+          (m) =>
+            !String(m.threadId ?? "").startsWith("group:") &&
+            typeof m.id === "string" &&
+            m.id.startsWith("client-"),
+        );
+        // Preserve confirmed direct messages not yet in server response (send race).
+        const confirmedDirect = prev.filter(
+          (m) =>
+            !String(m.threadId ?? "").startsWith("group:") &&
+            !(typeof m.id === "string" && m.id.startsWith("client-")) &&
+            !deletedIds.has(m.id),
+        );
+        const seen = new Set<string>();
+        const next: ChatMessage[] = [];
+        for (const msg of [
+          ...groupMessages,
+          ...mappedMessages.filter((m) => !deletedIds.has(m.id)),
+          ...confirmedDirect,
+          ...optimisticDirect,
+        ]) {
+          if (!msg?.id) continue;
+          if (seen.has(String(msg.id))) continue;
+          seen.add(String(msg.id));
+          next.push(msg);
+        }
+        console.log(
+          "[DEBUG-msg] applyFetchedData reconcile:",
+          "prev=", prev.length,
+          "mappedFromServer=", mappedMessages.length,
+          "preservedConfirmed=", confirmedDirect.length,
+          "preservedOptimistic=", optimisticDirect.length,
+          "preservedGroup=", groupMessages.length,
+          "next=", next.length,
+        );
+        return next;
+      });
+      schedulePrefetchChatMessageMedia(mappedMessages);
+
+      // Prefetch messages for the top 3 group threads in the background.
+      const topGroupIds = sortedThreads
+        .filter((thread) => String(thread.id).startsWith("group:"))
+        .slice(0, 3)
+        .map((thread) => Number(String(thread.id).replace("group:", "")))
+        .filter((id) => Number.isFinite(id) && id > 0);
+      for (const groupId of topGroupIds) {
+        void chatService
+          .fetchGroupMessages(token!, groupId, actingHeaders)
+          .then((groupData) => {
+            const mappedGroupMessages = (groupData.messages ?? [])
+              .slice()
+              .sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0))
+              .map((msg) =>
+                mapApiGroupMessageToChatMessage(msg, groupId, selfId, {}),
+              );
+            if (!mappedGroupMessages.length) return;
+            setMessages((prev) => {
+              const threadKey = `group:${groupId}`;
+              const nonGroup = prev.filter((m) => m.threadId !== threadKey);
+              const optimistic = prev.filter(
+                (m) =>
+                  m.threadId === threadKey &&
+                  typeof m.id === "string" &&
+                  m.id.startsWith("client-"),
+              );
+              const confirmedInGroup = prev.filter(
+                (m) =>
+                  m.threadId === threadKey &&
+                  !(typeof m.id === "string" && m.id.startsWith("client-")) &&
+                  !pendingDeleteIds.current.has(m.id),
+              );
+              const seen = new Set<string>();
+              const next: ChatMessage[] = [];
+              for (const msg of [
+                ...nonGroup,
+                ...mappedGroupMessages,
+                ...confirmedInGroup,
+                ...optimistic,
+              ]) {
+                if (!msg?.id || seen.has(msg.id)) continue;
+                seen.add(msg.id);
+                next.push(msg);
+              }
+              return next;
             });
-        }
-      } catch (error) {
-        console.warn("Failed to load messages", error);
-      } finally {
-        if (!silent) setIsLoading(false);
-        inFlightLoadRef.current = false;
-        if (pendingReloadRef.current) {
-          pendingReloadRef.current = false;
-          // A reload was requested while we were in flight — fire it now silently.
-          setTimeout(() => loadMessages({ silent: true }), 0);
-        }
+            schedulePrefetchChatMessageMedia(mappedGroupMessages);
+          })
+          .catch(() => {});
       }
     },
-    [actingHeaders, effectiveProfileId, profileName, programTier, token, setIsLoading, setThreads, setMessages],
+    [actingHeaders, effectiveProfileId, profileName, programTier, token, setThreads, setMessages],
+  );
+
+  /**
+   * Triggers a TanStack Query refetch of the thread list.
+   * Deduplication and caching are handled by TQ; no manual inFlightRef needed.
+   * Callers that previously awaited this will await the refetch completing.
+   */
+  const loadMessages = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+      if (!options?.silent) setIsLoading(true);
+      try {
+        await refetchThreads();
+      } finally {
+        if (!options?.silent) setIsLoading(false);
+      }
+    },
+    [token, refetchThreads, setIsLoading],
   );
 
   // Single-flight per groupId so a flurry of group-message loads doesn't pile up.
@@ -480,13 +455,10 @@ export function useChatActions({
       if (id.startsWith("group:")) return;
       try {
         const peerUserId = Number(id);
-        await apiRequest("/messages/read", {
-          method: "POST",
+        await messagesApi.markRead({
           token,
           headers: actingHeaders,
-          body: Number.isFinite(peerUserId) && peerUserId > 0
-            ? { peerUserId }
-            : undefined,
+          peerUserId: Number.isFinite(peerUserId) && peerUserId > 0 ? peerUserId : undefined,
         });
         setThreads((prev) =>
           prev.map((t) => (t.id === id ? { ...t, unread: 0 } : t)),
@@ -513,11 +485,7 @@ export function useChatActions({
       const groupId = Number(raw);
       if (!Number.isFinite(groupId)) return;
       try {
-        await apiRequest(`/chat/groups/${groupId}/read`, {
-          method: "POST",
-          token,
-          headers: actingHeaders,
-        });
+        await messagesApi.groups.markRead(groupId, { token, headers: actingHeaders });
         setThreads((prev) =>
           prev.map((t) => (t.id === id ? { ...t, unread: 0 } : t)),
         );
@@ -552,22 +520,14 @@ export function useChatActions({
             pendingDeleteIds.current.delete(message.id);
             return;
           }
-          await apiRequest(`/chat/groups/${groupId}/messages/${messageId}`, {
-            method: "DELETE",
-            token,
-            headers: actingHeaders,
-          });
+          await messagesApi.groups.deleteMessage(groupId, messageId, { token, headers: actingHeaders });
         } else {
           const messageId = Number(message.id);
           if (!Number.isFinite(messageId)) {
             pendingDeleteIds.current.delete(message.id);
             return;
           }
-          await apiRequest(`/messages/${messageId}`, {
-            method: "DELETE",
-            token,
-            headers: actingHeaders,
-          });
+          await messagesApi.deleteMessage(messageId, { token, headers: actingHeaders });
         }
         // Keep in set permanently — message is gone from server too
       } catch (error) {
@@ -652,25 +612,12 @@ export function useChatActions({
           const groupId = Number(message.threadId.replace("group:", ""));
           const messageId = Number(message.id.replace("group-", ""));
           if (!Number.isFinite(groupId) || !Number.isFinite(messageId)) return;
-          await apiRequest(
-            `/chat/groups/${groupId}/messages/${messageId}/reactions`,
-            {
-              method: "PUT",
-              token,
-              headers: actingHeaders,
-              body: { emoji },
-            },
-          );
+          await messagesApi.groups.reactToMessage(groupId, messageId, emoji, { token, headers: actingHeaders });
           return;
         }
         const messageId = Number(message.id);
         if (!Number.isFinite(messageId)) return;
-        await apiRequest(`/messages/${messageId}/reactions`, {
-          method: "PUT",
-          token,
-          headers: actingHeaders,
-          body: { emoji },
-        });
+        await messagesApi.reactToMessage(messageId, emoji, { token, headers: actingHeaders });
       } catch (error) {
         // Roll back optimistic update if request fails.
         setMessages((prev) =>
@@ -686,6 +633,7 @@ export function useChatActions({
 
   return {
     loadMessages,
+    applyFetchedData,
     loadGroupMessages,
     sendReplyToThread,
     markDirectThreadReadById,

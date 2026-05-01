@@ -1,7 +1,5 @@
-import * as SecureStore from "expo-secure-store";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { store } from "@/store";
-import { setCredentials, logout } from "@/store/slices/userSlice";
 import {
   hashString,
   hydrateCache,
@@ -10,6 +8,11 @@ import {
   clearApiCache,
 } from "./api/cache";
 import { isTransportFailure, extractErrorMessage } from "./api/errorUtils";
+import {
+  getToken,
+  refreshAccessToken,
+  clearCredentials,
+} from "./auth/session";
 
 export { clearApiCache };
 
@@ -40,10 +43,6 @@ export function prefetchApi<T>(
   }).catch(() => {});
 }
 
-const AUTH_TOKEN_KEY = "authToken";
-const AUTH_REFRESH_KEY = "authRefreshToken";
-let refreshInFlight: Promise<string | null> | null = null;
-
 const normalizeBaseUrls = (baseUrl: string) => {
   const trimmed = baseUrl.replace(/\/+$/, "");
   const hasApiSuffix = trimmed.endsWith("/api");
@@ -60,59 +59,6 @@ const parseJsonSafe = (text: string) => {
     return null;
   }
 };
-
-async function refreshAuthToken(
-  normalizedBaseUrl: string,
-): Promise<string | null> {
-  if (refreshInFlight) return refreshInFlight;
-
-  refreshInFlight = (async () => {
-    const refreshToken = await SecureStore.getItemAsync(AUTH_REFRESH_KEY);
-    if (!refreshToken) return null;
-
-    try {
-      const response = await fetch(`${normalizedBaseUrl}/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      if (!response.ok) return null;
-      const payload = parseJsonSafe(await response.text());
-      const nextToken = payload?.idToken ?? payload?.accessToken;
-      if (!nextToken || typeof nextToken !== "string") return null;
-
-      const nextRefreshToken =
-        typeof payload?.refreshToken === "string" &&
-        payload.refreshToken.trim().length
-          ? payload.refreshToken.trim()
-          : refreshToken;
-      await SecureStore.setItemAsync(AUTH_REFRESH_KEY, nextRefreshToken);
-      await SecureStore.setItemAsync(AUTH_TOKEN_KEY, nextToken);
-
-      const state = store.getState();
-      store.dispatch(
-        setCredentials({
-          token: nextToken,
-          refreshToken: nextRefreshToken,
-          profile: state.user.profile,
-        }),
-      );
-      return nextToken;
-    } catch (e) {
-      if (isTransportFailure(e)) {
-        throw e instanceof Error ? e : new Error(String(e));
-      }
-      return null;
-    }
-  })();
-
-  try {
-    return await refreshInFlight;
-  } finally {
-    refreshInFlight = null;
-  }
-}
 
 export async function apiRequest<T>(
   path: string,
@@ -132,14 +78,11 @@ export async function apiRequest<T>(
     ? `${fallbackBaseUrl}${normalizedPath}`
     : null;
 
-  let resolvedToken =
+  // Prefer explicitly-passed token, then Redux, then SecureStore (via session).
+  let resolvedToken: string | null =
     options.token !== undefined ? options.token : store.getState().user.token;
   if (!resolvedToken) {
-    try {
-      resolvedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
-    } catch {
-      // ignore secure store failures
-    }
+    resolvedToken = await getToken();
   }
 
   const fetchRequest = async (requestUrl: string, authToken?: string | null) => {
@@ -173,7 +116,7 @@ export async function apiRequest<T>(
     const headers = options.headers;
     if (!headers) return "";
     const normalized = Object.entries(headers)
-      .filter(([k, v]) => typeof v === "string" && v.trim().length)
+      .filter(([, v]) => typeof v === "string" && v.trim().length)
       .map(([k, v]) => [k.trim().toLowerCase(), v.trim()] as const)
       .sort((a, b) => a[0].localeCompare(b[0]));
     if (!normalized.length) return "";
@@ -202,7 +145,7 @@ export async function apiRequest<T>(
         !!error &&
         typeof error === "object" &&
         "name" in error &&
-        (error as any).name === "AbortError";
+        (error as { name: string }).name === "AbortError";
       const timeoutMs = Number.isFinite(options.timeoutMs)
         ? (options.timeoutMs as number)
         : 30000;
@@ -246,7 +189,7 @@ export async function apiRequest<T>(
     normalizedPath !== "/auth/refresh";
   if (shouldTryRefresh) {
     try {
-      const refreshedToken = await refreshAuthToken(apiBaseUrl);
+      const refreshedToken = await refreshAccessToken();
       if (refreshedToken) {
         ({ res, requestUrl, text } = await performRequest(refreshedToken));
       }
@@ -267,9 +210,7 @@ export async function apiRequest<T>(
       normalizedPath !== "/auth/login" &&
       !options.skipSessionInvalidateOn401;
     if (shouldInvalidateSession) {
-      SecureStore.deleteItemAsync(AUTH_TOKEN_KEY).catch(() => {});
-      SecureStore.deleteItemAsync(AUTH_REFRESH_KEY).catch(() => {});
-      store.dispatch(logout());
+      void clearCredentials();
     }
     let message = extractErrorMessage(text, payload);
     if (payload?.upstreamStatus && Number.isFinite(payload.upstreamStatus)) {

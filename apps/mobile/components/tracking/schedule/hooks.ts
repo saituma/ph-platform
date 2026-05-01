@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { GeneratedAvailabilityOccurrence, ScheduleEvent, ServiceType } from "./types";
 import { endOfLocalDay, mapBookingsToEvents, startOfLocalDay } from "./utils";
 
 export function useScheduleData(token: string | null, isFocused: boolean) {
   const eventsQuery = useQuery({
-    queryKey: ["bookings"],
+    queryKey: queryKeys.bookings.all(),
     queryFn: async () => {
       const data = await apiRequest<{ items: any[] }>("/bookings", { token });
       return mapBookingsToEvents(data.items ?? []);
@@ -16,7 +17,7 @@ export function useScheduleData(token: string | null, isFocused: boolean) {
   });
 
   const servicesQuery = useQuery({
-    queryKey: ["booking-services"],
+    queryKey: queryKeys.bookings.services(),
     queryFn: async () => {
       const data = await apiRequest<{ items: ServiceType[] }>(
         "/bookings/services?includeLocked=true&omitWithoutBookableSlots=true",
@@ -54,7 +55,7 @@ export function useGeneratedAvailability(input: {
   const toIso = endOfLocalDay(input.to).toISOString();
 
   const query = useQuery({
-    queryKey: ["generated-availability", fromIso, toIso],
+    queryKey: queryKeys.bookings.generatedAvailability(fromIso, toIso),
     queryFn: async () => {
       const data = await apiRequest<{ items: GeneratedAvailabilityOccurrence[] }>(
         `/bookings/generated-availability?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,

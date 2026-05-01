@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 import {
   Alert,
   Pressable,
@@ -496,7 +497,7 @@ export default memo(function ScheduleScreen() {
     useCallback(() => {
       if (!token) return;
       void queryClient.prefetchQuery({
-        queryKey: ["bookings"],
+        queryKey: queryKeys.bookings.all(),
         queryFn: async () => {
           const { apiRequest } = await import("@/lib/api");
           const data = await apiRequest<{ items: any[] }>("/bookings", { token });
@@ -506,7 +507,7 @@ export default memo(function ScheduleScreen() {
         staleTime: 2 * 60 * 1000,
       });
       void queryClient.prefetchQuery({
-        queryKey: ["booking-services"],
+        queryKey: queryKeys.bookings.services(),
         queryFn: async () => {
           const { apiRequest } = await import("@/lib/api");
           const data = await apiRequest<{ items: any[] }>(

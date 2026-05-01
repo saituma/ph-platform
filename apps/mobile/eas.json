@@ -7,15 +7,11 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api"
-      }
+      "environment": "development"
     },
     "preview": {
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api"
-      }
+      "environment": "preview"
     },
     "testflight": {
       "distribution": "store",
@@ -23,15 +19,11 @@
       "ios": {
         "simulator": false
       },
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api"
-      }
+      "environment": "production"
     },
     "production": {
       "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api"
-      }
+      "environment": "production"
     }
   },
   "submit": {

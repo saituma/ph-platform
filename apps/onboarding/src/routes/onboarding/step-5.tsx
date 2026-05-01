@@ -143,9 +143,9 @@ function planCardTitle(plan: { tier: string | null | undefined; name?: string | 
 	// Prefer the admin-set plan.name so renames in the admin portal flow through.
 	const fromAdmin = String(plan.name ?? "").trim();
 	if (fromAdmin) return fromAdmin;
-	const meta = TIER_METADATA[plan.tier];
+	const meta = plan.tier ? TIER_METADATA[plan.tier] : undefined;
 	if (meta?.cardTitle) return meta.cardTitle;
-	return plan.tier;
+	return plan.tier ?? "";
 }
 
 function formatTierLine(tier: string | null | undefined) {
@@ -156,9 +156,9 @@ function formatTierLine(tier: string | null | undefined) {
 }
 
 function dedupePlansByTier(plans: any[]) {
-	// Multiple plans can exist per tier (e.g. legacy + new). Keep the most-recently-updated
-	// one so admin edits show up on the next onboarding page load. Falls back to higher id
-	// when `updatedAt` is missing.
+	// Collapse duplicates only when two plans share the same non-null tier (legacy + new).
+	// Custom plans with `tier === null` are kept individually — keyed by plan id — so
+	// admin-created plans without a tier code remain first-class.
 	const score = (p: any): number => {
 		if (p?.updatedAt) {
 			const t = new Date(p.updatedAt).getTime();
@@ -168,9 +168,9 @@ function dedupePlansByTier(plans: any[]) {
 	};
 	const best = new Map<string, any>();
 	for (const p of plans) {
-		const tier = p.tier as string;
-		const cur = best.get(tier);
-		if (!cur || score(p) > score(cur)) best.set(tier, p);
+		const key = p.tier ? `tier:${p.tier}` : `id:${p.id}`;
+		const cur = best.get(key);
+		if (!cur || score(p) > score(cur)) best.set(key, p);
 	}
 	return [...best.values()];
 }
@@ -260,7 +260,7 @@ function resolvePlanPricing(plan: any, cycle: BillingCycle, displayPrice: string
 function OnboardingStep5() {
 	const [plans, setPlans] = useState<any[]>([]);
 	const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-	const [selectedPlan, setSelectedPlan] = useState<string>("");
+	const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [teamCheckout, setTeamCheckout] = useState<{
@@ -294,10 +294,10 @@ function OnboardingStep5() {
 				setPlans(activePlans);
 				if (activePlans.length > 0) {
 					setSelectedPlan((prev) => {
-						if (prev && activePlans.some((p: any) => p.tier === prev)) return prev;
+						if (prev != null && activePlans.some((p: any) => p.id === prev)) return prev;
 						const preferred =
 							activePlans.find((p: any) => p.tier === "PHP_Premium") ?? activePlans[0];
-						return preferred.tier;
+						return preferred.id ?? null;
 					});
 				}
 			} else {
@@ -371,8 +371,8 @@ function OnboardingStep5() {
 	}, [isTeam]);
 
 	const handlePayment = async () => {
-		if (!selectedPlan) return;
-		const selectedPlanData = plans.find((p) => p.tier === selectedPlan);
+		if (selectedPlan == null) return;
+		const selectedPlanData = plans.find((p) => p.id === selectedPlan);
 		if (!selectedPlanData?.id) {
 			toast.error("Checkout failed", { description: "Selected plan is not available." });
 			return;
@@ -469,7 +469,7 @@ function OnboardingStep5() {
 		);
 	}
 
-	const selectedPlanData = plans.find((p) => p.tier === selectedPlan);
+	const selectedPlanData = plans.find((p) => p.id === selectedPlan);
 	const selectedDisplayPrice =
 		selectedPlanData?.billingQuote?.amount ??
 		selectedPlanData?.pricing?.monthly?.discounted ??
@@ -586,7 +586,7 @@ function OnboardingStep5() {
 					)}
 				>
 					{plans.map((plan) => {
-						const isSelected = selectedPlan === plan.tier;
+						const isSelected = selectedPlan === plan.id;
 						const isPopular = plan.tier === "PHP_Premium_Plus";
 						const displayPrice =
 							billingCycle === "yearly"
@@ -626,11 +626,11 @@ function OnboardingStep5() {
 								role="radio"
 								aria-checked={isSelected}
 								tabIndex={0}
-								onClick={() => setSelectedPlan(plan.tier)}
+								onClick={() => setSelectedPlan(plan.id)}
 								onKeyDown={(e) => {
 									if (e.key === " " || e.key === "Enter") {
 										e.preventDefault();
-										setSelectedPlan(plan.tier);
+										setSelectedPlan(plan.id);
 									}
 								}}
 								className={cn(
@@ -738,7 +738,7 @@ function OnboardingStep5() {
 				<div className="flex flex-col items-center gap-6 pt-4 max-w-md mx-auto">
 					<Button
 						onClick={handlePayment}
-						disabled={isSubmitting || !selectedPlan || isLoading}
+						disabled={isSubmitting || selectedPlan == null || isLoading}
 						className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-opacity"
 					>
 						{isSubmitting ? (

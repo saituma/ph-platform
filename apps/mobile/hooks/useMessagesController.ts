@@ -7,7 +7,7 @@ import { useAppSelector } from "@/store/hooks";
 import { useSocket } from "@/context/SocketContext";
 import { useMessagesRealtime } from "@/hooks/useMessagesRealtime";
 import { getNotifications } from "@/lib/notifications";
-import { apiRequest } from "@/lib/api";
+import { messagesApi } from "@/lib/apiClient/messages";
 import { parseReplyPrefix } from "@/lib/messages/reply";
 import { resolveMediaType } from "@/lib/messages/mediaType";
 import { mapApiDirectMessageToChatMessage } from "@/lib/messages/mappers/messageMapper";
@@ -19,13 +19,55 @@ import { useChatActingUser } from "./messages/useChatActingUser";
 import { useChatState } from "./messages/useChatState";
 import { useChatAttachments } from "./messages/useChatAttachments";
 import { useChatActions } from "./messages/useChatActions";
+import { useThreadsQuery } from "./messages/useThreadsQuery";
 import {
   getMessagesRolePrefix,
   messagesTabHref,
   messagesThreadHref,
 } from "@/lib/messages/roleMessageRoutes";
+import type { TypingStatus } from "@/types/messages";
+import type { PendingAttachment } from "@/types/admin-messages";
 
-export function useMessagesController() {
+export type MessagesControllerResult = {
+  reactionOptions: string[];
+  effectiveProfileId: number;
+  effectiveProfileName: string;
+  groupMembers: Record<number, Record<number, { name: string; avatar?: string | null }>>;
+  currentThread: MessageThread | null;
+  sortedThreads: MessageThread[];
+  localMessages: ChatMessage[];
+  typingStatus: TypingStatus;
+  isLoading: boolean;
+  isThreadLoading: boolean;
+  draft: string;
+  reactionTarget: ChatMessage | null;
+  composerMenuOpen: boolean;
+  replyTarget: { messageId: number; preview: string; authorName?: string } | null;
+  isUploadingAttachment: boolean;
+  pendingAttachment: PendingAttachment | null;
+  openingThreadId: string | null;
+  setDraft: (v: string) => void;
+  setReactionTarget: (msg: ChatMessage | null) => void;
+  setComposerMenuOpen: (open: boolean) => void;
+  setPendingAttachment: React.Dispatch<React.SetStateAction<PendingAttachment | null>>;
+  openThread: (thread: MessageThread) => void;
+  resetOpeningThread: () => void;
+  clearThread: () => void;
+  handleSend: (payload?: { contentType?: string; mediaUrl?: string }) => Promise<void>;
+  setReplyTargetFromMessage: (message: ChatMessage) => void;
+  clearReplyTarget: () => void;
+  handleAttachFile: () => Promise<void>;
+  handleAttachImage: () => Promise<void>;
+  handleAttachVideo: () => Promise<void>;
+  handleSendGif: (url: string) => Promise<void>;
+  handleTakePhoto: () => Promise<void>;
+  handleRecordVideo: () => Promise<void>;
+  handleToggleReaction: (message: ChatMessage, emoji: string) => Promise<void>;
+  handleDeleteMessage: (message: ChatMessage) => Promise<void>;
+  loadMessages: (options?: { silent?: boolean }) => Promise<void>;
+};
+
+export function useMessagesController(): MessagesControllerResult {
   const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
   const router = useRouter();
   const routerRef = useRef(router);
@@ -55,6 +97,13 @@ export function useMessagesController() {
     effectiveProfileId,
     effectiveProfileName,
   } = useChatActingUser();
+
+  const threadsQuery = useThreadsQuery({
+    token,
+    actingHeaders,
+    effectiveProfileId,
+    enabled: true,
+  });
 
   const {
     threads,
@@ -98,6 +147,7 @@ export function useMessagesController() {
 
   const {
     loadMessages,
+    applyFetchedData,
     loadGroupMessages,
     markDirectThreadReadById,
     markGroupThreadRead,
@@ -112,6 +162,7 @@ export function useMessagesController() {
     profileName,
     programTier,
     socket,
+    refetchThreads: threadsQuery.refetch,
     setThreads,
     setMessages,
     setIsLoading,
@@ -135,6 +186,13 @@ export function useMessagesController() {
 
   const currentThreadId = currentThread?.id;
   const currentThreadUnread = currentThread?.unread ?? 0;
+
+  // When TanStack Query delivers fresh thread/message data, process it into state.
+  // TQ owns the fetch (dedup, cache, stale-while-revalidate); this owns the mapping.
+  useEffect(() => {
+    if (!threadsQuery.data) return;
+    applyFetchedData(threadsQuery.data.inbox, threadsQuery.data.messages);
+  }, [threadsQuery.data, applyFetchedData]);
 
   useEffect(() => {
     setReplyTarget(null);
@@ -300,21 +358,16 @@ export function useMessagesController() {
         );
 
         try {
-          const created = await apiRequest<{ message?: ApiChatMessage }>(
-            `/chat/groups/${groupId}/messages`,
+          const created = await messagesApi.groups.sendMessage(
+            groupId,
             {
-              method: "POST",
-              token,
-              headers: actingHeaders,
-              body: {
-                content: trimmed,
-                contentType: payload.contentType ?? "text",
-                mediaUrl: payload.mediaUrl,
-                replyToMessageId: replyTarget?.messageId,
-                replyPreview: replyTarget?.preview,
-                clientId,
-              },
-            },
+              content: trimmed,
+              contentType: payload.contentType ?? "text",
+              ...(payload.mediaUrl ? { mediaUrl: payload.mediaUrl } : {}),
+              ...(replyTarget ? { replyToMessageId: replyTarget.messageId, replyPreview: replyTarget.preview } : {}),
+              clientId,
+            } as any,
+            { token, headers: actingHeaders },
           );
           const serverMsg = created?.message;
           if (serverMsg?.id) {
@@ -433,20 +486,17 @@ export function useMessagesController() {
       );
 
       try {
-        const created = await apiRequest<{ message?: ApiChatMessage }>("/messages", {
-          method: "POST",
-          token,
-          headers: actingHeaders,
-          body: {
+        const created = await messagesApi.send(
+          {
             content: trimmed,
             receiverId: toUserId,
             contentType: payload.contentType ?? "text",
-            mediaUrl: payload.mediaUrl,
-            replyToMessageId: replyTarget?.messageId,
-            replyPreview: replyTarget?.preview,
+            ...(payload.mediaUrl ? { mediaUrl: payload.mediaUrl } : {}),
+            ...(replyTarget ? { replyToMessageId: replyTarget.messageId, replyPreview: replyTarget.preview } : {}),
             clientId,
           },
-        });
+          { token, headers: actingHeaders },
+        );
         const serverMsg = created?.message;
         if (serverMsg?.id) {
           console.log("[DEBUG-msg] direct send: API success with id =", serverMsg.id, "clientId =", clientId);
@@ -618,10 +668,10 @@ export function useMessagesController() {
     if (!token || threadId) return;
     const id = setInterval(() => {
       if (socket?.connected) return;
-      void loadMessages({ silent: true });
+      void threadsQuery.refetch();
     }, 10000);
     return () => clearInterval(id);
-  }, [token, threadId, socket?.connected, loadMessages]);
+  }, [token, threadId, socket?.connected, threadsQuery.refetch]);
 
   useMessagesRealtime({
     token,
@@ -631,6 +681,7 @@ export function useMessagesController() {
     currentThread,
     groupMembers,
     loadMessages,
+    invalidateThreads: threadsQuery.invalidate,
     setMessages,
     setThreads,
     setTypingStatus,
@@ -657,17 +708,13 @@ export function useMessagesController() {
     }
   }, [threadId, openingThreadId]);
 
-  // ── Prefetch on tab focus (silent refresh) ─────────────────────
+  // Tab focus: trigger a background refetch via TanStack Query (deduped, cached).
   useFocusEffect(
     useCallback(() => {
       if (!token) return;
-      void loadMessages({ silent: true });
-    }, [token, loadMessages]),
+      void threadsQuery.refetch();
+    }, [token, threadsQuery.refetch]),
   );
-
-  useEffect(() => {
-    void loadMessages({ silent: false });
-  }, [loadMessages]);
 
   useEffect(() => {
     const threadIdValue = currentThread?.id ?? "";
@@ -696,11 +743,11 @@ export function useMessagesController() {
           void loadGroupMessages(groupId, { silent: true });
         }
       } else {
-        void loadMessages({ silent: true });
+        void threadsQuery.refetch();
       }
     }, 12000);
     return () => clearInterval(interval);
-  }, [currentThread?.id, loadGroupMessages, loadMessages, socket?.connected]);
+  }, [currentThread?.id, loadGroupMessages, threadsQuery.refetch, socket?.connected]);
 
   useEffect(() => {
     if (!socket?.connected) return;
@@ -787,7 +834,7 @@ export function useMessagesController() {
     sortedThreads,
     localMessages,
     typingStatus,
-    isLoading,
+    isLoading: threadsQuery.isLoading || isLoading,
     isThreadLoading,
     draft,
     reactionTarget,

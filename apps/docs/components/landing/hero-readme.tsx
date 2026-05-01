@@ -65,7 +65,7 @@ function CredentialFields() {
 	const [emailDisplay, setEmailDisplay] = useState(emailText);
 	const [passwordDisplay, setPasswordDisplay] = useState(passwordDots);
 	const [isTyping, setIsTyping] = useState(false);
-	const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+	const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 	const isTypingRef = useRef(false);
 
 	const startTyping = useCallback(() => {

@@ -326,6 +326,18 @@ function RouteComponent() {
 								<div className="absolute inset-0 overflow-hidden bg-background pointer-events-none" aria-hidden="true">
 									<div className="w-full h-full bg-noise-pattern opacity-[0.03] dark:opacity-[0.08]" />
 								</div>
+								{/* Brand logo watermark */}
+								<div
+									className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden"
+									aria-hidden="true"
+								>
+									<img
+										src="/ph-logo.png"
+										alt=""
+										className="w-[120%] max-w-none h-auto object-contain opacity-[0.08] dark:opacity-[0.12] select-none"
+										draggable={false}
+									/>
+								</div>
 
 								<motion.div
 									initial={{ opacity: 0, y: 12 }}
