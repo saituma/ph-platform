@@ -28,6 +28,7 @@ export default function TabLayout() {
   const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
   const programTier = useAppSelector((state) => state.user.programTier);
   const messagingAccessTiers = useAppSelector((state) => state.user.messagingAccessTiers);
+  const planFeatures = useAppSelector((state) => state.user.planFeatures);
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
@@ -40,7 +41,7 @@ export default function TabLayout() {
     : isAuthenticated && !!token && !!profile.id;
 
   const isAdmin = isAdminRole(apiUserRole);
-  const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
+  const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers, planFeatures);
 
   useEffect(() => {
     if (!effectiveAuth || !bootstrapReady || !token) return;

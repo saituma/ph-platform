@@ -14,8 +14,8 @@ import {
 import { listGroupsForUser } from "../services/chat.service";
 import { listMessageThreadsAdmin } from "../services/admin/message.service";
 import { db } from "../db";
-import { and, eq, inArray } from "drizzle-orm";
-import { userTable } from "../db/schema";
+import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { messageTable, userTable } from "../db/schema";
 import { toggleDirectMessageReaction } from "../services/reaction.service";
 import { publicDisplayName } from "../lib/display-name";
 import { isTrainingStaff } from "../lib/user-roles";
@@ -528,4 +528,159 @@ export async function deleteMessage(req: Request, res: Response) {
     }
     throw error;
   }
+}
+
+// ── Message Search (DMs) ────────────────────────────────────────────────
+
+const searchMessagesQuerySchema = z.object({
+  q: z.string().trim().min(1),
+  threadId: z.coerce.number().int().min(1).optional(),
+});
+
+export async function searchMessages(req: Request, res: Response) {
+  const userId = req.user!.id;
+  const { q, threadId } = searchMessagesQuerySchema.parse(req.query ?? {});
+
+  const participantFilter = or(
+    eq(messageTable.senderId, userId),
+    eq(messageTable.receiverId, userId),
+  );
+
+  const threadFilter = threadId
+    ? or(
+        and(eq(messageTable.senderId, userId), eq(messageTable.receiverId, threadId)),
+        and(eq(messageTable.senderId, threadId), eq(messageTable.receiverId, userId)),
+      )
+    : undefined;
+
+  const results = await db
+    .select({
+      id: messageTable.id,
+      content: messageTable.content,
+      senderId: messageTable.senderId,
+      receiverId: messageTable.receiverId,
+      createdAt: messageTable.createdAt,
+      contentType: messageTable.contentType,
+    })
+    .from(messageTable)
+    .where(
+      and(
+        ilike(messageTable.content, `%${q}%`),
+        participantFilter,
+        threadFilter,
+      ),
+    )
+    .orderBy(desc(messageTable.createdAt))
+    .limit(50);
+
+  return res.status(200).json({ results });
+}
+
+// ── Message Pin (DMs) ───────────────────────────────────────────────────
+
+export async function pinMessage(req: Request, res: Response) {
+  const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
+  const userId = req.user!.id;
+
+  const [msg] = await db
+    .select({
+      id: messageTable.id,
+      senderId: messageTable.senderId,
+      receiverId: messageTable.receiverId,
+      pinnedAt: messageTable.pinnedAt,
+    })
+    .from(messageTable)
+    .where(eq(messageTable.id, messageId))
+    .limit(1);
+
+  if (!msg) {
+    return res.status(404).json({ error: "Message not found" });
+  }
+
+  if (msg.senderId !== userId && msg.receiverId !== userId) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const nowPinned = msg.pinnedAt === null;
+  await db
+    .update(messageTable)
+    .set({ pinnedAt: nowPinned ? new Date() : null })
+    .where(eq(messageTable.id, messageId));
+
+  return res.status(200).json({ pinned: nowPinned });
+}
+
+// ── Message Forward ─────────────────────────────────────────────────────
+
+const forwardMessageSchema = z.object({
+  messageId: z.number().int().min(1),
+  targetThreadId: z.string().trim().min(1),
+});
+
+export async function forwardMessage(req: Request, res: Response) {
+  const userId = req.user!.id;
+  const { messageId, targetThreadId } = forwardMessageSchema.parse(req.body);
+
+  // Fetch original message — user must be a participant
+  const [original] = await db
+    .select({
+      id: messageTable.id,
+      content: messageTable.content,
+      contentType: messageTable.contentType,
+      mediaUrl: messageTable.mediaUrl,
+      senderId: messageTable.senderId,
+      receiverId: messageTable.receiverId,
+    })
+    .from(messageTable)
+    .where(
+      and(
+        eq(messageTable.id, messageId),
+        or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId)),
+      ),
+    )
+    .limit(1);
+
+  if (!original) {
+    return res.status(404).json({ error: "Message not found" });
+  }
+
+  const forwardedContent = `[Forwarded] ${original.content}`;
+
+  // Forward to a group chat
+  if (targetThreadId.startsWith("group:")) {
+    const groupId = Number(targetThreadId.replace("group:", ""));
+    if (!Number.isFinite(groupId) || groupId < 1) {
+      return res.status(400).json({ error: "Invalid group ID" });
+    }
+    const { isGroupMember, createGroupMessage } = await import("../services/chat.service");
+    const allowed = await isGroupMember(groupId, userId);
+    if (!allowed) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const message = await createGroupMessage({
+      groupId,
+      senderId: userId,
+      content: forwardedContent,
+      contentType: original.contentType,
+      mediaUrl: original.mediaUrl,
+    });
+    return res.status(201).json({ message });
+  }
+
+  // Forward to a DM thread (targetThreadId is a userId)
+  const receiverId = Number(targetThreadId);
+  if (!Number.isFinite(receiverId) || receiverId < 1) {
+    return res.status(400).json({ error: "Invalid target thread ID" });
+  }
+
+  const newMessage = await sendMessage({
+    senderId: userId,
+    receiverId,
+    content: forwardedContent,
+    contentType: original.contentType,
+    mediaUrl: original.mediaUrl,
+    senderRole: req.user?.role ?? null,
+  });
+
+  return res.status(201).json({ message: newMessage });
 }

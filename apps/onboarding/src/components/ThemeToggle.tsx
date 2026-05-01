@@ -73,8 +73,7 @@ export default function ThemeToggle() {
 			onClick={toggleMode}
 			aria-label={label}
 			title={label}
-			className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-			style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
+			className="flex h-8 w-8 items-center justify-center text-foreground/50 transition-colors duration-150 hover:text-foreground/80 focus-visible:outline-none"
 		>
 			<Icon
 				size={18}

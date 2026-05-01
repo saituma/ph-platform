@@ -79,12 +79,12 @@ function Countdown({ expiryDate }: { expiryDate: string }) {
 function TimeUnit({ value, label }: { value: number; label: string }) {
 	return (
 		<div className="flex flex-col items-center">
-			<div className="bg-background/80 backdrop-blur-sm border border-border/60 w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center shadow-lg border-b-2 border-b-primary/40">
-				<span className="text-lg sm:text-2xl font-black tabular-nums tracking-tighter text-primary">
+			<div className="bg-background border border-foreground/[0.06] w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
+				<span className="text-lg sm:text-2xl font-medium tabular-nums tracking-tighter text-foreground">
 					{String(value).padStart(2, "0")}
 				</span>
 			</div>
-			<span className="mt-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+			<span className="mt-1.5 font-mono text-[8px] uppercase tracking-wider text-foreground/40">
 				{label}
 			</span>
 		</div>
@@ -115,7 +115,7 @@ function Dashboard() {
 	if (isLoading && !userData) {
 		return (
 			<div className="flex h-[80vh] items-center justify-center">
-				<CircleNotch className="w-10 h-10 animate-spin text-primary" />
+				<CircleNotch className="w-10 h-10 animate-spin text-foreground/40" />
 			</div>
 		);
 	}
@@ -123,7 +123,7 @@ function Dashboard() {
 	if (error === PORTAL_UNAUTHORIZED_ERROR) {
 		return (
 			<div className="flex h-[80vh] flex-col items-center justify-center gap-3">
-				<CircleNotch className="w-10 h-10 animate-spin text-primary" />
+				<CircleNotch className="w-10 h-10 animate-spin text-foreground/40" />
 				<p className="text-sm text-muted-foreground">Redirecting to sign in…</p>
 			</div>
 		);
@@ -142,7 +142,7 @@ function Dashboard() {
 				<Button
 					type="button"
 					onClick={() => void refresh()}
-					className="rounded-2xl font-black uppercase"
+					className="bg-foreground text-background font-mono text-xs uppercase tracking-wider"
 				>
 					Retry
 				</Button>
@@ -174,14 +174,14 @@ function Dashboard() {
 				{/* Header */}
 				<div className="flex items-center justify-between gap-4">
 					<div className="space-y-2">
-						<h1 className="text-3xl font-black uppercase italic tracking-tight leading-none">
+						<h1 className="text-3xl font-medium tracking-tight leading-none">
 							Dashboard
 						</h1>
-						<div className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-bold uppercase tracking-widest text-primary/80">
+						<div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs uppercase tracking-wider text-foreground/60">
 							{isYouth && (
 								<>
 									<span>Guardian: {userData.name}</span>
-									<span className="text-muted-foreground/30">•</span>
+									<span className="text-foreground/20">•</span>
 									<span>Athlete: {userData.athleteName}</span>
 								</>
 							)}
@@ -193,7 +193,7 @@ function Dashboard() {
 						variant="ghost"
 						size="icon"
 						onClick={handleLogout}
-						className="rounded-xl hover:bg-destructive/10 hover:text-destructive"
+						className="hover:bg-destructive/10 hover:text-destructive"
 					>
 						<SignOut size={24} weight="bold" />
 					</Button>
@@ -201,20 +201,20 @@ function Dashboard() {
 
 				<div className="grid gap-6 md:grid-cols-3">
 					{/* Status Card */}
-					<Card className="p-6 sm:p-8 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center space-y-4 group">
-						<div className="p-4 bg-primary/10 rounded-2xl text-primary">
+					<Card className="p-6 sm:p-8 border border-foreground/[0.06] transition-all duration-300 flex flex-col items-center text-center space-y-4 group">
+						<div className="p-4 text-foreground/40">
 							<Layout size={32} weight="bold" />
 						</div>
 						<div className="space-y-1">
-							<h3 className="font-bold text-lg leading-none">Registration</h3>
+							<h3 className="font-medium text-lg leading-none">Registration</h3>
 							<p className="text-xs text-muted-foreground">Profile Status</p>
 						</div>
 						<div
 							className={cn(
-								"text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full",
+								"font-mono text-[10px] uppercase tracking-wider px-3 py-1.5",
 								userData.onboardingCompleted
-									? "bg-green-500/20 text-green-500"
-									: "bg-primary/20 text-primary",
+									? "bg-foreground/10 text-foreground/60"
+									: "bg-foreground/10 text-foreground/60",
 							)}
 						>
 							{userData.onboardingCompleted ? "Active Member" : "In Progress"}
@@ -222,31 +222,31 @@ function Dashboard() {
 					</Card>
 
 					{/* Profile Card */}
-					<Card className="p-6 sm:p-8 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center space-y-4 group">
-						<div className="p-4 bg-primary/10 rounded-2xl text-primary">
+					<Card className="p-6 sm:p-8 border border-foreground/[0.06] transition-all duration-300 flex flex-col items-center text-center space-y-4 group">
+						<div className="p-4 text-foreground/40">
 							<User size={32} weight="bold" />
 						</div>
 						<div className="space-y-1">
-							<h3 className="font-bold text-lg leading-none">Account</h3>
+							<h3 className="font-medium text-lg leading-none">Account</h3>
 							<p className="text-xs text-muted-foreground truncate max-w-[200px]">
 								{userData.email}
 							</p>
 						</div>
 						<Link
 							to="/portal/profile"
-							className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+							className="font-mono text-[10px] uppercase tracking-wider text-foreground/60 hover:underline"
 						>
 							View Settings
 						</Link>
 					</Card>
 
 					{/* Program Card */}
-					<Card className="p-6 sm:p-8 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center space-y-4 group">
-						<div className="p-4 bg-primary/10 rounded-2xl text-primary">
+					<Card className="p-6 sm:p-8 border border-foreground/[0.06] transition-all duration-300 flex flex-col items-center text-center space-y-4 group">
+						<div className="p-4 text-foreground/40">
 							<TrendUp size={32} weight="bold" />
 						</div>
 						<div className="space-y-1">
-							<h3 className="font-bold text-lg leading-none">Current Tier</h3>
+							<h3 className="font-medium text-lg leading-none">Current Tier</h3>
 							<p className="text-xs text-muted-foreground">
 								{userData.programTier?.replace(/_/g, " ") || "No active plan"}
 							</p>
@@ -254,10 +254,10 @@ function Dashboard() {
 						{userData.planExpiresAt && (
 							<div className="w-full space-y-2 px-4">
 								<div className="flex justify-between items-end">
-									<span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
+									<span className="font-mono text-[9px] uppercase tracking-wider text-foreground/40">
 										Plan Progress
 									</span>
-									<span className="text-[9px] font-black uppercase text-primary">
+									<span className="font-mono text-[9px] uppercase tracking-wider text-foreground/60">
 										{Math.max(
 											0,
 											Math.ceil(
@@ -269,9 +269,9 @@ function Dashboard() {
 										Days Left
 									</span>
 								</div>
-								<div className="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
+								<div className="h-1.5 w-full bg-foreground/[0.06] overflow-hidden">
 									<div
-										className="h-full bg-primary transition-all duration-1000 ease-out"
+										className="h-full bg-foreground/40 transition-all duration-1000 ease-out"
 										style={{
 											width: `${Math.min(
 												100,
@@ -289,8 +289,8 @@ function Dashboard() {
 										}}
 									/>
 								</div>
-								<div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
-									<Clock size={10} weight="bold" className="text-primary" />
+								<div className="flex items-center justify-center gap-1.5 font-mono text-[9px] text-foreground/40 uppercase tracking-wider">
+									<Clock size={10} weight="bold" className="text-foreground/40" />
 									{userData.planPaymentType === "monthly"
 										? "Next Charge: "
 										: "Plan Ends: "}
@@ -302,7 +302,7 @@ function Dashboard() {
 							<Link to="/onboarding/step-1">
 								<Button
 									size="sm"
-									className="h-8 px-4 rounded-full text-[10px] font-black uppercase"
+									className="h-8 px-4 bg-foreground text-background font-mono text-[10px] uppercase tracking-wider"
 								>
 									Finish Onboarding
 								</Button>
@@ -313,22 +313,19 @@ function Dashboard() {
 
 				{/* Plan Countdown Section */}
 				{userData.planExpiresAt && (
-					<Card className="p-8 sm:p-10 rounded-[2rem] border border-primary/20 bg-primary/5 backdrop-blur-xl shadow-2xl relative overflow-hidden">
-						<div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full -mr-48 -mt-48 blur-3xl" />
-
+					<Card className="p-8 sm:p-10 border border-foreground/[0.06] relative overflow-hidden">
 						<div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
 							<div className="space-y-2 text-center md:text-left">
-								<div className="flex items-center justify-center md:justify-start gap-3 text-primary">
+								<div className="flex items-center justify-center md:justify-start gap-3 text-foreground/60">
 									<Hourglass
 										size={28}
 										weight="fill"
-										className="animate-pulse"
 									/>
-									<h2 className="text-2xl font-black uppercase italic tracking-tight">
+									<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">
 										Plan Countdown
 									</h2>
 								</div>
-								<p className="text-muted-foreground font-bold uppercase tracking-widest text-[9px]">
+								<p className="font-mono text-[9px] uppercase tracking-wider text-foreground/40">
 									Time remaining until your{" "}
 									{userData.planPaymentType === "monthly"
 										? "next renewal"
@@ -339,10 +336,10 @@ function Dashboard() {
 							<Countdown expiryDate={userData.planExpiresAt} />
 
 							<div className="hidden lg:block space-y-1 text-right">
-								<p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 									Final Date
 								</p>
-								<p className="text-sm font-black text-primary uppercase">
+								<p className="text-sm font-medium text-foreground">
 									{formatDate(userData.planExpiresAt)}
 								</p>
 							</div>
@@ -354,8 +351,8 @@ function Dashboard() {
 				{athletesData.length > 0 && (
 					<div className="space-y-6">
 						<div className="flex items-center gap-3">
-							<TrendUp size={24} weight="bold" className="text-primary" />
-							<h2 className="text-xl font-black uppercase italic">
+							<TrendUp size={24} weight="bold" className="text-foreground/40" />
+							<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">
 								Performance Stats
 							</h2>
 						</div>
@@ -364,54 +361,54 @@ function Dashboard() {
 							{athletesData.map((athlete: any) => (
 								<Card
 									key={athlete.id}
-									className="p-6 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-xl space-y-4 hover:border-primary/40 transition-all duration-300 group"
+									className="p-6 border border-foreground/[0.06] space-y-4 hover:border-foreground/20 transition-all duration-300 group"
 								>
-									<div className="flex items-center justify-between border-b border-border/40 pb-3">
+									<div className="flex items-center justify-between border-b border-foreground/[0.06] pb-3">
 										<div className="flex items-center gap-3">
-											<div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+											<div className="w-10 h-10 bg-foreground/10 flex items-center justify-center text-foreground/60">
 												<User size={20} weight="bold" />
 											</div>
 											<div className="flex flex-col">
-												<span className="text-sm font-black uppercase tracking-tight leading-none">
+												<span className="text-sm font-medium tracking-tight leading-none">
 													{athlete.name || athlete.athleteName}
 												</span>
-												<span className="text-[10px] font-bold text-muted-foreground uppercase">
+												<span className="font-mono text-[10px] text-foreground/40 uppercase">
 													{athlete.athleteType}
 												</span>
 											</div>
 										</div>
-										<div className="bg-primary/20 text-primary text-[10px] font-black uppercase px-2 py-1 rounded-lg">
+										<div className="bg-foreground/10 text-foreground/60 font-mono text-[10px] uppercase px-2 py-1">
 											{athlete.currentProgramTier || "No Tier"}
 										</div>
 									</div>
 
 									<div className="grid grid-cols-2 gap-4">
 										<div className="space-y-1">
-											<span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+											<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 												Finished Sessions
 											</span>
 											<div className="flex items-center gap-2">
 												<CheckCircle
 													size={16}
 													weight="bold"
-													className="text-green-500"
+													className="text-foreground/40"
 												/>
-												<span className="text-lg font-black text-foreground">
+												<span className="text-lg font-medium text-foreground">
 													{athlete.trainingStats?.finishedSessions || 0}
 												</span>
 											</div>
 										</div>
 										<div className="space-y-1">
-											<span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+											<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 												Finished Modules
 											</span>
 											<div className="flex items-center gap-2">
 												<Layout
 													size={16}
 													weight="bold"
-													className="text-primary"
+													className="text-foreground/40"
 												/>
-												<span className="text-lg font-black text-foreground">
+												<span className="text-lg font-medium text-foreground">
 													{athlete.trainingStats?.finishedModules || 0}
 												</span>
 											</div>
@@ -419,12 +416,12 @@ function Dashboard() {
 									</div>
 
 									{athlete.planExpiresAt && (
-										<div className="space-y-2 pt-2 border-t border-border/20">
+										<div className="space-y-2 pt-2 border-t border-foreground/[0.06]">
 											<div className="flex justify-between items-end">
-												<span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+												<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 													Plan Validity
 												</span>
-												<span className="text-[10px] font-black uppercase text-primary">
+												<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/60">
 													{Math.max(
 														0,
 														Math.ceil(
@@ -436,9 +433,9 @@ function Dashboard() {
 													Days Left
 												</span>
 											</div>
-											<div className="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
+											<div className="h-1.5 w-full bg-foreground/[0.06] overflow-hidden">
 												<div
-													className="h-full bg-primary transition-all duration-1000 ease-out"
+													className="h-full bg-foreground/40 transition-all duration-1000 ease-out"
 													style={{
 														width: `${Math.min(
 															100,
@@ -457,11 +454,11 @@ function Dashboard() {
 													}}
 												/>
 											</div>
-											<div className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground uppercase">
+											<div className="flex items-center gap-1.5 font-mono text-[9px] text-foreground/40 uppercase tracking-wider">
 												<Clock
 													size={10}
 													weight="bold"
-													className="text-primary"
+													className="text-foreground/40"
 												/>
 												{athlete.planPaymentType === "monthly"
 													? "Next Charge: "
@@ -478,14 +475,14 @@ function Dashboard() {
 
 				<div className="grid gap-6 md:grid-cols-2">
 					{/* Detailed Athlete Info */}
-					<Card className="p-8 sm:p-10 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl space-y-8">
+					<Card className="p-8 sm:p-10 border border-foreground/[0.06] space-y-8">
 						<div className="flex items-center gap-3">
 							<IdentificationCard
 								size={24}
 								weight="bold"
-								className="text-primary"
+								className="text-foreground/40"
 							/>
-							<h2 className="text-xl font-black uppercase italic">
+							<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">
 								Athlete Profile
 							</h2>
 						</div>
@@ -521,10 +518,10 @@ function Dashboard() {
 					</Card>
 
 					{/* Goals & Access */}
-					<Card className="p-8 sm:p-10 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl space-y-8">
+					<Card className="p-8 sm:p-10 border border-foreground/[0.06] space-y-8">
 						<div className="flex items-center gap-3">
-							<Target size={24} weight="bold" className="text-primary" />
-							<h2 className="text-xl font-black uppercase italic">
+							<Target size={24} weight="bold" className="text-foreground/40" />
+							<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">
 								Training & Goals
 							</h2>
 						</div>
@@ -572,19 +569,17 @@ function Dashboard() {
 				</div>
 
 				{/* Activity Feed */}
-				<Card className="p-8 sm:p-10 rounded-[2rem] border border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl relative overflow-hidden">
-					<div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl" />
-
+				<Card className="p-8 sm:p-10 border border-foreground/[0.06] relative overflow-hidden">
 					<div className="relative z-10 space-y-6">
 						<div className="flex items-center gap-3">
-							<Calendar size={24} weight="bold" className="text-primary" />
-							<h2 className="text-xl font-black uppercase italic">
+							<Calendar size={24} weight="bold" className="text-foreground/40" />
+							<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">
 								Activity Feed
 							</h2>
 						</div>
 
 						<div className="space-y-4">
-							<div className="p-4 rounded-2xl border border-border/40 bg-background/30 text-sm font-medium text-muted-foreground italic text-center">
+							<div className="p-4 border border-foreground/[0.06] text-sm font-medium text-muted-foreground text-center">
 								No recent activity to show.
 							</div>
 						</div>
@@ -610,18 +605,18 @@ function DetailItem({
 }) {
 	return (
 		<div className="flex flex-col gap-1">
-			<span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+			<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 				{label}
 			</span>
 			<div className="flex items-center gap-2.5">
 				<Icon
 					size={18}
 					weight="bold"
-					className={cn(destructive ? "text-destructive" : "text-primary")}
+					className={cn(destructive ? "text-destructive" : "text-foreground/40")}
 				/>
 				<span
 					className={cn(
-						"text-sm font-bold truncate",
+						"text-sm font-medium truncate",
 						destructive && "text-destructive",
 						className,
 					)}

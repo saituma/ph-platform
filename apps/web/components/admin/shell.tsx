@@ -9,7 +9,7 @@ import { GlobalCommandPalette } from "./global-command-palette";
 
 type AdminShellProps = {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   actions?: React.ReactNode;
   children: React.ReactNode;
 };

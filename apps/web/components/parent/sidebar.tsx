@@ -13,19 +13,42 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { ParentNav } from "./nav";
+import { ParentNav, type NavGroup } from "./nav";
 import { cn } from "../../lib/utils";
 import { ScrollArea } from "../ui/scroll-area";
 
-const navItems = [
-  { label: "Dashboard", href: "/parent", icon: Home },
-  { label: "Onboarding", href: "/parent/onboarding", icon: ClipboardCheck, badge: "2" },
-  { label: "Athlete Profile", href: "/parent/athlete", icon: UserRound },
-  { label: "Messages", href: "/parent/messages", icon: MessageCircle, badge: "3" },
-  { label: "Schedule", href: "/parent/schedule", icon: CalendarDays },
-  { label: "Progress", href: "/parent/progress", icon: BarChart3 },
-  { label: "Support", href: "/parent/support", icon: LifeBuoy },
-  { label: "Settings", href: "/parent/settings", icon: Settings },
+const navGroups: NavGroup[] = [
+  {
+    id: "home",
+    items: [
+      { label: "Dashboard", href: "/parent", icon: Home },
+    ],
+  },
+  {
+    id: "athlete",
+    label: "Athlete",
+    items: [
+      { label: "Onboarding", href: "/parent/onboarding", icon: ClipboardCheck, badge: "2" },
+      { label: "Athlete Profile", href: "/parent/athlete", icon: UserRound },
+      { label: "Progress", href: "/parent/progress", icon: BarChart3 },
+    ],
+  },
+  {
+    id: "communication",
+    label: "Communication",
+    items: [
+      { label: "Messages", href: "/parent/messages", icon: MessageCircle, badge: "3" },
+      { label: "Schedule", href: "/parent/schedule", icon: CalendarDays },
+    ],
+  },
+  {
+    id: "account",
+    label: "Account",
+    items: [
+      { label: "Support", href: "/parent/support", icon: LifeBuoy },
+      { label: "Settings", href: "/parent/settings", icon: Settings },
+    ],
+  },
 ];
 
 type SidebarContentProps = {
@@ -54,7 +77,7 @@ export function ParentSidebarContent({
           </p>
         )}
       </div>
-      <ParentNav items={navItems} currentPath={currentPath} collapsed={collapsed} />
+      <ParentNav groups={navGroups} currentPath={currentPath} collapsed={collapsed} />
       {!collapsed ? (
         <div className="mt-auto rounded-3xl border border-border bg-secondary/40 p-4 text-xs text-muted-foreground">
           Need help?{" "}

@@ -220,9 +220,9 @@ export async function createCheckoutSession(input: {
       const hint =
         billingCycle === "one_time"
           ? `Recreate the plan's one-time Stripe price (currently "${plan.stripePriceIdOneTime ?? "unset"}").`
-          : `Create/activate a Stripe Price with lookup key "${lookupKeyForAthleteBilling(plan.tier, billingCycle)}" in Stripe (${stripeMode} mode), or update the plan's Stripe price id to a valid one in the same Stripe account/mode.`;
+          : `Create/activate a Stripe Price with lookup key "${plan.tier ? lookupKeyForAthleteBilling(plan.tier, billingCycle) : `custom_${billingCycle}`}" in Stripe (${stripeMode} mode), or update the plan's Stripe price id to a valid one in the same Stripe account/mode.`;
       throw new Error(
-        `Stripe could not find price "${priceId}" for plan #${plan.id} (${plan.tier}, ${billingCycle}). ${hint}`,
+        `Stripe could not find price "${priceId}" for plan #${plan.id} (${plan.tier ?? "no-tier"}, ${billingCycle}). ${hint}`,
       );
     }
     throw error;
@@ -666,6 +666,7 @@ export async function approveSubscriptionRequest(requestId: number) {
         requestId: subscriptionRequestTable.id,
         userId: subscriptionRequestTable.userId,
         athleteId: subscriptionRequestTable.athleteId,
+        planId: subscriptionPlanTable.id,
         planTier: subscriptionPlanTable.tier,
         billingInterval: subscriptionPlanTable.billingInterval,
         planBillingCycle: subscriptionRequestTable.planBillingCycle,
@@ -678,7 +679,7 @@ export async function approveSubscriptionRequest(requestId: number) {
       .limit(1);
 
     const request = rows[0];
-    if (!request?.athleteId || !request.planTier) {
+    if (!request?.athleteId) {
       return { row: null as null, planApprovedEmail: null as null };
     }
 
@@ -690,8 +691,9 @@ export async function approveSubscriptionRequest(requestId: number) {
           ? computeAthleteAccessEnd(cycleRaw as AthleteBillingCycle, new Date())
           : computePlanPeriodEnd(request.billingInterval, new Date());
 
-    const tierPayload: {
-      currentProgramTier: typeof request.planTier;
+    const athletePayload: {
+      currentProgramTier?: typeof request.planTier;
+      currentPlanId?: number | null;
       planExpiresAt: Date | null;
       planRenewalReminderSentAt: null;
       planPaymentType?: "monthly" | "upfront";
@@ -700,7 +702,6 @@ export async function approveSubscriptionRequest(requestId: number) {
       onboardingCompletedAt: Date;
       updatedAt: Date;
     } = {
-      currentProgramTier: request.planTier,
       planExpiresAt,
       planRenewalReminderSentAt: null,
       onboardingCompleted: true,
@@ -708,21 +709,37 @@ export async function approveSubscriptionRequest(requestId: number) {
       updatedAt: new Date(),
     };
 
+    // Always remember the exact plan the athlete paid for. This is what
+    // drives feature gating — including for tier-less (custom/duration) plans.
+    if (request.planId) {
+      athletePayload.currentPlanId = request.planId;
+    }
+    // Only set currentProgramTier when the plan has one — tier-less (custom) plans
+    // grant access without changing the athlete's tier.
+    if (request.planTier) {
+      athletePayload.currentProgramTier = request.planTier;
+    }
+
     if (cycleRaw === "one_time") {
-      tierPayload.planPaymentType = "upfront";
-      tierPayload.planCommitmentMonths = null;
+      athletePayload.planPaymentType = "upfront";
+      athletePayload.planCommitmentMonths = null;
     } else if (cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly") {
-      tierPayload.planPaymentType = cycleRaw === "monthly" ? "monthly" : "upfront";
-      tierPayload.planCommitmentMonths = cycleRaw === "monthly" ? 1 : cycleRaw === "six_months" ? 6 : 12;
+      athletePayload.planPaymentType = cycleRaw === "monthly" ? "monthly" : "upfront";
+      athletePayload.planCommitmentMonths = cycleRaw === "monthly" ? 1 : cycleRaw === "six_months" ? 6 : 12;
     }
 
     if (request.guardianId) {
-      // Guardian owns the tier — set it on the guardian record (source of truth)
-      // and mirror to managed athletes so expiry/content-gating queries still work.
-      await tx.update(guardianTable).set({ currentProgramTier: request.planTier, updatedAt: new Date() }).where(eq(guardianTable.id, request.guardianId));
-      await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.guardianId, request.guardianId));
+      const guardianPayload: { currentProgramTier?: typeof request.planTier; currentPlanId?: number | null; updatedAt: Date } = {
+        updatedAt: new Date(),
+      };
+      if (request.planTier) guardianPayload.currentProgramTier = request.planTier;
+      if (request.planId) guardianPayload.currentPlanId = request.planId;
+      if (Object.keys(guardianPayload).length > 1) {
+        await tx.update(guardianTable).set(guardianPayload).where(eq(guardianTable.id, request.guardianId));
+      }
+      await tx.update(athleteTable).set(athletePayload).where(eq(athleteTable.guardianId, request.guardianId));
     } else {
-      await tx.update(athleteTable).set(tierPayload).where(eq(athleteTable.id, request.athleteId));
+      await tx.update(athleteTable).set(athletePayload).where(eq(athleteTable.id, request.athleteId));
     }
 
     const updated = await tx
@@ -731,10 +748,12 @@ export async function approveSubscriptionRequest(requestId: number) {
       .where(eq(subscriptionRequestTable.id, requestId))
       .returning();
 
+    const planLabel = request.planTier ? request.planTier.replace(/_/g, " ") : "custom";
+
     await tx.insert(notificationTable).values({
       userId: request.userId,
       type: "plan_approved",
-      content: `Your ${request.planTier.replace("_", " ")} plan has been approved.`,
+      content: `Your ${planLabel} plan has been approved.`,
       link: "/plans",
       read: false,
     });
@@ -743,15 +762,15 @@ export async function approveSubscriptionRequest(requestId: number) {
       await sendPushNotification(
         request.userId,
         "Plan approved",
-        `Your ${request.planTier.replace("_", " ")} plan is now active.`,
-        { url: "/plans", type: "plan_approved", planTier: request.planTier },
+        `Your ${planLabel} plan is now active.`,
+        { url: "/plans", type: "plan_approved", planTier: request.planTier ?? "custom" },
       );
     } catch (error) {
       console.error("[Billing] Failed to send plan approval push:", error);
     }
 
     const approvedRow = updated[0] ?? null;
-    const planApprovedEmail = approvedRow ? { userId: request.userId, planTier: request.planTier } : null;
+    const planApprovedEmail = approvedRow ? { userId: request.userId, planTier: request.planTier ?? "custom" } : null;
     return { row: approvedRow, planApprovedEmail };
   });
 

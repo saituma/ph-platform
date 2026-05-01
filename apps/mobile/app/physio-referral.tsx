@@ -8,7 +8,6 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
-import { hasPhpProPlanFeatures } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
 import { useSocket } from "@/context/SocketContext";
 
@@ -34,8 +33,8 @@ type ReferralData = {
 
 export default function PhysioReferralScreen() {
   const router = useRouter();
-  const { token, programTier } = useAppSelector((state) => state.user);
-  const hasProReferrals = hasPhpProPlanFeatures(programTier);
+  const { token, capabilities } = useAppSelector((state) => state.user);
+  const hasProReferrals = Boolean(capabilities?.physioReferrals);
   const { socket } = useSocket();
   const [loading, setLoading] = useState(true);
   const [referral, setReferral] = useState<ReferralData | null>(null);

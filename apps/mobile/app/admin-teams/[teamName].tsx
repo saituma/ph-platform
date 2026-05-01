@@ -12,20 +12,51 @@ import { Modal, Pressable, Switch, View } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 
+type AdminTeamMember = {
+  athleteId: number;
+  athleteName: string | null;
+  currentProgramTier: string | null;
+  age: number | null;
+};
+
 type AdminTeamDetail = {
   team: string;
+  athleteType: "youth" | "adult";
+  minAge: number | null;
+  maxAge: number | null;
   summary: {
     memberCount: number;
     guardianCount: number;
     createdAt: string | null;
     updatedAt: string | null;
   };
-  members: {
-    athleteId: number;
-    athleteName: string | null;
-    currentProgramTier: string | null;
-  }[];
+  members: AdminTeamMember[];
 };
+
+const AGE_BANDS = [
+  { label: "U10", minAge: 0, maxAge: 9 },
+  { label: "U12", minAge: 10, maxAge: 11 },
+  { label: "U14", minAge: 12, maxAge: 13 },
+  { label: "U16", minAge: 14, maxAge: 15 },
+  { label: "U18", minAge: 16, maxAge: 17 },
+  { label: "18+", minAge: 18, maxAge: 999 },
+];
+const BAND_ORDER = [...AGE_BANDS.map((b) => b.label), "Unknown"];
+
+function getAgeBand(age: number | null): string {
+  if (age === null) return "Unknown";
+  return AGE_BANDS.find((b) => age >= b.minAge && age <= b.maxAge)?.label ?? "Unknown";
+}
+
+function groupByAgeBand(members: AdminTeamMember[]) {
+  const groups: Record<string, AdminTeamMember[]> = {};
+  for (const m of members) {
+    const band = getAgeBand(m.age);
+    if (!groups[band]) groups[band] = [];
+    groups[band].push(m);
+  }
+  return groups;
+}
 
 type AdminUserRow = {
   id?: number;
@@ -195,6 +226,8 @@ export default function AdminTeamDetailScreen() {
   }, [assignOpen]);
 
   const members = detail?.members ?? [];
+  const athleteType = detail?.athleteType ?? "youth";
+  const ageBandGroups = useMemo(() => groupByAgeBand(members), [members]);
 
   const search = useCallback(async () => {
     if (!token || !bootstrapReady) return;
@@ -320,6 +353,35 @@ export default function AdminTeamDetailScreen() {
           />
         </View>
 
+        {/* Team type badge */}
+        <View className="mb-3 flex-row items-center gap-2">
+          <View
+            className="rounded-full px-3 py-1"
+            style={{
+              backgroundColor:
+                athleteType === "adult"
+                  ? isDark ? "rgba(99,102,241,0.18)" : "rgba(99,102,241,0.10)"
+                  : isDark ? `${colors.accent}22` : `${colors.accent}14`,
+            }}
+          >
+            <Text
+              className="text-[11px] font-outfit-semibold uppercase tracking-wider"
+              style={{
+                color: athleteType === "adult" ? (isDark ? "#a5b4fc" : "#4f46e5") : colors.accent,
+              }}
+            >
+              {athleteType === "adult" ? "Adult Team" : "Youth Team"}
+            </Text>
+          </View>
+          {athleteType === "adult" ? (
+            <SmallAction
+              label="Post to whole team"
+              tone="success"
+              onPress={() => {/* navigate to post screen */}}
+            />
+          ) : null}
+        </View>
+
         <View
           className="rounded-[28px] border p-5 mb-5"
           style={{
@@ -352,35 +414,82 @@ export default function AdminTeamDetailScreen() {
             <Text className="text-sm font-outfit text-secondary">
               No members yet.
             </Text>
+          ) : athleteType === "youth" ? (
+            <View className="gap-5">
+              {BAND_ORDER.filter((band) => ageBandGroups[band]?.length).map((band) => (
+                <View key={band}>
+                  <View className="flex-row items-center justify-between mb-2">
+                    <View className="flex-row items-center gap-2">
+                      <View
+                        className="rounded-md px-2 py-0.5"
+                        style={{ backgroundColor: `${colors.accent}18` }}
+                      >
+                        <Text
+                          className="text-[11px] font-outfit-semibold uppercase tracking-wider"
+                          style={{ color: colors.accent }}
+                        >
+                          {band}
+                        </Text>
+                      </View>
+                      <Text className="text-[12px] font-outfit text-secondary">
+                        {ageBandGroups[band].length} athlete{ageBandGroups[band].length !== 1 ? "s" : ""}
+                      </Text>
+                    </View>
+                    <SmallAction
+                      label={`Post to ${band}`}
+                      tone="success"
+                      onPress={() => {/* navigate to post screen for this age group */}}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    {ageBandGroups[band].map((m) => (
+                      <View
+                        key={m.athleteId}
+                        className="rounded-2xl border px-4 py-3"
+                        style={{
+                          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+                          borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+                        }}
+                      >
+                        <Text className="text-[13px] font-clash font-bold text-app" numberOfLines={1}>
+                          {m.athleteName ?? `Athlete #${m.athleteId}`}
+                        </Text>
+                        <Text className="text-[12px] font-outfit text-secondary">
+                          {m.age != null ? `Age ${m.age}` : "Age unknown"}
+                          {m.currentProgramTier ? ` · ${m.currentProgramTier}` : ""}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
           ) : (
-            <View className="gap-3">
+            <View className="gap-2">
               {members.map((m) => (
                 <View
                   key={m.athleteId}
-                  className="rounded-2xl border px-4 py-3"
+                  className="rounded-2xl border px-4 py-3 flex-row items-center justify-between"
                   style={{
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.03)"
-                      : "rgba(15,23,42,0.03)",
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(15,23,42,0.06)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+                    borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
                   }}
                 >
-                  <Text
-                    className="text-[13px] font-clash font-bold text-app"
-                    numberOfLines={1}
-                  >
-                    {m.athleteName ?? `Athlete #${m.athleteId}`}
-                  </Text>
-                  {m.currentProgramTier ? (
-                    <Text
-                      className="text-[12px] font-outfit text-secondary"
-                      numberOfLines={1}
-                    >
-                      {m.currentProgramTier}
+                  <View className="flex-1 mr-3">
+                    <Text className="text-[13px] font-clash font-bold text-app" numberOfLines={1}>
+                      {m.athleteName ?? `Athlete #${m.athleteId}`}
                     </Text>
-                  ) : null}
+                    {m.currentProgramTier ? (
+                      <Text className="text-[12px] font-outfit text-secondary" numberOfLines={1}>
+                        {m.currentProgramTier}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <SmallAction
+                    label="Post"
+                    tone="success"
+                    onPress={() => {/* navigate to post screen for this athlete */}}
+                  />
                 </View>
               ))}
             </View>

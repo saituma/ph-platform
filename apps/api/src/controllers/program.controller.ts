@@ -3,6 +3,9 @@ import { z } from "zod";
 
 import {
   getExerciseLibrary,
+  getMyAssignedPrograms,
+  getMyProgramFull,
+  getMySessionExercises,
   getProgramAiInsight,
   getProgramByIdForUser,
   getProgramCards,
@@ -44,6 +47,31 @@ export async function getProgramAiInsightController(req: Request, res: Response)
   const programId = programIdSchema.parse(req.params.programId);
   const insight = await getProgramAiInsight(programId);
   return res.status(200).json({ insight });
+}
+
+const sessionIdSchema = z.coerce.number().int().min(1);
+
+export async function listMyAssignedPrograms(req: Request, res: Response) {
+  const programs = await getMyAssignedPrograms(req.user!.id);
+  return res.status(200).json({ programs });
+}
+
+export async function getMyProgramFullController(req: Request, res: Response) {
+  const programId = programIdSchema.parse(req.params.programId);
+  const program = await getMyProgramFull(req.user!.id, programId);
+  if (!program) {
+    return res.status(404).json({ error: "Program not found" });
+  }
+  return res.status(200).json({ program });
+}
+
+export async function getMySessionExercisesController(req: Request, res: Response) {
+  const sessionId = sessionIdSchema.parse(req.params.sessionId);
+  const exercises = await getMySessionExercises(req.user!.id, sessionId);
+  if (!exercises) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+  return res.status(200).json({ exercises });
 }
 
 export async function getActiveProgramAiInsightController(req: Request, res: Response) {

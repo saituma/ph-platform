@@ -4,145 +4,107 @@ import {
 	TwitterLogo,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-
 import { usePortalConfig } from "../hooks/usePortalConfig";
 
 export default function Footer() {
 	const portalCfg = usePortalConfig();
 	const year = new Date().getFullYear();
-	const tagline = portalCfg.footer.tagline ||
-		"Empowering elite athletes and teams with professional tracking, performance analytics, and specialized coaching tools.";
 	const platformLinks = portalCfg.footer.platformLinks.length
 		? portalCfg.footer.platformLinks
 		: [
 			{ label: "Features", href: "/features" },
-			{ label: "About Us", href: "/about" },
+			{ label: "About", href: "/about" },
+			{ label: "Gallery", href: "/gallery" },
 		];
 	const legalLinks = portalCfg.footer.legalLinks.length
 		? portalCfg.footer.legalLinks
 		: [
-			{ label: "Terms of Service", href: "/terms-privacy" },
-			{ label: "Privacy Policy", href: "/terms-privacy" },
+			{ label: "Terms", href: "/terms-privacy" },
+			{ label: "Privacy", href: "/terms-privacy" },
 		];
-	const copyright = portalCfg.footer.copyright || `© ${year} PH Performance. All rights reserved.`;
+	const copyright = portalCfg.footer.copyright || `${year} ${portalCfg.footer.brand}`;
 
 	return (
-		<footer className="border-t border-border/40 bg-background py-24 px-6 md:px-8 overflow-hidden relative">
-			<div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-			<div className="mx-auto max-w-7xl">
-				<div className="grid grid-cols-1 gap-12 lg:grid-cols-4 md:grid-cols-2">
-					<div className="flex flex-col gap-8 col-span-1 lg:col-span-2">
-						<Link to="/" className="flex items-center gap-4 group">
-							<div className="w-10 h-10 overflow-hidden ring-1 ring-primary/20 group-hover:ring-primary/50 transition-all duration-300">
+		<footer className="border-t border-foreground/[0.06] bg-background">
+			<div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-7">
+				<div className="flex flex-col gap-6 py-8 md:flex-row md:items-center md:justify-between">
+					<div className="flex items-center gap-4">
+						<Link to="/" className="flex items-center gap-2 group">
+							<div className="w-5 h-5 overflow-hidden">
 								<img
 									src="/ph.jpg"
 									alt={portalCfg.footer.brand}
 									className="w-full h-full object-cover"
 								/>
 							</div>
-							<span
-								className="font-black uppercase tracking-widest text-foreground group-hover:text-primary transition-colors"
-								style={{ fontFamily: "var(--font-display)", fontSize: "1rem", letterSpacing: "0.12em", transitionDuration: "var(--duration-micro)" }}
-							>
-								{portalCfg.footer.brand}
+							<span className="select-none font-mono text-[11px] uppercase leading-none tracking-wider text-foreground/50 hover:text-foreground/80 transition-colors duration-150">
+								{portalCfg.footer.brand}.
 							</span>
 						</Link>
-						<p className="text-sm text-muted-foreground/60 leading-relaxed max-w-sm">
-							{tagline}
-						</p>
-						<div className="flex gap-5">
-							<a
-								href="https://instagram.com"
-								className="text-muted-foreground/40 hover:text-primary transition-all hover:scale-110 active:scale-90"
-								style={{ transitionDuration: "var(--duration-micro)" }}
-							>
-								<InstagramLogo size={24} weight="fill" />
-							</a>
-							<a
-								href="https://twitter.com"
-								className="text-muted-foreground/40 hover:text-primary transition-all hover:scale-110 active:scale-90"
-								style={{ transitionDuration: "var(--duration-micro)" }}
-							>
-								<TwitterLogo size={24} weight="fill" />
-							</a>
-							<a
-								href="https://linkedin.com"
-								className="text-muted-foreground/40 hover:text-primary transition-all hover:scale-110 active:scale-90"
-								style={{ transitionDuration: "var(--duration-micro)" }}
-							>
-								<LinkedinLogo size={24} weight="fill" />
-							</a>
-						</div>
+						<span className="text-foreground/10 text-[10px]">|</span>
+						<span className="font-mono text-[11px] text-foreground/35 tracking-wider">
+							{copyright}
+						</span>
 					</div>
 
-					<div>
-						<h3
-							className="font-black uppercase text-foreground/40 mb-8"
-							style={{ fontSize: "0.6rem", letterSpacing: "0.2em" }}
-						>
-							Platform
-						</h3>
-						<ul className="space-y-4">
-							{platformLinks.map((link) => (
-								<li key={`${link.label}-${link.href}`}>
-									<a
-										href={link.href}
-										className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-primary transition-all hover:translate-x-1 inline-block"
-										style={{ transitionDuration: "var(--duration-micro)" }}
-									>
-										{link.label}
-									</a>
-								</li>
-							))}
-						</ul>
+					<div className="flex items-center gap-1 flex-wrap">
+						{platformLinks.map((link, i) => (
+							<span key={`${link.label}-${link.href}`} className="flex items-center">
+								<a
+									href={link.href}
+									className="font-mono text-[11px] text-foreground/50 hover:text-foreground/80 transition-colors duration-150 uppercase tracking-wider px-1.5"
+								>
+									{link.label}
+								</a>
+								{i < platformLinks.length - 1 && (
+									<span className="text-foreground/10 text-[10px]">|</span>
+								)}
+							</span>
+						))}
+						<span className="text-foreground/10 text-[10px] mx-1">|</span>
+						{legalLinks.map((link, i) => (
+							<span key={`${link.label}-${link.href}`} className="flex items-center">
+								<a
+									href={link.href}
+									className="font-mono text-[11px] text-foreground/50 hover:text-foreground/80 transition-colors duration-150 uppercase tracking-wider px-1.5"
+								>
+									{link.label}
+								</a>
+								{i < legalLinks.length - 1 && (
+									<span className="text-foreground/10 text-[10px]">|</span>
+								)}
+							</span>
+						))}
 					</div>
 
-					<div>
-						<h3
-							className="font-black uppercase text-foreground/40 mb-8"
-							style={{ fontSize: "0.6rem", letterSpacing: "0.2em" }}
-						>
-							Legal
-						</h3>
-						<ul className="space-y-4">
-							{legalLinks.map((link) => (
-								<li key={`${link.label}-${link.href}`}>
-									<a
-										href={link.href}
-										className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 hover:text-primary transition-all hover:translate-x-1 inline-block"
-										style={{ transitionDuration: "var(--duration-micro)" }}
-									>
-										{link.label}
-									</a>
-								</li>
-							))}
-						</ul>
-					</div>
-				</div>
-
-				<div className="mt-24 pt-10 border-t border-border/40 flex flex-col items-center justify-between gap-8 md:flex-row">
-					<p
-						className="font-black uppercase text-muted-foreground/30"
-						style={{ fontSize: "0.6rem", letterSpacing: "0.2em" }}
-					>
-						{copyright}
-					</p>
-					<div className="flex items-center gap-8">
+					<div className="flex items-center gap-3">
 						<a
-							href="https://clientreach.ai"
+							href="https://instagram.com"
 							target="_blank"
 							rel="noreferrer"
-							className="font-black text-muted-foreground/30 hover:text-primary transition-colors uppercase"
-							style={{ fontSize: "0.6rem", letterSpacing: "0.2em", transitionDuration: "var(--duration-micro)" }}
+							className="flex items-center justify-center p-1 text-foreground/30 hover:text-foreground/60 transition-colors duration-150"
+							aria-label="Instagram"
 						>
-							Built by Client Reach AI
+							<InstagramLogo size={14} weight="fill" />
 						</a>
-						<span
-							className="font-black uppercase text-primary/50 border-l-2 border-primary/40 pl-3 animate-pulse"
-							style={{ fontSize: "0.6rem", letterSpacing: "0.25em" }}
+						<a
+							href="https://twitter.com"
+							target="_blank"
+							rel="noreferrer"
+							className="flex items-center justify-center p-1 text-foreground/30 hover:text-foreground/60 transition-colors duration-150"
+							aria-label="Twitter"
 						>
-							Stay Elite
-						</span>
+							<TwitterLogo size={14} weight="fill" />
+						</a>
+						<a
+							href="https://linkedin.com"
+							target="_blank"
+							rel="noreferrer"
+							className="flex items-center justify-center p-1 text-foreground/30 hover:text-foreground/60 transition-colors duration-150"
+							aria-label="LinkedIn"
+						>
+							<LinkedinLogo size={14} weight="fill" />
+						</a>
 					</div>
 				</div>
 			</div>

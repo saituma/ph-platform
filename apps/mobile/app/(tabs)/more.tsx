@@ -16,6 +16,7 @@ import {
   logout,
   updateProfile,
   setCapabilities,
+  setPlanFeatures,
   setProgramTier,
 } from "../../store/slices/userSlice";
 import type { AppCapabilities } from "../../store/slices/userSlice";
@@ -71,13 +72,10 @@ export default function MoreScreen() {
   } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
-  const isPremiumPlus = normalizeProgramTier(programTier) === "PHP_Premium_Plus"
-    || normalizeProgramTier(programTier) === "PHP_Pro";
-  const isPro = normalizeProgramTier(programTier) === "PHP_Pro";
   const showParentPlatform =
-    isAuthenticated && (Boolean(capabilities?.parentContent) || isPremiumPlus);
-  const canAccessFoodDiary = Boolean(capabilities?.nutrition) || isPremiumPlus;
-  const showPhysioReferrals = Boolean(capabilities?.physioReferrals) || isPro;
+    isAuthenticated && Boolean(capabilities?.parentContent);
+  const canAccessFoodDiary = Boolean(capabilities?.nutrition);
+  const showPhysioReferrals = Boolean(capabilities?.physioReferrals);
 
   useEffect(() => {
     transition.value = 0;
@@ -111,6 +109,7 @@ export default function MoreScreen() {
               email?: string | null;
               profilePicture?: string | null;
               capabilities?: AppCapabilities | null;
+              planFeatures?: string[];
               programTier?: string | null;
             };
           }>("/auth/me", {
@@ -128,6 +127,7 @@ export default function MoreScreen() {
               }),
             );
             dispatch(setCapabilities(me.user.capabilities ?? null));
+            dispatch(setPlanFeatures(me.user.planFeatures ?? []));
             dispatch(setProgramTier(me.user.programTier ?? null));
           }
         } catch {

@@ -66,6 +66,10 @@ export function useChatActions({
   // back-to-back /messages requests when the hook deps churn (logs showed 14+
   // calls in seconds — every one is a full /messages + /inbox round-trip).
   const inFlightLoadRef = useRef(false);
+  // Set to true when a load is skipped because one is already in flight.
+  // The finally block checks this and fires a follow-up silent reload so the
+  // socket reconnect / focus trigger that was dropped is never lost.
+  const pendingReloadRef = useRef(false);
 
   const loadMessages = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -74,7 +78,7 @@ export function useChatActions({
         return;
       }
       if (inFlightLoadRef.current) {
-        console.log("[DEBUG-msg] loadMessages: skipped (already in flight)");
+        pendingReloadRef.current = true;
         return;
       }
       inFlightLoadRef.current = true;
@@ -307,6 +311,11 @@ export function useChatActions({
       } finally {
         if (!silent) setIsLoading(false);
         inFlightLoadRef.current = false;
+        if (pendingReloadRef.current) {
+          pendingReloadRef.current = false;
+          // A reload was requested while we were in flight — fire it now silently.
+          setTimeout(() => loadMessages({ silent: true }), 0);
+        }
       }
     },
     [actingHeaders, effectiveProfileId, profileName, programTier, token, setIsLoading, setThreads, setMessages],

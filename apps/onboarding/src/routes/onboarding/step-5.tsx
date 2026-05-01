@@ -18,6 +18,7 @@ import { Skeleton } from "#/components/ui/skeleton";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
 import { cn } from "#/lib/utils";
+import { featureKeyToLabel } from "#/lib/billing-features";
 
 export const Route = createFileRoute("/onboarding/step-5")({
 	head: () => ({
@@ -441,13 +442,13 @@ function OnboardingStep5() {
 						<Skeleton className="h-5 w-96 mx-auto" />
 					</div>
 					<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl mx-auto">
-						<Skeleton className="h-20 w-full rounded-2xl" />
-						<Skeleton className="h-20 w-full rounded-2xl" />
-						<Skeleton className="h-20 w-full rounded-2xl" />
+						<Skeleton className="h-20 w-full" />
+						<Skeleton className="h-20 w-full" />
+						<Skeleton className="h-20 w-full" />
 					</div>
 					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
 						{[0, 1, 2, 3].map((i) => (
-							<Skeleton key={i} className="h-[480px] w-full rounded-3xl" />
+							<Skeleton key={i} className="h-[480px] w-full" />
 						))}
 					</div>
 				</div>
@@ -458,9 +459,9 @@ function OnboardingStep5() {
 	if (!plans.length && !isLoading) {
 		return (
 			<main className="mx-auto max-w-lg px-4 py-16 text-center">
-				<p className="text-sm font-bold uppercase tracking-widest text-primary">Plans</p>
-				<h1 className="mt-2 text-2xl font-black tracking-tight">No plans available</h1>
-				<p className="mt-2 text-muted-foreground">
+				<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Plans</p>
+				<h1 className="mt-2 text-2xl font-medium tracking-tight text-foreground">No plans available</h1>
+				<p className="mt-2 text-sm text-muted-foreground leading-relaxed">
 					Subscription plans are not configured yet. Please try again later or contact support.
 				</p>
 			</main>
@@ -484,40 +485,40 @@ function OnboardingStep5() {
 		<main className="mx-auto max-w-7xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-12 animate-in fade-in duration-700">
 				<div className="space-y-4 text-center max-w-2xl mx-auto">
-					<p className="text-sm font-bold uppercase tracking-widest text-primary">
+					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 						Final Step
 					</p>
-					<h1 className="text-4xl font-black tracking-tight text-foreground sm:text-6xl uppercase italic">
-						Choose Your <span className="text-primary">Plan</span>
+					<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
+						Choose Your Plan
 					</h1>
-					<p className="text-lg text-muted-foreground font-medium">
+					<p className="text-sm text-muted-foreground leading-relaxed">
 						Pick how you want to pay, then select the tier that fits your goals.
 					</p>
 				</div>
 
 				{isTeam && (
-					<Card className="max-w-3xl mx-auto rounded-3xl border-primary/20 bg-primary/5 p-6">
+					<Card className="max-w-3xl mx-auto border border-foreground/[0.06] p-6">
 						<div className="flex items-center justify-between flex-wrap gap-2">
-							<Badge variant="secondary" className="text-[10px] font-black uppercase tracking-widest">
+							<Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider">
 								Team Pricing
 							</Badge>
-							<p className="text-xs text-muted-foreground font-medium">
-								Total = <span className="font-black text-foreground">plan price × athletes</span>
+							<p className="text-xs text-muted-foreground">
+								Total = <span className="font-medium text-foreground">plan price x athletes</span>
 							</p>
 						</div>
-						<Separator className="my-4 bg-primary/10" />
+						<Separator className="my-4 bg-foreground/[0.06]" />
 						<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-							<div className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3">
-								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Team</p>
-								<p className="mt-1 text-sm font-bold truncate">{teamCheckout?.teamName ?? "Your team"}</p>
+							<div className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3">
+								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Team</p>
+								<p className="mt-1 text-sm font-medium truncate">{teamCheckout?.teamName ?? "Your team"}</p>
 							</div>
-							<div className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3">
-								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Athletes</p>
-								<p className="mt-1 text-sm font-bold">{teamSize ?? "—"}</p>
+							<div className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3">
+								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Athletes</p>
+								<p className="mt-1 text-sm font-medium">{teamSize ?? "—"}</p>
 							</div>
-							<div className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3">
-								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Estimated</p>
-								<p className="mt-1 text-sm font-bold">
+							<div className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3">
+								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Estimated</p>
+								<p className="mt-1 text-sm font-medium">
 									{estimatedTotal == null ? "—" : formatMoney(currencySymbol, estimatedTotal)}
 								</p>
 							</div>
@@ -531,7 +532,7 @@ function OnboardingStep5() {
 				)}
 
 				<div className="max-w-3xl mx-auto space-y-3">
-					<p className="text-center text-xs font-bold uppercase tracking-widest text-muted-foreground">
+					<p className="text-center font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 						Billing
 					</p>
 					<div
@@ -551,21 +552,21 @@ function OnboardingStep5() {
 									aria-checked={active}
 									onClick={() => setBillingCycle(opt.id)}
 									className={cn(
-										"relative rounded-2xl border-2 p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+										"relative border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
 										active
-											? "border-primary bg-primary/[0.06] shadow-md ring-2 ring-primary/10"
-											: "border-border/60 bg-card/40 hover:border-primary/30",
+											? "border-foreground bg-foreground/[0.04]"
+											: "border-foreground/[0.06] hover:border-foreground/20",
 									)}
 								>
 									<div className="flex items-center justify-between">
-										<p className="text-sm font-black uppercase tracking-tight">{opt.title}</p>
+										<p className="font-mono text-xs uppercase tracking-wider">{opt.title}</p>
 										{savings && (
-											<Badge variant="default" className="text-[9px] font-black uppercase tracking-wider">
+											<Badge variant="default" className="font-mono text-[9px] uppercase tracking-wider">
 												{savings}
 											</Badge>
 										)}
 									</div>
-									<p className="text-[11px] font-semibold text-muted-foreground mt-1">
+									<p className="text-[11px] text-muted-foreground mt-1">
 										{opt.description}
 									</p>
 								</button>
@@ -632,18 +633,17 @@ function OnboardingStep5() {
 									}
 								}}
 								className={cn(
-									"relative p-5 sm:p-7 flex flex-col h-full rounded-3xl border-2 transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+									"relative p-5 sm:p-7 flex flex-col h-full border transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
 									isSelected
-										? "border-primary bg-primary/[0.02] shadow-xl ring-4 ring-primary/5 scale-[1.02]"
-										: "border-border/60 bg-card/50 hover:border-primary/40",
-									isPopular && !isSelected && "border-primary/40",
+										? "border-foreground"
+										: "border-foreground/[0.06] hover:border-foreground/20",
 								)}
 							>
 								{isPopular && (
 									<div className="absolute -top-3 left-1/2 -translate-x-1/2">
 										<Badge
 											variant="default"
-											className="text-[9px] font-black uppercase tracking-widest px-3 py-1 shadow-md"
+											className="font-mono text-[9px] uppercase tracking-wider px-3 py-1"
 										>
 											Most Popular
 										</Badge>
@@ -653,18 +653,18 @@ function OnboardingStep5() {
 									<div className="flex items-center justify-between">
 										<div
 											className={cn(
-												"p-3 rounded-2xl transition-colors",
-												isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary",
+												"p-3 transition-colors",
+												isSelected ? "bg-foreground/10 text-foreground/60" : "bg-foreground/10 text-foreground/60",
 											)}
 										>
 											<Icon size={28} weight="bold" />
 										</div>
 										<div
 											className={cn(
-												"flex items-center justify-center w-7 h-7 rounded-full border-2 transition-all",
+												"flex items-center justify-center w-7 h-7 border-2 transition-all",
 												isSelected
-													? "bg-primary border-primary text-primary-foreground"
-													: "border-border/60 text-transparent",
+													? "bg-foreground border-foreground text-background"
+													: "border-foreground/[0.06] text-transparent",
 											)}
 											aria-hidden
 										>
@@ -673,8 +673,8 @@ function OnboardingStep5() {
 									</div>
 
 									<div className="space-y-1">
-										<h3 className="text-2xl font-black uppercase tracking-tight leading-none">{title}</h3>
-										<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+										<h3 className="text-lg font-medium tracking-tight leading-none">{title}</h3>
+										<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 											{formatTierLine(plan.tier)}
 										</p>
 									</div>
@@ -686,12 +686,12 @@ function OnboardingStep5() {
 										return (
 											<div className="flex flex-col gap-1.5">
 												<div className="flex items-baseline gap-2 flex-wrap">
-													<span className="text-4xl font-black text-foreground">
+													<span className="text-3xl font-medium tracking-tight text-foreground">
 														{pricing.discounted ?? "—"}
 													</span>
 													{pricing.showOriginal ? (
 														<span
-															className="text-base font-semibold text-muted-foreground/70 line-through decoration-2 decoration-rose-400/70"
+															className="text-base text-muted-foreground/70 line-through decoration-2 decoration-rose-400/70"
 															aria-label={`Original price ${pricing.original}`}
 														>
 															{pricing.original}
@@ -700,13 +700,13 @@ function OnboardingStep5() {
 													{pricing.percentOff ? (
 														<Badge
 															variant="secondary"
-															className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider"
+															className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5"
 														>
 															Save {pricing.percentOff}%
 														</Badge>
 													) : null}
 												</div>
-												<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+												<span className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
 													{priceSuffix(billingCycle)}
 													{billingCycle === "monthly" ? " · subscription" : " · one-time"}
 												</span>
@@ -719,11 +719,11 @@ function OnboardingStep5() {
 									<ul className="space-y-3 flex-1">
 										{featureList.map((feature: string, i: number) => (
 											<li key={i} className="flex items-start gap-3">
-												<div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
-													<Check size={10} weight="bold" className="text-primary" />
+												<div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+													<Check size={10} weight="bold" className="text-foreground/40" />
 												</div>
-												<span className="text-[13px] font-semibold text-foreground/85 leading-snug">
-													{feature}
+												<span className="text-sm text-foreground/70 leading-snug">
+													{featureKeyToLabel(feature)}
 												</span>
 											</li>
 										))}
@@ -738,32 +738,32 @@ function OnboardingStep5() {
 					<Button
 						onClick={handlePayment}
 						disabled={isSubmitting || !selectedPlan || isLoading}
-						className="w-full h-16 rounded-2xl text-xl font-black uppercase italic shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+						className="w-full h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-opacity"
 					>
 						{isSubmitting ? (
-							<CircleNotch className="w-8 h-8 animate-spin text-primary-foreground" />
+							<CircleNotch className="w-5 h-5 animate-spin" />
 						) : (
 							<>
 								Continue to Payment
-								<Lightning weight="fill" className="w-6 h-6" />
+								<Lightning weight="fill" className="w-4 h-4" />
 							</>
 						)}
 					</Button>
 
 					<div className="flex flex-wrap items-center justify-center gap-6 text-muted-foreground">
 						<div className="flex items-center gap-2">
-							<ShieldCheck size={18} className="text-primary" />
-							<span className="text-[10px] font-bold uppercase tracking-widest">Secure Checkout</span>
+							<ShieldCheck size={18} className="text-foreground/40" />
+							<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Secure Checkout</span>
 						</div>
 						{billingCycle === "monthly" ? (
 							<div className="flex items-center gap-2">
-								<Check size={18} className="text-primary" />
-								<span className="text-[10px] font-bold uppercase tracking-widest">Cancel Anytime</span>
+								<Check size={18} className="text-foreground/40" />
+								<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Cancel Anytime</span>
 							</div>
 						) : (
 							<div className="flex items-center gap-2">
-								<Check size={18} className="text-primary" />
-								<span className="text-[10px] font-bold uppercase tracking-widest">Single payment</span>
+								<Check size={18} className="text-foreground/40" />
+								<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Single payment</span>
 							</div>
 						)}
 					</div>

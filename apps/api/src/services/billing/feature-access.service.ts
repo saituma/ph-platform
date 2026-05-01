@@ -20,6 +20,7 @@ export async function getFeaturesForAthlete(athleteId: number): Promise<Set<Feat
   const athleteRows = await db
     .select({
       currentProgramTier: athleteTable.currentProgramTier,
+      currentPlanId: athleteTable.currentPlanId,
       guardianId: athleteTable.guardianId,
     })
     .from(athleteTable)
@@ -27,15 +28,34 @@ export async function getFeaturesForAthlete(athleteId: number): Promise<Set<Feat
     .limit(1);
 
   let tier = athleteRows[0]?.currentProgramTier ?? null;
+  let planId = athleteRows[0]?.currentPlanId ?? null;
   const guardianId = athleteRows[0]?.guardianId ?? null;
 
-  if (!tier && guardianId) {
+  if (!planId && !tier && guardianId) {
     const g = await db
-      .select({ currentProgramTier: guardianTable.currentProgramTier })
+      .select({
+        currentProgramTier: guardianTable.currentProgramTier,
+        currentPlanId: guardianTable.currentPlanId,
+      })
       .from(guardianTable)
       .where(eq(guardianTable.id, guardianId))
       .limit(1);
     tier = g[0]?.currentProgramTier ?? null;
+    planId = g[0]?.currentPlanId ?? null;
+  }
+
+  // Prefer the explicit plan the athlete paid for. This is the only path that
+  // works for tier-less plans (e.g. duration-based one-time programmes).
+  if (planId) {
+    const planRows = await db
+      .select()
+      .from(subscriptionPlanTable)
+      .where(eq(subscriptionPlanTable.id, planId))
+      .limit(1);
+    const plan = planRows[0] ?? null;
+    if (plan && plan.isActive) {
+      return getEffectivePlanFeatures({ features: plan.features, tier: plan.tier });
+    }
   }
 
   if (!tier) return new Set<FeatureKey>();

@@ -45,9 +45,7 @@ import {
   getErrorMessage,
   planFormToPayload,
   planToFormState,
-  type DiscountAppliesTo,
   type DiscountRule,
-  type DiscountType,
   type PlanFormState,
   type PlanTier,
   type SubscriptionPlan,
@@ -106,7 +104,7 @@ export function PlansManager() {
   const [form, setForm] = useState<PlanFormState | null>(null);
   const [importTarget, setImportTarget] = useState<PriceRow | null>(null);
   const [importName, setImportName] = useState("");
-  const [importTier, setImportTier] = useState<PlanTier>("PHP");
+  const [importTier, setImportTier] = useState<PlanTier | null>(null);
   const [isImporting, setIsImporting] = useState(false);
 
   const load = useCallback(async () => {
@@ -185,8 +183,18 @@ export function PlansManager() {
       const payload = planFormToPayload(form);
 
       if (!payload.name) throw new Error("Name is required.");
-      if (!form.monthlyEnabled && !form.yearlyEnabled && !form.oneTimeEnabled) {
-        throw new Error("Enable at least one billing option (monthly, 6 months, or 1 year).");
+      const hasDurationOneTime =
+        (form.durationWeeksPrice != null && form.durationWeeksPrice > 0) ||
+        (form.durationDaysPrice != null &&
+          form.durationDaysPrice > 0 &&
+          form.durationDaysPerWeek != null &&
+          form.durationDaysPerWeek > 0 &&
+          form.durationWeeks != null &&
+          form.durationWeeks > 0);
+      if (!form.monthlyEnabled && !form.yearlyEnabled && !form.oneTimeEnabled && !hasDurationOneTime) {
+        throw new Error(
+          "Enable at least one billing option (monthly, 6 months, 1 year, or set a programme duration price).",
+        );
       }
       if (form.monthlyEnabled && !form.monthlyPrice.trim()) throw new Error("Monthly price required.");
       if (form.yearlyEnabled && !payload.yearlyPrice) {
@@ -211,7 +219,14 @@ export function PlansManager() {
       );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? `Failed to ${isEditing ? "update" : "create"} plan.`);
+        const fieldErrors = data?.details?.fieldErrors as Record<string, string[]> | undefined;
+        const fieldMsg = fieldErrors
+          ? Object.entries(fieldErrors)
+              .map(([k, v]) => `${k}: ${(v ?? []).join(", ")}`)
+              .join("; ")
+          : "";
+        const baseMsg = data?.error ?? `Failed to ${isEditing ? "update" : "create"} plan.`;
+        throw new Error(fieldMsg ? `${baseMsg} — ${fieldMsg}` : baseMsg);
       }
       await load();
       setForm(null);
@@ -226,7 +241,7 @@ export function PlansManager() {
     setActionError(null);
     setImportTarget(row);
     setImportName(row.productName || "");
-    setImportTier("PHP");
+    setImportTier(null);
   };
 
   const handleImport = async () => {
@@ -262,7 +277,7 @@ export function PlansManager() {
         },
         body: JSON.stringify({
           name: importName.trim(),
-          tier: importTier,
+          tier: importTier || null,
           stripePriceId: importTarget.stripePriceId,
           interval,
           displayPrice: `${priceLabel}${suffix}`,
@@ -409,11 +424,11 @@ export function PlansManager() {
                 <Label htmlFor="import-tier">Tier</Label>
                 <Select
                   items={TIER_ITEMS}
-                  value={importTier}
-                  onValueChange={(v) => setImportTier((v ?? "PHP") as PlanTier)}
+                  value={importTier ?? ""}
+                  onValueChange={(v) => setImportTier((v || null) as PlanTier | null)}
                 >
                   <SelectTrigger id="import-tier">
-                    <SelectValue />
+                    <SelectValue placeholder="No tier (custom plan)" />
                   </SelectTrigger>
                   <SelectPopup>
                     {TIER_ITEMS.map((item) => (
@@ -482,10 +497,17 @@ function PlansTable({
               <TableRow key={plan.id}>
                 <TableCell className="font-medium">
                   <div>{plan.name}</div>
-                  <div className="text-xs text-muted-foreground">{plan.displayPrice}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {plan.displayPrice}
+                    {plan.durationWeeks ? (
+                      <span className="ml-2 text-muted-foreground/70">
+                        · {plan.durationWeeks}w{plan.durationDaysPerWeek ? ` × ${plan.durationDaysPerWeek}d/wk` : ""}
+                      </span>
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{plan.tier}</Badge>
+                  <Badge variant="secondary">{plan.tier ?? "Custom"}</Badge>
                 </TableCell>
                 <TableCell className="space-y-0.5 text-sm tabular-nums">
                   {plan.monthlyPrice ? <div>{plan.monthlyPrice}/mo</div> : null}
@@ -572,7 +594,7 @@ function StripePricesTable({
                     <span>
                       {row.dbPlanName}{" "}
                       <Badge variant={row.dbPlanActive ? "success" : "secondary"} className="ml-1">
-                        {row.dbPlanTier}
+                        {row.dbPlanTier ?? "Custom"}
                       </Badge>
                     </span>
                   ) : (
@@ -649,11 +671,11 @@ function PlanEditorDialog({
                 <Label htmlFor="plan-tier">Tier</Label>
                 <Select
                   items={TIER_ITEMS}
-                  value={form.tier}
-                  onValueChange={(v) => update({ tier: (v ?? "PHP") as PlanTier })}
+                  value={form.tier ?? ""}
+                  onValueChange={(v) => update({ tier: (v || null) as PlanTier | null })}
                 >
                   <SelectTrigger id="plan-tier">
-                    <SelectValue />
+                    <SelectValue placeholder="No tier (custom plan)" />
                   </SelectTrigger>
                   <SelectPopup>
                     {TIER_ITEMS.map((item) => (
@@ -664,6 +686,138 @@ function PlanEditorDialog({
                   </SelectPopup>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-border p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium">Program duration</div>
+                  <p className="text-xs text-muted-foreground">
+                    How long this plan runs. Enable to set weeks, then you'll be asked for training days per week.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="duration-toggle"
+                  className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+                  checked={form.durationWeeks != null}
+                  onChange={(e) => {
+                    if (!e.target.checked) {
+                      update({ durationWeeks: null, durationDaysPerWeek: null });
+                    } else {
+                      update({ durationWeeks: 12 });
+                    }
+                  }}
+                />
+              </div>
+
+              {form.durationWeeks != null && (
+                <div className="space-y-4">
+                  {/* Weeks + price */}
+                  <div className="space-y-2">
+                    <Label htmlFor="plan-weeks">How many weeks does this plan run?</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="plan-weeks"
+                        type="number"
+                        min={1}
+                        max={104}
+                        value={form.durationWeeks ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value === "" ? null : Math.max(1, Math.min(104, parseInt(e.target.value, 10)));
+                          update({ durationWeeks: isNaN(v as number) ? null : v });
+                        }}
+                        placeholder="e.g. 12"
+                        className="w-28"
+                      />
+                      <div className="relative flex-1">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">£</span>
+                        <Input
+                          id="plan-weeks-price"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={form.durationWeeksPrice != null ? String(form.durationWeeksPrice / 100) : ""}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              update({ durationWeeksPrice: null });
+                              return;
+                            }
+                            const parsed = parseFloat(raw);
+                            if (isNaN(parsed)) return;
+                            update({ durationWeeksPrice: Math.round(parsed * 100) });
+                          }}
+                          placeholder="Price for this programme"
+                          className="pl-7"
+                        />
+                      </div>
+                    </div>
+                    {form.durationWeeksPrice != null && form.durationWeeks && (
+                      <p className="text-xs text-muted-foreground">
+                        £{(form.durationWeeksPrice / 100).toFixed(2)} for {form.durationWeeks} weeks
+                        {form.durationWeeks > 0 ? ` (£${(form.durationWeeksPrice / form.durationWeeks / 100).toFixed(2)}/week)` : ""}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Days per week + price */}
+                  <div className="space-y-2">
+                    <Label htmlFor="plan-days">
+                      How many days per week will the athlete train?
+                      <span className="ml-1 text-xs text-muted-foreground font-normal">(optional)</span>
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="plan-days"
+                        type="number"
+                        min={1}
+                        max={7}
+                        value={form.durationDaysPerWeek ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value === "" ? null : Math.max(1, Math.min(7, parseInt(e.target.value, 10)));
+                          update({ durationDaysPerWeek: isNaN(v as number) ? null : v });
+                        }}
+                        placeholder="e.g. 5"
+                        className="w-28"
+                      />
+                      {form.durationDaysPerWeek != null && (
+                        <div className="relative flex-1">
+                          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">£</span>
+                          <Input
+                            id="plan-days-price"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={form.durationDaysPrice != null ? String(form.durationDaysPrice / 100) : ""}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === "") {
+                                update({ durationDaysPrice: null });
+                                return;
+                              }
+                              const parsed = parseFloat(raw);
+                              if (isNaN(parsed)) return;
+                              update({ durationDaysPrice: Math.round(parsed * 100) });
+                            }}
+                            placeholder="Price for this day rate"
+                            className="pl-7"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {form.durationWeeks && form.durationDaysPerWeek ? (
+                    <p className="text-xs text-muted-foreground">
+                      {form.durationWeeks} weeks × {form.durationDaysPerWeek} days/week ={" "}
+                      <span className="font-medium text-foreground">
+                        {form.durationWeeks * form.durationDaysPerWeek} total training days
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

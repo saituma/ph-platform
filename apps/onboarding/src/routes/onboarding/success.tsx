@@ -140,15 +140,14 @@ function OnboardingSuccess() {
 			<section className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="flex flex-col items-center text-center space-y-6">
 					<div className="relative">
-						<div className="absolute inset-0 blur-3xl bg-primary/20 rounded-full animate-pulse" />
-						<div className="relative bg-primary/10 p-6 rounded-full border border-primary/20">
-							<CheckCircle size={64} weight="fill" className="text-primary" />
+						<div className="relative bg-foreground/10 p-6 border border-foreground/[0.06]">
+							<CheckCircle size={64} weight="fill" className="text-foreground/60" />
 						</div>
 					</div>
 
 					<div className="space-y-3">
-						<h1 className="text-4xl font-black tracking-tight text-foreground sm:text-6xl uppercase italic leading-none">
-							Payment <span className="text-primary">Received</span>
+						<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground leading-none">
+							Payment Received
 						</h1>
 						<p className="text-lg text-muted-foreground font-medium max-w-md mx-auto leading-relaxed">
 							Thank you for joining the PH Platform. Your elite performance
@@ -158,21 +157,21 @@ function OnboardingSuccess() {
 				</div>
 
 				{receipt ? (
-					<Card className="border-primary/30 bg-card/80 p-5 sm:p-8 rounded-3xl ring-1 ring-primary/20 text-left space-y-4">
-						<p className="text-xs font-bold uppercase tracking-widest text-primary">
+					<Card className="border border-foreground/[0.06] p-5 sm:p-8 text-left space-y-4">
+						<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 							PH Performance · receipt
 						</p>
-						<h2 className="text-2xl font-black uppercase italic">
+						<h2 className="text-lg font-medium tracking-tight">
 							Your payment details
 						</h2>
 						<dl className="grid gap-2 text-sm">
-							<div className="flex justify-between gap-4 border-b border-border/60 pb-2">
+							<div className="flex justify-between gap-4 border-b border-foreground/[0.06] pb-2">
 								<dt className="text-muted-foreground">Receipt ID</dt>
 								<dd className="font-mono text-xs break-all text-right">
 									{receipt.receiptPublicId}
 								</dd>
 							</div>
-							<div className="flex justify-between gap-4 border-b border-border/60 pb-2">
+							<div className="flex justify-between gap-4 border-b border-foreground/[0.06] pb-2">
 								<dt className="text-muted-foreground">Total paid</dt>
 								<dd className="font-semibold text-right">
 									{formatMoney(
@@ -181,7 +180,7 @@ function OnboardingSuccess() {
 									)}
 								</dd>
 							</div>
-							<div className="flex justify-between gap-4 border-b border-border/60 pb-2">
+							<div className="flex justify-between gap-4 border-b border-foreground/[0.06] pb-2">
 								<dt className="text-muted-foreground">Billing</dt>
 								<dd className="text-right capitalize">
 									{receipt.planBillingCycle?.replace(/_/g, " ") ?? "—"}
@@ -189,13 +188,13 @@ function OnboardingSuccess() {
 							</div>
 							{receipt.payer ? (
 								<>
-									<div className="flex justify-between gap-4 border-b border-border/60 pb-2">
+									<div className="flex justify-between gap-4 border-b border-foreground/[0.06] pb-2">
 										<dt className="text-muted-foreground">Your role</dt>
 										<dd className="text-right capitalize">
 											{receipt.payer.role.replace(/_/g, " ")}
 										</dd>
 									</div>
-									<div className="flex justify-between gap-4 border-b border-border/60 pb-2">
+									<div className="flex justify-between gap-4 border-b border-foreground/[0.06] pb-2">
 										<dt className="text-muted-foreground">Account</dt>
 										<dd className="text-right text-xs break-all">
 											{receipt.payer.name ?? "—"} · {receipt.payer.email}
@@ -204,7 +203,7 @@ function OnboardingSuccess() {
 								</>
 							) : null}
 							{receipt.team ? (
-								<div className="flex justify-between gap-4 border-b border-border/60 pb-2">
+								<div className="flex justify-between gap-4 border-b border-foreground/[0.06] pb-2">
 									<dt className="text-muted-foreground">Team</dt>
 									<dd className="text-right">
 										{receipt.team.name} · #{receipt.team.id}
@@ -215,7 +214,7 @@ function OnboardingSuccess() {
 								</div>
 							) : null}
 							{receipt.athlete ? (
-								<div className="flex justify-between gap-4 border-b border-border/60 pb-2">
+								<div className="flex justify-between gap-4 border-b border-foreground/[0.06] pb-2">
 									<dt className="text-muted-foreground">Athlete</dt>
 									<dd className="text-right">
 										{receipt.athlete.name ?? "Athlete"} · #{receipt.athlete.id}
@@ -223,7 +222,7 @@ function OnboardingSuccess() {
 								</div>
 							) : null}
 							{receipt.plan ? (
-								<div className="flex justify-between gap-4 border-b border-border/60 pb-2">
+								<div className="flex justify-between gap-4 border-b border-foreground/[0.06] pb-2">
 									<dt className="text-muted-foreground">Plan</dt>
 									<dd className="text-right">
 										{receipt.plan.name} ({receipt.plan.tier.replace(/_/g, " ")})
@@ -247,7 +246,7 @@ function OnboardingSuccess() {
 						</dl>
 						{receipt.stripeCheckout.lineItems?.length ? (
 							<div className="pt-2">
-								<p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-2">
 									Line items
 								</p>
 								<ul className="text-sm space-y-1 text-muted-foreground">
@@ -271,17 +270,14 @@ function OnboardingSuccess() {
 					</Card>
 				) : null}
 
-				<Card className="border-border/60 bg-card/50 backdrop-blur-md shadow-2xl p-6 sm:p-10 rounded-[2.5rem] ring-1 ring-border/50 overflow-hidden relative">
-					{/* Decorative background accent */}
-					<div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl" />
-
+				<Card className="border border-foreground/[0.06] p-6 sm:p-10 overflow-hidden relative">
 					<div className="space-y-10 relative z-10">
 						<div className="flex items-start gap-6">
-							<div className="mt-1 bg-primary/10 p-3 rounded-2xl shrink-0">
-								<Clock size={24} weight="bold" className="text-primary" />
+							<div className="mt-1 shrink-0 text-foreground/40">
+								<Clock size={24} weight="bold" />
 							</div>
 							<div className="space-y-2">
-								<h2 className="text-xl font-black uppercase italic">
+								<h2 className="text-sm font-medium tracking-tight">
 									Under Review
 								</h2>
 								<p className="text-sm text-muted-foreground leading-relaxed font-medium">
@@ -293,15 +289,14 @@ function OnboardingSuccess() {
 						</div>
 
 						<div className="flex items-start gap-6">
-							<div className="mt-1 bg-primary/10 p-3 rounded-2xl shrink-0">
+							<div className="mt-1 shrink-0 text-foreground/40">
 								<EnvelopeOpen
 									size={24}
 									weight="bold"
-									className="text-primary"
 								/>
 							</div>
 							<div className="space-y-2">
-								<h2 className="text-xl font-black uppercase italic">
+								<h2 className="text-sm font-medium tracking-tight">
 									Email updates
 								</h2>
 								<p className="text-sm text-muted-foreground leading-relaxed font-medium">
@@ -316,11 +311,11 @@ function OnboardingSuccess() {
 						</div>
 
 						<div className="flex items-start gap-6">
-							<div className="mt-1 bg-primary/10 p-3 rounded-2xl shrink-0">
-								<ShieldCheck size={24} weight="bold" className="text-primary" />
+							<div className="mt-1 shrink-0 text-foreground/40">
+								<ShieldCheck size={24} weight="bold" />
 							</div>
 							<div className="space-y-2">
-								<h2 className="text-xl font-black uppercase italic">
+								<h2 className="text-sm font-medium tracking-tight">
 									Secure Access
 								</h2>
 								<p className="text-sm text-muted-foreground leading-relaxed font-medium">
@@ -334,13 +329,13 @@ function OnboardingSuccess() {
 
 				<div className="flex flex-col items-center space-y-6 pt-4">
 					<Link to="/" className="w-full max-w-xs">
-						<Button className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
+						<Button className="w-full h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider transition-all hover:opacity-90 active:scale-[0.98]">
 							Go to Homepage
 							<ArrowRight weight="bold" className="ml-2 w-5 h-5" />
 						</Button>
 					</Link>
 
-					<p className="text-[10px] text-muted-foreground text-center font-bold uppercase tracking-widest opacity-60">
+					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 text-center">
 						Need help? Contact support@phplatform.com
 					</p>
 				</div>

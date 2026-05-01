@@ -3,7 +3,6 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
-import { hasPhpPlusPlanFeatures } from "@/lib/planAccess";
 import { VideoUploadPanel } from "@/components/programs/ProgramPanels";
 import { Feather } from "@/components/ui/theme-icons";
 import { Shadows } from "@/constants/theme";
@@ -28,8 +27,8 @@ export default function VideoUploadScreen() {
       : null;
   const refreshToken = params.refreshToken ? Number(params.refreshToken) : 0;
   const { colors, isDark } = useAppTheme();
-  const programTier = useAppSelector((state) => state.user.programTier);
-  const canUploadForCoach = hasPhpPlusPlanFeatures(programTier);
+  const capabilities = useAppSelector((state) => state.user.capabilities);
+  const canUploadForCoach = Boolean(capabilities?.coachVideoUpload);
 
   // This screen is used as a contextual upload surface (e.g. from a session/exercise),
   // not as a global "inbox" of videos from the More tab.

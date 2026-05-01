@@ -14,25 +14,22 @@ export function BottomNav({ children }: BottomNavProps) {
 		<SidebarProvider>
 			<AppSidebar />
 			<SidebarInset className="flex flex-col min-h-svh bg-background">
-				{/* Main Content Area */}
 				<main className="flex-1 overflow-y-auto">
 					{children}
 				</main>
 
-				{/* Mobile Navigation Bar at the Bottom */}
-				<footer className="flex h-20 shrink-0 items-center gap-2 border-t px-6 md:hidden bg-card/95 backdrop-blur-xl shadow-[0_-8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_-8px_30px_rgb(0,0,0,0.2)] sticky bottom-0 z-50">
-					<SidebarTrigger className="h-12 w-12 rounded-2xl bg-primary/5 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300" />
-					
+				<footer className="flex h-14 shrink-0 items-center gap-2 border-t border-foreground/[0.06] px-4 md:hidden bg-background sticky bottom-0 z-50">
+					<SidebarTrigger className="h-10 w-10 flex items-center justify-center text-foreground/50 hover:text-foreground transition-colors" />
+
 					<div className="flex flex-1 flex-col items-center justify-center">
-						<span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-0.5">Platform</span>
-						<span className="text-sm font-black uppercase italic tracking-tighter text-foreground">
-							PH App
+						<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+							PH Performance
 						</span>
 					</div>
-					
-					<div className="w-12 h-12 flex items-center justify-center rounded-2xl bg-primary/5">
-                        <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                    </div>
+
+					<div className="w-10 h-10 flex items-center justify-center">
+						<div className="h-1.5 w-1.5 rounded-full bg-foreground/30" />
+					</div>
 				</footer>
 			</SidebarInset>
 		</SidebarProvider>

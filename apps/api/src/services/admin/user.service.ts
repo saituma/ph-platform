@@ -17,10 +17,6 @@ import {
   programSectionCompletionTable,
   athleteTrainingSessionLogTable,
   athleteAchievementUnlockTable,
-  athletePlanSessionTable,
-  athletePlanExerciseTable,
-  athletePlanExerciseCompletionTable,
-  athletePlanSessionCompletionTable,
   referralGroupMemberTable,
   bookingTable,
   subscriptionRequestTable,
@@ -309,12 +305,6 @@ export async function softDeleteUser(userId: number) {
         .where(inArray(guardianTable.activeAthleteId, athleteIds));
 
       await tx
-        .delete(athletePlanExerciseCompletionTable)
-        .where(inArray(athletePlanExerciseCompletionTable.athleteId, athleteIds));
-      await tx
-        .delete(athletePlanSessionCompletionTable)
-        .where(inArray(athletePlanSessionCompletionTable.athleteId, athleteIds));
-      await tx
         .delete(athleteTrainingSessionCompletionTable)
         .where(inArray(athleteTrainingSessionCompletionTable.athleteId, athleteIds));
       await tx
@@ -337,32 +327,6 @@ export async function softDeleteUser(userId: number) {
       await tx.delete(enrollmentTable).where(inArray(enrollmentTable.athleteId, athleteIds));
       await tx.delete(bookingTable).where(inArray(bookingTable.athleteId, athleteIds));
       await tx.delete(foodDiaryTable).where(inArray(foodDiaryTable.athleteId, athleteIds));
-
-      const planSessions = await tx
-        .select({ id: athletePlanSessionTable.id })
-        .from(athletePlanSessionTable)
-        .where(inArray(athletePlanSessionTable.athleteId, athleteIds));
-      const planSessionIds = planSessions.map((row) => row.id);
-
-      if (planSessionIds.length) {
-        const planExercises = await tx
-          .select({ id: athletePlanExerciseTable.id })
-          .from(athletePlanExerciseTable)
-          .where(inArray(athletePlanExerciseTable.planSessionId, planSessionIds));
-        const planExerciseIds = planExercises.map((row) => row.id);
-
-        if (planExerciseIds.length) {
-          await tx
-            .delete(athletePlanExerciseCompletionTable)
-            .where(inArray(athletePlanExerciseCompletionTable.planExerciseId, planExerciseIds));
-          await tx.delete(athletePlanExerciseTable).where(inArray(athletePlanExerciseTable.id, planExerciseIds));
-        }
-
-        await tx
-          .delete(athletePlanSessionCompletionTable)
-          .where(inArray(athletePlanSessionCompletionTable.planSessionId, planSessionIds));
-        await tx.delete(athletePlanSessionTable).where(inArray(athletePlanSessionTable.id, planSessionIds));
-      }
 
       await tx.delete(athleteTable).where(inArray(athleteTable.id, athleteIds));
     }
@@ -465,6 +429,35 @@ export function hashLocalProvisionPassword(password: string) {
   return { hash, salt };
 }
 
+export async function createTeamManagerUser(input: { email: string; password: string; name?: string }) {
+  const email = input.email.trim().toLowerCase();
+  const existing = await getUserByEmail(email);
+  if (existing) {
+    throw { status: 409, message: "An account with this email already exists." };
+  }
+
+  const { hash, salt } = hashLocalProvisionPassword(input.password.trim());
+  const inserted = await db
+    .insert(userTable)
+    .values({
+      cognitoSub: `local:${crypto.randomUUID()}`,
+      name: (input.name?.trim() || email.split("@")[0]),
+      email,
+      role: "team_coach",
+      passwordHash: hash,
+      passwordSalt: salt,
+      emailVerified: true,
+      verificationCode: null,
+      verificationExpiresAt: null,
+      verificationAttempts: 0,
+    })
+    .returning({ id: userTable.id, email: userTable.email });
+
+  const user = inserted[0];
+  if (!user) throw new Error("Failed to create team manager user.");
+  return user;
+}
+
 function computePlanExpiryFromCommitment(months: 6 | 12) {
   const end = new Date();
   end.setMonth(end.getMonth() + months);
@@ -526,9 +519,18 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
 
   const resolvedTeam = input.team?.trim() || "";
 
+  let resolvedTeamIdForGuardian: number | null = null;
+  if (resolvedTeam) {
+    const teamRows = await db
+      .select({ id: teamTable.id })
+      .from(teamTable)
+      .where(eq(teamTable.name, resolvedTeam))
+      .limit(1);
+    resolvedTeamIdForGuardian = teamRows[0]?.id ?? null;
+  }
+
   const tempPassword = resolveProvisionPassword(input.initialPassword);
   let userId: number | null = null;
-  const createdEmail = email;
 
   try {
     const { hash, salt } = hashLocalProvisionPassword(tempPassword);
@@ -582,6 +584,7 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
         planCommitmentMonths: input.planCommitmentMonths,
         planExpiresAt: commitmentExpiry,
         profilePicture: input.athleteProfilePicture?.trim() || null,
+        ...(resolvedTeamIdForGuardian != null ? { teamId: resolvedTeamIdForGuardian } : {}),
         updatedAt: new Date(),
       })
       .where(eq(athleteTable.id, onboardingResult.athleteId));
@@ -636,8 +639,42 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
   const email = input.email.trim().toLowerCase();
   const athleteName = input.athleteName.trim();
   const existing = await getUserByEmail(email);
+  const resolvedTeam = input.team?.trim() || "";
+
+  let resolvedTeamId: number | null = null;
+  if (resolvedTeam) {
+    const teamRows = await db
+      .select({ id: teamTable.id })
+      .from(teamTable)
+      .where(eq(teamTable.name, resolvedTeam))
+      .limit(1);
+    resolvedTeamId = teamRows[0]?.id ?? null;
+  }
+
+  // If the account already exists (e.g. from a previous failed attempt), just attach them to the team.
   if (existing) {
-    throw { status: 409, message: "An account with this email already exists." };
+    const existingAthlete = await db
+      .select({ id: athleteTable.id, userId: athleteTable.userId, teamId: athleteTable.teamId })
+      .from(athleteTable)
+      .where(eq(athleteTable.userId, existing.id))
+      .limit(1);
+    const athlete = existingAthlete[0];
+    if (!athlete) {
+      throw { status: 409, message: "An account with this email already exists." };
+    }
+    if (resolvedTeamId && athlete.teamId !== resolvedTeamId) {
+      await db
+        .update(athleteTable)
+        .set({ teamId: resolvedTeamId, team: resolvedTeam, updatedAt: new Date() })
+        .where(eq(athleteTable.id, athlete.id));
+    }
+    return {
+      userId: existing.id,
+      athleteId: athlete.id,
+      athleteUserId: athlete.userId,
+      status: "existing",
+      emailSent: false,
+    };
   }
 
   const parsedBirthDate = parseISODate(input.birthDate);
@@ -650,7 +687,6 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
   }
 
   const desiredProgramType = input.desiredProgramType ?? null;
-  const resolvedTeam = input.team?.trim() || "";
   const planExpiresAt = computePlanExpiryFromCommitment(input.planCommitmentMonths);
 
   const tempPassword = resolveProvisionPassword(input.initialPassword);
@@ -690,6 +726,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
         age,
         birthDate: input.birthDate,
         team: resolvedTeam,
+        teamId: resolvedTeamId,
         trainingPerWeek: input.trainingPerWeek,
         injuries: input.injuries ?? null,
         growthNotes: input.growthNotes ?? null,

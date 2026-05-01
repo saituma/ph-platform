@@ -44,12 +44,24 @@ async function forward(req: NextRequest) {
   });
 
   const data = await res.text();
-  return new NextResponse(data, {
-    status: res.status,
-    headers: {
-      "Content-Type": res.headers.get("content-type") ?? "application/json",
-    },
-  });
+  const responseHeaders: Record<string, string> = {
+    "Content-Type": res.headers.get("content-type") ?? "application/json",
+  };
+
+  // Cache successful GET responses in the browser for 15 seconds, then serve
+  // stale while revalidating for up to 45 more seconds. Keeps the UI snappy
+  // on page reload without risking stale data after mutations.
+  // Real-time paths (messages, threads, videos) skip caching entirely.
+  if (req.method === "GET" && res.ok) {
+    const p = url.pathname;
+    const isRealtime =
+      p.includes("/messages") || p.includes("/threads") || p.includes("/videos");
+    responseHeaders["Cache-Control"] = isRealtime
+      ? "private, no-store"
+      : "private, max-age=15, stale-while-revalidate=45";
+  }
+
+  return new NextResponse(data, { status: res.status, headers: responseHeaders });
 }
 
 export async function GET(req: NextRequest) {

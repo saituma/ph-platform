@@ -220,10 +220,13 @@ export async function startAdultOnboarding(input: { userId: number; name: string
 export async function startTeamOnboarding(input: {
   userId: number;
   name: string;
-  minAge: number;
-  maxAge: number;
+  athleteType?: "youth" | "adult";
+  minAge?: number | null;
+  maxAge?: number | null;
   maxAthletes: number;
 }) {
+  const athleteType = input.athleteType ?? "youth";
+
   // Get or create team record.
   //
   // Select only what we need (id) to avoid failing when the database is behind on
@@ -240,8 +243,9 @@ export async function startTeamOnboarding(input: {
       .update(teamTable)
       .set({
         name: input.name,
-        minAge: input.minAge,
-        maxAge: input.maxAge,
+        athleteType,
+        minAge: input.minAge ?? null,
+        maxAge: input.maxAge ?? null,
         maxAthletes: input.maxAthletes,
         emailSlug: teams[0].emailSlug ?? slugDefault,
         updatedAt: new Date(),
@@ -252,9 +256,10 @@ export async function startTeamOnboarding(input: {
       .insert(teamTable)
       .values({
         name: input.name,
+        athleteType,
         adminId: input.userId,
-        minAge: input.minAge,
-        maxAge: input.maxAge,
+        minAge: input.minAge ?? null,
+        maxAge: input.maxAge ?? null,
         maxAthletes: input.maxAthletes,
       })
       .returning({ id: teamTable.id });

@@ -42,6 +42,7 @@ import {
 } from "@/services/tracking/socialService";
 import { fetchTeamLocations, type UserLocation } from "@/services/tracking/locationService";
 import { relativeTime } from "@/lib/tracking/relativeTime";
+import { apiRequest } from "@/lib/api";
 
 const SPORT_CATEGORIES: { label: string; icon: string; sports: string[] }[] = [
   { label: "Foot Sports", icon: "shoe-sneaker", sports: ["run", "trail_run", "walk", "hike", "virtual_run", "treadmill"] },
@@ -55,7 +56,6 @@ export default function TrackingHomeScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
   const appRole = useAppSelector((s) => s.user.appRole);
-  const programTier = useAppSelector((s) => s.user.programTier);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
@@ -63,6 +63,27 @@ export default function TrackingHomeScreen() {
 
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [weeklyStats, setWeeklyStats] = useState(() => getWeeklySummaries(new Date(), userId));
+
+  type TrackingGoal = {
+    id: number;
+    title: string;
+    description: string | null;
+    unit: "km" | "sec" | "min" | "reps" | "custom";
+    customUnit: string | null;
+    targetValue: number;
+    dueDate: string | null;
+    createdAt: string | null;
+    coachName: string | null;
+  };
+  const [goals, setGoals] = useState<TrackingGoal[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      apiRequest<{ goals: TrackingGoal[] }>("/tracking/goals")
+        .then((r) => setGoals(r.goals))
+        .catch(() => {});
+    }, []),
+  );
 
   const fabScale = useSharedValue(1);
   const fabAnimatedStyle = useAnimatedStyle(() => ({
@@ -121,9 +142,11 @@ export default function TrackingHomeScreen() {
     return buckets.map((v) => Number(v.toFixed(1)));
   }, [runs]);
 
+  const capabilities = useAppSelector((s) => s.user.capabilities);
+  const capabilitiesLoaded = useAppSelector((s) => s.user.capabilitiesLoaded);
   const canAccessTracking = canAccessTrackingTab({
     appRole,
-    programTier,
+    capabilities,
     authTeamMembership,
     firstManagedAthlete: managedAthletes[0] ?? null,
   });
@@ -190,11 +213,11 @@ export default function TrackingHomeScreen() {
   }, [router, runStatus]);
 
   useEffect(() => {
-    if (canAccessTracking) return;
+    if (!capabilitiesLoaded || canAccessTracking) return;
     router.replace("/(tabs)");
-  }, [canAccessTracking, router]);
+  }, [capabilitiesLoaded, canAccessTracking, router]);
 
-  if (!canAccessTracking) return null;
+  if (!capabilitiesLoaded || !canAccessTracking) return null;
 
   if (isTeamManager) {
     return (
@@ -239,6 +262,117 @@ export default function TrackingHomeScreen() {
         </View>
 
         <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: 12 }}>
+
+          {/* ── Training Goals ── */}
+          {goals.length > 0 && (
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)", paddingHorizontal: 4 }}>
+                Training Goals
+              </Text>
+              {goals.map((goal) => {
+                const unitLabel = goal.unit === "custom" ? (goal.customUnit ?? "") : goal.unit;
+                const dueLabel = goal.dueDate
+                  ? `Due ${new Date(goal.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+                  : null;
+
+                const goalStart = goal.createdAt ? new Date(goal.createdAt).getTime() : 0;
+                let progress = 0;
+                if (goal.unit === "km") {
+                  const totalMeters = runs
+                    .filter((r) => new Date(r.date).getTime() >= goalStart)
+                    .reduce((sum, r) => sum + r.distance_meters, 0);
+                  progress = totalMeters / 1000;
+                } else if (goal.unit === "min") {
+                  const totalSec = runs
+                    .filter((r) => new Date(r.date).getTime() >= goalStart)
+                    .reduce((sum, r) => sum + r.duration_seconds, 0);
+                  progress = totalSec / 60;
+                } else if (goal.unit === "sec") {
+                  progress = runs
+                    .filter((r) => new Date(r.date).getTime() >= goalStart)
+                    .reduce((sum, r) => sum + r.duration_seconds, 0);
+                }
+                const hasMeasurableProgress = goal.unit === "km" || goal.unit === "min" || goal.unit === "sec";
+                const pct = hasMeasurableProgress ? Math.min(1, progress / goal.targetValue) : null;
+                const done = pct != null && pct >= 1;
+                const barColor = done ? "#22c55e" : colors.accent;
+
+                const progressLabel = hasMeasurableProgress
+                  ? goal.unit === "km"
+                    ? `${progress.toFixed(1)} / ${goal.targetValue} km`
+                    : goal.unit === "min"
+                    ? `${Math.round(progress)} / ${goal.targetValue} min`
+                    : `${Math.round(progress)} / ${goal.targetValue} sec`
+                  : null;
+
+                return (
+                  <View
+                    key={goal.id}
+                    style={{
+                      backgroundColor: cardBg,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: done ? `${barColor}40` : cardBorder,
+                      padding: 16,
+                      gap: 10,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <View style={{ flex: 1, marginRight: 8, gap: 2 }}>
+                        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
+                          {goal.title}
+                        </Text>
+                        {goal.description ? (
+                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)" }}>
+                            {goal.description}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={{ alignItems: "flex-end", gap: 2 }}>
+                        {done ? (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <Ionicons name="checkmark-circle" size={15} color="#22c55e" />
+                            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: "#22c55e" }}>Done</Text>
+                          </View>
+                        ) : (
+                          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: barColor }}>
+                            {goal.targetValue} {unitLabel}
+                          </Text>
+                        )}
+                        {dueLabel && (
+                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: isDark ? "hsl(220,5%,45%)" : "hsl(220,5%,55%)" }}>
+                            {dueLabel}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {pct != null && (
+                      <View style={{ gap: 5 }}>
+                        <View style={{ height: 7, borderRadius: 4, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)", overflow: "hidden" }}>
+                          <View style={{ height: "100%", width: `${Math.round(pct * 100)}%`, borderRadius: 4, backgroundColor: barColor }} />
+                        </View>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,52%)" }}>
+                            {progressLabel}
+                          </Text>
+                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,52%)" }}>
+                            {Math.round(pct * 100)}%
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {goal.coachName && (
+                      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: isDark ? "hsl(220,5%,40%)" : "hsl(220,5%,58%)" }}>
+                        by {goal.coachName}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
 
           {/* ── This Week hero card ── */}
           <View
@@ -405,7 +539,7 @@ export default function TrackingHomeScreen() {
           </Pressable>
 
           {/* ── Recent runs (categorized) ── */}
-          <View style={{ gap: 8 }}>
+          {capabilities?.runTracking !== false && <View style={{ gap: 8 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
               <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
                 Activities
@@ -466,14 +600,14 @@ export default function TrackingHomeScreen() {
                 ))}
               </View>
             )}
-          </View>
+          </View>}
         </View>
 
         <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* FAB — robis: border instead of shadow in dark mode */}
-      <View
+      {capabilities?.runTracking !== false && <View
         style={{
           position: "absolute",
           bottom: trackingScrollBottomPad(insets) + 20,
@@ -514,7 +648,7 @@ export default function TrackingHomeScreen() {
             <Ionicons name="play" size={28} color={isDark ? "hsl(220,8%,10%)" : "#fafafa"} style={{ marginLeft: 4 }} />
           </Pressable>
         </Animated.View>
-      </View>
+      </View>}
     </View>
 
     <ActiveRunSportSheet

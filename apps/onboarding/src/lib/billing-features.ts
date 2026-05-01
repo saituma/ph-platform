@@ -1,0 +1,37 @@
+export const FEATURE_LABELS: Record<string, string> = {
+  coach_module: "Coach module access",
+  messaging: "Messaging features",
+  schedule: "Schedule & calendar",
+  mobile_app: "Mobile app access",
+  progress_tracking: "Progress tracking",
+  programs_full: "Full programs library",
+  warmup_cooldown: "Warm-up & cool-down library",
+  mobility_recovery: "Mobility & recovery sessions",
+  in_season: "In-season program",
+  off_season: "Off-season program",
+  movement_screening: "Movement screening",
+  stretching_foam: "Stretching & foam rolling",
+  periodization: "Advanced periodization",
+  competition_windows: "Competition windows",
+  one_on_one_review: "1:1 review blocks",
+  bespoke_progression: "Bespoke progression",
+  video_upload: "Video upload for coach response",
+  priority_messaging: "Priority messaging",
+  faster_turnaround: "Faster coach turnaround",
+  semi_private: "Semi-private sessions (small group coaching)",
+  bookings: "Bookings (1:1 calls)",
+  physio_referrals: "Physio referrals",
+  parent_platform: "Parent platform",
+  parent_education: "Parent education",
+  nutrition_logging: "Nutrition logging",
+  food_diaries: "Nutrition & food diaries",
+  submit_diary: "Submit food diary",
+  social_feed: "Social feed",
+  run_tracking: "Run tracking & sharing",
+  achievements: "Achievements & streaks",
+  referrals: "Referral rewards",
+};
+
+export function featureKeyToLabel(key: string): string {
+  return FEATURE_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}

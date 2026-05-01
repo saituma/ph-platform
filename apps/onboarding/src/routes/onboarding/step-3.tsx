@@ -136,24 +136,24 @@ function OnboardingStep3() {
 		<main className="mx-auto max-w-2xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
-					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
+					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 						Step 3 of 4
 					</p>
-					<h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl leading-[1.1]">
-						Training & <span className="text-primary">Goals</span>
+					<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground leading-[1.1]">
+						Training & Goals
 					</h1>
-					<p className="text-lg text-muted-foreground leading-relaxed max-w-md mx-auto">
+					<p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
 						Let's define what success looks like for you on the PH Platform.
 					</p>
 				</div>
 
-				<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-5 sm:p-8 rounded-3xl ring-1 ring-border/50">
+				<Card className="border border-foreground/[0.06] p-6 sm:p-8">
 					<form onSubmit={handleSubmit} className="space-y-10">
 						<div className="space-y-8">
 							{/* Training Frequency */}
 							<div className="space-y-4">
-								<label className="text-sm font-bold text-foreground flex items-center gap-2">
-									<Lightning size={18} className="text-primary" />
+								<label className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5">
+									<Lightning size={18} className="text-foreground/40" />
 									Training Frequency (Days per week)
 								</label>
 								<div className="grid grid-cols-7 gap-1 sm:gap-2">
@@ -163,10 +163,10 @@ function OnboardingStep3() {
 											type="button"
 											onClick={() => setTrainingPerWeek(num)}
 											className={cn(
-												"h-10 sm:h-12 rounded-xl border-2 transition-all font-bold text-xs sm:text-sm",
+												"h-10 sm:h-12 rounded-none border transition-all font-bold text-xs sm:text-sm",
 												trainingPerWeek === num
-													? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
-													: "border-border/60 bg-background/50 text-muted-foreground hover:border-primary/40",
+													? "border-foreground bg-foreground text-background"
+													: "border-foreground/[0.06] text-foreground/60 hover:border-foreground/20",
 											)}
 										>
 											{num}
@@ -179,9 +179,9 @@ function OnboardingStep3() {
 							<div className="space-y-2">
 								<label
 									htmlFor="performanceGoals"
-									className="text-sm font-bold text-foreground flex items-center gap-2"
+									className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 								>
-									<Trophy size={18} className="text-primary" />
+									<Trophy size={18} className="text-foreground/40" />
 									Performance Goals
 								</label>
 								<Input
@@ -190,7 +190,7 @@ function OnboardingStep3() {
 									value={performanceGoals}
 									onChange={(e) => setPerformanceGoals(e.target.value)}
 									required
-									className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6 transition-all"
+									className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20 px-6 transition-all"
 								/>
 							</div>
 
@@ -198,9 +198,9 @@ function OnboardingStep3() {
 							<div className="space-y-2">
 								<label
 									htmlFor="phone"
-									className="text-sm font-bold text-foreground flex items-center gap-2"
+									className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 								>
-									<Phone size={18} className="text-primary" />
+									<Phone size={18} className="text-foreground/40" />
 									{localStorage.getItem("user_type") === "youth"
 										? "Guardian Phone Number"
 										: "Your Phone Number"}
@@ -212,14 +212,14 @@ function OnboardingStep3() {
 									value={phone}
 									onChange={(e) => setPhone(e.target.value)}
 									required
-									className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6 transition-all"
+									className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20 px-6 transition-all"
 								/>
 							</div>
 
 							{/* Equipment Access */}
 							<div className="space-y-4">
-								<label className="text-sm font-bold text-foreground flex items-center gap-2">
-									<Wrench size={18} className="text-primary" />
+								<label className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5">
+									<Wrench size={18} className="text-foreground/40" />
 									Equipment Access
 								</label>
 								<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -232,10 +232,10 @@ function OnboardingStep3() {
 												type="button"
 												onClick={() => setEquipmentAccess(option.id)}
 												className={cn(
-													"flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left group",
+													"flex items-center gap-3 p-4 rounded-none border transition-all text-left group",
 													isSelected
-														? "border-primary bg-primary/5 text-primary shadow-sm"
-														: "border-border/60 bg-background/50 text-muted-foreground hover:border-primary/40",
+														? "border-foreground bg-foreground/[0.04]"
+														: "border-foreground/[0.06] text-foreground/60 hover:border-foreground/20",
 												)}
 											>
 												<Icon
@@ -243,10 +243,10 @@ function OnboardingStep3() {
 													weight={isSelected ? "bold" : "regular"}
 													className={cn(
 														"transition-colors",
-														isSelected ? "text-primary" : "text-muted-foreground group-hover:text-primary/60",
+														isSelected ? "text-foreground" : "text-foreground/40 group-hover:text-foreground/60",
 													)}
 												/>
-												<span className="text-sm font-bold">{option.label}</span>
+												<span className="text-sm font-medium">{option.label}</span>
 											</button>
 										);
 									})}
@@ -258,7 +258,7 @@ function OnboardingStep3() {
 											value={otherEquipment}
 											onChange={(e) => setOtherEquipment(e.target.value)}
 											required
-											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+											className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20 px-6"
 										/>
 									</div>
 								)}
@@ -268,9 +268,9 @@ function OnboardingStep3() {
 							<div className="space-y-3">
 								<label
 									htmlFor="growthNotes"
-									className="text-sm font-bold text-foreground flex items-center gap-2"
+									className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 								>
-									<NotePencil size={18} className="text-primary" />
+									<NotePencil size={18} className="text-foreground/40" />
 									Growth Notes (Optional)
 								</label>
 								<textarea
@@ -278,7 +278,7 @@ function OnboardingStep3() {
 									placeholder="Tell us about your current level, height/weight changes, or general health notes..."
 									value={growthNotes}
 									onChange={(e) => setGrowthNotes(e.target.value)}
-									className="w-full min-h-[100px] rounded-2xl bg-background/50 border-2 border-border/60 focus:border-primary focus:ring-primary/10 transition-all p-4 text-sm placeholder:text-muted-foreground/50 resize-none outline-none"
+									className="w-full min-h-[100px] rounded-none border border-foreground/[0.06] bg-transparent font-mono text-sm focus:border-foreground/20 focus:ring-0 transition-all p-4 placeholder:text-muted-foreground/50 resize-none outline-none"
 								/>
 							</div>
 
@@ -286,9 +286,9 @@ function OnboardingStep3() {
 							<div className="space-y-3">
 								<label
 									htmlFor="injuries"
-									className="text-sm font-bold text-foreground flex items-center gap-2"
+									className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 								>
-									<Warning size={18} className="text-primary" />
+									<Warning size={18} className="text-foreground/40" />
 									Any past injuries? (Optional)
 								</label>
 								<textarea
@@ -296,7 +296,7 @@ function OnboardingStep3() {
 									placeholder="e.g. Previous ACL surgery, recurring hamstring issues..."
 									value={injuries}
 									onChange={(e) => setInjuries(e.target.value)}
-									className="w-full min-h-[100px] rounded-2xl bg-background/50 border-2 border-border/60 focus:border-primary focus:ring-primary/10 transition-all p-4 text-sm placeholder:text-muted-foreground/50 resize-none outline-none"
+									className="w-full min-h-[100px] rounded-none border border-foreground/[0.06] bg-transparent font-mono text-sm focus:border-foreground/20 focus:ring-0 transition-all p-4 placeholder:text-muted-foreground/50 resize-none outline-none"
 								/>
 							</div>
 						</div>
@@ -306,7 +306,7 @@ function OnboardingStep3() {
 								type="button"
 								variant="outline"
 								onClick={() => navigate({ to: "/onboarding/step-2" })}
-								className="flex-1 h-14 rounded-2xl text-lg font-bold border-border/60 hover:bg-accent transition-all"
+								className="flex-1 h-10 rounded-none border border-foreground/[0.06] font-mono text-xs uppercase tracking-wider text-foreground/60 hover:bg-accent transition-all"
 							>
 								<ArrowLeft weight="bold" className="mr-2 w-5 h-5" />
 								Back
@@ -314,10 +314,10 @@ function OnboardingStep3() {
 							<Button
 								type="submit"
 								disabled={mutation.isPending}
-								className="flex-[2] h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+								className="flex-[2] h-10 rounded-none bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all"
 							>
 								{mutation.isPending ? (
-									<CircleNotch className="w-6 h-6 animate-spin text-primary-foreground" />
+									<CircleNotch className="w-6 h-6 animate-spin" />
 								) : (
 									<>
 										Continue

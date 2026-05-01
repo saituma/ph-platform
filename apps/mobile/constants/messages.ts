@@ -28,6 +28,8 @@ export type ChatMessage = {
   authorName?: string;
   authorAvatar?: string | null;
   clientId?: string;
+  createdAt?: string;
+  pinnedAt?: string | null;
   reactions?: { emoji: string; count: number; userIds: number[] }[];
 };
 

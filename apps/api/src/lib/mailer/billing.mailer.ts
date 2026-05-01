@@ -2,8 +2,8 @@ import { deliverEmail, emailLayout, escapeHtml, textP, E } from "./base.mailer";
 import type { BillingReceiptEmailBlockInput } from "./billing-receipt-email";
 import { billingReceiptEmailBlock, greetingLine } from "./billing-receipt-email";
 
-function formatProgramTierLabel(tier: string) {
-  return tier.replace(/_/g, " ");
+function formatProgramTierLabel(tier: string | null | undefined) {
+  return (tier ?? "").replace(/_/g, " ");
 }
 
 /** Safe: logs and returns if SMTP is not configured or send fails. */

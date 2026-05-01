@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import Animated, {
+	FadeIn,
+	FadeOut,
 	useAnimatedStyle,
 	useSharedValue,
 	withSpring,
@@ -21,6 +23,7 @@ interface Props {
 	onDraftChange: (v: string) => void;
 	onSend: () => void;
 	onOpenMenu: () => void;
+	onOpenVoiceRecorder?: () => void;
 	pendingAttachment?: {
 		uri: string;
 		isImage: boolean;
@@ -42,6 +45,7 @@ export function ChatComposer({
 	onDraftChange,
 	onSend,
 	onOpenMenu,
+	onOpenVoiceRecorder,
 	pendingAttachment,
 	onRemoveAttachment,
 	isUploading,
@@ -186,31 +190,57 @@ export function ChatComposer({
 					/>
 				</View>
 
-				<AnimatedPressable
-					onPress={onSend}
-					disabled={!canSend}
-					style={[
-						styles.sendButton,
-						sendStyle,
-						{
-							width: sendButtonSize,
-							height: sendButtonSize,
-							borderRadius: sendButtonSize / 2,
-						},
-						{
-							backgroundColor: colors.accent,
-							opacity: canSend ? 1 : 0.5,
-						},
-					]}
-					onPressIn={() => (sendButtonScale.value = withSpring(0.85))}
-					onPressOut={() => (sendButtonScale.value = withSpring(1))}
-				>
-					{isUploading || disabled ? (
-						<ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
-					) : (
-						<Ionicons name="arrow-up" size={20} color="hsl(220, 5%, 98%)" />
-					)}
-				</AnimatedPressable>
+				{hasContent || !onOpenVoiceRecorder ? (
+					<Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} key="send">
+						<AnimatedPressable
+							onPress={onSend}
+							disabled={!canSend}
+							style={[
+								styles.sendButton,
+								sendStyle,
+								{
+									width: sendButtonSize,
+									height: sendButtonSize,
+									borderRadius: sendButtonSize / 2,
+								},
+								{
+									backgroundColor: colors.accent,
+									opacity: canSend ? 1 : 0.5,
+								},
+							]}
+							onPressIn={() => (sendButtonScale.value = withSpring(0.85))}
+							onPressOut={() => (sendButtonScale.value = withSpring(1))}
+						>
+							{isUploading || disabled ? (
+								<ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
+							) : (
+								<Ionicons name="arrow-up" size={20} color="hsl(220, 5%, 98%)" />
+							)}
+						</AnimatedPressable>
+					</Animated.View>
+				) : (
+					<Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} key="mic">
+						<AnimatedPressable
+							onPress={onOpenVoiceRecorder}
+							style={[
+								styles.sendButton,
+								sendStyle,
+								{
+									width: sendButtonSize,
+									height: sendButtonSize,
+									borderRadius: sendButtonSize / 2,
+								},
+								{
+									backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+								},
+							]}
+							onPressIn={() => (sendButtonScale.value = withSpring(0.85))}
+							onPressOut={() => (sendButtonScale.value = withSpring(1))}
+						>
+							<Ionicons name="mic" size={22} color={colors.accent} />
+						</AnimatedPressable>
+					</Animated.View>
+				)}
 			</View>
 		</View>
 	);

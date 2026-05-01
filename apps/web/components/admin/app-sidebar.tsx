@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -7,6 +8,7 @@ import { io, type Socket } from "socket.io-client";
 import {
   Activity,
   BadgeCheck,
+  BookOpen,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -40,10 +42,48 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useGetThreadsQuery, useGetUsersQuery, useGetVideoUploadsQuery, useGetAdminProfileQuery } from "../../lib/apiSlice";
 import { ThemeToggle } from "./theme-toggle";
+
+// Module-level singleton — persists across page navigations so we never
+// disconnect/reconnect the WebSocket just because a page remounted.
+let _socket: Socket | null = null;
+function getOrCreateSocket(): Socket {
+  if (_socket?.connected) return _socket;
+  const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
+  const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+  const isLocal =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const fallback =
+    typeof window !== "undefined"
+      ? `${window.location.protocol}//${window.location.hostname}:3001`
+      : "";
+  const socketUrl = socketEnvUrl
+    ? socketEnvUrl.replace(/\/api\/?$/, "")
+    : isLocal
+      ? fallback
+      : apiEnvUrl
+        ? apiEnvUrl.replace(/\/api\/?$/, "")
+        : fallback;
+  const token =
+    typeof document !== "undefined"
+      ? (document.cookie
+          .split(";")
+          .map((p) => p.trim())
+          .find((p) => p.startsWith("accessTokenClient="))
+          ?.slice("accessTokenClient=".length) ?? "")
+      : "";
+  _socket = io(socketUrl, {
+    auth: token ? { token } : undefined,
+    transports: ["websocket", "polling"],
+    reconnection: true,
+  });
+  return _socket;
+}
 
 type SidebarUser = { id: number; role?: string | null };
 type SidebarThread = { userId: number; unread?: number | null };
@@ -58,48 +98,55 @@ function pathMatches(pathOnly: string, href: string) {
   return pathOnly === href || (href !== "/" && pathOnly.startsWith(`${href}/`));
 }
 
-const NAV = [
+/** separator: true means render a visual divider before this group */
+const NAV: Array<{ label: string; separator?: boolean; items: Array<{ label: string; href: string; icon: React.ComponentType<{ className?: string }>; badgeKey?: "messages" | "videos" }> }> = [
   {
     label: "Overview",
     items: [
-      { label: "Overview", href: "/", icon: LayoutDashboard },
+      { label: "Dashboard", href: "/", icon: LayoutDashboard },
     ],
   },
   {
-    label: "People & Programs",
+    label: "Athletes & Teams",
+    separator: true,
     items: [
       { label: "Users & Tiers", href: "/users", icon: Users },
       { label: "Add User", href: "/users/add", icon: UserPlus },
       { label: "Add Team", href: "/users/add-team", icon: Users },
       { label: "Teams", href: "/teams", icon: Users },
-      { label: "Portal Config", href: "/portal-config", icon: SlidersHorizontal },
+    ],
+  },
+  {
+    label: "Programs & Training",
+    items: [
+      { label: "Programs", href: "/programs", icon: BookOpen },
       { label: "Client Training", href: "/training-snapshot", icon: ClipboardList },
-      { label: "Tracking", href: "/tracking", icon: Activity },
       { label: "Training Answers", href: "/training-questionnaires", icon: ClipboardCheck },
-      { label: "Billing", href: "/billing", icon: CreditCard },
-      { label: "Stats", href: "/stats", icon: Activity },
+      { label: "Tracking", href: "/tracking", icon: Activity },
     ],
   },
   {
     label: "Content",
+    separator: true,
     items: [
       { label: "Profile", href: "/content/profile", icon: UserCircle },
       { label: "Testimonials", href: "/content/testimonials", icon: Quote },
       { label: "Intro Video", href: "/content/intro-video", icon: Video },
       { label: "Gallery", href: "/gallery", icon: Images },
-      { label: "Parent Portal", href: "/parent", icon: Library },
       { label: "Training Content", href: "/exercise-library", icon: BadgeCheck },
+      { label: "Parent Portal", href: "/parent", icon: Library },
     ],
   },
   {
-    label: "Messages & Video",
+    label: "Communication",
+    separator: true,
     items: [
       { label: "Messaging", href: "/messaging", icon: MessageCircle, badgeKey: "messages" as const },
       { label: "Video Feedback", href: "/video-review", icon: PlaySquare, badgeKey: "videos" as const },
     ],
   },
   {
-    label: "Schedule & Care",
+    label: "Health & Schedule",
     items: [
       { label: "Schedule", href: "/bookings", icon: CalendarDays },
       { label: "Nutrition & Wellness", href: "/nutrition", icon: ClipboardCheck },
@@ -107,7 +154,17 @@ const NAV = [
     ],
   },
   {
+    label: "Business",
+    separator: true,
+    items: [
+      { label: "Billing", href: "/billing", icon: CreditCard },
+      { label: "Stats", href: "/stats", icon: Activity },
+      { label: "Portal Config", href: "/portal-config", icon: SlidersHorizontal },
+    ],
+  },
+  {
     label: "Workspace",
+    separator: true,
     items: [
       { label: "Support", href: "/support", icon: LifeBuoy },
       { label: "Settings", href: "/settings", icon: Settings },
@@ -158,34 +215,23 @@ export function AppSidebar() {
   const { data: usersData } = useGetUsersQuery();
   const { data: videosData, refetch: refetchVideos } = useGetVideoUploadsQuery();
 
-  const socketRef = useRef<Socket | null>(null);
   const refetchThreadsRef = useRef(refetchThreads);
   const refetchVideosRef = useRef(refetchVideos);
   useEffect(() => { refetchThreadsRef.current = refetchThreads; }, [refetchThreads]);
   useEffect(() => { refetchVideosRef.current = refetchVideos; }, [refetchVideos]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-    const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-    const fallback = `${window.location.protocol}//${window.location.hostname}:3001`;
-    const socketUrl = socketEnvUrl
-      ? socketEnvUrl.replace(/\/api\/?$/, "")
-      : isLocal ? fallback : apiEnvUrl ? apiEnvUrl.replace(/\/api\/?$/, "") : fallback;
-
-    const token = document.cookie.split(";").map((p) => p.trim()).find((p) => p.startsWith("accessTokenClient="))?.split("=")[1] ?? "";
-    const socket: Socket = io(socketUrl, {
-      auth: token ? { token } : undefined,
-      transports: ["websocket", "polling"],
-      reconnection: true,
-    });
-    socketRef.current = socket;
+    // Use module-level socket singleton so navigations don't disconnect/reconnect
+    const socket = getOrCreateSocket();
     const handleRefresh = () => { refetchVideosRef.current(); refetchThreadsRef.current(); };
     socket.on("video:new", handleRefresh);
     socket.on("video:reviewed", handleRefresh);
     socket.on("message:new", () => refetchThreadsRef.current());
-    return () => { socket.disconnect(); socketRef.current = null; };
+    return () => {
+      socket.off("video:new", handleRefresh);
+      socket.off("video:reviewed", handleRefresh);
+      socket.off("message:new");
+    };
   }, []);
 
   const guardianIds = new Set(
@@ -231,31 +277,33 @@ export function AppSidebar() {
       {/* Nav */}
       <SidebarContent>
         {NAV.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => {
-                  const isActive = pathMatches(pathOnly, item.href);
-                  const badgeKey = (item as any).badgeKey as "messages" | "videos" | undefined;
-                  const badgeCount = badgeKey ? badges[badgeKey] : 0;
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
-                        <Link href={item.href}>
-                          <item.icon />
-                          <span>{item.label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                      {badgeCount > 0 && (
-                        <SidebarMenuBadge>{badgeCount}</SidebarMenuBadge>
-                      )}
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <React.Fragment key={group.label}>
+            {group.separator && <SidebarSeparator />}
+            <SidebarGroup>
+              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.items.map((item) => {
+                    const isActive = pathMatches(pathOnly, item.href);
+                    const badgeCount = item.badgeKey ? badges[item.badgeKey] : 0;
+                    return (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
+                          <Link href={item.href}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                        {badgeCount > 0 && (
+                          <SidebarMenuBadge>{badgeCount}</SidebarMenuBadge>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </React.Fragment>
         ))}
       </SidebarContent>
 

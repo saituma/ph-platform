@@ -19,6 +19,7 @@ import {
   setMessagingAccessTiers,
   setCapabilities,
   setAuthTeamMembership,
+  setPlanFeatures,
   type AppCapabilities,
 } from "./slices/userSlice";
 import { apiRequest, clearApiCache } from "@/lib/api";
@@ -278,6 +279,7 @@ export function AuthPersist() {
             programTier?: string | null;
             messagingAccessTiers?: string[];
             capabilities?: AppCapabilities | null;
+            planFeatures?: string[];
             team?: unknown;
             teamId?: number | null;
             athleteType?: "youth" | "adult" | null;
@@ -320,6 +322,7 @@ export function AuthPersist() {
         dispatch(setProgramTier(me.user.programTier ?? null));
         dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
         dispatch(setCapabilities(me.user.capabilities ?? null));
+        dispatch(setPlanFeatures(me.user.planFeatures ?? []));
         dispatch(
           updateProfile({
             name: me.user.name ?? null,

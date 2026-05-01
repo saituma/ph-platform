@@ -26,7 +26,6 @@ import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
-import { canAccessTier } from "@/lib/planAccess";
 import { isAdultAthleteAppRole } from "@/lib/appRole";
 import { ProgramId } from "@/constants/program-details";
 
@@ -65,7 +64,7 @@ export default function ProgramSessionDetailScreen() {
       moduleId: string;
       backToModule?: string;
     }>();
-  const { token, programTier, athleteUserId, managedAthletes, appRole, capabilities } =
+  const { token, athleteUserId, managedAthletes, appRole, capabilities } =
     useAppSelector((state) => state.user);
 
   /**
@@ -89,10 +88,7 @@ export default function ProgramSessionDetailScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const canUploadVideoResponse = useMemo(() => {
-    if (capabilities?.coachVideoUpload === true) return true;
-    return canAccessTier(programTier, "PHP_Premium_Plus");
-  }, [capabilities?.coachVideoUpload, programTier]);
+  const canUploadVideoResponse = Boolean(capabilities?.coachVideoUpload);
 
   const activeAthlete = useMemo(() => {
     return (

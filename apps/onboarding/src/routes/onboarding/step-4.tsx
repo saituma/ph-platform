@@ -130,7 +130,7 @@ function OnboardingStep4() {
 	if (isLoading) {
 		return (
 			<div className="flex h-[60vh] items-center justify-center">
-				<CircleNotch className="w-10 h-10 animate-spin text-primary" />
+				<CircleNotch className="w-10 h-10 animate-spin text-foreground/40" />
 			</div>
 		);
 	}
@@ -144,13 +144,13 @@ function OnboardingStep4() {
 		<main className="mx-auto max-w-3xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
-					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
+					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 						Step {isTeam ? "3" : "4"} of {isTeam ? "3" : "4"}
 					</p>
-					<h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl leading-[1.1]">
-						Review & <span className="text-primary">Confirm</span>
+					<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
+						Review & Confirm
 					</h1>
-					<p className="text-lg text-muted-foreground leading-relaxed max-w-md mx-auto">
+					<p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
 						{isTeam
 							? "Please review your team details before continuing."
 							: "Please review your information before proceeding to payment."}
@@ -159,11 +159,11 @@ function OnboardingStep4() {
 
 				<div className={cn("grid gap-6", isTeam ? "md:grid-cols-1" : "md:grid-cols-2")}>
 					{/* Personal Information */}
-					<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-5 sm:p-8 rounded-3xl ring-1 ring-border/50">
+					<Card className="border border-foreground/[0.06] p-6 sm:p-8">
 						<div className="space-y-6">
-							<div className="flex items-center gap-3 border-b border-border/40 pb-4">
-								<User size={24} weight="bold" className="text-primary" />
-								<h2 className="text-xl font-bold">{isTeam ? "Team Info" : "Personal Info"}</h2>
+							<div className="flex items-center gap-3 border-b border-foreground/[0.06] pb-4">
+								<User size={24} weight="bold" className="text-foreground/40" />
+								<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">{isTeam ? "Team Info" : "Personal Info"}</h2>
 							</div>
 
 							<div className="space-y-4">
@@ -233,11 +233,11 @@ function OnboardingStep4() {
 
 					{/* Training & Goals */}
 					{!isTeam && (
-						<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-5 sm:p-8 rounded-3xl ring-1 ring-border/50">
+						<Card className="border border-foreground/[0.06] p-6 sm:p-8">
 							<div className="space-y-6">
-								<div className="flex items-center gap-3 border-b border-border/40 pb-4">
-									<Target size={24} weight="bold" className="text-primary" />
-									<h2 className="text-xl font-bold">Training & Goals</h2>
+								<div className="flex items-center gap-3 border-b border-foreground/[0.06] pb-4">
+									<Target size={24} weight="bold" className="text-foreground/40" />
+									<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">Training & Goals</h2>
 								</div>
 
 								<div className="space-y-4">
@@ -280,7 +280,7 @@ function OnboardingStep4() {
 						onClick={() =>
 							navigate({ to: isTeam ? "/onboarding/step-2" : "/onboarding/step-3" })
 						}
-						className="flex-1 h-14 rounded-2xl text-lg font-bold border-border/60 hover:bg-accent transition-all"
+						className="flex-1 h-10 border border-foreground/[0.06] font-mono text-xs uppercase tracking-wider text-foreground/60 transition-all"
 					>
 						<ArrowLeft weight="bold" className="mr-2 w-5 h-5" />
 						Edit Info
@@ -289,10 +289,10 @@ function OnboardingStep4() {
 						type="button"
 						onClick={handleConfirm}
 						disabled={isSubmitting}
-						className="flex-[2] h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+						className="flex-[2] h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all active:scale-[0.98]"
 					>
 						{isSubmitting ? (
-							<CircleNotch className="w-6 h-6 animate-spin text-primary-foreground" />
+							<CircleNotch className="w-6 h-6 animate-spin text-background" />
 						) : (
 							<>
 								{isTeam ? "Confirm" : "Confirm & Pay"}
@@ -306,25 +306,25 @@ function OnboardingStep4() {
 	);
 }
 
-function SummaryItem({ 
-	label, 
-	value, 
-	icon: Icon, 
-	destructive = false 
-}: { 
-	label: string; 
-	value: string; 
-	icon: any; 
+function SummaryItem({
+	label,
+	value,
+	icon: Icon,
+	destructive = false
+}: {
+	label: string;
+	value: string;
+	icon: any;
 	destructive?: boolean;
 }) {
 	return (
 		<div className="flex flex-col gap-1">
-			<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+			<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 				{label}
 			</span>
 			<div className="flex items-center gap-2">
-				<Icon size={16} className={cn(destructive ? "text-destructive" : "text-primary")} />
-				<span className={cn("text-sm font-semibold", destructive && "text-destructive")}>
+				<Icon size={16} className={cn(destructive ? "text-destructive" : "text-foreground/40")} />
+				<span className={cn("text-sm font-medium", destructive && "text-destructive")}>
 					{value}
 				</span>
 			</div>

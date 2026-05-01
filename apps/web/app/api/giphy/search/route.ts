@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   url.searchParams.set("bundle", "messaging_non_clips");
 
   try {
-    const response = await fetch(url.toString(), { cache: "no-store" });
+    const response = await fetch(url.toString(), { next: { revalidate: 300 } });
     const payload = (await response.json().catch(() => null)) as GiphySearchResponse | null;
     if (!response.ok) {
       return NextResponse.json(
@@ -70,7 +70,9 @@ export async function GET(req: NextRequest) {
       })
       .filter((item): item is { id: string; previewUrl: string; url: string } => Boolean(item));
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results }, {
+      headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" },
+    });
   } catch {
     return NextResponse.json(
       {

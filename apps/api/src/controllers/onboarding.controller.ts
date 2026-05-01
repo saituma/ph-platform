@@ -62,8 +62,9 @@ const adultBasicSchema = z.object({
 
 const teamBasicSchema = z.object({
   name: z.string().min(1),
-  minAge: z.number().int().min(1),
-  maxAge: z.number().int().min(1),
+  athleteType: z.enum(["youth", "adult"]).default("youth"),
+  minAge: z.number().int().min(1).optional().nullable(),
+  maxAge: z.number().int().min(1).optional().nullable(),
   maxAthletes: z.number().int().min(1),
 });
 

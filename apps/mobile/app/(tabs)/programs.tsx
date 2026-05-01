@@ -8,11 +8,9 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import Animated, {
-  FadeIn,
   FadeInDown,
   withSpring,
   useSharedValue,
@@ -27,16 +25,13 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { Text } from "@/components/ScaledText";
 import { AgeGate } from "@/components/AgeGate";
-import { SkeletonProgramsScreen } from "@/components/ui/Skeleton";
 import { useWatchHistoryStore, type WatchEntry } from "@/lib/mmkv";
 
-import { programDetailRouteIdFromTier } from "@/lib/planAccess";
-import { ProgramDetailPanel } from "@/components/programs/ProgramDetailPanel";
-import { SafeMaskedView } from "@/components/navigation/TransitionStack";
+import { useMyPrograms } from "@/hooks/programs/useMyPrograms";
 import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
 import { TeamProgramView } from "@/components/programs/TeamProgramView";
 import { hasAssignedTeam } from "@/lib/teamMembership";
-import type { ProgramId } from "@/constants/program-details";
+import { Shadows } from "@/constants/theme";
 
 // ── Continue Watching Card ───────────────────────────────────────────
 
@@ -48,7 +43,6 @@ interface WatchCardProps {
 const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
   const { colors, isDark } = useAppTheme();
   const reduceMotion = useReducedMotion();
-  const router = useRouter();
 
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -66,7 +60,8 @@ const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
     : FadeInDown.delay(index * 60).duration(250).springify();
 
   return (
-    <Animated.View entering={entering} style={animStyle}>
+    <Animated.View entering={entering}>
+      <Animated.View style={animStyle}>
       <Pressable
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -104,6 +99,7 @@ const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
           {entry.title}
         </Text>
       </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 });
@@ -113,13 +109,77 @@ const watchListContentStyle = { paddingHorizontal: 20 };
 
 // ── Main Screen ──────────────────────────────────────────────────────
 
+const ProgramCard = memo(function ProgramCard({
+  program,
+  index,
+  onPress,
+}: {
+  program: { id: number; name: string; description: string | null; moduleCount: number };
+  index: number;
+  onPress: () => void;
+}) {
+  const { colors, isDark } = useAppTheme();
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+
+  const entering = reduceMotion
+    ? undefined
+    : FadeInDown.delay(index * 80).duration(300).springify();
+
+  return (
+    <Animated.View entering={entering}>
+      <Animated.View style={animStyle}>
+      <Pressable
+        onPressIn={() => {
+          scale.value = withSpring(0.97, { damping: 18, stiffness: 350 });
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1.0, { damping: 20, stiffness: 400 });
+        }}
+        onPress={onPress}
+        style={{
+          backgroundColor: colors.card,
+          borderColor: borderSoft,
+          borderWidth: 1,
+          borderRadius: 24,
+          padding: 20,
+          marginBottom: 12,
+          ...(isDark ? {} : Shadows.md),
+        }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: colors.textPrimary }}>
+              {program.name}
+            </Text>
+            {program.description ? (
+              <Text
+                style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginTop: 4 }}
+                numberOfLines={2}
+              >
+                {program.description}
+              </Text>
+            ) : null}
+            <Text style={{ fontSize: 12, fontFamily: "Outfit-Medium", color: colors.accent, marginTop: 8 }}>
+              {program.moduleCount} {program.moduleCount === 1 ? "module" : "modules"}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+        </View>
+      </Pressable>
+      </Animated.View>
+    </Animated.View>
+  );
+});
+
 const ProgramsScreen = memo(function ProgramsScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
   const { isSectionHidden } = useAgeExperience();
-  const programTier = useAppSelector((s) => s.user.programTier);
   const token = useAppSelector((s) => s.user.token);
   const profile = useAppSelector((s) => s.user.profile);
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
@@ -142,19 +202,28 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     load: loadTeam,
   } = useTeamWorkspace(token, activeAthlete?.age ?? null);
 
+  const { programs, isLoading: programsLoading, loadPrograms } = useMyPrograms(token);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    if (isTeamMode) loadTeam();
+    if (isTeamMode) {
+      loadTeam();
+    } else {
+      loadPrograms();
+    }
   }, [isTeamMode]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    if (isTeamMode) await loadTeam(true);
+    if (isTeamMode) {
+      await loadTeam(true);
+    } else {
+      await loadPrograms(true);
+    }
     setIsRefreshing(false);
-  }, [isTeamMode, loadTeam]);
+  }, [isTeamMode, loadTeam, loadPrograms]);
 
-  // ── Watch history (AsyncStorage-backed Zustand store) ────────────────
   const watchHistory = useWatchHistoryStore((s) => s.history);
 
   const renderWatchItem = useCallback(
@@ -180,16 +249,10 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     [router],
   );
 
-  const onNavigate = useCallback(
-    (path: string) => router.push(path as any),
-    [router],
-  );
-
   if (isSectionHidden("programs")) {
     return <AgeGate title="Programs locked" message="Programs are restricted for this age." />;
   }
 
-  // ── Team mode → delegated view ─────────────────────────────
   if (isTeamMode) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -225,8 +288,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     );
   }
 
-  // ── Solo mode → program detail panel ───────────────────────
-  const programId = programDetailRouteIdFromTier(programTier) as ProgramId;
+  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -248,13 +310,66 @@ const ProgramsScreen = memo(function ProgramsScreen() {
         </View>
       ) : null}
 
-      <SafeMaskedView style={{ flex: 1 }}>
-        <ProgramDetailPanel
-          programId={programId}
-          showBack={false}
-          onNavigate={onNavigate}
-        />
-      </SafeMaskedView>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.accent} />
+        }
+      >
+        <Text style={{ fontSize: 24, fontFamily: "ClashDisplay-Bold", color: colors.textPrimary, marginBottom: 4 }}>
+          My Programs
+        </Text>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginBottom: 20 }}>
+          Your assigned training programs.
+        </Text>
+
+        {programsLoading && programs.length === 0 ? (
+          <View style={{ gap: 12 }}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <View
+                key={`skeleton-${i}`}
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: borderSoft,
+                  borderWidth: 1,
+                  borderRadius: 24,
+                  padding: 20,
+                  height: 90,
+                }}
+              />
+            ))}
+          </View>
+        ) : programs.length === 0 ? (
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderColor: borderSoft,
+              borderWidth: 1,
+              borderRadius: 24,
+              padding: 32,
+              alignItems: "center",
+            }}
+          >
+            <Ionicons name="barbell-outline" size={40} color={colors.textSecondary} style={{ marginBottom: 12 }} />
+            <Text style={{ fontSize: 16, fontFamily: "Outfit-Medium", color: colors.textPrimary, marginBottom: 4 }}>
+              No programs assigned
+            </Text>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, textAlign: "center" }}>
+              Your coach will assign programs to you. Check back later.
+            </Text>
+          </View>
+        ) : (
+          programs.map((program, index) => (
+            <ProgramCard
+              key={program.id}
+              program={program}
+              index={index}
+              onPress={() => router.push(`/programs/assigned/${program.id}` as any)}
+            />
+          ))
+        )}
+      </ScrollView>
     </View>
   );
 });

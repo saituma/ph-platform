@@ -4,6 +4,9 @@ import {
   Modal,
   Platform,
   ActivityIndicator,
+  FlatList,
+  Pressable,
+  TextInput,
 } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
@@ -26,9 +29,16 @@ import {
   PendingAttachment,
 } from "@/types/admin-messages";
 import { useSocket } from "@/context/SocketContext";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
 import { GifPickerModal } from "@/components/messages/GifPickerModal";
+import { MessageContextMenu } from "@/components/messages/MessageContextMenu";
+import { UserProfileSheet, type ProfileTarget } from "@/components/messages/UserProfileSheet";
+import ForwardMessageSheet from "@/components/messages/ForwardMessageSheet";
+import ThreadSearchModal from "@/components/messages/ThreadSearchModal";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION } from "@/lib/media/videoPickerNativeResolution";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
@@ -37,7 +47,8 @@ import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
 import type { MessageThread, TypingStatus } from "@/types/messages";
 import type { ChatMessage } from "@/constants/messages";
 import { useAppSelector } from "@/store/hooks";
-import { MessageCircle, Search } from "lucide-react-native";
+import { MessageCircle, Search, SquarePen } from "lucide-react-native";
+import { apiRequest } from "@/lib/api";
 import {
   appendCachedAdminDmMessage,
   prefetchAdminDmThreadMessages,
@@ -83,6 +94,17 @@ export function AdminDmSection({
     Record<string, { emoji: string; count: number; userIds: number[] }[]>
   >({});
 
+  const [messageActionsTarget, setMessageActionsTarget] = useState<ChatMessage | null>(null);
+  const [profileTarget, setProfileTarget] = useState<ProfileTarget | null>(null);
+  const [forwardTarget, setForwardTarget] = useState<ChatMessage | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const [newDmOpen, setNewDmOpen] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [userResults, setUserResults] = useState<{ id: number; name: string; role: string }[]>([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const userSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const queryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getInitials = useCallback((name?: string | null) => {
@@ -121,6 +143,33 @@ export function AdminDmSection({
     }, 150);
     return () => clearTimeout(timeout);
   }, [canLoad, dms.threads, token]);
+
+  useEffect(() => {
+    if (!newDmOpen) { setUserSearch(""); setUserResults([]); return; }
+    if (userSearchDebounceRef.current) clearTimeout(userSearchDebounceRef.current);
+    userSearchDebounceRef.current = setTimeout(async () => {
+      if (!token) return;
+      setUserSearchLoading(true);
+      try {
+        const q = userSearch.trim();
+        const url = q ? `/admin/users?q=${encodeURIComponent(q)}&limit=30` : "/admin/users?limit=30";
+        const res = await apiRequest<{ users?: { id: number; name: string; role: string }[] }>(url, { token });
+        setUserResults(Array.isArray(res?.users) ? res.users : []);
+      } catch {
+        setUserResults([]);
+      } finally {
+        setUserSearchLoading(false);
+      }
+    }, 250);
+    return () => { if (userSearchDebounceRef.current) clearTimeout(userSearchDebounceRef.current); };
+  }, [newDmOpen, userSearch, token]);
+
+  const handleSelectNewDmUser = useCallback((userId: number, name: string) => {
+    setNewDmOpen(false);
+    dms.setActiveDmUserId(userId);
+    dms.setActiveDmName(name);
+    dms.loadMessages(userId, false);
+  }, [dms]);
 
   useEffect(() => {
     if (!socket || !dms.activeDmUserId) return;
@@ -383,15 +432,90 @@ export function AdminDmSection({
     setPendingAttachment(null);
   }, []);
 
+  const handleLongPressMessage = useCallback((message: ChatMessage) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setMessageActionsTarget(message);
+  }, []);
+
+  const handleCopyMessage = useCallback((message: ChatMessage) => {
+    if (message.text) {
+      void Clipboard.setStringAsync(message.text);
+    }
+  }, []);
+
+  const handleAvatarPress = useCallback(
+    (senderId: number, name: string, avatar?: string | null) => {
+      setProfileTarget({ kind: "dm", id: senderId, name, avatar });
+    },
+    [],
+  );
+
+  const handleHeaderPress = useCallback(() => {
+    if (!currentThread) return;
+    setProfileTarget({
+      kind: "dm",
+      id: Number(currentThread.id),
+      name: currentThread.name,
+      avatar: currentThread.avatarUrl,
+      role: currentThread.role,
+      lastSeen: currentThread.lastSeen,
+    });
+  }, [currentThread]);
+
+  const handlePinMessage = useCallback(async (message: ChatMessage) => {
+    try {
+      await apiRequest(`/messages/${message.id}/pin`, { token, method: "PUT" });
+    } catch (e) {
+      console.warn("[pin] failed:", e);
+    }
+  }, [token]);
+
+  const forwardThreads = useMemo<MessageThread[]>(() => {
+    return dms.threads.map((t) => ({
+      id: String(t.userId),
+      name: t.name ?? `User ${t.userId}`,
+      role: t.programTier ? t.programTier.replaceAll("_", " ") : "Athlete",
+      channelType: "direct" as const,
+      preview: stripPreview(t.preview) || "Direct messages",
+      time: formatWhen(t.time),
+      pinned: false,
+      premium: Boolean(t.premium),
+      unread: safeNumber(t.unread, 0),
+      lastSeen: "Active",
+      updatedAtMs: Date.now(),
+    }));
+  }, [dms.threads]);
+
   return (
     <View style={{ flex: 1, gap: 12, paddingHorizontal: 16 }}>
-      <AdminInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search people"
-        leftIcon={Search}
-        onClear={() => setQuery("")}
-      />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <AdminInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search people"
+            leftIcon={Search}
+            onClear={() => setQuery("")}
+          />
+        </View>
+        <Pressable
+          onPress={() => setNewDmOpen(true)}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            width: 42,
+            height: 42,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(48,176,199,0.14)",
+            borderWidth: 1,
+            borderColor: "rgba(48,176,199,0.28)",
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <SquarePen size={18} color="#30B0C7" />
+        </Pressable>
+      </View>
 
       {dms.threadsLoading && dms.threads.length === 0 ? (
         <View style={{ gap: 10 }}>
@@ -459,6 +583,102 @@ export function AdminDmSection({
         </View>
       )}
 
+      {/* NEW DM USER PICKER */}
+      <Modal
+        visible={newDmOpen}
+        animationType="slide"
+        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+        onRequestClose={() => setNewDmOpen(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          {/* Header */}
+          <View style={{
+            flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+            paddingHorizontal: 20, paddingTop: Platform.OS === "ios" ? 20 : 40, paddingBottom: 12,
+            borderBottomWidth: 1, borderBottomColor: "rgba(48,176,199,0.14)",
+          }}>
+            <Text style={{ fontFamily: "Satoshi-Bold", fontSize: 20, color: colors.textPrimary }}>
+              New Message
+            </Text>
+            <Pressable onPress={() => setNewDmOpen(false)} hitSlop={10}>
+              <Text style={{ fontFamily: "Outfit-Medium", fontSize: 15, color: "#30B0C7" }}>Cancel</Text>
+            </Pressable>
+          </View>
+
+          {/* Search */}
+          <View style={{
+            flexDirection: "row", alignItems: "center", gap: 8,
+            margin: 16, paddingHorizontal: 12, height: 42,
+            borderRadius: 12, borderWidth: 1,
+            backgroundColor: "rgba(48,176,199,0.06)",
+            borderColor: "rgba(48,176,199,0.18)",
+          }}>
+            <Search size={16} color="#30B0C7" />
+            <TextInput
+              value={userSearch}
+              onChangeText={setUserSearch}
+              placeholder="Search by name..."
+              placeholderTextColor={colors.textDim}
+              autoFocus
+              style={{ flex: 1, fontSize: 15, fontFamily: "Outfit-Regular", color: colors.textPrimary, padding: 0 }}
+            />
+          </View>
+
+          {/* List */}
+          {userSearchLoading ? (
+            <View style={{ paddingTop: 32, alignItems: "center" }}>
+              <ActivityIndicator color="#30B0C7" />
+            </View>
+          ) : (
+            <FlatList
+              data={userResults}
+              keyExtractor={(item) => String(item.id)}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => handleSelectNewDmUser(item.id, item.name ?? `User ${item.id}`)}
+                  style={({ pressed }) => ({
+                    flexDirection: "row", alignItems: "center", gap: 12,
+                    paddingHorizontal: 16, paddingVertical: 12,
+                    backgroundColor: pressed ? "rgba(48,176,199,0.08)" : "transparent",
+                  })}
+                >
+                  <View style={{
+                    width: 44, height: 44, borderRadius: 14,
+                    alignItems: "center", justifyContent: "center",
+                    backgroundColor: "rgba(48,176,199,0.14)",
+                    borderWidth: 1, borderColor: "rgba(48,176,199,0.24)",
+                  }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#30B0C7" }}>
+                      {getInitials(item.name) || "?"}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 15, color: colors.textPrimary }}>
+                      {item.name ?? `User ${item.id}`}
+                    </Text>
+                    {item.role ? (
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 1 }}>
+                        {item.role}
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+              )}
+              ListEmptyComponent={
+                userSearch.trim() ? (
+                  <View style={{ paddingTop: 40, alignItems: "center" }}>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary }}>
+                      No users found
+                    </Text>
+                  </View>
+                ) : null
+              }
+            />
+          )}
+        </View>
+      </Modal>
+
       {/* DM THREAD MODAL */}
       <Modal
         visible={dms.activeDmUserId != null}
@@ -468,8 +688,13 @@ export function AdminDmSection({
           dms.setActiveDmUserId(null);
           setReplyTarget(null);
           setReactionTarget(null);
+          setMessageActionsTarget(null);
+          setProfileTarget(null);
+          setForwardTarget(null);
+          setSearchOpen(false);
         }}
       >
+        <BottomSheetModalProvider>
         <View className="flex-1 bg-app" style={{ backgroundColor: colors.background }}>
           {currentThread ? (
             <>
@@ -479,7 +704,13 @@ export function AdminDmSection({
                   dms.setActiveDmUserId(null);
                   setReplyTarget(null);
                   setReactionTarget(null);
+                  setMessageActionsTarget(null);
+                  setProfileTarget(null);
+                  setForwardTarget(null);
+                  setSearchOpen(false);
                 }}
+                onHeaderPress={handleHeaderPress}
+                onSearch={() => setSearchOpen(true)}
               />
               <ThreadChatBody
                 thread={currentThread}
@@ -499,9 +730,10 @@ export function AdminDmSection({
                 onDraftChange={setDraft}
                 onSend={handleSend}
                 onOpenComposerMenu={() => setComposerMenuOpen(true)}
-                onLongPressMessage={(message) => setReactionTarget(message)}
+                onLongPressMessage={handleLongPressMessage}
                 onReactionPress={handleToggleReaction}
                 onOpenReactionPicker={(message) => setReactionTarget(message)}
+                onAvatarPress={handleAvatarPress}
                 pendingAttachment={pendingAttachment}
                 onRemovePendingAttachment={handleRemovePendingAttachment}
                 isUploadingAttachment={isSending || isUploading}
@@ -564,7 +796,40 @@ export function AdminDmSection({
 	            setGifPickerOpen(false);
 	          }}
 	        />
+        <MessageContextMenu
+          message={messageActionsTarget}
+          selfUserId={myUserId ?? 0}
+          onClose={() => setMessageActionsTarget(null)}
+          onReaction={(msg, emoji) => {
+            void handleToggleReaction(msg, emoji);
+          }}
+          onReply={setReplyTargetFromMessage}
+          onCopy={handleCopyMessage}
+          onPin={handlePinMessage}
+          onForward={(msg) => setForwardTarget(msg)}
+          onDelete={() => setMessageActionsTarget(null)}
+          onOpenEmojiPicker={(msg) => setReactionTarget(msg)}
+        />
+        <UserProfileSheet
+          target={profileTarget}
+          onClose={() => setProfileTarget(null)}
+        />
+        <ForwardMessageSheet
+          message={forwardTarget}
+          threads={forwardThreads}
+          token={token}
+          onClose={() => setForwardTarget(null)}
+          onForwarded={() => setForwardTarget(null)}
+        />
+        <ThreadSearchModal
+          visible={searchOpen}
+          threadId={currentThread?.id ?? ""}
+          token={token}
+          onClose={() => setSearchOpen(false)}
+          onJumpToMessage={() => setSearchOpen(false)}
+        />
         </View>
+        </BottomSheetModalProvider>
 	      </Modal>
     </View>
   );

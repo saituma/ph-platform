@@ -521,7 +521,7 @@ export async function enrichPlansWithBillingQuotes(
           ...plan,
           billingQuote: {
             billingCycle,
-            lookupKey: lookupKeyForAthleteBilling(plan.tier, billingCycle),
+            lookupKey: plan.tier ? lookupKeyForAthleteBilling(plan.tier, billingCycle) : null,
             amount,
             mode: checkoutModeForBillingCycle(billingCycle),
           },
@@ -574,9 +574,35 @@ export function isSubscriptionPlanFree(plan: {
   return !hasStripePrice;
 }
 
+function deriveDurationOneTimeAmount(input: {
+  durationWeeks?: number | null;
+  durationWeeksPrice?: number | null;
+  durationDaysPerWeek?: number | null;
+  durationDaysPrice?: number | null;
+}): number | null {
+  if (input.durationWeeksPrice && input.durationWeeksPrice > 0) {
+    return input.durationWeeksPrice;
+  }
+  if (
+    input.durationDaysPrice &&
+    input.durationDaysPrice > 0 &&
+    input.durationDaysPerWeek &&
+    input.durationDaysPerWeek > 0 &&
+    input.durationWeeks &&
+    input.durationWeeks > 0
+  ) {
+    return input.durationDaysPrice * input.durationDaysPerWeek * input.durationWeeks;
+  }
+  return null;
+}
+
+function formatPenceAsGbp(cents: number): string {
+  return `£${(cents / 100).toFixed(2)}`;
+}
+
 export async function createSubscriptionPlan(input: {
   name: string;
-  tier: (typeof ProgramType.enumValues)[number];
+  tier?: (typeof ProgramType.enumValues)[number] | null;
   stripePriceId: string;
   stripePriceIdMonthly?: string | null;
   stripePriceIdYearly?: string | null;
@@ -591,6 +617,10 @@ export async function createSubscriptionPlan(input: {
   discountAppliesTo?: string | null;
   discounts?: DiscountRule[] | null;
   features?: string[] | null;
+  durationWeeks?: number | null;
+  durationWeeksPrice?: number | null;
+  durationDaysPerWeek?: number | null;
+  durationDaysPrice?: number | null;
   isActive?: boolean;
 }) {
   let stripePriceIdMonthly = input.stripePriceIdMonthly ?? null;
@@ -598,10 +628,24 @@ export async function createSubscriptionPlan(input: {
   let stripePriceIdOneTime = input.stripePriceIdOneTime ?? null;
   let stripePriceId = input.stripePriceId || "manual";
 
+  // If duration pricing is configured but no explicit oneTimePrice was provided,
+  // treat the duration price as the single charge for the whole programme.
+  const durationOneTimeAmount = deriveDurationOneTimeAmount(input);
+  let effectiveOneTimePrice = input.oneTimePrice ?? null;
+  let effectiveBillingInterval = input.billingInterval;
+  let effectiveDisplayPrice = input.displayPrice;
+  if (!parsePriceToCents(effectiveOneTimePrice) && durationOneTimeAmount) {
+    effectiveOneTimePrice = formatPenceAsGbp(durationOneTimeAmount);
+    effectiveBillingInterval = "one_time";
+    if (!effectiveDisplayPrice || effectiveDisplayPrice.trim() === "") {
+      effectiveDisplayPrice = effectiveOneTimePrice;
+    }
+  }
+
   if (stripe) {
     const monthlyAmount = parsePriceToCents(input.monthlyPrice);
     const yearlyAmount = parsePriceToCents(input.yearlyPrice);
-    const oneTimeAmount = parsePriceToCents(input.oneTimePrice);
+    const oneTimeAmount = parsePriceToCents(effectiveOneTimePrice);
     if (monthlyAmount) {
       const discountedMonthly = applyDiscountToAmount({
         originalCents: monthlyAmount,
@@ -664,16 +708,20 @@ export async function createSubscriptionPlan(input: {
       stripePriceIdMonthly,
       stripePriceIdYearly,
       stripePriceIdOneTime,
-      displayPrice: input.displayPrice,
-      billingInterval: input.billingInterval,
+      displayPrice: effectiveDisplayPrice,
+      billingInterval: effectiveBillingInterval,
       monthlyPrice: input.monthlyPrice ?? null,
       yearlyPrice: input.yearlyPrice ?? null,
-      oneTimePrice: input.oneTimePrice ?? null,
+      oneTimePrice: effectiveOneTimePrice,
       discountType: input.discountType ?? null,
       discountValue: input.discountValue ?? null,
       discountAppliesTo: input.discountAppliesTo ?? null,
       discounts: input.discounts ?? null,
       features: input.features ?? null,
+      durationWeeks: input.durationWeeks ?? null,
+      durationWeeksPrice: input.durationWeeksPrice ?? null,
+      durationDaysPerWeek: input.durationDaysPerWeek ?? null,
+      durationDaysPrice: input.durationDaysPrice ?? null,
       isActive: input.isActive ?? true,
     })
     .returning();
@@ -720,7 +768,7 @@ export async function updateSubscriptionPlan(
   planId: number,
   input: Partial<{
     name: string;
-    tier: (typeof ProgramType.enumValues)[number];
+    tier: (typeof ProgramType.enumValues)[number] | null;
     stripePriceId: string;
     stripePriceIdMonthly: string | null;
     stripePriceIdYearly: string | null;
@@ -735,6 +783,10 @@ export async function updateSubscriptionPlan(
     discountAppliesTo: string | null;
     discounts: DiscountRule[] | null;
     features: string[] | null;
+    durationWeeks: number | null;
+    durationWeeksPrice: number | null;
+    durationDaysPerWeek: number | null;
+    durationDaysPrice: number | null;
     isActive: boolean;
   }>,
 ) {
@@ -752,12 +804,32 @@ export async function updateSubscriptionPlan(
   let stripePriceIdYearly = input.stripePriceIdYearly ?? existing.stripePriceIdYearly ?? null;
   let stripePriceIdOneTime = input.stripePriceIdOneTime ?? existing.stripePriceIdOneTime ?? null;
   let stripePriceId = input.stripePriceId ?? existing.stripePriceId;
+
+  const nextDurationFields = {
+    durationWeeks: ("durationWeeks" in input ? input.durationWeeks : existing.durationWeeks) ?? null,
+    durationWeeksPrice: ("durationWeeksPrice" in input ? input.durationWeeksPrice : existing.durationWeeksPrice) ?? null,
+    durationDaysPerWeek:
+      ("durationDaysPerWeek" in input ? input.durationDaysPerWeek : existing.durationDaysPerWeek) ?? null,
+    durationDaysPrice: ("durationDaysPrice" in input ? input.durationDaysPrice : existing.durationDaysPrice) ?? null,
+  };
+  const durationOneTimeAmount = deriveDurationOneTimeAmount(nextDurationFields);
+  let effectiveOneTimePrice = input.oneTimePrice ?? existing.oneTimePrice ?? null;
+  let effectiveBillingInterval = input.billingInterval ?? existing.billingInterval;
+  let effectiveDisplayPrice = input.displayPrice ?? existing.displayPrice;
+  if (!parsePriceToCents(effectiveOneTimePrice) && durationOneTimeAmount) {
+    effectiveOneTimePrice = formatPenceAsGbp(durationOneTimeAmount);
+    effectiveBillingInterval = "one_time";
+    if (!effectiveDisplayPrice || effectiveDisplayPrice.trim() === "") {
+      effectiveDisplayPrice = effectiveOneTimePrice;
+    }
+  }
+
   if (stripe) {
     const nextName = input.name ?? existing.name;
     const nextTier = input.tier ?? existing.tier;
     const nextMonthlyRaw = input.monthlyPrice ?? existing.monthlyPrice;
     const nextYearlyRaw = input.yearlyPrice ?? existing.yearlyPrice;
-    const nextOneTimeRaw = input.oneTimePrice ?? existing.oneTimePrice;
+    const nextOneTimeRaw = effectiveOneTimePrice;
     const monthlyAmount = parsePriceToCents(nextMonthlyRaw);
     const yearlyAmount = parsePriceToCents(nextYearlyRaw);
     const oneTimeAmount = parsePriceToCents(nextOneTimeRaw);
@@ -771,7 +843,8 @@ export async function updateSubscriptionPlan(
     const yearlyChanged =
       "yearlyPrice" in input && (input.yearlyPrice ?? null) !== (existing.yearlyPrice ?? null);
     const oneTimeChanged =
-      "oneTimePrice" in input && (input.oneTimePrice ?? null) !== (existing.oneTimePrice ?? null);
+      ("oneTimePrice" in input && (input.oneTimePrice ?? null) !== (existing.oneTimePrice ?? null)) ||
+      (effectiveOneTimePrice ?? null) !== (existing.oneTimePrice ?? null);
     const discountChanged =
       ("discountType" in input && (input.discountType ?? null) !== (existing.discountType ?? null)) ||
       ("discountValue" in input && (input.discountValue ?? null) !== (existing.discountValue ?? null)) ||
@@ -834,6 +907,9 @@ export async function updateSubscriptionPlan(
     .update(subscriptionPlanTable)
     .set({
       ...input,
+      oneTimePrice: effectiveOneTimePrice,
+      billingInterval: effectiveBillingInterval,
+      displayPrice: effectiveDisplayPrice,
       stripePriceId,
       stripePriceIdMonthly,
       stripePriceIdYearly,

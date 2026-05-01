@@ -14,11 +14,27 @@ type TeamSummary = {
   minAge: number | null;
   maxAge: number | null;
   memberCount: number;
-  youthCount: number;
-  adultCount: number;
+  maxAthletes: number;
+  subscriptionStatus: string | null;
+  planPaymentType: string | null;
+  planCommitmentMonths: number | null;
+  planExpiresAt: string | Date | null;
   createdAt: string | Date | null;
   updatedAt: string | Date | null;
 };
+
+function billingLabel(team: TeamSummary): { text: string; color: string } {
+  const status = team.subscriptionStatus ?? "pending_payment";
+  if (status === "active") {
+    const cycle = team.planPaymentType === "upfront"
+      ? `${team.planCommitmentMonths ?? 12}mo upfront`
+      : "monthly";
+    return { text: `Active · ${cycle}`, color: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" };
+  }
+  if (status === "cancelled") return { text: "Cancelled", color: "border-red-500/30 bg-red-500/10 text-red-200" };
+  if (status === "past_due") return { text: "Past due", color: "border-red-500/30 bg-red-500/10 text-red-200" };
+  return { text: "Pending payment", color: "border-amber-500/30 bg-amber-500/10 text-amber-200" };
+}
 
 function formatDate(value: string | Date | null) {
   if (!value) return "—";
@@ -102,7 +118,7 @@ export default function TeamsPage() {
                           {team.team}
                         </p>
                         <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          <span className={`rounded-full border px-2 py-1 ${team.athleteType === 'adult' ? 'border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'}`}>
+                          <span className={`rounded-full border px-2 py-1 ${team.athleteType === 'adult' ? 'border-blue-500/30 bg-blue-500/10 text-blue-200' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'}`}>
                             {team.athleteType === 'adult' ? 'Adult Team' : 'Youth Team'}
                           </span>
                           {(team.minAge != null || team.maxAge != null) ? (
@@ -111,9 +127,17 @@ export default function TeamsPage() {
                             </span>
                           ) : null}
                           <span className="rounded-full border border-border px-2 py-1">
-                            {team.memberCount} athlete
+                            {team.memberCount}{team.maxAthletes > 0 ? `/${team.maxAthletes}` : ""} athlete
                             {team.memberCount === 1 ? "" : "s"}
                           </span>
+                          <span className={`rounded-full border px-2 py-1 ${billingLabel(team).color}`}>
+                            {billingLabel(team).text}
+                          </span>
+                          {team.planExpiresAt ? (
+                            <span className="rounded-full border border-border px-2 py-1">
+                              Expires {formatDate(team.planExpiresAt)}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       <Button

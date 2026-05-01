@@ -785,6 +785,48 @@
       "when": 1777472657963,
       "tag": "0111_gray_la_nuit",
       "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1777552870890,
+      "tag": "0112_dusty_risque",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1777573105881,
+      "tag": "0113_solid_terrax",
+      "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1746403200000,
+      "tag": "0114_plan_tier_optional",
+      "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1746489600000,
+      "tag": "0115_plan_duration",
+      "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1746576000000,
+      "tag": "0116_plan_duration_prices",
+      "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1746662400000,
+      "tag": "0117_athlete_current_plan_id",
+      "breakpoints": true
     }
   ]
 }
