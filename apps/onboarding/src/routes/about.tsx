@@ -162,7 +162,7 @@ function About() {
 					<div className="flex flex-wrap items-center justify-center gap-3">
 						<Link
 							to="/register"
-							className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-foreground text-background text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
+							className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-primary text-primary-foreground text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
 						>
 							Get Started
 							<ArrowRight weight="bold" className="w-3.5 h-3.5" />

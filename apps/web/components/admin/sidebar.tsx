@@ -97,9 +97,10 @@ export function AdminSidebarContent({
           ?.split("=")[1] ?? ""
       : "";
 
+    if (socketUrl) void fetch(`${socketUrl}/health`, { cache: "no-store" }).catch(() => {});
     const socket: Socket = io(socketUrl, {
       auth: accessToken ? { token: accessToken } : undefined,
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       reconnection: true,
     });
     socketRef.current = socket;

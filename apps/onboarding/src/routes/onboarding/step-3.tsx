@@ -165,7 +165,7 @@ function OnboardingStep3() {
 											className={cn(
 												"h-10 sm:h-12 rounded-none border transition-all font-bold text-xs sm:text-sm",
 												trainingPerWeek === num
-													? "border-foreground bg-foreground text-background"
+													? "border-foreground bg-primary text-primary-foreground"
 													: "border-foreground/[0.06] text-foreground/60 hover:border-foreground/20",
 											)}
 										>
@@ -314,7 +314,7 @@ function OnboardingStep3() {
 							<Button
 								type="submit"
 								disabled={mutation.isPending}
-								className="flex-[2] h-10 rounded-none bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all"
+								className="flex-[2] h-10 rounded-none bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all"
 							>
 								{mutation.isPending ? (
 									<CircleNotch className="w-6 h-6 animate-spin" />

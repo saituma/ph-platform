@@ -289,7 +289,7 @@ function OnboardingStep4() {
 						type="button"
 						onClick={handleConfirm}
 						disabled={isSubmitting}
-						className="flex-[2] h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all active:scale-[0.98]"
+						className="flex-[2] h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all active:scale-[0.98]"
 					>
 						{isSubmitting ? (
 							<CircleNotch className="w-6 h-6 animate-spin text-background" />

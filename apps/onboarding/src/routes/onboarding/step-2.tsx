@@ -355,7 +355,7 @@ function OnboardingStep2() {
 															className={cn(
 																"h-full transition-all duration-200 border cursor-pointer",
 																isSelected
-																	? "border-foreground bg-foreground text-background"
+																	? "border-foreground bg-primary text-primary-foreground"
 																	: "border-foreground/[0.06] bg-card hover:border-foreground/20"
 															)}
 														>
@@ -520,7 +520,7 @@ function OnboardingStep2() {
 							<Button
 								type="submit"
 								disabled={mutation.isPending || !!ageError}
-								className="flex-[2] h-10 rounded-none bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-50"
+								className="flex-[2] h-10 rounded-none bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-50"
 							>
 								{mutation.isPending ? (
 									<CircleNotch className="w-6 h-6 animate-spin text-primary-foreground" />

@@ -139,7 +139,7 @@ const TIER_METADATA: Record<
 	},
 };
 
-function planCardTitle(plan: { tier: string; name?: string | null }) {
+function planCardTitle(plan: { tier: string | null | undefined; name?: string | null }) {
 	// Prefer the admin-set plan.name so renames in the admin portal flow through.
 	const fromAdmin = String(plan.name ?? "").trim();
 	if (fromAdmin) return fromAdmin;
@@ -148,7 +148,8 @@ function planCardTitle(plan: { tier: string; name?: string | null }) {
 	return plan.tier;
 }
 
-function formatTierLine(tier: string) {
+function formatTierLine(tier: string | null | undefined) {
+	if (!tier) return "";
 	const meta = TIER_METADATA[tier];
 	if (meta) return meta.tierLine;
 	return tier.replace(/^PHP_?/i, "").replace(/_/g, " ").trim() || tier;
@@ -738,7 +739,7 @@ function OnboardingStep5() {
 					<Button
 						onClick={handlePayment}
 						disabled={isSubmitting || !selectedPlan || isLoading}
-						className="w-full h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-opacity"
+						className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-opacity"
 					>
 						{isSubmitting ? (
 							<CircleNotch className="w-5 h-5 animate-spin" />

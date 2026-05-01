@@ -153,7 +153,7 @@ function Register() {
 						<button
 							type="submit"
 							disabled={isLoading}
-							className="w-full h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
+							className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
 						>
 							{isLoading ? (
 								<CircleNotch weight="bold" className="w-4 h-4 animate-spin" />

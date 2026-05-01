@@ -77,9 +77,12 @@ function getOrCreateSocket(): Socket {
           .find((p) => p.startsWith("accessTokenClient="))
           ?.slice("accessTokenClient=".length) ?? "")
       : "";
+  // Wake the Render free-tier dyno over HTTP first; the WS handshake
+  // fails fast against a cold-starting instance.
+  if (socketUrl) void fetch(`${socketUrl}/health`, { cache: "no-store" }).catch(() => {});
   _socket = io(socketUrl, {
     auth: token ? { token } : undefined,
-    transports: ["websocket", "polling"],
+    transports: ["polling", "websocket"],
     reconnection: true,
   });
   return _socket;
