@@ -1,6 +1,7 @@
 import type { AppRole } from "../types/auth";
 import { isPlatformAdmin, isTrainingStaff } from "../lib/user-roles";
 import type { ProgramTierValue } from "./messaging-policy.service";
+import type { FeatureKey } from "../lib/billing-features";
 
 const TIER_ORDER = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const;
 
@@ -28,6 +29,9 @@ export type AppCapabilities = {
   semiPrivateBooking: boolean;
   coachVideoUpload: boolean;
   physioReferrals: boolean;
+  runTracking: boolean;
+  achievements: boolean;
+  referralRewards: boolean;
 };
 
 function tierRank(tier: string | null): number {
@@ -37,7 +41,16 @@ function tierRank(tier: string | null): number {
 }
 
 /** Mirrors mobile `canUseCoachMessaging` policy toggles. */
-function messagingAllowed(programTier: string | null, messagingAccessTiers: readonly string[]): boolean {
+function messagingAllowed(
+  programTier: string | null,
+  messagingAccessTiers: readonly string[],
+  planFeatures: ReadonlySet<FeatureKey> | null | undefined,
+): boolean {
+  // Plan-driven gating: if the athlete is on a plan with an explicit feature set,
+  // honour the "messaging" feature directly (works for tier-less custom/duration plans).
+  if (planFeatures != null && planFeatures.size > 0) {
+    return planFeatures.has("messaging") || planFeatures.has("priority_messaging");
+  }
   if (messagingAccessTiers.length > 0) {
     return messagingAccessTiers.some((t) => {
       const s = String(t).trim().toLowerCase();
@@ -53,8 +66,9 @@ export function buildAppCapabilities(input: {
   messagingAccessTiers: ProgramTierValue[];
   athleteType?: "youth" | "adult" | null;
   hasTeam?: boolean;
+  planFeatures?: ReadonlySet<FeatureKey>;
 }): AppCapabilities {
-  const { role, programTier, messagingAccessTiers, athleteType, hasTeam = false } = input;
+  const { role, programTier, messagingAccessTiers, athleteType, hasTeam = false, planFeatures } = input;
   const isAdmin = isPlatformAdmin(role);
   const isStaff = isTrainingStaff(role);
 
@@ -84,8 +98,14 @@ export function buildAppCapabilities(input: {
       semiPrivateBooking: true,
       coachVideoUpload: true,
       physioReferrals: true,
+      runTracking: true,
+      achievements: true,
+      referralRewards: true,
     };
   }
+
+  const has = (key: FeatureKey) => planFeatures != null && planFeatures.has(key);
+  const hasPlanFeatures = planFeatures != null && planFeatures.size > 0;
 
   const effectiveTier = programTier ?? "PHP";
   const r = tierRank(effectiveTier);
@@ -93,21 +113,20 @@ export function buildAppCapabilities(input: {
   const isTeamAthlete = role === "team_athlete" || hasTeam;
   const isYouth = role === "guardian" || role === "youth_athlete" || athleteType === "youth";
   const hasAssignedPlan = r >= 0;
-  const canUseNutrition = r >= 2 || isTeamAthlete;
   const canTrackProgress = isAdult || isTeamAthlete;
 
   return {
-    training: true,
-    schedule: hasAssignedPlan,
-    coachBooking: hasAssignedPlan && !isTeamAthlete,
-    messaging: messagingAllowed(programTier, messagingAccessTiers),
+    training: hasPlanFeatures ? has("programs_full") || has("mobile_app") : true,
+    schedule: hasPlanFeatures ? has("schedule") : hasAssignedPlan,
+    coachBooking: hasPlanFeatures ? has("bookings") : (hasAssignedPlan && !isTeamAthlete),
+    messaging: messagingAllowed(programTier, messagingAccessTiers, planFeatures),
     groupChat: isTeamAthlete,
-    nutrition: canUseNutrition,
+    nutrition: hasPlanFeatures ? has("nutrition_logging") || has("food_diaries") : (r >= 2 || isTeamAthlete),
     nutritionReview: false,
-    parentContent: isYouth,
-    progressTracking: canTrackProgress,
+    parentContent: hasPlanFeatures ? has("parent_platform") || isYouth : isYouth,
+    progressTracking: hasPlanFeatures ? has("progress_tracking") && canTrackProgress : canTrackProgress,
     teamTracking: isTeamAthlete,
-    socialTracking: isAdult && !isTeamAthlete,
+    socialTracking: hasPlanFeatures ? has("social_feed") : (isAdult && !isTeamAthlete),
     trainingQuestionnaire: isAdult || isTeamAthlete,
     teamManagement: false,
     athleteManagement: false,
@@ -117,8 +136,11 @@ export function buildAppCapabilities(input: {
     adminMobile: false,
     billingPortal: true,
     mobilePayments: false,
-    semiPrivateBooking: r >= 2,
-    coachVideoUpload: r >= 2,
-    physioReferrals: r >= 3,
+    semiPrivateBooking: hasPlanFeatures ? has("semi_private") : r >= 2,
+    coachVideoUpload: hasPlanFeatures ? has("video_upload") : r >= 2,
+    physioReferrals: hasPlanFeatures ? has("physio_referrals") : r >= 3,
+    runTracking: hasPlanFeatures ? has("run_tracking") : (isAdult || isTeamAthlete),
+    achievements: hasPlanFeatures ? has("achievements") : true,
+    referralRewards: hasPlanFeatures ? has("referrals") : true,
   };
 }

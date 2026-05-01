@@ -45,12 +45,11 @@ function PortalInner() {
 	if (loading) {
 		return (
 			<div className="flex h-screen items-center justify-center">
-				<div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+				<div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground animate-spin mx-auto" />
 			</div>
 		);
 	}
 
-	// Server error → let them retry
 	if (error || !user) {
 		return (
 			<div className="flex h-screen items-center justify-center px-4">
@@ -61,7 +60,7 @@ function PortalInner() {
 					<button
 						type="button"
 						onClick={() => void refresh()}
-						className="rounded-2xl bg-primary px-6 py-3 text-sm font-black uppercase tracking-wider text-primary-foreground"
+						className="bg-foreground text-background px-6 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
 					>
 						Retry
 					</button>
@@ -161,37 +160,37 @@ function OnboardingGate({ user, isTeam, onboardingIncomplete, needsPlan }: {
 
 	return (
 		<div className="min-h-screen flex items-center justify-center px-4 py-12">
-			<div className="w-full max-w-xl rounded-[2.5rem] border border-primary/20 bg-primary/5 p-8 shadow-xl">
-				<p className="text-xs font-black uppercase tracking-widest text-primary">Action Required</p>
-				<h1 className="mt-3 text-3xl font-black tracking-tight uppercase italic">Finish Onboarding</h1>
-				<p className="mt-2 text-sm text-muted-foreground font-medium leading-relaxed">
+			<div className="w-full max-w-xl border border-foreground/[0.06] p-8">
+				<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Action Required</p>
+				<h1 className="mt-3 text-2xl md:text-3xl font-medium tracking-tight text-foreground">Finish Onboarding</h1>
+				<p className="mt-2 text-sm text-muted-foreground leading-relaxed">
 					{isTeam
 						? "Add your team details and choose a plan to unlock Programs, Schedule, and Messages."
 						: "Complete onboarding and choose a plan to unlock Programs, Schedule, and Messages."}
 				</p>
 				{onboardingIncomplete && missing.length > 0 && (
 					<div className="mt-6 space-y-2">
-						<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Missing</p>
+						<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Missing</p>
 						<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
 							{missing.map((item) => (
-								<div key={item} className="rounded-2xl border border-border/60 bg-background/50 px-4 py-3 text-sm font-semibold text-foreground">{item}</div>
+								<div key={item} className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3 text-sm font-medium text-foreground">{item}</div>
 							))}
 						</div>
 					</div>
 				)}
 				{!onboardingIncomplete && needsPlan && (
-					<div className="mt-6 rounded-2xl border border-border/60 bg-background/50 px-4 py-3 text-sm font-medium text-muted-foreground">
+					<div className="mt-6 border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3 text-sm text-muted-foreground">
 						No active subscription found. Choose a plan to continue.
 					</div>
 				)}
 				<div className="mt-8 flex flex-col sm:flex-row gap-3">
 					<button type="button" onClick={primaryAction}
-						className="flex-1 inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-wider text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+						className="flex-1 inline-flex items-center justify-center bg-foreground text-background px-5 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all">
 						{onboardingIncomplete ? (isTeam ? "Add Team Details" : "Continue Onboarding") : "Choose a Plan"}
 					</button>
 					<button type="button"
 						onClick={() => { localStorage.removeItem("auth_token"); localStorage.removeItem("user_type"); localStorage.removeItem("pending_email"); navigate({ to: "/login" }); }}
-						className="flex-1 inline-flex items-center justify-center rounded-2xl border border-border/60 bg-background/60 px-5 py-3 text-sm font-black uppercase tracking-wider hover:bg-accent transition-all">
+						className="flex-1 inline-flex items-center justify-center border border-foreground/[0.06] px-5 py-2.5 font-mono text-xs uppercase tracking-wider text-foreground/60 hover:text-foreground hover:bg-foreground/[0.02] transition-all">
 						Log Out
 					</button>
 				</div>

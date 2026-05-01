@@ -7,7 +7,7 @@ export type PlanTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
 export type SubscriptionPlan = {
   id: number;
   name: string;
-  tier: PlanTier;
+  tier: PlanTier | null;
   stripePriceId: string | null;
   stripePriceIdMonthly: string | null;
   stripePriceIdYearly: string | null;
@@ -22,6 +22,10 @@ export type SubscriptionPlan = {
   discountAppliesTo: string | null;
   discounts: DiscountRule[] | null;
   features: string[] | null;
+  durationWeeks: number | null;
+  durationWeeksPrice: number | null;
+  durationDaysPerWeek: number | null;
+  durationDaysPrice: number | null;
   isActive: boolean;
 };
 
@@ -38,7 +42,7 @@ export type DiscountAppliesTo = "monthly" | "yearly" | "one_time" | "all" | "cus
 export type PlanFormState = {
   id: number | null;
   name: string;
-  tier: PlanTier;
+  tier: PlanTier | null;
   displayPrice: string;
   isActive: boolean;
   monthlyEnabled: boolean;
@@ -57,9 +61,14 @@ export type PlanFormState = {
   discountValueOneTime: string;
   discounts: DiscountRule[];
   features: string[];
+  durationWeeks: number | null;
+  durationWeeksPrice: number | null;
+  durationDaysPerWeek: number | null;
+  durationDaysPrice: number | null;
 };
 
-export const TIER_ITEMS: { label: string; value: PlanTier }[] = [
+export const TIER_ITEMS: { label: string; value: string }[] = [
+  { label: "No tier (custom plan)", value: "" },
   { label: "PHP Program", value: "PHP" },
   { label: "PHP Premium", value: "PHP_Premium" },
   { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
@@ -85,7 +94,7 @@ export const FLAT_FEATURE_CATALOG: FeatureCatalogEntry[] = FEATURE_CATALOG.flatM
 export const defaultFormState: PlanFormState = {
   id: null,
   name: "",
-  tier: "PHP",
+  tier: null,
   displayPrice: "",
   isActive: true,
   monthlyEnabled: true,
@@ -104,6 +113,10 @@ export const defaultFormState: PlanFormState = {
   discountValueOneTime: "",
   discounts: [],
   features: [],
+  durationWeeks: null,
+  durationWeeksPrice: null,
+  durationDaysPerWeek: null,
+  durationDaysPrice: null,
 };
 
 export function planToFormState(plan: SubscriptionPlan): PlanFormState {
@@ -141,7 +154,7 @@ export function planToFormState(plan: SubscriptionPlan): PlanFormState {
   return {
     id: plan.id,
     name: plan.name,
-    tier: plan.tier,
+    tier: plan.tier ?? null,
     displayPrice: plan.displayPrice,
     isActive: plan.isActive,
     monthlyEnabled: Boolean(monthlyPrice),
@@ -166,8 +179,11 @@ export function planToFormState(plan: SubscriptionPlan): PlanFormState {
             label: d.label ?? null,
           }))
       : [],
-    // Normalize legacy label-stored features into stable keys.
     features: normalizeFeatureKeys(plan.features as unknown[] | null | undefined),
+    durationWeeks: plan.durationWeeks ?? null,
+    durationWeeksPrice: plan.durationWeeksPrice ?? null,
+    durationDaysPerWeek: plan.durationDaysPerWeek ?? null,
+    durationDaysPrice: plan.durationDaysPrice ?? null,
     yearlyAuto: false,
     oneTimeAuto: false,
   };
@@ -226,7 +242,7 @@ export function planFormToPayload(form: PlanFormState) {
 
   return {
     name: form.name.trim(),
-    tier: form.tier,
+    tier: form.tier || null,
     displayPrice,
     billingInterval,
     monthlyPrice: monthlyPrice || null,
@@ -244,6 +260,10 @@ export function planFormToPayload(form: PlanFormState) {
       }))
       .filter((d) => d.value.length > 0),
     features: normalizeFeatureKeys(form.features),
+    durationWeeks: form.durationWeeks ?? null,
+    durationWeeksPrice: form.durationWeeksPrice ?? null,
+    durationDaysPerWeek: form.durationDaysPerWeek ?? null,
+    durationDaysPrice: form.durationDaysPrice ?? null,
     isActive: form.isActive,
   };
 }

@@ -5,9 +5,9 @@ import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-export type ProgramsDialog = null | "create-template" | "manage" | "assign";
+export type ProgramsDialog = null | "create" | "manage" | "assign";
 
 type ProgramsDialogsProps = {
   active: ProgramsDialog;
@@ -37,15 +37,10 @@ type ProgramsDialogsProps = {
     minAge?: number | null;
     maxAge?: number | null;
   }) => Promise<void>;
+  onDelete: (programId: number) => Promise<void>;
   onAssign: (input: { athleteId: number; programType: string; programTemplateId: number }) => Promise<void>;
   isSaving?: boolean;
-};
-
-const programLabel = (type: string) => {
-  if (type === "PHP_Premium") return "PHP Premium";
-  if (type === "PHP_Premium_Plus") return "PHP Premium Plus";
-  if (type === "PHP_Pro") return "PHP Pro";
-  return "PHP Program";
+  isDeleting?: boolean;
 };
 
 export function ProgramsDialogs({
@@ -56,47 +51,25 @@ export function ProgramsDialogs({
   users,
   onCreate,
   onUpdate,
+  onDelete,
   onAssign,
   isSaving = false,
+  isDeleting = false,
 }: ProgramsDialogsProps) {
   const [name, setName] = useState("");
-  const [type, setType] = useState("PHP");
   const [description, setDescription] = useState("");
-  const [minAge, setMinAge] = useState("");
-  const [maxAge, setMaxAge] = useState("");
   const [athleteId, setAthleteId] = useState("");
   const [templateId, setTemplateId] = useState("");
 
-  const templatesForType = useMemo(() => {
-    return programs.filter((program) => program.type === (selectedProgram?.type ?? type));
-  }, [programs, selectedProgram?.type, type]);
-
-  const assignTemplates = templatesForType.length ? templatesForType : programs;
-
-  const resetCreate = () => {
-    setName("");
-    setType("PHP");
-    setDescription("");
-    setMinAge("");
-    setMaxAge("");
-  };
-
-  const resetAssign = () => {
-    setAthleteId("");
-    setTemplateId(selectedProgram?.id ? String(selectedProgram.id) : "");
-  };
-
   useEffect(() => {
-    if (active === "create-template") {
-      resetCreate();
+    if (active === "create") {
+      setName("");
+      setDescription("");
       return;
     }
     if (active === "manage" && selectedProgram) {
       setName(selectedProgram.name ?? "");
-      setType(selectedProgram.type ?? "PHP");
       setDescription(selectedProgram.summary ?? "");
-      setMinAge(selectedProgram.minAge != null ? String(selectedProgram.minAge) : "");
-      setMaxAge(selectedProgram.maxAge != null ? String(selectedProgram.maxAge) : "");
       return;
     }
     if (active === "assign") {
@@ -110,57 +83,31 @@ export function ProgramsDialogs({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {active === "create-template" && "Create Program Template"}
+            {active === "create" && "Create Program"}
             {active === "manage" && `Manage ${selectedProgram?.name ?? "Program"}`}
             {active === "assign" && `Assign ${selectedProgram?.name ?? "Program"}`}
           </DialogTitle>
-          <DialogDescription>Templates and assignments update live.</DialogDescription>
+          <DialogDescription>
+            {active === "create" && "Create a new training program."}
+            {active === "manage" && "Edit program details."}
+            {active === "assign" && "Assign this program to an athlete."}
+          </DialogDescription>
         </DialogHeader>
         <div className="mt-6 space-y-4">
-          {active === "create-template" ? (
+          {active === "create" ? (
             <>
-              <Input placeholder="Template name" value={name} onChange={(e) => setName(e.target.value)} />
-              <Select value={type} onValueChange={(v) => setType(v ?? "")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectPopup>
-                  <SelectItem value="PHP">PHP Program</SelectItem>
-                  <SelectItem value="PHP_Premium">PHP Premium</SelectItem>
-                  <SelectItem value="PHP_Premium_Plus">PHP Premium Plus</SelectItem>
-                  <SelectItem value="PHP_Pro">PHP Pro</SelectItem>
-                </SelectPopup>
-              </Select>
-              <Textarea placeholder="Template summary" value={description} onChange={(e) => setDescription(e.target.value)} />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  type="number"
-                  placeholder="Minimum age"
-                  value={minAge}
-                  onChange={(e) => setMinAge(e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder="Maximum age"
-                  value={maxAge}
-                  onChange={(e) => setMaxAge(e.target.value)}
-                />
-              </div>
+              <Input placeholder="Program name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Textarea placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
+                <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button
                   disabled={isSaving || !name.trim()}
                   onClick={async () => {
-                    const minAgeValue = minAge.trim() ? Number(minAge) : null;
-                    const maxAgeValue = maxAge.trim() ? Number(maxAge) : null;
                     await onCreate({
                       name: name.trim(),
-                      type,
+                      type: "PHP",
                       description: description.trim() || undefined,
-                      minAge: minAgeValue ?? null,
-                      maxAge: maxAgeValue ?? null,
                     });
-                    resetCreate();
                     onClose();
                   }}
                 >
@@ -171,61 +118,39 @@ export function ProgramsDialogs({
           ) : null}
           {active === "manage" && selectedProgram ? (
             <>
-              <Input
-                placeholder="Program name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <Textarea
-                placeholder="Summary"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              <Select value={type} onValueChange={(v) => setType(v ?? "")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectPopup>
-                  <SelectItem value="PHP">PHP Program</SelectItem>
-                  <SelectItem value="PHP_Premium">PHP Premium</SelectItem>
-                  <SelectItem value="PHP_Premium_Plus">PHP Premium Plus</SelectItem>
-                  <SelectItem value="PHP_Pro">PHP Pro</SelectItem>
-                </SelectPopup>
-              </Select>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  type="number"
-                  placeholder="Minimum age"
-                  value={minAge}
-                  onChange={(e) => setMinAge(e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder="Maximum age"
-                  value={maxAge}
-                  onChange={(e) => setMaxAge(e.target.value)}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
+              <Input placeholder="Program name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+              <div className="flex items-center justify-between gap-2">
                 <Button
-                  disabled={isSaving}
+                  variant="destructive"
+                  disabled={isDeleting || isSaving}
                   onClick={async () => {
-                    const minAgeValue = minAge.trim() ? Number(minAge) : null;
-                    const maxAgeValue = maxAge.trim() ? Number(maxAge) : null;
-                    await onUpdate({
-                      programId: selectedProgram.id,
-                      name: (name || selectedProgram.name).trim(),
-                      type: type || selectedProgram.type,
-                      description: description.trim() || null,
-                      minAge: minAgeValue ?? null,
-                      maxAge: maxAgeValue ?? null,
-                    });
+                    if (!confirm(`Delete "${selectedProgram.name}"? This will remove all modules, sessions, exercises, and assignments.`)) return;
+                    await onDelete(selectedProgram.id);
                     onClose();
                   }}
                 >
-                  Save
+                  {isDeleting ? "Deleting…" : "Delete"}
                 </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={onClose}>Cancel</Button>
+                  <Button
+                    disabled={isSaving}
+                    onClick={async () => {
+                      await onUpdate({
+                        programId: selectedProgram.id,
+                        name: (name || selectedProgram.name).trim(),
+                        type: selectedProgram.type,
+                        description: description.trim() || null,
+                        minAge: null,
+                        maxAge: null,
+                      });
+                      onClose();
+                    }}
+                  >
+                    Save
+                  </Button>
+                </div>
               </div>
             </>
           ) : null}
@@ -238,25 +163,23 @@ export function ProgramsDialogs({
                     .filter((user) => user.athleteId)
                     .map((user) => (
                       <SelectItem key={user.id} value={String(user.athleteId)}>
-                        {user.name || user.email} • Athlete #{user.athleteId}
+                        {user.name || user.email}
                       </SelectItem>
                     ))}
                 </SelectPopup>
               </Select>
               <Select value={templateId} onValueChange={(v) => setTemplateId(v ?? "")}>
-                <SelectTrigger><SelectValue placeholder="Select template" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select program" /></SelectTrigger>
                 <SelectPopup>
-                  {assignTemplates.map((program) => (
+                  {programs.map((program) => (
                     <SelectItem key={program.id} value={String(program.id)}>
-                      {program.name} ({programLabel(program.type)})
+                      {program.name}
                     </SelectItem>
                   ))}
                 </SelectPopup>
               </Select>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
+                <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button
                   disabled={isSaving || !athleteId || !templateId}
                   onClick={async () => {
@@ -265,7 +188,7 @@ export function ProgramsDialogs({
                       programType: selectedProgram.type,
                       programTemplateId: Number(templateId),
                     });
-                    resetAssign();
+                    setAthleteId("");
                     onClose();
                   }}
                 >

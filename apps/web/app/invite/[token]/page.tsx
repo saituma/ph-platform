@@ -16,7 +16,7 @@ const getCsrf = () =>
 type PlanSummary = {
   id: number;
   name: string;
-  tier: string;
+  tier: string | null;
   displayPrice: string;
   monthlyPrice: string | null;
   yearlyPrice: string | null;
@@ -33,7 +33,7 @@ type InviteSummary = {
 
 type Cycle = "monthly" | "six_months" | "yearly";
 
-const formatTier = (tier: string) => tier.replace(/_/g, " ");
+const formatTier = (tier: string | null | undefined) => (tier ?? "").replace(/_/g, " ");
 
 export default function InvitePage() {
   const params = useParams<{ token: string }>();
@@ -165,8 +165,12 @@ export default function InvitePage() {
           </p>
 
           <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-emerald-100/70 text-emerald-800 px-3 py-1.5 text-xs font-semibold">
-            <span>{formatTier(plan.tier)}</span>
-            <span className="text-emerald-700/50">·</span>
+            {plan.tier ? (
+              <>
+                <span>{formatTier(plan.tier)}</span>
+                <span className="text-emerald-700/50">·</span>
+              </>
+            ) : null}
             <span>{plan.displayPrice}</span>
           </div>
 

@@ -14,6 +14,7 @@ import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 
 type AdminTeam = {
   team: string;
+  athleteType: "youth" | "adult";
   memberCount: number;
   guardianCount: number;
   createdAt: string | null;
@@ -109,6 +110,7 @@ export default function AdminTeamsListScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [teamName, setTeamName] = useState("");
+  const [teamType, setTeamType] = useState<"youth" | "adult">("youth");
   const [createBusy, setCreateBusy] = useState(false);
 
   const load = useCallback(
@@ -155,7 +157,7 @@ export default function AdminTeamsListScreen() {
       await apiRequest("/admin/teams", {
         method: "POST",
         token,
-        body: { teamName: trimmed },
+        body: { teamName: trimmed, athleteType: teamType },
         suppressStatusCodes: [403],
         skipCache: true,
       });
@@ -196,6 +198,44 @@ export default function AdminTeamsListScreen() {
           <Text className="text-base font-clash font-bold text-app mb-3">
             Create team
           </Text>
+
+          <View className="flex-row gap-2 mb-3">
+            {(["youth", "adult"] as const).map((type) => {
+              const isSelected = teamType === type;
+              return (
+                <Pressable
+                  key={type}
+                  accessibilityRole="button"
+                  onPress={() => setTeamType(type)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    alignItems: "center",
+                    backgroundColor: isSelected
+                      ? colors.accent
+                      : isDark
+                        ? "rgba(255,255,255,0.03)"
+                        : "rgba(15,23,42,0.03)",
+                    borderColor: isSelected
+                      ? colors.accent
+                      : isDark
+                        ? "rgba(255,255,255,0.10)"
+                        : "rgba(15,23,42,0.08)",
+                  }}
+                >
+                  <Text
+                    className="text-[12px] font-outfit-semibold"
+                    style={{ color: isSelected ? "#fff" : colors.text }}
+                  >
+                    {type === "youth" ? "Youth Team" : "Adult Team"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           <TextInput
             value={teamName}
@@ -273,12 +313,33 @@ export default function AdminTeamsListScreen() {
                     : "rgba(15,23,42,0.06)",
                 }}
               >
-                <Text
-                  className="text-[13px] font-clash font-bold text-app"
-                  numberOfLines={1}
-                >
-                  {t.team}
-                </Text>
+                <View className="flex-row items-center gap-2 mb-0.5">
+                  <Text
+                    className="text-[13px] font-clash font-bold text-app flex-1"
+                    numberOfLines={1}
+                  >
+                    {t.team}
+                  </Text>
+                  <View
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      borderRadius: 6,
+                      backgroundColor: t.athleteType === "adult"
+                        ? isDark ? "rgba(99,102,241,0.15)" : "rgba(99,102,241,0.10)"
+                        : isDark ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.10)",
+                    }}
+                  >
+                    <Text
+                      className="text-[10px] font-outfit-semibold uppercase tracking-wider"
+                      style={{
+                        color: t.athleteType === "adult" ? "#818cf8" : "#22c55e",
+                      }}
+                    >
+                      {t.athleteType === "adult" ? "Adult" : "Youth"}
+                    </Text>
+                  </View>
+                </View>
                 <Text
                   className="text-[12px] font-outfit text-secondary"
                   numberOfLines={1}

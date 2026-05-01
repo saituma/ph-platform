@@ -367,6 +367,7 @@ const baseQueryWithReauth: BaseQueryFn<
 export const apiSlice = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithReauth,
+  keepUnusedDataFor: 300,
   tagTypes: [
     "Users",
     "Bookings",
@@ -383,12 +384,16 @@ export const apiSlice = createApi({
     "FoodDiary",
     "PhysioReferrals",
     "Programs",
+    "ProgramBuilder",
     "AgeExperience",
     "UserLocations",
+    "TrackingGoals",
   ],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<AdminProfileResponse, void>({
       query: () => "/admin/profile",
+      providesTags: ["Content"],
+      keepUnusedDataFor: 600,
     }),
     updateAdminProfile: builder.mutation<AdminProfileResponse, ApiPayload>({
       query: (body) => ({
@@ -396,6 +401,7 @@ export const apiSlice = createApi({
         method: "PUT",
         body,
       }),
+      invalidatesTags: ["Content"],
     }),
     updateAdminPreferences: builder.mutation<AdminProfileResponse, ApiPayload>({
       query: (body) => ({
@@ -403,6 +409,7 @@ export const apiSlice = createApi({
         method: "PUT",
         body,
       }),
+      invalidatesTags: ["Content"],
     }),
     updateMessagingAccess: builder.mutation<
       { messagingAccessTiers: string[] },
@@ -458,6 +465,33 @@ export const apiSlice = createApi({
         return `/admin/tracking/runs${suffix}`;
       },
       providesTags: ["Users"],
+    }),
+    getTrackingGoals: builder.query<{ goals: any[] }, { status?: string } | void>({
+      query: (params) => `/admin/tracking-goals${params?.status ? `?status=${params.status}` : ""}`,
+      providesTags: ["TrackingGoals"],
+    }),
+    createTrackingGoal: builder.mutation<{ goal: any }, {
+      title: string;
+      description?: string;
+      unit: string;
+      customUnit?: string;
+      targetValue: number;
+      scope: string;
+      athleteId?: number;
+      audience: string;
+      teamId?: number;
+      dueDate?: string;
+    }>({
+      query: (body) => ({ url: "/admin/tracking-goals", method: "POST", body }),
+      invalidatesTags: ["TrackingGoals"],
+    }),
+    updateTrackingGoal: builder.mutation<{ goal: any }, { id: number; data: { title?: string; description?: string; targetValue?: number; dueDate?: string; status?: string } }>({
+      query: ({ id, data }) => ({ url: `/admin/tracking-goals/${id}`, method: "PATCH", body: data }),
+      invalidatesTags: ["TrackingGoals"],
+    }),
+    deleteTrackingGoal: builder.mutation<{ goal: any }, { id: number }>({
+      query: ({ id }) => ({ url: `/admin/tracking-goals/${id}`, method: "DELETE" }),
+      invalidatesTags: ["TrackingGoals"],
     }),
     getAdminTrainingQuestionnaires: builder.query<
       { items: AdminTrainingQuestionnaireRow[] },
@@ -714,10 +748,12 @@ export const apiSlice = createApi({
     getServices: builder.query<{ items: BookingServiceRecord[] }, void>({
       query: () => "/bookings/services?includeInactive=true",
       providesTags: ["Services"],
+      keepUnusedDataFor: 600,
     }),
     getBookingServices: builder.query<{ items: BookingServiceRecord[] }, void>({
       query: () => "/bookings/services",
       providesTags: ["Services"],
+      keepUnusedDataFor: 600,
     }),
     getBookingAvailability: builder.query<
       {
@@ -818,10 +854,12 @@ export const apiSlice = createApi({
     getParentContent: builder.query<{ items: any[] }, void>({
       query: () => "/content/parent-platform",
       providesTags: ["Content"],
+      keepUnusedDataFor: 600,
     }),
     getHomeContent: builder.query<{ items: any[] }, void>({
       query: () => "/content/home",
       providesTags: ["Content"],
+      keepUnusedDataFor: 600,
     }),
     getGalleryItems: builder.query<{ items: Array<{ id: number; url: string; thumbnail: string | null; caption: string; mediaType: "photo" | "video"; createdAt: string }> }, void>({
       query: () => "/content/gallery",
@@ -865,6 +903,7 @@ export const apiSlice = createApi({
     getParentCourses: builder.query<{ items: any[] }, void>({
       query: () => "/content/parent-courses",
       providesTags: ["ParentCourses"],
+      keepUnusedDataFor: 600,
     }),
     getNutritionTargets: builder.query<{ targets: any }, number>({
       query: (userId) => `/nutrition/targets/${userId}`,
@@ -950,6 +989,7 @@ export const apiSlice = createApi({
     getAgeExperienceRules: builder.query<{ items: any[] }, void>({
       query: () => "/admin/age-experience",
       providesTags: ["AgeExperience"],
+      keepUnusedDataFor: 600,
     }),
     createAgeExperienceRule: builder.mutation<{ item: any }, ApiPayload>({
       query: (body) => ({
@@ -1141,6 +1181,7 @@ export const apiSlice = createApi({
         method: "PUT",
         body: { emoji },
       }),
+      invalidatesTags: ["Threads"],
     }),
     deleteMessage: builder.mutation<
       { deleted: boolean },
@@ -1150,6 +1191,7 @@ export const apiSlice = createApi({
         url: `/messages/${messageId}`,
         method: "DELETE",
       }),
+      invalidatesTags: ["Threads"],
     }),
     deleteGroupMessage: builder.mutation<
       { deleted: boolean },
@@ -1159,6 +1201,7 @@ export const apiSlice = createApi({
         url: `/chat/groups/${groupId}/messages/${messageId}`,
         method: "DELETE",
       }),
+      invalidatesTags: ["ChatGroups"],
     }),
     createService: builder.mutation<any, ApiPayload>({
       query: (body) => ({
@@ -1278,106 +1321,155 @@ export const apiSlice = createApi({
         body,
       }),
     }),
-    getUserPremiumPlan: builder.query<
-      { items: any[] },
-      { userId: number; weekNumber?: number }
-    >({
-      query: ({ userId, weekNumber }) => ({
-        url: `/admin/users/${userId}/premium-plan`,
-        params: weekNumber ? { weekNumber } : undefined,
-      }),
-      providesTags: ["Users"],
+    // Program Builder
+    getProgramFull: builder.query<{ program: any }, { programId: number }>({
+      query: ({ programId }) => `/admin/programs/${programId}/full`,
+      providesTags: ["ProgramBuilder"],
     }),
-    getUserPremiumSessionCheckins: builder.query<
-      { items: any[] },
-      { userId: number; limit?: number }
-    >({
-      query: ({ userId, limit }) => ({
-        url: `/admin/users/${userId}/premium-session-checkins`,
-        params: limit ? { limit } : undefined,
-      }),
-      providesTags: ["Users"],
+    getProgramModules: builder.query<{ modules: any[] }, { programId: number }>({
+      query: ({ programId }) => `/admin/programs/${programId}/modules`,
+      providesTags: ["ProgramBuilder"],
     }),
-    cloneUserPremiumPlan: builder.mutation<
-      { result: any },
-      { userId: number; replaceExisting?: boolean }
+    createProgramModule: builder.mutation<
+      { module: any },
+      { programId: number; title: string; description?: string | null }
     >({
-      query: ({ userId, replaceExisting }) => ({
-        url: `/admin/users/${userId}/premium-plan/clone`,
+      query: ({ programId, ...body }) => ({
+        url: `/admin/programs/${programId}/modules`,
         method: "POST",
-        body: { replaceExisting: replaceExisting ?? true },
+        body,
       }),
-      invalidatesTags: ["Users"],
+      invalidatesTags: ["ProgramBuilder"],
     }),
-    createUserPremiumPlanSession: builder.mutation<
-      { item: any },
+    updateProgramModule: builder.mutation<
+      { module: any },
+      { programId: number; moduleId: number; patch: ApiPayload }
+    >({
+      query: ({ programId, moduleId, patch }) => ({
+        url: `/admin/programs/${programId}/modules/${moduleId}`,
+        method: "PATCH",
+        body: patch,
+      }),
+      invalidatesTags: ["ProgramBuilder"],
+    }),
+    deleteProgramModule: builder.mutation<
+      { module: any },
+      { programId: number; moduleId: number }
+    >({
+      query: ({ programId, moduleId }) => ({
+        url: `/admin/programs/${programId}/modules/${moduleId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["ProgramBuilder"],
+    }),
+    getModuleSessions: builder.query<{ sessions: any[] }, { moduleId: number }>({
+      query: ({ moduleId }) => `/admin/modules/${moduleId}/sessions`,
+      providesTags: ["ProgramBuilder"],
+    }),
+    createModuleSession: builder.mutation<
+      { session: any },
       {
-        userId: number;
+        programId: number;
+        moduleId: number;
+        title?: string | null;
+        description?: string | null;
         weekNumber: number;
         sessionNumber: number;
-        title?: string | null;
-        notes?: string | null;
+        type?: string;
       }
     >({
-      query: ({ userId, ...body }) => ({
-        url: `/admin/users/${userId}/premium-plan/sessions`,
+      query: ({ programId, moduleId, ...body }) => ({
+        url: `/admin/programs/${programId}/modules/${moduleId}/sessions`,
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Users"],
+      invalidatesTags: ["ProgramBuilder"],
     }),
-    updateUserPremiumPlanSession: builder.mutation<
-      { item: any },
-      { userId: number; sessionId: number; patch: ApiPayload }
+    updateBuilderSession: builder.mutation<
+      { session: any },
+      { sessionId: number; patch: ApiPayload }
     >({
-      query: ({ userId, sessionId, patch }) => ({
-        url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}`,
+      query: ({ sessionId, patch }) => ({
+        url: `/admin/sessions/${sessionId}`,
         method: "PATCH",
         body: patch,
       }),
-      invalidatesTags: ["Users"],
+      invalidatesTags: ["ProgramBuilder"],
     }),
-    deleteUserPremiumPlanSession: builder.mutation<
-      { item: any },
-      { userId: number; sessionId: number }
+    deleteBuilderSession: builder.mutation<
+      { session: any },
+      { sessionId: number }
     >({
-      query: ({ userId, sessionId }) => ({
-        url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}`,
+      query: ({ sessionId }) => ({
+        url: `/admin/sessions/${sessionId}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["Users"],
+      invalidatesTags: ["ProgramBuilder"],
     }),
-    addUserPremiumPlanExercise: builder.mutation<
-      { item: any },
-      { userId: number; sessionId: number; body: ApiPayload }
+    getSessionExercises: builder.query<{ exercises: any[] }, { sessionId: number }>({
+      query: ({ sessionId }) => `/admin/sessions/${sessionId}/exercises`,
+      providesTags: ["ProgramBuilder"],
+    }),
+    updateSessionExercise: builder.mutation<
+      { exercise: any },
+      { id: number; patch: ApiPayload }
     >({
-      query: ({ userId, sessionId, body }) => ({
-        url: `/admin/users/${userId}/premium-plan/sessions/${sessionId}/exercises`,
+      query: ({ id, patch }) => ({
+        url: `/admin/session-exercises/${id}`,
+        method: "PATCH",
+        body: patch,
+      }),
+      invalidatesTags: ["ProgramBuilder"],
+    }),
+    addSessionExercise: builder.mutation<
+      { item: any },
+      { sessionId: number; exerciseId: number; order: number; coachingNotes?: string | null; progressionNotes?: string | null; regressionNotes?: string | null }
+    >({
+      query: (body) => ({
+        url: "/admin/session-exercises",
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Users"],
+      invalidatesTags: ["ProgramBuilder"],
     }),
-    updateUserPremiumPlanExercise: builder.mutation<
+    deleteSessionExercise: builder.mutation<
       { item: any },
-      { userId: number; planExerciseId: number; patch: ApiPayload }
+      { sessionExerciseId: number }
     >({
-      query: ({ userId, planExerciseId, patch }) => ({
-        url: `/admin/users/${userId}/premium-plan/exercises/${planExerciseId}`,
-        method: "PATCH",
-        body: patch,
-      }),
-      invalidatesTags: ["Users"],
-    }),
-    deleteUserPremiumPlanExercise: builder.mutation<
-      { item: any },
-      { userId: number; planExerciseId: number }
-    >({
-      query: ({ userId, planExerciseId }) => ({
-        url: `/admin/users/${userId}/premium-plan/exercises/${planExerciseId}`,
+      query: ({ sessionExerciseId }) => ({
+        url: `/admin/session-exercises/${sessionExerciseId}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["Users"],
+      invalidatesTags: ["ProgramBuilder"],
+    }),
+    getAdultAthletes: builder.query<{ athletes: any[] }, void>({
+      query: () => "/admin/adult-athletes",
+      providesTags: ["ProgramBuilder", "Users"],
+    }),
+    getAthleteDetail: builder.query<{ athlete: any }, { athleteId: number }>({
+      query: ({ athleteId }) => `/admin/adult-athletes/${athleteId}`,
+      providesTags: ["ProgramBuilder", "Users"],
+    }),
+    assignProgramToAthlete: builder.mutation<
+      { assignment: any },
+      { programId: number; athleteId: number }
+    >({
+      query: ({ programId, athleteId }) => ({
+        url: `/admin/programs/${programId}/assignments`,
+        method: "POST",
+        body: { athleteId },
+      }),
+      invalidatesTags: ["ProgramBuilder", "Users"],
+    }),
+    unassignProgram: builder.mutation<
+      { assignment: any },
+      { assignmentId: number }
+    >({
+      query: ({ assignmentId }) => ({
+        url: `/admin/program-assignments/${assignmentId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["ProgramBuilder", "Users"],
     }),
     updateProgramTier: builder.mutation<
       any,
@@ -1451,6 +1543,13 @@ export const apiSlice = createApi({
         url: `/admin/programs/${programId}`,
         method: "PATCH",
         body: data,
+      }),
+      invalidatesTags: ["Programs"],
+    }),
+    deleteProgram: builder.mutation<{ deleted: boolean }, number>({
+      query: (programId) => ({
+        url: `/admin/programs/${programId}`,
+        method: "DELETE",
       }),
       invalidatesTags: ["Programs"],
     }),
@@ -1614,6 +1713,10 @@ export const {
   useGetDashboardQuery,
   useGetTrainingSnapshotQuery,
   useGetAdminRunTrackingQuery,
+  useGetTrackingGoalsQuery,
+  useCreateTrackingGoalMutation,
+  useUpdateTrackingGoalMutation,
+  useDeleteTrackingGoalMutation,
   useGetAdminTrainingQuestionnairesQuery,
   useGetUserLocationsQuery,
   useGetUsersQuery,
@@ -1690,20 +1793,29 @@ export const {
   useGetExercisesQuery,
   useCreateExerciseMutation,
   usePresignMediaUploadMutation,
-  useGetUserPremiumPlanQuery,
-  useGetUserPremiumSessionCheckinsQuery,
-  useCloneUserPremiumPlanMutation,
-  useCreateUserPremiumPlanSessionMutation,
-  useUpdateUserPremiumPlanSessionMutation,
-  useDeleteUserPremiumPlanSessionMutation,
-  useAddUserPremiumPlanExerciseMutation,
-  useUpdateUserPremiumPlanExerciseMutation,
-  useDeleteUserPremiumPlanExerciseMutation,
+  useGetProgramFullQuery,
+  useGetProgramModulesQuery,
+  useCreateProgramModuleMutation,
+  useUpdateProgramModuleMutation,
+  useDeleteProgramModuleMutation,
+  useGetModuleSessionsQuery,
+  useCreateModuleSessionMutation,
+  useUpdateBuilderSessionMutation,
+  useDeleteBuilderSessionMutation,
+  useGetSessionExercisesQuery,
+  useUpdateSessionExerciseMutation,
+  useAddSessionExerciseMutation,
+  useDeleteSessionExerciseMutation,
+  useGetAdultAthletesQuery,
+  useGetAthleteDetailQuery,
+  useAssignProgramToAthleteMutation,
+  useUnassignProgramMutation,
   useUpdateProgramTierMutation,
   useAssignProgramMutation,
   useGetProgramsQuery,
   useCreateProgramMutation,
   useUpdateProgramMutation,
+  useDeleteProgramMutation,
   useGetOnboardingConfigQuery,
   useUpdateOnboardingConfigMutation,
   useGetPhpPlusTabsQuery,

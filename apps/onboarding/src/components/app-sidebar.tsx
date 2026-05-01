@@ -57,7 +57,6 @@ function normalizePortalPathname(pathname: string): string {
 	return pathOnly;
 }
 
-/** Match exact path or nested routes (e.g. programs/module/…), without prefix false-positives. */
 function portalNavItemIsActive(pathname: string, itemPath: string): boolean {
 	const current = normalizePortalPathname(pathname);
 	const base = itemPath.split("?")[0];
@@ -120,9 +119,33 @@ export function AppSidebar() {
 		window.location.href = "/login";
 	};
 
+	const renderNavItem = (item: { label: string; path: string; icon: any }, active: boolean) => {
+		const Icon = item.icon;
+		return (
+			<SidebarMenuItem key={item.path}>
+				<SidebarMenuButton
+					asChild
+					isActive={active}
+					tooltip={item.label}
+					className={cn(
+						"transition-colors duration-150 h-9",
+						active
+							? "bg-foreground text-background font-medium"
+							: "text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]",
+					)}
+				>
+					<Link to={item.path}>
+						<Icon className="h-4 w-4" />
+						<span className="font-mono text-xs tracking-wide">{item.label}</span>
+					</Link>
+				</SidebarMenuButton>
+			</SidebarMenuItem>
+		);
+	};
+
 	return (
 		<Sidebar collapsible="icon" side="left">
-			<SidebarHeader className="h-16 border-b p-2 shrink-0">
+			<SidebarHeader className="h-12 border-b border-foreground/[0.06] p-2 shrink-0">
 				<SidebarMenu>
 					<SidebarMenuItem className="flex items-center gap-2">
 						<SidebarMenuButton
@@ -137,112 +160,56 @@ export function AppSidebar() {
 							{state === "expanded" ? (
 								<Link
 									to="/portal/dashboard"
-									className="flex items-center gap-2 font-black uppercase italic tracking-tighter"
+									className="flex items-center gap-2"
 								>
-									<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-all group-data-[collapsible=icon]:size-8">
-										<Dumbbell className="h-5 w-5" />
+									<div className="flex aspect-square size-7 items-center justify-center bg-foreground text-background">
+										<Dumbbell className="h-4 w-4" />
 									</div>
-									<div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden ml-1">
-										<span className="truncate text-foreground font-black uppercase italic tracking-tighter">
+									<div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden ml-1">
+										<span className="font-mono text-xs uppercase tracking-wider text-foreground">
 											PH App
 										</span>
-										<span className="truncate text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
+										<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 											Performance
 										</span>
 									</div>
 								</Link>
 							) : (
-								<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-all group-data-[collapsible=icon]:size-8">
-									<PanelLeftOpen className="h-5 w-5 animate-pulse" />
+								<div className="flex aspect-square size-7 items-center justify-center bg-foreground text-background">
+									<PanelLeftOpen className="h-4 w-4" />
 								</div>
 							)}
 						</SidebarMenuButton>
 						<SidebarMenuAction
 							onClick={() => toggleSidebar()}
-							className="group-data-[collapsible=icon]:hidden hover:bg-accent rounded-md transition-all duration-300"
+							className="group-data-[collapsible=icon]:hidden hover:bg-foreground/[0.04] transition-colors"
 							title={
 								state === "expanded" ? "Collapse Sidebar" : "Expand Sidebar"
 							}
 						>
-							<PanelLeftClose className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
+							<PanelLeftClose className="h-4 w-4 text-foreground/40 hover:text-foreground transition-colors" />
 						</SidebarMenuAction>
 					</SidebarMenuItem>
 				</SidebarMenu>
 			</SidebarHeader>
 
-			<SidebarContent className="py-6 scrollbar-hide">
+			<SidebarContent className="py-4 scrollbar-hide">
 				<SidebarGroup>
-					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 font-mono text-[10px] uppercase tracking-wider text-foreground/30">
 						Navigation
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
-							{mainNavItems.map((item) => {
-								const Icon = item.icon;
-								const active = isActive(item.path);
-								return (
-									<SidebarMenuItem key={item.path}>
-										<SidebarMenuButton
-											asChild
-											isActive={active}
-											tooltip={item.label}
-											className={cn(
-												"transition-all duration-200 h-10",
-												active
-													? "bg-primary text-primary-foreground shadow-md font-bold"
-													: "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-											)}
-										>
-											<Link to={item.path}>
-												<Icon
-													className={cn(
-														"h-5 w-5",
-														active ? "fill-current" : "",
-													)}
-												/>
-												<span className="font-bold">{item.label}</span>
-											</Link>
-										</SidebarMenuButton>
-									</SidebarMenuItem>
-								);
-							})}
+							{mainNavItems.map((item) => renderNavItem(item, isActive(item.path)))}
 							{isPortalCoachLikeRole(user?.role)
-								? coachOnlyNavItems.map((item) => {
-										const Icon = item.icon;
-										const active = isActive(item.path);
-										return (
-											<SidebarMenuItem key={item.path}>
-												<SidebarMenuButton
-													asChild
-													isActive={active}
-													tooltip={item.label}
-													className={cn(
-														"transition-all duration-200 h-10",
-														active
-															? "bg-primary text-primary-foreground shadow-md font-bold"
-															: "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-													)}
-												>
-													<Link to={item.path}>
-														<Icon
-															className={cn(
-																"h-5 w-5",
-																active ? "fill-current" : "",
-															)}
-														/>
-														<span className="font-bold">{item.label}</span>
-													</Link>
-												</SidebarMenuButton>
-											</SidebarMenuItem>
-										);
-									})
+								? coachOnlyNavItems.map((item) => renderNavItem(item, isActive(item.path)))
 								: null}
 						</SidebarMenu>
 					</SidebarGroupContent>
 				</SidebarGroup>
 
 				<SidebarGroup>
-					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 font-mono text-[10px] uppercase tracking-wider text-foreground/30">
 						Account
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
@@ -255,115 +222,34 @@ export function AppSidebar() {
 										(item.path !== "/portal/physio-referral" ||
 											showPortalPhysioReferralNav(user?.role)),
 								)
-								.map((item) => {
-									const active = isActive(item.path);
-									return (
-										<SidebarMenuItem key={item.label}>
-											<SidebarMenuButton
-												asChild
-												isActive={active}
-												tooltip={item.label}
-												className={cn(
-													"transition-all duration-200 h-10",
-													active
-														? "bg-primary text-primary-foreground shadow-md font-bold"
-														: "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-												)}
-											>
-												<Link to={item.path}>
-													<item.icon
-														className={cn(
-															"h-5 w-5",
-															active ? "fill-current" : "",
-														)}
-													/>
-													<span className="font-semibold">{item.label}</span>
-												</Link>
-											</SidebarMenuButton>
-										</SidebarMenuItem>
-									);
-								})}
+								.map((item) => renderNavItem(item, isActive(item.path)))}
 						</SidebarMenu>
 					</SidebarGroupContent>
 				</SidebarGroup>
 
 				<SidebarGroup>
-					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 font-mono text-[10px] uppercase tracking-wider text-foreground/30">
 						Support & About
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
-							{supportItems.map((item) => {
-								const active = isActive(item.path);
-								return (
-									<SidebarMenuItem key={item.label}>
-										<SidebarMenuButton
-											asChild
-											isActive={active}
-											tooltip={item.label}
-											className={cn(
-												"transition-all duration-200 h-10",
-												active
-													? "bg-primary text-primary-foreground shadow-md font-bold"
-													: "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-											)}
-										>
-											<Link to={item.path}>
-												<item.icon
-													className={cn(
-														"h-5 w-5",
-														active ? "fill-current" : "",
-													)}
-												/>
-												<span className="font-semibold">{item.label}</span>
-											</Link>
-										</SidebarMenuButton>
-									</SidebarMenuItem>
-								);
-							})}
+							{supportItems.map((item) => renderNavItem(item, isActive(item.path)))}
 						</SidebarMenu>
 					</SidebarGroupContent>
 				</SidebarGroup>
 
 				<SidebarGroup>
-					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 font-mono text-[10px] uppercase tracking-wider text-foreground/30">
 						Legal
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
-							{legalItems.map((item) => {
-								const active = isActive(item.path);
-								return (
-									<SidebarMenuItem key={item.label}>
-										<SidebarMenuButton
-											asChild
-											isActive={active}
-											tooltip={item.label}
-											className={cn(
-												"transition-all duration-200 h-10",
-												active
-													? "bg-primary text-primary-foreground shadow-md font-bold"
-													: "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-											)}
-										>
-											<Link to={item.path}>
-												<item.icon
-													className={cn(
-														"h-5 w-5",
-														active ? "fill-current" : "",
-													)}
-												/>
-												<span className="font-semibold">{item.label}</span>
-											</Link>
-										</SidebarMenuButton>
-									</SidebarMenuItem>
-								);
-							})}
+							{legalItems.map((item) => renderNavItem(item, isActive(item.path)))}
 						</SidebarMenu>
 					</SidebarGroupContent>
 				</SidebarGroup>
 
-				<SidebarGroup className="mt-auto border-t border-sidebar-border/50">
+				<SidebarGroup className="mt-auto border-t border-foreground/[0.06]">
 					<SidebarGroupContent>
 						<SidebarMenu>
 							<SidebarMenuItem>
@@ -372,17 +258,17 @@ export function AppSidebar() {
 									tooltip={
 										state === "expanded" ? "Collapse Sidebar" : "Expand Sidebar"
 									}
-									className="h-10 text-muted-foreground hover:text-foreground transition-all duration-300"
+									className="h-9 text-foreground/40 hover:text-foreground transition-colors"
 								>
 									{state === "expanded" ? (
 										<>
 											<ChevronLeft className="h-4 w-4" />
-											<span className="font-bold uppercase italic tracking-wider text-[10px]">
+											<span className="font-mono text-[10px] uppercase tracking-wider">
 												Collapse Sidebar
 											</span>
 										</>
 									) : (
-										<ChevronRight className="h-4 w-4 mx-auto text-primary animate-pulse" />
+										<ChevronRight className="h-4 w-4 mx-auto text-foreground/40" />
 									)}
 								</SidebarMenuButton>
 							</SidebarMenuItem>
@@ -391,22 +277,22 @@ export function AppSidebar() {
 				</SidebarGroup>
 			</SidebarContent>
 
-			<SidebarFooter className="border-t p-4 shrink-0 bg-sidebar">
+			<SidebarFooter className="border-t border-foreground/[0.06] p-3 shrink-0">
 				<SidebarMenu>
 					<SidebarMenuItem>
 						<SidebarMenuButton
 							size="lg"
 							tooltip={user?.name || "Athlete"}
-							className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground border border-transparent hover:border-primary/20"
+							className="hover:bg-foreground/[0.04]"
 						>
-							<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-								<User className="size-4" />
+							<div className="flex aspect-square size-7 items-center justify-center bg-foreground/10 text-foreground/60">
+								<User className="size-3.5" />
 							</div>
-							<div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden ml-1">
-								<span className="truncate font-black uppercase italic tracking-tight text-foreground">
+							<div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden ml-1">
+								<span className="font-mono text-xs tracking-wide text-foreground truncate">
 									{user?.name || "Athlete"}
 								</span>
-								<span className="truncate text-[10px] text-muted-foreground font-medium">
+								<span className="font-mono text-[10px] text-foreground/40 truncate">
 									{user?.email || "Connect account"}
 								</span>
 							</div>
@@ -416,10 +302,10 @@ export function AppSidebar() {
 						<SidebarMenuButton
 							onClick={handleLogout}
 							tooltip="Logout"
-							className="text-destructive hover:bg-destructive/10 hover:text-destructive mt-1 h-10"
+							className="text-foreground/40 hover:text-destructive hover:bg-destructive/5 h-9"
 						>
-							<LogOut className="size-4" />
-							<span className="font-black uppercase italic tracking-wider text-xs group-data-[collapsible=icon]:hidden">
+							<LogOut className="size-3.5" />
+							<span className="font-mono text-[10px] uppercase tracking-wider group-data-[collapsible=icon]:hidden">
 								Logout
 							</span>
 						</SidebarMenuButton>

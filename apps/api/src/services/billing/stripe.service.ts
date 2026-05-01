@@ -154,7 +154,7 @@ export function ensureStripePriceId(
     stripePriceId?: string | null;
     stripePriceIdMonthly?: string | null;
     stripePriceIdYearly?: string | null;
-    tier?: (typeof ProgramType.enumValues)[number];
+    tier?: (typeof ProgramType.enumValues)[number] | null;
   },
   interval?: "monthly" | "yearly",
 ) {
@@ -179,7 +179,7 @@ export function tryResolveMonthlyStripePriceId(plan: {
   stripePriceId?: string | null;
   stripePriceIdMonthly?: string | null;
   stripePriceIdYearly?: string | null;
-  tier?: (typeof ProgramType.enumValues)[number];
+  tier?: (typeof ProgramType.enumValues)[number] | null;
 }): string | null {
   try {
     return ensureStripePriceId(plan, "monthly");
@@ -246,12 +246,15 @@ export async function ensureAthleteCheckoutPriceId(
     stripePriceId?: string | null;
     stripePriceIdMonthly?: string | null;
     stripePriceIdYearly?: string | null;
-    tier: (typeof ProgramType.enumValues)[number];
+    tier?: (typeof ProgramType.enumValues)[number] | null;
   },
   billingCycle: AthleteBillingCycle,
 ): Promise<string> {
-  const fromLookup = await resolvePriceIdByTierLookup(plan.tier, billingCycle);
-  if (fromLookup) return fromLookup;
+  // Tier-based lookup key is only available on plans that have a tier set.
+  if (plan.tier) {
+    const fromLookup = await resolvePriceIdByTierLookup(plan.tier, billingCycle);
+    if (fromLookup) return fromLookup;
+  }
   if (billingCycle === "monthly") {
     const raw = ensureStripePriceId(plan, "monthly");
     return ensureStripePriceIdOrLookupKeyId(raw);
@@ -260,9 +263,10 @@ export async function ensureAthleteCheckoutPriceId(
     const raw = ensureStripePriceId(plan, "yearly");
     return ensureStripePriceIdOrLookupKeyId(raw);
   }
-  const lk = lookupKeyForAthleteBilling(plan.tier, billingCycle);
+  const tierStr = plan.tier ?? "custom";
+  const lk = plan.tier ? lookupKeyForAthleteBilling(plan.tier, billingCycle) : `${tierStr}_${billingCycle}`;
   throw new Error(
-    `No Stripe price for ${plan.tier} / ${billingCycle}. Create a Price with lookup key "${lk}" in Stripe.`,
+    `No Stripe price for plan (tier: ${tierStr}) / ${billingCycle}. Set stripePriceIdMonthly / stripePriceIdYearly on the plan, or create a Stripe Price with lookup key "${lk}".`,
   );
 }
 
@@ -272,7 +276,7 @@ export function checkoutModeForBillingCycle(cycle: AthleteBillingCycle): "subscr
 
 export async function createStripePriceForPlan(input: {
   name: string;
-  tier: (typeof ProgramType.enumValues)[number];
+  tier?: (typeof ProgramType.enumValues)[number] | null;
   interval: "monthly" | "yearly" | "one_time";
   unitAmount: number;
 }) {
@@ -284,7 +288,8 @@ export async function createStripePriceForPlan(input: {
   // The DB column is `stripePriceIdOneTime`, but semantically this is a 6-month one-time payment,
   // so we tag the Stripe price with the `_six_months` lookup key to match athlete checkout's existing convention.
   const lookupSuffix = input.interval === "one_time" ? "six_months" : input.interval;
-  const lookupKey = `${input.tier.toLowerCase()}_${lookupSuffix}`;
+  const tierSlug = input.tier ? input.tier.toLowerCase() : "custom";
+  const lookupKey = `${tierSlug}_${lookupSuffix}`;
   const isRecurring = input.interval === "monthly";
   const price = await stripeClient.prices.create({
     unit_amount: input.unitAmount,
@@ -294,7 +299,7 @@ export async function createStripePriceForPlan(input: {
     ...(isRecurring ? { recurring: { interval: "month" } } : {}),
     product_data: {
       name: `${input.name} - ${intervalLabel}`,
-      metadata: { tier: input.tier },
+      metadata: { tier: input.tier ?? "" },
     },
   });
   return price.id;

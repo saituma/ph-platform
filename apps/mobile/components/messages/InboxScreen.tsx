@@ -12,7 +12,7 @@ import {
 import Animated, { FadeIn } from "react-native-reanimated";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { INBOX_LIST_INSET, ThreadListItem } from "@/components/messages/inbox";
+import { ThreadListItem } from "@/components/messages/inbox";
 import { Text } from "@/components/ScaledText";
 import { SkeletonMessagingScreen } from "@/components/ui/Skeleton";
 import type { MessageThread, TypingStatus } from "@/types/messages";
@@ -157,8 +157,6 @@ const InboxEmptyState = function InboxEmptyState() {
   );
 };
 
-const InboxListSeparator = () => <View style={{ height: 8 }} />;
-
 // ── Main ─────────────────────────────────────────────────────────────
 
 function InboxScreenBase({
@@ -212,7 +210,7 @@ function InboxScreenBase({
     ({ item, index }: { item: MessageThread; index: number }) => (
       <ThreadListItem
         thread={item}
-        typingStatus={typingStatus}
+        typingStatus={typingStatus[item.id.startsWith("group:") ? item.id : `user:${item.id}`]}
         openingThreadId={openingThreadId}
         onOpenThread={onOpenThread}
         index={index}
@@ -229,8 +227,7 @@ function InboxScreenBase({
     );
   }
 
-  // Force light mode background to be off-white so that pure white cards visibly pop and show shadow contrast
-  const screenBg = isDark ? colors.background : "#F4F6F8";
+  const screenBg = colors.background;
 
   return (
     <View style={[styles.screen, { backgroundColor: screenBg }]}>
@@ -294,8 +291,7 @@ function InboxScreenBase({
           contentContainerStyle={{
             width: "100%",
             alignItems: "stretch",
-            paddingHorizontal: INBOX_LIST_INSET,
-            paddingTop: 10,
+            paddingTop: 0,
             paddingBottom: Platform.OS === "ios" ? 140 : 120,
           }}
           refreshControl={
@@ -305,7 +301,7 @@ function InboxScreenBase({
               tintColor={colors.accent}
             />
           }
-          ItemSeparatorComponent={InboxListSeparator}
+          ItemSeparatorComponent={undefined}
         />
       ) : (
         <InboxEmptyState />
@@ -323,17 +319,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerBlock: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
 
   searchWrap: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   searchInner: {
-    height: 48,
-    borderRadius: 16,
+    height: 36,
+    borderRadius: 10,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,

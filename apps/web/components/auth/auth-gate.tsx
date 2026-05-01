@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 const PUBLIC_PATHS = new Set(["/login"]);
 
@@ -10,46 +10,38 @@ function isProtectedPath(pathname: string) {
   return !pathname.startsWith("/api/");
 }
 
+// Reads accessTokenClient (non-httpOnly) and checks JWT exp without a network call.
+// Middleware is the real auth guard; this only handles edge cases on the client.
+function hasValidClientToken(): boolean {
+  if (typeof document === "undefined") return true;
+  const raw = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith("accessTokenClient="));
+  const token = raw ? raw.slice("accessTokenClient=".length) : "";
+  if (!token) return false;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return true;
+    const payload = JSON.parse(
+      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+    ) as { exp?: number };
+    if (typeof payload.exp === "number") return payload.exp * 1000 > Date.now();
+  } catch {}
+  return true;
+}
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [status, setStatus] = useState<"checking" | "allowed">("checking");
 
   useEffect(() => {
-    if (!pathname || !isProtectedPath(pathname)) {
-      setStatus("allowed");
-      return;
+    if (!pathname || !isProtectedPath(pathname)) return;
+    if (!hasValidClientToken()) {
+      router.replace("/login");
     }
-
-    let active = true;
-    setStatus("checking");
-
-    fetch("/api/auth/session", {
-      method: "GET",
-      credentials: "same-origin",
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        if (!active) return;
-        if (res.ok) {
-          setStatus("allowed");
-          return;
-        }
-        router.replace("/login");
-      })
-      .catch(() => {
-        if (!active) return;
-        router.replace("/login");
-      });
-
-    return () => {
-      active = false;
-    };
   }, [pathname, router]);
 
-  if (!pathname || (!PUBLIC_PATHS.has(pathname) && status !== "allowed")) {
-    return null;
-  }
-
+  // Always render children immediately — no blank-screen while "checking".
   return <>{children}</>;
 }

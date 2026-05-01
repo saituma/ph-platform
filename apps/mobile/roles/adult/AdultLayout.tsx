@@ -10,8 +10,8 @@ import AdultMessagesScreen from "./screens/Messages";
 import { filterTabsByCapabilities } from "../shared/capabilityTabs";
 
 export function AdultLayout() {
-  const { token, profile, programTier, messagingAccessTiers, capabilities } = useAppSelector((state) => state.user);
-  const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
+  const { token, profile, programTier, messagingAccessTiers, planFeatures, capabilities } = useAppSelector((state) => state.user);
+  const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers, planFeatures);
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, hasMessaging, profile.id);
 
   const visibleTabs = useMemo(() => {

@@ -8,6 +8,7 @@ import {
   listGroupChatMessages,
   listGroups,
   listMembers,
+  searchGroupMessages,
   sendGroupChatMessage,
   toggleGroupReaction,
   deleteGroupChatMessage,
@@ -20,6 +21,7 @@ router.get("/chat/groups", requireAuth, listGroups);
 router.post("/chat/groups", requireAuth, requireRole(["admin", "superAdmin", "coach"]), createGroupChat);
 router.get("/chat/groups/:groupId/members", requireAuth, listMembers);
 router.post("/chat/groups/:groupId/members", requireAuth, requireRole(["admin", "superAdmin", "coach"]), addMembers);
+router.get("/chat/groups/:groupId/messages/search", requireAuth, searchGroupMessages);
 router.get("/chat/groups/:groupId/messages", requireAuth, listGroupChatMessages);
 router.post("/chat/groups/:groupId/messages", requireAuth, sendGroupChatMessage);
 router.post("/chat/groups/:groupId/read", requireAuth, markGroupChatRead);

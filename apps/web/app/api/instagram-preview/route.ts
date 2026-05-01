@@ -69,6 +69,8 @@ export async function GET(req: NextRequest) {
     title: og("og:title"),
     description: og("og:description"),
     videoUrl,
+  }, {
+    headers: { "Cache-Control": "public, max-age=3600, stale-while-revalidate=7200" },
   });
 }
 

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw, Copy, Check, Eye, EyeOff } from "lucide-react";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
@@ -18,14 +18,12 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../../components/ui/select";
 
-type ApiErrorLike = {
-  message?: string;
-};
+type ApiErrorLike = { message?: string };
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object") {
-    const apiError = error as ApiErrorLike;
-    if (typeof apiError.message === "string") return apiError.message;
+    const e = error as ApiErrorLike;
+    if (typeof e.message === "string") return e.message;
   }
   return fallback;
 }
@@ -35,18 +33,31 @@ function getCsrfToken() {
   return (
     document.cookie
       .split(";")
-      .map((part) => part.trim())
-      .find((part) => part.startsWith("csrfToken="))
+      .map((p) => p.trim())
+      .find((p) => p.startsWith("csrfToken="))
       ?.split("=")[1] ?? ""
   );
 }
 
-type Plan = {
-  id: number;
-  name: string;
-  displayPrice: string;
-  billingInterval: string;
-};
+function slugify(raw: string, maxLen = 48): string {
+  const s = raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return s.slice(0, maxLen) || "";
+}
+
+function generatePassword(length = 16): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  let out = "";
+  const arr = new Uint8Array(length);
+  crypto.getRandomValues(arr);
+  for (const byte of arr) out += chars[byte % chars.length];
+  return out;
+}
+
+const EMAIL_DOMAIN = "phplatform.com";
 
 const ATHLETE_TYPE_ITEMS = [
   { label: "Youth Team (Parent Managed)", value: "youth" },
@@ -65,69 +76,92 @@ const BILLING_CYCLE_ITEMS = [
   { label: "Yearly Upfront (Best Value)", value: "yearly" },
 ];
 
+type ProgramTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
+
+const TIER_ITEMS: { label: string; value: ProgramTier; description: string }[] = [
+  { label: "PHP", value: "PHP", description: "Performance Health Programme" },
+  { label: "PHP Premium", value: "PHP_Premium", description: "Enhanced training & support" },
+  { label: "PHP Premium Plus", value: "PHP_Premium_Plus", description: "Full access with extras" },
+  { label: "PHP Pro", value: "PHP_Pro", description: "Elite programme" },
+];
+
 export default function AddTeamPage() {
   const router = useRouter();
+
+  // Team info
   const [teamName, setTeamName] = useState("");
   const [athleteType, setAthleteType] = useState<"youth" | "adult">("youth");
   const [minAge, setMinAge] = useState("");
   const [maxAge, setMaxAge] = useState("");
-  const [planId, setPlanId] = useState<string>("");
-  const [maxAthletes, setMaxAthletes] = useState<number>(10);
+
+  // Email slug
+  const [emailSlug, setEmailSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
+
+  // Manager credentials
+  const [managerEmail, setManagerEmail] = useState("");
+  const [managerName, setManagerName] = useState("");
+  const [managerPassword, setManagerPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  // Billing
+  const [tier, setTier] = useState<ProgramTier>("PHP");
+  const [maxAthletes, setMaxAthletes] = useState(10);
   const [paymentMethod, setPaymentMethod] = useState<"pay_now" | "email_link" | "cash">("pay_now");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "6months" | "yearly">("monthly");
-  const [plans, setPlans] = useState<Plan[]>([]);
+
+  // Misc
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingPlans, setIsLoadingPlans] = useState(true);
 
+  // Auto-derive slug from team name unless admin has manually edited it
   useEffect(() => {
-    const loadPlans = async () => {
-      try {
-        const response = await fetch("/api/backend/billing/plans");
-        if (!response.ok) throw new Error("Failed to load plans");
-        const data = await response.json();
-        setPlans(data.plans || []);
-        if (data.plans?.[0]) {
-          setPlanId(String(data.plans[0].id));
-        }
-      } catch (err) {
-        console.error("Error loading plans:", err);
-      } finally {
-        setIsLoadingPlans(false);
-      }
-    };
-    void loadPlans();
+    if (!slugEdited) setEmailSlug(slugify(teamName));
+  }, [teamName, slugEdited]);
+
+  const handleSlugChange = (val: string) => {
+    setSlugEdited(true);
+    setEmailSlug(slugify(val) || val.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+  };
+
+  const handleGenerate = useCallback(() => {
+    const pwd = generatePassword();
+    setManagerPassword(pwd);
+    setShowPassword(true);
   }, []);
 
-  const selectedPlan = plans.find((p) => String(p.id) === planId);
-  const unitPrice = selectedPlan ? parseFloat(selectedPlan.displayPrice.replace(/[^0-9.]/g, "")) : 0;
-  const planItems = [
-    { label: "Select a plan...", value: "" },
-    ...plans.map((p) => ({ label: `${p.name} (${p.displayPrice}/${p.billingInterval})`, value: String(p.id) })),
-  ];
-  
-  const multiplier = billingCycle === "6months" ? 6 : billingCycle === "yearly" ? 12 : 1;
-  const intervalTotal = unitPrice * multiplier; 
-  const subtotal = intervalTotal * maxAthletes;
+  const handleCopy = useCallback(async () => {
+    if (!managerPassword) return;
+    await navigator.clipboard.writeText(managerPassword);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [managerPassword]);
+
+  const selectedTier = TIER_ITEMS.find((t) => t.value === tier);
+
+  const emailPreview = emailSlug
+    ? `{name}.${emailSlug}@${EMAIL_DOMAIN}`
+    : `{name}.{team-slug}@${EMAIL_DOMAIN}`;
 
   const createTeam = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
 
-    const cleanTeamName = teamName.trim();
-    if (!cleanTeamName) {
-      setError("Team name is required.");
-      return;
-    }
-    if (!planId) {
-      setError("A subscription plan is required.");
-      return;
-    }
+    const cleanName = teamName.trim();
+    const cleanSlug = emailSlug.trim();
+    const cleanEmail = managerEmail.trim();
+    const cleanPassword = managerPassword.trim();
+
+    if (!cleanName) return setError("Team name is required.");
+    if (!cleanSlug) return setError("Athlete email slug is required.");
+    if (!cleanEmail) return setError("Team manager email is required.");
+    if (!cleanPassword || cleanPassword.length < 8) return setError("Manager password must be at least 8 characters.");
 
     setIsSubmitting(true);
     try {
       const csrfToken = getCsrfToken();
-      const response = await fetch("/api/backend/admin/teams", {
+      const res = await fetch("/api/backend/admin/teams", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -135,45 +169,39 @@ export default function AddTeamPage() {
         },
         credentials: "include",
         body: JSON.stringify({
-          teamName: cleanTeamName,
-          athleteType: athleteType,
+          teamName: cleanName,
+          athleteType,
+          emailSlug: cleanSlug,
           minAge: minAge ? parseInt(minAge, 10) : null,
           maxAge: maxAge ? parseInt(maxAge, 10) : null,
-          planId: parseInt(planId, 10),
-          maxAthletes: maxAthletes,
+          managerEmail: cleanEmail,
+          managerPassword: cleanPassword,
+          managerName: managerName.trim() || undefined,
+          tier,
+          maxAthletes,
           paymentMethod,
           billingCycle,
         }),
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to create team.");
-      }
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error ?? "Failed to create team.");
 
-      // If Stripe Checkout URL is returned, redirect there
-      if (payload?.checkoutUrl) {
-        window.location.href = payload.checkoutUrl;
-        return;
-      }
-
-      if (payload?.sentToEmail) {
-        router.push("/teams?success=email_sent");
-        return;
-      }
-
-      const nextTeamName = String(payload?.team ?? cleanTeamName);
-      router.push(`/teams/${encodeURIComponent(nextTeamName)}`);
-    } catch (err: unknown) {
+      if (payload?.checkoutUrl) { window.location.href = payload.checkoutUrl; return; }
+      if (payload?.sentToEmail) { router.push("/teams?success=email_sent"); return; }
+      router.push(`/teams/${encodeURIComponent(String(payload?.team ?? cleanName))}`);
+    } catch (err) {
       setError(getErrorMessage(err, "Failed to create team."));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const canSubmit = teamName.trim() && emailSlug.trim() && managerEmail.trim() && managerPassword.trim().length >= 8 && tier && !isSubmitting;
+
   return (
     <AdminShell
       title="Add team"
-      subtitle="Register a new team with a subscription plan and athlete slots."
+      subtitle="Register a new team, set up the manager account and athlete email addresses."
       actions={
         <Button variant="outline" size="sm" render={<Link href="/users" />} className="inline-flex items-center gap-2">
           <ArrowLeft className="h-4 w-4" />
@@ -182,28 +210,30 @@ export default function AddTeamPage() {
       }
     >
       <form onSubmit={createTeam} className="mx-auto grid max-w-4xl gap-6 pb-20">
-        {error ? (
+        {error && (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
             {error}
           </div>
-        ) : null}
+        )}
 
+        {/* ── Team Information ─────────────────────────────────── */}
         <Card>
           <CardHeader>
             <CardTitle>Team Information</CardTitle>
-            <CardDescription>Basic details about the organization or group.</CardDescription>
+            <CardDescription>Basic details about the team or club.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="teamName">Team name</Label>
+              <Label htmlFor="teamName">Team Name <span className="text-red-400">*</span></Label>
               <Input
                 id="teamName"
                 required
                 value={teamName}
-                onChange={(event) => setTeamName(event.target.value)}
+                onChange={(e) => setTeamName(e.target.value)}
                 placeholder="e.g. U14 Phoenix"
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="athleteType">Team Type</Label>
               <Select
@@ -219,29 +249,160 @@ export default function AddTeamPage() {
                 </SelectPopup>
               </Select>
             </div>
+
+            {athleteType === "youth" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="minAge">Min Age</Label>
+                  <Input id="minAge" type="number" value={minAge} onChange={(e) => setMinAge(e.target.value)} placeholder="e.g. 12" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maxAge">Max Age</Label>
+                  <Input id="maxAge" type="number" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} placeholder="e.g. 14" />
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Athlete Email Addresses ───────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Athlete Email Addresses</CardTitle>
+            <CardDescription>
+              Each athlete in this team gets a unique platform email in the format{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono text-foreground">
+                {"{name}.{team-slug}@{EMAIL_DOMAIN}".replace("{EMAIL_DOMAIN}", EMAIL_DOMAIN)}
+              </code>
+              . Set the team slug below — it cannot be changed after athletes are added.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
             <div className="space-y-2">
-              <Label htmlFor="minAge">Min Age (Optional)</Label>
+              <Label htmlFor="emailSlug">Team Email Slug <span className="text-red-400">*</span></Label>
               <Input
-                id="minAge"
-                type="number"
-                value={minAge}
-                onChange={(e) => setMinAge(e.target.value)}
-                placeholder="e.g. 12"
+                id="emailSlug"
+                value={emailSlug}
+                onChange={(e) => handleSlugChange(e.target.value)}
+                placeholder="e.g. u14-phoenix"
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Only lowercase letters, numbers, and hyphens. Auto-filled from the team name.
+              </p>
+            </div>
+
+            {emailSlug && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Athlete email preview</p>
+                <p className="font-mono text-sm text-foreground">
+                  <span className="text-muted-foreground">john.</span>
+                  <span className="text-primary font-semibold">{emailSlug}</span>
+                  <span className="text-muted-foreground">@{EMAIL_DOMAIN}</span>
+                </p>
+                <p className="mt-1 font-mono text-sm text-foreground">
+                  <span className="text-muted-foreground">sarah.</span>
+                  <span className="text-primary font-semibold">{emailSlug}</span>
+                  <span className="text-muted-foreground">@{EMAIL_DOMAIN}</span>
+                </p>
+                <p className="mt-2 text-[11px] text-muted-foreground italic">
+                  Share the format <strong>{emailPreview}</strong> with players so they know their login email.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Team Manager ─────────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Team Manager</CardTitle>
+            <CardDescription>
+              The manager signs in with these credentials to access and manage the team on the platform.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="managerEmail">Manager Email <span className="text-red-400">*</span></Label>
+              <Input
+                id="managerEmail"
+                type="email"
+                required
+                value={managerEmail}
+                onChange={(e) => setManagerEmail(e.target.value)}
+                placeholder="coach@example.com"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="maxAge">Max Age (Optional)</Label>
+              <Label htmlFor="managerName">Manager Name (Optional)</Label>
               <Input
-                id="maxAge"
-                type="number"
-                value={maxAge}
-                onChange={(e) => setMaxAge(e.target.value)}
-                placeholder="e.g. 14"
+                id="managerName"
+                value={managerName}
+                onChange={(e) => setManagerName(e.target.value)}
+                placeholder="Full name"
               />
+            </div>
+
+            <div className="col-span-full space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="managerPassword">
+                  Password <span className="text-red-400">*</span>
+                </Label>
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Generate random password
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="managerPassword"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={managerPassword}
+                    onChange={(e) => setManagerPassword(e.target.value)}
+                    placeholder="Min. 8 characters"
+                    className="pr-10 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopy}
+                  disabled={!managerPassword}
+                  className="shrink-0 gap-1.5"
+                >
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+              </div>
+
+              {managerPassword && (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/80">
+                  Note down or copy this password now — it won't be shown again after the team is created.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
+        {/* ── Billing & Payment ─────────────────────────────────── */}
         <Card>
           <CardHeader>
             <CardTitle>Billing & Payment</CardTitle>
@@ -249,11 +410,11 @@ export default function AddTeamPage() {
           </CardHeader>
           <CardContent className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="paymentMethod">Payment Method</Label>
+              <Label>Payment Method</Label>
               <Select
                 items={PAYMENT_METHOD_ITEMS}
                 value={paymentMethod}
-                onValueChange={(v) => setPaymentMethod((v ?? "pay_now") as "pay_now" | "email_link" | "cash")}
+                onValueChange={(v) => setPaymentMethod((v ?? "pay_now") as typeof paymentMethod)}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectPopup>
@@ -265,11 +426,11 @@ export default function AddTeamPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="billingCycle">Billing Cycle</Label>
+              <Label>Billing Cycle</Label>
               <Select
                 items={BILLING_CYCLE_ITEMS}
                 value={billingCycle}
-                onValueChange={(v) => setBillingCycle((v ?? "monthly") as "monthly" | "6months" | "yearly")}
+                onValueChange={(v) => setBillingCycle((v ?? "monthly") as typeof billingCycle)}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectPopup>
@@ -282,30 +443,30 @@ export default function AddTeamPage() {
           </CardContent>
         </Card>
 
+        {/* ── Tier & Slots ──────────────────────────────────────── */}
         <Card>
           <CardHeader>
-            <CardTitle>Plan & Slots</CardTitle>
-            <CardDescription>Select the subscription plan and number of athletes.</CardDescription>
+            <CardTitle suppressHydrationWarning>Tier & Slots</CardTitle>
+            <CardDescription>Choose the programme tier for this team and the number of athlete slots.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="plan">Subscription Plan</Label>
-              {isLoadingPlans ? (
-                <div className="h-10 animate-pulse rounded-md bg-muted" />
-              ) : (
-                <Select
-                  items={planItems}
-                  value={planId}
-                  onValueChange={(v) => setPlanId(v ?? "")}
-                >
-                  <SelectTrigger><SelectValue placeholder="Select a plan..." /></SelectTrigger>
-                  <SelectPopup>
-                    {planItems.map((i) => (
-                      <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
-                    ))}
-                  </SelectPopup>
-                </Select>
-              )}
+              <Label>Programme Tier</Label>
+              <Select
+                items={TIER_ITEMS}
+                value={tier}
+                onValueChange={(v) => setTier((v ?? "PHP") as ProgramTier)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  {TIER_ITEMS.map((i) => (
+                    <SelectItem key={i.value} value={i.value}>
+                      <span className="font-medium">{i.label}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{i.description}</span>
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -317,38 +478,30 @@ export default function AddTeamPage() {
                 max={200}
                 required
                 value={maxAthletes}
-                onChange={(event) => setMaxAthletes(parseInt(event.target.value, 10))}
+                onChange={(e) => setMaxAthletes(parseInt(e.target.value, 10))}
               />
             </div>
 
-            {selectedPlan && (
-              <div className="col-span-full rounded-xl bg-primary/5 p-4 border border-primary/10">
+            {selectedTier && (
+              <div className="col-span-full rounded-xl bg-primary/5 p-4 border border-primary/10 space-y-1">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Price per athlete:</span>
-                  <span className="font-medium text-foreground">
-                    {selectedPlan.displayPrice.split(" ")[0]} {unitPrice.toFixed(2)} / month
-                  </span>
+                  <span className="text-muted-foreground">Tier:</span>
+                  <span className="font-medium">{selectedTier.label}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm mt-1">
-                  <span className="text-muted-foreground">Interval:</span>
-                  <span className="font-medium text-foreground uppercase">{billingCycle}</span>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Athletes:</span>
+                  <span className="font-medium">{maxAthletes} slot{maxAthletes !== 1 ? "s" : ""}</span>
                 </div>
-                <div className="mt-1 flex items-center justify-between text-sm border-b border-primary/10 pb-2">
-                  <span className="text-muted-foreground">Total slots:</span>
-                  <span className="font-medium text-foreground">{maxAthletes}</span>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Billing:</span>
+                  <span className="font-medium">{BILLING_CYCLE_ITEMS.find((c) => c.value === billingCycle)?.label ?? billingCycle}</span>
                 </div>
-                <div className="mt-2 flex items-center justify-between text-base font-bold">
-                  <span className="text-foreground">Total Due:</span>
-                  <span className="text-primary font-black">
-                    {selectedPlan.displayPrice.split(" ")[0]} {subtotal.toFixed(2)}
-                  </span>
-                </div>
-                <p className="mt-2 text-[10px] text-muted-foreground italic">
-                  {paymentMethod === "cash" 
-                    ? "* Confirm that you have received this amount in cash before proceeding. Team will be activated immediately."
+                <p className="text-[10px] text-muted-foreground italic pt-1">
+                  {paymentMethod === "cash"
+                    ? "* Confirm cash received before proceeding. Team activates immediately."
                     : paymentMethod === "email_link"
-                    ? "* An email will be sent to the admin with a secure Stripe link to pay this amount."
-                    : "* You will be redirected to Stripe to pay this amount immediately."}
+                    ? "* A Stripe payment link will be emailed to the manager."
+                    : "* You will be redirected to Stripe to pay now."}
                 </p>
               </div>
             )}
@@ -359,13 +512,13 @@ export default function AddTeamPage() {
           <Button type="button" variant="ghost" render={<Link href="/teams" />}>
             Cancel
           </Button>
-          <Button type="submit" disabled={!teamName.trim() || !planId || isSubmitting}>
-            {isSubmitting 
-              ? "Processing…" 
-              : paymentMethod === "cash" 
-              ? "Confirm Cash & Activate" 
-              : paymentMethod === "email_link" 
-              ? "Create Team & Email Link" 
+          <Button type="submit" disabled={!canSubmit}>
+            {isSubmitting
+              ? "Processing…"
+              : paymentMethod === "cash"
+              ? "Confirm Cash & Activate"
+              : paymentMethod === "email_link"
+              ? "Create Team & Email Link"
               : "Register Team & Pay"}
           </Button>
         </div>

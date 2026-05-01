@@ -8,11 +8,10 @@ import {
 	WarningCircle,
 } from "@phosphor-icons/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Button } from "#/components/ui/button";
-import { Card } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
 import { config } from "#/lib/config";
 import { isTokenExpired } from "#/lib/token-expiry";
@@ -43,19 +42,14 @@ function Login() {
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-	const [errors, setErrors] = useState<{ email?: string; password?: string }>(
-		{},
-	);
+	const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 	const navigate = useNavigate();
 
 	const handleLogin = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (isLoading) return;
-
-		// Reset errors
 		setErrors({});
 
-		// Validate
 		const result = loginSchema.safeParse({ email, password });
 		if (!result.success) {
 			const fieldErrors: any = {};
@@ -68,7 +62,6 @@ function Login() {
 
 		setIsLoading(true);
 		try {
-			// Authenticate directly against PH API (no Better Auth worker dependency).
 			const tokenResponse = await fetch(`${config.api.baseUrl}/api/auth/login`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -87,7 +80,6 @@ function Login() {
 
 			localStorage.setItem("auth_token", data.accessToken);
 			localStorage.setItem("pending_email", email);
-
 			navigate({ to: "/portal/dashboard", replace: true });
 		} catch (error: any) {
 			toast.error("Login failed", {
@@ -100,127 +92,127 @@ function Login() {
 
 	return (
 		<main className="relative min-h-[100dvh] flex flex-col items-center justify-center p-4 sm:p-8 overflow-hidden">
-			<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] bg-primary/5 rounded-full blur-[140px] pointer-events-none -z-10" />
+			<div className="absolute inset-0 overflow-hidden bg-background pointer-events-none" aria-hidden="true">
+				<div className="w-full h-full bg-noise-pattern opacity-[0.02] dark:opacity-[0.05]" />
+			</div>
 
-			<section className="w-full max-w-md space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000 ease-out">
-				<div className="text-center space-y-3">
-					<h1 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-foreground">
-						Welcome{" "}
-						<span className="text-primary drop-shadow-[0_0_10px_rgba(var(--primary),0.3)]">
-							Back
-						</span>
+			<motion.section
+				initial={{ opacity: 0, y: 12 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.5, ease: "easeOut" }}
+				className="relative w-full max-w-sm space-y-8"
+			>
+				<div className="space-y-3">
+					<Link to="/" className="inline-flex items-center gap-2 mb-4">
+						<div className="w-6 h-6 overflow-hidden">
+							<img src="/ph.jpg" alt="PH Performance" className="w-full h-full object-cover" />
+						</div>
+						<span className="font-mono text-xs uppercase tracking-wider text-foreground/50">PH Performance</span>
+					</Link>
+					<h1 className="text-2xl md:text-3xl tracking-tight font-medium text-foreground">
+						Sign in to your account
 					</h1>
-					<p className="text-muted-foreground text-sm font-bold tracking-wide uppercase">
-						Access your elite performance portal
+					<p className="text-sm text-muted-foreground">
+						Access your performance dashboard
 					</p>
 				</div>
 
-				<Card className="w-full p-6 sm:p-12 rounded-[2.5rem] border border-border/80 dark:border-white/10 bg-card dark:bg-card/40 backdrop-blur-3xl shadow-2xl dark:shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)]">
-					<form onSubmit={handleLogin} className="space-y-8">
-						<div className="space-y-6">
-							<div className="space-y-2.5">
-								<label 
-                                    htmlFor="email-input"
-                                    className="text-xs font-black uppercase tracking-widest flex items-center gap-2 px-1 text-foreground/80 cursor-pointer"
-                                >
-									<EnvelopeSimple
-										weight="fill"
-										className="text-primary"
-										size={16}
-									/>
-									Email Address
-								</label>
-								<Input
-									type="email"
-                                    id="email-input"
-									placeholder="name@example.com"
-									value={email}
-									onChange={(e) => {
-										setEmail(e.target.value);
-										if (errors.email)
-											setErrors({ ...errors, email: undefined });
-									}}
-									className={`h-14 rounded-2xl bg-secondary/50 dark:bg-background/40 border-border dark:border-white/5 focus-visible:ring-primary/20 focus-visible:border-primary/40 transition-all font-medium text-base placeholder:text-muted-foreground/80 dark:placeholder:text-muted-foreground/30 ${errors.email ? "border-destructive/50 focus-visible:ring-destructive/10" : ""}`}
-								/>
-								{errors.email && (
-									<p className="text-xs font-bold text-destructive flex items-center gap-1.5 px-2 animate-in fade-in slide-in-from-top-1">
-										<WarningCircle weight="fill" size={14} />
-										{errors.email}
-									</p>
-								)}
-							</div>
-
-							<div className="space-y-2.5">
-								<label 
-                                    htmlFor="password-input"
-                                    className="text-xs font-black uppercase tracking-widest flex items-center gap-2 px-1 text-foreground/80 cursor-pointer"
-                                >
-									<LockKey weight="fill" className="text-primary" size={16} />
-									Password
-								</label>
-								<div className="relative">
-									<Input
-										type={showPassword ? "text" : "password"}
-                                        id="password-input"
-										placeholder="••••••••"
-										value={password}
-										onChange={(e) => {
-											setPassword(e.target.value);
-											if (errors.password)
-												setErrors({ ...errors, password: undefined });
-										}}
-										className={`h-14 rounded-2xl bg-secondary/50 dark:bg-background/40 border-border dark:border-white/5 focus-visible:ring-primary/20 focus-visible:border-primary/40 transition-all font-medium text-base pr-14 placeholder:text-muted-foreground/80 dark:placeholder:text-muted-foreground/30 ${errors.password ? "border-destructive/50 focus-visible:ring-destructive/10" : ""}`}
-									/>
-									<button
-										type="button"
-										onClick={() => setShowPassword(!showPassword)}
-										className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
-									>
-										{showPassword ? (
-											<EyeSlash size={20} weight="bold" />
-										) : (
-											<Eye size={20} weight="bold" />
-										)}
-									</button>
-								</div>
-								{errors.password && (
-									<p className="text-xs font-bold text-destructive flex items-center gap-1.5 px-2 animate-in fade-in slide-in-from-top-1">
-										<WarningCircle weight="fill" size={14} />
-										{errors.password}
-									</p>
-								)}
-							</div>
+				<div className="border border-foreground/[0.06] bg-card/50 p-6 sm:p-8 space-y-6">
+					<form onSubmit={handleLogin} className="space-y-5">
+						<div className="space-y-2">
+							<label
+								htmlFor="email-input"
+								className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
+							>
+								<EnvelopeSimple weight="bold" size={12} className="text-foreground/40" />
+								Email
+							</label>
+							<Input
+								type="email"
+								id="email-input"
+								placeholder="name@example.com"
+								value={email}
+								onChange={(e) => {
+									setEmail(e.target.value);
+									if (errors.email) setErrors({ ...errors, email: undefined });
+								}}
+								className={`h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm placeholder:text-foreground/20 focus-visible:ring-0 focus-visible:border-foreground/20 transition-colors ${
+									errors.email ? "border-destructive/50" : ""
+								}`}
+							/>
+							{errors.email && (
+								<p className="text-xs text-destructive flex items-center gap-1.5 font-mono">
+									<WarningCircle weight="fill" size={12} />
+									{errors.email}
+								</p>
+							)}
 						</div>
 
-						<Button
+						<div className="space-y-2">
+							<label
+								htmlFor="password-input"
+								className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
+							>
+								<LockKey weight="bold" size={12} className="text-foreground/40" />
+								Password
+							</label>
+							<div className="relative">
+								<Input
+									type={showPassword ? "text" : "password"}
+									id="password-input"
+									placeholder="••••••••"
+									value={password}
+									onChange={(e) => {
+										setPassword(e.target.value);
+										if (errors.password) setErrors({ ...errors, password: undefined });
+									}}
+									className={`h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm pr-10 placeholder:text-foreground/20 focus-visible:ring-0 focus-visible:border-foreground/20 transition-colors ${
+										errors.password ? "border-destructive/50" : ""
+									}`}
+								/>
+								<button
+									type="button"
+									onClick={() => setShowPassword(!showPassword)}
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60 transition-colors duration-150"
+								>
+									{showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
+								</button>
+							</div>
+							{errors.password && (
+								<p className="text-xs text-destructive flex items-center gap-1.5 font-mono">
+									<WarningCircle weight="fill" size={12} />
+									{errors.password}
+								</p>
+							)}
+						</div>
+
+						<button
 							type="submit"
 							disabled={isLoading}
-							className="w-full h-14 rounded-2xl text-lg font-black italic uppercase tracking-tighter shadow-[0_10px_30px_-10px_rgba(var(--primary),0.3)] transition-all hover:shadow-[0_15px_40px_-10px_rgba(var(--primary),0.4)] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0"
+							className="w-full h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
 						>
 							{isLoading ? (
-								<CircleNotch className="w-7 h-7 animate-spin" weight="bold" />
+								<CircleNotch className="w-4 h-4 animate-spin" weight="bold" />
 							) : (
 								<>
 									Sign In
-									<ArrowRight weight="bold" className="ml-2 w-6 h-6" />
+									<ArrowRight weight="bold" className="w-3.5 h-3.5" />
 								</>
 							)}
-						</Button>
+						</button>
 					</form>
-				</Card>
-
-				<div className="text-center space-y-4">
-					<p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-						Don't have an account?{" "}
-						<Link
-							to="/"
-							className="text-primary hover:text-primary/80 transition-colors border-b border-primary/20"
-						>
-							Register Now
-						</Link>
-					</p>
 				</div>
-			</section>
+
+				<p className="text-center font-mono text-[11px] text-foreground/40 uppercase tracking-wider">
+					Don't have an account?{" "}
+					<Link
+						to="/register"
+						className="text-foreground/60 hover:text-foreground transition-colors duration-150 border-b border-foreground/20"
+					>
+						Register
+					</Link>
+				</p>
+			</motion.section>
 		</main>
 	);
 }

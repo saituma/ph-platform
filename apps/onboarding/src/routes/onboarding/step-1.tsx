@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
-import { 
-	User, 
-	UserCircle, 
-	Users, 
-	ArrowRight, 
+import {
+	User,
+	UserCircle,
+	Users,
+	ArrowRight,
 	CircleNotch,
 	Eye,
 	EyeSlash,
@@ -85,7 +85,7 @@ function OnboardingStep1() {
 
 	const isPasswordStrong = Object.values(passwordRequirements).every(Boolean);
 	const passwordsMatch = password === confirmPassword && password !== "";
-	
+
 	const mutation = useMutation({
 		mutationFn: async () => {
 			const email = localStorage.getItem("pending_email");
@@ -129,20 +129,20 @@ function OnboardingStep1() {
 		<main className="mx-auto max-w-4xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
-					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
+					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 						Step 1 of {selected === "team" ? "3" : "4"}
 					</p>
-					<h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl leading-[1.1]">
-						Setup your <span className="text-primary">Account</span>
+					<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
+						Setup your Account
 					</h1>
-					<p className="text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+					<p className="text-sm text-muted-foreground leading-relaxed max-w-2xl mx-auto">
 						Select your role and set a secure password to get started.
 					</p>
 				</div>
 
 				<div className="space-y-10">
 					<div className="space-y-4">
-						<h2 className="text-lg font-bold text-center">I am a...</h2>
+						<h2 className="text-sm font-medium text-center text-foreground/60">I am a...</h2>
 						<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
 							{USER_TYPES.map((type) => {
 								const Icon = type.icon;
@@ -157,28 +157,34 @@ function OnboardingStep1() {
 									>
 										<Card
 											className={cn(
-												"h-full transition-all duration-300 border-2 cursor-pointer hover:border-primary/40 group rounded-3xl",
+												"h-full transition-all duration-300 border cursor-pointer hover:border-foreground/20 group",
 												isSelected
-													? "border-primary bg-primary/5 shadow-md scale-[1.02]"
-													: "border-border/80 bg-card hover:shadow-sm"
+													? "border-foreground bg-foreground text-background"
+													: "border-foreground/[0.06] bg-card"
 											)}
 										>
 											<div className="flex flex-col h-full gap-4 p-6">
 												<div
 													className={cn(
-														"w-12 h-12 rounded-2xl flex items-center justify-center transition-colors duration-300",
+														"w-12 h-12 flex items-center justify-center transition-colors duration-300",
 														isSelected
-															? "bg-primary text-primary-foreground"
-															: "bg-primary/10 text-primary group-hover:bg-primary/20"
+															? "bg-background/20 text-background"
+															: "bg-foreground/10 text-foreground/60"
 													)}
 												>
 													<Icon size={24} weight={isSelected ? "bold" : "regular"} />
 												</div>
 												<div className="space-y-2">
-													<h3 className="text-xl font-bold text-foreground leading-tight">
+													<h3 className={cn(
+														"text-sm font-medium tracking-tight leading-tight",
+														isSelected ? "text-background" : "text-foreground"
+													)}>
 														{type.title}
 													</h3>
-													<p className="text-xs text-muted-foreground leading-relaxed">
+													<p className={cn(
+														"text-xs leading-relaxed",
+														isSelected ? "text-background/60" : "text-muted-foreground"
+													)}>
 														{type.description}
 													</p>
 												</div>
@@ -192,11 +198,11 @@ function OnboardingStep1() {
 
 					{selected && (
 						<div className="max-w-md mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-500">
-							<div className="space-y-6 bg-card/50 backdrop-blur-sm p-5 sm:p-8 rounded-[2.5rem] border border-border/60 shadow-xl">
+							<div className="space-y-6 border border-foreground/[0.06] p-6 sm:p-8">
 								<div className="space-y-4">
 									<div className="space-y-2">
-										<label className="text-sm font-bold flex items-center gap-2">
-											<LockKey weight="bold" className="text-primary" />
+										<label className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-2">
+											<LockKey weight="bold" className="text-foreground/40" />
 											Create Password
 										</label>
 										<div className="relative">
@@ -205,12 +211,12 @@ function OnboardingStep1() {
 												placeholder="••••••••"
 												value={password}
 												onChange={(e) => setPassword(e.target.value)}
-												className="h-14 rounded-2xl bg-background/50 border-border/60 pr-12 text-lg font-medium"
+												className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm pr-12"
 											/>
 											<button
 												type="button"
 												onClick={() => setShowPassword(!showPassword)}
-												className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+												className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground/60 transition-colors"
 											>
 												{showPassword ? <EyeSlash size={20} weight="bold" /> : <Eye size={20} weight="bold" />}
 											</button>
@@ -218,8 +224,8 @@ function OnboardingStep1() {
 									</div>
 
 									<div className="space-y-2">
-										<label className="text-sm font-bold flex items-center gap-2">
-											<Check weight="bold" className="text-primary" />
+										<label className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-2">
+											<Check weight="bold" className="text-foreground/40" />
 											Confirm Password
 										</label>
 										<div className="relative">
@@ -229,20 +235,20 @@ function OnboardingStep1() {
 												value={confirmPassword}
 												onChange={(e) => setConfirmPassword(e.target.value)}
 												className={cn(
-													"h-14 rounded-2xl bg-background/50 border-border/60 pr-12 text-lg font-medium transition-all",
+													"h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm pr-12 transition-all",
 													confirmPassword && !passwordsMatch && "border-destructive focus-visible:ring-destructive/20"
 												)}
 											/>
 											<button
 												type="button"
 												onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-												className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+												className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground/60 transition-colors"
 											>
 												{showConfirmPassword ? <EyeSlash size={20} weight="bold" /> : <Eye size={20} weight="bold" />}
 											</button>
 										</div>
 										{confirmPassword && !passwordsMatch && (
-											<p className="text-[10px] font-bold text-destructive uppercase tracking-widest pl-2">
+											<p className="font-mono text-[10px] text-destructive uppercase tracking-wider pl-2">
 												Passwords do not match
 											</p>
 										)}
@@ -251,25 +257,25 @@ function OnboardingStep1() {
 
 								{/* Password Requirements Tip */}
 								<div className="space-y-3 pt-2">
-									<p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+									<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 										Security Requirements
 									</p>
 									<div className="grid grid-cols-2 gap-2">
-										<RequirementItem 
-											met={passwordRequirements.hasMinLength} 
-											label="8+ Characters" 
+										<RequirementItem
+											met={passwordRequirements.hasMinLength}
+											label="8+ Characters"
 										/>
-										<RequirementItem 
-											met={passwordRequirements.hasUpper} 
-											label="Uppercase Letter" 
+										<RequirementItem
+											met={passwordRequirements.hasUpper}
+											label="Uppercase Letter"
 										/>
-										<RequirementItem 
-											met={passwordRequirements.hasNumber} 
-											label="One Number" 
+										<RequirementItem
+											met={passwordRequirements.hasNumber}
+											label="One Number"
 										/>
-										<RequirementItem 
-											met={passwordRequirements.hasSpecial} 
-											label="Special Character" 
+										<RequirementItem
+											met={passwordRequirements.hasSpecial}
+											label="Special Character"
 										/>
 									</div>
 								</div>
@@ -283,18 +289,18 @@ function OnboardingStep1() {
 						onClick={() => mutation.mutate()}
 						disabled={!canContinue}
 						size="lg"
-						className="w-full sm:w-auto sm:min-w-[240px] h-14 sm:h-16 rounded-[2rem] text-lg sm:text-xl font-black uppercase italic shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+						className="w-full sm:w-auto sm:min-w-[240px] h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-50"
 					>
 						{mutation.isPending ? (
-							<CircleNotch className="w-8 h-8 animate-spin" />
+							<CircleNotch className="w-5 h-5 animate-spin" />
 						) : (
 							<>
 								Continue
-								<ArrowRight weight="bold" className="ml-3 w-6 h-6" />
+								<ArrowRight weight="bold" className="ml-2 w-4 h-4" />
 							</>
 						)}
 					</Button>
-					<p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-60">
+					<p className="mt-4 font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 						Secure account creation via PH Platform
 					</p>
 				</div>
@@ -307,14 +313,14 @@ function RequirementItem({ met, label }: { met: boolean; label: string }) {
 	return (
 		<div className="flex items-center gap-2">
 			<div className={cn(
-				"h-4 w-4 rounded-full flex items-center justify-center shrink-0 border transition-all duration-500",
-				met ? "bg-primary/20 border-primary text-primary" : "bg-muted/30 border-muted-foreground/20 text-muted-foreground/40"
+				"h-4 w-4 flex items-center justify-center shrink-0 border transition-all duration-500",
+				met ? "bg-foreground/10 border-foreground/20 text-foreground" : "bg-foreground/[0.03] border-foreground/[0.06] text-foreground/30"
 			)}>
 				{met ? <Check size={10} weight="bold" /> : <X size={8} weight="bold" />}
 			</div>
 			<span className={cn(
-				"text-[11px] font-bold transition-colors duration-500",
-				met ? "text-foreground" : "text-muted-foreground/60"
+				"font-mono text-[10px] transition-colors duration-500",
+				met ? "text-foreground" : "text-foreground/40"
 			)}>
 				{label}
 			</span>

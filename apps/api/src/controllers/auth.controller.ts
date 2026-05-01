@@ -398,12 +398,16 @@ export async function getMe(req: Request, res: Response) {
         : teamTierFallback != null
           ? "team"
           : "none";
+  const planFeatures = athlete?.id
+    ? await getFeaturesForAthlete(Number(athlete.id))
+    : featuresForTier(programTier ?? null);
   const capabilities = buildAppCapabilities({
     role: user.role,
     programTier,
     messagingAccessTiers,
     athleteType: athlete?.athleteType ?? null,
     hasTeam: hasAssignedTeamContext(athlete),
+    planFeatures,
   });
 
   return res.status(200).json({
@@ -445,9 +449,7 @@ export async function getMe(req: Request, res: Response) {
       capabilities,
       // Plan-level feature keys ("video_upload", "physio_referrals", etc.) for client-side gating.
       // Computed from the user's current plan; falls back to tier defaults when a plan has no features set.
-      planFeatures: athlete?.id
-        ? Array.from(await getFeaturesForAthlete(Number(athlete.id)))
-        : Array.from(featuresForTier(programTier ?? null)),
+      planFeatures: Array.from(planFeatures),
       messagingAccessTiers,
       // Never let merged athlete/guardian payloads override the authenticated account identity.
       role: user.role,

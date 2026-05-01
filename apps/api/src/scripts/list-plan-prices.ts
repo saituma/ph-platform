@@ -48,7 +48,8 @@ async function main() {
 
   const byTier = new Map<string, (typeof rows)[number]>();
   for (const r of rows) {
-    if (!byTier.has(r.tier)) byTier.set(r.tier, r);
+    const tierKey = r.tier ?? "no-tier";
+    if (!byTier.has(tierKey)) byTier.set(tierKey, r);
   }
 
   const table: {

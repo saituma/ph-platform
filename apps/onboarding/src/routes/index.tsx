@@ -6,10 +6,10 @@ import {
 	WarningCircle,
 } from "@phosphor-icons/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import CTA from "#/components/shadcn-studio/blocks/cta-section-01/cta-section-01";
 import type { TestimonialItem } from "#/components/shadcn-studio/blocks/testimonials-component-18/testimonials-component-18";
 import TestimonialsComponent from "#/components/shadcn-studio/blocks/testimonials-component-18/testimonials-component-18";
 import { CoachVideoSection } from "#/components/home/CoachVideoSection";
@@ -19,8 +19,6 @@ import { fetchGalleryItems, type GalleryApiItem } from "#/services/galleryServic
 import { PhoneMockup } from "#/components/ui/PhoneMockup";
 import { config } from "#/lib/config";
 import { usePortalConfig } from "#/hooks/usePortalConfig";
-
-/* ─── SEO / Structured Data ─── */
 
 const SITE_URL = "https://ph-platform-onboarding.vercel.app";
 
@@ -100,8 +98,6 @@ export const Route = createFileRoute("/")(
 	component: RouteComponent,
 });
 
-/* ─── Data ─── */
-
 const testimonials: TestimonialItem[] = [
 	{
 		name: "Marcus Thorne",
@@ -162,8 +158,6 @@ const STATS = [
 	{ value: "500+", label: "Coaches" },
 	{ value: "4.9★", label: "Rating" },
 ];
-
-/* ─── Component ─── */
 
 function RouteComponent() {
 	const portalCfg = usePortalConfig();
@@ -320,173 +314,192 @@ function RouteComponent() {
 	};
 
 	return (
-		<div className="relative min-h-[100dvh] bg-background selection:bg-primary/20 overflow-x-hidden">
+		<div className="relative min-h-[100dvh] bg-background selection:bg-foreground selection:text-background overflow-x-hidden">
 			<main>
 				{/* ━━━ Hero ━━━ */}
-				<section className="relative min-h-[100dvh] flex items-center px-6">
-					{/* Background: stronger radial bloom + subtle grid */}
-					<div
-						className="absolute inset-0 pointer-events-none -z-10"
-						style={{
-							background: "radial-gradient(ellipse at 15% 30%, hsl(var(--primary) / 0.14), transparent 60%)",
-						}}
-					/>
-					<div
-						className="absolute inset-0 pointer-events-none -z-10"
-						style={{
-							backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M 60 0 L 0 0 0 60' fill='none' stroke='rgba(255,255,255,0.025)' stroke-width='1'/%3E%3C/svg%3E")`,
-							backgroundSize: "60px 60px",
-						}}
-					/>
+				<section id="hero" className="relative pt-[var(--topbar-height)] lg:pt-0">
+					<div className="relative text-foreground">
+						<div className="flex flex-col lg:flex-row">
+							{/* Left side — Title */}
+							<div className="relative w-full lg:w-[40%] lg:h-dvh border-b lg:border-b-0 lg:border-r border-foreground/[0.06] px-5 sm:px-6 lg:px-7 lg:sticky lg:top-0 z-10 bg-background lg:overflow-clip">
+								{/* Subtle noise background */}
+								<div className="absolute inset-0 overflow-hidden bg-background pointer-events-none" aria-hidden="true">
+									<div className="w-full h-full bg-noise-pattern opacity-[0.03] dark:opacity-[0.08]" />
+								</div>
 
-					<div className="max-w-6xl mx-auto w-full py-24 md:py-32 flex flex-col md:flex-row items-start md:items-center justify-between gap-12 md:gap-16 lg:gap-24">
-						{/* Copy side */}
-						<div className="hero-stagger flex-1 min-w-0 w-full">
-							{/* Overline */}
-							<p
-								className="text-primary font-black mb-6"
-								style={{ fontSize: "0.65rem", letterSpacing: "0.22em", textTransform: "uppercase" }}
-							>
-								{portalCfg.hero?.eyebrow ?? ""}
-							</p>
+								<motion.div
+									initial={{ opacity: 0, y: 12 }}
+									animate={{ opacity: 1, y: 0 }}
+									transition={{ duration: 0.5, ease: "easeOut" }}
+									className="relative z-[2] w-full py-16 flex flex-col justify-center h-full pointer-events-none"
+								>
+									<div>
+										{/* Eyebrow badge */}
+										{portalCfg.hero?.eyebrow && (
+											<span className="relative inline-flex items-center gap-1.5 px-2.5 py-1 pointer-events-auto rounded-full bg-neutral-200/80 dark:bg-neutral-800/80 hover:bg-neutral-200/70 dark:hover:bg-neutral-700/50 transition-colors">
+												<svg xmlns="http://www.w3.org/2000/svg" width="0.9em" height="0.9em" viewBox="0 0 24 24" className="text-neutral-600 dark:text-neutral-100" aria-hidden="true">
+													<path fill="currentColor" d="M12 17l1.56-3.42L17 12l-3.44-1.56L12 7l-1.57 3.44L7 12l3.43 1.58z" />
+												</svg>
+												<span className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-100 font-light">
+													{portalCfg.hero.eyebrow}
+												</span>
+											</span>
+										)}
 
-							{/* Headline */}
-							<h1
-								className="font-black uppercase text-foreground"
-								style={{
-									fontFamily: "var(--font-display)",
-									fontSize: "clamp(3rem, 8vw, 9rem)",
-									letterSpacing: "-0.03em",
-									lineHeight: 0.95,
-								}}
-							>
-								{portalCfg.hero?.title ?? ""}
-								<br />
-								<span className="text-primary">{portalCfg.hero?.titleAccent ?? ""}</span>
-							</h1>
+										{/* Headline */}
+										<h1 className="pt-3 sm:pt-4 text-2xl md:text-3xl xl:text-4xl text-neutral-800 dark:text-neutral-200 tracking-tight leading-tight text-balance">
+											{portalCfg.hero?.title ?? "The most comprehensive"}{" "}
+											<span className="text-foreground">{portalCfg.hero?.titleAccent ?? "performance platform"}</span>
+										</h1>
 
-							{/* Subheading */}
-							<p
-								className="mt-6 text-muted-foreground max-w-lg"
-								style={{ fontSize: "clamp(0.9rem, 1.25vw, 1.1rem)", lineHeight: 1.65 }}
-							>
-								{portalCfg.hero?.subtitle ?? ""}
-							</p>
+										{/* Subtitle */}
+										{portalCfg.hero?.subtitle && (
+											<p className="pt-3 text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed max-w-md">
+												{portalCfg.hero.subtitle}
+											</p>
+										)}
 
-							{/* Stats bar */}
-							<div className="flex items-center gap-0 mt-8 border border-border/50 divide-x divide-border/50 w-fit">
-								{stats.map((stat) => (
-									<div key={stat.label} className="px-5 py-3">
-										<p
-											className="font-black text-foreground uppercase"
-											style={{ fontFamily: "var(--font-display)", fontSize: "1.25rem", lineHeight: 1 }}
-										>
-											{stat.value}
-										</p>
-										<p
-											className="text-muted-foreground/60 font-bold uppercase mt-1"
-											style={{ fontSize: "0.6rem", letterSpacing: "0.15em" }}
-										>
-											{stat.label}
-										</p>
-									</div>
-								))}
-							</div>
+										{/* CTA Buttons */}
+										<div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-4 sm:pt-5 pointer-events-auto">
+											{authReady && isAuthenticated ? (
+												<>
+													<button
+														type="button"
+														onClick={() => navigate({ to: "/portal/dashboard" })}
+														className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 bg-neutral-900 text-neutral-100 dark:bg-neutral-100 dark:text-neutral-900 text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
+													>
+														Go to Dashboard
+													</button>
+													<button
+														type="button"
+														onClick={() => {
+															localStorage.removeItem("auth_token");
+															localStorage.removeItem("user_type");
+															localStorage.removeItem("pending_email");
+															setIsAuthenticated(false);
+														}}
+														className="relative inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 text-neutral-600 dark:text-neutral-300 text-xs sm:text-sm font-medium transition-colors group"
+													>
+														<span className="absolute inset-0 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity" style={{
+															backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, currentColor 4px, currentColor 5px)",
+														}} />
+														<span className="absolute top-0 -left-[6px] -right-[6px] h-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+														<span className="absolute bottom-0 -left-[6px] -right-[6px] h-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+														<span className="absolute left-0 -top-[6px] -bottom-[6px] w-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+														<span className="absolute right-0 -top-[6px] -bottom-[6px] w-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+														<span className="relative">Sign Out</span>
+													</button>
+												</>
+											) : authReady ? (
+												<>
+													<button
+														type="button"
+														onClick={() => navigate({ to: "/register" })}
+														className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 bg-neutral-900 text-neutral-100 dark:bg-neutral-100 dark:text-neutral-900 text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
+													>
+														Get Started
+													</button>
+													<button
+														type="button"
+														onClick={() => navigate({ to: "/login" })}
+														className="relative inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 text-neutral-600 dark:text-neutral-300 text-xs sm:text-sm font-medium transition-colors group"
+													>
+														<span className="absolute inset-0 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity" style={{
+															backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, currentColor 4px, currentColor 5px)",
+														}} />
+														<span className="absolute top-0 -left-[6px] -right-[6px] h-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+														<span className="absolute bottom-0 -left-[6px] -right-[6px] h-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+														<span className="absolute left-0 -top-[6px] -bottom-[6px] w-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+														<span className="absolute right-0 -top-[6px] -bottom-[6px] w-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+														<span className="absolute -bottom-[6px] -right-[6px] font-mono text-[8px] text-foreground/40 dark:text-foreground/50 leading-none select-none translate-x-1/2 translate-y-1/2">+</span>
+														<span className="relative">Sign In</span>
+													</button>
+												</>
+											) : null}
+										</div>
 
-							{/* Auth states */}
-							{authReady && isAuthenticated && (
-								<div className="mt-8 max-w-md">
-									<div className="border border-primary/20 bg-card p-5">
-										<p className="text-sm font-black uppercase tracking-wider text-foreground" style={{ fontFamily: "var(--font-display)" }}>
-											Welcome back.
-										</p>
-										<p className="mt-1 text-sm text-muted-foreground">
-											Continue to your portal dashboard.
-										</p>
-										<div className="mt-4 flex gap-3">
-											<button
-												type="button"
-												onClick={() => navigate({ to: "/portal/dashboard" })}
-												className="flex-1 bg-primary text-primary-foreground font-black uppercase tracking-wider text-xs px-4 py-2.5 hover:bg-primary/90 active:scale-[0.98] transition-all"
-												style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
-											>
-												Go to Dashboard
-											</button>
-											<button
-												type="button"
-												onClick={() => {
-													localStorage.removeItem("auth_token");
-													localStorage.removeItem("user_type");
-													localStorage.removeItem("pending_email");
-													setIsAuthenticated(false);
-												}}
-												className="border border-border/60 text-muted-foreground font-bold uppercase tracking-wider text-xs px-4 py-2.5 hover:text-foreground hover:border-border transition-all"
-												style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
-											>
-												Sign Out
-											</button>
+										{/* Stats */}
+										<div className="flex items-center gap-0 mt-6 pointer-events-auto">
+											{stats.map((stat, i) => (
+												<div key={stat.label} className="flex items-center">
+													{i > 0 && <span className="text-foreground/10 text-[10px] mx-2">|</span>}
+													<div className="flex items-baseline gap-1.5">
+														<span className="font-mono text-sm font-medium text-foreground">{stat.value}</span>
+														<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">{stat.label}</span>
+													</div>
+												</div>
+											))}
 										</div>
 									</div>
-								</div>
-							)}
+								</motion.div>
+							</div>
 
-							{authReady && !isAuthenticated && (
-								<div className="mt-8 max-w-md space-y-3">
-									<form
-										onSubmit={handleSubmit}
-										className={`flex w-full overflow-hidden ${
-											error
-												? "ring-1 ring-destructive/50"
-												: "ring-1 ring-border/60 focus-within:ring-primary/50"
-										}`}
-										style={{ transition: `box-shadow var(--duration-standard) var(--ease)` }}
-									>
-										<Input
-											type="email"
-											placeholder={portalCfg.hero?.emailPlaceholder ?? "Enter your email"}
-											aria-label="Email address"
-											value={email}
-											onChange={(e) => {
-												setEmail(e.target.value);
-												if (error) setError(undefined);
-											}}
-											disabled={isLoading}
-											className="flex-1 border-0 rounded-none h-12 px-5 focus-visible:ring-0 bg-card/80 text-sm placeholder:text-muted-foreground/40 min-w-0"
-										/>
-										<button
-											type="submit"
-											disabled={isLoading}
-											className="h-12 px-6 bg-primary text-primary-foreground font-black uppercase tracking-wider text-xs shrink-0 flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-70"
-											style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
+							{/* Right side — Email signup + Phone mockup */}
+							<div className="relative z-0 w-full lg:w-[60%] overflow-x-hidden">
+								<div className="flex flex-col items-center justify-center min-h-[60vh] lg:min-h-dvh px-5 sm:px-6 lg:px-10 py-16">
+									{/* Email form */}
+									{authReady && !isAuthenticated && (
+										<motion.div
+											initial={{ opacity: 0, y: 8 }}
+											animate={{ opacity: 1, y: 0 }}
+											transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
+											className="w-full max-w-md mb-12"
 										>
-											{isLoading ? (
-												<CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
-											) : (
-												portalCfg.hero?.emailCtaLabel ?? "Join Free"
+											<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-3">
+												Start free — no credit card required
+											</p>
+											<form
+												onSubmit={handleSubmit}
+												className={`flex w-full overflow-hidden border ${
+													error ? "border-destructive/50" : "border-foreground/[0.06] focus-within:border-foreground/20"
+												} transition-colors duration-200`}
+											>
+												<Input
+													type="email"
+													placeholder={portalCfg.hero?.emailPlaceholder ?? "Enter your email"}
+													aria-label="Email address"
+													value={email}
+													onChange={(e) => {
+														setEmail(e.target.value);
+														if (error) setError(undefined);
+													}}
+													disabled={isLoading}
+													className="flex-1 border-0 rounded-none h-10 px-4 focus-visible:ring-0 bg-transparent font-mono text-sm placeholder:text-foreground/25 min-w-0"
+												/>
+												<button
+													type="submit"
+													disabled={isLoading}
+													className="h-10 px-5 bg-foreground text-background font-mono text-xs uppercase tracking-wider shrink-0 flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-70"
+												>
+													{isLoading ? (
+														<CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
+													) : (
+														portalCfg.hero?.emailCtaLabel ?? "Join"
+													)}
+												</button>
+											</form>
+											{error && (
+												<p className="mt-2 text-xs text-destructive flex items-center gap-1.5 break-words font-mono">
+													<WarningCircle weight="fill" className="w-3.5 h-3.5 shrink-0" />
+													{error}
+												</p>
 											)}
-										</button>
-									</form>
-									{error && (
-										<p className="text-xs text-destructive flex items-center gap-1.5 break-words">
-											<WarningCircle weight="fill" className="w-4 h-4 shrink-0" />
-											{error}
-										</p>
+										</motion.div>
 									)}
-								</div>
-							)}
-						</div>
 
-						{/* Phone mockup */}
-						<div className="shrink-0 w-full max-w-[320px] mx-auto md:mx-0 md:w-[270px] lg:w-[300px] animate-float">
-							<div
-								style={{
-									filter: "drop-shadow(0 0 40px hsl(var(--primary) / 0.18)) drop-shadow(0 0 80px hsl(var(--primary) / 0.08))",
-								}}
-							>
-								<PhoneMockup
-									src={portalCfg.hero?.mobileScreenshotUrl || "/home.png"}
-									alt="PH Performance app — home screen"
-								/>
+									{/* Phone mockup */}
+									<motion.div
+										initial={{ opacity: 0, y: 16 }}
+										animate={{ opacity: 1, y: 0 }}
+										transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+										className="w-full max-w-[280px] animate-float"
+									>
+										<PhoneMockup
+											src={portalCfg.hero?.mobileScreenshotUrl || "/home.png"}
+											alt="PH Performance app — home screen"
+										/>
+									</motion.div>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -506,82 +519,57 @@ function RouteComponent() {
 				/>
 
 				{/* ━━━ Features ━━━ */}
-				<section id="features" className="max-w-6xl mx-auto px-6 py-24 sm:py-32">
-					<div className="mb-16">
-						<p
-							className="text-primary font-black mb-5"
-							style={{ fontSize: "0.65rem", letterSpacing: "0.22em", textTransform: "uppercase" }}
-						>
-							{portalCfg.features?.heading ?? ""}
-						</p>
-						<h2
-							className="font-black uppercase text-foreground"
-							style={{
-								fontFamily: "var(--font-display)",
-								fontSize: "clamp(2rem, 5vw, 4.5rem)",
-								letterSpacing: "-0.02em",
-								lineHeight: 1,
-							}}
-						>
-							{featuresSubheading.head}
-							<br />
-							<span className="text-primary">{featuresSubheading.tail}</span>
-						</h2>
-						<p
-							className="mt-5 text-muted-foreground max-w-lg"
-							style={{ fontSize: "clamp(0.9rem, 1.5vw, 1.1rem)", lineHeight: 1.65 }}
-						>
-							{portalCfg.features?.description ?? ""}
-						</p>
-					</div>
+				<section id="features" className="border-t border-foreground/[0.06]">
+					<div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-7 py-24 sm:py-32">
+						<div className="mb-16">
+							<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-4">
+								{portalCfg.features?.heading ?? "Capabilities"}
+							</p>
+							<h2 className="text-2xl md:text-3xl xl:text-4xl tracking-tight leading-tight text-balance">
+								{featuresSubheading.head}{" "}
+								<span className="text-foreground/60">{featuresSubheading.tail}</span>
+							</h2>
+							{portalCfg.features?.description && (
+								<p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-lg">
+									{portalCfg.features.description}
+								</p>
+							)}
+						</div>
 
-					{/* 3-column card grid */}
-					<div className="grid grid-cols-1 md:grid-cols-3 border border-border/40 divide-y md:divide-y-0 md:divide-x divide-border/40">
-						{featuresFromConfig.map((feature) => (
-							<div
-								key={feature.title}
-								className="feature-card group relative overflow-hidden p-10 hover:bg-card/50 transition-colors"
-								style={{ transitionDuration: "var(--duration-standard)", transitionTimingFunction: "var(--ease)" }}
-							>
-								{/* Large muted number behind */}
-								<span
-									className="absolute top-4 right-4 font-black text-foreground/5 select-none leading-none pointer-events-none"
-									style={{ fontFamily: "var(--font-display)", fontSize: "8rem", lineHeight: 0.85 }}
-									aria-hidden
+						<div className="grid grid-cols-1 md:grid-cols-3 border border-foreground/[0.06] divide-y md:divide-y-0 md:divide-x divide-foreground/[0.06]">
+							{featuresFromConfig.map((feature, i) => (
+								<motion.div
+									key={feature.title}
+									initial={{ opacity: 0, y: 16 }}
+									whileInView={{ opacity: 1, y: 0 }}
+									viewport={{ once: true }}
+									transition={{ duration: 0.4, delay: i * 0.1, ease: "easeOut" }}
+									className="group relative overflow-hidden p-8 lg:p-10 hover:bg-foreground/[0.02] transition-colors duration-200"
 								>
-									{feature.num}
-								</span>
+									{/* Large muted number */}
+									<span
+										className="absolute top-4 right-4 font-mono text-[6rem] leading-none font-bold text-foreground/[0.03] select-none pointer-events-none"
+										aria-hidden
+									>
+										{feature.num}
+									</span>
 
-								<div className="relative z-10">
-									<div className="text-primary mb-8">
-										<feature.icon size={40} weight="fill" />
+									<div className="relative z-10">
+										<div className="text-foreground/60 mb-6">
+											<feature.icon size={32} weight="light" />
+										</div>
+										<h3 className="text-base font-medium text-foreground mb-3 tracking-tight">
+											{feature.title}
+										</h3>
+										<p className="text-sm text-muted-foreground leading-relaxed">
+											{feature.description}
+										</p>
 									</div>
-									<h3
-										className="font-black uppercase text-foreground mb-4"
-										style={{
-											fontFamily: "var(--font-display)",
-											fontSize: "1.5rem",
-											letterSpacing: "-0.01em",
-											lineHeight: 1,
-										}}
-									>
-										{feature.title}
-									</h3>
-									<p
-										className="text-muted-foreground leading-relaxed"
-										style={{ fontSize: "0.9rem", lineHeight: 1.7 }}
-									>
-										{feature.description}
-									</p>
-								</div>
 
-								{/* Bottom green bar on hover */}
-								<div
-									className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary origin-left scale-x-0 group-hover:scale-x-100"
-									style={{ transition: "transform var(--duration-standard) cubic-bezier(0.25, 0, 0, 1)" }}
-								/>
-							</div>
-						))}
+									<div className="absolute bottom-0 left-0 right-0 h-px bg-foreground origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out" />
+								</motion.div>
+							))}
+						</div>
 					</div>
 				</section>
 
@@ -597,14 +585,47 @@ function RouteComponent() {
 				<GallerySection apiItems={galleryItems} isLoading={galleryLoading} />
 
 				{/* ━━━ CTA ━━━ */}
-				<CTA
-					eyebrow={portalCfg.cta?.eyebrow}
-					headingLine1={ctaHeading.head}
-					headingLine2={ctaHeading.tail}
-					body={portalCfg.cta?.body}
-					appStoreLabel={portalCfg.cta?.appStoreLabel}
-					playStoreLabel={portalCfg.cta?.playStoreLabel}
-				/>
+				<section className="border-t border-foreground/[0.06]">
+					<div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-7 py-24 sm:py-32">
+						<div className="flex flex-col items-center text-center">
+							<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-4">
+								{portalCfg.cta?.eyebrow ?? "Get Started"}
+							</p>
+							<h2 className="text-2xl md:text-3xl xl:text-4xl tracking-tight leading-tight text-balance mb-4">
+								{ctaHeading.head}{" "}
+								<span className="text-foreground/60">{ctaHeading.tail}</span>
+							</h2>
+							{portalCfg.cta?.body && (
+								<p className="text-sm text-muted-foreground leading-relaxed max-w-md mb-8">
+									{portalCfg.cta.body}
+								</p>
+							)}
+							<div className="flex flex-wrap items-center justify-center gap-3">
+								<button
+									type="button"
+									onClick={() => navigate({ to: "/register" })}
+									className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-foreground text-background text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
+								>
+									Get Started Free
+								</button>
+								<button
+									type="button"
+									onClick={() => navigate({ to: "/login" })}
+									className="relative inline-flex items-center gap-1.5 px-6 py-2.5 text-foreground/60 text-xs sm:text-sm font-medium transition-colors group"
+								>
+									<span className="absolute inset-0 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity" style={{
+										backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, currentColor 4px, currentColor 5px)",
+									}} />
+									<span className="absolute top-0 -left-[6px] -right-[6px] h-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+									<span className="absolute bottom-0 -left-[6px] -right-[6px] h-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+									<span className="absolute left-0 -top-[6px] -bottom-[6px] w-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+									<span className="absolute right-0 -top-[6px] -bottom-[6px] w-px bg-foreground/20 group-hover:bg-foreground/30 transition-colors" />
+									<span className="relative">Sign In</span>
+								</button>
+							</div>
+						</div>
+					</div>
+				</section>
 			</main>
 		</div>
 	);

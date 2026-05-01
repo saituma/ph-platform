@@ -31,7 +31,6 @@ import { SkeletonScheduleScreen } from "@/components/ui/Skeleton";
 import { BookingModal } from "@/components/tracking/schedule/BookingModal";
 import { useScheduleData } from "@/components/tracking/schedule/hooks";
 import { canSelfBookSchedule } from "@/lib/scheduleBookingAccess";
-import { hasPhpPlusPlanFeatures } from "@/lib/planAccess";
 import type { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
 
@@ -470,7 +469,7 @@ export default memo(function ScheduleScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
-  const programTier = useAppSelector((s) => s.user.programTier);
+  const capabilities = useAppSelector((s) => s.user.capabilities);
   const apiUserRole = useAppSelector((s) => s.user.apiUserRole);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
@@ -526,7 +525,7 @@ export default memo(function ScheduleScreen() {
           refreshEvents, refreshServices } = useScheduleData(token, isFocused);
 
   const bookingServices = useMemo(() => {
-    const base = hasPhpPlusPlanFeatures(programTier)
+    const base = capabilities?.semiPrivateBooking
       ? services
       : services.filter((s) => String(s.type ?? "").toLowerCase() !== "semi_private");
 
@@ -543,7 +542,7 @@ export default memo(function ScheduleScreen() {
       // Has restrictions but none match this user
       return false;
     });
-  }, [services, programTier, userAthleteType, userTeamId]);
+  }, [services, capabilities?.semiPrivateBooking, userAthleteType, userTeamId]);
 
   const bookableServices = useMemo(
     () => bookingServices.filter((s) => s.isBookable !== false),

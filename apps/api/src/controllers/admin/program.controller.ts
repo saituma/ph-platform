@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import {
   createProgramTemplate,
+  deleteProgramTemplate,
   listProgramTemplates,
   updateProgramTemplate,
   createExercise,
@@ -157,6 +158,15 @@ export async function updateProgram(req: Request, res: Response) {
     maxAge: input.maxAge ?? null,
   });
   return res.status(200).json({ program });
+}
+
+export async function deleteProgram(req: Request, res: Response) {
+  const programId = z.coerce.number().int().min(1).parse(req.params.programId);
+  const deleted = await deleteProgramTemplate(programId);
+  if (!deleted) {
+    return res.status(404).json({ error: "Program not found" });
+  }
+  return res.status(200).json({ deleted: true });
 }
 
 export async function createExerciseItem(req: Request, res: Response) {

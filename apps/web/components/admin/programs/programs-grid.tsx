@@ -1,4 +1,4 @@
-import { Badge } from "../../ui/badge";
+import Link from "next/link";
 import { Button } from "../../ui/button";
 import { Card, CardHeader, CardTitle, CardPanel } from "../../ui/card";
 import { Empty, EmptyTitle, EmptyDescription } from "../../ui/empty";
@@ -8,7 +8,6 @@ type ProgramItem = {
   id: number;
   name: string;
   summary?: string | null;
-  access: string;
   type: string;
   minAge?: number | null;
   maxAge?: number | null;
@@ -21,14 +20,6 @@ type ProgramsGridProps = {
   onAssign: (program: ProgramItem) => void;
   highlightedProgramId?: number | null;
 };
-
-function formatAgeRange(program: { minAge?: number | null; maxAge?: number | null }) {
-  if (program.minAge == null && program.maxAge == null) return "All ages";
-  if (program.minAge != null && program.maxAge != null)
-    return `Ages ${program.minAge}–${program.maxAge}`;
-  if (program.minAge != null) return `Ages ${program.minAge}+`;
-  return `Up to ${program.maxAge}`;
-}
 
 export function ProgramsGrid({
   programs,
@@ -47,7 +38,6 @@ export function ProgramsGrid({
             </CardHeader>
             <CardPanel className="space-y-3">
               <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-6 w-24" />
               <div className="flex gap-2">
                 <Skeleton className="h-8 w-20" />
                 <Skeleton className="h-8 w-20" />
@@ -63,7 +53,7 @@ export function ProgramsGrid({
     return (
       <Empty>
         <EmptyTitle>No programs yet</EmptyTitle>
-        <EmptyDescription>Create your first training program template.</EmptyDescription>
+        <EmptyDescription>Create your first training program.</EmptyDescription>
       </Empty>
     );
   }
@@ -86,12 +76,11 @@ export function ProgramsGrid({
             <p className="text-sm text-muted-foreground">
               {program.summary || "No description yet."}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">{program.access}</Badge>
-              <Badge variant="secondary">{formatAgeRange(program)}</Badge>
-            </div>
             <div className="flex gap-2">
-              <Button size="sm" onClick={() => onManage(program)}>
+              <Link href={`/programs/${program.id}`}>
+                <Button size="sm">Open</Button>
+              </Link>
+              <Button size="sm" variant="outline" onClick={() => onManage(program)}>
                 Manage
               </Button>
               <Button size="sm" variant="outline" onClick={() => onAssign(program)}>

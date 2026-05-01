@@ -3,22 +3,23 @@ import { ChatMessage } from "@/constants/messages";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { GifPickerModal } from "@/components/messages/GifPickerModal";
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
+import ForwardMessageSheet from "@/components/messages/ForwardMessageSheet";
+import { MessageContextMenu } from "@/components/messages/MessageContextMenu";
 import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
 import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ThreadHeader } from "@/components/messages/ThreadHeader";
+import ThreadSearchModal from "@/components/messages/ThreadSearchModal";
+import { UserProfileSheet, type ProfileTarget } from "@/components/messages/UserProfileSheet";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import { fonts } from "@/constants/theme";
 import React from "react";
-import { ActivityIndicator, Pressable, View, Alert } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import { apiRequest } from "@/lib/api";
+import * as Haptics from "expo-haptics";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams } from "expo-router";
 import { Text } from "@/components/ScaledText";
-import { Ionicons } from "@expo/vector-icons";
-import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetView,
-} from "@gorhom/bottom-sheet";
 
 export default function ThreadScreen() {
   const { colors, isDark } = useAppTheme();
@@ -52,6 +53,7 @@ export default function ThreadScreen() {
     effectiveProfileName,
     groupMembers,
     currentThread,
+    sortedThreads,
     localMessages,
     typingStatus,
     isLoading,
@@ -86,38 +88,66 @@ export default function ThreadScreen() {
     React.useState<ChatMessage | null>(null);
   const [messageActionsTarget, setMessageActionsTarget] =
     React.useState<ChatMessage | null>(null);
-  const isOwnActionTarget = React.useMemo(() => {
-    if (!messageActionsTarget) return false;
-    const senderId = Number(messageActionsTarget.senderId ?? Number.NaN);
-    if (Number.isFinite(senderId)) return senderId === effectiveProfileId;
-    return messageActionsTarget.from === "user";
-  }, [effectiveProfileId, messageActionsTarget]);
-
-  const messageActionsSheetRef = React.useRef<BottomSheetModal>(null);
-
-  React.useEffect(() => {
-    const ref = messageActionsSheetRef.current;
-    if (!ref) return;
-    if (messageActionsTarget) ref.present();
-    else ref.dismiss();
-  }, [messageActionsTarget]);
+  const [profileTarget, setProfileTarget] = React.useState<ProfileTarget | null>(null);
+  const [forwardTarget, setForwardTarget] = React.useState<ChatMessage | null>(null);
+  const [searchOpen, setSearchOpen] = React.useState(false);
 
   const handleLongPressMessage = React.useCallback((message: ChatMessage) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setMessageActionsTarget(message);
   }, []);
+
+  const handleCopyMessage = React.useCallback((message: ChatMessage) => {
+    if (message.text) {
+      Clipboard.setStringAsync(message.text);
+    }
+  }, []);
+
+  const handleAvatarPress = React.useCallback(
+    (senderId: number, name: string, avatar?: string | null) => {
+      setProfileTarget({ kind: "dm", id: senderId, name, avatar });
+    },
+    [],
+  );
+
+  const handleHeaderPress = React.useCallback(() => {
+    if (!currentThread) return;
+    const isGroup = currentThread.id.startsWith("group:");
+    if (isGroup) {
+      const groupId = Number(currentThread.id.replace("group:", ""));
+      const members = groupMembers[groupId];
+      const memberCount = members ? Object.keys(members).length : undefined;
+      setProfileTarget({
+        kind: "group",
+        id: currentThread.id,
+        name: currentThread.name,
+        avatar: currentThread.avatarUrl,
+        memberCount,
+      });
+    } else {
+      setProfileTarget({
+        kind: "dm",
+        id: Number(currentThread.id),
+        name: currentThread.name,
+        avatar: currentThread.avatarUrl,
+        role: currentThread.role,
+        lastSeen: currentThread.lastSeen,
+      });
+    }
+  }, [currentThread, groupMembers]);
+
+  const handlePinMessage = React.useCallback(async (message: ChatMessage) => {
+    try {
+      await apiRequest(`/messages/${message.id}/pin`, { token, method: "PUT" });
+    } catch (e) {
+      console.warn("[pin] failed:", e);
+    }
+  }, [token]);
 
   const handleRemovePendingAttachment = React.useCallback(() => {
     setPendingAttachment(null);
   }, [setPendingAttachment]);
 
-  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
-  const dangerColor = isDark ? "hsl(0, 35%, 60%)" : "hsl(0, 40%, 48%)";
-  const dangerBg = isDark ? "hsla(0, 35%, 60%, 0.10)" : "hsla(0, 40%, 48%, 0.06)";
-  const dangerBorder = isDark ? "hsla(0, 35%, 60%, 0.25)" : "hsla(0, 40%, 48%, 0.18)";
-  const warningColor = isDark ? "hsl(40, 35%, 60%)" : "hsl(40, 45%, 42%)";
-  const warningBg = isDark ? "hsla(40, 35%, 60%, 0.10)" : "hsla(40, 45%, 42%, 0.06)";
-  const warningBorder = isDark ? "hsla(40, 35%, 60%, 0.25)" : "hsla(40, 45%, 42%, 0.18)";
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
   if (!currentThread) {
     return (
@@ -132,6 +162,8 @@ export default function ThreadScreen() {
       <ThreadHeader
         thread={currentThread}
         onBack={clearThread}
+        onSearch={() => setSearchOpen(true)}
+        onHeaderPress={handleHeaderPress}
         sharedBoundTag={sharedBoundTag}
         sharedAvatarTag={sharedAvatarTag}
       />
@@ -193,6 +225,7 @@ export default function ThreadScreen() {
         onLongPressMessage={handleLongPressMessage}
         onReactionPress={handleToggleReaction}
         onOpenReactionPicker={(message) => setReactionTarget(message)}
+        onAvatarPress={handleAvatarPress}
         composerDisabled={false}
         pendingAttachment={pendingAttachment}
         onRemovePendingAttachment={handleRemovePendingAttachment}
@@ -250,172 +283,38 @@ export default function ThreadScreen() {
         }}
       />
 
-      <BottomSheetModal
-        ref={messageActionsSheetRef}
-        index={0}
-        snapPoints={["32%"]}
-        onDismiss={() => setMessageActionsTarget(null)}
-        enablePanDownToClose
-        backdropComponent={(props) => (
-          <BottomSheetBackdrop
-            {...props}
-            appearsOnIndex={0}
-            disappearsOnIndex={-1}
-            opacity={0.4}
-            pressBehavior="close"
-          />
-        )}
-        backgroundStyle={{ backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card }}
-        handleIndicatorStyle={{
-          backgroundColor: isDark
-            ? "rgba(255,255,255,0.28)"
-            : "rgba(15,23,42,0.22)",
+      <MessageContextMenu
+        message={messageActionsTarget}
+        selfUserId={effectiveProfileId}
+        onClose={() => setMessageActionsTarget(null)}
+        onReaction={(msg, emoji) => {
+          void handleToggleReaction(msg, emoji);
         }}
-      >
-        <BottomSheetView style={{ paddingHorizontal: 24, paddingBottom: 32 }}>
-          <Text
-            style={{
-              fontFamily: "ClashDisplay-Bold",
-              fontSize: 18,
-              color: textPrimary,
-            }}
-          >
-            Message actions
-          </Text>
-          <View style={{ marginTop: 20, gap: 12 }}>
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <Pressable
-                onPress={() => {
-                  const target = messageActionsTarget;
-                  setMessageActionsTarget(null);
-                  if (target) setReactionTarget(target);
-                }}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  height: 48,
-                  borderRadius: 14,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: 1,
-                  flexDirection: "row",
-                  gap: 8,
-                  borderColor: cardBorder,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                  opacity: pressed ? 0.8 : 1,
-                })}
-              >
-                <Ionicons name="happy-outline" size={18} color={colors.accent} />
-                <Text style={{ fontFamily: fonts.bodyBold, color: textPrimary }}>
-                  React
-                </Text>
-              </Pressable>
-              {isOwnActionTarget && (
-                <Pressable
-                  onPress={() => {
-                    const target = messageActionsTarget;
-                    setMessageActionsTarget(null);
-                    if (target) void handleDeleteMessage(target);
-                  }}
-                  style={({ pressed }) => ({
-                    flex: 1,
-                    height: 48,
-                    borderRadius: 14,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderWidth: 1,
-                    flexDirection: "row",
-                    gap: 8,
-                    borderColor: dangerBorder,
-                    backgroundColor: dangerBg,
-                    opacity: pressed ? 0.8 : 1,
-                  })}
-                >
-                  <Ionicons name="trash-outline" size={18} color={dangerColor} />
-                  <Text style={{ fontFamily: fonts.bodyBold, color: dangerColor }}>
-                    Delete
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <Pressable
-                onPress={() => {
-                  setMessageActionsTarget(null);
-                  Alert.alert("Report User", "Would you like to report this user for inappropriate content? Our moderation team will review this user and take action within 24 hours.", [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Report", style: "destructive", onPress: () => Alert.alert("User Reported", "A report has been sent to our moderation team.") }
-                  ]);
-                }}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  height: 48,
-                  borderRadius: 14,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: 1,
-                  flexDirection: "row",
-                  gap: 8,
-                  borderColor: warningBorder,
-                  backgroundColor: warningBg,
-                  opacity: pressed ? 0.8 : 1,
-                })}
-              >
-                <Ionicons name="flag-outline" size={18} color={warningColor} />
-                <Text style={{ fontFamily: fonts.bodyBold, color: warningColor }}>
-                  Report
-                </Text>
-              </Pressable>
-              {!isOwnActionTarget ? (
-                <Pressable
-                  onPress={() => {
-                    setMessageActionsTarget(null);
-                    Alert.alert("Block User", "Are you sure you want to block this user? You will no longer receive or see their messages.", [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Block", style: "destructive", onPress: () => Alert.alert("User Blocked", "This user has been blocked.") }
-                    ]);
-                  }}
-                  style={({ pressed }) => ({
-                    flex: 1,
-                    height: 48,
-                    borderRadius: 14,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderWidth: 1,
-                    flexDirection: "row",
-                    gap: 8,
-                    borderColor: dangerBorder,
-                    backgroundColor: dangerBg,
-                    opacity: pressed ? 0.8 : 1,
-                  })}
-                >
-                  <Ionicons name="ban-outline" size={18} color={dangerColor} />
-                  <Text style={{ fontFamily: fonts.bodyBold, color: dangerColor }}>
-                    Block
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
-          <Pressable
-            onPress={() => setMessageActionsTarget(null)}
-            style={({ pressed }) => ({
-              marginTop: 16,
-              height: 48,
-              borderRadius: 14,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1,
-              borderColor: cardBorder,
-              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-              opacity: pressed ? 0.8 : 1,
-            })}
-          >
-            <Text style={{ fontFamily: fonts.bodyBold, color: textPrimary }}>
-              Close
-            </Text>
-          </Pressable>
-        </BottomSheetView>
-      </BottomSheetModal>
+        onReply={setReplyTargetFromMessage}
+        onCopy={handleCopyMessage}
+        onPin={handlePinMessage}
+        onForward={(msg) => setForwardTarget(msg)}
+        onDelete={handleDeleteMessage}
+        onOpenEmojiPicker={(msg) => setReactionTarget(msg)}
+      />
+      <UserProfileSheet
+        target={profileTarget}
+        onClose={() => setProfileTarget(null)}
+      />
+      <ForwardMessageSheet
+        message={forwardTarget}
+        threads={sortedThreads}
+        token={token}
+        onClose={() => setForwardTarget(null)}
+        onForwarded={() => setForwardTarget(null)}
+      />
+      <ThreadSearchModal
+        visible={searchOpen}
+        threadId={currentThread.id}
+        token={token}
+        onClose={() => setSearchOpen(false)}
+        onJumpToMessage={() => setSearchOpen(false)}
+      />
     </View>
   );
 }

@@ -84,7 +84,8 @@ export default function TrackingSocialScreen() {
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
-  const programTier = useAppSelector((s) => s.user.programTier);
+  const capabilities = useAppSelector((s) => s.user.capabilities);
+  const capabilitiesLoaded = useAppSelector((s) => s.user.capabilitiesLoaded);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
 
@@ -102,11 +103,11 @@ export default function TrackingSocialScreen() {
     () =>
       canAccessTrackingTab({
         appRole,
-        programTier,
+        capabilities,
         authTeamMembership,
         firstManagedAthlete: managedAthletes[0] ?? null,
       }),
-    [appRole, authTeamMembership, managedAthletes, programTier],
+    [appRole, authTeamMembership, managedAthletes, capabilities],
   );
 
   const teamName = (authTeamMembership?.team ?? "Team").trim() || "Team";
@@ -154,9 +155,10 @@ export default function TrackingSocialScreen() {
 
   // ── Gate check ──
   useEffect(() => {
+    if (!capabilitiesLoaded) return;
     if (canAccessTracking && useTeamFeed) return;
     router.replace("/(tabs)/tracking");
-  }, [canAccessTracking, router, useTeamFeed]);
+  }, [capabilitiesLoaded, canAccessTracking, router, useTeamFeed]);
 
   useEffect(() => {
     if (!token) return;
@@ -164,7 +166,7 @@ export default function TrackingSocialScreen() {
     router.replace("/(tabs)/tracking" as any);
   }, [router, token, useTeamFeed]);
 
-  if (!canAccessTracking || !useTeamFeed) {
+  if (!capabilitiesLoaded || !canAccessTracking || !useTeamFeed) {
     return null;
   }
 

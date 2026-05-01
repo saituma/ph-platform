@@ -10,10 +10,13 @@ import {
 	SoccerBall,
 	TrendUp,
 	Hash,
+	Baby,
+	PersonSimpleRun,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Card } from "#/components/ui/card";
+import { cn } from "#/lib/utils";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
 import { DatePicker } from "#/components/ui/date-picker";
@@ -30,8 +33,26 @@ export const Route = createFileRoute("/onboarding/step-2")({
 	component: OnboardingStep2,
 });
 
+type TeamType = "youth" | "adult";
+
+const TEAM_TYPES: { id: TeamType; label: string; description: string; icon: typeof Baby }[] = [
+	{
+		id: "youth",
+		label: "Youth Team",
+		description: "Age-based training for athletes under 18.",
+		icon: Baby,
+	},
+	{
+		id: "adult",
+		label: "Adult Team",
+		description: "Individual and team-wide training for adult athletes.",
+		icon: PersonSimpleRun,
+	},
+];
+
 function OnboardingStep2() {
 	const [userType, setUserType] = useState<string | null>(null);
+	const [teamType, setTeamType] = useState<TeamType>("youth");
 	const [formData, setFormData] = useState({
 		// Youth fields
 		guardianName: "",
@@ -137,23 +158,37 @@ function OnboardingStep2() {
 					birthDate: format(birthDate, "yyyy-MM-dd"),
 				};
 			} else if (userType === "team") {
-				const minAge = Number(formData.minAge);
-				const maxAge = Number(formData.maxAge);
 				const maxAthletes = Number(formData.maxAthletes);
 
-				if (!formData.teamName || !formData.minAge || !formData.maxAge || !formData.maxAthletes) {
+				if (!formData.teamName || !formData.maxAthletes) {
 					throw new Error("Please fill in all fields");
 				}
-				if (minAge > maxAge) {
-					throw new Error("Min age cannot be greater than Max age");
+
+				if (teamType === "youth") {
+					const minAge = Number(formData.minAge);
+					const maxAge = Number(formData.maxAge);
+					if (!formData.minAge || !formData.maxAge) {
+						throw new Error("Please fill in the age range for your youth team");
+					}
+					if (minAge > maxAge) {
+						throw new Error("Min age cannot be greater than Max age");
+					}
+					endpoint = "/api/onboarding/team-basic";
+					body = {
+						name: formData.teamName,
+						athleteType: "youth",
+						minAge,
+						maxAge,
+						maxAthletes,
+					};
+				} else {
+					endpoint = "/api/onboarding/team-basic";
+					body = {
+						name: formData.teamName,
+						athleteType: "adult",
+						maxAthletes,
+					};
 				}
-				endpoint = "/api/onboarding/team-basic";
-				body = {
-					name: formData.teamName,
-					minAge,
-					maxAge,
-					maxAthletes,
-				};
 			} else {
 				throw new Error("Invalid user type");
 			}
@@ -187,8 +222,9 @@ function OnboardingStep2() {
 					JSON.stringify({
 						teamId: (data as any)?.teamId ?? null,
 						teamName: formData.teamName,
-						minAge: Number(formData.minAge),
-						maxAge: Number(formData.maxAge),
+						teamType,
+						minAge: teamType === "youth" ? Number(formData.minAge) : null,
+						maxAge: teamType === "youth" ? Number(formData.maxAge) : null,
 						maxAthletes: Number(formData.maxAthletes),
 					}),
 				);
@@ -216,13 +252,13 @@ function OnboardingStep2() {
 		<main className="mx-auto max-w-2xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
 			<section className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
-					<p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
+					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 						Step 2 of {userType === "team" ? "3" : "4"}
 					</p>
-					<h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl leading-[1.1]">
-						Basic <span className="text-primary">Information</span>
+					<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
+						Basic Information
 					</h1>
-					<p className="text-lg text-muted-foreground leading-relaxed">
+					<p className="text-sm text-muted-foreground leading-relaxed">
 						{userType === "youth"
 							? "Tell us about yourself and the athlete you're signing up."
 							: userType === "team"
@@ -231,7 +267,7 @@ function OnboardingStep2() {
 					</p>
 				</div>
 
-				<Card className="border-border/60 bg-card/50 backdrop-blur-sm shadow-xl p-5 sm:p-8 rounded-3xl ring-1 ring-border/50">
+				<Card className="border border-foreground/[0.06] p-6 sm:p-8">
 					<form onSubmit={handleSubmit} className="space-y-8">
 						<div className="space-y-6">
 							{userType === "youth" ? (
@@ -239,9 +275,9 @@ function OnboardingStep2() {
 									<div className="space-y-2">
 										<label
 											htmlFor="guardianName"
-											className="text-sm font-bold text-foreground flex items-center gap-2"
+											className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 										>
-											<IdentificationCard size={18} className="text-primary" />
+											<IdentificationCard size={18} className="text-foreground/40" />
 											Your Full Name (Guardian)
 										</label>
 										<Input
@@ -252,16 +288,16 @@ function OnboardingStep2() {
 												handleInputChange("guardianName", e.target.value)
 											}
 											required
-											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+											className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20"
 										/>
 									</div>
 
 									<div className="space-y-2">
 										<label
 											htmlFor="athleteName"
-											className="text-sm font-bold text-foreground flex items-center gap-2"
+											className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 										>
-											<User size={18} className="text-primary" />
+											<User size={18} className="text-foreground/40" />
 											Athlete's Full Name
 										</label>
 										<Input
@@ -272,16 +308,16 @@ function OnboardingStep2() {
 												handleInputChange("athleteName", e.target.value)
 											}
 											required
-											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+											className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20"
 										/>
 									</div>
 
 									<div className="space-y-2">
 										<label
 											htmlFor="birthDate"
-											className="text-sm font-bold text-foreground flex items-center gap-2"
+											className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 										>
-											<CalendarIcon size={18} className="text-primary" />
+											<CalendarIcon size={18} className="text-foreground/40" />
 											Athlete's Birth Date
 										</label>
 										<DatePicker
@@ -300,12 +336,60 @@ function OnboardingStep2() {
 								</>
 							) : userType === "team" ? (
 								<>
+									<div className="space-y-3">
+										<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/50">
+											Team Type
+										</p>
+										<div className="grid grid-cols-2 gap-3">
+											{TEAM_TYPES.map((t) => {
+												const Icon = t.icon;
+												const isSelected = teamType === t.id;
+												return (
+													<button
+														key={t.id}
+														type="button"
+														onClick={() => setTeamType(t.id)}
+														className="text-left focus:outline-none"
+													>
+														<Card
+															className={cn(
+																"h-full transition-all duration-200 border cursor-pointer",
+																isSelected
+																	? "border-foreground bg-foreground text-background"
+																	: "border-foreground/[0.06] bg-card hover:border-foreground/20"
+															)}
+														>
+															<div className="flex flex-col gap-2 p-4">
+																<Icon
+																	size={18}
+																	className={isSelected ? "text-background/80" : "text-foreground/40"}
+																/>
+																<p className={cn(
+																	"font-mono text-[11px] uppercase tracking-wider font-semibold",
+																	isSelected ? "text-background" : "text-foreground"
+																)}>
+																	{t.label}
+																</p>
+																<p className={cn(
+																	"text-[11px] leading-relaxed",
+																	isSelected ? "text-background/60" : "text-muted-foreground"
+																)}>
+																	{t.description}
+																</p>
+															</div>
+														</Card>
+													</button>
+												);
+											})}
+										</div>
+									</div>
+
 									<div className="space-y-2">
 										<label
 											htmlFor="teamName"
-											className="text-sm font-bold text-foreground flex items-center gap-2"
+											className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 										>
-											<SoccerBall size={18} className="text-primary" />
+											<SoccerBall size={18} className="text-foreground/40" />
 											Team / Club Name
 										</label>
 										<Input
@@ -314,59 +398,61 @@ function OnboardingStep2() {
 											value={formData.teamName}
 											onChange={(e) => handleInputChange("teamName", e.target.value)}
 											required
-											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+											className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20"
 										/>
 									</div>
 
-									<div className="grid grid-cols-2 gap-4">
-										<div className="space-y-2">
-											<label
-												htmlFor="minAge"
-												className="text-sm font-bold text-foreground flex items-center gap-2"
-											>
-												<TrendUp size={18} className="text-primary" />
-												Min Age
-											</label>
-											<Input
-												id="minAge"
-												type="number"
-												min="5"
-												max="99"
-												placeholder="e.g. 12"
-												value={formData.minAge}
-												onChange={(e) => handleInputChange("minAge", e.target.value)}
-												required
-												className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
-											/>
+									{teamType === "youth" && (
+										<div className="grid grid-cols-2 gap-4">
+											<div className="space-y-2">
+												<label
+													htmlFor="minAge"
+													className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
+												>
+													<TrendUp size={18} className="text-foreground/40" />
+													Min Age
+												</label>
+												<Input
+													id="minAge"
+													type="number"
+													min="5"
+													max="99"
+													placeholder="e.g. 12"
+													value={formData.minAge}
+													onChange={(e) => handleInputChange("minAge", e.target.value)}
+													required
+													className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20"
+												/>
+											</div>
+											<div className="space-y-2">
+												<label
+													htmlFor="maxAge"
+													className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
+												>
+													<TrendUp size={18} className="rotate-90 text-foreground/40" />
+													Max Age
+												</label>
+												<Input
+													id="maxAge"
+													type="number"
+													min="5"
+													max="99"
+													placeholder="e.g. 16"
+													value={formData.maxAge}
+													onChange={(e) => handleInputChange("maxAge", e.target.value)}
+													required
+													className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20"
+												/>
+											</div>
 										</div>
-										<div className="space-y-2">
-											<label
-												htmlFor="maxAge"
-												className="text-sm font-bold text-foreground flex items-center gap-2"
-											>
-												<TrendUp size={18} className="rotate-90 text-primary" />
-												Max Age
-											</label>
-											<Input
-												id="maxAge"
-												type="number"
-												min="5"
-												max="99"
-												placeholder="e.g. 16"
-												value={formData.maxAge}
-												onChange={(e) => handleInputChange("maxAge", e.target.value)}
-												required
-												className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
-											/>
-										</div>
-									</div>
+									)}
 
 									<div className="space-y-2">
 										<label
 											htmlFor="maxAthletes"
-											className="text-sm font-bold text-foreground flex items-center gap-2"
+											className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 										>
-											<Hash size={18} className="text-primary" />
+											<Hash size={18} className="text-foreground/40" />
 											Expected Number of Athletes
 										</label>
 										<Input
@@ -379,7 +465,7 @@ function OnboardingStep2() {
 												handleInputChange("maxAthletes", e.target.value)
 											}
 											required
-											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+											className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20"
 										/>
 									</div>
 								</>
@@ -388,9 +474,9 @@ function OnboardingStep2() {
 									<div className="space-y-2">
 										<label
 											htmlFor="name"
-											className="text-sm font-bold text-foreground flex items-center gap-2"
+											className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 										>
-											<User size={18} className="text-primary" />
+											<User size={18} className="text-foreground/40" />
 											Your Full Name
 										</label>
 										<Input
@@ -399,16 +485,16 @@ function OnboardingStep2() {
 											value={formData.name}
 											onChange={(e) => handleInputChange("name", e.target.value)}
 											required
-											className="h-14 rounded-2xl bg-background/50 border-border/60 focus:ring-primary/20 focus:border-primary px-6"
+											className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20"
 										/>
 									</div>
 
 									<div className="space-y-2">
 										<label
 											htmlFor="birthDate"
-											className="text-sm font-bold text-foreground flex items-center gap-2"
+											className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 										>
-											<CalendarIcon size={18} className="text-primary" />
+											<CalendarIcon size={18} className="text-foreground/40" />
 											Your Birth Date
 										</label>
 										<DatePicker
@@ -426,7 +512,7 @@ function OnboardingStep2() {
 								type="button"
 								variant="outline"
 								onClick={() => navigate({ to: "/onboarding/step-1" })}
-								className="flex-1 h-14 rounded-2xl text-lg font-bold border-border/60 hover:bg-accent transition-all"
+								className="flex-1 h-10 rounded-none border border-foreground/[0.06] font-mono text-xs uppercase tracking-wider text-foreground/60 hover:bg-accent transition-all"
 							>
 								<ArrowLeft weight="bold" className="mr-2 w-5 h-5" />
 								Back
@@ -434,7 +520,7 @@ function OnboardingStep2() {
 							<Button
 								type="submit"
 								disabled={mutation.isPending || !!ageError}
-								className="flex-[2] h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100"
+								className="flex-[2] h-10 rounded-none bg-foreground text-background font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-50"
 							>
 								{mutation.isPending ? (
 									<CircleNotch className="w-6 h-6 animate-spin text-primary-foreground" />
@@ -449,7 +535,7 @@ function OnboardingStep2() {
 					</form>
 				</Card>
 
-				<p className="text-center text-xs text-muted-foreground max-w-md mx-auto">
+				<p className="text-center font-mono text-[10px] uppercase tracking-wider text-foreground/40 max-w-md mx-auto">
 					{userType === "youth"
 						? "We use this information to customize the training programs and ensure age-appropriate coaching content."
 						: userType === "team"

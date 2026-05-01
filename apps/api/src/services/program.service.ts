@@ -1,11 +1,11 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { asc, count, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
-  athleteTable,
   enrollmentTable,
   exerciseTable,
-  guardianTable,
+  programAssignmentTable,
+  programModuleTable,
   programTable,
   sessionExerciseTable,
   sessionTable,
@@ -109,6 +109,136 @@ export async function getProgramSessions(programId: number) {
 
 export async function getExerciseLibrary() {
   return db.select().from(exerciseTable).orderBy(desc(exerciseTable.updatedAt));
+}
+
+export async function getMyAssignedPrograms(userId: number) {
+  const athlete = await getAthleteForUser(userId);
+  if (!athlete) return [];
+
+  let assignments: { programId: number; status: string }[] = [];
+  try {
+    assignments = await db
+      .select({
+        programId: programAssignmentTable.programId,
+        status: programAssignmentTable.status,
+      })
+      .from(programAssignmentTable)
+      .where(eq(programAssignmentTable.athleteId, athlete.id));
+  } catch {
+    return [];
+  }
+
+  if (assignments.length === 0) return [];
+
+  const programIds = assignments.map((a) => a.programId);
+  const programs = await db
+    .select({
+      id: programTable.id,
+      name: programTable.name,
+      description: programTable.description,
+      moduleCount: count(programModuleTable.id),
+    })
+    .from(programTable)
+    .leftJoin(programModuleTable, eq(programModuleTable.programId, programTable.id))
+    .where(inArray(programTable.id, programIds))
+    .groupBy(programTable.id);
+
+  return programs.map((p) => ({
+    ...p,
+    status: assignments.find((a) => a.programId === p.id)?.status ?? "active",
+  }));
+}
+
+export async function getMyProgramFull(userId: number, programId: number) {
+  const athlete = await getAthleteForUser(userId);
+  if (!athlete) return null;
+
+  const program = await db.select().from(programTable).where(eq(programTable.id, programId)).limit(1);
+  if (!program[0]) return null;
+
+  const modules = await db
+    .select({
+      id: programModuleTable.id,
+      title: programModuleTable.title,
+      description: programModuleTable.description,
+      order: programModuleTable.order,
+      sessionCount: count(sessionTable.id),
+    })
+    .from(programModuleTable)
+    .leftJoin(sessionTable, eq(sessionTable.moduleId, programModuleTable.id))
+    .where(eq(programModuleTable.programId, programId))
+    .groupBy(programModuleTable.id)
+    .orderBy(asc(programModuleTable.order));
+
+  const moduleIds = modules.map((m) => m.id);
+  let sessions: any[] = [];
+  if (moduleIds.length > 0) {
+    sessions = await db
+      .select({
+        id: sessionTable.id,
+        moduleId: sessionTable.moduleId,
+        weekNumber: sessionTable.weekNumber,
+        sessionNumber: sessionTable.sessionNumber,
+        title: sessionTable.title,
+        description: sessionTable.description,
+        type: sessionTable.type,
+        exerciseCount: count(sessionExerciseTable.id),
+      })
+      .from(sessionTable)
+      .leftJoin(sessionExerciseTable, eq(sessionExerciseTable.sessionId, sessionTable.id))
+      .where(inArray(sessionTable.moduleId, moduleIds))
+      .groupBy(sessionTable.id)
+      .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
+  }
+
+  const sessionsByModule = new Map<number, any[]>();
+  for (const s of sessions) {
+    const list = sessionsByModule.get(s.moduleId!) ?? [];
+    list.push(s);
+    sessionsByModule.set(s.moduleId!, list);
+  }
+
+  return {
+    ...program[0],
+    modules: modules.map((m) => ({
+      ...m,
+      sessions: sessionsByModule.get(m.id) ?? [],
+    })),
+  };
+}
+
+export async function getMySessionExercises(userId: number, sessionId: number) {
+  const athlete = await getAthleteForUser(userId);
+  if (!athlete) return null;
+
+  const session = await db.select().from(sessionTable).where(eq(sessionTable.id, sessionId)).limit(1);
+  if (!session[0]) return null;
+
+  return db
+    .select({
+      id: sessionExerciseTable.id,
+      sessionId: sessionExerciseTable.sessionId,
+      exerciseId: sessionExerciseTable.exerciseId,
+      order: sessionExerciseTable.order,
+      coachingNotes: sessionExerciseTable.coachingNotes,
+      exercise: {
+        id: exerciseTable.id,
+        name: exerciseTable.name,
+        category: exerciseTable.category,
+        sets: exerciseTable.sets,
+        reps: exerciseTable.reps,
+        duration: exerciseTable.duration,
+        restSeconds: exerciseTable.restSeconds,
+        videoUrl: exerciseTable.videoUrl,
+        cues: exerciseTable.cues,
+        howTo: exerciseTable.howTo,
+        notes: exerciseTable.notes,
+      },
+    })
+    .from(sessionExerciseTable)
+    .innerJoin(exerciseTable, eq(exerciseTable.id, sessionExerciseTable.exerciseId))
+    .where(eq(sessionExerciseTable.sessionId, sessionId))
+    .orderBy(asc(sessionExerciseTable.order));
 }
 
 export async function getProgramAiInsight(programId: number) {

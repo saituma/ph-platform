@@ -12,6 +12,13 @@ import { AdminHeader, AdminScreen } from "@/components/admin/AdminUI";
 
 const OPS_ITEMS = [
   {
+    icon: "book-open",
+    title: "Programs",
+    subtitle: "Build and manage training programs, modules, and sessions.",
+    color: "#7C5CFC",
+    destination: "programs" as const,
+  },
+  {
     icon: "calendar",
     title: "Schedule",
     subtitle: "Bookings, service types, availability, pending requests.",
@@ -87,6 +94,7 @@ export default function AdminOpsScreen() {
   }, [pushSchedule, router]);
 
   const handleNav = (destination: typeof OPS_ITEMS[number]["destination"]) => {
+    if (destination === "programs") return router.push("/admin/ops/programs");
     if (destination === "schedule") return pushSchedule();
     if (destination === "nutrition") return router.push("/admin/ops/nutrition");
     if (destination === "referrals") return router.push("/admin/ops/referrals");

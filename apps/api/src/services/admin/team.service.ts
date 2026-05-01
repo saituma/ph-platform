@@ -14,10 +14,12 @@ import {
   trainingModuleTable,
 } from "../../db/schema";
 import { getStripeClient, getSuccessUrl, getCancelUrl, createTeamCheckoutSession } from "../billing/stripe.service";
+import { createTeamManagerUser } from "./user.service";
 
 async function ensureTeamExists(input: {
   name: string;
   athleteType?: "youth" | "adult";
+  emailSlug?: string;
   minAge?: number;
   maxAge?: number;
   adminId?: number;
@@ -39,6 +41,7 @@ async function ensureTeamExists(input: {
     .values({
       name: cleanTeamName,
       athleteType: input.athleteType ?? "youth",
+      emailSlug: input.emailSlug ?? null,
       minAge: input.minAge ?? null,
       maxAge: input.maxAge ?? null,
       adminId: input.adminId,
@@ -150,10 +153,14 @@ async function syncTeamChatMembers(teamId: number, groupId: number) {
 export async function createTeamAdmin(input: {
   teamName: string;
   athleteType?: "youth" | "adult";
+  emailSlug?: string;
   minAge?: number;
   maxAge?: number;
-  adminId: number;
-  planId: number;
+  adminId?: number;
+  managerEmail?: string;
+  managerPassword?: string;
+  managerName?: string;
+  tier: (typeof ProgramType.enumValues)[number];
   maxAthletes: number;
   createdByUserId: number;
   paymentMethod?: "pay_now" | "email_link" | "cash";
@@ -176,10 +183,25 @@ export async function createTeamAdmin(input: {
   const plans = await db
     .select()
     .from(subscriptionPlanTable)
-    .where(eq(subscriptionPlanTable.id, input.planId))
+    .where(and(eq(subscriptionPlanTable.tier, input.tier), eq(subscriptionPlanTable.isActive, true)))
     .limit(1);
-  const plan = plans[0];
-  if (!plan) throw { status: 404, message: "Subscription plan not found." };
+  const plan = plans[0] ?? null;
+  const resolvedPlanId = plan?.id ?? null;
+
+  // If manager credentials are provided, create the manager user first.
+  let resolvedAdminId = input.adminId;
+  if (input.managerEmail && input.managerPassword) {
+    const manager = await createTeamManagerUser({
+      email: input.managerEmail,
+      password: input.managerPassword,
+      name: input.managerName,
+    });
+    resolvedAdminId = manager.id;
+  }
+
+  if (!resolvedAdminId) {
+    throw { status: 400, message: "A team manager is required. Provide managerEmail and managerPassword." };
+  }
 
   const paymentMethod = input.paymentMethod ?? "pay_now";
   const billingCycle = input.billingCycle ?? "monthly";
@@ -188,30 +210,31 @@ export async function createTeamAdmin(input: {
   const created = await ensureTeamExists({
     name: cleanTeamName,
     athleteType: input.athleteType,
+    emailSlug: input.emailSlug,
     minAge: input.minAge,
     maxAge: input.maxAge,
-    adminId: input.adminId,
-    planId: input.planId,
+    adminId: resolvedAdminId,
+    planId: resolvedPlanId ?? undefined,
     maxAthletes: input.maxAthletes,
   });
 
   if (!created) {
     throw { status: 500, message: "Failed to create team record." };
   }
-  
+
   const adminUserRows = await db
     .select({ id: userTable.id, role: userTable.role, email: userTable.email })
     .from(userTable)
-    .where(eq(userTable.id, input.adminId))
+    .where(eq(userTable.id, resolvedAdminId!))
     .limit(1);
-    
+
   let adminEmail = adminUserRows[0]?.email;
-  
+
   if (adminUserRows[0]) {
     // Preserve higher-level roles; promote everyone else (including generic "coach") to team_coach.
     const preserveRole = ["team_coach", "program_coach", "admin", "superAdmin"].includes(adminUserRows[0].role || "");
     if (!preserveRole) {
-      await db.update(userTable).set({ role: "team_coach" }).where(eq(userTable.id, input.adminId));
+      await db.update(userTable).set({ role: "team_coach" }).where(eq(userTable.id, resolvedAdminId!));
     }
   }
 
@@ -239,14 +262,14 @@ export async function createTeamAdmin(input: {
     // Construct the Lookup Key based on your convention: tier_interval
     // e.g. "php_pro_six_months"
     const intervalKey = billingCycle === "monthly" ? "monthly" : billingCycle === "6months" ? "six_months" : "yearly";
-    const lookupKey = `${plan.tier.toLowerCase()}_${intervalKey}`;
+    const lookupKey = `${input.tier.toLowerCase()}_${intervalKey}`;
 
     try {
       const session = await createTeamCheckoutSession({
         teamId: created.id,
-        adminId: input.adminId,
+        adminId: resolvedAdminId!,
         priceLookupKey: lookupKey,
-        tier: plan.tier as any,
+        tier: input.tier,
         interval: billingCycle === "monthly" ? "monthly" : billingCycle === "6months" ? "six_months" : "yearly",
         quantity: input.maxAthletes,
         mode: billingCycle === "monthly" ? "subscription" : "payment",
@@ -296,6 +319,9 @@ export async function listTeamsAdmin(options?: { adminId?: number | null }) {
       planId: teamTable.planId,
       maxAthletes: teamTable.maxAthletes,
       subscriptionStatus: teamTable.subscriptionStatus,
+      planPaymentType: teamTable.planPaymentType,
+      planCommitmentMonths: teamTable.planCommitmentMonths,
+      planExpiresAt: teamTable.planExpiresAt,
       memberCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`,
       youthCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false and ${athleteTable.athleteType}::text = 'youth'), 0)`,
       adultCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false and ${athleteTable.athleteType}::text = 'adult'), 0)`,
@@ -307,7 +333,7 @@ export async function listTeamsAdmin(options?: { adminId?: number | null }) {
     .leftJoin(athleteTable, eq(athleteTable.teamId, teamTable.id))
     .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
     .where(filters.length ? and(...filters) : undefined)
-    .groupBy(teamTable.id, teamTable.name, teamTable.createdAt, teamTable.updatedAt)
+    .groupBy(teamTable.id, teamTable.name, teamTable.subscriptionStatus, teamTable.planPaymentType, teamTable.planCommitmentMonths, teamTable.planExpiresAt, teamTable.createdAt, teamTable.updatedAt)
     .orderBy(
       desc(sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`),
       teamTable.name,
@@ -338,10 +364,17 @@ export async function getTeamDetailsAdmin(teamName: string) {
     .select({
       id: teamTable.id,
       name: teamTable.name,
+      athleteType: teamTable.athleteType,
+      minAge: teamTable.minAge,
+      maxAge: teamTable.maxAge,
+      planId: teamTable.planId,
+      planTier: subscriptionPlanTable.tier,
+      planName: subscriptionPlanTable.name,
       createdAt: teamTable.createdAt,
       updatedAt: teamTable.updatedAt,
     })
     .from(teamTable)
+    .leftJoin(subscriptionPlanTable, eq(teamTable.planId, subscriptionPlanTable.id))
     .where(eq(teamTable.name, cleanTeamName))
     .limit(1);
   const team = teamRows[0];
@@ -407,8 +440,24 @@ export async function getTeamDetailsAdmin(teamName: string) {
     },
   );
 
+  function calcAge(birthDate: string | null): number | null {
+    if (!birthDate) return null;
+    const dob = new Date(birthDate);
+    if (isNaN(dob.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+    return age;
+  }
+
   return {
     team: team.name,
+    athleteType: team.athleteType ?? "youth",
+    minAge: team.minAge,
+    maxAge: team.maxAge,
+    planTier: team.planTier ?? null,
+    planName: team.planName ?? null,
     summary: {
       memberCount,
       guardianCount,
@@ -420,6 +469,7 @@ export async function getTeamDetailsAdmin(teamName: string) {
       athleteId: row.athleteId,
       athleteName: row.athleteName,
       birthDate: row.birthDate,
+      age: calcAge(row.birthDate),
       trainingPerWeek: row.trainingPerWeek,
       currentProgramTier: row.currentProgramTier,
       guardianEmail: row.guardianEmail,
@@ -649,7 +699,7 @@ export async function attachAthleteToTeamAdmin(input: {
     .limit(1);
 
   const limit = teamWithPlan[0]?.maxAthletes ?? 0;
-  if (count >= limit) {
+  if (limit > 0 && count >= limit) {
     throw {
       status: 403,
       message: `Team "${team.name}" is full (${count}/${limit} slots). Please upgrade the plan to add more members.`,

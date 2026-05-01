@@ -1,7 +1,6 @@
 import type { AppRole } from "@/lib/appRole";
-import { hasPhpPlusPlanFeatures } from "@/lib/planAccess";
 import { hasOrgTeamMembership } from "@/lib/teamMembership";
-import type { ManagedAthlete } from "@/store/slices/userSlice";
+import type { AppCapabilities, ManagedAthlete } from "@/store/slices/userSlice";
 
 export type AuthTeamMembership = { team: string | null; teamId: number | null };
 
@@ -56,6 +55,7 @@ export function shouldUseTeamTrackingFeatures(input: {
 export function canAccessTrackingTab(input: {
   appRole: AppRole | null;
   programTier?: string | null;
+  capabilities?: AppCapabilities | null;
   authTeamMembership: AuthTeamMembership | null;
   firstManagedAthlete?: ManagedAthlete | null;
 }): boolean {
@@ -68,7 +68,7 @@ export function canAccessTrackingTab(input: {
   }
 
   if (shouldUseTeamTrackingFeatures(input)) {
-    return hasPhpPlusPlanFeatures(input.programTier ?? null);
+    return Boolean(input.capabilities?.teamTracking);
   }
 
   return false;

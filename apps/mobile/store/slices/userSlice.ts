@@ -52,6 +52,9 @@ export type AppCapabilities = {
   semiPrivateBooking: boolean;
   coachVideoUpload: boolean;
   physioReferrals: boolean;
+  runTracking: boolean;
+  achievements: boolean;
+  referralRewards: boolean;
 };
 
 interface UserState {
@@ -71,12 +74,16 @@ interface UserState {
   messagingAccessTiers: string[];
   /** Server-derived feature flags from `/auth/me`; null before first sync. */
   capabilities: AppCapabilities | null;
+  /** True after the first /auth/me response sets capabilities. */
+  capabilitiesLoaded: boolean;
   /** When acting as a youth athlete account (guardian), target user id. */
   athleteUserId: number | null;
   /** Onboarding questionnaire completion for the active athlete context. */
   onboardingCompleted: boolean | null;
   /** From GET /auth/me — team label + roster id (survives appRole sync edge cases). */
   authTeamMembership: { team: string | null; teamId: number | null } | null;
+  /** Plan-level feature keys from /auth/me ("video_upload", "physio_referrals", etc.). */
+  planFeatures: string[];
 }
 
 const initialState: UserState = {
@@ -97,9 +104,11 @@ const initialState: UserState = {
   programTier: null,
   messagingAccessTiers: [],
   capabilities: null,
+  capabilitiesLoaded: false,
   athleteUserId: null,
   onboardingCompleted: null,
   authTeamMembership: null,
+  planFeatures: [],
 };
 
 const userSlice = createSlice({
@@ -144,6 +153,7 @@ const userSlice = createSlice({
     },
     setCapabilities: (state, action: PayloadAction<AppCapabilities | null>) => {
       state.capabilities = action.payload;
+      state.capabilitiesLoaded = true;
     },
     setAthleteUserId: (state, action: PayloadAction<number | null>) => {
       state.athleteUserId = action.payload;
@@ -157,6 +167,9 @@ const userSlice = createSlice({
     ) => {
       state.authTeamMembership = action.payload;
     },
+    setPlanFeatures: (state, action: PayloadAction<string[]>) => {
+      state.planFeatures = action.payload;
+    },
     logout: (state) => {
       state.isAuthenticated = false;
       state.token = null;
@@ -168,9 +181,11 @@ const userSlice = createSlice({
       state.programTier = null;
       state.messagingAccessTiers = [];
       state.capabilities = null;
+      state.capabilitiesLoaded = false;
       state.athleteUserId = null;
       state.onboardingCompleted = null;
       state.authTeamMembership = null;
+      state.planFeatures = [];
     },
   },
 });
@@ -189,6 +204,7 @@ export const {
   setAthleteUserId,
   setOnboardingCompleted,
   setAuthTeamMembership,
+  setPlanFeatures,
   logout,
 } =
   userSlice.actions;

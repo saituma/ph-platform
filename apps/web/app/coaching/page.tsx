@@ -41,8 +41,6 @@ import { Tabs, TabsList, TabsTab, TabsPanel } from "../../components/ui/tabs";
 import { cn } from "../../lib/utils";
 import {
   useGetTrainingSnapshotQuery,
-  useGetUserPremiumPlanQuery,
-  useGetUserPremiumSessionCheckinsQuery,
   useGetUserProgramSectionCompletionsQuery,
   useGetVideoUploadsQuery,
   useGetUsersQuery,
@@ -291,8 +289,10 @@ export default function CoachingPage() {
 
 function AthleteCoachingPanel({ userId }: { userId: number }) {
   const { data: onboarding, isLoading: onboardingLoading } = useGetUserOnboardingQuery(userId);
-  const { data: planData, isLoading: planLoading } = useGetUserPremiumPlanQuery({ userId });
-  const { data: checkinsData, isLoading: checkinsLoading } = useGetUserPremiumSessionCheckinsQuery({ userId, limit: 30 });
+  const planData = { items: [] as any[] };
+  const planLoading = false;
+  const checkinsData = { items: [] as any[] };
+  const checkinsLoading = false;
   const { data: completionsData, isLoading: completionsLoading } = useGetUserProgramSectionCompletionsQuery({ userId, limit: 30 });
   const { data: videosData } = useGetVideoUploadsQuery();
   const [activeVideo, setActiveVideo] = useState<VideoUpload | null>(null);

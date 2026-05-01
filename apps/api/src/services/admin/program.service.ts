@@ -1,7 +1,9 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   exerciseTable,
+  programAssignmentTable,
+  programModuleTable,
   programTable,
   sessionExerciseTable,
   sessionTable,
@@ -106,6 +108,39 @@ export async function updateProgramTemplate(input: {
     .where(eq(programTable.id, input.programId))
     .returning();
   return updated;
+}
+
+export async function deleteProgramTemplate(programId: number) {
+  const modules = await db
+    .select({ id: programModuleTable.id })
+    .from(programModuleTable)
+    .where(eq(programModuleTable.programId, programId));
+
+  const sessions = await db
+    .select({ id: sessionTable.id })
+    .from(sessionTable)
+    .where(eq(sessionTable.programId, programId));
+
+  if (sessions.length > 0) {
+    const sessionIds = sessions.map((s) => s.id);
+    await db.delete(sessionExerciseTable).where(inArray(sessionExerciseTable.sessionId, sessionIds));
+    await db.delete(sessionTable).where(inArray(sessionTable.id, sessionIds));
+  }
+
+  if (modules.length > 0) {
+    await db.delete(programModuleTable).where(eq(programModuleTable.programId, programId));
+  }
+
+  try {
+    await db.delete(programAssignmentTable).where(eq(programAssignmentTable.programId, programId));
+  } catch {}
+
+  try {
+    await db.delete(enrollmentTable).where(eq(enrollmentTable.programTemplateId, programId));
+  } catch {}
+
+  const result = await db.delete(programTable).where(eq(programTable.id, programId)).returning();
+  return result[0] ?? null;
 }
 
 export async function createExercise(input: {

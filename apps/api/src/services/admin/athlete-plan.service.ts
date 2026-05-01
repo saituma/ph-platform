@@ -2,8 +2,6 @@ import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 
 import { db } from "../../db";
 import {
-  athletePlanSessionCompletionTable,
-  athletePlanSessionTable,
   athleteTable,
   athleteTrainingSessionCompletionTable,
   athleteTrainingSessionWorkoutLogTable,
@@ -150,28 +148,6 @@ export async function listTrainingQuestionnaireAnswersForAdmin(input?: {
     .orderBy(desc(programSectionCompletionTable.completedAt))
     .limit(limit);
 
-  const premiumFilters = [
-    inArray(athletePlanSessionCompletionTable.athleteId, athleteIds),
-    ...optionalDateRange({ from: input?.from, to: input?.to }, athletePlanSessionCompletionTable.completedAt),
-  ];
-  const premiumAnswers = await db
-    .select({
-      source: sql<string>`'premium_plan'`,
-      id: athletePlanSessionCompletionTable.id,
-      athleteId: athletePlanSessionCompletionTable.athleteId,
-      title: athletePlanSessionTable.title,
-      rpe: athletePlanSessionCompletionTable.rpe,
-      soreness: athletePlanSessionCompletionTable.soreness,
-      fatigue: athletePlanSessionCompletionTable.fatigue,
-      notes: athletePlanSessionCompletionTable.notes,
-      completedAt: athletePlanSessionCompletionTable.completedAt,
-    })
-    .from(athletePlanSessionCompletionTable)
-    .leftJoin(athletePlanSessionTable, eq(athletePlanSessionTable.id, athletePlanSessionCompletionTable.planSessionId))
-    .where(and(...premiumFilters))
-    .orderBy(desc(athletePlanSessionCompletionTable.completedAt))
-    .limit(limit);
-
   const workoutFilters = [
     inArray(athleteTrainingSessionWorkoutLogTable.athleteId, athleteIds),
     ...optionalDateRange({ from: input?.from, to: input?.to }, athleteTrainingSessionWorkoutLogTable.updatedAt),
@@ -204,7 +180,7 @@ export async function listTrainingQuestionnaireAnswersForAdmin(input?: {
     .orderBy(desc(athleteTrainingSessionWorkoutLogTable.updatedAt))
     .limit(limit);
 
-  const items = [...sectionAnswers, ...premiumAnswers, ...workoutAnswers]
+  const items = [...sectionAnswers, ...workoutAnswers]
     .map((item: any) => {
       const athlete = athleteById.get(item.athleteId);
       return {

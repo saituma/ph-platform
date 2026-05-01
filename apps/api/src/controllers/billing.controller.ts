@@ -92,7 +92,7 @@ const teamCheckoutSchema = z.object({
 
 const planCreateSchema = z.object({
   name: z.string().min(1),
-  tier: z.enum(ProgramType.enumValues),
+  tier: z.enum(ProgramType.enumValues).optional().nullable(),
   stripePriceId: z.string().optional(),
   displayPrice: z.string().min(1),
   billingInterval: z.string().min(1),
@@ -114,6 +114,10 @@ const planCreateSchema = z.object({
     .optional()
     .nullable(),
   features: z.array(z.string()).optional().nullable(),
+  durationWeeks: z.coerce.number().int().min(1).max(104).optional().nullable(),
+  durationWeeksPrice: z.coerce.number().int().min(0).optional().nullable(),
+  durationDaysPerWeek: z.coerce.number().int().min(1).max(7).optional().nullable(),
+  durationDaysPrice: z.coerce.number().int().min(0).optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

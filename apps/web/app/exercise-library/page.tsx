@@ -6,14 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
+import { AdultAthleteAssignment } from "../../components/admin/exercise-library/adult-athlete-assignment";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import {
-  fromStorageAudienceLabel,
   AudienceSummary,
-  PROGRAM_TIERS,
   isYouthAgeAudienceLabel,
-  isAdultStorageAudienceLabel,
   isTeamStorageAudienceLabel,
   fromTeamStorageAudienceLabel,
   normalizeAudienceLabelInput,
@@ -23,12 +21,13 @@ import {
 const BASE_AGE_CARDS = Array.from({ length: 12 }, (_, index) =>
   String(index + 7),
 );
-const ADULT_TIER_CARDS = PROGRAM_TIERS.map((tier) => tier.label);
 
 type AudienceCard = {
   label: string;
   moduleCount: number;
   otherCount: number;
+  athleteType?: "youth" | "adult" | "mixed";
+  memberCount?: number;
 };
 
 type TeamSummary = {
@@ -36,6 +35,7 @@ type TeamSummary = {
   memberCount: number;
   youthCount: number;
   adultCount: number;
+  athleteType?: "youth" | "adult";
 };
 
 export default function ExerciseLibraryAudiencePage() {
@@ -143,25 +143,6 @@ export default function ExerciseLibraryAudiencePage() {
     return [...primary, ...additional];
   }, [audiences]);
 
-  const adultTierCards = useMemo<AudienceCard[]>(() => {
-    const byLabel = new Map(
-      audiences
-        .filter((audience) => isAdultStorageAudienceLabel(audience.label))
-        .map((audience) => [
-          fromStorageAudienceLabel(audience.label),
-          audience,
-        ]),
-    );
-    return ADULT_TIER_CARDS.map((label) => {
-      const existing = byLabel.get(label);
-      return {
-        label,
-        moduleCount: existing?.moduleCount ?? 0,
-        otherCount: existing?.otherCount ?? 0,
-      };
-    });
-  }, [audiences]);
-
   const teamCards = useMemo<AudienceCard[]>(() => {
     const audienceSummaryByTeamName = new Map(
       audiences
@@ -174,9 +155,9 @@ export default function ExerciseLibraryAudiencePage() {
         ]),
     );
 
-    const canonicalTeamNameByNormalized = new Map(
+    const teamByNormalized = new Map(
       teams.map(
-        (team) => [normalizeAudienceLabelInput(team.team), team.team] as const,
+        (team) => [normalizeAudienceLabelInput(team.team), team] as const,
       ),
     );
 
@@ -188,29 +169,39 @@ export default function ExerciseLibraryAudiencePage() {
     return [...allNormalizedTeamNames]
       .map((normalized) => {
         const existing = audienceSummaryByTeamName.get(normalized);
-        const label =
-          canonicalTeamNameByNormalized.get(normalized) ?? normalized;
+        const teamInfo = teamByNormalized.get(normalized);
+        const label = teamInfo?.team ?? normalized;
+        const youthCount = teamInfo?.youthCount ?? 0;
+        const adultCount = teamInfo?.adultCount ?? 0;
+        const athleteType: AudienceCard["athleteType"] =
+          teamInfo?.athleteType === "adult"
+            ? "adult"
+            : youthCount > 0 && adultCount > 0
+              ? "mixed"
+              : "youth";
         return {
           label,
           moduleCount: existing?.moduleCount ?? 0,
           otherCount: existing?.otherCount ?? 0,
+          athleteType,
+          memberCount: teamInfo?.memberCount ?? 0,
         };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [audiences, teams]);
 
   const activeCards = useMemo(() => {
-    if (viewMode === "adult") return adultTierCards;
+    if (viewMode === "adult") return [];
     if (viewMode === "team") return teamCards;
     return youthCards;
-  }, [viewMode, adultTierCards, teamCards, youthCards]);
+  }, [viewMode, teamCards, youthCards]);
 
   return (
     <AdminShell
       title="Exercise library"
       subtitle={
         viewMode === "adult"
-          ? "Adult mode is on. Open a tier to manage adult modules and other content."
+          ? "Adult mode — assign programs to adult athletes below."
           : viewMode === "team"
             ? "Team mode is on. Open a team to manage training content for that team."
             : "Organized by age. Open an age card to manage modules and session content."
@@ -243,14 +234,14 @@ export default function ExerciseLibraryAudiencePage() {
               <SectionHeader
                 title={
                   viewMode === "adult"
-                    ? "Adult tiers"
+                    ? "Adult Athletes"
                     : viewMode === "team"
                       ? "Team training"
                       : "Age groups"
                 }
                 description={
                   viewMode === "adult"
-                    ? "Choose a tier to manage adult modules and other content."
+                    ? "Assign training programs to adult athletes."
                     : viewMode === "team"
                       ? "Manage training content posted to specific teams."
                       : "Start with ages 7 to 18. Open any card to manage modules, sessions, warm-up, sessions A/B/C, mobility, recovery, and cool-down content."
@@ -258,15 +249,14 @@ export default function ExerciseLibraryAudiencePage() {
               />
             </div>
           </CardHeader>
+          {viewMode !== "adult" && (
           <CardContent className="space-y-4">
             {error || teamError ? (
               <p className="text-sm text-red-600">{error ?? teamError}</p>
             ) : null}
             {isLoading ? (
               <p className="text-sm text-muted-foreground">
-                {viewMode === "adult"
-                  ? "Loading tiers..."
-                  : viewMode === "team"
+                {viewMode === "team"
                     ? "Loading teams..."
                     : "Loading age groups..."}
               </p>
@@ -276,29 +266,50 @@ export default function ExerciseLibraryAudiencePage() {
             ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {activeCards.map((audience) => (
-                <Link
-                  key={audience.label}
-                  href={
-                    viewMode === "team"
-                      ? `/exercise-library/teams/${encodeURIComponent(audience.label)}`
-                      : `/exercise-library/${encodeURIComponent(audience.label)}${viewMode !== "youth" ? `?mode=${viewMode}` : ""}`
-                  }
-                  className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
-                >
-                  <p className="text-lg font-semibold text-foreground">
-                    {viewMode === "adult"
-                      ? audience.label
-                      : viewMode === "team"
-                        ? audience.label
-                        : `Age ${audience.label}`}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {audience.moduleCount} modules · {audience.otherCount} other
-                    items
-                  </p>
-                </Link>
-              ))}
+              {activeCards.map((audience) => {
+                const isAdultTeam = viewMode === "team" && audience.athleteType === "adult";
+                const href = viewMode === "team"
+                  ? isAdultTeam
+                    ? `/exercise-library/teams/${encodeURIComponent(audience.label)}/members`
+                    : `/exercise-library/teams/${encodeURIComponent(audience.label)}`
+                  : `/exercise-library/${encodeURIComponent(audience.label)}`;
+                const typeLabel = audience.athleteType === "adult"
+                  ? "Adult team"
+                  : audience.athleteType === "mixed"
+                    ? "Mixed team"
+                    : "Youth team";
+                const typeDotColor = audience.athleteType === "adult"
+                  ? "bg-blue-500"
+                  : audience.athleteType === "mixed"
+                    ? "bg-amber-500"
+                    : "bg-green-500";
+                return (
+                  <Link
+                    key={audience.label}
+                    href={href}
+                    className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    {viewMode === "team" && (
+                      <div className="mb-2 flex items-center gap-1.5">
+                        <span className={`h-2 w-2 rounded-full ${typeDotColor}`} />
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {typeLabel}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-lg font-semibold text-foreground">
+                      {viewMode === "team" ? audience.label : `Age ${audience.label}`}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {viewMode === "team"
+                        ? isAdultTeam
+                          ? `${audience.memberCount ?? 0} member${(audience.memberCount ?? 0) !== 1 ? "s" : ""} · tap to manage`
+                          : `${audience.moduleCount} modules · ${audience.otherCount} other items`
+                        : `${audience.moduleCount} modules · ${audience.otherCount} other items`}
+                    </p>
+                  </Link>
+                );
+              })}
               {viewMode === "team" &&
                 activeCards.length === 0 &&
                 !isLoading &&
@@ -309,7 +320,10 @@ export default function ExerciseLibraryAudiencePage() {
                 )}
             </div>
           </CardContent>
+          )}
         </Card>
+
+        {viewMode === "adult" && <AdultAthleteAssignment />}
       </div>
 
     </AdminShell>

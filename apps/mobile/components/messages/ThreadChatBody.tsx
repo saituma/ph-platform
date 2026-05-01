@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	ActivityIndicator,
 	FlatList,
@@ -17,6 +17,7 @@ import { useChatScroll } from "@/hooks/messages/useChatScroll";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import type { MessageThread, TypingStatus } from "@/types/messages";
 
+import { computeGroupingMap } from "@/lib/messages/messageGrouping";
 import { ChatComposer } from "./ChatComposer";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
@@ -49,6 +50,7 @@ type ThreadChatBodyProps = {
 	onLongPressMessage: (message: ChatMessage) => void;
 	onReactionPress: (message: ChatMessage, emoji: string) => void;
 	onOpenReactionPicker: (message: ChatMessage) => void;
+	onAvatarPress?: (senderId: number, name: string, avatar?: string | null) => void;
 	composerDisabled?: boolean;
 	disabledMessage?: string;
 	onDisabledPress?: () => void;
@@ -81,6 +83,7 @@ type MessageListSectionProps = {
 	onReactionPress: (message: ChatMessage, emoji: string) => void;
 	onOpenReactionPicker: (message: ChatMessage) => void;
 	onReplyMessage: (message: ChatMessage) => void;
+	onAvatarPress?: (senderId: number, name: string, avatar?: string | null) => void;
 	coachingContextLabel?: string;
 };
 
@@ -99,16 +102,15 @@ const MessageListSection = React.memo(function MessageListSection({
 	onReactionPress,
 	onOpenReactionPicker,
 	onReplyMessage,
+	onAvatarPress,
 	coachingContextLabel,
 }: MessageListSectionProps) {
 	const { colors, isDark } = useAppTheme();
 	const insets = useAppSafeAreaInsets();
 	const reversed = useMemo(() => [...messages].reverse(), [messages]);
+	const groupingMap = useMemo(() => computeGroupingMap(messages), [messages]);
 	const { listRef, handleScroll, jumpTo, newIncomingCount, highlightedId } =
 		useChatScroll(messages, thread.id);
-
-	const highlightedIdRef = useRef<number | null>(null);
-	highlightedIdRef.current = highlightedId;
 
 	const resolveReactionUserName = useCallback(
 		(userId: number) => {
@@ -133,31 +135,69 @@ const MessageListSection = React.memo(function MessageListSection({
 	);
 
 	const renderItem = useCallback(
-		({ item }: { item: ChatMessage }) => (
-			<MessageBubble
-				message={item}
-				selfUserId={effectiveProfileId}
-				isGroupThread={thread.id.startsWith("group:")}
-				token={token}
-				resolveReactionUserName={resolveReactionUserName}
-				onLongPress={onLongPressMessage}
-				onReactionPress={onReactionPress}
-				onOpenReactionPicker={onOpenReactionPicker}
-				onReply={onReplyMessage}
-				onJumpToMessage={jumpTo}
-				isHighlighted={highlightedIdRef.current === Number(item.id)}
-			/>
-		),
+		({ item }: { item: ChatMessage }) => {
+			const meta = groupingMap.get(item.id);
+			return (
+				<>
+					<MessageBubble
+						message={item}
+						selfUserId={effectiveProfileId}
+						isGroupThread={thread.id.startsWith("group:")}
+						groupPosition={meta?.position}
+						showGroupAvatar={meta?.showAvatar}
+						showGroupSenderName={meta?.showSenderName}
+						token={token}
+						resolveReactionUserName={resolveReactionUserName}
+						onLongPress={onLongPressMessage}
+						onReactionPress={onReactionPress}
+						onOpenReactionPicker={onOpenReactionPicker}
+						onReply={onReplyMessage}
+						onJumpToMessage={jumpTo}
+						onAvatarPress={onAvatarPress}
+						isHighlighted={highlightedId === Number(item.id)}
+					/>
+					{meta?.dateSeparator && (
+						<View style={{ alignItems: "center", paddingVertical: 10 }}>
+							<View
+								style={{
+									backgroundColor: isDark
+										? "rgba(255,255,255,0.06)"
+										: "rgba(0,0,0,0.04)",
+									borderRadius: 10,
+									paddingHorizontal: 12,
+									paddingVertical: 4,
+								}}
+							>
+								<Text
+									style={{
+										fontSize: 12,
+										color: colors.textDim,
+										fontFamily: fonts.labelMedium,
+									}}
+								>
+									{meta.dateSeparator}
+								</Text>
+							</View>
+						</View>
+					)}
+				</>
+			);
+		},
 		[
 			effectiveProfileId,
 			token,
 			resolveReactionUserName,
 			jumpTo,
 			thread.id,
+			groupingMap,
+			isDark,
+			colors.textDim,
 			onLongPressMessage,
 			onReactionPress,
 			onOpenReactionPicker,
 			onReplyMessage,
+			onAvatarPress,
+			highlightedId,
 		],
 	);
 
@@ -308,6 +348,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 	onLongPressMessage,
 	onReactionPress,
 	onOpenReactionPicker,
+	onAvatarPress,
 	composerDisabled,
 	pendingAttachment,
 	onRemovePendingAttachment,
@@ -366,6 +407,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 				onReactionPress={onReactionPress}
 				onOpenReactionPicker={onOpenReactionPicker}
 				onReplyMessage={onReplyMessage}
+				onAvatarPress={onAvatarPress}
 				coachingContextLabel={coachingContextLabel}
 			/>
 

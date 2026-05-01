@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Transition } from "@/components/navigation/TransitionStack";
 import { Text } from "@/components/ScaledText";
@@ -12,6 +13,8 @@ import type { MessageThread } from "@/types/messages";
 type ThreadHeaderProps = {
 	thread: MessageThread;
 	onBack: () => void;
+	onSearch?: () => void;
+	onHeaderPress?: () => void;
 	sharedBoundTag?: string;
 	sharedAvatarTag?: string;
 };
@@ -28,6 +31,8 @@ function getInitials(name: string) {
 export function ThreadHeader({
 	thread,
 	onBack,
+	onSearch,
+	onHeaderPress,
 	sharedBoundTag,
 	sharedAvatarTag,
 }: ThreadHeaderProps) {
@@ -37,16 +42,10 @@ export function ThreadHeader({
 		? "rgba(255,255,255,0.08)"
 		: "rgba(15,23,42,0.06)";
 	const avatarBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.12)";
-	const mutedPill = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 	const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
 	const textSecondary = isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,45%)";
 	const onlineColor = isDark ? "hsl(155, 30%, 55%)" : "hsl(155, 40%, 38%)";
 
-	const summaryLabel = thread.id.startsWith("group:")
-		? "Group"
-		: thread.premium
-			? "Priority"
-			: "Direct";
 	const isOnline = thread.lastSeen === "Online";
 	const statusLine = thread.lastSeen ?? thread.responseTime ?? "Coaching chat";
 
@@ -59,123 +58,126 @@ export function ThreadHeader({
 				paddingTop: insets.top,
 			}}
 		>
-			<Animated.View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+			<Animated.View style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
 				<Transition.View
 					sharedBoundTag={sharedBoundTag}
-					style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+					style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}
 				>
 					<Pressable
 						onPress={onBack}
+						hitSlop={12}
 						style={({ pressed }) => ({
-							height: 36,
-							width: 36,
-							borderRadius: 18,
-							alignItems: "center",
-							justifyContent: "center",
-							backgroundColor: mutedPill,
-							opacity: pressed ? 0.7 : 1,
+							paddingHorizontal: 4,
+							paddingVertical: 8,
+							opacity: pressed ? 0.5 : 1,
 						})}
 					>
-						<Ionicons name="chevron-back" size={20} color={textPrimary} />
+						<Ionicons name="chevron-back" size={28} color={textPrimary} />
 					</Pressable>
 
-					<Transition.View sharedBoundTag={sharedAvatarTag}>
-						{thread.avatarUrl ? (
-							<View
-								style={{
-									height: 40,
-									width: 40,
-									borderRadius: 20,
-									overflow: "hidden",
-									borderWidth: 1,
-									borderColor: headerBorder,
-								}}
-							>
-								<Image
-									source={{ uri: thread.avatarUrl }}
-									style={{ height: 40, width: 40 }}
-									contentFit="cover"
-								/>
-							</View>
-						) : (
-							<View
-								style={{
-									height: 40,
-									width: 40,
-									borderRadius: 20,
-									alignItems: "center",
-									justifyContent: "center",
-									borderWidth: 1,
-									backgroundColor: avatarBg,
-									borderColor: headerBorder,
-								}}
-							>
-								<Text
-									style={{
-										fontFamily: fonts.bodyBold,
-										fontSize: 15,
-										color: colors.accent,
-									}}
-								>
-									{getInitials(thread.name)}
-								</Text>
-							</View>
-						)}
-					</Transition.View>
-
-					<View style={{ flex: 1 }}>
-						<Text
-							numberOfLines={1}
-							style={{
-								fontFamily: fonts.bodyBold,
-								fontSize: 16,
-								color: textPrimary,
-							}}
-						>
-							{thread.name}
-						</Text>
-						<View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-							{isOnline && (
+					<Pressable
+						onPress={() => {
+							if (onHeaderPress) {
+								Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+								onHeaderPress();
+							}
+						}}
+						disabled={!onHeaderPress}
+						style={({ pressed }) => ({
+							flex: 1,
+							flexDirection: "row",
+							alignItems: "center",
+							gap: 10,
+							opacity: pressed && onHeaderPress ? 0.75 : 1,
+						})}
+					>
+						<Transition.View sharedBoundTag={sharedAvatarTag}>
+							{thread.avatarUrl ? (
 								<View
 									style={{
-										width: 7,
-										height: 7,
-										borderRadius: 4,
-										backgroundColor: onlineColor,
+										height: 36,
+										width: 36,
+										borderRadius: 18,
+										overflow: "hidden",
 									}}
-								/>
+								>
+									<Image
+										source={{ uri: thread.avatarUrl }}
+										style={{ height: 36, width: 36 }}
+										contentFit="cover"
+									/>
+								</View>
+							) : (
+								<View
+									style={{
+										height: 36,
+										width: 36,
+										borderRadius: 18,
+										alignItems: "center",
+										justifyContent: "center",
+										backgroundColor: avatarBg,
+									}}
+								>
+									<Text
+										style={{
+											fontFamily: fonts.bodyBold,
+											fontSize: 14,
+											color: colors.accent,
+										}}
+									>
+										{getInitials(thread.name)}
+									</Text>
+								</View>
 							)}
+						</Transition.View>
+
+						<View style={{ flex: 1, minWidth: 0 }}>
 							<Text
 								numberOfLines={1}
 								style={{
-									fontSize: 12,
-									fontFamily: "Outfit",
-									color: isOnline ? onlineColor : textSecondary,
+									fontFamily: fonts.bodyBold,
+									fontSize: 16,
+									color: textPrimary,
 								}}
 							>
-								{statusLine}
+								{thread.name}
 							</Text>
+							<View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+								{isOnline && (
+									<View
+										style={{
+											width: 7,
+											height: 7,
+											borderRadius: 4,
+											backgroundColor: onlineColor,
+										}}
+									/>
+								)}
+								<Text
+									numberOfLines={1}
+									style={{
+										fontSize: 12,
+										fontFamily: "Outfit",
+										color: isOnline ? onlineColor : textSecondary,
+									}}
+								>
+									{statusLine}
+								</Text>
+							</View>
 						</View>
-					</View>
-
-					<View
-						style={{
-							borderRadius: 99,
-							paddingHorizontal: 10,
-							paddingVertical: 4,
-							backgroundColor: mutedPill,
-						}}
-					>
-						<Text
-							style={{
-								fontSize: 10,
-								fontFamily: fonts.bodyBold,
-								color: textSecondary,
-							}}
-						>
-							{summaryLabel}
-						</Text>
-					</View>
+					</Pressable>
+						{onSearch && (
+							<Pressable
+								onPress={onSearch}
+								hitSlop={12}
+								style={({ pressed }) => ({
+									padding: 6,
+									opacity: pressed ? 0.5 : 1,
+								})}
+							>
+								<Ionicons name="search" size={20} color={textSecondary} />
+							</Pressable>
+						)}
 				</Transition.View>
 			</Animated.View>
 		</View>

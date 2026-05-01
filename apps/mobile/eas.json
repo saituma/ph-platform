@@ -17,6 +17,16 @@
         "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api"
       }
     },
+    "testflight": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://ph-platform.onrender.com/api"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "env": {

@@ -26,6 +26,7 @@ import { Text } from "@/components/ScaledText";
 import type { ChatMessage } from "@/constants/messages";
 import { fonts } from "@/constants/theme";
 
+import type { GroupPosition } from "@/lib/messages/messageGrouping";
 import { useMessageDimensions } from "@/hooks/messages/useMessageDimensions";
 import { FullScreenMediaModal } from "./FullScreenMediaModal";
 import { MessageMediaView } from "./MessageMediaView";
@@ -35,12 +36,16 @@ type MessageBubbleProps = {
 	message: ChatMessage;
 	selfUserId: number;
 	isGroupThread?: boolean;
+	groupPosition?: GroupPosition;
+	showGroupAvatar?: boolean;
+	showGroupSenderName?: boolean;
 	resolveReactionUserName?: (userId: number) => string;
 	onLongPress: (message: ChatMessage) => void;
 	onReactionPress: (message: ChatMessage, emoji: string) => void;
 	onOpenReactionPicker?: (message: ChatMessage) => void;
 	onReply: (message: ChatMessage) => void;
 	onJumpToMessage?: (messageId: number) => void;
+	onAvatarPress?: (senderId: number, name: string, avatar?: string | null) => void;
 	isHighlighted?: boolean;
 	resolvedReplyPreview?: string | null;
 	token?: string | null;
@@ -56,12 +61,16 @@ function MessageBubbleComponent({
 	message,
 	selfUserId,
 	isGroupThread = false,
+	groupPosition = "solo",
+	showGroupAvatar,
+	showGroupSenderName,
 	resolveReactionUserName,
 	onLongPress,
 	onReactionPress,
 	onOpenReactionPicker,
 	onReply,
 	onJumpToMessage,
+	onAvatarPress,
 	isHighlighted,
 	resolvedReplyPreview,
 	token,
@@ -145,12 +154,13 @@ function MessageBubbleComponent({
 			.trim()
 			.length &&
 		message.replyToMessageId == null;
-	const showSenderBesideBubble = isGroupThread && !isUser;
+	const shouldShowAvatar = showGroupAvatar ?? (isGroupThread && !isUser);
+	const shouldShowName = showGroupSenderName ?? (isGroupThread && !isUser);
 	const showLeadingAvatar = isGroupThread && !isUser;
 	const senderNameBeside = useMemo(() => {
-		if (!showSenderBesideBubble) return null;
+		if (!shouldShowName) return null;
 		return (message.authorName || "Team Member").trim() || "Team Member";
-	}, [message.authorName, showSenderBesideBubble]);
+	}, [message.authorName, shouldShowName]);
 
 	const handleSwipeOpen = (direction: "left" | "right") => {
 		if (direction === "left") {
@@ -189,53 +199,70 @@ function MessageBubbleComponent({
 		viewportWidth * (Platform.OS === "ios" ? 0.78 : 0.82),
 		420,
 	);
-	const outgoingRadius = Platform.OS === "ios" ? 17 : 18;
+	const R = 17;
+	const r = 4;
+	const isFirst = groupPosition === "first" || groupPosition === "solo";
+	const isLast = groupPosition === "last" || groupPosition === "solo";
+	const groupGap = isLast ? 8 : 2;
 	const reactionPillBg = isDark ? colors.surfaceHigh : "hsl(220, 5%, 97%)";
 	const reactionBorder = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
 
 	return (
-		<View style={{ marginBottom: 1, width: "100%" }}>
+		<View style={{ marginBottom: groupGap, width: "100%" }}>
 			<View
 				style={{
 					flexDirection: "row",
 					alignItems: "flex-end",
-					gap: 8,
+					gap: 6,
 					width: "100%",
 					justifyContent: isUser ? "flex-end" : "flex-start",
 				}}
 			>
 				{showLeadingAvatar && (
-					<View style={{ alignItems: "center" }}>
-						{message.authorAvatar ? (
-							<Image
-								source={{ uri: message.authorAvatar }}
-								style={{ height: 32, width: 32, borderRadius: 16 }}
-								contentFit="cover"
-							/>
-						) : (
-							<View
-								style={{
-									height: 32,
-									width: 32,
-									borderRadius: 16,
-									alignItems: "center",
-									justifyContent: "center",
-									backgroundColor: colors.surfaceHigher,
-								}}
-							>
-								<Text
+					shouldShowAvatar ? (
+						<Pressable
+							onPress={() => {
+								if (onAvatarPress) {
+									Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+									onAvatarPress(senderId, message.authorName || "User", message.authorAvatar);
+								}
+							}}
+							style={({ pressed }) => [{ alignItems: "center", opacity: pressed && onAvatarPress ? 0.7 : 1 }]}
+							disabled={!onAvatarPress}
+						>
+							{message.authorAvatar ? (
+								<Image
+									source={{ uri: message.authorAvatar }}
+									style={{ height: 28, width: 28, borderRadius: 14 }}
+									contentFit="cover"
+								/>
+							) : (
+								<View
 									style={{
-										fontSize: 10,
-										fontFamily: fonts.labelBold,
-										textTransform: "uppercase",
-										color: colors.textSecondary,
+										height: 28,
+										width: 28,
+										borderRadius: 14,
+										alignItems: "center",
+										justifyContent: "center",
+										backgroundColor: colors.surfaceHigher,
 									}}
 								>
-									{initials}
-								</Text>
-							</View>
-						)}
-					</View>
+									<Text
+										style={{
+											fontSize: 9,
+											fontFamily: fonts.labelBold,
+											textTransform: "uppercase",
+											color: colors.textSecondary,
+										}}
+									>
+										{initials}
+									</Text>
+								</View>
+							)}
+						</Pressable>
+					) : (
+						<View style={{ width: 28 }} />
+					)
 				)}
 
 				<View
@@ -313,18 +340,14 @@ function MessageBubbleComponent({
 											: bubbleBackgroundColor,
 										borderWidth: isHighlighted ? 1 : 0,
 										borderColor: colors.accent,
-										borderTopLeftRadius: isAttachmentOnly ? 0 : outgoingRadius,
-										borderTopRightRadius: isAttachmentOnly ? 0 : outgoingRadius,
+										borderTopLeftRadius: isAttachmentOnly ? 0 : (isUser ? R : (isFirst ? R : r)),
+										borderTopRightRadius: isAttachmentOnly ? 0 : (isUser ? (isFirst ? R : r) : R),
 										borderBottomLeftRadius: isAttachmentOnly
 											? 0
-											: !isUser
-												? 6
-												: outgoingRadius,
+											: isUser ? R : (isLast ? R : r),
 										borderBottomRightRadius: isAttachmentOnly
 											? 0
-											: isUser
-												? 6
-												: outgoingRadius,
+											: isUser ? (isLast ? R : r) : R,
 									}}
 								>
 									{message.replyToMessageId != null && (
@@ -426,10 +449,10 @@ function MessageBubbleComponent({
 									{message.text && (
 										<Text
 											style={{
-												fontSize: 15,
-												lineHeight: 24,
+												fontSize: 16,
+												lineHeight: 22,
 												color: bubbleTextColor,
-												fontFamily: fonts.bodyMedium,
+												fontFamily: Platform.select({ ios: undefined, default: fonts.bodyMedium }),
 											}}
 										>
 											{message.text}
@@ -453,6 +476,9 @@ function MessageBubbleComponent({
 													color={colors.textDim}
 												/>
 											</Pressable>
+										)}
+										{message.pinnedAt && (
+											<Ionicons name="pin" size={10} color={metaColor} />
 										)}
 										<Text
 											style={{
@@ -577,6 +603,9 @@ export const MessageBubble = React.memo(
 		if (prev.isGroupThread !== next.isGroupThread) return false;
 		if (prev.isHighlighted !== next.isHighlighted) return false;
 		if (prev.token !== next.token) return false;
+		if (prev.groupPosition !== next.groupPosition) return false;
+		if (prev.showGroupAvatar !== next.showGroupAvatar) return false;
+		if (prev.showGroupSenderName !== next.showGroupSenderName) return false;
 		const prevMessage = prev.message;
 		const nextMessage = next.message;
 		if (prevMessage === nextMessage) return true;
@@ -591,7 +620,8 @@ export const MessageBubble = React.memo(
 			prevMessage.replyPreview === nextMessage.replyPreview &&
 			prevMessage.authorName === nextMessage.authorName &&
 			prevMessage.authorAvatar === nextMessage.authorAvatar &&
-			prevMessage.reactions === nextMessage.reactions
+			JSON.stringify(prevMessage.reactions) === JSON.stringify(nextMessage.reactions) &&
+			prevMessage.pinnedAt === nextMessage.pinnedAt
 		);
 	},
 );

@@ -32,7 +32,7 @@ async function main() {
   for (const plan of plans) {
     console.log(`#${plan.id} ${plan.tier} — ${plan.name}`);
     for (const cycle of ATHLETE_BILLING_CYCLES) {
-      const lookupKey = lookupKeyForAthleteBilling(plan.tier, cycle);
+      const lookupKey = plan.tier ? lookupKeyForAthleteBilling(plan.tier, cycle) : null;
       try {
         const priceId = await ensureAthleteCheckoutPriceId(
           {

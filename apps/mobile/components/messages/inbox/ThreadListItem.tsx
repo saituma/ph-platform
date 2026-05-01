@@ -1,34 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback } from "react";
 import {
   Pressable,
-  type StyleProp,
-  type ViewStyle,
-  useWindowDimensions,
   StyleSheet,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Transition } from "@/components/navigation/TransitionStack";
 import { Text } from "@/components/ScaledText";
-import { INBOX_LIST_INSET } from "@/components/messages/inbox/inbox-constants";
-import { ListRow } from "@/components/ui/list-row";
-import type { MessageThread, TypingStatus } from "@/types/messages";
-
-// ── Helpers (shared with InboxScreen) ─────────────────────────────
+import type { MessageThread } from "@/types/messages";
 
 function getInitials(name?: string | null) {
   if (!name || typeof name !== "string") return "";
   const parts = name.trim().split(" ");
   if (parts.length === 1) return parts[0]?.[0] ?? "";
   return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
-}
-
-function getTypingKey(threadId: string) {
-  return threadId.startsWith("group:") ? threadId : `user:${threadId}`;
 }
 
 function formatUnreadBadge(unread: number) {
@@ -44,16 +31,9 @@ function getPreviewText(thread: MessageThread) {
   return `${sender}: ${preview}`;
 }
 
-function getInboxA11yLabel(thread: MessageThread, unreadBadge: string | null) {
-  const unreadLabel = unreadBadge ? `, ${unreadBadge} unread` : "";
-  return `Open conversation with ${thread.name}${unreadLabel}`;
-}
-
-// ── Props ───────────────────────────────────────────────────────
-
 export type ThreadListItemProps = {
   thread: MessageThread;
-  typingStatus: TypingStatus;
+  typingStatus?: { name: string; isTyping: boolean };
   openingThreadId: string | null;
   onOpenThread: (
     thread: MessageThread,
@@ -63,25 +43,15 @@ export type ThreadListItemProps = {
   index: number;
 };
 
-// ── Row ─────────────────────────────────────────────────────────
-
 export const ThreadListItem = React.memo(function ThreadListItem({
   thread,
   typingStatus,
   openingThreadId,
   onOpenThread,
-  index,
 }: ThreadListItemProps) {
-  const { width: winW } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
 
-  const frameWidth = useMemo(
-    () => Math.max(0, Math.floor(winW - INBOX_LIST_INSET * 2)),
-    [winW],
-  );
-
-  const typingKey = getTypingKey(thread.id);
-  const typing = typingStatus[typingKey];
+  const typing = typingStatus;
   const sharedBoundTag = `thread-card-${thread.id}`;
   const sharedAvatarTag = `thread-avatar-${thread.id}`;
   const unreadBadge = formatUnreadBadge(thread.unread);
@@ -92,27 +62,9 @@ export const ThreadListItem = React.memo(function ThreadListItem({
   const isTeamThread =
     thread.channelType === "team" || thread.channelType === "coach_group";
 
-  const rowBorder = isDark ? colors.borderStrong : colors.borderMid;
-  const rowSurface = isDark
-    ? colors.surfaceHigher ?? "#181B18"
-    : "#FFFFFF";
-  const rowPressed = isDark
-    ? "rgba(255, 255, 255, 0.05)"
-    : "rgba(0, 0, 0, 0.03)";
-  const unreadBg = isDark
-    ? "rgba(52, 199, 89, 0.08)"
-    : "rgba(52, 199, 89, 0.07)";
-
-  const cardShadow: StyleProp<ViewStyle> = useMemo(
-    () => ({
-      shadowColor: isDark ? "#000" : "rgba(0,0,0,0.1)",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: isDark ? 0.2 : 0.07,
-      shadowRadius: isDark ? 8 : 5,
-      elevation: isDark ? 2 : 1,
-    }),
-    [isDark],
-  );
+  const separatorColor = isDark
+    ? "rgba(255,255,255,0.06)"
+    : "rgba(0,0,0,0.08)";
 
   const handlePress = useCallback(
     () => onOpenThread(thread, sharedBoundTag, sharedAvatarTag),
@@ -120,249 +72,172 @@ export const ThreadListItem = React.memo(function ThreadListItem({
   );
 
   return (
-    <Animated.View
-      entering={FadeInDown.delay(Math.min(index, 12) * 28).springify().damping(16)}
-      style={[
-        { width: frameWidth, maxWidth: frameWidth, alignSelf: "center" as const },
-        cardShadow,
-      ]}
+    <Pressable
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={`Open conversation with ${thread.name}${unreadBadge ? `, ${unreadBadge} unread` : ""}`}
+      android_ripple={{ color: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }}
+      style={({ pressed }) => ({
+        opacity: isOpening ? 0.55 : 1,
+        backgroundColor: pressed && !isOpening
+          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"
+          : "transparent",
+      })}
     >
-      <Pressable
-        onPress={handlePress}
-        accessibilityRole="button"
-        accessibilityLabel={getInboxA11yLabel(thread, unreadBadge)}
-        android_ripple={{ color: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }}
-        style={{ width: frameWidth, maxWidth: frameWidth, opacity: isOpening ? 0.55 : 1 }}
-      >
-        {({ pressed }) => (
-          <ListRow.Frame
-            frameWidth={frameWidth}
-            backgroundColor={(() => {
-              if (pressed) {
-                if (isUnread) {
-                  return isDark
-                    ? "rgba(52, 199, 89, 0.14)"
-                    : "rgba(52, 199, 89, 0.12)";
-                }
-                return rowPressed;
-              }
-              if (isUnread) return unreadBg;
-              return rowSurface;
-            })()}
-            borderColor={rowBorder}
-            borderWidth={1}
-            borderLeftWidth={isUnread ? 3 : 1}
-            borderLeftColor={isUnread ? colors.accent : rowBorder}
-          >
-            <ListRow.Main>
-              <ListRow.Media>
-                <Transition.View sharedBoundTag={sharedAvatarTag}>
-                  <View style={styles.avatarStack}>
-                    <View
-                      style={[
-                        styles.avatarRing,
-                        {
-                          borderColor: isDark
-                            ? "rgba(255, 255, 255, 0.1)"
-                            : "rgba(0, 0, 0, 0.07)",
-                          borderWidth: 1,
-                        },
-                      ]}
-                    >
-                      {thread.avatarUrl ? (
-                        <Image
-                          source={{ uri: thread.avatarUrl }}
-                          style={styles.avatar}
-                          cachePolicy="memory-disk"
-                          placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
-                        />
-                      ) : (
-                        <View
-                          style={[
-                            styles.avatar,
-                            styles.avatarPlaceholder,
-                            {
-                              backgroundColor: isDark
-                                ? "rgba(255, 255, 255, 0.07)"
-                                : "rgba(0, 0, 0, 0.05)",
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.initialsText,
-                              { fontFamily: "Outfit-Bold", color: colors.textPrimary },
-                            ]}
-                          >
-                            {getInitials(thread.name)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    {isTeamThread ? (
-                      <View
-                        style={[
-                          styles.teamAvatarBadge,
-                          {
-                            backgroundColor: isDark ? colors.surfaceHigher : "#F4F5F4",
-                            borderColor: isUnread ? unreadBg : rowSurface,
-                          },
-                        ]}
-                      >
-                        <Ionicons name="people" size={10} color={colors.accent} />
-                      </View>
-                    ) : isOnline ? (
-                      <View
-                        style={[
-                          styles.onlineDot,
-                          { borderColor: isUnread ? (isDark ? "rgba(52,199,89,0.08)" : "rgba(52,199,89,0.07)") : rowSurface },
-                        ]}
-                      />
-                    ) : null}
-                  </View>
-                </Transition.View>
-              </ListRow.Media>
+      <View style={[styles.row, { borderBottomColor: separatorColor }]}>
+        {/* Avatar */}
+        <View style={styles.avatarContainer}>
+          {thread.avatarUrl ? (
+            <Image
+              source={{ uri: thread.avatarUrl }}
+              style={styles.avatar}
+              cachePolicy="memory-disk"
+              placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
+            />
+          ) : (
+            <View
+              style={[
+                styles.avatar,
+                styles.avatarPlaceholder,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.07)"
+                    : "rgba(0,0,0,0.05)",
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  fontSize: 17,
+                  fontFamily: "Outfit-Bold",
+                  color: colors.textPrimary,
+                  letterSpacing: 0.5,
+                }}
+              >
+                {getInitials(thread.name)}
+              </Text>
+            </View>
+          )}
 
-              <ListRow.Body>
-                <ListRow.Header>
-                  <View style={styles.nameRow}>
-                    {isTeamThread && (
-                      <View
-                        style={[
-                          styles.teamChip,
-                          { backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)" },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.teamChipText,
-                            { color: colors.textDim, fontFamily: "Outfit-SemiBold" },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          Team
-                        </Text>
-                      </View>
-                    )}
-                    <Text
-                      style={[
-                        styles.title,
-                        {
-                          fontFamily: isUnread ? "Outfit-Bold" : "Outfit-SemiBold",
-                          color: colors.textPrimary,
-                          flex: 1,
-                          minWidth: 0,
-                        },
-                      ]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {thread.name}
-                    </Text>
-                  </View>
+          {isTeamThread ? (
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: isDark ? colors.surfaceHigher : "#F4F5F4",
+                  borderColor: colors.background,
+                },
+              ]}
+            >
+              <Ionicons name="people" size={9} color={colors.accent} />
+            </View>
+          ) : isOnline ? (
+            <View
+              style={[
+                styles.onlineDot,
+                { borderColor: colors.background },
+              ]}
+            />
+          ) : null}
+        </View>
 
-                  <View style={styles.timeColumn}>
-                    <Text
-                      style={[
-                        styles.time,
-                        {
-                          fontFamily: "Outfit-Medium",
-                          color: isUnread ? colors.accent : colors.textDim,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {thread.time}
-                    </Text>
-                  </View>
-                </ListRow.Header>
+        {/* Content */}
+        <View style={styles.content}>
+          <View style={styles.topRow}>
+            <Text
+              style={[
+                styles.name,
+                {
+                  fontFamily: isUnread ? "Outfit-Bold" : "Outfit-SemiBold",
+                  color: colors.textPrimary,
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {thread.name}
+            </Text>
+            <Text
+              style={[
+                styles.time,
+                {
+                  fontFamily: "Outfit-Regular",
+                  color: isUnread ? colors.accent : colors.textDim,
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {thread.time}
+            </Text>
+          </View>
 
-                <ListRow.Footer>
-                  <View style={styles.previewWrap}>
-                    {typing?.isTyping ? (
-                      <Animated.View
-                        entering={FadeIn}
-                        style={[styles.typingDot, { backgroundColor: colors.accent }]}
-                      />
-                    ) : null}
-                    <Text
-                      style={[
-                        styles.preview,
-                        {
-                          fontFamily: isUnread ? "Outfit-Medium" : "Outfit-Regular",
-                          color: typing?.isTyping
-                            ? colors.accent
-                            : isUnread
-                              ? colors.textSecondary
-                              : colors.textDim,
-                          flex: 1,
-                          minWidth: 0,
-                        },
-                      ]}
-                      numberOfLines={2}
-                      ellipsizeMode="tail"
-                    >
-                      {typing?.isTyping ? `${typing.name} is typing...` : previewLabel}
-                    </Text>
-                  </View>
+          <View style={styles.bottomRow}>
+            <Text
+              style={[
+                styles.preview,
+                {
+                  fontFamily: isUnread ? "Outfit-Medium" : "Outfit-Regular",
+                  color: typing?.isTyping
+                    ? colors.accent
+                    : isUnread
+                      ? colors.textSecondary
+                      : colors.textDim,
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {typing?.isTyping ? `${typing.name} is typing...` : previewLabel}
+            </Text>
 
-                  <ListRow.Meta>
-                    {isUnread && (
-                      <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-                        <Text
-                          style={[
-                            styles.badgeText,
-                            {
-                              fontFamily: "Outfit-Bold",
-                              color: isDark ? colors.textInverse : "#0A0B0A",
-                            },
-                          ]}
-                        >
-                          {unreadBadge}
-                        </Text>
-                      </View>
-                    )}
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={colors.textDim}
-                      style={styles.chevron}
-                    />
-                  </ListRow.Meta>
-                </ListRow.Footer>
-              </ListRow.Body>
-            </ListRow.Main>
-          </ListRow.Frame>
-        )}
-      </Pressable>
-    </Animated.View>
+            {isUnread && (
+              <View style={[styles.badge, { backgroundColor: colors.accent }]}>
+                <Text
+                  style={[
+                    styles.badgeText,
+                    {
+                      fontFamily: "Outfit-Bold",
+                      color: isDark ? colors.textInverse : "#0A0B0A",
+                    },
+                  ]}
+                >
+                  {unreadBadge}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    </Pressable>
   );
 });
 
 const styles = StyleSheet.create({
-  avatarStack: {
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  avatarContainer: {
     position: "relative",
   },
-  avatarRing: {
-    borderRadius: 999,
-    overflow: "hidden",
-  },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   avatarPlaceholder: {
     justifyContent: "center",
     alignItems: "center",
   },
-  teamAvatarBadge: {
+  statusBadge: {
     position: "absolute",
-    right: 0,
-    bottom: 0,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    right: -1,
+    bottom: -1,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -371,74 +246,51 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 1,
     bottom: 1,
-    width: 13,
-    height: 13,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: "#22c55e",
     borderWidth: 2,
   },
-  initialsText: {
-    fontSize: 18,
-    letterSpacing: 0.5,
-  },
-  nameRow: {
+  content: {
     flex: 1,
     minWidth: 0,
+    gap: 3,
+  },
+  topRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  teamChip: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  teamChipText: {
-    fontSize: 11,
-    letterSpacing: 0.2,
-    textTransform: "uppercase",
-  },
-  timeColumn: {
-    maxWidth: 88,
-    flexShrink: 0,
-  },
-  title: {
+  name: {
+    flex: 1,
     fontSize: 16,
     letterSpacing: -0.2,
   },
   time: {
-    fontSize: 12,
-    textAlign: "right",
+    fontSize: 13,
+    flexShrink: 0,
   },
-  previewWrap: {
-    flex: 1,
-    minWidth: 0,
+  bottomRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 6,
-  },
-  typingDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    marginTop: 5,
+    alignItems: "center",
+    gap: 8,
   },
   preview: {
+    flex: 1,
     fontSize: 14,
     lineHeight: 19,
   },
   badge: {
-    minWidth: 22,
-    height: 22,
-    paddingHorizontal: 7,
-    borderRadius: 11,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   badgeText: {
-    fontSize: 12,
-  },
-  chevron: {
-    opacity: 0.4,
+    fontSize: 11,
   },
 });

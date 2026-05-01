@@ -12,7 +12,7 @@ import { useGetAdminProfileQuery } from "../../lib/apiSlice";
 
 type TopbarProps = {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   actions?: React.ReactNode;
   onSearchOpen?: () => void;
 };

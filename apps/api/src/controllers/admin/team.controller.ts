@@ -82,24 +82,35 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       athleteType: z.enum(["youth", "adult"]).default("youth"),
       minAge: z.coerce.number().int().min(1).optional().nullable(),
       maxAge: z.coerce.number().int().min(1).optional().nullable(),
-      planId: z.coerce.number().int().min(1),
+      tier: z.enum(ProgramType.enumValues),
       maxAthletes: z.coerce.number().int().min(1),
       paymentMethod: z.enum(["pay_now", "email_link", "cash"]).default("pay_now"),
       billingCycle: z.enum(["monthly", "6months", "yearly"]).default("monthly"),
+      managerEmail: z.string().email().optional().nullable(),
+      managerPassword: z.string().min(8).optional().nullable(),
+      managerName: z.string().optional().nullable(),
+      emailSlug: z.string().min(2).max(80).optional().nullable(),
     })
     .safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
   }
 
+  const { managerEmail, managerPassword, managerName, emailSlug } = parsed.data;
+  const hasManagerCredentials = managerEmail && managerPassword;
+
   try {
     const result = await createTeamAdmin({
       teamName: parsed.data.teamName,
       athleteType: parsed.data.athleteType,
+      emailSlug: emailSlug ?? undefined,
       minAge: parsed.data.minAge ?? undefined,
       maxAge: parsed.data.maxAge ?? undefined,
-      adminId: req.user!.id,
-      planId: parsed.data.planId,
+      adminId: hasManagerCredentials ? undefined : req.user!.id,
+      managerEmail: managerEmail ?? undefined,
+      managerPassword: managerPassword ?? undefined,
+      managerName: managerName ?? undefined,
+      tier: parsed.data.tier,
       maxAthletes: parsed.data.maxAthletes,
       createdByUserId: req.user!.id,
       paymentMethod: parsed.data.paymentMethod,

@@ -1,12 +1,11 @@
 {
   "expo": {
-    "entryPoint": "expo-router/entry",
     "name": "PH Performance",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "phperformance",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
@@ -15,10 +14,34 @@
         "UIStatusBarHidden": true,
         "UIViewControllerBasedStatusBarAppearance": false,
         "UIBackgroundModes": [
-          "remote-notification"
+          "remote-notification",
+          "location"
         ]
       },
-      "bundleIdentifier": "com.clientreachai.phperformance"
+      "bundleIdentifier": "com.clientreachai.phperformance",
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": ["35F9.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": ["E174.1"]
+          }
+        ],
+        "NSPrivacyCollectedDataTypes": [],
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyTracking": false
+      }
     },
     "androidStatusBar": {
       "hidden": true,
@@ -54,6 +77,14 @@
     },
     "plugins": [
       [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ],
+      [
         "react-native-edge-to-edge",
         {
           "android": {
@@ -84,7 +115,12 @@
           }
         }
       ],
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "PH Performance needs microphone access to record training videos with audio."
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -96,6 +132,12 @@
         "expo-image",
         {}
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "PH Performance uses your camera to record training videos and take progress photos."
+        }
+      ],
       "expo-secure-store",
       "expo-video",
       "expo-web-browser",
@@ -105,56 +147,6 @@
           "locationAlwaysAndWhenInUsePermission": "Allow this app to track your location during runs.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
-        }
-      ],
-      [
-        "expo-widgets",
-        {
-          "groupIdentifier": "group.com.clientreachai.phperformance",
-          "widgets": [
-            {
-              "name": "PHSummary",
-              "displayName": "PH Performance Summary",
-              "description": "See your training progress and next session at a glance.",
-              "resourceName": "ph_summary_widget",
-              "supportedFamilies": ["systemSmall", "systemMedium", "systemLarge"]
-            },
-            {
-              "name": "PHNextSession",
-              "displayName": "PH Next Session",
-              "description": "View your upcoming training session.",
-              "resourceName": "ph_next_session_widget",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
-            },
-            {
-              "name": "PHWeeklyStats",
-              "displayName": "PH Weekly Stats",
-              "description": "Track your weekly running and training goals.",
-              "resourceName": "ph_weekly_stats_widget",
-              "supportedFamilies": ["systemSmall", "systemMedium", "systemLarge"]
-            },
-            {
-              "name": "PHCurrentModule",
-              "displayName": "PH Current Module",
-              "description": "See which training module you are currently working on.",
-              "resourceName": "ph_current_module_widget",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
-            },
-            {
-              "name": "PHSchedule",
-              "displayName": "PH Training Schedule",
-              "description": "Your upcoming bookings and session times.",
-              "resourceName": "ph_schedule_widget",
-              "supportedFamilies": ["systemMedium", "systemLarge"]
-            },
-            {
-              "name": "PHQuickActions",
-              "displayName": "PH Quick Actions",
-              "description": "Quickly start a run, message your coach, or log nutrition.",
-              "resourceName": "ph_quick_actions_widget",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
-            }
-          ]
         }
       ]
     ],

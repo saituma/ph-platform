@@ -8,10 +8,12 @@ import * as AdminProgramController from "../controllers/admin/program.controller
 import * as AdminBookingController from "../controllers/admin/booking.controller";
 import * as AdminMessageController from "../controllers/admin/message.controller";
 import * as AdminAthletePlanController from "../controllers/admin/athlete-plan.controller";
+import * as AdminProgramBuilderController from "../controllers/admin/program-builder.controller";
 import * as AdminOnboardingConfigController from "../controllers/admin/onboarding-config.controller";
 import * as AdminPortalConfigController from "../controllers/admin/portal-config.controller";
 import * as AdminSettingsController from "../controllers/admin/settings.controller";
 import * as AdminVideoController from "../controllers/admin/video.controller";
+import * as TrackingGoalsController from "../controllers/tracking-goals.controller";
 
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
 
@@ -75,7 +77,7 @@ router.post("/admin/messages/:userId", AdminMessageController.sendAdminMessage);
 router.delete("/admin/messages/:userId", AdminMessageController.deleteThreadMessages);
 router.post("/admin/messages/:userId/read", AdminMessageController.markThreadRead);
 
-// Athlete Plans (Premium) & Progress
+// Training Insights
 router.get("/admin/training-snapshot", AdminAthletePlanController.listTrainingSnapshotAdmin);
 router.get("/admin/tracking/runs", AdminAthletePlanController.listRunTrackingAdmin);
 router.get("/admin/training-questionnaires", AdminAthletePlanController.listTrainingQuestionnaireAnswersAdmin);
@@ -83,36 +85,34 @@ router.get(
   "/admin/users/:userId/program-section-completions",
   AdminAthletePlanController.listProgramSectionCompletionsAdmin,
 );
-router.get("/admin/users/:userId/premium-plan", AdminAthletePlanController.getPremiumPlanAdmin);
-router.get("/admin/users/:userId/premium-session-checkins", AdminAthletePlanController.listPremiumSessionCheckinsAdmin);
-router.post("/admin/users/:userId/premium-plan/clone", AdminAthletePlanController.clonePremiumPlanAdmin);
-router.post("/admin/users/:userId/premium-plan/sessions", AdminAthletePlanController.createPremiumPlanSessionAdmin);
-router.patch(
-  "/admin/users/:userId/premium-plan/sessions/:sessionId",
-  AdminAthletePlanController.updatePremiumPlanSessionAdmin,
-);
-router.delete(
-  "/admin/users/:userId/premium-plan/sessions/:sessionId",
-  AdminAthletePlanController.deletePremiumPlanSessionAdmin,
-);
-router.post(
-  "/admin/users/:userId/premium-plan/sessions/:sessionId/exercises",
-  AdminAthletePlanController.addPremiumPlanExerciseAdmin,
-);
-router.patch(
-  "/admin/users/:userId/premium-plan/exercises/:planExerciseId",
-  AdminAthletePlanController.updatePremiumPlanExerciseAdmin,
-);
-router.delete(
-  "/admin/users/:userId/premium-plan/exercises/:planExerciseId",
-  AdminAthletePlanController.deletePremiumPlanExerciseAdmin,
-);
+
+// Program Builder
+router.get("/admin/programs/:programId/full", AdminProgramBuilderController.getFullProgram);
+router.get("/admin/programs/:programId/modules", AdminProgramBuilderController.listModules);
+router.post("/admin/programs/:programId/modules", AdminProgramBuilderController.createModule);
+router.patch("/admin/programs/:programId/modules/:moduleId", AdminProgramBuilderController.updateModule);
+router.delete("/admin/programs/:programId/modules/:moduleId", AdminProgramBuilderController.deleteModule);
+router.patch("/admin/programs/:programId/modules/reorder", AdminProgramBuilderController.reorderModules);
+router.get("/admin/modules/:moduleId/sessions", AdminProgramBuilderController.listSessions);
+router.post("/admin/programs/:programId/modules/:moduleId/sessions", AdminProgramBuilderController.createSession);
+router.patch("/admin/sessions/:sessionId", AdminProgramBuilderController.updateSession);
+router.delete("/admin/sessions/:sessionId", AdminProgramBuilderController.deleteSession);
+router.get("/admin/sessions/:sessionId/exercises", AdminProgramBuilderController.listSessionExercises);
+router.patch("/admin/session-exercises/:id", AdminProgramBuilderController.updateSessionExercise);
+router.patch("/admin/sessions/:sessionId/exercises/reorder", AdminProgramBuilderController.reorderSessionExercises);
+
+// Adult Athletes & Program Assignments
+router.get("/admin/adult-athletes", AdminProgramBuilderController.listAdultAthletes);
+router.get("/admin/adult-athletes/:athleteId", AdminProgramBuilderController.getAthleteDetail);
+router.post("/admin/programs/:programId/assignments", AdminProgramBuilderController.assignProgram);
+router.delete("/admin/program-assignments/:assignmentId", AdminProgramBuilderController.unassignProgram);
 
 // Programs & Exercises
 router.post("/admin/enrollments", AdminProgramController.assignProgram);
 router.post("/admin/programs", AdminProgramController.createProgram);
 router.get("/admin/programs", AdminProgramController.listPrograms);
 router.patch("/admin/programs/:programId", AdminProgramController.updateProgram);
+router.delete("/admin/programs/:programId", AdminProgramController.deleteProgram);
 router.get("/admin/exercises", AdminProgramController.listExerciseLibrary);
 router.post("/admin/exercises", AdminProgramController.createExerciseItem);
 router.patch("/admin/exercises/:exerciseId", AdminProgramController.updateExerciseItem);
@@ -124,5 +124,11 @@ router.delete("/admin/session-exercises/:sessionExerciseId", AdminProgramControl
 // Food Diary
 router.get("/admin/food-diary", listFoodDiaryAdmin);
 router.post("/admin/food-diary/:entryId/review", reviewFoodDiaryAdmin);
+
+// Tracking Goals
+router.get("/admin/tracking-goals", TrackingGoalsController.listGoals);
+router.post("/admin/tracking-goals", TrackingGoalsController.createGoal);
+router.patch("/admin/tracking-goals/:id", TrackingGoalsController.updateGoal);
+router.delete("/admin/tracking-goals/:id", TrackingGoalsController.deleteGoal);
 
 export default router;

@@ -50,6 +50,7 @@ export function useMessagesRealtime({
 }: UseMessagesRealtimeParams) {
   const { socket } = useSocket();
   const typingRef = useRef<{ active: boolean; timer?: ReturnType<typeof setTimeout> | null }>({ active: false, timer: null });
+  const prevOnlineKeyRef = useRef<string>("");
 
   // --- Stable refs so socket handlers always see latest values ---
   const profileIdRef = useRef(profileId);
@@ -341,6 +342,9 @@ export function useMessagesRealtime({
     };
 
     const handlePresenceUpdate = (onlineUserIds: number[]) => {
+      const key = [...onlineUserIds].sort((a, b) => a - b).join(",");
+      if (key === prevOnlineKeyRef.current) return;
+      prevOnlineKeyRef.current = key;
       const onlineSet = new Set(onlineUserIds.map(Number));
       setThreadsRef.current((prev) =>
         prev.map((thread) => {

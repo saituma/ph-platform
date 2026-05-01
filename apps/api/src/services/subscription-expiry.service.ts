@@ -47,6 +47,7 @@ async function processExpiredPlans(now: Date) {
       .update(athleteTable)
       .set({
         currentProgramTier: null,
+        currentPlanId: null,
         planExpiresAt: null,
         planRenewalReminderSentAt: null,
         updatedAt: new Date(),
@@ -54,7 +55,10 @@ async function processExpiredPlans(now: Date) {
       .where(eq(athleteTable.id, athlete.id));
 
     if (athlete.guardianId) {
-      await db.update(guardianTable).set({ currentProgramTier: null, updatedAt: new Date() }).where(eq(guardianTable.id, athlete.guardianId));
+      await db
+        .update(guardianTable)
+        .set({ currentProgramTier: null, currentPlanId: null, updatedAt: new Date() })
+        .where(eq(guardianTable.id, athlete.guardianId));
     }
 
     if (!payerUserId || !payer || payer.isDeleted) continue;

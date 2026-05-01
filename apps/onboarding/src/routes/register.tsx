@@ -4,6 +4,7 @@ import {
 	WarningCircle,
 } from "@phosphor-icons/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -92,64 +93,40 @@ function Register() {
 
 	return (
 		<main className="relative min-h-[100dvh] flex flex-col items-center justify-center p-6 overflow-hidden">
-			{/* Radial green bloom */}
-			<div
-				className="absolute inset-0 pointer-events-none -z-10"
-				style={{
-					background: "radial-gradient(ellipse at 50% 60%, hsl(var(--primary) / 0.1), transparent 65%)",
-				}}
-			/>
-			{/* Subtle grid */}
-			<div
-				className="absolute inset-0 pointer-events-none -z-10"
-				style={{
-					backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M 60 0 L 0 0 0 60' fill='none' stroke='rgba(255,255,255,0.02)' stroke-width='1'/%3E%3C/svg%3E")`,
-					backgroundSize: "60px 60px",
-				}}
-			/>
+			<div className="absolute inset-0 overflow-hidden bg-background pointer-events-none" aria-hidden="true">
+				<div className="w-full h-full bg-noise-pattern opacity-[0.02] dark:opacity-[0.05]" />
+			</div>
 
-			<div className="w-full max-w-sm space-y-10">
-				{/* Logo */}
-				<div className="flex flex-col items-center gap-4">
-					<Link to="/" className="block">
-						<div className="w-12 h-12 rounded-xl overflow-hidden ring-1 ring-primary/30">
+			<motion.div
+				initial={{ opacity: 0, y: 12 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.5, ease: "easeOut" }}
+				className="relative w-full max-w-sm space-y-8"
+			>
+				<div className="space-y-3">
+					<Link to="/" className="inline-flex items-center gap-2 mb-4">
+						<div className="w-6 h-6 overflow-hidden">
 							<img src="/ph.jpg" alt="PH Performance" className="w-full h-full object-cover" />
 						</div>
+						<span className="font-mono text-xs uppercase tracking-wider text-foreground/50">PH Performance</span>
 					</Link>
-
-					<div className="text-center space-y-2">
-						<h1
-							className="font-black uppercase text-foreground"
-							style={{
-								fontFamily: "var(--font-display)",
-								fontSize: "clamp(2.5rem, 8vw, 4rem)",
-								letterSpacing: "-0.02em",
-								lineHeight: 1,
-							}}
-						>
-							Join the{" "}
-							<span className="text-primary">Elite</span>
-						</h1>
-						<p
-							className="text-muted-foreground font-bold uppercase"
-							style={{ fontSize: "0.65rem", letterSpacing: "0.2em" }}
-						>
-							Start your free 14-day trial
-						</p>
-					</div>
+					<h1 className="text-2xl md:text-3xl tracking-tight font-medium text-foreground">
+						Create your account
+					</h1>
+					<p className="text-sm text-muted-foreground">
+						Start your free 14-day trial — no credit card required
+					</p>
 				</div>
 
-				{/* Form card */}
-				<div className="border border-border/50 bg-card/60 backdrop-blur-sm p-8 space-y-6">
-					<form onSubmit={handleSubmit} className="space-y-4">
+				<div className="border border-foreground/[0.06] bg-card/50 p-6 sm:p-8 space-y-6">
+					<form onSubmit={handleSubmit} className="space-y-5">
 						<div className="space-y-2">
 							<label
 								htmlFor="email-input"
-								className="flex items-center gap-2 text-foreground/70"
-								style={{ fontSize: "0.65rem", fontWeight: 900, letterSpacing: "0.18em", textTransform: "uppercase" }}
+								className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 							>
-								<EnvelopeSimple weight="fill" size={13} className="text-primary" />
-								Email Address
+								<EnvelopeSimple weight="bold" size={12} className="text-foreground/40" />
+								Email
 							</label>
 							<Input
 								id="email-input"
@@ -161,14 +138,13 @@ function Register() {
 									if (error) setError(undefined);
 								}}
 								disabled={isLoading}
-								className={`h-12 rounded-none border-border/60 bg-background/60 text-sm placeholder:text-muted-foreground/40 focus-visible:ring-primary/40 focus-visible:border-primary/50 transition-colors ${
-									error ? "border-destructive/50 focus-visible:ring-destructive/20" : ""
+								className={`h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm placeholder:text-foreground/20 focus-visible:ring-0 focus-visible:border-foreground/20 transition-colors ${
+									error ? "border-destructive/50" : ""
 								}`}
-								style={{ transitionDuration: "var(--duration-micro)" }}
 							/>
 							{error && (
-								<p className="flex items-center gap-1.5 text-destructive" style={{ fontSize: "0.75rem" }}>
-									<WarningCircle weight="fill" size={14} className="shrink-0" />
+								<p className="text-xs text-destructive flex items-center gap-1.5 font-mono">
+									<WarningCircle weight="fill" size={12} />
 									{error}
 								</p>
 							)}
@@ -177,8 +153,7 @@ function Register() {
 						<button
 							type="submit"
 							disabled={isLoading}
-							className="w-full h-12 bg-primary text-primary-foreground font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-60"
-							style={{ transitionDuration: "var(--duration-micro)", transitionTimingFunction: "var(--ease)" }}
+							className="w-full h-10 bg-foreground text-background font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
 						>
 							{isLoading ? (
 								<CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
@@ -187,24 +162,18 @@ function Register() {
 							)}
 						</button>
 					</form>
-
 				</div>
 
-				{/* Sign in link */}
-				<p
-					className="text-center font-bold uppercase text-muted-foreground"
-					style={{ fontSize: "0.65rem", letterSpacing: "0.15em" }}
-				>
+				<p className="text-center font-mono text-[11px] text-foreground/40 uppercase tracking-wider">
 					Already have an account?{" "}
 					<Link
 						to="/login"
-						className="text-primary hover:text-primary/80 border-b border-primary/30 transition-colors pb-px"
-						style={{ transitionDuration: "var(--duration-micro)" }}
+						className="text-foreground/60 hover:text-foreground transition-colors duration-150 border-b border-foreground/20"
 					>
 						Sign In
 					</Link>
 				</p>
-			</div>
+			</motion.div>
 		</main>
 	);
 }

@@ -13,6 +13,9 @@ import {
   markGroupRead,
 } from "../services/chat.service";
 import { toggleGroupMessageReaction } from "../services/reaction.service";
+import { db } from "../db";
+import { chatGroupMessageTable } from "../db/schema";
+import { and, desc, eq, ilike } from "drizzle-orm";
 
 const createGroupSchema = z.object({
   name: z.string().min(1),
@@ -174,4 +177,42 @@ export async function markGroupChatRead(req: Request, res: Response) {
     return res.status(404).json({ error: "Membership not found" });
   }
   return res.status(200).json({ ok: true });
+}
+
+// ── Group Message Search ────────────────────────────────────────────────
+
+const searchGroupMessagesQuerySchema = z.object({
+  q: z.string().trim().min(1),
+});
+
+export async function searchGroupMessages(req: Request, res: Response) {
+  const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
+  const userId = req.user!.id;
+  const { q } = searchGroupMessagesQuerySchema.parse(req.query ?? {});
+
+  const allowed = await isGroupMember(groupId, userId);
+  if (!allowed) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const results = await db
+    .select({
+      id: chatGroupMessageTable.id,
+      content: chatGroupMessageTable.content,
+      senderId: chatGroupMessageTable.senderId,
+      groupId: chatGroupMessageTable.groupId,
+      createdAt: chatGroupMessageTable.createdAt,
+      contentType: chatGroupMessageTable.contentType,
+    })
+    .from(chatGroupMessageTable)
+    .where(
+      and(
+        eq(chatGroupMessageTable.groupId, groupId),
+        ilike(chatGroupMessageTable.content, `%${q}%`),
+      ),
+    )
+    .orderBy(desc(chatGroupMessageTable.createdAt))
+    .limit(50);
+
+  return res.status(200).json({ results });
 }

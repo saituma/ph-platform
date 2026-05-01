@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { useAppSelector } from "@/store/hooks";
 import { SwipeableTabLayout } from "@/components/navigation";
 import { useUnreadMessaging } from "@/hooks/navigation/useUnreadMessaging";
@@ -16,22 +17,32 @@ export function TeamLayout() {
     profile,
     programTier,
     messagingAccessTiers,
+    planFeatures,
     appRole,
     authTeamMembership,
     managedAthletes,
     capabilities,
+    capabilitiesLoaded,
   } = useAppSelector((state) => state.user);
-  const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers);
+  const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers, planFeatures);
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, hasMessaging, profile.id);
   const canUseTracking = canAccessTrackingTab({
     appRole,
-    programTier,
+    capabilities,
     authTeamMembership,
     firstManagedAthlete: managedAthletes[0] ?? null,
   });
 
   const isYouthTeam = appRole === "youth_athlete_team_guardian";
   const baseTabs = isYouthTeam ? TEAM_YOUTH_TAB_ROUTES : TEAM_TAB_ROUTES;
+
+  if (!capabilitiesLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   const visibleTabs = useMemo(() => {
     return filterTabsByCapabilities(baseTabs, capabilities).filter((tab) => canUseTracking || tab.key !== "tracking").map((tab) => {
