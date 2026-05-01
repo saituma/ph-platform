@@ -33,6 +33,11 @@
     }
   },
   "submit": {
+    "testflight": {
+      "ios": {
+        "companyName": "Client Reach AI Ltd"
+      }
+    },
     "production": {
       "ios": {
         "companyName": "Client Reach AI Ltd"
