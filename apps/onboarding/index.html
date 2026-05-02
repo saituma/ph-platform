@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>PH Performance - Elite Athlete & Team Training Platform</title>
+		<meta
+			name="description"
+			content="PH Performance is the professional platform for athletes and teams to track progress, optimize training, and achieve more."
+		/>
+		<meta name="theme-color" content="#0A0A0F" />
+		<meta property="og:site_name" content="PH Performance" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="PH Performance - Elite Athlete & Team Training Platform" />
+		<meta
+			property="og:description"
+			content="Professional performance tracking for athletes and teams. Deep analytics, video coaching, and real-time team sync."
+		/>
+		<meta property="og:image" content="https://ph-platform-onboarding.vercel.app/home.png" />
+		<meta property="og:url" content="https://ph-platform-onboarding.vercel.app/" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<link rel="canonical" href="https://ph-platform-onboarding.vercel.app/" />
+		<link rel="dns-prefetch" href="https://challenges.cloudflare.com" />
+		<link rel="dns-prefetch" href="https://o4506.ingest.sentry.io" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			rel="stylesheet"
+			href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
+		/>
+		<script>
+			(function () {
+				try {
+					var stored = window.localStorage.getItem("theme");
+					var mode = stored === "light" || stored === "dark" ? stored : "dark";
+					var root = document.documentElement;
+					root.classList.remove("light", "dark");
+					if (mode === "dark") root.classList.add("dark");
+					root.setAttribute("data-theme", mode);
+					root.style.colorScheme = mode;
+				} catch (e) {}
+			})();
+		</script>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/main.tsx"></script>
+	</body>
+</html>

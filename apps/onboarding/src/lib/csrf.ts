@@ -6,6 +6,8 @@
  * the same value in the `X-CSRF-Token` header.
  */
 
+import { getClientAuthToken } from "./client-storage";
+
 const CSRF_COOKIE_NAME = "__csrf";
 
 /** Read the current CSRF token from cookies */
@@ -27,14 +29,16 @@ export function csrfFetch(
 ): Promise<Response> {
   const method = (init?.method ?? "GET").toUpperCase();
   const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
+  const headers = new Headers(init?.headers);
+  const token = getClientAuthToken();
 
-  if (needsCsrf) {
-    const headers = new Headers(init?.headers);
-    if (!headers.has("X-CSRF-Token")) {
-      headers.set("X-CSRF-Token", getCsrfToken());
-    }
-    return fetch(input, { ...init, headers });
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
-  return fetch(input, init);
+  if (needsCsrf && !headers.has("X-CSRF-Token")) {
+    headers.set("X-CSRF-Token", getCsrfToken());
+  }
+
+  return fetch(input, { ...init, headers });
 }
