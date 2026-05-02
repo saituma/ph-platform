@@ -609,21 +609,21 @@ export default function TeamDetailPage() {
                 onChange={(e) => setNewAge(e.target.value)}
               />
             </div>
-            <div className=”rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground”>
-              Plan: <span className=”font-medium text-foreground”>
-                {details?.planName ?? (details?.planTier ? TIER_LABELS[details.planTier] : “Team plan”)}
-              </span> — same as the team. Use “Add Athlete with Different Plan” to override.
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+              Plan: <span className="font-medium text-foreground">
+                {details?.planName ?? (details?.planTier ? TIER_LABELS[details.planTier] : "Team plan")}
+              </span> - same as the team. Use "Add Athlete with Different Plan" to override.
             </div>
             {(details?.sponsoredPlayerCount ?? 0) > 0 ? (
-              <label className=”flex items-center gap-3 rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-2.5 cursor-pointer”>
+              <label className="flex items-center gap-3 rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-2.5 cursor-pointer">
                 <input
-                  type=”checkbox”
+                  type="checkbox"
                   checked={newIsSponsored}
                   onChange={(e) => setNewIsSponsored(e.target.checked)}
-                  className=”h-4 w-4 accent-violet-500”
+                  className="h-4 w-4 accent-violet-500"
                 />
-                <span className=”text-sm font-medium text-foreground”>Sponsored player</span>
-                <span className=”ml-auto text-xs text-muted-foreground”>
+                <span className="text-sm font-medium text-foreground">Sponsored player</span>
+                <span className="ml-auto text-xs text-muted-foreground">
                   Gets the team's sponsored plan tier
                 </span>
               </label>
