@@ -45,26 +45,46 @@ export default function LoginPage() {
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const turnstileLogPrefix = "[turnstile]";
 
   useEffect(() => {
-    if (!turnstileSiteKey) return;
+    if (!turnstileSiteKey) {
+      console.error(`${turnstileLogPrefix} missing NEXT_PUBLIC_TURNSTILE_SITE_KEY`);
+      return;
+    }
+    console.info(`${turnstileLogPrefix} init`, {
+      host: window.location.hostname,
+      origin: window.location.origin,
+      siteKeyPrefix: `${turnstileSiteKey.slice(0, 8)}...`,
+    });
     let cancelled = false;
 
     const renderWidget = () => {
       if (cancelled || !turnstileRef.current || !window.turnstile) return;
+      console.info(`${turnstileLogPrefix} rendering widget`);
       widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
         sitekey: turnstileSiteKey,
         callback: (token) => {
+          console.info(`${turnstileLogPrefix} callback success`, {
+            tokenLength: token.length,
+          });
           setTurnstileToken(token);
           setTurnstileFailed(false);
           setTurnstileReady(true);
         },
-        "expired-callback": () => setTurnstileToken(null),
+        "expired-callback": () => {
+          console.warn(`${turnstileLogPrefix} token expired`);
+          setTurnstileToken(null);
+        },
         "error-callback": () => {
+          console.error(`${turnstileLogPrefix} error-callback fired`);
           setTurnstileFailed(true);
           setTurnstileToken(null);
           setTurnstileReady(true);
         },
+      });
+      console.info(`${turnstileLogPrefix} widget rendered`, {
+        widgetId: widgetIdRef.current,
       });
       setTurnstileReady(true);
     };
@@ -73,18 +93,33 @@ export default function LoginPage() {
       | HTMLScriptElement
       | null;
     if (window.turnstile) {
+      console.info(`${turnstileLogPrefix} api already available`);
       renderWidget();
     } else if (existing) {
+      console.info(`${turnstileLogPrefix} waiting for existing script load`);
       existing.addEventListener("load", renderWidget, { once: true });
-      existing.addEventListener("error", () => setTurnstileFailed(true), { once: true });
+      existing.addEventListener(
+        "error",
+        () => {
+          console.error(`${turnstileLogPrefix} existing script failed to load`);
+          setTurnstileFailed(true);
+        },
+        { once: true },
+      );
     } else {
+      console.info(`${turnstileLogPrefix} injecting api script`);
       const script = document.createElement("script");
       script.id = TURNSTILE_SCRIPT_ID;
       script.src = TURNSTILE_SCRIPT_SRC;
       script.async = true;
       script.defer = true;
       script.onload = renderWidget;
-      script.onerror = () => setTurnstileFailed(true);
+      script.onerror = () => {
+        console.error(`${turnstileLogPrefix} script load error`, {
+          src: TURNSTILE_SCRIPT_SRC,
+        });
+        setTurnstileFailed(true);
+      };
       document.head.appendChild(script);
     }
 
@@ -93,7 +128,11 @@ export default function LoginPage() {
       if (widgetIdRef.current && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current);
-        } catch {}
+        } catch {
+          console.warn(`${turnstileLogPrefix} failed to remove widget`, {
+            widgetId: widgetIdRef.current,
+          });
+        }
       }
     };
   }, [turnstileSiteKey]);
@@ -102,6 +141,10 @@ export default function LoginPage() {
     event.preventDefault();
     setError(null);
     if (turnstileSiteKey && !turnstileFailed && !turnstileToken) {
+      console.warn(`${turnstileLogPrefix} submit blocked: missing token`, {
+        ready: turnstileReady,
+        failed: turnstileFailed,
+      });
       setError("Please complete the verification challenge.");
       return;
     }
@@ -121,6 +164,7 @@ export default function LoginPage() {
         },
         body: JSON.stringify({ email, password, turnstileToken }),
       });
+      console.info(`${turnstileLogPrefix} login response`, { status: res.status });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
