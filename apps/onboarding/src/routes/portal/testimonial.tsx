@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Star, Upload, Loader2, Send, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PageTransition } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/testimonial")({
 	component: TestimonialPage,
@@ -87,7 +88,7 @@ function TestimonialPage() {
 	}
 
 	return (
-		<div className="p-6 max-w-2xl mx-auto space-y-6">
+		<PageTransition className="p-6 max-w-2xl mx-auto space-y-6">
 			<div className="flex flex-col gap-2 text-center md:text-left">
 				<h1 className="text-3xl font-black uppercase italic tracking-tighter">Share Your Story</h1>
 				<p className="text-muted-foreground">Help future athletes feel the value of the platform by sharing your progress story.</p>
@@ -163,6 +164,6 @@ function TestimonialPage() {
 					</Button>
 				</CardContent>
 			</Card>
-		</div>
+		</PageTransition>
 	);
 }

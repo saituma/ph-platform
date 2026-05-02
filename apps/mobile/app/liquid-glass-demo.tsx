@@ -73,12 +73,13 @@ export default function LiquidGlassDemo() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen 
-        options={{ 
+      <Stack.Screen
+        options={{
+          headerShown: true,
           title: '',
           headerTransparent: true,
           headerTintColor: '#FFFFFF',
-        }} 
+        }}
       />
       
       <ScrollView 

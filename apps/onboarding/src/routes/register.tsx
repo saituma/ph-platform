@@ -9,7 +9,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Input } from "#/components/ui/input";
+import { Turnstile } from "#/components/Turnstile";
 import { config } from "#/lib/config";
+import { csrfFetch } from "#/lib/csrf";
+import { env } from "#/env";
+import { trackEvent } from "#/lib/analytics";
 
 export const Route = createFileRoute("/register")({
 	head: () => ({
@@ -35,7 +39,9 @@ function Register() {
 	const [email, setEmail] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | undefined>();
+	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 	const navigate = useNavigate();
+	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -48,14 +54,20 @@ function Register() {
 			return;
 		}
 
+		if (turnstileSiteKey && !turnstileToken) {
+			toast.error("Please complete the verification challenge");
+			return;
+		}
+
 		setIsLoading(true);
+		trackEvent("sign_up_start", { email });
 		try {
-			const response = await fetch(
+			const response = await csrfFetch(
 				`${config.api.baseUrl}/api/auth/register/start`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email }),
+					body: JSON.stringify({ email, turnstileToken }),
 				},
 			);
 			const data = await response.json();
@@ -76,6 +88,7 @@ function Register() {
 				throw new Error(data.error || "Failed to start registration");
 			}
 
+			trackEvent("sign_up_complete", { email });
 			localStorage.setItem("pending_email", email);
 			toast.success("Verification code sent!", {
 				description: `We've sent a 6-digit code to ${email}`,
@@ -138,21 +151,34 @@ function Register() {
 									if (error) setError(undefined);
 								}}
 								disabled={isLoading}
+								aria-invalid={!!error}
+								aria-describedby={error ? "register-email-error" : undefined}
 								className={`h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm placeholder:text-foreground/20 focus-visible:ring-0 focus-visible:border-foreground/20 transition-colors ${
 									error ? "border-destructive/50" : ""
 								}`}
 							/>
 							{error && (
-								<p className="text-xs text-destructive flex items-center gap-1.5 font-mono">
+								<p id="register-email-error" role="alert" className="text-xs text-destructive flex items-center gap-1.5 font-mono">
 									<WarningCircle weight="fill" size={12} />
 									{error}
 								</p>
 							)}
 						</div>
 
+						{turnstileSiteKey && (
+							<Turnstile
+								siteKey={turnstileSiteKey}
+								action="register"
+								onVerify={setTurnstileToken}
+								onExpire={() => setTurnstileToken(null)}
+								onError={() => setTurnstileToken(null)}
+								className="flex justify-center"
+							/>
+						)}
+
 						<button
 							type="submit"
-							disabled={isLoading}
+							disabled={isLoading || (!!turnstileSiteKey && !turnstileToken)}
 							className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
 						>
 							{isLoading ? (

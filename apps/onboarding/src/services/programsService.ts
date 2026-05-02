@@ -22,13 +22,13 @@ export interface TrainingContentV2Workspace {
   others: { type: string; label: string; items: any[] }[];
 }
 
-export async function fetchPrograms(token: string): Promise<{ items: Program[] }> {
+export async function fetchPrograms(_token?: string): Promise<{ items: Program[] }> {
   const baseUrl = config.api.baseUrl;
-  
+
   const response = await fetch(`${baseUrl}/api/program-section-content`, {
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
   });
 
@@ -40,14 +40,12 @@ export async function fetchPrograms(token: string): Promise<{ items: Program[] }
   return { items: data.items || [] };
 }
 
-export async function fetchTeamWorkspace(token: string, age: number | null): Promise<TrainingContentV2Workspace> {
+export async function fetchTeamWorkspace(_token: string, age: number | null): Promise<TrainingContentV2Workspace> {
   const baseUrl = config.api.baseUrl;
   const ageQ = age != null ? `?age=${age}` : "";
-  
+
   const response = await fetch(`${baseUrl}/api/training-content-v2/mobile${ageQ}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -57,16 +55,14 @@ export async function fetchTeamWorkspace(token: string, age: number | null): Pro
   return response.json();
 }
 
-export async function fetchSectionContent(token: string, type: string, tier: string, age: number | null) {
+export async function fetchSectionContent(_token: string, type: string, tier: string, age: number | null) {
   const baseUrl = config.api.baseUrl;
   const ageQ = age !== null ? `&age=${age}` : "";
-  
+
   const response = await fetch(
     `${baseUrl}/api/program-section-content?sectionType=${encodeURIComponent(String(type))}&programTier=${encodeURIComponent(tier)}${ageQ}`,
     {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      credentials: "include",
     }
   );
 
@@ -77,13 +73,56 @@ export async function fetchSectionContent(token: string, type: string, tier: str
   return response.json();
 }
 
-export async function fetchProgramDetail(token: string, programId: number): Promise<Program> {
+export interface AssignedProgram {
+  id: number;
+  name: string;
+  description: string | null;
+  moduleCount: number;
+  status: string;
+}
+
+export async function fetchMyAssignedPrograms(_token?: string): Promise<AssignedProgram[]> {
   const baseUrl = config.api.baseUrl;
-  
+  const response = await fetch(`${baseUrl}/api/programs/my-assigned`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch assigned programs: ${response.status}`);
+  }
+  const data = await response.json();
+  return Array.isArray(data.programs) ? data.programs : [];
+}
+
+export async function fetchMyProgramFull(_token: string, programId: number) {
+  const baseUrl = config.api.baseUrl;
+  const response = await fetch(`${baseUrl}/api/programs/my-assigned/${programId}`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch program: ${response.status}`);
+  }
+  const data = await response.json();
+  return data.program ?? null;
+}
+
+export async function fetchMySessionExercises(_token: string, sessionId: number) {
+  const baseUrl = config.api.baseUrl;
+  const response = await fetch(`${baseUrl}/api/programs/my-sessions/${sessionId}/exercises`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch session exercises: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchProgramDetail(_token: string, programId: number): Promise<Program> {
+  const baseUrl = config.api.baseUrl;
+
   const response = await fetch(`${baseUrl}/api/programs/${programId}`, {
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
   });
 

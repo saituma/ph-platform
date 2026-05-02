@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { apiRequest } from "@/lib/api";
 import { VideoItem, CoachResponse } from "@/types/video-upload";
 
@@ -19,7 +19,8 @@ export function useVideoHistory(token: string | null, athleteUserId: number | st
         forceRefresh,
       });
       setVideoItems(data.items ?? []);
-    } catch {
+    } catch (err) {
+      console.warn("[useVideoHistory] loadVideos failed", err);
       setVideoItems([]);
     } finally {
       setIsLoading(false);
@@ -46,7 +47,8 @@ export function useVideoHistory(token: string | null, athleteUserId: number | st
           videoUploadId: Number(msg.videoUploadId),
         }));
       setCoachResponses(items);
-    } catch {
+    } catch (err) {
+      console.warn("[useVideoHistory] loadCoachResponses failed", err);
       setCoachResponses([]);
     }
   }, [token, athleteUserId]);

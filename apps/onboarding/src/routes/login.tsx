@@ -13,8 +13,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Input } from "#/components/ui/input";
+import { Turnstile } from "#/components/Turnstile";
 import { config } from "#/lib/config";
+import { csrfFetch } from "#/lib/csrf";
+import { env } from "#/env";
 import { isTokenExpired } from "#/lib/token-expiry";
+import { setAuthToken } from "#/lib/client-storage";
+import { trackEvent } from "#/lib/analytics";
 
 export const Route = createFileRoute("/login")({
 	head: () => ({
@@ -43,7 +48,9 @@ function Login() {
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 	const navigate = useNavigate();
+	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 
 	const handleLogin = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -60,12 +67,17 @@ function Login() {
 			return;
 		}
 
+		if (turnstileSiteKey && !turnstileToken) {
+			toast.error("Please complete the verification challenge");
+			return;
+		}
+
 		setIsLoading(true);
 		try {
-			const tokenResponse = await fetch(`${config.api.baseUrl}/api/auth/login`, {
+			const tokenResponse = await csrfFetch(`${config.api.baseUrl}/api/auth/login`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ email, password }),
+				body: JSON.stringify({ email, password, turnstileToken }),
 			});
 			const data = await tokenResponse.json().catch(() => ({}));
 			if (!tokenResponse.ok) {
@@ -78,10 +90,12 @@ function Login() {
 				throw new Error("Login token is already expired. Please check server JWT settings.");
 			}
 
-			localStorage.setItem("auth_token", data.accessToken);
+			trackEvent("login_success", { email });
+			await setAuthToken(data.accessToken);
 			localStorage.setItem("pending_email", email);
 			navigate({ to: "/portal/dashboard", replace: true });
 		} catch (error: any) {
+			trackEvent("login_failure", { email });
 			toast.error("Login failed", {
 				description: error.message || "Invalid email or password.",
 			});
@@ -136,12 +150,14 @@ function Login() {
 									setEmail(e.target.value);
 									if (errors.email) setErrors({ ...errors, email: undefined });
 								}}
+								aria-invalid={!!errors.email}
+								aria-describedby={errors.email ? "email-error" : undefined}
 								className={`h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm placeholder:text-foreground/20 focus-visible:ring-0 focus-visible:border-foreground/20 transition-colors ${
 									errors.email ? "border-destructive/50" : ""
 								}`}
 							/>
 							{errors.email && (
-								<p className="text-xs text-destructive flex items-center gap-1.5 font-mono">
+								<p id="email-error" role="alert" className="text-xs text-destructive flex items-center gap-1.5 font-mono">
 									<WarningCircle weight="fill" size={12} />
 									{errors.email}
 								</p>
@@ -166,6 +182,8 @@ function Login() {
 										setPassword(e.target.value);
 										if (errors.password) setErrors({ ...errors, password: undefined });
 									}}
+									aria-invalid={!!errors.password}
+									aria-describedby={errors.password ? "password-error" : undefined}
 									className={`h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm pr-10 placeholder:text-foreground/20 focus-visible:ring-0 focus-visible:border-foreground/20 transition-colors ${
 										errors.password ? "border-destructive/50" : ""
 									}`}
@@ -173,22 +191,34 @@ function Login() {
 								<button
 									type="button"
 									onClick={() => setShowPassword(!showPassword)}
+									aria-label={showPassword ? "Hide password" : "Show password"}
 									className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60 transition-colors duration-150"
 								>
 									{showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
 								</button>
 							</div>
 							{errors.password && (
-								<p className="text-xs text-destructive flex items-center gap-1.5 font-mono">
+								<p id="password-error" role="alert" className="text-xs text-destructive flex items-center gap-1.5 font-mono">
 									<WarningCircle weight="fill" size={12} />
 									{errors.password}
 								</p>
 							)}
 						</div>
 
+						{turnstileSiteKey && (
+							<Turnstile
+								siteKey={turnstileSiteKey}
+								action="login"
+								onVerify={setTurnstileToken}
+								onExpire={() => setTurnstileToken(null)}
+								onError={() => setTurnstileToken(null)}
+								className="flex justify-center"
+							/>
+						)}
+
 						<button
 							type="submit"
-							disabled={isLoading}
+							disabled={isLoading || (!!turnstileSiteKey && !turnstileToken)}
 							className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
 						>
 							{isLoading ? (

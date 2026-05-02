@@ -198,22 +198,34 @@ async function pickEnvironments() {
   return idxs.length ? idxs.map((i) => ENVIRONMENTS[i]) : ENVIRONMENTS;
 }
 
-function runEasCreate({ name, value, visibility, environment }) {
+function runEasCmd(cmd, extraArgs) {
   return new Promise((resolve) => {
-    const args = [
-      "env:create",
-      "--name", name,
-      "--value", value,
-      "--visibility", visibility,
-      "--environment", environment,
-      "--non-interactive",
-    ];
-    const ps = spawn("eas", args, { stdio: ["ignore", "pipe", "pipe"] });
+    const ps = spawn("eas", [cmd, ...extraArgs, "--non-interactive"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let out = "", err = "";
     ps.stdout.on("data", (d) => (out += d));
     ps.stderr.on("data", (d) => (err += d));
     ps.on("close", (code) => resolve({ code, out, err }));
   });
+}
+
+async function runEasCreate({ name, value, visibility, environment }) {
+  const createArgs = [
+    "--name", name, "--value", value,
+    "--visibility", visibility, "--environment", environment,
+  ];
+  const r = await runEasCmd("env:create", createArgs);
+  if (r.code === 0) return r;
+
+  const updateArgs = [
+    "--variable-name", name, "--variable-environment", environment,
+    "--value", value, "--visibility", visibility,
+    "--environment", environment,
+  ];
+  const u = await runEasCmd("env:update", updateArgs);
+  if (u.code === 0) return { ...u, updated: true };
+  return r;
 }
 
 async function main() {
@@ -284,7 +296,7 @@ async function main() {
     process.stdout.write(`  ${t.name} → ${t.environment} ... `);
     const r = await runEasCreate(t);
     if (r.code === 0) {
-      console.log(paint("green", "✓"));
+      console.log(paint("green", r.updated ? "✓ (updated)" : "✓"));
       okCount++;
     } else {
       const reason = (r.err || r.out).trim().split("\n").slice(-3).join(" | ");

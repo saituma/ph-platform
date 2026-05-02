@@ -15,6 +15,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { useMyProgramDetail, useMySessionExercises } from "@/hooks/programs/useMyPrograms";
 import { Shadows } from "@/constants/theme";
+import { SkeletonProgramDetailScreen } from "@/components/ui/Skeleton";
 
 export default function AssignedProgramDetailScreen() {
   const router = useRouter();
@@ -70,9 +71,7 @@ export default function AssignedProgramDetailScreen() {
       </View>
 
       {isLoading && !program ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
+        <SkeletonProgramDetailScreen />
       ) : error ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
           <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, textAlign: "center" }}>

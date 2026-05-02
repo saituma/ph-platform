@@ -56,13 +56,11 @@ export function mapBookingsToEvents(items: any[]): ScheduleEvent[] {
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 }
 
-export async function fetchBookings(token: string): Promise<ScheduleEvent[]> {
+export async function fetchBookings(_token?: string): Promise<ScheduleEvent[]> {
   const baseUrl = config.api.baseUrl;
-  
+
   const response = await fetch(`${baseUrl}/api/bookings`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -73,15 +71,13 @@ export async function fetchBookings(token: string): Promise<ScheduleEvent[]> {
   return mapBookingsToEvents(data.items ?? []);
 }
 
-export async function fetchBookingServices(token: string) {
+export async function fetchBookingServices(_token?: string) {
   const baseUrl = config.api.baseUrl;
-  
+
   const response = await fetch(
     `${baseUrl}/api/bookings/services?includeLocked=true&omitWithoutBookableSlots=true`,
     {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      credentials: "include",
     },
   );
 
@@ -95,7 +91,7 @@ export async function fetchBookingServices(token: string) {
 
 /** Coach-published times in a range (same source as the schedule calendar). */
 export async function fetchGeneratedAvailability(
-  token: string,
+  _token: string,
   params: { from: Date; to: Date; serviceTypeId: number },
 ) {
   const baseUrl = config.api.baseUrl;
@@ -105,7 +101,7 @@ export async function fetchGeneratedAvailability(
     serviceTypeId: String(params.serviceTypeId),
   });
   const response = await fetch(`${baseUrl}/api/bookings/generated-availability?${qs}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch availability: ${response.status}`);
@@ -143,14 +139,14 @@ export function sumReportedOpeningsForService(
   return { occurrenceCount: rows.length, openingsSum: sum };
 }
 
-export async function createBooking(token: string, body: any) {
+export async function createBooking(_token: string, body: any) {
   const baseUrl = config.api.baseUrl;
-  
+
   const response = await fetch(`${baseUrl}/api/bookings`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(body),
   });

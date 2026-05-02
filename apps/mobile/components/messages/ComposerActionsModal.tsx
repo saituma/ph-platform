@@ -1,15 +1,11 @@
 import React from "react";
 import { Pressable, View } from "react-native";
-import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetView,
-} from "@gorhom/bottom-sheet";
 
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { fonts } from "@/constants/theme";
+import { DetentSheet } from "@/components/native/DetentSheet";
 
 type ComposerActionsModalProps = {
   open: boolean;
@@ -96,7 +92,6 @@ export function ComposerActionsModal({
   onOpenEmojis,
 }: ComposerActionsModalProps) {
   const { colors, isDark } = useAppTheme();
-  const modalRef = React.useRef<BottomSheetModal>(null);
   const snapPoints = React.useMemo(() => ["68%"], []);
 
   const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
@@ -106,42 +101,13 @@ export function ComposerActionsModal({
   const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
   const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
 
-  React.useEffect(() => {
-    const modal = modalRef.current;
-    if (!modal) return;
-    if (open) {
-      modal.present();
-      return;
-    }
-    modal.dismiss();
-  }, [open]);
-
   return (
-    <BottomSheetModal
-      ref={modalRef}
-      index={0}
+    <DetentSheet
+      open={open}
+      onClose={onClose}
       snapPoints={snapPoints}
-      onDismiss={onClose}
-      enablePanDownToClose
-      backdropComponent={(props) => (
-        <BottomSheetBackdrop
-          {...props}
-          appearsOnIndex={0}
-          disappearsOnIndex={-1}
-          opacity={0.4}
-          pressBehavior="close"
-        />
-      )}
-      backgroundStyle={{
-        backgroundColor: cardBg,
-      }}
-      handleIndicatorStyle={{
-        backgroundColor: isDark
-          ? "rgba(255,255,255,0.28)"
-          : "rgba(15,23,42,0.25)",
-      }}
+      contentStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
     >
-      <BottomSheetView style={{ paddingHorizontal: 24, paddingBottom: 32 }}>
         <View
           style={{
             borderRadius: 20,
@@ -264,7 +230,6 @@ export function ComposerActionsModal({
             />
           </View>
         </View>
-      </BottomSheetView>
-    </BottomSheetModal>
+    </DetentSheet>
   );
 }

@@ -13,13 +13,14 @@ import { UserProfileSheet, type ProfileTarget } from "@/components/messages/User
 import { useMessagesController } from "@/hooks/useMessagesController";
 import { fonts } from "@/constants/theme";
 import React from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { messagesApi } from "@/lib/apiClient/messages";
 import * as Haptics from "expo-haptics";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams } from "expo-router";
 import { Text } from "@/components/ScaledText";
+import { SkeletonThreadScreen } from "@/components/ui/Skeleton";
 
 export default function ThreadScreen() {
   const { colors, isDark } = useAppTheme();
@@ -151,8 +152,8 @@ export default function ThreadScreen() {
 
   if (!currentThread) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={colors.accent} />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <SkeletonThreadScreen />
       </View>
     );
   }

@@ -25,6 +25,17 @@ export class RootErrorBoundary extends Component<Props, State> {
         "[DEPTH-PROBE] ErrorBoundary saw max update depth — componentStack above is the best React hint for which tree failed.",
       );
     }
+
+    // Report to Sentry in production
+    try {
+      // Dynamic require to avoid circular dependency with sentry init
+      const { Sentry } = require("@/lib/sentry");
+      Sentry.captureException(error, {
+        contexts: { react: { componentStack: info.componentStack ?? undefined } },
+      });
+    } catch {
+      // Sentry not available — nothing to do
+    }
   }
 
   private clearError = (): void => {
@@ -38,12 +49,11 @@ export class RootErrorBoundary extends Component<Props, State> {
         <View style={styles.container}>
           <Text style={styles.title}>Something went wrong</Text>
           <Text style={styles.body}>{error.message}</Text>
-          {__DEV__ ? (
-            <Pressable onPress={this.clearError} style={styles.button}>
-              <Text style={styles.buttonText}>Try again (dev)</Text>
-            </Pressable>
-          ) : (
-            <Text style={styles.hint}>Close and reopen the app. If this persists, contact support.</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Try Again" onPress={this.clearError} style={styles.button}>
+            <Text style={styles.buttonText}>Try Again</Text>
+          </Pressable>
+          {!__DEV__ && (
+            <Text style={styles.hint}>If this keeps happening, close and reopen the app.</Text>
           )}
         </View>
       );

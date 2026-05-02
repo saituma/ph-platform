@@ -12,10 +12,10 @@ export const queryKeys = {
   },
 
   bookings: {
-    all: () => ["bookings"] as const,
-    services: () => ["booking-services"] as const,
-    generatedAvailability: (from: string, to: string) =>
-      ["generated-availability", from, to] as const,
+    all: (profileId: number) => ["bookings", profileId] as const,
+    services: (profileId: number) => ["bookings", profileId, "services"] as const,
+    generatedAvailability: (profileId: number, from: string, to: string) =>
+      ["bookings", profileId, "generated-availability", from, to] as const,
   },
 
   messages: {

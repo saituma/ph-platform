@@ -1,6 +1,7 @@
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
+  athleteTable,
   exerciseTable,
   programAssignmentTable,
   programModuleTable,
@@ -17,6 +18,13 @@ export async function assignEnrollment(input: {
   programTemplateId?: number | null;
   assignedByCoach: number;
 }) {
+  const [athlete] = await db
+    .select({ id: athleteTable.id })
+    .from(athleteTable)
+    .where(eq(athleteTable.id, input.athleteId))
+    .limit(1);
+  if (!athlete) throw new Error("Athlete not found");
+
   const result = await db
     .insert(enrollmentTable)
     .values({
@@ -178,8 +186,13 @@ export async function createExercise(input: {
   return result[0];
 }
 
-export async function listExercises() {
-  return db.select().from(exerciseTable).orderBy(desc(exerciseTable.createdAt));
+export async function listExercises(options?: { limit?: number }) {
+  const effectiveLimit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? Math.max(1, Math.min(200, Math.floor(options.limit)))
+      : 200;
+
+  return db.select().from(exerciseTable).orderBy(desc(exerciseTable.createdAt)).limit(effectiveLimit);
 }
 
 export async function updateExercise(

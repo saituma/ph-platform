@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { healthCheck } from "../controllers/health.controller";
+import { healthCheck, deepHealthCheck } from "../controllers/health.controller";
 import { listPlans } from "../controllers/billing.controller";
 import { sendFcmPush, isFcmEnabled } from "../services/fcm.service";
 
@@ -8,6 +8,7 @@ const router = Router();
 
 router.get("/health", healthCheck);
 router.post("/health", healthCheck);
+router.get("/health/deep", deepHealthCheck);
 // Public plans endpoint (no auth) for mobile clients.
 router.get("/public/plans", listPlans);
 

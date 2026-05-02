@@ -3,8 +3,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GalleryApiItem } from "#/services/galleryService";
 import { fetchGalleryItems } from "#/services/galleryService";
-import Header from "#/components/Header";
-import Footer from "#/components/Footer";
 
 export const Route = createFileRoute("/gallery")({
 	head: () => ({
@@ -215,6 +213,7 @@ function GalleryCard({
 				<img
 					src={thumb}
 					alt={item.caption ?? ""}
+					loading="lazy"
 					className="w-full h-auto block"
 					style={{ opacity: loaded ? 1 : 0, transition: "opacity 0.4s cubic-bezier(0.25,0,0,1)" }}
 					onLoad={() => setLoaded(true)}
@@ -304,8 +303,6 @@ function GalleryPage() {
 
 	return (
 		<div className="min-h-dvh flex flex-col bg-background text-foreground">
-			<Header />
-
 			<main className="flex-1 px-6 py-24 sm:py-32">
 				<div className="max-w-6xl mx-auto">
 					{/* Back link */}
@@ -413,8 +410,6 @@ function GalleryPage() {
 					</div>
 				</div>
 			</main>
-
-			<Footer />
 
 			{lightboxIndex !== null && (
 				<Lightbox

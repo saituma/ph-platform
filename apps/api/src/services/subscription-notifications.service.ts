@@ -3,7 +3,7 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import { env } from "../config/env";
 import { db } from "../db";
 import { athleteTable, subscriptionPlanTable, subscriptionRequestTable, userTable } from "../db/schema";
-import { sendPushNotification } from "./push.service";
+import { pushQueue } from "../jobs";
 import { quoteAthleteBillingCycleAmount } from "./billing/plan.service";
 import { ATHLETE_BILLING_CYCLES, type AthleteBillingCycle } from "./billing/stripe.service";
 import { buildBillingReceiptEmailFromStripeSession } from "../lib/mailer/billing-receipt-email";
@@ -128,12 +128,12 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
     receipt,
   });
 
-  void sendPushNotification(
-    row.userId,
-    "Subscription pending",
-    `Your ${row.planName} subscription is being reviewed.`,
-    { type: "payment", url: "/plans" },
-  );
+  void pushQueue.enqueue({
+    userId: row.userId,
+    title: "Subscription pending",
+    body: `Your ${row.planName} subscription is being reviewed.`,
+    data: { type: "payment", url: "/plans" },
+  });
 
   const staff = await db
     .select({ email: userTable.email, name: userTable.name })
@@ -199,10 +199,10 @@ export async function notifySubscriptionPlanApproved(userId: number, planTier: s
     planTier,
   });
 
-  void sendPushNotification(
+  void pushQueue.enqueue({
     userId,
-    "Plan approved",
-    `Your ${planTier} plan has been approved! You now have full access.`,
-    { type: "plan_approved", screen: "plans", url: "/plans" },
-  );
+    title: "Plan approved",
+    body: `Your ${planTier} plan has been approved! You now have full access.`,
+    data: { type: "plan_approved", screen: "plans", url: "/plans" },
+  });
 }

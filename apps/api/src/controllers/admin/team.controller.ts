@@ -90,6 +90,9 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       managerPassword: z.string().min(8).optional().nullable(),
       managerName: z.string().optional().nullable(),
       emailSlug: z.string().min(2).max(80).optional().nullable(),
+      hasSponsoredPlayers: z.coerce.boolean().optional().default(false),
+      sponsoredPlayerCount: z.coerce.number().int().min(0).optional().default(0),
+      sponsoredTier: z.enum(ProgramType.enumValues).optional().nullable(),
     })
     .safeParse(req.body);
   if (!parsed.success) {
@@ -115,6 +118,9 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       createdByUserId: req.user!.id,
       paymentMethod: parsed.data.paymentMethod,
       billingCycle: parsed.data.billingCycle,
+      hasSponsoredPlayers: parsed.data.hasSponsoredPlayers,
+      sponsoredPlayerCount: parsed.data.sponsoredPlayerCount,
+      sponsoredTier: parsed.data.sponsoredTier ?? undefined,
     });
     return res.status(201).json(result);
   } catch (error: any) {
@@ -215,7 +221,10 @@ export async function attachAthleteToTeamAdminDetails(req: Request, res: Respons
   }
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
   try {
-    const parsed = z.object({ allowMoveFromOtherTeam: z.coerce.boolean().optional() }).safeParse(req.body ?? {});
+    const parsed = z.object({
+      allowMoveFromOtherTeam: z.coerce.boolean().optional(),
+      isSponsored: z.coerce.boolean().optional(),
+    }).safeParse(req.body ?? {});
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid request" });
     }
@@ -224,6 +233,7 @@ export async function attachAthleteToTeamAdminDetails(req: Request, res: Respons
       teamName,
       athleteId,
       allowMoveFromOtherTeam: parsed.data.allowMoveFromOtherTeam === true,
+      isSponsored: parsed.data.isSponsored === true,
       createdByUserId: req.user!.id,
     });
     return res.status(200).json(result);

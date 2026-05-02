@@ -16,7 +16,7 @@ import { ProgramMetricGrid } from "@/components/programs/metrics/ProgramMetricGr
 import type { CoachResponse } from "@/types/video-upload";
 
 type PendingSessionVideo = {
-  video: { uri: string };
+  video: { uri: string; sizeBytes?: number };
   notes: string;
   progress: number | null;
   error: string | null;

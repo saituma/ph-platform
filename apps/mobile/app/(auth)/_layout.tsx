@@ -37,5 +37,5 @@ export default function AuthLayout() {
     return <ReplaceOnce href="/(tabs)" />;
   }
 
-  return <Stack screenOptions={authStackScreenOptions} />;
+  return <Stack screenOptions={{ ...authStackScreenOptions, headerShown: false }} />;
 }

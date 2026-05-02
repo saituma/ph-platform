@@ -29,6 +29,7 @@ export function CoachSection({
           <View className="w-20 h-20 rounded-3xl bg-secondary overflow-hidden items-center justify-center">
             {heroImageUrl ? (
               <Image
+                accessibilityLabel="Coach profile photo"
                 source={{ uri: heroImageUrl }}
                 style={{ width: "100%", height: "100%" }}
                 resizeMode="cover"

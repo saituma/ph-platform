@@ -104,7 +104,7 @@ export function parseReplyPrefix(raw: string): ParsedReplyPrefix {
 }
 
 export async function fetchInbox(
-	token: string,
+	_token?: string,
 	isManager: boolean = false,
 ): Promise<{ threads: MessageThread[] }> {
 	try {
@@ -113,7 +113,7 @@ export async function fetchInbox(
 				`/api/messages/inbox?includeAdminThreads=${isManager ? "1" : "0"}`,
 			),
 			{
-				headers: { Authorization: `Bearer ${token}` },
+				credentials: "include",
 			},
 		);
 		const inboxData = inboxRes.ok
@@ -151,7 +151,7 @@ export async function fetchInbox(
 }
 
 export async function fetchThreadMessages(
-	token: string,
+	_token: string,
 	threadId: string,
 ): Promise<ApiChatMessage[]> {
 	const [type, id] = threadId.split(":");
@@ -164,7 +164,7 @@ export async function fetchThreadMessages(
 		endpoint = publicApiUrl(`/api/messages?peerUserId=${id}`);
 
 	const response = await fetch(endpoint, {
-		headers: { Authorization: `Bearer ${token}` },
+		credentials: "include",
 	});
 
 	if (!response.ok) throw new Error("Failed to fetch messages");
@@ -173,7 +173,7 @@ export async function fetchThreadMessages(
 }
 
 export async function uploadMessageAttachment(
-	token: string,
+	_token: string,
 	file: File,
 ): Promise<{ mediaUrl: string; contentType: "text" | "image" | "video" }> {
 	const mimeType = String(file.type || "application/octet-stream").toLowerCase();
@@ -191,9 +191,9 @@ export async function uploadMessageAttachment(
 			: "messages/files";
 	const presignRes = await fetch(publicApiUrl("/api/media/presign"), {
 		method: "POST",
+		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
-			Authorization: `Bearer ${token}`,
 		},
 		body: JSON.stringify({
 			folder,
@@ -218,7 +218,7 @@ export async function uploadMessageAttachment(
 }
 
 export async function sendMessage(
-	token: string,
+	_token: string,
 	threadId: string,
 	input: SendMessagePayload,
 ): Promise<any> {
@@ -238,9 +238,9 @@ export async function sendMessage(
 
 	const response = await fetch(endpoint, {
 		method: "POST",
+		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
-			Authorization: `Bearer ${token}`,
 		},
 		body: JSON.stringify(body),
 	});
@@ -250,7 +250,7 @@ export async function sendMessage(
 }
 
 export async function toggleMessageReaction(
-	token: string,
+	_token: string,
 	threadId: string,
 	messageId: number,
 	emoji: string,
@@ -264,9 +264,9 @@ export async function toggleMessageReaction(
 	}
 	const response = await fetch(endpoint, {
 		method: "PUT",
+		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
-			Authorization: `Bearer ${token}`,
 		},
 		body: JSON.stringify({ emoji }),
 	});

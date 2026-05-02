@@ -12,14 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as TestimonialsDemoRouteImport } from './routes/testimonials-demo'
 import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
+import { Route as ServicesRouteImport } from './routes/services'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as EnquiryRouteImport } from './routes/enquiry'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
 import { Route as CtaDemoRouteImport } from './routes/cta-demo'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as AppDownloadRouteImport } from './routes/app-download'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalTestimonialRouteImport } from './routes/portal/testimonial'
@@ -49,6 +53,9 @@ import { Route as OnboardingStep3RouteImport } from './routes/onboarding/step-3'
 import { Route as OnboardingStep2RouteImport } from './routes/onboarding/step-2'
 import { Route as OnboardingStep1RouteImport } from './routes/onboarding/step-1'
 import { Route as OnboardingDashboardRouteImport } from './routes/onboarding/dashboard'
+import { Route as EnquiryTeamRouteImport } from './routes/enquiry/team'
+import { Route as EnquirySemiPrivateRouteImport } from './routes/enquiry/semi-private'
+import { Route as Enquiry121RouteImport } from './routes/enquiry/121'
 import { Route as PortalTeamIndexRouteImport } from './routes/portal/team/index'
 import { Route as PortalProgramsIndexRouteImport } from './routes/portal/programs/index'
 import { Route as PortalTeamAthleteIdRouteImport } from './routes/portal/team/$athleteId'
@@ -56,6 +63,8 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAppSplatRouteImport } from './routes/api/app/$'
 import { Route as PortalProgramsSessionSessionIdRouteImport } from './routes/portal/programs/session/$sessionId'
 import { Route as PortalProgramsModuleModuleIdRouteImport } from './routes/portal/programs/module/$moduleId'
+import { Route as PortalProgramsAssignedProgramIdRouteImport } from './routes/portal/programs/assigned/$programId'
+import { Route as PortalProgramsAssignedSessionSessionIdRouteImport } from './routes/portal/programs/assigned/session.$sessionId'
 
 const VerificationRoute = VerificationRouteImport.update({
   id: '/verification',
@@ -70,6 +79,11 @@ const TestimonialsDemoRoute = TestimonialsDemoRouteImport.update({
 const TermsPrivacyRoute = TermsPrivacyRouteImport.update({
   id: '/terms-privacy',
   path: '/terms-privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServicesRoute = ServicesRouteImport.update({
+  id: '/services',
+  path: '/services',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -102,6 +116,11 @@ const FeaturesRoute = FeaturesRouteImport.update({
   path: '/features',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EnquiryRoute = EnquiryRouteImport.update({
+  id: '/enquiry',
+  path: '/enquiry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EducationFaqRoute = EducationFaqRouteImport.update({
   id: '/education-faq',
   path: '/education-faq',
@@ -110,6 +129,16 @@ const EducationFaqRoute = EducationFaqRouteImport.update({
 const CtaDemoRoute = CtaDemoRouteImport.update({
   id: '/cta-demo',
   path: '/cta-demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppDownloadRoute = AppDownloadRouteImport.update({
+  id: '/app-download',
+  path: '/app-download',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -257,6 +286,21 @@ const OnboardingDashboardRoute = OnboardingDashboardRouteImport.update({
   path: '/onboarding/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EnquiryTeamRoute = EnquiryTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => EnquiryRoute,
+} as any)
+const EnquirySemiPrivateRoute = EnquirySemiPrivateRouteImport.update({
+  id: '/semi-private',
+  path: '/semi-private',
+  getParentRoute: () => EnquiryRoute,
+} as any)
+const Enquiry121Route = Enquiry121RouteImport.update({
+  id: '/121',
+  path: '/121',
+  getParentRoute: () => EnquiryRoute,
+} as any)
 const PortalTeamIndexRoute = PortalTeamIndexRouteImport.update({
   id: '/team/',
   path: '/team/',
@@ -294,21 +338,40 @@ const PortalProgramsModuleModuleIdRoute =
     path: '/programs/module/$moduleId',
     getParentRoute: () => PortalRoute,
   } as any)
+const PortalProgramsAssignedProgramIdRoute =
+  PortalProgramsAssignedProgramIdRouteImport.update({
+    id: '/programs/assigned/$programId',
+    path: '/programs/assigned/$programId',
+    getParentRoute: () => PortalRoute,
+  } as any)
+const PortalProgramsAssignedSessionSessionIdRoute =
+  PortalProgramsAssignedSessionSessionIdRouteImport.update({
+    id: '/programs/assigned/session/$sessionId',
+    path: '/programs/assigned/session/$sessionId',
+    getParentRoute: () => PortalRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/app-download': typeof AppDownloadRoute
+  '/contact': typeof ContactRoute
   '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
+  '/enquiry': typeof EnquiryRouteWithChildren
   '/features': typeof FeaturesRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
   '/register': typeof RegisterRoute
+  '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
+  '/enquiry/121': typeof Enquiry121Route
+  '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
+  '/enquiry/team': typeof EnquiryTeamRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
@@ -341,23 +404,32 @@ export interface FileRoutesByFullPath {
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
   '/portal/team/': typeof PortalTeamIndexRoute
+  '/portal/programs/assigned/$programId': typeof PortalProgramsAssignedProgramIdRoute
   '/portal/programs/module/$moduleId': typeof PortalProgramsModuleModuleIdRoute
   '/portal/programs/session/$sessionId': typeof PortalProgramsSessionSessionIdRoute
+  '/portal/programs/assigned/session/$sessionId': typeof PortalProgramsAssignedSessionSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/app-download': typeof AppDownloadRoute
+  '/contact': typeof ContactRoute
   '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
+  '/enquiry': typeof EnquiryRouteWithChildren
   '/features': typeof FeaturesRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
   '/register': typeof RegisterRoute
+  '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
+  '/enquiry/121': typeof Enquiry121Route
+  '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
+  '/enquiry/team': typeof EnquiryTeamRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
@@ -390,24 +462,33 @@ export interface FileRoutesByTo {
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs': typeof PortalProgramsIndexRoute
   '/portal/team': typeof PortalTeamIndexRoute
+  '/portal/programs/assigned/$programId': typeof PortalProgramsAssignedProgramIdRoute
   '/portal/programs/module/$moduleId': typeof PortalProgramsModuleModuleIdRoute
   '/portal/programs/session/$sessionId': typeof PortalProgramsSessionSessionIdRoute
+  '/portal/programs/assigned/session/$sessionId': typeof PortalProgramsAssignedSessionSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/app-download': typeof AppDownloadRoute
+  '/contact': typeof ContactRoute
   '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
+  '/enquiry': typeof EnquiryRouteWithChildren
   '/features': typeof FeaturesRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
   '/register': typeof RegisterRoute
+  '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
+  '/enquiry/121': typeof Enquiry121Route
+  '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
+  '/enquiry/team': typeof EnquiryTeamRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
@@ -440,25 +521,34 @@ export interface FileRoutesById {
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
   '/portal/team/': typeof PortalTeamIndexRoute
+  '/portal/programs/assigned/$programId': typeof PortalProgramsAssignedProgramIdRoute
   '/portal/programs/module/$moduleId': typeof PortalProgramsModuleModuleIdRoute
   '/portal/programs/session/$sessionId': typeof PortalProgramsSessionSessionIdRoute
+  '/portal/programs/assigned/session/$sessionId': typeof PortalProgramsAssignedSessionSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/about'
+    | '/app-download'
+    | '/contact'
     | '/cta-demo'
     | '/education-faq'
+    | '/enquiry'
     | '/features'
     | '/gallery'
     | '/login'
     | '/payment-success'
     | '/portal'
     | '/register'
+    | '/services'
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
+    | '/enquiry/121'
+    | '/enquiry/semi-private'
+    | '/enquiry/team'
     | '/onboarding/dashboard'
     | '/onboarding/step-1'
     | '/onboarding/step-2'
@@ -491,23 +581,32 @@ export interface FileRouteTypes {
     | '/portal/team/$athleteId'
     | '/portal/programs/'
     | '/portal/team/'
+    | '/portal/programs/assigned/$programId'
     | '/portal/programs/module/$moduleId'
     | '/portal/programs/session/$sessionId'
+    | '/portal/programs/assigned/session/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/app-download'
+    | '/contact'
     | '/cta-demo'
     | '/education-faq'
+    | '/enquiry'
     | '/features'
     | '/gallery'
     | '/login'
     | '/payment-success'
     | '/portal'
     | '/register'
+    | '/services'
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
+    | '/enquiry/121'
+    | '/enquiry/semi-private'
+    | '/enquiry/team'
     | '/onboarding/dashboard'
     | '/onboarding/step-1'
     | '/onboarding/step-2'
@@ -540,23 +639,32 @@ export interface FileRouteTypes {
     | '/portal/team/$athleteId'
     | '/portal/programs'
     | '/portal/team'
+    | '/portal/programs/assigned/$programId'
     | '/portal/programs/module/$moduleId'
     | '/portal/programs/session/$sessionId'
+    | '/portal/programs/assigned/session/$sessionId'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/app-download'
+    | '/contact'
     | '/cta-demo'
     | '/education-faq'
+    | '/enquiry'
     | '/features'
     | '/gallery'
     | '/login'
     | '/payment-success'
     | '/portal'
     | '/register'
+    | '/services'
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
+    | '/enquiry/121'
+    | '/enquiry/semi-private'
+    | '/enquiry/team'
     | '/onboarding/dashboard'
     | '/onboarding/step-1'
     | '/onboarding/step-2'
@@ -589,21 +697,27 @@ export interface FileRouteTypes {
     | '/portal/team/$athleteId'
     | '/portal/programs/'
     | '/portal/team/'
+    | '/portal/programs/assigned/$programId'
     | '/portal/programs/module/$moduleId'
     | '/portal/programs/session/$sessionId'
+    | '/portal/programs/assigned/session/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  AppDownloadRoute: typeof AppDownloadRoute
+  ContactRoute: typeof ContactRoute
   CtaDemoRoute: typeof CtaDemoRoute
   EducationFaqRoute: typeof EducationFaqRoute
+  EnquiryRoute: typeof EnquiryRouteWithChildren
   FeaturesRoute: typeof FeaturesRoute
   GalleryRoute: typeof GalleryRoute
   LoginRoute: typeof LoginRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   PortalRoute: typeof PortalRouteWithChildren
   RegisterRoute: typeof RegisterRoute
+  ServicesRoute: typeof ServicesRoute
   TermsPrivacyRoute: typeof TermsPrivacyRoute
   TestimonialsDemoRoute: typeof TestimonialsDemoRoute
   VerificationRoute: typeof VerificationRoute
@@ -639,6 +753,13 @@ declare module '@tanstack/react-router' {
       path: '/terms-privacy'
       fullPath: '/terms-privacy'
       preLoaderRoute: typeof TermsPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/services': {
+      id: '/services'
+      path: '/services'
+      fullPath: '/services'
+      preLoaderRoute: typeof ServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -683,6 +804,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeaturesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/enquiry': {
+      id: '/enquiry'
+      path: '/enquiry'
+      fullPath: '/enquiry'
+      preLoaderRoute: typeof EnquiryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/education-faq': {
       id: '/education-faq'
       path: '/education-faq'
@@ -695,6 +823,20 @@ declare module '@tanstack/react-router' {
       path: '/cta-demo'
       fullPath: '/cta-demo'
       preLoaderRoute: typeof CtaDemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app-download': {
+      id: '/app-download'
+      path: '/app-download'
+      fullPath: '/app-download'
+      preLoaderRoute: typeof AppDownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -900,6 +1042,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/enquiry/team': {
+      id: '/enquiry/team'
+      path: '/team'
+      fullPath: '/enquiry/team'
+      preLoaderRoute: typeof EnquiryTeamRouteImport
+      parentRoute: typeof EnquiryRoute
+    }
+    '/enquiry/semi-private': {
+      id: '/enquiry/semi-private'
+      path: '/semi-private'
+      fullPath: '/enquiry/semi-private'
+      preLoaderRoute: typeof EnquirySemiPrivateRouteImport
+      parentRoute: typeof EnquiryRoute
+    }
+    '/enquiry/121': {
+      id: '/enquiry/121'
+      path: '/121'
+      fullPath: '/enquiry/121'
+      preLoaderRoute: typeof Enquiry121RouteImport
+      parentRoute: typeof EnquiryRoute
+    }
     '/portal/team/': {
       id: '/portal/team/'
       path: '/team'
@@ -949,8 +1112,37 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalProgramsModuleModuleIdRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/programs/assigned/$programId': {
+      id: '/portal/programs/assigned/$programId'
+      path: '/programs/assigned/$programId'
+      fullPath: '/portal/programs/assigned/$programId'
+      preLoaderRoute: typeof PortalProgramsAssignedProgramIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/programs/assigned/session/$sessionId': {
+      id: '/portal/programs/assigned/session/$sessionId'
+      path: '/programs/assigned/session/$sessionId'
+      fullPath: '/portal/programs/assigned/session/$sessionId'
+      preLoaderRoute: typeof PortalProgramsAssignedSessionSessionIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
   }
 }
+
+interface EnquiryRouteChildren {
+  Enquiry121Route: typeof Enquiry121Route
+  EnquirySemiPrivateRoute: typeof EnquirySemiPrivateRoute
+  EnquiryTeamRoute: typeof EnquiryTeamRoute
+}
+
+const EnquiryRouteChildren: EnquiryRouteChildren = {
+  Enquiry121Route: Enquiry121Route,
+  EnquirySemiPrivateRoute: EnquirySemiPrivateRoute,
+  EnquiryTeamRoute: EnquiryTeamRoute,
+}
+
+const EnquiryRouteWithChildren =
+  EnquiryRoute._addFileChildren(EnquiryRouteChildren)
 
 interface PortalRouteChildren {
   PortalAboutRoute: typeof PortalAboutRoute
@@ -976,8 +1168,10 @@ interface PortalRouteChildren {
   PortalTeamAthleteIdRoute: typeof PortalTeamAthleteIdRoute
   PortalProgramsIndexRoute: typeof PortalProgramsIndexRoute
   PortalTeamIndexRoute: typeof PortalTeamIndexRoute
+  PortalProgramsAssignedProgramIdRoute: typeof PortalProgramsAssignedProgramIdRoute
   PortalProgramsModuleModuleIdRoute: typeof PortalProgramsModuleModuleIdRoute
   PortalProgramsSessionSessionIdRoute: typeof PortalProgramsSessionSessionIdRoute
+  PortalProgramsAssignedSessionSessionIdRoute: typeof PortalProgramsAssignedSessionSessionIdRoute
 }
 
 const PortalRouteChildren: PortalRouteChildren = {
@@ -1004,8 +1198,11 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalTeamAthleteIdRoute: PortalTeamAthleteIdRoute,
   PortalProgramsIndexRoute: PortalProgramsIndexRoute,
   PortalTeamIndexRoute: PortalTeamIndexRoute,
+  PortalProgramsAssignedProgramIdRoute: PortalProgramsAssignedProgramIdRoute,
   PortalProgramsModuleModuleIdRoute: PortalProgramsModuleModuleIdRoute,
   PortalProgramsSessionSessionIdRoute: PortalProgramsSessionSessionIdRoute,
+  PortalProgramsAssignedSessionSessionIdRoute:
+    PortalProgramsAssignedSessionSessionIdRoute,
 }
 
 const PortalRouteWithChildren =
@@ -1014,14 +1211,18 @@ const PortalRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  AppDownloadRoute: AppDownloadRoute,
+  ContactRoute: ContactRoute,
   CtaDemoRoute: CtaDemoRoute,
   EducationFaqRoute: EducationFaqRoute,
+  EnquiryRoute: EnquiryRouteWithChildren,
   FeaturesRoute: FeaturesRoute,
   GalleryRoute: GalleryRoute,
   LoginRoute: LoginRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   PortalRoute: PortalRouteWithChildren,
   RegisterRoute: RegisterRoute,
+  ServicesRoute: ServicesRoute,
   TermsPrivacyRoute: TermsPrivacyRoute,
   TestimonialsDemoRoute: TestimonialsDemoRoute,
   VerificationRoute: VerificationRoute,

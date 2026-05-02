@@ -31,6 +31,7 @@ import teamRosterRoutes from "./team-roster.routes";
 import activityRoutes from "./activity.routes";
 import referralRoutes from "./referral.routes";
 import portalRoutes from "./portal.routes";
+import enquiryRoutes from "./enquiry.routes";
 
 const router = Router();
 
@@ -65,5 +66,6 @@ router.use(teamRosterRoutes);
 router.use(activityRoutes);
 router.use(referralRoutes);
 router.use(portalRoutes);
+router.use(enquiryRoutes);
 
 export default router;

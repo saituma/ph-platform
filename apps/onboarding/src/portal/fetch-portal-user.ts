@@ -23,11 +23,11 @@ async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Prom
 	throw new Error("Failed to reach server");
 }
 
-export async function fetchPortalUser(token: string): Promise<PortalUser> {
+export async function fetchPortalUser(_token?: string): Promise<PortalUser> {
 	const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
 	const res = await fetchWithRetry(
 		`${baseUrl}/api/auth/me`,
-		{ headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+		{ credentials: "include", cache: "no-store" },
 	);
 
 	if (res.status === 401) {

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
 import { hasActivePortalSubscription } from "@/lib/portal-access";
 import { isPortalCoachLikeRole } from "@/lib/portal-roles";
+import { clearAuthToken } from "@/lib/client-storage";
 import { PortalProvider, usePortal } from "@/portal/PortalContext";
 
 export const Route = createFileRoute("/portal")({
@@ -25,18 +26,18 @@ function PortalInner() {
 	const navigate = useNavigate();
 	const { user, loading, error, refresh } = usePortal();
 
-	// No token at all → go to login
+	// PortalContext loading=false + no user + no error means no auth cookie
 	useEffect(() => {
-		if (typeof window === "undefined") return;
-		if (!localStorage.getItem("auth_token")) {
+		if (loading) return;
+		if (!user && !error) {
 			navigate({ to: "/login", replace: true });
 		}
-	}, [navigate]);
+	}, [loading, user, error, navigate]);
 
 	// 401 from server → token is bad → go to login
 	useEffect(() => {
 		if (error === "PORTAL_UNAUTHORIZED") {
-			localStorage.removeItem("auth_token");
+			void clearAuthToken();
 			navigate({ to: "/login", replace: true });
 		}
 	}, [error, navigate]);
@@ -189,7 +190,7 @@ function OnboardingGate({ user, isTeam, onboardingIncomplete, needsPlan }: {
 						{onboardingIncomplete ? (isTeam ? "Add Team Details" : "Continue Onboarding") : "Choose a Plan"}
 					</button>
 					<button type="button"
-						onClick={() => { localStorage.removeItem("auth_token"); localStorage.removeItem("user_type"); localStorage.removeItem("pending_email"); navigate({ to: "/login" }); }}
+						onClick={() => { void clearAuthToken(); localStorage.removeItem("user_type"); localStorage.removeItem("pending_email"); navigate({ to: "/login" }); }}
 						className="flex-1 inline-flex items-center justify-center border border-foreground/[0.06] px-5 py-2.5 font-mono text-xs uppercase tracking-wider text-foreground/60 hover:text-foreground hover:bg-foreground/[0.02] transition-all">
 						Log Out
 					</button>

@@ -1,4 +1,4 @@
-import { and, count, eq, lt } from "drizzle-orm";
+import { and, count, desc, eq, lt } from "drizzle-orm";
 import { db } from "../../db";
 import { bookingTable, serviceTypeTable } from "../../db/schema";
 import {
@@ -150,8 +150,7 @@ export async function listServiceTypes(options?: {
     return Promise.all(
       rows.map(async (service) => {
         const activeCount = await countActiveBookingsForService(service.id);
-        const remainingTotalSlots =
-          service.totalSlots != null ? Math.max(0, service.totalSlots - activeCount) : null;
+        const remainingTotalSlots = service.totalSlots != null ? Math.max(0, service.totalSlots - activeCount) : null;
         return {
           ...service,
           remainingCapacity: null as number | null,
@@ -165,13 +164,11 @@ export async function listServiceTypes(options?: {
     rows.map(async (service) => {
       const activeCount = await countActiveBookingsForService(service.id);
       // Match slot.service: null pattern + no fixed start → treat as one_time (legacy rows).
-      const pattern =
-        service.schedulePattern ?? (service.fixedStartTime ? "weekly_recurring" : "one_time");
+      const pattern = service.schedulePattern ?? (service.fixedStartTime ? "weekly_recurring" : "one_time");
       const isOneTime = pattern === "one_time";
       const remainingCapacity =
         isOneTime && service.capacity != null ? Math.max(0, service.capacity - activeCount) : null;
-      const remainingTotalSlots =
-        service.totalSlots != null ? Math.max(0, service.totalSlots - activeCount) : null;
+      const remainingTotalSlots = service.totalSlots != null ? Math.max(0, service.totalSlots - activeCount) : null;
 
       return {
         ...service,
@@ -363,7 +360,8 @@ export async function updateServiceType(
         input.slotIntervalMinutes !== undefined ? input.slotIntervalMinutes : (existing[0].slotIntervalMinutes ?? null),
       slotDefinitions: input.slotDefinitions ?? existing[0].slotDefinitions ?? [],
       isActive: input.isActive ?? existing[0].isActive ?? true,
-      isBookable: input.isBookable !== undefined ? (input.isBookable ?? true) : ((existing[0] as any).isBookable ?? true),
+      isBookable:
+        input.isBookable !== undefined ? (input.isBookable ?? true) : ((existing[0] as any).isBookable ?? true),
       updatedAt: new Date(),
     })
     .where(eq(serviceTypeTable.id, id))
@@ -525,12 +523,22 @@ export async function createBooking(input: {
   return result[0];
 }
 
-export async function listBookingsForUser(guardianId: number) {
-  return db.select().from(bookingTable).where(eq(bookingTable.guardianId, guardianId));
+export async function listBookingsForUser(guardianId: number, limit = 100) {
+  return db
+    .select()
+    .from(bookingTable)
+    .where(eq(bookingTable.guardianId, guardianId))
+    .orderBy(desc(bookingTable.startsAt))
+    .limit(Math.max(1, Math.min(200, limit)));
 }
 
-export async function listBookingsForAthlete(athleteId: number) {
-  return db.select().from(bookingTable).where(eq(bookingTable.athleteId, athleteId));
+export async function listBookingsForAthlete(athleteId: number, limit = 100) {
+  return db
+    .select()
+    .from(bookingTable)
+    .where(eq(bookingTable.athleteId, athleteId))
+    .orderBy(desc(bookingTable.startsAt))
+    .limit(Math.max(1, Math.min(200, limit)));
 }
 
 export async function cancelBookingForUser(bookingId: number, guardianId: number) {

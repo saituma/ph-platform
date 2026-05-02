@@ -261,6 +261,7 @@ export default function LoginScreen() {
                 trailing={
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                     hitSlop={10}
                     onPress={() => setShowPassword((v) => !v)}
                   >
@@ -298,7 +299,12 @@ export default function LoginScreen() {
 
           {/* Forgot password */}
           <View style={styles.forgotRow}>
-            <Pressable onPress={() => router.push("/forgot")}>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Forgot Password"
+              accessibilityHint="Navigate to password reset"
+              onPress={() => router.push("/forgot")}
+            >
               <Text className="font-outfit-semibold" style={{ fontSize: 14, color: colors.accent }}>
                 Forgot Password?
               </Text>
@@ -328,6 +334,8 @@ export default function LoginScreen() {
             </Text>
             <Pressable
               accessibilityRole="link"
+              accessibilityLabel="Register"
+              accessibilityHint="Opens registration in browser"
               onPress={() => {
                 const url =
                   (process.env.EXPO_PUBLIC_ONBOARDING_URL ?? "").trim() ||

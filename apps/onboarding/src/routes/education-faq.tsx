@@ -79,12 +79,15 @@ export const Route = createFileRoute("/education-faq")({
 
 function FAQItem({ question, answer }: { question: string; answer: string }) {
 	const [isOpen, setIsOpen] = useState(false);
+	const id = question.replace(/\s+/g, "-").toLowerCase().slice(0, 30);
 
 	return (
 		<div className="border-b border-border/40 py-6 last:border-0">
 			<button
 				type="button"
 				onClick={() => setIsOpen(!isOpen)}
+				aria-expanded={isOpen}
+				aria-controls={`faq-answer-${id}`}
 				className="flex w-full items-center justify-between text-left group"
 			>
 				<span className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors leading-tight">
@@ -101,6 +104,9 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
 				</div>
 			</button>
 			<div
+				id={`faq-answer-${id}`}
+				role="region"
+				aria-hidden={!isOpen}
 				className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
 					isOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
 				}`}

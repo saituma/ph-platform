@@ -45,6 +45,10 @@ export async function listProgramExercises(_req: Request, res: Response) {
 
 export async function getProgramAiInsightController(req: Request, res: Response) {
   const programId = programIdSchema.parse(req.params.programId);
+  const program = await getProgramByIdForUser(req.user!.id, programId);
+  if (!program) {
+    return res.status(404).json({ error: "Program not found" });
+  }
   const insight = await getProgramAiInsight(programId);
   return res.status(200).json({ insight });
 }

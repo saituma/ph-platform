@@ -1,31 +1,56 @@
-import Link from "next/link";
-import { Badge } from "../../ui/badge";
+"use client";
 
-type UserCard = {
-  id: number;
-  name: string;
-  email?: string;
-  isBlocked?: boolean;
-  athleteType: "Youth" | "Adult";
-  guardianName?: string;
-  guardianEmail?: string;
-  tier: string;
-  status: string;
-  onboarding: string;
-  lastActive: string;
-};
+import Link from "next/link";
+import type { UserRow } from "./users-table";
 
 type UsersCardsProps = {
-  users: UserCard[];
+  users: UserRow[];
   onSelect: (userId: number) => void;
   onChangePlan: (userId: number) => void;
   onToggleBlock: (userId: number, blocked: boolean) => void;
   onDelete: (userId: number) => void;
 };
 
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    Active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
+    Inactive: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
+    Trial: "bg-amber-500/15 text-amber-400 border-amber-500/20",
+    Blocked: "bg-red-500/15 text-red-400 border-red-500/20",
+  };
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${styles[status] ?? styles.Inactive}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function ProgressBar({ value }: { value: number }) {
+  const color =
+    value >= 75
+      ? "bg-emerald-500"
+      : value >= 50
+        ? "bg-lime-500"
+        : value >= 30
+          ? "bg-amber-500"
+          : "bg-red-500";
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 flex-1 rounded-full bg-zinc-700/60 overflow-hidden">
+        <div
+          className={`h-full rounded-full ${color}`}
+          style={{ width: `${Math.min(100, value)}%` }}
+        />
+      </div>
+      <span className="text-xs text-muted-foreground">{value}%</span>
+    </div>
+  );
+}
+
 export function UsersCards({
   users,
-  onSelect,
   onChangePlan,
   onToggleBlock,
   onDelete,
@@ -36,53 +61,51 @@ export function UsersCards({
         <Link
           key={user.id}
           href={`/users/${user.id}`}
-          className="block w-full rounded-2xl border border-border bg-secondary/40 p-4 text-left text-sm transition-colors hover:bg-secondary/60"
+          className="block w-full rounded-xl border border-border bg-card p-4 text-left text-sm transition-colors hover:bg-secondary/60"
         >
           <div className="flex items-center justify-between">
-            <p className="font-semibold text-foreground">{user.name}</p>
-            <Badge variant={user.tier === "Premium" ? "default" : "default"}>
-              {user.tier}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-700 text-xs font-medium text-zinc-300">
+                {user.name
+                  .split(" ")
+                  .map((w: string) => w[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">{user.name}</p>
+                {user.email && (
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                )}
+              </div>
+            </div>
+            <StatusBadge status={user.status} />
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-              {user.isBlocked ? "Blocked" : "Active"}
-            </span>
-            {user.email ? (
-              <span className="truncate text-[11px] text-muted-foreground">
-                {user.email}
-              </span>
-            ) : null}
-          </div>
+
           <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
             <div className="flex items-center justify-between">
-              <span>Athlete Type</span>
-              <span className="text-foreground">{user.athleteType}</span>
-            </div>
-            {user.athleteType === "Youth" ? (
-              <div className="flex items-start justify-between gap-4">
-                <span>Guardian</span>
-                <span className="text-right text-foreground">
-                  <span className="block">{user.guardianName ?? "-"}</span>
-                  <span className="block text-muted-foreground">
-                    {user.guardianEmail ?? "-"}
-                  </span>
-                </span>
-              </div>
-            ) : null}
-            <div className="flex items-center justify-between">
-              <span>Status</span>
-              <span className="text-foreground">{user.status}</span>
+              <span>Program</span>
+              <span className="text-foreground">{user.program ?? "-"}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Onboarding</span>
-              <span className="text-foreground">{user.onboarding}</span>
+              <span>Age</span>
+              <span className="text-foreground">{user.age ?? "-"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Joined</span>
+              <span className="text-foreground">{user.joined ?? "-"}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Last Active</span>
               <span className="text-foreground">{user.lastActive}</span>
             </div>
+            <div>
+              <span className="mb-1 block">Progress</span>
+              <ProgressBar value={user.progress ?? 0} />
+            </div>
           </div>
+
           <div
             className="mt-4 flex items-center gap-2"
             onClick={(e) => {
@@ -93,9 +116,9 @@ export function UsersCards({
             <button
               type="button"
               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/70"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 onChangePlan(user.id);
               }}
             >
@@ -104,9 +127,9 @@ export function UsersCards({
             <button
               type="button"
               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/70"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 onToggleBlock(user.id, !user.isBlocked);
               }}
             >
@@ -115,9 +138,9 @@ export function UsersCards({
             <button
               type="button"
               className="rounded-full border border-red-500/40 px-3 py-1 text-xs font-medium text-red-200 hover:bg-red-500/10"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 onDelete(user.id);
               }}
             >

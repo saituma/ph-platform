@@ -827,6 +827,34 @@
       "when": 1746662400000,
       "tag": "0117_athlete_current_plan_id",
       "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1746748800000,
+      "tag": "0118_add_missing_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1777674963822,
+      "tag": "0119_puzzling_monster_badoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1778240800000,
+      "tag": "0120_sponsored_players",
+      "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1778327200000,
+      "tag": "0121_user_search_fts_gin_index",
+      "breakpoints": true
     }
   ]
 }

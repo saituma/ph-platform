@@ -94,9 +94,7 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
       .from(athleteTable)
       .innerJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
       .where(eq(teamTable.adminId, coachId));
-    const teamAthleteIds = new Set(
-      teamAthleteRows.map((r) => r.userId).filter((id): id is number => id != null),
-    );
+    const teamAthleteIds = new Set(teamAthleteRows.map((r) => r.userId).filter((id): id is number => id != null));
     filteredOtherUserIds = rawOtherUserIds.filter((id) => teamAthleteIds.has(id));
   }
 
@@ -260,7 +258,7 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
   return filtered.slice(0, limit);
 }
 
-export async function listThreadMessagesAdmin(coachId: number, userId: number) {
+export async function listThreadMessagesAdmin(coachId: number, userId: number, options?: { limit?: number }) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
   if (!adminIds.includes(coachId)) return [];
@@ -280,6 +278,11 @@ export async function listThreadMessagesAdmin(coachId: number, userId: number) {
     otherUserIds = Array.from(new Set([userId, ...athleteUserIds]));
   }
 
+  const effectiveLimit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? Math.max(1, Math.min(200, Math.floor(options.limit)))
+      : 200;
+
   const messages = await db
     .select()
     .from(messageTable)
@@ -289,7 +292,8 @@ export async function listThreadMessagesAdmin(coachId: number, userId: number) {
         and(inArray(messageTable.senderId, otherUserIds), inArray(messageTable.receiverId, adminIds)),
       ),
     )
-    .orderBy(messageTable.createdAt);
+    .orderBy(messageTable.createdAt)
+    .limit(effectiveLimit);
   return attachDirectMessageReactions(messages);
 }
 

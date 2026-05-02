@@ -4,9 +4,10 @@ import { usePortal } from "@/portal/PortalContext";
 import { settingsService } from "@/services/settingsService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Radio, Loader2, RefreshCw, Megaphone } from "lucide-react";
+import { Radio, RefreshCw, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { motion, PageTransition, Skeleton } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/announcements")({
 	component: AnnouncementsPage,
@@ -34,8 +35,13 @@ function AnnouncementsPage() {
 	}, [load]);
 
 	return (
-		<div className="p-6 max-w-4xl mx-auto space-y-6">
-			<div className="flex items-center justify-between">
+		<PageTransition className="p-6 max-w-4xl mx-auto space-y-6">
+			<motion.div
+				initial={{ opacity: 0, y: -10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.4 }}
+				className="flex items-center justify-between"
+			>
 				<div className="flex flex-col gap-1">
 					<h1 className="text-3xl font-black uppercase italic tracking-tighter">Announcements</h1>
 					<p className="text-muted-foreground">Stay updated with the latest news and broadcasts.</p>
@@ -43,11 +49,18 @@ function AnnouncementsPage() {
 				<Button variant="outline" size="icon" onClick={load} disabled={loading} className="rounded-xl border-2">
 					<RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
 				</Button>
-			</div>
+			</motion.div>
 
 			{loading ? (
-				<div className="h-64 flex items-center justify-center">
-					<Loader2 className="h-8 w-8 animate-spin text-primary" />
+				<div className="space-y-4">
+					{[1, 2].map((i) => (
+						<div key={i} className="rounded-2xl border-2 p-6 space-y-3">
+							<Skeleton className="h-6 w-48" />
+							<Skeleton className="h-3 w-24" />
+							<Skeleton className="h-4 w-full" />
+							<Skeleton className="h-4 w-3/4" />
+						</div>
+					))}
 				</div>
 			) : items.length === 0 ? (
 				<Card className="border-2 border-dashed flex flex-col items-center justify-center py-20 text-center space-y-4">
@@ -86,6 +99,6 @@ function AnnouncementsPage() {
 					))}
 				</div>
 			)}
-		</div>
+		</PageTransition>
 	);
 }

@@ -14,18 +14,19 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { getClientAuthToken } from "@/lib/client-storage";
+import { getTokenStatus } from "@/lib/client-storage";
 import { isCoachPortalUser } from "@/lib/portal-access";
 import { usePortal } from "@/portal/PortalContext";
 import { fetchHomeContent, homeQueryKeys } from "@/services/homeService";
+import { PageTransition } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/coach-app")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = getClientAuthToken();
-		if (token) {
+		const status = await getTokenStatus();
+		if (status.authenticated) {
 			await queryClient.ensureQueryData({
-				queryKey: homeQueryKeys.content(token),
-				queryFn: () => fetchHomeContent(token),
+				queryKey: homeQueryKeys.content("cookie"),
+				queryFn: () => fetchHomeContent(),
 			});
 		}
 	},
@@ -47,7 +48,7 @@ function CoachAppPage() {
 	const isCoach = user ? isCoachPortalUser(user) : false;
 
 	return (
-		<div className="container mx-auto max-w-2xl p-4 pb-24 space-y-6">
+		<PageTransition className="container mx-auto max-w-2xl p-4 pb-24 space-y-6">
 			<Link
 				to="/portal/dashboard"
 				className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -149,6 +150,6 @@ function CoachAppPage() {
 					</CardContent>
 				</Card>
 			)}
-		</div>
+		</PageTransition>
 	);
 }

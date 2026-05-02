@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-const apiBase = rawBase.replace(/\/api\/?$/, "");
+const apiBase = rawBase.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
 const csrfCookieName = "csrfToken";
 
 function validateCsrf(req: NextRequest) {

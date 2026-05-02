@@ -398,6 +398,9 @@ export default function MoreScreen() {
                 }}
               >
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Light mode"
+                  accessibilityState={{ selected: !isDark }}
                   onPress={() => { if (isDark) toggleColorScheme(); }}
                   style={{
                     flex: 1,
@@ -417,6 +420,9 @@ export default function MoreScreen() {
                   </Text>
                 </Pressable>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dark mode"
+                  accessibilityState={{ selected: isDark }}
                   onPress={() => { if (!isDark) toggleColorScheme(); }}
                   style={{
                     flex: 1,
@@ -699,6 +705,8 @@ function MenuItem({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={subtitle || undefined}
       style={{ marginBottom: 16 }}
     >
       <View

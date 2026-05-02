@@ -3,7 +3,7 @@ import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { athleteTable, foodDiaryTable, guardianTable, userTable } from "../db/schema";
 
-export async function listFoodDiaryForGuardian(guardianId: number) {
+export async function listFoodDiaryForGuardian(guardianId: number, limit = 100) {
   return db
     .select({
       id: foodDiaryTable.id,
@@ -22,7 +22,8 @@ export async function listFoodDiaryForGuardian(guardianId: number) {
     })
     .from(foodDiaryTable)
     .where(eq(foodDiaryTable.guardianId, guardianId))
-    .orderBy(desc(foodDiaryTable.date), desc(foodDiaryTable.createdAt));
+    .orderBy(desc(foodDiaryTable.date), desc(foodDiaryTable.createdAt))
+    .limit(Math.max(1, Math.min(200, limit)));
 }
 
 export async function listFoodDiaryEntries(input: {

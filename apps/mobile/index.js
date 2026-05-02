@@ -3,7 +3,13 @@
 // PushNotificationIOS is lazily loaded via `import *`.  Replace the getter
 // with a no-op so the app doesn't crash on launch.
 import { Platform, NativeModules } from "react-native";
-if (Platform.OS === "ios" && !NativeModules.PushNotificationManager) {
+const iosMajor = Platform.OS === "ios" ? Number.parseInt(String(Platform.Version), 10) : 0;
+if (
+  Platform.OS === "ios" &&
+  (iosMajor >= 26 ||
+    (!NativeModules.PushNotificationManager &&
+      !NativeModules.PushNotificationManagerIOS))
+) {
   const RN = require("react-native");
   const desc = Object.getOwnPropertyDescriptor(RN, "PushNotificationIOS");
   if (desc && desc.get) {

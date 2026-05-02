@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
+import * as Sentry from "@sentry/node";
 import { ZodError } from "zod";
 import { getDbOutageRemainingMs, isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
+import { logger } from "../lib/logger";
 
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   const requestId = typeof res.locals?.requestId === "string" ? res.locals.requestId : undefined;
@@ -14,17 +16,14 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   if (isLikelyDatabaseConnectivityFailure(err)) {
     const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
     const message = err instanceof Error ? err.message : String(err);
-    console.error(
-      JSON.stringify({
-        level: "error",
-        event: "api_error",
-        statusCode: 503,
-        message,
-        code: "DB_UNAVAILABLE",
-        retryAfterSeconds,
-        ...context,
-      }),
-    );
+    logger.error({
+      event: "api_error",
+      statusCode: 503,
+      message,
+      code: "DB_UNAVAILABLE",
+      retryAfterSeconds,
+      ...context,
+    });
     res.setHeader("Retry-After", String(retryAfterSeconds));
     return res.status(503).json({
       error: "Service temporarily unavailable",
@@ -34,32 +33,28 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   }
 
   if (err instanceof ZodError) {
-    console.error(
-      JSON.stringify({
-        level: "warn",
-        event: "api_error",
-        statusCode: 400,
-        message: "Zod Validation Error",
-        issues: err.issues,
-        ...context,
-      }),
-    );
+    logger.warn({
+      event: "api_error",
+      statusCode: 400,
+      message: "Zod Validation Error",
+      issues: err.issues,
+      ...context,
+    });
     return res.status(400).json({ error: "Invalid request", issues: err.issues });
   }
   if (typeof err === "object" && err && "status" in err && "message" in err) {
     const status = typeof (err as any).status === "number" ? (err as any).status : 500;
     const message = typeof (err as any).message === "string" ? (err as any).message : "Internal server error";
     const payload = {
-      level: status >= 500 ? "error" : "warn",
       event: "api_error",
       statusCode: status,
       message,
       ...context,
     };
     if (status >= 500) {
-      console.error(JSON.stringify(payload));
+      logger.error(payload);
     } else {
-      console.log(JSON.stringify(payload));
+      logger.warn(payload);
     }
     return res.status(status).json({ error: message });
   }
@@ -86,18 +81,16 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       ? "PostgreSQL closed the connection (often invalid/expired DATABASE_URL, paused Neon project, or network). Copy a fresh connection string from the Neon dashboard and run: pnpm --filter api db:psql -c \"select 1\""
       : undefined;
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      event: "api_error",
-      statusCode: 500,
-      message: defaultMessage,
-      stack: err instanceof Error ? err.stack : undefined,
-      cause: dbCause,
-      ...(dbConnectionHint ? { hint: dbConnectionHint } : {}),
-      ...context,
-    }),
-  );
+  logger.error({
+    event: "api_error",
+    statusCode: 500,
+    message: defaultMessage,
+    stack: err instanceof Error ? err.stack : undefined,
+    cause: dbCause,
+    ...(dbConnectionHint ? { hint: dbConnectionHint } : {}),
+    ...context,
+  });
+  Sentry.captureException(err, { extra: context });
   if (process.env.NODE_ENV !== "production") {
     return res.status(500).json({
       error: "Internal server error",

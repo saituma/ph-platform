@@ -295,9 +295,9 @@ export async function clearDevicePushToken(token: string): Promise<void> {
     } catch { /* ignore */ }
 
     try {
-      const Notifications = await import("expo-notifications");
-      const result = await (Notifications as any).default?.getDevicePushTokenAsync?.() ??
-        await (Notifications as any).getDevicePushTokenAsync?.();
+      const Notifications = await getNotifications();
+      const result = await (Notifications as any)?.default?.getDevicePushTokenAsync?.() ??
+        await (Notifications as any)?.getDevicePushTokenAsync?.();
       if (result?.data && typeof result.data === "string") devicePushToken = result.data;
     } catch { /* ignore */ }
 

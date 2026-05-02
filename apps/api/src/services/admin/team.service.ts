@@ -25,6 +25,8 @@ async function ensureTeamExists(input: {
   adminId?: number;
   planId?: number;
   maxAthletes?: number;
+  sponsoredPlayerCount?: number;
+  sponsoredPlanId?: number;
 }) {
   const cleanTeamName = input.name.trim();
   if (!cleanTeamName) return null;
@@ -107,7 +109,7 @@ async function syncTeamChatMembers(teamId: number, groupId: number) {
     .from(teamTable)
     .where(eq(teamTable.id, teamId))
     .limit(1);
-    
+
   const teamAdminId = teamRows[0]?.adminId;
 
   const athleteUsers = await db
@@ -128,23 +130,23 @@ async function syncTeamChatMembers(teamId: number, groupId: number) {
         .innerJoin(userTable, eq(guardianTable.userId, userTable.id))
         .where(and(eq(userTable.isDeleted, false), inArray(guardianTable.id, guardianIds)))
     : [];
-    
+
   const staffUsers = await db
     .select({ id: userTable.id })
     .from(userTable)
     .where(
       and(
         inArray(userTable.role, ["coach", "program_coach", "team_coach", "admin", "superAdmin"]),
-        eq(userTable.isDeleted, false)
-      )
+        eq(userTable.isDeleted, false),
+      ),
     );
 
   const userIds = [
-    ...athleteUsers.map((row) => row.athleteUserId), 
+    ...athleteUsers.map((row) => row.athleteUserId),
     ...guardianUsers.map((row) => row.userId),
-    ...staffUsers.map((row) => row.id)
+    ...staffUsers.map((row) => row.id),
   ];
-  
+
   if (teamAdminId) userIds.push(teamAdminId);
 
   await addUsersToGroup(groupId, userIds);
@@ -165,6 +167,9 @@ export async function createTeamAdmin(input: {
   createdByUserId: number;
   paymentMethod?: "pay_now" | "email_link" | "cash";
   billingCycle?: "monthly" | "6months" | "yearly";
+  hasSponsoredPlayers?: boolean;
+  sponsoredPlayerCount?: number;
+  sponsoredTier?: (typeof ProgramType.enumValues)[number];
 }) {
   const cleanTeamName = input.teamName.trim();
   if (!cleanTeamName) {
@@ -187,6 +192,19 @@ export async function createTeamAdmin(input: {
     .limit(1);
   const plan = plans[0] ?? null;
   const resolvedPlanId = plan?.id ?? null;
+
+  const sponsoredCount = input.hasSponsoredPlayers ? Math.max(0, input.sponsoredPlayerCount ?? 0) : 0;
+  let sponsoredPlanId: number | null = null;
+  let sponsoredTier: (typeof ProgramType.enumValues)[number] | null = null;
+  if (sponsoredCount > 0 && input.sponsoredTier) {
+    const sponsoredPlans = await db
+      .select()
+      .from(subscriptionPlanTable)
+      .where(and(eq(subscriptionPlanTable.tier, input.sponsoredTier), eq(subscriptionPlanTable.isActive, true)))
+      .limit(1);
+    sponsoredPlanId = sponsoredPlans[0]?.id ?? null;
+    sponsoredTier = input.sponsoredTier;
+  }
 
   // If manager credentials are provided, create the manager user first.
   let resolvedAdminId = input.adminId;
@@ -215,8 +233,19 @@ export async function createTeamAdmin(input: {
     maxAge: input.maxAge,
     adminId: resolvedAdminId,
     planId: resolvedPlanId ?? undefined,
-    maxAthletes: input.maxAthletes,
+    maxAthletes: input.maxAthletes + sponsoredCount,
   });
+
+  if (created && sponsoredCount > 0) {
+    await db
+      .update(teamTable)
+      .set({
+        sponsoredPlayerCount: sponsoredCount,
+        sponsoredPlanId: sponsoredPlanId,
+        updatedAt: new Date(),
+      })
+      .where(eq(teamTable.id, created.id));
+  }
 
   if (!created) {
     throw { status: 500, message: "Failed to create team record." };
@@ -265,6 +294,15 @@ export async function createTeamAdmin(input: {
     const lookupKey = `${input.tier.toLowerCase()}_${intervalKey}`;
 
     try {
+      const sponsoredLineItem =
+        sponsoredCount > 0 && sponsoredTier
+          ? {
+              priceLookupKey: `${sponsoredTier.toLowerCase()}_${intervalKey}`,
+              tier: sponsoredTier,
+              quantity: sponsoredCount,
+            }
+          : undefined;
+
       const session = await createTeamCheckoutSession({
         teamId: created.id,
         adminId: resolvedAdminId!,
@@ -274,6 +312,7 @@ export async function createTeamAdmin(input: {
         quantity: input.maxAthletes,
         mode: billingCycle === "monthly" ? "subscription" : "payment",
         customerEmail: paymentMethod === "email_link" ? adminEmail : undefined,
+        sponsoredLineItem,
       });
 
       checkoutUrl = session.url;
@@ -302,11 +341,16 @@ export async function createTeamAdmin(input: {
   };
 }
 
-export async function listTeamsAdmin(options?: { adminId?: number | null }) {
+export async function listTeamsAdmin(options?: { adminId?: number | null; limit?: number }) {
   const filters = [];
   if (typeof options?.adminId === "number") {
     filters.push(eq(teamTable.adminId, options.adminId));
   }
+
+  const effectiveLimit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? Math.max(1, Math.min(200, Math.floor(options.limit)))
+      : 200;
 
   const rows = await db
     .select({
@@ -333,11 +377,21 @@ export async function listTeamsAdmin(options?: { adminId?: number | null }) {
     .leftJoin(athleteTable, eq(athleteTable.teamId, teamTable.id))
     .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
     .where(filters.length ? and(...filters) : undefined)
-    .groupBy(teamTable.id, teamTable.name, teamTable.subscriptionStatus, teamTable.planPaymentType, teamTable.planCommitmentMonths, teamTable.planExpiresAt, teamTable.createdAt, teamTable.updatedAt)
+    .groupBy(
+      teamTable.id,
+      teamTable.name,
+      teamTable.subscriptionStatus,
+      teamTable.planPaymentType,
+      teamTable.planCommitmentMonths,
+      teamTable.planExpiresAt,
+      teamTable.createdAt,
+      teamTable.updatedAt,
+    )
     .orderBy(
       desc(sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`),
       teamTable.name,
-    );
+    )
+    .limit(effectiveLimit);
 
   return rows;
 }
@@ -370,6 +424,8 @@ export async function getTeamDetailsAdmin(teamName: string) {
       planId: teamTable.planId,
       planTier: subscriptionPlanTable.tier,
       planName: subscriptionPlanTable.name,
+      sponsoredPlayerCount: teamTable.sponsoredPlayerCount,
+      sponsoredPlanId: teamTable.sponsoredPlanId,
       createdAt: teamTable.createdAt,
       updatedAt: teamTable.updatedAt,
     })
@@ -403,6 +459,7 @@ export async function getTeamDetailsAdmin(teamName: string) {
       birthDate: athleteTable.birthDate,
       trainingPerWeek: athleteTable.trainingPerWeek,
       currentProgramTier: athleteTable.currentProgramTier,
+      isSponsored: athleteTable.isSponsored,
       injuries: athleteTable.injuries,
       growthNotes: athleteTable.growthNotes,
       performanceGoals: athleteTable.performanceGoals,
@@ -458,6 +515,8 @@ export async function getTeamDetailsAdmin(teamName: string) {
     maxAge: team.maxAge,
     planTier: team.planTier ?? null,
     planName: team.planName ?? null,
+    sponsoredPlayerCount: team.sponsoredPlayerCount,
+    sponsoredPlanId: team.sponsoredPlanId,
     summary: {
       memberCount,
       guardianCount,
@@ -472,6 +531,7 @@ export async function getTeamDetailsAdmin(teamName: string) {
       age: calcAge(row.birthDate),
       trainingPerWeek: row.trainingPerWeek,
       currentProgramTier: row.currentProgramTier,
+      isSponsored: row.isSponsored,
       guardianEmail: row.guardianEmail,
       guardianPhone: row.guardianPhone,
       relationToAthlete: row.relationToAthlete,
@@ -659,6 +719,7 @@ export async function attachAthleteToTeamAdmin(input: {
   teamName: string;
   athleteId: number;
   allowMoveFromOtherTeam?: boolean;
+  isSponsored?: boolean;
   createdByUserId: number;
 }) {
   const cleanTeamName = input.teamName.trim();
@@ -715,12 +776,32 @@ export async function attachAthleteToTeamAdmin(input: {
     }
   }
 
+  const athletePatch: Partial<typeof athleteTable.$inferInsert> = {
+    teamId: team.id,
+    updatedAt: new Date(),
+  };
+  if (input.isSponsored) {
+    athletePatch.isSponsored = true;
+    const [fullTeam] = await db
+      .select({ sponsoredPlanId: teamTable.sponsoredPlanId })
+      .from(teamTable)
+      .where(eq(teamTable.id, team.id))
+      .limit(1);
+    if (fullTeam?.sponsoredPlanId) {
+      const [sponsoredPlan] = await db
+        .select({ tier: subscriptionPlanTable.tier, id: subscriptionPlanTable.id })
+        .from(subscriptionPlanTable)
+        .where(eq(subscriptionPlanTable.id, fullTeam.sponsoredPlanId))
+        .limit(1);
+      if (sponsoredPlan?.tier) {
+        athletePatch.currentProgramTier = sponsoredPlan.tier;
+        athletePatch.currentPlanId = sponsoredPlan.id;
+      }
+    }
+  }
   await db
     .update(athleteTable)
-    .set({
-      teamId: team.id,
-      updatedAt: new Date(),
-    })
+    .set(athletePatch)
     .where(eq(athleteTable.id, athlete.id));
 
   await db.update(teamTable).set({ updatedAt: new Date() }).where(eq(teamTable.id, team.id));

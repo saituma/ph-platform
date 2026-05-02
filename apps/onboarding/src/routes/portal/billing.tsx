@@ -21,6 +21,13 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import {
+	motion,
+	PageTransition,
+	StaggerList,
+	StaggerItem,
+	Skeleton,
+} from "@/lib/motion";
 import { usePortal } from "@/portal/PortalContext";
 import {
 	type BillingCycle,
@@ -88,6 +95,46 @@ function dedupePlansByTier(plans: BillingPlan[]) {
 	return [...best.values()].sort((a, b) => {
 		return (TIER_ORDER[a.tier] ?? 99) - (TIER_ORDER[b.tier] ?? 99);
 	});
+}
+
+function BillingSkeleton() {
+	return (
+		<div className="mx-auto max-w-6xl space-y-6 p-6 pb-24">
+			<div className="space-y-3">
+				<Skeleton className="h-6 w-40" />
+				<Skeleton className="h-8 w-56" />
+				<Skeleton className="h-4 w-96 max-w-full" />
+			</div>
+			<div className="grid gap-4 lg:grid-cols-3">
+				<div className="lg:col-span-2 rounded-2xl border-2 p-6 space-y-4">
+					<Skeleton className="h-5 w-32" />
+					<div className="grid gap-3 sm:grid-cols-3">
+						{[1, 2, 3].map((i) => (
+							<div key={i} className="rounded-2xl border p-4 space-y-2">
+								<Skeleton className="h-3 w-16" />
+								<Skeleton className="h-5 w-24" />
+							</div>
+						))}
+					</div>
+				</div>
+				<div className="rounded-2xl border-2 p-6 space-y-3">
+					<Skeleton className="h-5 w-24" />
+					{[1, 2, 3].map((i) => (
+						<Skeleton key={i} className="h-12 w-full rounded-xl" />
+					))}
+				</div>
+			</div>
+			<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+				{[1, 2, 3, 4].map((i) => (
+					<div key={i} className="rounded-2xl border-2 p-6 space-y-4">
+						<Skeleton className="h-5 w-24" />
+						<Skeleton className="h-8 w-20" />
+						<Skeleton className="h-12 w-full rounded-xl" />
+					</div>
+				))}
+			</div>
+		</div>
+	);
 }
 
 function BillingPage() {
@@ -179,9 +226,18 @@ function BillingPage() {
 		? String(status.latestRequest.status).replace(/_/g, " ")
 		: null;
 
+	if (loading && activePlans.length === 0) {
+		return <BillingSkeleton />;
+	}
+
 	return (
-		<div className="mx-auto max-w-6xl space-y-6 p-6 pb-24">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+		<PageTransition className="mx-auto max-w-6xl space-y-6 p-6 pb-24">
+			<motion.div
+				initial={{ opacity: 0, y: -10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.4 }}
+				className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+			>
 				<div className="space-y-2">
 					<div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-primary">
 						<CreditCard className="h-3.5 w-3.5" />
@@ -194,22 +250,29 @@ function BillingPage() {
 						Manage portal access, change plans, review renewal dates, and keep payments on the web where account owners control them.
 					</p>
 				</div>
-				<Button
-					variant="outline"
-					className="h-11 rounded-xl border-2 font-bold uppercase tracking-wider"
-					onClick={() => void loadBilling()}
-					disabled={loading}
-				>
-					{loading ? (
-						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-					) : (
-						<RefreshCw className="mr-2 h-4 w-4" />
-					)}
-					Refresh
-				</Button>
-			</div>
+				<motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+					<Button
+						variant="outline"
+						className="h-11 rounded-xl border-2 font-bold uppercase tracking-wider"
+						onClick={() => void loadBilling()}
+						disabled={loading}
+					>
+						{loading ? (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+						) : (
+							<RefreshCw className="mr-2 h-4 w-4" />
+						)}
+						Refresh
+					</Button>
+				</motion.div>
+			</motion.div>
 
-			<div className="grid gap-4 lg:grid-cols-3">
+			<motion.div
+				initial={{ opacity: 0, y: 12 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ delay: 0.1, duration: 0.4 }}
+				className="grid gap-4 lg:grid-cols-3"
+			>
 				<Card className="border-2 lg:col-span-2">
 					<CardHeader>
 						<CardTitle className="flex items-center gap-2 text-lg font-bold">
@@ -223,30 +286,24 @@ function BillingPage() {
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="grid gap-3 sm:grid-cols-3">
-						<div className="rounded-2xl border bg-muted/30 p-4">
-							<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-								Plan
-							</p>
-							<p className="mt-1 font-black">{tierLabel(currentTier)}</p>
-						</div>
-						<div className="rounded-2xl border bg-muted/30 p-4">
-							<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-								Renews / expires
-							</p>
-							<p className="mt-1 font-black">
-								{formatDate(isTeamBilling ? user?.team?.planExpiresAt : user?.planExpiresAt)}
-							</p>
-						</div>
-						<div className="rounded-2xl border bg-muted/30 p-4">
-							<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-								Status
-							</p>
-							<p className="mt-1 font-black capitalize">
-								{isTeamBilling
-									? user?.team?.subscriptionStatus?.replace(/_/g, " ") || "Pending"
-									: latestStatus || "Active"}
-							</p>
-						</div>
+						{[
+							{ label: "Plan", value: tierLabel(currentTier) },
+							{ label: "Renews / expires", value: formatDate(isTeamBilling ? user?.team?.planExpiresAt : user?.planExpiresAt) },
+							{ label: "Status", value: isTeamBilling ? (user?.team?.subscriptionStatus?.replace(/_/g, " ") || "Pending") : (latestStatus || "Active") },
+						].map((stat, i) => (
+							<motion.div
+								key={stat.label}
+								initial={{ opacity: 0, y: 8 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ delay: 0.15 + i * 0.05 }}
+								className="rounded-2xl border bg-muted/30 p-4"
+							>
+								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+									{stat.label}
+								</p>
+								<p className="mt-1 font-black capitalize">{stat.value}</p>
+							</motion.div>
+						))}
 					</CardContent>
 				</Card>
 
@@ -257,8 +314,10 @@ function BillingPage() {
 					</CardHeader>
 					<CardContent className="grid gap-2">
 						{BILLING_CYCLES.map((cycle) => (
-							<button
+							<motion.button
 								key={cycle.id}
+								whileHover={{ scale: 1.01 }}
+								whileTap={{ scale: 0.99 }}
 								type="button"
 								onClick={() => setBillingCycle(cycle.id)}
 								className={cn(
@@ -272,19 +331,13 @@ function BillingPage() {
 								<span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
 									{cycle.hint}
 								</span>
-							</button>
+							</motion.button>
 						))}
 					</CardContent>
 				</Card>
-			</div>
+			</motion.div>
 
-			<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-				{loading && activePlans.length === 0 ? (
-					<div className="col-span-full flex min-h-52 items-center justify-center rounded-2xl border-2 border-dashed">
-						<Loader2 className="h-8 w-8 animate-spin text-primary" />
-					</div>
-				) : null}
-
+			<StaggerList className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 				{activePlans.map((plan) => {
 					const isCurrent = currentTier === plan.tier;
 					const currentRank = currentTier ? (TIER_ORDER[currentTier] ?? 0) : 0;
@@ -293,69 +346,94 @@ function BillingPage() {
 					const isBusy = busyPlanId === plan.id;
 
 					return (
-						<Card
-							key={`${plan.tier}-${plan.id}`}
-							className={cn(
-								"border-2",
-								isCurrent ? "border-primary bg-primary/5" : "border-border",
-							)}
-						>
-							<CardHeader className="space-y-3">
-								<div className="flex items-start justify-between gap-3">
-									<div>
-										<CardTitle className="text-lg font-black">
-											{tierLabel(plan.tier)}
-										</CardTitle>
-										<CardDescription>{plan.name}</CardDescription>
-									</div>
-									{isCurrent ? (
-										<Badge className="rounded-full font-black uppercase">
-											Current
-										</Badge>
-									) : null}
-								</div>
-								<div>
-									<p className="text-2xl font-black tracking-tight">
-										{planPrice(plan)}
-									</p>
-									<p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-										{billingCycle === "monthly"
-											? "per month"
-											: billingCycle === "six_months"
-												? "for 6 months"
-												: "per year"}
-									</p>
-								</div>
-							</CardHeader>
-							<CardContent>
-								<Button
-									className="h-12 w-full rounded-xl font-bold uppercase tracking-wider"
-									variant={isCurrent ? "outline" : "default"}
-									disabled={isCurrent || isBusy}
-									onClick={() => void handlePlanAction(plan)}
-								>
-									{isBusy ? (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									) : isDowngrade ? (
-										<ArrowDownCircle className="mr-2 h-4 w-4" />
-									) : isCurrent ? (
-										<CheckCircle2 className="mr-2 h-4 w-4" />
-									) : (
-										<ExternalLink className="mr-2 h-4 w-4" />
+						<StaggerItem key={`${plan.tier}-${plan.id}`}>
+							<motion.div
+								whileHover={isCurrent ? {} : { y: -4 }}
+								transition={{ duration: 0.2 }}
+							>
+								<Card
+									className={cn(
+										"border-2 h-full transition-shadow",
+										isCurrent ? "border-primary bg-primary/5 shadow-lg shadow-primary/5" : "border-border hover:shadow-md",
 									)}
-									{isCurrent
-										? "Active"
-										: isDowngrade
-											? "Downgrade"
-											: "Checkout"}
-								</Button>
-							</CardContent>
-						</Card>
+								>
+									<CardHeader className="space-y-3">
+										<div className="flex items-start justify-between gap-3">
+											<div>
+												<CardTitle className="text-lg font-black">
+													{tierLabel(plan.tier)}
+												</CardTitle>
+												<CardDescription>{plan.name}</CardDescription>
+											</div>
+											{isCurrent ? (
+												<motion.div
+													initial={{ scale: 0 }}
+													animate={{ scale: 1 }}
+													transition={{ type: "spring", stiffness: 300 }}
+												>
+													<Badge className="rounded-full font-black uppercase">
+														Current
+													</Badge>
+												</motion.div>
+											) : null}
+										</div>
+										<div>
+											<motion.p
+												key={`${plan.id}-${billingCycle}`}
+												initial={{ opacity: 0, y: 5 }}
+												animate={{ opacity: 1, y: 0 }}
+												className="text-2xl font-black tracking-tight"
+											>
+												{planPrice(plan)}
+											</motion.p>
+											<p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+												{billingCycle === "monthly"
+													? "per month"
+													: billingCycle === "six_months"
+														? "for 6 months"
+														: "per year"}
+											</p>
+										</div>
+									</CardHeader>
+									<CardContent>
+										<motion.div whileHover={{ scale: isCurrent ? 1 : 1.02 }} whileTap={{ scale: isCurrent ? 1 : 0.98 }}>
+											<Button
+												className="h-12 w-full rounded-xl font-bold uppercase tracking-wider"
+												variant={isCurrent ? "outline" : "default"}
+												disabled={isCurrent || isBusy}
+												onClick={() => void handlePlanAction(plan)}
+											>
+												{isBusy ? (
+													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+												) : isDowngrade ? (
+													<ArrowDownCircle className="mr-2 h-4 w-4" />
+												) : isCurrent ? (
+													<CheckCircle2 className="mr-2 h-4 w-4" />
+												) : (
+													<ExternalLink className="mr-2 h-4 w-4" />
+												)}
+												{isCurrent
+													? "Active"
+													: isDowngrade
+														? "Downgrade"
+														: "Checkout"}
+											</Button>
+										</motion.div>
+									</CardContent>
+								</Card>
+							</motion.div>
+						</StaggerItem>
 					);
 				})}
-			</div>
+			</StaggerList>
+
 			{/* Invoice History */}
-			<div className="space-y-4">
+			<motion.div
+				initial={{ opacity: 0, y: 12 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ delay: 0.3 }}
+				className="space-y-4"
+			>
 				<div className="flex items-center gap-2">
 					<FileText className="h-5 w-5 text-primary" />
 					<h2 className="text-xl font-black uppercase italic tracking-tight">
@@ -364,8 +442,15 @@ function BillingPage() {
 				</div>
 
 				{invoicesLoading ? (
-					<div className="flex items-center justify-center rounded-2xl border-2 border-dashed py-10">
-						<Loader2 className="h-6 w-6 animate-spin text-primary" />
+					<div className="rounded-2xl border-2 p-4 space-y-3">
+						{[1, 2, 3].map((i) => (
+							<div key={i} className="flex gap-4 items-center">
+								<Skeleton className="h-4 w-20" />
+								<Skeleton className="h-4 w-40 flex-1" />
+								<Skeleton className="h-4 w-16" />
+								<Skeleton className="h-5 w-20 rounded-full" />
+							</div>
+						))}
 					</div>
 				) : invoices.length === 0 ? (
 					<div className="rounded-2xl border-2 border-dashed py-10 text-center">
@@ -379,58 +464,61 @@ function BillingPage() {
 							<span>Amount</span>
 							<span>Status</span>
 						</div>
-						<div className="divide-y">
+						<StaggerList className="divide-y">
 							{invoices.map((inv) => (
-								<div
-									key={inv.id}
-									className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 px-5 py-4 items-center hover:bg-muted/20 transition-colors"
-								>
-									<span className="text-sm text-muted-foreground">
-										{new Date(inv.date).toLocaleDateString(undefined, {
-											month: "short",
-											day: "numeric",
-											year: "numeric",
-										})}
-									</span>
-									<span className="text-sm font-bold md:col-span-2">
-										{inv.plan}
-										{inv.billingCycle && (
-											<span className="ml-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-												{inv.billingCycle.replace(/_/g, " ")}
-											</span>
-										)}
-									</span>
-									<span className="text-sm font-black">
-										{inv.amount ?? "—"}
-									</span>
-									<div className="flex items-center justify-between gap-2">
-										<span
-											className={cn(
-												"text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full",
-												inv.status === "approved"
-													? "bg-green-500/10 text-green-600"
-													: inv.status === "pending_payment"
-														? "bg-yellow-500/10 text-yellow-600"
-														: "bg-muted text-muted-foreground",
-											)}
-										>
-											{inv.status?.replace(/_/g, " ")}
+								<StaggerItem key={inv.id}>
+									<motion.div
+										whileHover={{ x: 2 }}
+										transition={{ duration: 0.15 }}
+										className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 px-5 py-4 items-center hover:bg-muted/20 transition-colors"
+									>
+										<span className="text-sm text-muted-foreground">
+											{new Date(inv.date).toLocaleDateString(undefined, {
+												month: "short",
+												day: "numeric",
+												year: "numeric",
+											})}
 										</span>
-										{inv.receiptPublicId && (
-											<a
-												href={`/portal/billing/receipt/${inv.receiptPublicId}`}
-												className="text-xs text-primary hover:underline font-semibold"
+										<span className="text-sm font-bold md:col-span-2">
+											{inv.plan}
+											{inv.billingCycle && (
+												<span className="ml-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+													{inv.billingCycle.replace(/_/g, " ")}
+												</span>
+											)}
+										</span>
+										<span className="text-sm font-black">
+											{inv.amount ?? "—"}
+										</span>
+										<div className="flex items-center justify-between gap-2">
+											<span
+												className={cn(
+													"text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full",
+													inv.status === "approved"
+														? "bg-green-500/10 text-green-600"
+														: inv.status === "pending_payment"
+															? "bg-yellow-500/10 text-yellow-600"
+															: "bg-muted text-muted-foreground",
+												)}
 											>
-												Receipt
-											</a>
-										)}
-									</div>
-								</div>
+												{inv.status?.replace(/_/g, " ")}
+											</span>
+											{inv.receiptPublicId && (
+												<a
+													href={`/portal/billing/receipt/${inv.receiptPublicId}`}
+													className="text-xs text-primary hover:underline font-semibold"
+												>
+													Receipt
+												</a>
+											)}
+										</div>
+									</motion.div>
+								</StaggerItem>
 							))}
-						</div>
+						</StaggerList>
 					</div>
 				)}
-			</div>
-		</div>
+			</motion.div>
+		</PageTransition>
 	);
 }

@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -11,7 +11,7 @@ import {
   videoUploadTable,
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
-import { sendPushNotification } from "./push.service";
+import { pushQueue } from "../jobs";
 import { cleanupOriginalVideoObject, optimizeUploadedVideoUrl } from "./video-optimization.service";
 
 export async function notifyCoachResponseVideo(input: { videoUploadId: number }) {
@@ -97,10 +97,15 @@ export async function notifyCoachResponseVideo(input: { videoUploadId: number })
     }
 
     for (const userId of recipients) {
-      await sendPushNotification(userId, "Coach response", messageBody, {
-        type: "video_response",
-        videoUploadId: upload.id,
-        url: deepLinkUrl,
+      await pushQueue.enqueue({
+        userId,
+        title: "Coach response",
+        body: messageBody,
+        data: {
+          type: "video_response",
+          videoUploadId: upload.id,
+          url: deepLinkUrl,
+        },
       });
     }
   } catch (err) {
@@ -186,7 +191,15 @@ export async function createVideoUpload(input: {
   return upload;
 }
 
-export async function listVideoUploadsByAthlete(athleteId: number, options?: { contentId?: number | null }) {
+export async function listVideoUploadsByAthlete(
+  athleteId: number,
+  options?: { contentId?: number | null; limit?: number },
+) {
+  const effectiveLimit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? Math.max(1, Math.min(200, Math.floor(options.limit)))
+      : 100;
+
   const filters = [eq(videoUploadTable.athleteId, athleteId)];
   if (options?.contentId) {
     const contentFilter = or(
@@ -198,7 +211,9 @@ export async function listVideoUploadsByAthlete(athleteId: number, options?: { c
   return db
     .select()
     .from(videoUploadTable)
-    .where(and(...filters));
+    .where(and(...filters))
+    .orderBy(desc(videoUploadTable.createdAt))
+    .limit(effectiveLimit);
 }
 
 export async function reviewVideoUpload(input: { uploadId: number; coachId: number; feedback: string }) {
@@ -235,12 +250,12 @@ export async function reviewVideoUpload(input: { uploadId: number; coachId: numb
       };
 
       for (const userId of recipients) {
-        await sendPushNotification(
+        await pushQueue.enqueue({
           userId,
-          "Video Reviewed",
-          "Your coach has provided feedback on your training video.",
-          payload,
-        );
+          title: "Video Reviewed",
+          body: "Your coach has provided feedback on your training video.",
+          data: payload,
+        });
       }
 
       // Emit socket event for live update in the app

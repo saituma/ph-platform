@@ -28,6 +28,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
 		<Sonner
 			theme={theme}
 			className="toaster group"
+			aria-live="polite"
+			aria-atomic="true"
 			toastOptions={{
 				classNames: {
 					toast:

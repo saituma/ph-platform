@@ -137,8 +137,9 @@ const TabItem = React.memo(function TabItem({
   return (
     <Pressable
       onPress={handlePress}
-      accessibilityRole="button"
+      accessibilityRole="tab"
       accessibilityLabel={tab.label ?? tab.key}
+      accessibilityHint={`Switch to ${tab.label ?? tab.key}`}
       accessibilityState={{ selected: isActive }}
       style={styles.tabItemContainer}
     >
@@ -245,6 +246,7 @@ export function TabBar({ tabs, activeIndex, onTabPress }: TabBarProps) {
 
         {/* Tab items */}
         <View
+          accessibilityRole="tablist"
           style={[
             StyleSheet.absoluteFill,
             {

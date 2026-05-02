@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { config } from "#/lib/config";
+import { getTokenStatus } from "#/lib/client-storage";
 
 type CheckoutReceiptPayload = {
 	kind: "team" | "athlete";
@@ -75,8 +76,6 @@ function OnboardingSuccess() {
 		const sessionId = params.get("session_id")?.trim();
 		if (!sessionId) return;
 
-		const token = localStorage.getItem("auth_token");
-
 		// React Strict Mode runs effects twice in dev; avoid duplicate POSTs.
 		const storageKey = `ph_billing_confirm:${sessionId}`;
 		const prev = sessionStorage.getItem(storageKey);
@@ -85,17 +84,17 @@ function OnboardingSuccess() {
 		sessionStorage.setItem(storageKey, "pending");
 
 		const baseUrl = config.api.baseUrl;
-		// If signed in, use the authed endpoint (full validation incl. team checkouts).
-		// Otherwise fall back to the public endpoint — used after invite-flow checkouts where
-		// the user pays before logging in. The Stripe session_id is the credential there.
-		const url = token ? `${baseUrl}/api/billing/confirm` : `${baseUrl}/api/public/billing/confirm`;
-		void fetch(url, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				...(token ? { Authorization: `Bearer ${token}` } : {}),
-			},
-			body: JSON.stringify({ sessionId }),
+		// Check auth status then choose endpoint
+		void getTokenStatus().then((status) => {
+			const url = status.authenticated ? `${baseUrl}/api/billing/confirm` : `${baseUrl}/api/public/billing/confirm`;
+			return fetch(url, {
+				method: "POST",
+				credentials: "include",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ sessionId }),
+			});
 		})
 			.then(async (res) => {
 				const payload = await res.json().catch(() => ({}));

@@ -1,11 +1,6 @@
 import { and, desc, eq, or } from "drizzle-orm";
 import { db } from "../db";
-import {
-  athleteTable,
-  teamTable,
-  trackingGoalTable,
-  userTable,
-} from "../db/schema";
+import { athleteTable, teamTable, trackingGoalTable, userTable } from "../db/schema";
 
 export type CreateGoalInput = {
   coachId: number;
@@ -21,7 +16,12 @@ export type CreateGoalInput = {
   dueDate?: string;
 };
 
-export async function listGoals(filters?: { status?: string }) {
+export async function listGoals(filters?: { status?: string; limit?: number }) {
+  const effectiveLimit =
+    typeof filters?.limit === "number" && Number.isFinite(filters.limit)
+      ? Math.max(1, Math.min(200, Math.floor(filters.limit)))
+      : 200;
+
   const goals = await db
     .select({
       id: trackingGoalTable.id,
@@ -42,12 +42,9 @@ export async function listGoals(filters?: { status?: string }) {
     })
     .from(trackingGoalTable)
     .innerJoin(userTable, eq(userTable.id, trackingGoalTable.coachId))
-    .where(
-      filters?.status
-        ? eq(trackingGoalTable.status, filters.status as any)
-        : undefined,
-    )
-    .orderBy(desc(trackingGoalTable.createdAt));
+    .where(filters?.status ? eq(trackingGoalTable.status, filters.status as any) : undefined)
+    .orderBy(desc(trackingGoalTable.createdAt))
+    .limit(effectiveLimit);
 
   const goalIds = goals.map((g) => g.id);
   if (!goalIds.length) return goals.map((g) => ({ ...g, athleteName: null, teamName: null }));
@@ -65,7 +62,11 @@ export async function listGoals(filters?: { status?: string }) {
     for (const r of rows) athleteNames.set(r.id, r.name ?? "");
     if (athleteIds.length > 1) {
       for (const id of athleteIds.slice(1)) {
-        const [row] = await db.select({ id: athleteTable.id, name: athleteTable.name }).from(athleteTable).where(eq(athleteTable.id, id)).limit(1);
+        const [row] = await db
+          .select({ id: athleteTable.id, name: athleteTable.name })
+          .from(athleteTable)
+          .where(eq(athleteTable.id, id))
+          .limit(1);
         if (row) athleteNames.set(row.id, row.name ?? "");
       }
     }
@@ -75,7 +76,11 @@ export async function listGoals(filters?: { status?: string }) {
   if (teamGoals.length) {
     const teamIds = [...new Set(teamGoals.map((g) => g.teamId!))];
     for (const id of teamIds) {
-      const [row] = await db.select({ id: teamTable.id, name: teamTable.name }).from(teamTable).where(eq(teamTable.id, id)).limit(1);
+      const [row] = await db
+        .select({ id: teamTable.id, name: teamTable.name })
+        .from(teamTable)
+        .where(eq(teamTable.id, id))
+        .limit(1);
       if (row) teamNames.set(row.id, row.name);
     }
   }
@@ -108,7 +113,12 @@ export async function createGoal(input: CreateGoalInput) {
   return goal;
 }
 
-export async function updateGoal(id: number, data: Partial<Pick<CreateGoalInput, "title" | "description" | "targetValue" | "dueDate"> & { status?: "active" | "archived" }>) {
+export async function updateGoal(
+  id: number,
+  data: Partial<
+    Pick<CreateGoalInput, "title" | "description" | "targetValue" | "dueDate"> & { status?: "active" | "archived" }
+  >,
+) {
   const [goal] = await db
     .update(trackingGoalTable)
     .set({ ...data, updatedAt: new Date() })
@@ -118,10 +128,7 @@ export async function updateGoal(id: number, data: Partial<Pick<CreateGoalInput,
 }
 
 export async function deleteGoal(id: number) {
-  const [goal] = await db
-    .delete(trackingGoalTable)
-    .where(eq(trackingGoalTable.id, id))
-    .returning();
+  const [goal] = await db.delete(trackingGoalTable).where(eq(trackingGoalTable.id, id)).returning();
   return goal ?? null;
 }
 

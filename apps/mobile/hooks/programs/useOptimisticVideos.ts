@@ -22,7 +22,9 @@ export function useOptimisticVideos(userId: string | number | undefined, section
         if (Array.isArray(items) && items.length) {
           setOptimisticUploads(prev => prev.length ? prev : items.map(u => ({ ...u, progress: u.progress ?? 1 })));
         }
-      } catch {}
+      } catch (err) {
+        console.warn("[useOptimisticVideos] Failed to restore pending uploads", err);
+      }
     })();
     return () => { cancelled = true; };
   }, [pendingKey]);
@@ -36,7 +38,9 @@ export function useOptimisticVideos(userId: string | number | undefined, section
           progress: u.progress ?? 1,
         }));
         await AsyncStorage.setItem(pendingKey, JSON.stringify(toStore));
-      } catch {}
+      } catch (err) {
+        console.warn("[useOptimisticVideos] Failed to persist pending uploads", err);
+      }
     };
     void persist();
   }, [optimisticUploads, pendingKey]);

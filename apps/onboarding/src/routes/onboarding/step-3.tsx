@@ -19,6 +19,7 @@ import { Card } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
+import { getTokenStatus } from "#/lib/client-storage";
 import { cn } from "#/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 
@@ -52,36 +53,42 @@ function OnboardingStep3() {
 	const navigate = useNavigate();
 
 	useEffect(() => {
-		const email = localStorage.getItem("pending_email");
-		const token = localStorage.getItem("auth_token");
-		const type = localStorage.getItem("user_type");
+		let cancelled = false;
+		async function check() {
+			const email = localStorage.getItem("pending_email");
+			const status = await getTokenStatus();
+			const type = localStorage.getItem("user_type");
+			if (cancelled) return;
 
-		if (type === "team") {
-			navigate({ to: "/onboarding/step-4" });
-			return;
-		}
+			if (type === "team") {
+				navigate({ to: "/onboarding/step-4" });
+				return;
+			}
 
-		if (!email || !token) {
-			toast.error("Session expired", {
-				description: "Please enter your email to continue onboarding.",
-			});
-			navigate({ to: "/" });
-			return;
+			if (!email || !status.authenticated) {
+				toast.error("Session expired", {
+					description: "Please enter your email to continue onboarding.",
+				});
+				navigate({ to: "/" });
+				return;
+			}
+			setIsValidating(false);
 		}
-		setIsValidating(false);
+		void check();
+		return () => { cancelled = true; };
 	}, [navigate]);
 
 	const mutation = useMutation({
 		mutationFn: async () => {
-			const token = localStorage.getItem("auth_token");
-			if (!token) throw new Error("Session expired");
+			const status = await getTokenStatus();
+			if (!status.authenticated) throw new Error("Session expired");
 
 			const baseUrl = config.api.baseUrl;
 			const response = await fetch(`${baseUrl}/api/onboarding/goals`, {
 				method: "POST",
+				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({
 					trainingPerWeek,

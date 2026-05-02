@@ -2,7 +2,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "../db";
 import { athleteTable, guardianTable, nutritionLogsTable, userTable } from "../db/schema";
-import { sendPushNotification } from "./push.service";
+import { pushQueue } from "../jobs";
 
 function getLocalDateKeyAndMinutes(now: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -156,20 +156,20 @@ export async function runNutritionLogReminderSweep() {
       })
       .where(eq(userTable.id, athlete.id));
 
-    void sendPushNotification(athlete.id, title, body, {
+    void pushQueue.enqueue({ userId: athlete.id, title, body, data: {
       type: "nutrition_reminder",
       url: "/nutrition",
       dateKey,
-    });
+    } });
 
     const guardianUserIds = await getGuardianUserIdsForAthleteUserId(athlete.id);
     for (const guardianUserId of guardianUserIds) {
-      void sendPushNotification(guardianUserId, title, body, {
+      void pushQueue.enqueue({ userId: guardianUserId, title, body, data: {
         type: "nutrition_reminder",
         url: "/nutrition",
         dateKey,
         athleteUserId: athlete.id,
-      });
+      } });
     }
 
     sent++;

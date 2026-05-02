@@ -76,15 +76,26 @@ const optionalWhenScript = (messageWhenRequired: string) =>
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   CORS_ORIGINS: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().optional(),
+  /** Upstash Redis REST URL for API cache + rate limiting. Cache disabled when unset. */
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  /** Upstash Redis REST token. Required when UPSTASH_REDIS_REST_URL is set. */
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  /** Standard Redis URL for BullMQ job queues (ioredis). Queues disabled when unset. */
+  REDIS_URL: z.string().optional(),
+  /** Sentry DSN for API error tracking. Disabled when unset. */
+  SENTRY_DSN: z.string().optional(),
 	  /** Domain for coach-provisioned team athlete logins: `{user}.{teamSlug}@domain` */
 	  TEAM_ATHLETE_EMAIL_DOMAIN: z.string().optional(),
+	  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
+	  TURNSTILE_SECRET_KEY: z.string().optional(),
 	});
 
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
   const message = parsed.error.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join("; ");
   const dotenvHint = resolvedEnvPath ? ` (dotenv: ${path.basename(resolvedEnvPath)})` : " (dotenv: none)";
-  console.error(`[Env] Invalid environment configuration${dotenvHint}: ${message}`);
+  // Use stderr directly — logger depends on env, so it cannot be imported here
+  process.stderr.write(`[Env] Invalid environment configuration${dotenvHint}: ${message}\n`);
   throw new Error(`Invalid environment configuration: ${message}`);
 }
 
@@ -141,4 +152,7 @@ const scriptPlaceholder = "__ph_api_script_unused__";
     "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,https://ph-platform-onboarding.vercel.app",
 	  requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
 	  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
+	  sentryDsn: raw.SENTRY_DSN ?? "",
+	  logLevel: raw.LOG_LEVEL,
+	  turnstileSecretKey: raw.TURNSTILE_SECRET_KEY ?? "",
 	};

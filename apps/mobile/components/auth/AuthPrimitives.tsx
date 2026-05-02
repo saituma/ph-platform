@@ -54,6 +54,7 @@ export function AuthHeader({ badge, title, subtitle }: AuthHeaderProps) {
         </View>
       ) : null}
       <Text
+        accessibilityRole="header"
         className="font-outfit-semibold"
         selectable
         style={[styles.title, { color: colors.text }]}
@@ -104,7 +105,7 @@ export function AuthFieldRow({
   const tint = error ? colors.danger : colors.textSecondary;
 
   return (
-    <View>
+    <View accessibilityLabel={label} accessibilityRole="text">
       <View style={styles.row}>
         <View
           style={[
@@ -152,6 +153,8 @@ export function AuthPrimaryButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={isBusy ? busyLabel : label}
+      accessibilityState={{ disabled: isBusy, busy: isBusy }}
       disabled={isBusy}
       onPress={onPress}
       style={[

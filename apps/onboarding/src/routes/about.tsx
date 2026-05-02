@@ -53,7 +53,7 @@ const values = [
 
 function About() {
 	return (
-		<main className="pt-[calc(var(--topbar-height)+2rem)] pb-24 overflow-hidden relative">
+		<main className="pt-8 pb-24 overflow-hidden relative">
 			<section className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-7">
 				{/* Hero */}
 				<motion.div
@@ -62,11 +62,11 @@ function About() {
 					transition={{ duration: 0.5, ease: "easeOut" }}
 					className="mb-24 max-w-2xl"
 				>
-					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-4">
+					<p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-primary mb-4">
 						Our Vision & Mission
 					</p>
-					<h1 className="text-3xl md:text-4xl xl:text-5xl tracking-tight font-medium text-foreground leading-tight text-balance mb-4">
-						Democratizing performance
+					<h1 className="landing-section-heading text-foreground mb-4">
+						Democratizing <span className="text-primary">performance</span>
 					</h1>
 					<p className="text-sm text-muted-foreground leading-relaxed max-w-lg">
 						PH Performance was born from a simple idea: professional-grade tools
@@ -89,9 +89,9 @@ function About() {
 							<div className="text-foreground/50 mb-5">
 								<value.Icon size={28} weight="light" />
 							</div>
-							<h3 className="text-base font-medium text-foreground mb-2 tracking-tight">
+							<h2 className="text-base font-medium text-foreground mb-2 tracking-tight">
 								{value.title}
-							</h3>
+							</h2>
 							<p className="text-sm text-muted-foreground leading-relaxed">
 								{value.desc}
 							</p>
@@ -109,9 +109,9 @@ function About() {
 					className="grid grid-cols-1 lg:grid-cols-2 border border-foreground/[0.06] mb-24"
 				>
 					<div className="p-8 md:p-12 lg:p-16 flex flex-col justify-center border-b lg:border-b-0 lg:border-r border-foreground/[0.06]">
-						<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-3">Our Story</p>
-						<h2 className="text-2xl md:text-3xl tracking-tight font-medium text-foreground mb-6">
-							Built by coaches, for coaches
+						<p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-primary mb-3">Our Story</p>
+						<h2 className="landing-section-heading text-foreground mb-6">
+							Built by coaches, <span className="text-primary">for coaches</span>
 						</h2>
 						<div className="space-y-4 text-sm text-muted-foreground leading-relaxed mb-8">
 							<p>
@@ -149,11 +149,11 @@ function About() {
 					transition={{ duration: 0.5, ease: "easeOut" }}
 					className="border border-foreground/[0.06] p-8 md:p-16 text-center"
 				>
-					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-4">
+					<p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-primary mb-4">
 						Join Us
 					</p>
-					<h2 className="text-2xl md:text-3xl xl:text-4xl tracking-tight font-medium text-foreground mb-4">
-						Ready to reach your peak?
+					<h2 className="landing-section-heading text-foreground mb-4">
+						Ready to reach your <span className="text-primary">peak</span>?
 					</h2>
 					<p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto mb-8">
 						Join the professional community of athletes and coaches using PH

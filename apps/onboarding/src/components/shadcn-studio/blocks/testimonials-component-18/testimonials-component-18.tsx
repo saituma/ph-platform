@@ -6,6 +6,7 @@ export type TestimonialItem = {
 	company: string;
 	rating: number;
 	content: string;
+	avatar?: string;
 };
 
 type TestimonialsComponentProps = {

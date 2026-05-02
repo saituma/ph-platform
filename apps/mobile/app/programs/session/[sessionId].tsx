@@ -18,6 +18,7 @@ import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useFocusEffect } from "@react-navigation/native";
+import { SkeletonSessionScreen } from "@/components/ui/Skeleton";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 
@@ -35,6 +36,7 @@ import { SessionExerciseBlock } from "@/components/programs/SessionExerciseBlock
 import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import { useVideoHistory } from "@/hooks/programs/useVideoHistory";
 import { BuiltinCamera } from "@/components/media/BuiltinCamera";
+import { showNativeActionMenu } from "@/components/native/NativeActionMenu";
 import {
   finishTrainingContentV2Session,
   FinishTrainingSessionWorkoutLog,
@@ -438,45 +440,48 @@ export default function ProgramSessionDetailScreen() {
 
   const handleUploadPress = useCallback(
     (id: number, _title: string) => {
-      Alert.alert("Video Upload", "Choose an action", [
-        {
-          text: "Record",
-          onPress: () => {
-            setUploadStatus(null);
-            setBuiltinCameraTargetSectionId(id);
-            // Avoid Android FragmentManager transaction races after Alert dismissal.
-            InteractionManager.runAfterInteractions(() => {
-              setTimeout(() => setBuiltinCameraVisible(true), 80);
-            });
+      showNativeActionMenu({
+        title: "Video Upload",
+        message: "Choose an action",
+        options: [
+          {
+            label: "Record",
+            onPress: () => {
+              setUploadStatus(null);
+              setBuiltinCameraTargetSectionId(id);
+              InteractionManager.runAfterInteractions(() => {
+                setTimeout(() => setBuiltinCameraVisible(true), 80);
+              });
+            },
           },
-        },
-        {
-          text: "Library",
-          onPress: () => {
-            void (async () => {
-              try {
-                setUploadStatus(null);
-                const selected = await pickVideo();
-                if (!selected) return;
-                setPendingBySectionId((prev) => ({
-                  ...prev,
-                  [id]: {
-                    video: selected,
-                    notes: "",
-                    progress: null,
-                    error: null,
-                  },
-                }));
-              } catch (e) {
-                const message =
-                  e instanceof Error ? e.message : "Failed to pick video.";
-                Alert.alert("Couldn't pick video", message);
-              }
-            })();
+          {
+            label: "Library",
+            onPress: () => {
+              void (async () => {
+                try {
+                  setUploadStatus(null);
+                  const selected = await pickVideo();
+                  if (!selected) return;
+                  setPendingBySectionId((prev) => ({
+                    ...prev,
+                    [id]: {
+                      video: selected,
+                      notes: "",
+                      progress: null,
+                      error: null,
+                    },
+                  }));
+                } catch (e) {
+                  const message =
+                    e instanceof Error ? e.message : "Failed to pick video.";
+                  Alert.alert("Couldn't pick video", message);
+                }
+              })();
+            },
           },
-        },
-        { text: "Cancel", style: "cancel" },
-      ]);
+          { label: "Cancel", cancel: true },
+        ],
+      });
     },
     [pickVideo, setUploadStatus],
   );
@@ -647,8 +652,8 @@ export default function ProgramSessionDetailScreen() {
 
   if (isLoading && !workspace)
     return (
-      <View className="flex-1 items-center justify-center bg-app">
-        <ActivityIndicator color={colors.accent} />
+      <View className="flex-1 bg-app">
+        <SkeletonSessionScreen />
       </View>
     );
 

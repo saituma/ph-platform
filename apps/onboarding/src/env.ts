@@ -14,6 +14,8 @@ function normalizeOptionalPublicApiUrl(value: unknown): string | undefined {
 export const env = createEnv({
 	server: {
 		SERVER_URL: z.string().url().optional(),
+		UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+		UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
 	},
 
 	/**
@@ -37,6 +39,8 @@ export const env = createEnv({
 		VITE_TEAM_ATHLETE_EMAIL_DOMAIN: z.string().min(1).optional(),
 		/** Sentry DSN for client-side error tracking. */
 		VITE_SENTRY_DSN: z.string().url().optional(),
+		/** Cloudflare Turnstile site key. When unset, the widget is skipped (dev). */
+		VITE_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
 	},
 
 	/**

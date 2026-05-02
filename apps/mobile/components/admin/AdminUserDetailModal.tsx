@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { View, Modal, Platform, TextInput, Alert, ScrollView, Pressable } from "react-native";
+import { View, TextInput, Alert, ScrollView, Pressable } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -7,6 +7,8 @@ import { Shadows } from "@/constants/theme";
 import { AdminUser, UserOnboardingPayload } from "@/types/admin";
 import { SmallAction } from "./AdminShared";
 import { apiRequest } from "@/lib/api";
+import { AdaptiveSheet } from "@/components/native/AdaptiveSheet";
+import { showNativeActionMenu } from "@/components/native/NativeActionMenu";
 
 interface Props {
   user: AdminUser | null;
@@ -31,7 +33,6 @@ export function AdminUserDetailModal({
 }: Props) {
   const { colors, isDark } = useAppTheme();
   const [tierDraft, setTierDraft] = useState("");
-  const [tierPickerOpen, setTierPickerOpen] = useState(false);
   const [passwordDraft, setPasswordDraft] = useState("");
   
   const [athlete, setAthlete] = useState<any>(null);
@@ -41,7 +42,6 @@ export function AdminUserDetailModal({
   useEffect(() => {
     if (user && visible) {
       setTierDraft(user.programTier ?? "");
-      setTierPickerOpen(false);
       setPasswordDraft("");
       loadAthleteData();
     }
@@ -96,13 +96,26 @@ export function AdminUserDetailModal({
   );
   const normalizedTier = tierDraft.trim() || "PHP";
   const tierLabel = normalizedTier.replaceAll("_", " ");
+  const openTierPicker = () => {
+    showNativeActionMenu({
+      title: "Select tier",
+      message: "Choose the program tier for this user.",
+      options: [
+        ...tierOptions.map((tier) => ({
+          label: tier.replaceAll("_", " "),
+          onPress: () => setTierDraft(tier),
+        })),
+        { label: "Cancel", cancel: true },
+      ],
+    });
+  };
 
   return (
-    <Modal
+    <AdaptiveSheet
       visible={visible}
-      animationType="slide"
-      presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
-      onRequestClose={onClose}
+      variant="page"
+      onClose={onClose}
+      keyboardAvoiding={false}
     >
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View className="flex-row justify-between items-center px-6 pt-8 pb-4 border-b" style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }}>
@@ -191,7 +204,7 @@ export function AdminUserDetailModal({
              <View className="gap-2 mb-6">
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setTierPickerOpen(true)}
+                  onPress={openTierPicker}
                   className="rounded-2xl border border-app/10 bg-background px-4 py-3 active:opacity-90"
                 >
                   <Text className="text-[12px] font-outfit text-secondary mb-1">Selected tier</Text>
@@ -231,55 +244,6 @@ export function AdminUserDetailModal({
 
         </ScrollView>
       </View>
-
-      <Modal
-        visible={tierPickerOpen}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setTierPickerOpen(false)}
-      >
-        <Pressable
-          onPress={() => setTierPickerOpen(false)}
-          className="flex-1 items-center justify-center px-6"
-          style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
-        >
-          <Pressable
-            onPress={() => {}}
-            className="w-full rounded-[28px] border border-app/10 bg-card p-5"
-            style={{
-              backgroundColor: isDark ? colors.cardElevated : colors.card,
-            }}
-          >
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-clash font-bold text-app">Select tier</Text>
-              <SmallAction
-                label="Close"
-                tone="neutral"
-                onPress={() => setTierPickerOpen(false)}
-              />
-            </View>
-            <View className="gap-2">
-              {tierOptions.map((tier) => {
-                const selected = normalizedTier === tier;
-                return (
-                  <Pressable
-                    key={tier}
-                    onPress={() => {
-                      setTierDraft(tier);
-                      setTierPickerOpen(false);
-                    }}
-                    className={`rounded-2xl border px-4 py-3 ${selected ? "bg-accent-light border-app/10" : "bg-card border-app/10"}`}
-                  >
-                    <Text className={`text-[13px] font-outfit-bold ${selected ? "text-accent" : "text-app"}`}>
-                      {tier.replaceAll("_", " ")}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </Modal>
+    </AdaptiveSheet>
   );
 }

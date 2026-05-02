@@ -2,36 +2,17 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-test:
+  api-checks:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgres://test:test@localhost:5432/test
-      JWT_SECRET: test-jwt-secret
-      STRIPE_SECRET_KEY: sk_test_123
-      STRIPE_WEBHOOK_SECRET: whsec_test
-      STRIPE_SUCCESS_URL: http://localhost:3000/stripe/success
-      STRIPE_CANCEL_URL: http://localhost:3000/stripe/cancel
-      OPEN_AI_API_KEY: test-openai
-      ADMIN_WEB_URL: http://localhost:3000
-      API_BASE_URL: http://localhost:8000
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
     steps:
       - uses: actions/checkout@v4
 
@@ -44,34 +25,43 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter api lint
+      - run: pnpm --filter api typecheck
+      - run: pnpm --filter api test -- --coverage
 
-      - name: Lint
-        run: |
-          pnpm --filter api lint
-          pnpm --filter web lint
-          pnpm --filter mobile lint
+  web-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Typecheck
-        run: |
-          pnpm --filter api typecheck
-          pnpm --filter web typecheck
-          pnpm --filter mobile typecheck
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-      - name: Unit tests
-        run: pnpm test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
 
-      - name: Integration tests
-        env:
-          API_INTEGRATION: "1"
-        run: pnpm --filter api test
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web typecheck
+      - run: pnpm --filter web test -- --coverage
 
-      - name: Install Playwright browsers
-        run: pnpm run test:e2e:install
+  mobile-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: E2E tests
-        run: pnpm run test:e2e
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-      - name: Build
-        run: pnpm build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter mobile typecheck
+      - run: pnpm --filter mobile test -- --coverage

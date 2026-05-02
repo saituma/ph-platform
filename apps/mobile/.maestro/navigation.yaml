@@ -1,0 +1,43 @@
+appId: com.phperformance.app
+tags:
+  - critical
+  - navigation
+name: "Tab Navigation Flow"
+---
+
+# ── Tab Navigation Flow ─────────────────────────────────────────────────
+# After login, navigates to each tab and verifies the screen loads.
+# Tab labels come from roles/shared/tabs.ts:
+#   Home, Programs, Messages, Schedule, Tracking, More
+
+- runFlow: login.yaml
+
+# ── Home tab (already active after login) ──
+- assertVisible: "Home"
+
+# ── Programs tab ──
+- tapOn:
+    text: "Programs"
+- assertVisible:
+    text: "My Programs"
+    optional: true
+- assertVisible:
+    text: "Programs"
+
+# ── Messages tab ──
+- tapOn:
+    text: "Messages"
+# The messages inbox should render
+- assertVisible:
+    text: "Messages"
+
+# ── Schedule tab ──
+- tapOn:
+    text: "Schedule"
+- assertVisible:
+    text: "Schedule"
+
+# ── Navigate back to Home ──
+- tapOn:
+    text: "Home"
+- assertVisible: "Home"

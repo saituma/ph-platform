@@ -16,6 +16,13 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import {
+	motion,
+	PageTransition,
+	StaggerList,
+	StaggerItem,
+	Skeleton,
+} from "@/lib/motion";
 import { settingsService } from "@/services/settingsService";
 
 export const Route = createFileRoute("/portal/notifications")({
@@ -93,8 +100,13 @@ function NotificationsPage() {
 	const unreadCount = notifications.filter((n) => !n.read).length;
 
 	return (
-		<div className="p-6 max-w-2xl mx-auto space-y-6">
-			<div className="flex items-start justify-between gap-4">
+		<PageTransition className="p-6 max-w-2xl mx-auto space-y-6">
+			<motion.div
+				initial={{ opacity: 0, y: -10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.4 }}
+				className="flex items-start justify-between gap-4"
+			>
 				<div className="space-y-1">
 					<h1 className="text-3xl font-black uppercase italic tracking-tighter">
 						Notifications
@@ -106,92 +118,129 @@ function NotificationsPage() {
 					</p>
 				</div>
 				{unreadCount > 0 && (
-					<Button
-						variant="outline"
-						size="sm"
-						className="rounded-xl font-bold border-2 shrink-0"
-						onClick={() => void handleMarkAllRead()}
-						disabled={markingAll}
+					<motion.div
+						initial={{ opacity: 0, scale: 0.9 }}
+						animate={{ opacity: 1, scale: 1 }}
+						transition={{ delay: 0.2 }}
 					>
-						{markingAll ? (
-							<Loader2 className="mr-2 h-3 w-3 animate-spin" />
-						) : (
-							<CheckCheck className="mr-2 h-3 w-3" />
-						)}
-						Mark all read
-					</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							className="rounded-xl font-bold border-2 shrink-0"
+							onClick={() => void handleMarkAllRead()}
+							disabled={markingAll}
+						>
+							{markingAll ? (
+								<Loader2 className="mr-2 h-3 w-3 animate-spin" />
+							) : (
+								<CheckCheck className="mr-2 h-3 w-3" />
+							)}
+							Mark all read
+						</Button>
+					</motion.div>
 				)}
-			</div>
+			</motion.div>
 
-			<Card className="border-2">
-				<CardHeader className="pb-3">
-					<CardTitle className="flex items-center gap-2 text-base font-bold uppercase tracking-tight">
-						<Bell className="h-4 w-4 text-primary" />
-						Inbox
-						{unreadCount > 0 && (
-							<Badge className="rounded-full font-black text-xs px-2">
-								{unreadCount}
-							</Badge>
-						)}
-					</CardTitle>
-				</CardHeader>
-				<CardContent className="p-0">
-					{loading ? (
-						<div className="flex items-center justify-center py-12">
-							<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-						</div>
-					) : notifications.length === 0 ? (
-						<div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
-							<BellOff className="h-8 w-8 opacity-30" />
-							<p className="text-sm font-medium">No notifications yet</p>
-						</div>
-					) : (
-						<div className="divide-y">
-							{notifications.map((notif) => (
-								<button
-									key={notif.id}
-									type="button"
-									onClick={() => {
-										if (!notif.read) void handleMarkRead(notif.id);
-										if (notif.link) window.location.href = notif.link;
-									}}
-									className={cn(
-										"w-full flex items-start gap-4 px-5 py-4 text-left transition-colors",
-										!notif.read
-											? "bg-primary/5 hover:bg-primary/10"
-											: "hover:bg-muted/40",
-									)}
+			<motion.div
+				initial={{ opacity: 0, y: 12 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ delay: 0.1 }}
+			>
+				<Card className="border-2">
+					<CardHeader className="pb-3">
+						<CardTitle className="flex items-center gap-2 text-base font-bold uppercase tracking-tight">
+							<Bell className="h-4 w-4 text-primary" />
+							Inbox
+							{unreadCount > 0 && (
+								<motion.div
+									key={unreadCount}
+									initial={{ scale: 0.5, opacity: 0 }}
+									animate={{ scale: 1, opacity: 1 }}
+									transition={{ type: "spring", stiffness: 400 }}
 								>
-									<div
-										className={cn(
-											"mt-0.5 h-2 w-2 shrink-0 rounded-full",
-											!notif.read ? "bg-primary" : "bg-transparent",
-										)}
-									/>
-									<div className="min-w-0 flex-1">
-										{notif.type && (
-											<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">
-												{notif.type.replace(/_/g, " ")}
-											</p>
-										)}
-										<p
+									<Badge className="rounded-full font-black text-xs px-2">
+										{unreadCount}
+									</Badge>
+								</motion.div>
+							)}
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="p-0">
+						{loading ? (
+							<div className="divide-y">
+								{[1, 2, 3, 4].map((i) => (
+									<div key={i} className="flex items-start gap-4 px-5 py-4">
+										<Skeleton className="h-2 w-2 rounded-full mt-2 shrink-0" />
+										<div className="flex-1 space-y-2">
+											<Skeleton className="h-2.5 w-16" />
+											<Skeleton className="h-4 w-full" />
+										</div>
+										<Skeleton className="h-3 w-12 shrink-0" />
+									</div>
+								))}
+							</div>
+						) : notifications.length === 0 ? (
+							<motion.div
+								initial={{ opacity: 0, scale: 0.95 }}
+								animate={{ opacity: 1, scale: 1 }}
+								className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground"
+							>
+								<BellOff className="h-8 w-8 opacity-30" />
+								<p className="text-sm font-medium">No notifications yet</p>
+							</motion.div>
+						) : (
+							<StaggerList className="divide-y">
+								{notifications.map((notif) => (
+									<StaggerItem key={notif.id}>
+										<motion.button
+											whileHover={{ x: 2 }}
+											transition={{ duration: 0.15 }}
+											type="button"
+											onClick={() => {
+												if (!notif.read) void handleMarkRead(notif.id);
+												if (notif.link) window.location.href = notif.link;
+											}}
 											className={cn(
-												"text-sm leading-snug",
-												!notif.read ? "font-bold text-foreground" : "text-muted-foreground",
+												"w-full flex items-start gap-4 px-5 py-4 text-left transition-colors",
+												!notif.read
+													? "bg-primary/5 hover:bg-primary/10"
+													: "hover:bg-muted/40",
 											)}
 										>
-											{notif.content || "—"}
-										</p>
-									</div>
-									<span className="shrink-0 text-xs text-muted-foreground">
-										{relativeDate(notif.createdAt)}
-									</span>
-								</button>
-							))}
-						</div>
-					)}
-				</CardContent>
-			</Card>
-		</div>
+											<motion.div
+												animate={!notif.read ? { scale: [1, 1.3, 1] } : {}}
+												transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+												className={cn(
+													"mt-0.5 h-2 w-2 shrink-0 rounded-full",
+													!notif.read ? "bg-primary" : "bg-transparent",
+												)}
+											/>
+											<div className="min-w-0 flex-1">
+												{notif.type && (
+													<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">
+														{notif.type.replace(/_/g, " ")}
+													</p>
+												)}
+												<p
+													className={cn(
+														"text-sm leading-snug",
+														!notif.read ? "font-bold text-foreground" : "text-muted-foreground",
+													)}
+												>
+													{notif.content || "—"}
+												</p>
+											</div>
+											<span className="shrink-0 text-xs text-muted-foreground">
+												{relativeDate(notif.createdAt)}
+											</span>
+										</motion.button>
+									</StaggerItem>
+								))}
+							</StaggerList>
+						)}
+					</CardContent>
+				</Card>
+			</motion.div>
+		</PageTransition>
 	);
 }

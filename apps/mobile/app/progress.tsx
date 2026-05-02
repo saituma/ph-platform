@@ -3,13 +3,11 @@ import {
   View,
   Pressable,
   ScrollView,
-  Modal,
   TextInput,
   Platform,
   Switch,
   Alert,
   StyleSheet,
-  KeyboardAvoidingView,
   Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -46,6 +44,7 @@ import {
   requestProgressNotificationPermission,
   syncProgressWeeklyReminder,
 } from "@/lib/progressReminders";
+import { AdaptiveSheet } from "@/components/native/AdaptiveSheet";
 
 type Tab = "strength" | "weight" | "measure";
 
@@ -611,39 +610,15 @@ export default function ProgressScreen() {
           <Text style={{ fontFamily: fonts.heading2, fontSize: 16, color: colors.textInverse }}>Add entry</Text>
         </Pressable>
 
-        <Modal
+        <AdaptiveSheet
           visible={modalOpen}
-          animationType="slide"
-          transparent
-          onRequestClose={() => {
+          variant="bottom"
+          onClose={() => {
             Keyboard.dismiss();
             setModalOpen(false);
           }}
+          cardStyle={{ backgroundColor: colors.background }}
         >
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
-          >
-            <View style={{ flex: 1, justifyContent: "flex-end" }}>
-              <Pressable
-                style={StyleSheet.absoluteFill}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setModalOpen(false);
-                }}
-              />
-              <View
-                style={{
-                  maxHeight: "88%",
-                  backgroundColor: colors.background,
-                  borderTopLeftRadius: 28,
-                  borderTopRightRadius: 28,
-                  paddingHorizontal: 20,
-                  paddingTop: 20,
-                  paddingBottom: insets.bottom + 12,
-                }}
-              >
                 <ScrollView
                   keyboardShouldPersistTaps="handled"
                   keyboardDismissMode="on-drag"
@@ -924,10 +899,7 @@ export default function ProgressScreen() {
               </Pressable>
             </View>
                 </ScrollView>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+        </AdaptiveSheet>
       </View>
     </SafeAreaView>
   );

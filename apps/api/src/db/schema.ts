@@ -218,6 +218,8 @@ export const teamTable = pgTable(
     stripeSubscriptionId: varchar({ length: 255 }),
     /** Lowercase slug for athlete emails: `{username}.{emailSlug}@domain` (editable by coach). DB column: email_slug (see 0088_team_email_slug.sql). */
     emailSlug: varchar("email_slug", { length: 80 }),
+    sponsoredPlayerCount: integer("sponsored_player_count").notNull().default(0),
+    sponsoredPlanId: integer("sponsored_plan_id").references(() => subscriptionPlanTable.id),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
@@ -254,6 +256,7 @@ export const athleteTable = pgTable("athletes", {
   planExpiresAt: timestamp(),
   /** Set when a renewal reminder email/push was sent for the current period. */
   planRenewalReminderSentAt: timestamp(),
+  isSponsored: boolean("is_sponsored").notNull().default(false),
   onboardingCompleted: boolean().notNull().default(false),
   onboardingCompletedAt: timestamp(),
   createdAt: timestamp().notNull().defaultNow(),
@@ -1541,5 +1544,42 @@ export const trackingGoalTable = pgTable(
     coachIdx: index("tracking_goals_coach_idx").on(table.coachId),
     athleteIdx: index("tracking_goals_athlete_idx").on(table.athleteId),
     statusIdx: index("tracking_goals_status_idx").on(table.status),
+  }),
+);
+
+// ── Enquiries ──────────────────────────────────────────────
+
+export const enquiryStatusEnum = pgEnum("enquiry_status", ["new", "contacted", "booked", "closed"]);
+export const enquiryServiceEnum = pgEnum("enquiry_service", ["1-to-1 Private", "Semi-Private (2-4)", "Team Sessions", "App Only"]);
+
+export const enquiryTable = pgTable(
+  "enquiries",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteType: varchar("athlete_type", { length: 10 }),
+    athleteName: varchar("athlete_name", { length: 255 }).notNull(),
+    age: integer(),
+    parentName: varchar("parent_name", { length: 255 }),
+    phone: varchar({ length: 50 }).notNull(),
+    email: varchar({ length: 255 }).notNull(),
+    interestedIn: enquiryServiceEnum("interested_in").notNull(),
+    locationPreference: jsonb("location_preference").$type<string[]>().default([]),
+    groupNeeded: boolean("group_needed").notNull().default(false),
+    teamName: varchar("team_name", { length: 255 }),
+    ageGroup: varchar("age_group", { length: 50 }),
+    squadSize: integer("squad_size"),
+    availabilityDays: jsonb("availability_days").$type<string[]>().default([]),
+    availabilityTime: varchar("availability_time", { length: 100 }),
+    goal: text(),
+    photoUrl: varchar("photo_url", { length: 1024 }),
+    status: enquiryStatusEnum().notNull().default("new"),
+    notes: text(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    statusIdx: index("enquiries_status_idx").on(table.status),
+    serviceIdx: index("enquiries_service_idx").on(table.interestedIn),
+    createdAtIdx: index("enquiries_created_at_idx").on(table.createdAt),
   }),
 );

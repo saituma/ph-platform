@@ -25,6 +25,7 @@ import {
   resolveDefaultBookingPartyForTrainingStaff,
 } from "../services/user.service";
 import { ProgramType } from "../db/schema";
+import { cache, cacheKeys } from "../lib/cache";
 import { verifyBookingActionToken } from "../lib/booking-actions";
 import { db } from "../db";
 import { athleteTable, bookingTable, serviceTypeTable } from "../db/schema";
@@ -135,16 +136,16 @@ export async function listServices(req: Request, res: Response) {
   const includeLocked = req.query.includeLocked === "true";
   const omitWithoutBookableSlots = req.query.omitWithoutBookableSlots === "true";
   const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
-  const items = await listServiceTypes({
-    includeInactive,
-    includeLocked,
-    omitWithoutBookableSlots,
-    viewerProgramTier: athlete?.currentProgramTier as any,
-    athlete,
-  });
-  if (includeInactive || isTrainingStaff(req.user?.role)) {
-    return res.status(200).json({ items });
-  }
+
+  const isAdmin = isTrainingStaff(req.user?.role);
+  const items = isAdmin
+    ? await listServiceTypes({ includeInactive, includeLocked, omitWithoutBookableSlots, viewerProgramTier: athlete?.currentProgramTier as any, athlete })
+    : await cache.getOrSet(
+        cacheKeys.userServices(req.user?.id ?? 0),
+        300,
+        () => listServiceTypes({ includeInactive, includeLocked, omitWithoutBookableSlots, viewerProgramTier: athlete?.currentProgramTier as any, athlete }),
+      );
+
   return res.status(200).json({ items });
 }
 
@@ -302,6 +303,7 @@ export async function createBookingForUser(req: Request, res: Response) {
       timezoneOffsetMinutes: input.timezoneOffsetMinutes,
     });
 
+    void cache.del(cacheKeys.userBookings(req.user!.id));
     return res.status(201).json({ booking });
   } catch (error: any) {
     if (error?.message === "BOOKING_REQUIRES_ACTIVE_PLAN") {
@@ -329,17 +331,15 @@ export async function createBookingForUser(req: Request, res: Response) {
 
 export async function listBookings(req: Request, res: Response) {
   try {
-    const { guardian } = await getGuardianAndAthlete(req.user!.id);
-    if (guardian) {
-      const items = await listBookingsForUser(guardian.id);
-      return res.status(200).json({ items });
-    }
-    const athlete = await getAthleteForUser(req.user!.id);
-    if (athlete) {
-      const items = await listBookingsForAthlete(athlete.id);
-      return res.status(200).json({ items });
-    }
-    return res.status(200).json({ items: [] });
+    const userId = req.user!.id;
+    const items = await cache.getOrSet(cacheKeys.userBookings(userId), 30, async () => {
+      const { guardian } = await getGuardianAndAthlete(userId);
+      if (guardian) return listBookingsForUser(guardian.id);
+      const athlete = await getAthleteForUser(userId);
+      if (athlete) return listBookingsForAthlete(athlete.id);
+      return [];
+    });
+    return res.status(200).json({ items });
   } catch (error) {
     console.error("listBookings error:", error);
     return res.status(200).json({ items: [] });
@@ -355,6 +355,7 @@ export async function cancelBooking(req: Request, res: Response) {
 
   try {
     const booking = await cancelBookingForUser(bookingId, guardian.id);
+    void cache.del(cacheKeys.userBookings(req.user!.id));
     return res.status(200).json({ booking });
   } catch (error: any) {
     if (error?.message === "NOT_FOUND") return res.status(404).json({ error: "Booking not found" });

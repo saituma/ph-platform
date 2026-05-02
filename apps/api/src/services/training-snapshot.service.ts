@@ -1,11 +1,7 @@
 import { eq, gte, sql } from "drizzle-orm";
 
 import { db } from "../db";
-import {
-  athleteTable,
-  guardianTable,
-  programSectionCompletionTable,
-} from "../db/schema";
+import { athleteTable, guardianTable, programSectionCompletionTable } from "../db/schema";
 
 export type TrainingSnapshotRow = {
   athleteId: number;
@@ -18,7 +14,12 @@ export type TrainingSnapshotRow = {
   premiumExercisesDone: number;
 };
 
-export async function listTrainingSnapshotForAdmin(): Promise<TrainingSnapshotRow[]> {
+export async function listTrainingSnapshotForAdmin(options?: { limit?: number }): Promise<TrainingSnapshotRow[]> {
+  const effectiveLimit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? Math.max(1, Math.min(500, Math.floor(options.limit)))
+      : 500;
+
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -31,7 +32,8 @@ export async function listTrainingSnapshotForAdmin(): Promise<TrainingSnapshotRo
       guardianUserId: guardianTable.userId,
     })
     .from(athleteTable)
-    .innerJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id));
+    .innerJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+    .limit(effectiveLimit);
 
   const sectionAgg = await db
     .select({

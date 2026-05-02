@@ -89,21 +89,20 @@ export async function deleteModule(moduleId: number) {
     await db.delete(sessionTable).where(inArray(sessionTable.id, sessionIds));
   }
 
-  const result = await db
-    .delete(programModuleTable)
-    .where(eq(programModuleTable.id, moduleId))
-    .returning();
+  const result = await db.delete(programModuleTable).where(eq(programModuleTable.id, moduleId)).returning();
 
   return result[0] ?? null;
 }
 
 export async function reorderModules(programId: number, moduleIds: number[]) {
-  for (let i = 0; i < moduleIds.length; i++) {
-    await db
-      .update(programModuleTable)
-      .set({ order: i + 1, updatedAt: new Date() })
-      .where(and(eq(programModuleTable.id, moduleIds[i]), eq(programModuleTable.programId, programId)));
-  }
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < moduleIds.length; i++) {
+      await tx
+        .update(programModuleTable)
+        .set({ order: i + 1, updatedAt: new Date() })
+        .where(and(eq(programModuleTable.id, moduleIds[i]), eq(programModuleTable.programId, programId)));
+    }
+  });
 }
 
 export async function listSessions(moduleId: number) {
@@ -171,11 +170,7 @@ export async function updateSession(
   if (input.sessionNumber !== undefined) updatePayload.sessionNumber = input.sessionNumber;
   if (input.type !== undefined) updatePayload.type = input.type;
 
-  const result = await db
-    .update(sessionTable)
-    .set(updatePayload)
-    .where(eq(sessionTable.id, sessionId))
-    .returning();
+  const result = await db.update(sessionTable).set(updatePayload).where(eq(sessionTable.id, sessionId)).returning();
 
   return result[0] ?? null;
 }
@@ -243,12 +238,14 @@ export async function updateSessionExercise(
 }
 
 export async function reorderSessionExercises(sessionId: number, ids: number[]) {
-  for (let i = 0; i < ids.length; i++) {
-    await db
-      .update(sessionExerciseTable)
-      .set({ order: i + 1, updatedAt: new Date() })
-      .where(and(eq(sessionExerciseTable.id, ids[i]), eq(sessionExerciseTable.sessionId, sessionId)));
-  }
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < ids.length; i++) {
+      await tx
+        .update(sessionExerciseTable)
+        .set({ order: i + 1, updatedAt: new Date() })
+        .where(and(eq(sessionExerciseTable.id, ids[i]), eq(sessionExerciseTable.sessionId, sessionId)));
+    }
+  });
 }
 
 export async function getFullProgram(programId: number) {
@@ -294,7 +291,12 @@ export async function getFullProgram(programId: number) {
   };
 }
 
-export async function listAdultAthletes() {
+export async function listAdultAthletes(options?: { limit?: number }) {
+  const effectiveLimit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? Math.max(1, Math.min(200, Math.floor(options.limit)))
+      : 200;
+
   const athletes = await db
     .select({
       id: athleteTable.id,
@@ -307,7 +309,8 @@ export async function listAdultAthletes() {
     .from(athleteTable)
     .innerJoin(userTable, eq(userTable.id, athleteTable.userId))
     .where(and(eq(athleteTable.athleteType, "adult"), eq(userTable.isDeleted, false)))
-    .orderBy(asc(athleteTable.name));
+    .orderBy(asc(athleteTable.name))
+    .limit(effectiveLimit);
 
   const athleteIds = athletes.map((a) => a.id);
   let assignments: any[] = [];
@@ -343,11 +346,21 @@ export async function listAdultAthletes() {
   }));
 }
 
-export async function assignProgram(input: {
-  athleteId: number;
-  programId: number;
-  assignedBy: number;
-}) {
+export async function assignProgram(input: { athleteId: number; programId: number; assignedBy: number }) {
+  const [athlete] = await db
+    .select({ id: athleteTable.id })
+    .from(athleteTable)
+    .where(eq(athleteTable.id, input.athleteId))
+    .limit(1);
+  if (!athlete) throw new Error("Athlete not found");
+
+  const [program] = await db
+    .select({ id: programTable.id })
+    .from(programTable)
+    .where(eq(programTable.id, input.programId))
+    .limit(1);
+  if (!program) throw new Error("Program not found");
+
   const result = await db
     .insert(programAssignmentTable)
     .values({
@@ -362,10 +375,7 @@ export async function assignProgram(input: {
 }
 
 export async function unassignProgram(assignmentId: number) {
-  const result = await db
-    .delete(programAssignmentTable)
-    .where(eq(programAssignmentTable.id, assignmentId))
-    .returning();
+  const result = await db.delete(programAssignmentTable).where(eq(programAssignmentTable.id, assignmentId)).returning();
 
   return result[0] ?? null;
 }

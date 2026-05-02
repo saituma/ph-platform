@@ -12,3 +12,7 @@ dist-ssr
 .vercel
 __unconfig*
 todos.json
+test-results/
+playwright-report/
+e2e/**/*.png
+!e2e/**/*.snap.png

@@ -1,9 +1,11 @@
 import type { Server as HttpServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 
 import { env } from "./config/env";
 import { getDbOutageRemainingMs, isLikelyDatabaseConnectivityFailure } from "./lib/db-connectivity";
+import { createLogger } from "./lib/logger";
 import { verifyAccessToken } from "./lib/jwt";
 import { getUserByCognitoSub, getUserById, getGuardianAndAthlete } from "./services/user.service";
 import { createGroupMessage, listGroupsForUser, isGroupMember } from "./services/chat.service";
@@ -18,6 +20,76 @@ type AuthPayload = {
   role?: string;
   name?: string;
 };
+
+// ── Zod schemas for socket event payloads ──────────────────────────
+
+const groupIdSchema = z.object({ groupId: z.coerce.number().int().positive() });
+const actingJoinSchema = z.object({ actingUserId: z.coerce.number().int().positive().optional() });
+
+const messageSendSchema = z.object({
+  toUserId: z.coerce.number().int().positive(),
+  content: z.string().max(2000).optional(),
+  contentType: z.enum(["text", "image", "video"]).default("text"),
+  mediaUrl: z.string().url().max(2048).optional(),
+  replyToMessageId: z.coerce.number().int().positive().optional(),
+  replyPreview: z.string().max(160).optional(),
+  clientId: z.string().max(64).optional(),
+  actingUserId: z.coerce.number().int().positive().optional(),
+});
+
+const groupSendSchema = z.object({
+  groupId: z.coerce.number().int().positive(),
+  content: z.string().max(2000).optional(),
+  contentType: z.enum(["text", "image", "video"]).default("text"),
+  mediaUrl: z.string().url().max(2048).optional(),
+  replyToMessageId: z.coerce.number().int().positive().optional(),
+  replyPreview: z.string().max(160).optional(),
+  clientId: z.string().max(64).optional(),
+  actingUserId: z.coerce.number().int().positive().optional(),
+});
+
+const messageDeliveredSchema = z.object({ messageId: z.coerce.number().int().positive() });
+const messageReadSchema = z.object({ peerUserId: z.coerce.number().int().positive() });
+
+const typingSchema = z.object({
+  toUserId: z.coerce.number().int().positive().optional(),
+  groupId: z.coerce.number().int().positive().optional(),
+});
+
+// ── Per-user socket rate limiting ──────────────────────────────────
+
+const RATE_LIMITS: Record<string, { max: number; windowMs: number }> = {
+  "message:send": { max: 30, windowMs: 60_000 },
+  "group:send": { max: 30, windowMs: 60_000 },
+  "typing:start": { max: 60, windowMs: 60_000 },
+  "typing:stop": { max: 60, windowMs: 60_000 },
+  "message:delivered": { max: 120, windowMs: 60_000 },
+  "message:read": { max: 60, windowMs: 60_000 },
+  "group:join": { max: 30, windowMs: 60_000 },
+};
+
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(userId: number, event: string): boolean {
+  const limit = RATE_LIMITS[event];
+  if (!limit) return false;
+  const key = `${userId}:${event}`;
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  if (!bucket || now >= bucket.resetAt) {
+    rateBuckets.set(key, { count: 1, resetAt: now + limit.windowMs });
+    return false;
+  }
+  bucket.count++;
+  return bucket.count > limit.max;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of rateBuckets) {
+    if (now >= bucket.resetAt) rateBuckets.delete(key);
+  }
+}, 120_000);
 
 async function resolveUserId(payload: AuthPayload) {
   if (payload.user_id) return payload.user_id;
@@ -80,6 +152,8 @@ export function initSocket(server: HttpServer) {
   // Track online users for presence snapshot on connect.
   const onlineUsers = new Set<number>();
 
+  const log = createLogger({ component: "socket" });
+
   io.use(async (socket, next) => {
     try {
       const headerAuth = socket.handshake.headers?.authorization?.toString().replace("Bearer ", "");
@@ -91,19 +165,19 @@ export function initSocket(server: HttpServer) {
         ?.split("=")[1];
       const token = socket.handshake.auth?.token || headerAuth || cookieToken;
       if (!token) {
-        console.warn("[Socket] Unauthorized: missing token", {
+        log.warn({
           ip: socket.handshake.address,
           origin: socket.handshake.headers?.origin,
-        });
+        }, "Unauthorized: missing token");
         return next(new Error("Unauthorized"));
       }
       const payload = (await verifyAccessToken(token)) as AuthPayload;
       const userId = await resolveUserId(payload);
       if (!userId) {
-        console.warn("[Socket] Unauthorized: user not resolved", {
+        log.warn({
           ip: socket.handshake.address,
           origin: socket.handshake.headers?.origin,
-        });
+        }, "Unauthorized: user not resolved");
         return next(new Error("Unauthorized"));
       }
       socket.data.userId = userId;
@@ -119,35 +193,35 @@ export function initSocket(server: HttpServer) {
         } catch (error) {
           if (!isLikelyDatabaseConnectivityFailure(error)) throw error;
           const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
-          console.warn("[Socket] DB unavailable during optional profile lookup", {
+          log.warn({
             ip: socket.handshake.address,
             origin: socket.handshake.headers?.origin,
             userId,
             retryAfterSeconds,
-          });
+          }, "DB unavailable during optional profile lookup");
         }
       }
       return next();
     } catch (error) {
       if (isLikelyDatabaseConnectivityFailure(error)) {
         const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
-        console.warn("[Socket] Service unavailable during auth", {
+        log.warn({
           ip: socket.handshake.address,
           origin: socket.handshake.headers?.origin,
           retryAfterSeconds,
-          error: error instanceof Error ? error.message : String(error),
-        });
+          err: error,
+        }, "Service unavailable during auth");
         const serviceUnavailableError = new Error("ServiceUnavailable") as Error & {
           data?: { code: "DB_UNAVAILABLE"; retryAfterSeconds: number };
         };
         serviceUnavailableError.data = { code: "DB_UNAVAILABLE", retryAfterSeconds };
         return next(serviceUnavailableError);
       }
-      console.warn("[Socket] Unauthorized: token verification failed", {
+      log.warn({
         ip: socket.handshake.address,
         origin: socket.handshake.headers?.origin,
-        error: error instanceof Error ? error.message : String(error),
-      });
+        err: error,
+      }, "Unauthorized: token verification failed");
       return next(new Error("Unauthorized"));
     }
   });
@@ -170,231 +244,211 @@ export function initSocket(server: HttpServer) {
     } catch (error) {
       if (isLikelyDatabaseConnectivityFailure(error)) {
         const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
-        console.warn("[Socket] group bootstrap skipped during DB outage", {
-          userId,
-          retryAfterSeconds,
-        });
+        log.warn({ userId, retryAfterSeconds }, "Group bootstrap skipped during DB outage");
       } else {
-        console.warn("Socket group join failed", error);
+        log.warn({ err: error }, "Socket group join failed");
       }
     }
 
-    socket.on("group:join", async (payload: { groupId?: number }) => {
-      const groupId = payload?.groupId ? Number(payload.groupId) : null;
-      if (!groupId || !Number.isFinite(groupId)) return;
-      try {
-        const actingUserId = (socket.data.actingUserId as number | null) ?? null;
-        const ids = [userId, actingUserId].filter((value): value is number => Boolean(value) && Number.isFinite(value));
-        let allowed = false;
-        for (const candidateId of ids) {
-          if (candidateId !== userId) {
-            const { athlete } = await getGuardianAndAthlete(userId);
-            if (!athlete || athlete.userId !== candidateId) continue;
-          }
-          if (await isGroupMember(groupId, candidateId)) {
-            allowed = true;
-            break;
-          }
+    // ── Helper: safe async handler with rate limiting, validation, error ACK ──
+
+    function guarded<T extends z.ZodTypeAny>(
+      event: string,
+      schema: T,
+      handler: (data: z.infer<T>) => Promise<void>,
+    ) {
+      socket.on(event, async (rawPayload: unknown) => {
+        if (isRateLimited(userId, event)) {
+          socket.emit("error:rate_limited", { event, message: "Too many requests, slow down" });
+          return;
         }
-        if (!allowed) return;
-        socket.join(`group:${groupId}`);
-      } catch (error) {
-        console.warn("[Socket] group:join failed", error);
+        const parsed = schema.safeParse(rawPayload ?? {});
+        if (!parsed.success) {
+          socket.emit("error:validation", { event, issues: parsed.error.issues.map((i) => i.message) });
+          return;
+        }
+        try {
+          await handler(parsed.data);
+        } catch (error) {
+          log.error({ err: error, event, userId }, "Socket handler error");
+          socket.emit("error:server", { event, message: "Server error processing your request" });
+        }
+      });
+    }
+
+    guarded("group:join", groupIdSchema, async ({ groupId }) => {
+      const actingUserId = (socket.data.actingUserId as number | null) ?? null;
+      const ids = [userId, actingUserId].filter((value): value is number => Boolean(value) && Number.isFinite(value));
+      let allowed = false;
+      for (const candidateId of ids) {
+        if (candidateId !== userId) {
+          const { athlete } = await getGuardianAndAthlete(userId);
+          if (!athlete || athlete.userId !== candidateId) continue;
+        }
+        if (await isGroupMember(groupId, candidateId)) {
+          allowed = true;
+          break;
+        }
       }
+      if (!allowed) return;
+      socket.join(`group:${groupId}`);
     });
 
-    socket.on("group:leave", (payload: { groupId?: number }) => {
-      const groupId = payload?.groupId ? Number(payload.groupId) : null;
-      if (!groupId || !Number.isFinite(groupId)) return;
-      socket.leave(`group:${groupId}`);
+    socket.on("group:leave", (payload: unknown) => {
+      const parsed = groupIdSchema.safeParse(payload ?? {});
+      if (!parsed.success) return;
+      socket.leave(`group:${parsed.data.groupId}`);
     });
 
-    socket.on("acting:join", async (payload: { actingUserId?: number }) => {
-      const actingUserId = payload?.actingUserId ? Number(payload.actingUserId) : null;
-      if (!actingUserId || actingUserId === userId) {
+    guarded("acting:join", actingJoinSchema, async ({ actingUserId: rawActingId }) => {
+      if (!rawActingId || rawActingId === userId) {
         socket.data.actingUserId = null;
         socket.data.actingName = null;
         return;
       }
       const { athlete } = await getGuardianAndAthlete(userId);
-      if (!athlete || athlete.userId !== actingUserId) return;
-      socket.data.actingUserId = actingUserId;
-      const actingUser = await getUserById(actingUserId);
+      if (!athlete || athlete.userId !== rawActingId) return;
+      socket.data.actingUserId = rawActingId;
+      const actingUser = await getUserById(rawActingId);
       socket.data.actingName = actingUser?.name ?? null;
-      socket.join(`user:${actingUserId}`);
+      socket.join(`user:${rawActingId}`);
 
-      try {
-        const actingGroups = await listGroupsForUser(actingUserId);
-        actingGroups.forEach((group) => socket.join(`group:${group.id}`));
-      } catch (error) {
-        console.warn("Socket acting group join failed", error);
-      }
+      const actingGroups = await listGroupsForUser(rawActingId);
+      actingGroups.forEach((group) => socket.join(`group:${group.id}`));
     });
 
-    socket.on(
-      "message:send",
-      async (payload: {
-        toUserId: number;
-        content?: string;
-        contentType?: "text" | "image" | "video";
-        mediaUrl?: string;
-        replyToMessageId?: number;
-        replyPreview?: string;
-        clientId?: string;
-        actingUserId?: number;
-      }) => {
-        const content = payload?.content?.trim() ?? "";
-        if (!payload?.toUserId || (!content && !payload.mediaUrl)) return;
-        const senderId =
-          (payload.actingUserId ? Number(payload.actingUserId) : null) ||
-          (socket.data.actingUserId as number | null) ||
-          userId;
+    guarded("message:send", messageSendSchema, async (data) => {
+      const content = data.content?.trim() ?? "";
+      if (!content && !data.mediaUrl) return;
+      const senderId =
+        (data.actingUserId ? Number(data.actingUserId) : null) ||
+        (socket.data.actingUserId as number | null) ||
+        userId;
 
-        if (senderId !== userId) {
-          const { athlete } = await getGuardianAndAthlete(userId);
-          if (!athlete || athlete.userId !== senderId) return;
-        }
+      if (senderId !== userId) {
+        const { athlete } = await getGuardianAndAthlete(userId);
+        if (!athlete || athlete.userId !== senderId) return;
+      }
 
-        try {
-          const saved = await sendMessage({
-            senderId,
-            receiverId: payload.toUserId,
-            content: content || "Attachment",
-            contentType: payload.contentType ?? "text",
-            mediaUrl: payload.mediaUrl,
-            replyToMessageId: payload.replyToMessageId ?? null,
-            replyPreview: payload.replyPreview ?? null,
-            clientId: payload.clientId,
-          });
-          // Single-tick ack: sender knows server saved it and has the real ID.
-          if (payload.clientId) {
-            socket.emit("message:ack", {
-              clientId: payload.clientId,
-              messageId: saved.id,
-              status: "sent",
-            });
-          }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "";
-          if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "AI_COACH_REQUIRES_PREMIUM") {
-            console.warn("[socket] message:send blocked:", msg);
-            return;
-          }
-          throw err;
-        }
-      },
-    );
-
-    socket.on(
-      "group:send",
-      async (payload: {
-        groupId: number;
-        content?: string;
-        contentType?: "text" | "image" | "video";
-        mediaUrl?: string;
-        replyToMessageId?: number;
-        replyPreview?: string;
-        clientId?: string;
-        actingUserId?: number;
-      }) => {
-        const content = payload?.content?.trim() ?? "";
-        if (!payload?.groupId || (!content && !payload.mediaUrl)) return;
-        const allowed = await isGroupMember(payload.groupId, userId);
-        if (!allowed) return;
-        const senderId =
-          (payload.actingUserId ? Number(payload.actingUserId) : null) ||
-          (socket.data.actingUserId as number | null) ||
-          userId;
-
-        if (senderId !== userId) {
-          const { athlete } = await getGuardianAndAthlete(userId);
-          if (!athlete || athlete.userId !== senderId) return;
-        }
-
-        const message = await createGroupMessage({
-          groupId: payload.groupId,
+      try {
+        const saved = await sendMessage({
           senderId,
+          receiverId: data.toUserId,
           content: content || "Attachment",
-          contentType: payload.contentType ?? "text",
-          mediaUrl: payload.mediaUrl,
-          replyToMessageId: payload.replyToMessageId ?? null,
-          replyPreview: payload.replyPreview ?? null,
-          clientId: payload.clientId ?? null,
+          contentType: data.contentType ?? "text",
+          mediaUrl: data.mediaUrl,
+          replyToMessageId: data.replyToMessageId ?? null,
+          replyPreview: data.replyPreview ?? null,
+          clientId: data.clientId,
         });
-        if (payload.clientId) {
+        if (data.clientId) {
           socket.emit("message:ack", {
-            clientId: payload.clientId,
-            messageId: message.id,
+            clientId: data.clientId,
+            messageId: saved.id,
             status: "sent",
           });
         }
-      },
-    );
-
-    // Double-tick: receiver confirms message rendered on their device.
-    socket.on("message:delivered", async (payload: { messageId?: number }) => {
-      const messageId = Number(payload?.messageId);
-      if (!messageId || !Number.isFinite(messageId)) return;
-      try {
-        await markMessageDelivered(messageId, userId);
-      } catch (error) {
-        console.warn("[Socket] message:delivered failed", error);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "AI_COACH_REQUIRES_PREMIUM") {
+          socket.emit("error:blocked", {
+            event: "message:send",
+            clientId: data.clientId,
+            code: msg,
+            message: msg === "AI_COACH_REQUIRES_PREMIUM"
+              ? "AI Coach requires a premium plan"
+              : "Messaging is not available for your current plan",
+          });
+          return;
+        }
+        throw err;
       }
     });
 
-    // Blue ticks: receiver marks thread as read via socket.
-    socket.on("message:read", async (payload: { peerUserId?: number }) => {
-      const peerUserId = Number(payload?.peerUserId);
-      if (!peerUserId || !Number.isFinite(peerUserId)) return;
-      try {
-        await markThreadRead(userId, peerUserId);
-      } catch (error) {
-        console.warn("[Socket] message:read failed", error);
+    guarded("group:send", groupSendSchema, async (data) => {
+      const content = data.content?.trim() ?? "";
+      if (!content && !data.mediaUrl) return;
+      const allowed = await isGroupMember(data.groupId, userId);
+      if (!allowed) return;
+      const senderId =
+        (data.actingUserId ? Number(data.actingUserId) : null) ||
+        (socket.data.actingUserId as number | null) ||
+        userId;
+
+      if (senderId !== userId) {
+        const { athlete } = await getGuardianAndAthlete(userId);
+        if (!athlete || athlete.userId !== senderId) return;
+      }
+
+      const message = await createGroupMessage({
+        groupId: data.groupId,
+        senderId,
+        content: content || "Attachment",
+        contentType: data.contentType ?? "text",
+        mediaUrl: data.mediaUrl,
+        replyToMessageId: data.replyToMessageId ?? null,
+        replyPreview: data.replyPreview ?? null,
+        clientId: data.clientId ?? null,
+      });
+      if (data.clientId) {
+        socket.emit("message:ack", {
+          clientId: data.clientId,
+          messageId: message.id,
+          status: "sent",
+        });
       }
     });
 
-    socket.on("typing:start", async (payload: { toUserId?: number; groupId?: number }) => {
+    guarded("message:delivered", messageDeliveredSchema, async ({ messageId }) => {
+      await markMessageDelivered(messageId, userId);
+    });
+
+    guarded("message:read", messageReadSchema, async ({ peerUserId }) => {
+      await markThreadRead(userId, peerUserId);
+    });
+
+    guarded("typing:start", typingSchema, async (data) => {
       const name = (socket.data.actingName as string | null) ?? (socket.data.name as string);
       const fromUserId = (socket.data.actingUserId as number | null) ?? userId;
-      if (payload?.toUserId) {
-        io.to(`user:${payload.toUserId}`).emit("typing:update", {
+      if (data.toUserId) {
+        io.to(`user:${data.toUserId}`).emit("typing:update", {
           fromUserId,
           name,
           isTyping: true,
           scope: "direct",
         });
-      } else if (payload?.groupId) {
-        const allowed = await isGroupMember(payload.groupId, userId);
+      } else if (data.groupId) {
+        const allowed = await isGroupMember(data.groupId, userId);
         if (!allowed) return;
-        socket.to(`group:${payload.groupId}`).emit("typing:update", {
+        socket.to(`group:${data.groupId}`).emit("typing:update", {
           fromUserId,
           name,
           isTyping: true,
           scope: "group",
-          groupId: payload.groupId,
+          groupId: data.groupId,
         });
       }
     });
 
-    socket.on("typing:stop", async (payload: { toUserId?: number; groupId?: number }) => {
+    guarded("typing:stop", typingSchema, async (data) => {
       const name = (socket.data.actingName as string | null) ?? (socket.data.name as string);
       const fromUserId = (socket.data.actingUserId as number | null) ?? userId;
-      if (payload?.toUserId) {
-        io.to(`user:${payload.toUserId}`).emit("typing:update", {
+      if (data.toUserId) {
+        io.to(`user:${data.toUserId}`).emit("typing:update", {
           fromUserId,
           name,
           isTyping: false,
           scope: "direct",
         });
-      } else if (payload?.groupId) {
-        const allowed = await isGroupMember(payload.groupId, userId);
+      } else if (data.groupId) {
+        const allowed = await isGroupMember(data.groupId, userId);
         if (!allowed) return;
-        socket.to(`group:${payload.groupId}`).emit("typing:update", {
+        socket.to(`group:${data.groupId}`).emit("typing:update", {
           fromUserId,
           name,
           isTyping: false,
           scope: "group",
-          groupId: payload.groupId,
+          groupId: data.groupId,
         });
       }
     });
@@ -406,13 +460,13 @@ export function initSocket(server: HttpServer) {
         .set({ lastSeenAt: new Date() })
         .where(eq(userTable.id, userId))
         .catch((err: unknown) => {
-          console.warn("[Socket] Failed to update lastSeenAt:", err instanceof Error ? err.message : err);
+          log.warn({ err }, "Failed to update lastSeenAt");
         });
     });
   });
 
   if (env.nodeEnv !== "production") {
-    console.log("Socket.IO ready");
+    log.info("Socket.IO ready");
   }
 
   return io;

@@ -6,16 +6,20 @@ import { Expo } from "expo-server-sdk";
 import { db } from "../db";
 import { notificationTable, userDeviceTokensTable, userTable } from "../db/schema";
 import { sendPushNotification } from "../services/push.service";
+import { parsePagination } from "../lib/pagination";
 
 export async function listNotifications(req: Request, res: Response) {
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
+  const { limit, offset } = parsePagination(req, { defaultLimit: 50, maxLimit: 200 });
   const items = await db
     .select()
     .from(notificationTable)
     .where(eq(notificationTable.userId, req.user.id))
-    .orderBy(desc(notificationTable.createdAt));
+    .orderBy(desc(notificationTable.createdAt))
+    .limit(limit)
+    .offset(offset);
   return res.status(200).json({ items });
 }
 
@@ -82,7 +86,9 @@ export async function savePushToken(req: Request, res: Response) {
       .where(and(eq(userTable.devicePushToken, devicePushToken), ne(userTable.id, req.user.id)));
     await db
       .delete(userDeviceTokensTable)
-      .where(and(eq(userDeviceTokensTable.devicePushToken, devicePushToken), ne(userDeviceTokensTable.userId, req.user.id)));
+      .where(
+        and(eq(userDeviceTokensTable.devicePushToken, devicePushToken), ne(userDeviceTokensTable.userId, req.user.id)),
+      );
   }
   if (deviceId) {
     await db
@@ -151,7 +157,9 @@ export async function clearPushToken(req: Request, res: Response) {
   } else if (devicePushToken) {
     await db
       .delete(userDeviceTokensTable)
-      .where(and(eq(userDeviceTokensTable.userId, req.user.id), eq(userDeviceTokensTable.devicePushToken, devicePushToken)));
+      .where(
+        and(eq(userDeviceTokensTable.userId, req.user.id), eq(userDeviceTokensTable.devicePushToken, devicePushToken)),
+      );
   } else {
     await db.delete(userDeviceTokensTable).where(eq(userDeviceTokensTable.userId, req.user.id));
   }

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
-import { sendPushNotification } from "./push.service";
+import { pushQueue } from "../jobs";
 
 import { db } from "../db";
 import { publicDisplayName } from "../lib/display-name";
@@ -17,6 +17,9 @@ import { getSocketServer } from "../socket-hub";
 import { attachGroupMessageReactions } from "./reaction.service";
 import { resolveMessageMediaType } from "../lib/media-message-type";
 import { withTransientDbRetryConfigured } from "../lib/db-connectivity";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger({ component: "chat-service" });
 
 let cachedSupportsGroupLastReadAt: boolean | null = null;
 
@@ -93,14 +96,14 @@ export async function createDirectMessage(input: {
         ? safeContent
         : `Sent a ${input.contentType ?? "message"}`;
 
-    await sendPushNotification(input.receiverId, title, body, {
+    await pushQueue.enqueue({ userId: input.receiverId, title, body, data: {
       type: "message",
       threadId: String(input.senderId),
       url: `/messages/${String(input.senderId)}`,
       mediaUrl: input.mediaUrl ?? null,
-    });
+    } });
   } catch (error) {
-    console.error("[Push] Failed to send direct chat push notification:", error);
+    log.error({ err: error }, "Failed to send direct chat push notification");
   }
 
   return message;
@@ -749,15 +752,15 @@ export async function createGroupMessage(input: {
       const body = safeContent;
 
       for (const member of members) {
-        await sendPushNotification(member.id, title, body, {
+        await pushQueue.enqueue({ userId: member.id, title, body, data: {
           type: "group-message",
           threadId: `group:${input.groupId}`,
           url: `/messages/group:${input.groupId}`,
           mediaUrl: input.mediaUrl ?? null,
-        });
+        } });
       }
     } catch (error) {
-      console.error("[Push] Group notification error:", error);
+      log.error({ err: error }, "Group push notification error");
     }
   }
 
@@ -800,7 +803,7 @@ export async function createGroupMessage(input: {
         io.to(`user:${memberId}`).emit("group:message", enriched);
       }
     } catch (error) {
-      console.warn("[Socket] Failed to emit group:message to user rooms", error);
+      log.warn({ err: error }, "Failed to emit group:message to user rooms");
     }
 
     // Admin/coach dashboards listen on admin:all.
@@ -856,7 +859,7 @@ export async function deleteGroupMessage(input: { groupId: number; messageId: nu
         io.to(`user:${memberId}`).emit("group:message:deleted", payload);
       }
     } catch (error) {
-      console.warn("[Socket] Failed to emit group:message:deleted to user rooms", error);
+      log.warn({ err: error }, "Failed to emit group:message:deleted to user rooms");
     }
     io.to("admin:all").emit("group:message:deleted", payload);
   }

@@ -1,20 +1,44 @@
-import { withLayoutContext } from "expo-router";
-import {
-  createBlankStackNavigator,
-  type BlankStackNavigationOptions,
-} from "react-native-screen-transitions/blank-stack";
-import Transition from "react-native-screen-transitions";
-import { interpolate } from "react-native-reanimated";
-import Constants from "expo-constants";
-import { Platform, View } from "react-native";
+import React from "react";
+import { Stack } from "expo-router";
+import { Pressable, View } from "react-native";
 
-const { Navigator } = createBlankStackNavigator();
+export { Stack };
 
-export const Stack = withLayoutContext(Navigator as any);
+type TransitionComponentProps = {
+  children?: React.ReactNode;
+  sharedBoundTag?: string;
+  style?: any;
+  [key: string]: any;
+};
 
-export { Transition };
+function TransitionView({
+  children,
+  sharedBoundTag: _sharedBoundTag,
+  ...props
+}: TransitionComponentProps) {
+  return <View {...props}>{children}</View>;
+}
 
-const isExpoGo = Constants.executionEnvironment === "storeClient";
+function TransitionPressable({
+  children,
+  sharedBoundTag: _sharedBoundTag,
+  ...props
+}: TransitionComponentProps) {
+  return <Pressable {...props}>{children}</Pressable>;
+}
+
+// Safe replacement for react-native-screen-transitions. iOS 26 has been
+// unstable with custom native transition stacks, so keep navigation native-stack
+// based and degrade shared-bound animations to normal views.
+export const Transition = {
+  View: TransitionView,
+  Pressable: TransitionPressable,
+  MaskedView: TransitionView,
+  Presets: {
+    SharedAppleMusic: (_options?: Record<string, unknown>) => ({}),
+    ZoomIn: () => ({ animation: "fade" as const }),
+  },
+};
 
 export function SafeMaskedView({
   children,
@@ -23,29 +47,9 @@ export function SafeMaskedView({
   children: React.ReactNode;
   style?: any;
 }) {
-  // On Android, react-native-screen-transitions' MaskedView triggers
-  // FragmentManager "already executing transactions" crashes. Use a plain View.
-  if (isExpoGo || Platform.OS === "android") {
-    return <View style={style}>{children}</View>;
-  }
-  return <Transition.MaskedView style={style}>{children}</Transition.MaskedView>;
+  return <View style={style}>{children}</View>;
 }
 
 export const slideFromRight = {
-  screenStyleInterpolator: ({ progress, layouts: { screen } }: any) => {
-    "worklet";
-    return {
-      contentStyle: {
-        transform: [
-          {
-            translateX: interpolate(
-              progress,
-              [0, 1, 2],
-              [screen.width, 0, -screen.width * 0.3]
-            ),
-          },
-        ],
-      },
-    };
-  },
+  animation: "slide_from_right" as const,
 };

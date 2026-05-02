@@ -81,6 +81,16 @@ function maybeAttachGoogleServicesFiles(expoConfig) {
   return expoConfig;
 }
 
+// NOTE: Universal Links (iOS) and App Links (Android) are configured in app.json.
+// For these to work, each linked domain must serve verification files:
+//   iOS  -> https://<domain>/.well-known/apple-app-site-association
+//           { "applinks": { "apps": [], "details": [{ "appIDs": ["<TEAM_ID>.com.clientreachai.phperformance"], "paths": ["*"] }] } }
+//   Android -> https://<domain>/.well-known/assetlinks.json
+//           [{ "relation": ["delegate_permission/common.handle_all_urls"],
+//              "target": { "namespace": "android_app", "package_name": "com.clientreachai.phperformance",
+//                          "sha256_cert_fingerprints": ["<SHA256_FROM_KEYSTORE>"] } }]
+// Domains: ph-platform-onboarding.vercel.app, ph-performance-2cae29f7922d.herokuapp.com
+
 module.exports = {
   expo: {
     ...maybeAttachGoogleServicesFiles({

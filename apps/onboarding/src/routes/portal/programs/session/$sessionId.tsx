@@ -11,18 +11,18 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { config } from "@/lib/config";
-import { getClientAuthToken } from "@/lib/client-storage";
+import { getTokenStatus } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
 import { fetchTeamWorkspace } from "@/services/programsService";
 import { programKeys } from "../index";
 
 export const Route = createFileRoute("/portal/programs/session/$sessionId")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = getClientAuthToken();
-		if (token) {
+		const status = await getTokenStatus();
+		if (status.authenticated) {
 			await queryClient.ensureQueryData({
-				queryKey: programKeys.workspace(token, null),
-				queryFn: () => fetchTeamWorkspace(token, null),
+				queryKey: programKeys.workspace("cookie", null),
+				queryFn: () => fetchTeamWorkspace("cookie", null),
 			});
 		}
 	},
@@ -239,8 +239,8 @@ function SessionDetailPage() {
 				`${baseUrl}/api/training-content-v2/mobile/sessions/${sessionId}/finish`,
 				{
 					method: "POST",
+					credentials: "include",
 					headers: {
-						Authorization: `Bearer ${token}`,
 						"Content-Type": "application/json",
 					},
 				},

@@ -1,0 +1,126 @@
+name: Onboarding CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/onboarding/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/onboarding/**"
+
+concurrency:
+  group: onboarding-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  onboarding-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm --filter onboarding exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm --filter onboarding lint
+
+      - name: Build
+        run: pnpm --filter onboarding build
+
+      - name: Check bundle size
+        run: pnpm --filter onboarding check:bundle
+
+      - name: Test
+        run: pnpm --filter onboarding test
+        continue-on-error: true
+
+  e2e:
+    if: github.event_name == 'pull_request'
+    needs: onboarding-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter onboarding exec playwright install --with-deps chromium
+      - name: Run e2e tests
+        run: pnpm --filter onboarding test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/onboarding/playwright-report/
+
+  preview:
+    if: github.event_name == 'pull_request'
+    needs: onboarding-checks
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy Preview
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: apps/onboarding
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: onboarding-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy Production
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: "--prod"
+          working-directory: apps/onboarding

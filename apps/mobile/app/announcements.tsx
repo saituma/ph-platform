@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { Image as ExpoImage } from "expo-image";
+import { SkeletonAnnouncementsScreen } from "@/components/ui/Skeleton";
 import { OpenGraphPreview } from "@/components/media/OpenGraphPreview";
 import {
   BottomSheetBackdrop,
@@ -317,9 +318,7 @@ export default function AnnouncementsScreen() {
       </View>
 
       {isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
+        <SkeletonAnnouncementsScreen />
       ) : error ? (
         <View className="flex-1 items-center justify-center px-8">
           <Text

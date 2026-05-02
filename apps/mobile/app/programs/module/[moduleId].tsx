@@ -5,7 +5,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ActivityIndicator, Alert, Pressable, View, Linking } from "react-native";
+import { Alert, Pressable, View, Linking } from "react-native";
+import { SkeletonBox } from "@/components/ui/Skeleton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -334,13 +335,16 @@ export default function ProgramModuleDetailScreen() {
 
             {isLoading ? (
               <View
-                className="rounded-[24px] border px-5 py-5 items-center"
+                className="rounded-[24px] border px-5 py-5"
                 style={{
                   backgroundColor: colors.card,
                   borderColor: borderSoft,
+                  gap: 12,
                 }}
               >
-                <ActivityIndicator size="small" color={colors.accent} />
+                {[0, 1, 2].map((i) => (
+                  <SkeletonBox key={i} width="100%" height={56} borderRadius={16} />
+                ))}
               </View>
             ) : null}
 

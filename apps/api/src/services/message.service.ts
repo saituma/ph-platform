@@ -9,13 +9,15 @@ import {
   teamTable,
   userTable,
 } from "../db/schema";
-import { env } from "../config/env";
 import { getSocketServer } from "../socket-hub";
 import { attachDirectMessageReactions } from "./reaction.service";
 import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
 import { withTransientDbRetryConfigured } from "../lib/db-connectivity";
-import { sendPushNotification } from "./push.service";
+import { pushQueue } from "../jobs";
 import { resolveMessageMediaType } from "../lib/media-message-type";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger({ component: "message-service" });
 
 const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
 
@@ -543,14 +545,14 @@ export async function sendMessage(input: {
       const title = `New message from ${senderMeta?.name ?? "Coach"}`;
       const body = input.contentType === "text" ? input.content : `Sent a ${input.contentType}`;
 
-      await sendPushNotification(resolvedReceiverId, title, body, {
+      await pushQueue.enqueue({ userId: resolvedReceiverId, title, body, data: {
         type: "message",
         threadId: String(input.senderId),
         url: `/messages/${String(input.senderId)}`,
         mediaUrl: input.mediaUrl ?? null,
-      });
+      } });
     } catch (error) {
-      console.error("[Push] Failed to send message push notification:", error);
+      log.error({ err: error }, "Failed to send message push notification");
     }
 
     const io = getSocketServer();
@@ -567,9 +569,7 @@ export async function sendMessage(input: {
         readCount: participantIdsForDelivery.length ? 1 : 0,
         myReadAt: message.createdAt,
       };
-      console.log(
-        `[Socket] Emitting message:new for ID ${message.id} to rooms: user:${input.senderId}, user:${resolvedReceiverId}, admin:all`,
-      );
+      log.debug({ messageId: message.id, senderId: input.senderId, receiverId: resolvedReceiverId }, "Emitting message:new");
       io.to(`user:${input.senderId}`).emit("message:new", enriched);
       io.to(`user:${resolvedReceiverId}`).emit("message:new", enriched);
       io.to("admin:all").emit("message:new", enriched);
@@ -579,7 +579,7 @@ export async function sendMessage(input: {
 
   const io = getSocketServer();
   if (!io) {
-    console.warn("[Socket] Failed to emit message:new - IO server NOT initialized");
+    log.warn("Socket server not initialized, skipping message:new emit");
     return message;
   }
   if (aiCoachId !== null && insertedNewMessage) {
