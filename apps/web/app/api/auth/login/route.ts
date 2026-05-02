@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
@@ -7,44 +8,33 @@ const rawWorker =
   process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? process.env.BETTER_AUTH_URL ?? "";
 const workerBase = rawWorker.trim().replace(/\/+$/, "");
 
-const csrfCookieName = "csrfToken";
-
-function validateCsrf(req: Request) {
-  const csrfCookie = (req.headers.get("cookie") ?? "")
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${csrfCookieName}=`))
-    ?.split("=")[1];
-  const csrfHeader = req.headers.get("x-csrf-token") ?? "";
-  return Boolean(csrfCookie && csrfHeader && csrfCookie === csrfHeader);
-}
-
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
 export async function POST(req: Request) {
-  if (!validateCsrf(req)) {
-    const cookieHeader = req.headers.get("cookie") ?? "";
-    const hasCsrfCookie = cookieHeader.includes("csrfToken=");
-    const hasCsrfHeader = !!req.headers.get("x-csrf-token");
+  const cookieStore = await cookies();
+  const csrfCookie = cookieStore.get("csrfToken")?.value ?? "";
+  const csrfHeader = req.headers.get("x-csrf-token") ?? "";
+
+  if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
     console.error("[login] CSRF failed", {
-      hasCsrfCookie,
-      hasCsrfHeader,
-      cookieKeys: cookieHeader
-        .split(";")
-        .map((c) => c.trim().split("=")[0])
-        .filter(Boolean),
+      hasCsrfCookie: !!csrfCookie,
+      hasCsrfHeader: !!csrfHeader,
+      match: csrfCookie === csrfHeader,
+      cookiePrefix: csrfCookie.slice(0, 8),
+      headerPrefix: csrfHeader.slice(0, 8),
     });
     return jsonError(
-      hasCsrfCookie && hasCsrfHeader
-        ? "CSRF token mismatch"
-        : !hasCsrfCookie
-          ? "Missing CSRF cookie — reload the page and try again"
-          : "Missing CSRF header",
+      !csrfCookie
+        ? "Missing CSRF cookie — reload the page and try again"
+        : !csrfHeader
+          ? "Missing CSRF header"
+          : "CSRF token mismatch — reload the page and try again",
       403,
     );
   }
+
   const body = await req.json();
 
   let accessToken: string | undefined;

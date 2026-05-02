@@ -174,14 +174,17 @@ export default function LoginPage() {
         },
         body: JSON.stringify({ email, password, turnstileToken }),
       });
-      console.info(`${turnstileLogPrefix} login response`, { status: res.status });
+      const resBody = await res.json().catch(() => ({}));
+      console.info(`${turnstileLogPrefix} login response`, {
+        status: res.status,
+        body: resBody,
+      });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? "Login failed");
+        throw new Error(resBody?.error ?? "Login failed");
       }
 
-      router.replace("/");
+      if (resBody?.ok) router.replace("/");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";
       setError(message);
