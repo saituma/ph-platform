@@ -25,7 +25,25 @@ function jsonError(message: string, status: number) {
 
 export async function POST(req: Request) {
   if (!validateCsrf(req)) {
-    return jsonError("Invalid CSRF token", 403);
+    const cookieHeader = req.headers.get("cookie") ?? "";
+    const hasCsrfCookie = cookieHeader.includes("csrfToken=");
+    const hasCsrfHeader = !!req.headers.get("x-csrf-token");
+    console.error("[login] CSRF failed", {
+      hasCsrfCookie,
+      hasCsrfHeader,
+      cookieKeys: cookieHeader
+        .split(";")
+        .map((c) => c.trim().split("=")[0])
+        .filter(Boolean),
+    });
+    return jsonError(
+      hasCsrfCookie && hasCsrfHeader
+        ? "CSRF token mismatch"
+        : !hasCsrfCookie
+          ? "Missing CSRF cookie — reload the page and try again"
+          : "Missing CSRF header",
+      403,
+    );
   }
   const body = await req.json();
 
