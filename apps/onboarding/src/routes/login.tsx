@@ -118,11 +118,7 @@ function Login() {
 		}
 	};
 
-	const handleGoogleSignIn = () => {
-		window.location.href = `${config.api.baseUrl}/api/auth/google`;
-	};
-
-	const handleResetPassword = () => {
+const handleResetPassword = () => {
 		navigate({ to: "/register" });
 	};
 
@@ -138,7 +134,6 @@ function Login() {
 				heroImageSrc="/landing/piers.png"
 				testimonials={testimonials}
 				onSignIn={handleSignIn}
-				onGoogleSignIn={handleGoogleSignIn}
 				onResetPassword={handleResetPassword}
 				onCreateAccount={handleCreateAccount}
 			/>

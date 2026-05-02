@@ -75,8 +75,12 @@ export function UsersSidebar({
 
   const topUsers = useMemo(() => {
     return [...users]
-      .filter((u) => u.status === "Active" && (u.progress ?? 0) > 0)
-      .sort((a, b) => (b.progress ?? 0) - (a.progress ?? 0))
+      .filter((u) => u.status === "Active")
+      .sort((a, b) => {
+        const da = a.joinedRaw ? new Date(a.joinedRaw).getTime() : 0;
+        const db = b.joinedRaw ? new Date(b.joinedRaw).getTime() : 0;
+        return db - da;
+      })
       .slice(0, 5);
   }, [users]);
 
@@ -161,8 +165,8 @@ export function UsersSidebar({
                     {user.program ?? user.athleteType}
                   </p>
                 </div>
-                <span className="text-xs font-medium text-emerald-400">
-                  {user.progress ?? 0}%
+                <span className="text-xs font-medium text-muted-foreground">
+                  {user.lastActive}
                 </span>
               </div>
             ))}

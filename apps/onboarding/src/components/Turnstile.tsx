@@ -77,8 +77,6 @@ function loadScript(): Promise<void> {
 		s.src = SCRIPT_SRC;
 		s.async = true;
 		s.defer = true;
-		s.onload = () => resolve();
-		s.onerror = () => reject(new Error("Failed to load Turnstile"));
 		const timeoutId = window.setTimeout(() => {
 			s.remove();
 			reject(new Error("Turnstile load timed out"));
@@ -120,27 +118,34 @@ export function Turnstile({
 }: TurnstileProps) {
 	const ref = useRef<HTMLDivElement | null>(null);
 	const widgetIdRef = useRef<string | null>(null);
+	const callbacksRef = useRef({ onVerify, onExpire, onError, onReady });
+	callbacksRef.current = { onVerify, onExpire, onError, onReady };
 
 	useEffect(() => {
 		let cancelled = false;
+
 		loadScript()
 			.then(() => {
 				if (cancelled || !ref.current || !window.turnstile) return;
 				if (widgetIdRef.current) {
 					try { window.turnstile.remove(widgetIdRef.current); } catch { /* noop */ }
+					widgetIdRef.current = null;
 				}
 				ref.current.innerHTML = "";
 				widgetIdRef.current = window.turnstile.render(ref.current, {
 					sitekey: siteKey,
 					theme,
 					action,
-					callback: (token) => onVerify(token),
-					"expired-callback": () => onExpire?.(),
-					"error-callback": () => onError?.(),
+					callback: (token) => callbacksRef.current.onVerify(token),
+					"expired-callback": () => callbacksRef.current.onExpire?.(),
+					"error-callback": () => callbacksRef.current.onError?.(),
 				});
-				onReady?.();
+				callbacksRef.current.onReady?.();
 			})
-			.catch(() => onError?.());
+			.catch(() => {
+				if (!cancelled) callbacksRef.current.onError?.();
+			});
+
 		return () => {
 			cancelled = true;
 			if (widgetIdRef.current && window.turnstile) {
@@ -149,9 +154,10 @@ export function Turnstile({
 				} catch {
 					// noop
 				}
+				widgetIdRef.current = null;
 			}
 		};
-	}, [siteKey, theme, action, onVerify, onExpire, onError, onReady, resetKey]);
+	}, [siteKey, theme, action, resetKey]);
 
 	return <div ref={ref} className={className} />;
 }

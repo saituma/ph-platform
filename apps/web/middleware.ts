@@ -98,10 +98,21 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get("accessToken")?.value;
   const refreshToken = req.cookies.get("refreshToken")?.value;
 
-  if (pathname === "/login" && token) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+  if (pathname === "/login") {
+    if (token) {
+      const expiryMs = getTokenExpiryMs(token);
+      if (expiryMs && expiryMs > Date.now()) {
+        const url = req.nextUrl.clone();
+        url.pathname = "/";
+        return NextResponse.redirect(url);
+      }
+      const response = applyCsrfCookie(req, NextResponse.next());
+      response.cookies.set("accessToken", "", { path: "/", maxAge: 0 });
+      response.cookies.set("accessTokenClient", "", { path: "/", maxAge: 0 });
+      response.cookies.set("refreshToken", "", { path: "/", maxAge: 0 });
+      return response;
+    }
+    return applyCsrfCookie(req, NextResponse.next());
   }
 
   if (
@@ -114,41 +125,38 @@ export async function middleware(req: NextRequest) {
     return applyCsrfCookie(req, NextResponse.next());
   }
 
-  if (!token || (refreshToken && shouldRefreshAccessToken(token))) {
-    const refreshed = await tryRefreshSession(req);
-    if (refreshed) {
-      const response = applyCsrfCookie(req, NextResponse.next());
-      const cookieOptions = buildSessionCookieOptions(req);
-      response.cookies.set("accessToken", refreshed.accessToken, {
-        httpOnly: true,
-        ...cookieOptions,
-        maxAge: refreshed.maxAge,
-      });
-      response.cookies.set("accessTokenClient", refreshed.accessToken, {
-        httpOnly: false,
-        ...cookieOptions,
-        maxAge: refreshed.maxAge,
-      });
-      response.cookies.set("refreshToken", refreshed.nextRefreshToken, {
-        httpOnly: true,
-        ...cookieOptions,
-        maxAge: 60 * 60 * 24 * 30,
-      });
-      return response;
-    }
-    if (refreshToken && token) {
-      const response = NextResponse.redirect(new URL("/login", req.url));
-      response.cookies.set("accessToken", "", { path: "/", maxAge: 0 });
-      response.cookies.set("accessTokenClient", "", { path: "/", maxAge: 0 });
-      response.cookies.set("refreshToken", "", { path: "/", maxAge: 0 });
-      return response;
-    }
-  }
+  const tokenExpired = token ? shouldRefreshAccessToken(token) : true;
 
-  if (!token) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+  if (!token || tokenExpired) {
+    if (refreshToken) {
+      const refreshed = await tryRefreshSession(req);
+      if (refreshed) {
+        const response = applyCsrfCookie(req, NextResponse.next());
+        const cookieOptions = buildSessionCookieOptions(req);
+        response.cookies.set("accessToken", refreshed.accessToken, {
+          httpOnly: true,
+          ...cookieOptions,
+          maxAge: refreshed.maxAge,
+        });
+        response.cookies.set("accessTokenClient", refreshed.accessToken, {
+          httpOnly: false,
+          ...cookieOptions,
+          maxAge: refreshed.maxAge,
+        });
+        response.cookies.set("refreshToken", refreshed.nextRefreshToken, {
+          httpOnly: true,
+          ...cookieOptions,
+          maxAge: 60 * 60 * 24 * 30,
+        });
+        return response;
+      }
+    }
+
+    const response = NextResponse.redirect(new URL("/login", req.url));
+    response.cookies.set("accessToken", "", { path: "/", maxAge: 0 });
+    response.cookies.set("accessTokenClient", "", { path: "/", maxAge: 0 });
+    response.cookies.set("refreshToken", "", { path: "/", maxAge: 0 });
+    return response;
   }
 
   return applyCsrfCookie(req, NextResponse.next());

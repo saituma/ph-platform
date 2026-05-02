@@ -129,11 +129,7 @@ function Register() {
 		}
 	};
 
-	const handleGoogleSignUp = () => {
-		window.location.href = `${config.api.baseUrl}/api/auth/google`;
-	};
-
-	const handleSignIn = () => {
+const handleSignIn = () => {
 		navigate({ to: "/login" });
 	};
 
@@ -145,7 +141,6 @@ function Register() {
 				heroImageSrc="/landing/piers.png"
 				testimonials={testimonials}
 				onSignUp={handleSignUp}
-				onGoogleSignUp={handleGoogleSignUp}
 				onSignIn={handleSignIn}
 			>
 				{turnstileSiteKey && (
