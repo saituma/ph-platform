@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { SectionHeader } from "../../components/admin/section-header";
 
 type TeamSummary = {
+  id: number;
   team: string;
   athleteType: "youth" | "adult";
   minAge: number | null;
@@ -33,7 +35,7 @@ function billingLabel(team: TeamSummary): { text: string; color: string } {
   }
   if (status === "cancelled") return { text: "Cancelled", color: "border-red-500/30 bg-red-500/10 text-red-200" };
   if (status === "past_due") return { text: "Past due", color: "border-red-500/30 bg-red-500/10 text-red-200" };
-  return { text: "Pending payment", color: "border-amber-500/30 bg-amber-500/10 text-amber-200" };
+  return { text: "Waiting payment", color: "border-amber-500/30 bg-amber-500/10 text-amber-200" };
 }
 
 function formatDate(value: string | Date | null) {
@@ -47,27 +49,51 @@ export default function TeamsPage() {
   const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [approvingId, setApprovingId] = useState<number | null>(null);
+  const searchParams = useSearchParams();
+  const successType = searchParams.get("success");
+
+  const loadTeams = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/backend/admin/teams", {
+        credentials: "include",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to load teams.");
+      }
+      setTeams(Array.isArray(payload?.teams) ? payload.teams : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load teams.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const approveTeam = async (teamId: number) => {
+    setApprovingId(teamId);
+    try {
+      const res = await fetch(`/api/backend/admin/teams/${teamId}/approve`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ billingCycle: "monthly" }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to approve team.");
+      }
+      await loadTeams();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve team.");
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   useEffect(() => {
-    const loadTeams = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch("/api/backend/admin/teams", {
-          credentials: "include",
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload?.error ?? "Failed to load teams.");
-        }
-        setTeams(Array.isArray(payload?.teams) ? payload.teams : []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load teams.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     void loadTeams();
   }, []);
 
@@ -82,6 +108,11 @@ export default function TeamsPage() {
       }
     >
       <div className="grid gap-6">
+        {successType === "email_sent" && (
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+            Payment link sent to the team manager. The team will activate once they complete payment, or you can approve it instantly below.
+          </div>
+        )}
         {error ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
             {error}
@@ -140,14 +171,27 @@ export default function TeamsPage() {
                           ) : null}
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        render={<Link href={`/exercise-library/teams/${encodeURIComponent(team.team)}`} />}
-                        className="h-8"
-                      >
-                        Post training
-                      </Button>
+                      <div className="flex gap-2">
+                        {(team.subscriptionStatus ?? "pending_payment") !== "active" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); approveTeam(team.id); }}
+                            disabled={approvingId === team.id}
+                          >
+                            {approvingId === team.id ? "Approving…" : "Approve"}
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          render={<Link href={`/exercise-library/teams/${encodeURIComponent(team.team)}`} />}
+                          className="h-8"
+                        >
+                          Post training
+                        </Button>
+                      </div>
                     </div>
                     <p className="relative z-10 mt-2 text-xs text-muted-foreground">
                       Created: {formatDate(team.createdAt)} · Last updated:{" "}
