@@ -12,12 +12,11 @@ RUN pnpm install --filter onboarding...
 COPY apps/onboarding ./apps/onboarding
 
 ARG VITE_BASE_PATH=/onboarding/
-RUN cd apps/onboarding && NITRO_PRESET=node-server VITE_BASE_PATH=$VITE_BASE_PATH pnpm build
+RUN cd apps/onboarding && VITE_BASE_PATH=$VITE_BASE_PATH pnpm build
 
-FROM node:20-alpine
-WORKDIR /app/apps/onboarding
+FROM nginx:1.27-alpine
 
-COPY --from=base /app/apps/onboarding/.output ./.output
+COPY apps/onboarding/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=base /app/apps/onboarding/dist /usr/share/nginx/html
 
-EXPOSE 3002
-CMD ["node", ".output/server/index.mjs"]
+EXPOSE 80
