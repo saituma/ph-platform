@@ -315,6 +315,8 @@ function VideoPlayerYoutubeMode({
               </Text>
             ) : null}
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Fullscreen"
               onPress={openFullscreen}
               style={{
                 backgroundColor: "rgba(0,0,0,0.6)",
@@ -337,6 +339,8 @@ function VideoPlayerYoutubeMode({
       >
         <View style={{ flex: 1, backgroundColor: "#000" }}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close fullscreen"
             onPress={closeFullscreen}
             style={{
               position: "absolute",

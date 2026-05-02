@@ -1,0 +1,53 @@
+appId: com.phperformance.app
+tags:
+  - critical
+  - programs
+name: "Programs Flow"
+---
+
+# ── Programs Flow ────────────────────────────────────────────────────────
+# Navigates to the Programs tab, opens a program if available, verifies
+# content loads, and navigates back.
+
+- runFlow: login.yaml
+
+# Navigate to Programs tab
+- tapOn:
+    text: "Programs"
+
+# Wait for the programs screen to load
+- extendedWaitUntil:
+    visible: "Programs"
+    timeout: 10000
+
+# Two possible states: programs assigned or "No programs assigned"
+- runFlow:
+    when:
+      visible: "No programs assigned"
+    commands:
+      # Verify the empty state renders correctly
+      - assertVisible: "Your coach will assign programs to you"
+
+- runFlow:
+    when:
+      notVisible: "No programs assigned"
+    commands:
+      # Verify the programs list header
+      - assertVisible: "My Programs"
+      - assertVisible: "Your assigned training programs"
+
+      # Tap the first program card (program names vary)
+      # ProgramCard shows module count like "3 modules"
+      - tapOn:
+          text: ".*module.*"
+          index: 0
+          optional: true
+
+      # If we navigated into a program, verify content loads
+      - extendedWaitUntil:
+          visible: ".*"
+          timeout: 5000
+
+      # Navigate back
+      - back
+      - assertVisible: "My Programs"

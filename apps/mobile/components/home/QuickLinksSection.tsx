@@ -97,6 +97,7 @@ function QuickLinkItem({ link }: { link: QuickLink }) {
         onPressOut={handlePressOut}
         accessibilityRole="button"
         accessibilityLabel={link.label}
+        accessibilityHint={`Navigate to ${link.label}`}
         style={{
           // Robis: outer borderRadius 20, paddingHorizontal 8
           // → iconWrap inner radius = 20 - 8 = 12

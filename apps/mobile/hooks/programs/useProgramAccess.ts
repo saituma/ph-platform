@@ -1,29 +1,26 @@
 import { useMemo } from "react";
 import { useAppSelector } from "@/store/hooks";
 import { ProgramId } from "@/constants/program-details";
+import { canAccessTier, programIdToTier } from "@/lib/planAccess";
 
 export function useProgramAccess(token: string | null, programId: ProgramId) {
-  const {
-    apiUserRole,
-  } = useAppSelector((state) => state.user);
-
-  const canMessageCoach = true;
+  const { apiUserRole, programTier } = useAppSelector((state) => state.user);
 
   const isAdminViewer = useMemo(() => {
     const r = String(apiUserRole ?? "");
     return ["admin", "superAdmin", "coach", "team_coach", "program_coach"].includes(r);
   }, [apiUserRole]);
 
-  const hasAccess = true;
+  const requiredTier = programIdToTier(programId);
 
-  const refreshBillingStatus = async () => {};
+  const hasAccess = isAdminViewer || canAccessTier(programTier, requiredTier);
 
   return {
-    programTier: "PHP",
-    canMessageCoach,
+    programTier: programTier ?? "PHP",
+    canMessageCoach: hasAccess,
     hasAccess,
     isPendingApproval: false,
     isAdminViewer,
-    refreshBillingStatus,
+    refreshBillingStatus: async () => {},
   };
 }

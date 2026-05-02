@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { db } from "../../db";
 import { ROLES_ATHLETE } from "../../lib/user-roles";
 import {
@@ -24,7 +25,7 @@ import {
   foodDiaryTable,
   physioRefferalsTable,
 } from "../../db/schema";
-import { env } from "../../config/env";
+
 import { sendAdminPasswordResetEmail, sendAdminWelcomeCredentialsEmail } from "../../lib/mailer";
 import { ensureAthleteUserRecord, submitOnboarding } from "../onboarding.service";
 import { getAthleteForUser, getUserByEmail, getUserById } from "../user.service";
@@ -63,17 +64,36 @@ export async function listUsers(options?: { q?: string; limit?: number; managedB
   if (typeof options?.managedByTeamAdminId === "number") {
     filterConditions.push(eq(teamTable.adminId, options.managedByTeamAdminId));
   }
+  let ftsRankExpr: SQL | null = null;
   if (q) {
-    const pattern = `%${q}%`;
-    filterConditions.push(
-      or(
-        ilike(userTable.name, pattern),
-        ilike(userTable.email, pattern),
-        sql`${userTable.role}::text ILIKE ${pattern}`,
-        ilike(athleteTable.name, pattern),
-        ilike(teamTable.name, pattern),
-      )!,
-    );
+    if (q.length < 3) {
+      // Short queries: ILIKE fallback (FTS doesn't handle partial words well)
+      const pattern = `%${q}%`;
+      filterConditions.push(
+        or(
+          ilike(userTable.name, pattern),
+          ilike(userTable.email, pattern),
+          sql`${userTable.role}::text ILIKE ${pattern}`,
+          ilike(athleteTable.name, pattern),
+          ilike(teamTable.name, pattern),
+        )!,
+      );
+    } else {
+      // Full-text search for 3+ char queries — uses GIN index for performance
+      const tsQuery = q
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((term) => `${term}:*`)
+        .join(" & ");
+      const tsvector = sql`(
+        to_tsvector('english', coalesce(${userTable.name}, '') || ' ' || coalesce(${userTable.email}, '') || ' ' || coalesce(${userTable.role}::text, ''))
+        || to_tsvector('english', coalesce(${athleteTable.name}, ''))
+        || to_tsvector('english', coalesce(${teamTable.name}, ''))
+      )`;
+      const tsquery = sql`to_tsquery('english', ${tsQuery})`;
+      filterConditions.push(sql`${tsvector} @@ ${tsquery}`);
+      ftsRankExpr = sql`ts_rank(${tsvector}, ${tsquery})`;
+    }
   }
 
   const baseUsersQuery = db
@@ -113,9 +133,10 @@ export async function listUsers(options?: { q?: string; limit?: number; managedB
     .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
     .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
     .where(and(...filterConditions))
-    .orderBy(desc(userTable.updatedAt));
+    .orderBy(...(ftsRankExpr ? [desc(ftsRankExpr), desc(userTable.updatedAt)] : [desc(userTable.updatedAt)]));
 
-  const users = limit ? await baseUsersQuery.limit(limit) : await baseUsersQuery;
+  const effectiveLimit = limit ?? 200;
+  const users = await baseUsersQuery.limit(effectiveLimit);
 
   const guardianUsers = users.filter((user) => user.role === "guardian");
   if (!guardianUsers.length) {
@@ -441,7 +462,7 @@ export async function createTeamManagerUser(input: { email: string; password: st
     .insert(userTable)
     .values({
       cognitoSub: `local:${crypto.randomUUID()}`,
-      name: (input.name?.trim() || email.split("@")[0]),
+      name: input.name?.trim() || email.split("@")[0],
       email,
       role: "team_coach",
       passwordHash: hash,

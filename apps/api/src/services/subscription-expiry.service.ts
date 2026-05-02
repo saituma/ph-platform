@@ -3,7 +3,7 @@ import { and, eq, gt, inArray, isNotNull, isNull, lt, lte } from "drizzle-orm";
 import { db } from "../db";
 import { athleteTable, guardianTable, notificationTable, userTable } from "../db/schema";
 import { sendPlanExpiredEmail, sendPlanExpiringSoonEmail } from "../lib/mailer";
-import { sendPushNotification } from "./push.service";
+import { pushQueue } from "../jobs";
 
 const PAID_TIERS = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const;
 
@@ -70,12 +70,12 @@ async function processExpiredPlans(now: Date) {
       link: "/plans",
       read: false,
     });
-    void sendPushNotification(
-      payerUserId,
-      "Plan ended",
-      "Your paid plan period has ended. Renew to keep messaging and bookings.",
-      { url: "/plans", type: "plan_expired" },
-    );
+    void pushQueue.enqueue({
+      userId: payerUserId,
+      title: "Plan ended",
+      body: "Your paid plan period has ended. Renew to keep messaging and bookings.",
+      data: { url: "/plans", type: "plan_expired" },
+    });
     void sendPlanExpiredEmail({
       to: payer.email,
       name: payer.name,
@@ -118,12 +118,12 @@ async function processExpiringReminders(now: Date, horizon: Date) {
       athleteName: athlete.name,
       expiresAt: expires,
     });
-    void sendPushNotification(
-      payerUserId,
-      "Plan renewing soon",
-      `Your plan access ends ${expires.toLocaleDateString()}. Renew to avoid losing perks.`,
-      { url: "/plans", type: "plan_expiring" },
-    );
+    void pushQueue.enqueue({
+      userId: payerUserId,
+      title: "Plan renewing soon",
+      body: `Your plan access ends ${expires.toLocaleDateString()}. Renew to avoid losing perks.`,
+      data: { url: "/plans", type: "plan_expiring" },
+    });
     await db.insert(notificationTable).values({
       userId: payerUserId,
       type: "plan_expiring",

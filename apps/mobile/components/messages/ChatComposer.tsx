@@ -186,6 +186,7 @@ export function ChatComposer({
 						value={draft}
 						onChangeText={onDraftChange}
 						multiline
+						maxLength={2000}
 						editable={!disabled && !isUploading}
 					/>
 				</View>

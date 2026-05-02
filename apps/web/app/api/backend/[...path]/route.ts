@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 /** Resolve at request time so Vercel env changes apply without relying only on build-time NEXT_PUBLIC. */
 function getApiBase(): string {
   const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-  return rawBase.replace(/\/api\/?$/, "");
+  return rawBase.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
 }
 
 const csrfCookieName = "csrfToken";

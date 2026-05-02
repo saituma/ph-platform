@@ -8,4 +8,12 @@ module.exports = {
   transformIgnorePatterns: [
     "node_modules/(?!(react-native|@react-native|@react-native-community|@react-navigation|expo|expo-modules-core|@expo|expo-router|expo-secure-store|react-native-gesture-handler|react-native-reanimated|nativewind|@reduxjs/toolkit|immer|react-redux|react-native-css-interop)/)",
   ],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+  },
 };

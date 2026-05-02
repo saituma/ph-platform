@@ -16,7 +16,7 @@ import {
 } from "@/portal/portal-errors";
 import { portalKeys } from "@/portal/portal-query-keys";
 import type { PortalUser } from "@/portal/portal-types";
-import { isTokenExpired, msUntilExpiry } from "@/lib/token-expiry";
+import { clearAuthToken, getTokenStatus } from "@/lib/client-storage";
 
 type PortalContextValue = {
 	token: string | null;
@@ -44,51 +44,54 @@ function calculateAge(birthDate: string | undefined): number | null {
 	return age;
 }
 
-function readStoredToken(): string | null {
-	if (typeof window === "undefined") return null;
-	try {
-		const stored = localStorage.getItem("auth_token");
-		if (stored && isTokenExpired(stored)) {
-			localStorage.removeItem("auth_token");
-			localStorage.removeItem("pending_email");
-			localStorage.removeItem("user_type");
-			return null;
-		}
-		return stored;
-	} catch {
-		return null;
-	}
-}
+/**
+ * We use a sentinel string "cookie" to indicate the token is present in the httpOnly cookie.
+ * The actual token value is never exposed to JS — it's sent automatically via cookies.
+ */
+const COOKIE_TOKEN_SENTINEL = "__cookie_auth__";
 
 export function PortalProvider({ children }: { children: ReactNode }) {
-	const [token, setToken] = useState<string | null>(readStoredToken);
-	const [hydrated, setHydrated] = useState(typeof window !== "undefined");
+	// "token" here is a sentinel — indicates whether we believe we're authenticated
+	const [token, setToken] = useState<string | null>(null);
+	const [hydrated, setHydrated] = useState(false);
+	const [expiresAt, setExpiresAt] = useState<number | null>(null);
 
-	// SSR hydration: server sets token to null (no window). Re-read on client mount.
+	// On mount, check cookie-based auth status
 	useEffect(() => {
-		const stored = readStoredToken();
-		if (stored && stored !== token) setToken(stored);
-		setHydrated(true);
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+		let cancelled = false;
+		async function checkAuth() {
+			const status = await getTokenStatus();
+			if (cancelled) return;
+			if (status.authenticated) {
+				setToken(COOKIE_TOKEN_SENTINEL);
+				setExpiresAt(status.expiresAt);
+			} else {
+				setToken(null);
+				setExpiresAt(null);
+			}
+			setHydrated(true);
+		}
+		void checkAuth();
+		return () => { cancelled = true; };
+	}, []);
 
+	// Auto-expire: set a timer to clear auth state when token expires
 	useEffect(() => {
-		if (!token) return;
-		const ms = msUntilExpiry(token);
+		if (!token || !expiresAt) return;
+		const ms = Math.max(0, expiresAt * 1000 - Date.now());
 		if (ms <= 0) {
-			localStorage.removeItem("auth_token");
+			void clearAuthToken();
 			setToken(null);
 			return;
 		}
-		if (ms === -1) return;
-		// setTimeout overflows at 2^31-1 ms (~24.8 days) and fires immediately.
-		// Cap at 12 hours; token will be re-checked on next page load.
+		// Cap at 12 hours to avoid setTimeout overflow
 		const safeMs = Math.min(ms, 12 * 60 * 60 * 1000);
 		const timer = setTimeout(() => {
-			localStorage.removeItem("auth_token");
+			void clearAuthToken();
 			setToken(null);
 		}, safeMs);
 		return () => clearTimeout(timer);
-	}, [token]);
+	}, [token, expiresAt]);
 
 	const {
 		data: user,
@@ -98,9 +101,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 	} = useQuery({
 		queryKey: portalKeys.user(token),
 		queryFn: async () => {
-			const t = token;
-			if (!t) throw new Error("Not authenticated");
-			return fetchPortalUser(t);
+			if (!token) throw new Error("Not authenticated");
+			// fetchPortalUser will use credentials: 'include' — cookie is sent automatically
+			return fetchPortalUser(COOKIE_TOKEN_SENTINEL);
 		},
 		enabled: !!token,
 		staleTime: 1000 * 60 * 10,
@@ -129,10 +132,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 	}, [token, userLoading, userError, user, refetch]);
 
 	const refresh = useCallback(async () => {
-		const currentToken = localStorage.getItem("auth_token");
-		setToken(currentToken);
+		const status = await getTokenStatus();
+		if (status.authenticated) {
+			setToken(COOKIE_TOKEN_SENTINEL);
+			setExpiresAt(status.expiresAt);
+		} else {
+			setToken(null);
+			setExpiresAt(null);
+		}
 		attemptedRecoveryRef.current = false;
-		if (currentToken) {
+		if (status.authenticated) {
 			await refetch();
 		}
 	}, [refetch]);
@@ -156,7 +165,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 			refresh,
 			refreshUser: refresh,
 		}),
-		[token, user, age, hydrated, userLoading, userError, refresh],
+		[token, user, age, loading, error, refresh],
 	);
 
 	return (

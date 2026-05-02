@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Key, Bell, UserCheck, Lock, Smartphone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PageTransition } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/permissions")({
 	component: PermissionsPage,
@@ -40,7 +41,7 @@ function PermissionsPage() {
 	];
 
 	return (
-		<div className="p-6 max-w-4xl mx-auto space-y-8">
+		<PageTransition className="p-6 max-w-4xl mx-auto space-y-8">
 			<div className="flex flex-col gap-2">
 				<h1 className="text-3xl font-black uppercase italic tracking-tighter">Access & Permissions</h1>
 				<p className="text-muted-foreground">Review and manage your security settings and data access.</p>
@@ -101,6 +102,6 @@ function PermissionsPage() {
 					</div>
 				</CardContent>
 			</Card>
-		</div>
+		</PageTransition>
 	);
 }

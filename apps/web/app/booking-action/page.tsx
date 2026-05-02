@@ -5,7 +5,10 @@ type BookingActionPageProps = {
 import BookingActionClient from "./BookingActionClient";
 
 const getApiBase = () => {
-  return process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || "";
+  return (process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || "")
+    .trim()
+    .replace(/\/api\/?$/, "")
+    .replace(/\/+$/, "");
 };
 
 export default async function BookingActionPage({

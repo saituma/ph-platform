@@ -185,6 +185,8 @@ export function Button({
       onPress={onPress}
       disabled={disabled || loading}
       accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       className={className}
       style={({ pressed }) => [
         baseButtonStyle,

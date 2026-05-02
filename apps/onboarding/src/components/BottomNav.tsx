@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -12,11 +13,18 @@ interface BottomNavProps {
 export function BottomNav({ children }: BottomNavProps) {
 	return (
 		<SidebarProvider>
-			<AppSidebar />
+			<nav aria-label="Portal navigation">
+				<AppSidebar />
+			</nav>
 			<SidebarInset className="flex flex-col min-h-svh bg-background">
-				<main className="flex-1 overflow-y-auto">
+				<motion.main
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					transition={{ duration: 0.3, ease: "easeOut" }}
+					className="flex-1 overflow-y-auto"
+				>
 					{children}
-				</main>
+				</motion.main>
 
 				<footer className="flex h-14 shrink-0 items-center gap-2 border-t border-foreground/[0.06] px-4 md:hidden bg-background sticky bottom-0 z-50">
 					<SidebarTrigger className="h-10 w-10 flex items-center justify-center text-foreground/50 hover:text-foreground transition-colors" />
@@ -28,7 +36,11 @@ export function BottomNav({ children }: BottomNavProps) {
 					</div>
 
 					<div className="w-10 h-10 flex items-center justify-center">
-						<div className="h-1.5 w-1.5 rounded-full bg-foreground/30" />
+						<motion.div
+							animate={{ opacity: [0.3, 0.6, 0.3] }}
+							transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+							className="h-1.5 w-1.5 rounded-full bg-primary"
+						/>
 					</div>
 				</footer>
 			</SidebarInset>

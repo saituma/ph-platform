@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { Linking, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { SkeletonTrainingContentScreen } from "@/components/ui/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -182,9 +183,7 @@ export default function TrainingOtherDetailScreen() {
           </View>
 
           {isLoading && !item ? (
-            <View style={{ paddingVertical: 24 }}>
-              <ActivityIndicator />
-            </View>
+            <SkeletonTrainingContentScreen />
           ) : !item ? (
             <Text className="text-lg font-outfit" style={{ color: colors.text }}>
               {error ?? "This content is not available."}

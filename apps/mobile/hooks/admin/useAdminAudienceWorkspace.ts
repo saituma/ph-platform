@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { apiRequest } from "@/lib/api";
+import { useAdminQuery } from "./useAdminQuery";
 
 export type Metadata = {
   sets?: number | null;
@@ -81,33 +82,22 @@ export type AudienceWorkspace = {
 };
 
 export function useAdminAudienceWorkspace(token: string | null, canLoad: boolean, audienceLabel: string) {
-  const [workspace, setWorkspace] = useState<AudienceWorkspace | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(
-    async (forceRefresh = false) => {
-      if (!token || !canLoad || !audienceLabel) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<AudienceWorkspace>(
-          `/training-content-v2/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`,
-          {
-            token,
-            forceRefresh,
-            skipCache: forceRefresh,
-            suppressStatusCodes: [403],
-          }
-        );
-        setWorkspace(res ?? null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load workspace");
-      } finally {
-        setLoading(false);
-      }
+  const fetcher = useCallback(
+    async (forceRefresh: boolean) => {
+      if (!token || !audienceLabel) return null;
+      const res = await apiRequest<AudienceWorkspace>(
+        `/training-content-v2/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`,
+        { token, forceRefresh, skipCache: forceRefresh, suppressStatusCodes: [403] },
+      );
+      return res ?? null;
     },
-    [token, canLoad, audienceLabel]
+    [token, audienceLabel],
+  );
+
+  const { data: workspace, loading, error, load } = useAdminQuery<AudienceWorkspace | null>(
+    fetcher,
+    null,
+    Boolean(token && canLoad && audienceLabel),
   );
 
   return { workspace, loading, error, load };

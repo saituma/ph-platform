@@ -19,6 +19,7 @@ import { Card } from "#/components/ui/card";
 import { cn } from "#/lib/utils";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
+import { getTokenStatus } from "#/lib/client-storage";
 import { DatePicker } from "#/components/ui/date-picker";
 import { format, differenceInYears } from "date-fns";
 import { useMutation } from "@tanstack/react-query";
@@ -85,38 +86,44 @@ function OnboardingStep2() {
 	}, [birthDate, userType]);
 
 	useEffect(() => {
-		const email = localStorage.getItem("pending_email");
-		const token = localStorage.getItem("auth_token");
-		const type = localStorage.getItem("user_type");
+		let cancelled = false;
+		async function check() {
+			const email = localStorage.getItem("pending_email");
+			const status = await getTokenStatus();
+			const type = localStorage.getItem("user_type");
+			if (cancelled) return;
 
-		if (!token) {
-			toast.error("Session expired", {
-				description: "Please sign in again to continue onboarding.",
-			});
-			navigate({ to: "/login" });
-			return;
+			if (!status.authenticated) {
+				toast.error("Session expired", {
+					description: "Please sign in again to continue onboarding.",
+				});
+				navigate({ to: "/login" });
+				return;
+			}
+
+			if (!type) {
+				toast.error("Onboarding session incomplete", {
+					description:
+						'Go back to the portal and use "Continue onboarding" so your account type is set, or start from the home page.',
+				});
+				navigate({ to: "/portal/dashboard" });
+				return;
+			}
+
+			if (!email?.trim()) {
+				toast.error("Email missing", {
+					description:
+						"Sign out and sign in again, or continue from the portal so we can store your email for this step.",
+				});
+				navigate({ to: "/login" });
+				return;
+			}
+
+			setUserType(type);
+			setIsValidating(false);
 		}
-
-		if (!type) {
-			toast.error("Onboarding session incomplete", {
-				description:
-					"Go back to the portal and use “Continue onboarding” so your account type is set, or start from the home page.",
-			});
-			navigate({ to: "/portal/dashboard" });
-			return;
-		}
-
-		if (!email?.trim()) {
-			toast.error("Email missing", {
-				description:
-					"Sign out and sign in again, or continue from the portal so we can store your email for this step.",
-			});
-			navigate({ to: "/login" });
-			return;
-		}
-
-		setUserType(type);
-		setIsValidating(false);
+		void check();
+		return () => { cancelled = true; };
 	}, [navigate]);
 
 	const handleInputChange = (field: string, value: string) => {
@@ -125,10 +132,10 @@ function OnboardingStep2() {
 
 	const mutation = useMutation({
 		mutationFn: async () => {
-			const token = localStorage.getItem("auth_token");
+			const status = await getTokenStatus();
 			const email = localStorage.getItem("pending_email");
 
-			if (!token || !email) throw new Error("Session expired");
+			if (!status.authenticated || !email) throw new Error("Session expired");
 
 			const baseUrl = config.api.baseUrl;
 			let endpoint = "";
@@ -195,9 +202,9 @@ function OnboardingStep2() {
 
 			const response = await fetch(`${baseUrl}${endpoint}`, {
 				method: "POST",
+				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({ email, ...body }),
 			});

@@ -18,6 +18,7 @@ import { Input } from "#/components/ui/input";
 import { cn } from "#/lib/utils";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
+import { getTokenStatus } from "#/lib/client-storage";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/onboarding/step-1")({
@@ -63,17 +64,22 @@ function OnboardingStep1() {
 	const navigate = useNavigate();
 
 	useEffect(() => {
-		const email = localStorage.getItem("pending_email");
-		const token = localStorage.getItem("auth_token");
-
-		if (!email || !token) {
-			toast.error("Session expired", {
-				description: "Please enter your email to continue onboarding.",
-			});
-			navigate({ to: "/" });
-			return;
+		let cancelled = false;
+		async function check() {
+			const email = localStorage.getItem("pending_email");
+			const status = await getTokenStatus();
+			if (cancelled) return;
+			if (!email || !status.authenticated) {
+				toast.error("Session expired", {
+					description: "Please enter your email to continue onboarding.",
+				});
+				navigate({ to: "/" });
+				return;
+			}
+			setIsValidating(false);
 		}
-		setIsValidating(false);
+		void check();
+		return () => { cancelled = true; };
 	}, [navigate]);
 
 	const passwordRequirements = useMemo(() => ({
@@ -89,16 +95,16 @@ function OnboardingStep1() {
 	const mutation = useMutation({
 		mutationFn: async () => {
 			const email = localStorage.getItem("pending_email");
-			const token = localStorage.getItem("auth_token");
+			const status = await getTokenStatus();
 
-			if (!email || !token) throw new Error("Session expired");
+			if (!email || !status.authenticated) throw new Error("Session expired");
 
 			const baseUrl = config.api.baseUrl;
 			const response = await fetch(`${baseUrl}/api/auth/onboarding/role`, {
 				method: "POST",
+				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({ email, type: selected, password }),
 			});

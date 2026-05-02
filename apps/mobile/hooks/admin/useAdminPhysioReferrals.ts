@@ -1,5 +1,7 @@
-import { apiRequest } from "@/lib/api";
 import { useCallback, useState } from "react";
+import { apiRequest } from "@/lib/api";
+import { useAdminMutation } from "./useAdminQuery";
+import { parseApiError } from "@/lib/errors";
 
 export type AdminPhysioReferralMetadata = {
   assignmentMode?: string | null;
@@ -28,6 +30,7 @@ export type AdminPhysioReferralItem = {
 };
 
 export function useAdminPhysioReferrals(token: string | null, canLoad: boolean) {
+  const enabled = Boolean(token && canLoad);
   const [items, setItems] = useState<AdminPhysioReferralItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +38,7 @@ export function useAdminPhysioReferrals(token: string | null, canLoad: boolean) 
 
   const load = useCallback(
     async (params: { q?: string; limit?: number } = {}, forceRefresh = false) => {
-      if (!canLoad || !token) return;
+      if (!enabled) return;
       setLoading(true);
       setError(null);
       try {
@@ -45,81 +48,82 @@ export function useAdminPhysioReferrals(token: string | null, canLoad: boolean) 
         const qs = query.toString();
         const res = await apiRequest<{ items?: AdminPhysioReferralItem[] }>(
           qs ? `/admin/physio-referrals?${qs}` : "/admin/physio-referrals",
-          {
-            token,
-            suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
-          },
+          { token: token!, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
         );
         setItems(Array.isArray(res?.items) ? res.items : []);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load referrals");
+        setError(parseApiError(e).message);
         setItems([]);
       } finally {
         setLoading(false);
       }
     },
-    [canLoad, token],
+    [enabled, token],
   );
 
-  const create = useCallback(
-    async (body: Record<string, unknown>) => {
-      if (!canLoad || !token) return;
-      setMutatingId(-1);
-      try {
-        await apiRequest("/admin/physio-referrals", {
-          method: "POST",
-          token,
-          body,
-          suppressStatusCodes: [400, 403],
-          skipCache: true,
-          forceRefresh: true,
-        });
-      } finally {
-        setMutatingId(null);
-      }
-    },
-    [canLoad, token],
+  const createMutation = useAdminMutation<Record<string, unknown>>(
+    useCallback(
+      async (body: Record<string, unknown>) => {
+        if (!enabled) return;
+        setMutatingId(-1);
+        try {
+          await apiRequest("/admin/physio-referrals", {
+            method: "POST",
+            token: token!,
+            body,
+            suppressStatusCodes: [400, 403],
+            skipCache: true,
+            forceRefresh: true,
+          });
+        } finally {
+          setMutatingId(null);
+        }
+      },
+      [enabled, token],
+    ),
   );
 
-  const update = useCallback(
-    async (id: number, patch: Record<string, unknown>) => {
-      if (!canLoad || !token) return;
-      setMutatingId(id);
-      try {
-        await apiRequest(`/admin/physio-referrals/${id}`, {
-          method: "PATCH",
-          token,
-          body: patch,
-          suppressStatusCodes: [400, 403],
-          skipCache: true,
-          forceRefresh: true,
-        });
-      } finally {
-        setMutatingId(null);
-      }
-    },
-    [canLoad, token],
+  const updateMutation = useAdminMutation<{ id: number; patch: Record<string, unknown> }>(
+    useCallback(
+      async ({ id, patch }) => {
+        if (!enabled) return;
+        setMutatingId(id);
+        try {
+          await apiRequest(`/admin/physio-referrals/${id}`, {
+            method: "PATCH",
+            token: token!,
+            body: patch,
+            suppressStatusCodes: [400, 403],
+            skipCache: true,
+            forceRefresh: true,
+          });
+        } finally {
+          setMutatingId(null);
+        }
+      },
+      [enabled, token],
+    ),
   );
 
-  const remove = useCallback(
-    async (id: number) => {
-      if (!canLoad || !token) return;
-      setMutatingId(id);
-      try {
-        await apiRequest(`/admin/physio-referrals/${id}`, {
-          method: "DELETE",
-          token,
-          suppressStatusCodes: [403],
-          skipCache: true,
-          forceRefresh: true,
-        });
-      } finally {
-        setMutatingId(null);
-      }
-    },
-    [canLoad, token],
+  const removeMutation = useAdminMutation<number>(
+    useCallback(
+      async (id: number) => {
+        if (!enabled) return;
+        setMutatingId(id);
+        try {
+          await apiRequest(`/admin/physio-referrals/${id}`, {
+            method: "DELETE",
+            token: token!,
+            suppressStatusCodes: [403],
+            skipCache: true,
+            forceRefresh: true,
+          });
+        } finally {
+          setMutatingId(null);
+        }
+      },
+      [enabled, token],
+    ),
   );
 
   return {
@@ -128,10 +132,9 @@ export function useAdminPhysioReferrals(token: string | null, canLoad: boolean) 
     error,
     mutatingId,
     load,
-    create,
-    update,
-    remove,
+    create: (body: Record<string, unknown>) => createMutation.run(body),
+    update: (id: number, patch: Record<string, unknown>) => updateMutation.run({ id, patch }),
+    remove: (id: number) => removeMutation.run(id),
     setError,
   };
 }
-

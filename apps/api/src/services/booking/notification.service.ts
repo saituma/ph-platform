@@ -5,7 +5,7 @@ import { env } from "../../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../../lib/mailer";
 import { createBookingActionToken } from "../../lib/booking-actions";
 import { ROLES_TRAINING_STAFF } from "../../lib/user-roles";
-import { sendPushNotification } from "../push.service";
+import { pushQueue } from "../../jobs";
 import { getSocketServer } from "../../socket-hub";
 
 export async function notifyBookingRequested(input: {
@@ -75,11 +75,11 @@ export async function notifyBookingRequested(input: {
     link: "/schedule",
   });
 
-  void sendPushNotification(guardian.userId, "Booking requested", `${input.serviceName} request submitted`, {
+  void pushQueue.enqueue({ userId: guardian.userId, title: "Booking requested", body: `${input.serviceName} request submitted`, data: {
     type: "booking",
     screen: "schedule",
     url: "/schedule",
-  });
+  } });
 
   if (user?.email) {
     try {
@@ -163,12 +163,12 @@ export async function notifyBookingCancelled(bookingId: number) {
     .where(inArray(userTable.role, ROLES_TRAINING_STAFF));
 
   for (const admin of adminUsers) {
-    void sendPushNotification(
-      admin.id,
-      "Booking cancelled",
-      `${athleteName} cancelled their ${serviceName} request`,
-      { type: "booking", screen: "schedule", url: "/schedule" },
-    );
+    void pushQueue.enqueue({
+      userId: admin.id,
+      title: "Booking cancelled",
+      body: `${athleteName} cancelled their ${serviceName} request`,
+      data: { type: "booking", screen: "schedule", url: "/schedule" },
+    });
   }
 
   const io = getSocketServer();

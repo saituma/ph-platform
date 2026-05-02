@@ -32,13 +32,11 @@ export type HomeContentPayload = {
   professionalPhotos?: string[] | string | null;
 };
 
-export async function fetchHomeContent(token: string): Promise<HomeContentPayload | null> {
+export async function fetchHomeContent(_token?: string): Promise<HomeContentPayload | null> {
   const baseUrl = config.api.baseUrl;
-  
+
   const response = await fetch(`${baseUrl}/api/content/home`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
   });
 
   if (!response.ok) {

@@ -19,7 +19,7 @@ import { slugifySegment } from "../lib/slug";
 import { getUserById } from "./user.service";
 import { calculateAge, clampYouthAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
 import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardian } from "./user.service";
-import { sendPushNotification } from "./push.service";
+import { pushQueue } from "../jobs";
 import { getActiveSubscriptionPlanByTier, isSubscriptionPlanFree } from "./billing.service";
 import { normalizeStoredMediaUrl } from "./s3.service";
 import { isAthleteUserRole, resolveAthleteUserRoleFromAthleteRow } from "../lib/user-roles";
@@ -1079,11 +1079,11 @@ async function maybeSendBirthdayNotifications(
         read: false,
       });
 
-      await sendPushNotification(userId, title, content, {
+      await pushQueue.enqueue({ userId, title, body: content, data: {
         type: "birthday",
         url: birthdayLink,
         athleteId: athlete.id,
-      });
+      } });
     }),
   );
 }

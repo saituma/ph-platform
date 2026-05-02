@@ -1,4 +1,4 @@
-import { asc, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -115,18 +115,13 @@ export async function getMyAssignedPrograms(userId: number) {
   const athlete = await getAthleteForUser(userId);
   if (!athlete) return [];
 
-  let assignments: { programId: number; status: string }[] = [];
-  try {
-    assignments = await db
-      .select({
-        programId: programAssignmentTable.programId,
-        status: programAssignmentTable.status,
-      })
-      .from(programAssignmentTable)
-      .where(eq(programAssignmentTable.athleteId, athlete.id));
-  } catch {
-    return [];
-  }
+  const assignments = await db
+    .select({
+      programId: programAssignmentTable.programId,
+      status: programAssignmentTable.status,
+    })
+    .from(programAssignmentTable)
+    .where(eq(programAssignmentTable.athleteId, athlete.id));
 
   if (assignments.length === 0) return [];
 
@@ -152,6 +147,15 @@ export async function getMyAssignedPrograms(userId: number) {
 export async function getMyProgramFull(userId: number, programId: number) {
   const athlete = await getAthleteForUser(userId);
   if (!athlete) return null;
+
+  const [assignment] = await db
+    .select({ id: programAssignmentTable.id })
+    .from(programAssignmentTable)
+    .where(
+      and(eq(programAssignmentTable.athleteId, athlete.id), eq(programAssignmentTable.programId, programId)),
+    )
+    .limit(1);
+  if (!assignment) return null;
 
   const program = await db.select().from(programTable).where(eq(programTable.id, programId)).limit(1);
   if (!program[0]) return null;
@@ -213,6 +217,24 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
 
   const session = await db.select().from(sessionTable).where(eq(sessionTable.id, sessionId)).limit(1);
   if (!session[0]) return null;
+
+  if (session[0].moduleId) {
+    const [mod] = await db
+      .select({ programId: programModuleTable.programId })
+      .from(programModuleTable)
+      .where(eq(programModuleTable.id, session[0].moduleId))
+      .limit(1);
+    if (mod?.programId) {
+      const [assignment] = await db
+        .select({ id: programAssignmentTable.id })
+        .from(programAssignmentTable)
+        .where(
+          and(eq(programAssignmentTable.athleteId, athlete.id), eq(programAssignmentTable.programId, mod.programId)),
+        )
+        .limit(1);
+      if (!assignment) return null;
+    }
+  }
 
   return db
     .select({

@@ -54,6 +54,7 @@ type TeamMember = {
   age: number | null;
   trainingPerWeek: number | null;
   currentProgramTier: string | null;
+  isSponsored: boolean;
   guardianEmail: string | null;
   guardianPhone: string | null;
   relationToAthlete: string | null;
@@ -71,6 +72,8 @@ type TeamDetails = {
   maxAge: number | null;
   planTier: string | null;
   planName: string | null;
+  sponsoredPlayerCount: number;
+  sponsoredPlanId: number | null;
   summary: {
     memberCount: number;
     youthCount?: number;
@@ -158,6 +161,12 @@ function MemberRow({
               {showAge ? <span>Age: {member.age ?? "—"}</span> : null}
               {showAge ? <span>•</span> : null}
               <span>Tier: {member.currentProgramTier ?? "—"}</span>
+              {member.isSponsored ? (
+                <>
+                  <span>•</span>
+                  <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-violet-300">Sponsored</span>
+                </>
+              ) : null}
               {showGuardian && member.guardianEmail ? (
                 <>
                   <span>•</span>
@@ -210,6 +219,7 @@ export default function TeamDetailPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [newAthleteName, setNewAthleteName] = useState("");
   const [newAge, setNewAge] = useState("");
+  const [newIsSponsored, setNewIsSponsored] = useState(false);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
 
   // Full Plan Add state
@@ -278,6 +288,7 @@ export default function TeamDetailPage() {
   const resetForm = () => {
     setNewAthleteName("");
     setNewAge("");
+    setNewIsSponsored(false);
   };
 
   const handleProvision = async () => {
@@ -320,13 +331,13 @@ export default function TeamDetailPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ allowMoveFromOtherTeam: false }),
+          body: JSON.stringify({ allowMoveFromOtherTeam: false, isSponsored: newIsSponsored }),
         },
       );
 
       setAssignModalOpen(false);
       resetForm();
-      setPageNotice(`${newAthleteName.trim()} added. Login: ${generatedEmail} · Password: ${password}`);
+      setPageNotice(`${newAthleteName.trim()} added${newIsSponsored ? " (sponsored)" : ""}. Login: ${generatedEmail} · Password: ${password}`);
       await loadDetails();
     } catch (err) {
       const msg = err instanceof Error ? err.message : (err as { data?: { error?: string } })?.data?.error ?? "Failed to add team member.";
@@ -469,6 +480,14 @@ export default function TeamDetailPage() {
                     {athleteType}
                   </p>
                 </div>
+                {(details?.sponsoredPlayerCount ?? 0) > 0 ? (
+                  <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3">
+                    <p className="text-xs text-violet-400">Sponsored players</p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">
+                      {details?.members.filter((m) => m.isSponsored).length ?? 0} / {details?.sponsoredPlayerCount ?? 0}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="rounded-xl border border-border p-3">
                   <p className="text-xs text-muted-foreground">Created</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">
@@ -590,11 +609,25 @@ export default function TeamDetailPage() {
                 onChange={(e) => setNewAge(e.target.value)}
               />
             </div>
-            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-              Plan: <span className="font-medium text-foreground">
-                {details?.planName ?? (details?.planTier ? TIER_LABELS[details.planTier] : "Team plan")}
+            <div className=”rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground”>
+              Plan: <span className=”font-medium text-foreground”>
+                {details?.planName ?? (details?.planTier ? TIER_LABELS[details.planTier] : “Team plan”)}
               </span> — same as the team. Use “Add Athlete with Different Plan” to override.
             </div>
+            {(details?.sponsoredPlayerCount ?? 0) > 0 ? (
+              <label className=”flex items-center gap-3 rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-2.5 cursor-pointer”>
+                <input
+                  type=”checkbox”
+                  checked={newIsSponsored}
+                  onChange={(e) => setNewIsSponsored(e.target.checked)}
+                  className=”h-4 w-4 accent-violet-500”
+                />
+                <span className=”text-sm font-medium text-foreground”>Sponsored player</span>
+                <span className=”ml-auto text-xs text-muted-foreground”>
+                  Gets the team's sponsored plan tier
+                </span>
+              </label>
+            ) : null}
             {generatedEmail ? (
               <p className="text-xs text-muted-foreground">
                 Login email: <span className="font-mono text-foreground">{generatedEmail}</span>

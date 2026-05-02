@@ -1,5 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { apiRequest } from "@/lib/api";
+import { useAdminQuery } from "./useAdminQuery";
+import { useAdminMutation } from "./useAdminQuery";
 
 export type AdminAnnouncementAudienceType =
   | "all"
@@ -56,94 +58,69 @@ function toCreateContentPayload(input: CreateAnnouncementInput) {
 }
 
 export function useAdminAnnouncements(token: string | null, canLoad: boolean) {
-  const [items, setItems] = useState<AdminAnnouncementItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
+  const enabled = Boolean(token && canLoad);
 
-  const load = useCallback(
+  const fetcher = useCallback(
     async (forceRefresh: boolean) => {
-      if (!token || !canLoad) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<{ items?: AdminAnnouncementItem[] }>(
-          "/content/announcements",
-          {
-            token,
-            suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
-          },
-        );
-        setItems(Array.isArray(res?.items) ? res.items : []);
-      } catch (e) {
-        setError(
-          e instanceof Error ? e.message : "Failed to load announcements",
-        );
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
+      if (!token) return [];
+      const res = await apiRequest<{ items?: AdminAnnouncementItem[] }>(
+        "/content/announcements",
+        { token, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
+      );
+      return Array.isArray(res?.items) ? res.items : [];
     },
-    [canLoad, token],
+    [token],
   );
 
-  const create = useCallback(
-    async (input: CreateAnnouncementInput) => {
-      if (!token || !canLoad) return;
-      setIsBusy(true);
-      try {
-        await apiRequest("/content", {
-          method: "POST",
-          token,
-          body: toCreateContentPayload(input),
-          skipCache: true,
-        });
+  const { data: items, loading, error, load, setData: setItems } = useAdminQuery<AdminAnnouncementItem[]>(
+    fetcher,
+    [],
+    enabled,
+  );
+
+  const createMutation = useAdminMutation<CreateAnnouncementInput>(
+    useCallback(
+      async (input: CreateAnnouncementInput) => {
+        if (!token) return;
+        await apiRequest("/content", { method: "POST", token, body: toCreateContentPayload(input), skipCache: true });
         await load(true);
-      } finally {
-        setIsBusy(false);
-      }
-    },
-    [canLoad, load, token],
+      },
+      [token, load],
+    ),
   );
 
-  const update = useCallback(
-    async (id: number, input: CreateAnnouncementInput) => {
-      if (!token || !canLoad) return;
-      setIsBusy(true);
-      try {
-        await apiRequest(`/content/${id}`, {
-          method: "PUT",
-          token,
-          body: toCreateContentPayload(input),
-          skipCache: true,
-        });
+  const updateMutation = useAdminMutation<{ id: number; input: CreateAnnouncementInput }>(
+    useCallback(
+      async ({ id, input }: { id: number; input: CreateAnnouncementInput }) => {
+        if (!token) return;
+        await apiRequest(`/content/${id}`, { method: "PUT", token, body: toCreateContentPayload(input), skipCache: true });
         await load(true);
-      } finally {
-        setIsBusy(false);
-      }
-    },
-    [canLoad, load, token],
+      },
+      [token, load],
+    ),
   );
 
-  const remove = useCallback(
-    async (id: number) => {
-      if (!token || !canLoad) return;
-      setIsBusy(true);
-      try {
-        await apiRequest(`/content/${id}`, {
-          method: "DELETE",
-          token,
-          skipCache: true,
-        });
+  const removeMutation = useAdminMutation<number>(
+    useCallback(
+      async (id: number) => {
+        if (!token) return;
+        await apiRequest(`/content/${id}`, { method: "DELETE", token, skipCache: true });
         setItems((prev) => prev.filter((item) => Number(item.id) !== id));
-      } finally {
-        setIsBusy(false);
-      }
-    },
-    [canLoad, token],
+      },
+      [token, setItems],
+    ),
   );
 
-  return { items, loading, error, isBusy, load, create, update, remove };
+  const isBusy = createMutation.busy || updateMutation.busy || removeMutation.busy;
+
+  return {
+    items,
+    loading,
+    error,
+    isBusy,
+    load,
+    create: (input: CreateAnnouncementInput) => createMutation.run(input),
+    update: (id: number, input: CreateAnnouncementInput) => updateMutation.run({ id, input }),
+    remove: (id: number) => removeMutation.run(id),
+  };
 }

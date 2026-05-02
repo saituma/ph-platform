@@ -63,7 +63,12 @@ export default function ChangePasswordScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app">
       <View className="px-4 pt-4">
-        <Pressable onPress={() => router.back()} className="p-2 self-start bg-secondary rounded-full">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          className="p-2 self-start bg-secondary rounded-full"
+        >
           <Feather
             name="arrow-left"
             size={24}
@@ -95,6 +100,8 @@ export default function ChangePasswordScreen() {
           <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
             <Feather name="lock" size={20} color={colors.textSecondary} />
             <TextInput
+              accessibilityRole="text"
+              accessibilityLabel="Current Password"
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="Current Password"
               placeholderTextColor={colors.placeholder}
@@ -102,7 +109,11 @@ export default function ChangePasswordScreen() {
               onChangeText={setOldPassword}
               secureTextEntry={!showOldPassword}
             />
-            <Pressable onPress={() => setShowOldPassword(!showOldPassword)}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showOldPassword ? "Hide current password" : "Show current password"}
+              onPress={() => setShowOldPassword(!showOldPassword)}
+            >
               <Feather
                 name={showOldPassword ? "eye" : "eye-off"}
                 size={20}
@@ -114,6 +125,8 @@ export default function ChangePasswordScreen() {
           <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
             <Feather name="shield" size={20} color={colors.textSecondary} />
             <TextInput
+              accessibilityRole="text"
+              accessibilityLabel="New Password"
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="New Password"
               placeholderTextColor={colors.placeholder}
@@ -121,7 +134,11 @@ export default function ChangePasswordScreen() {
               onChangeText={setNewPassword}
               secureTextEntry={!showNewPassword}
             />
-            <Pressable onPress={() => setShowNewPassword(!showNewPassword)}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showNewPassword ? "Hide new password" : "Show new password"}
+              onPress={() => setShowNewPassword(!showNewPassword)}
+            >
               <Feather
                 name={showNewPassword ? "eye" : "eye-off"}
                 size={20}
@@ -133,6 +150,8 @@ export default function ChangePasswordScreen() {
           <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
             <Feather name="shield" size={20} color={colors.textSecondary} />
             <TextInput
+              accessibilityRole="text"
+              accessibilityLabel="Confirm New Password"
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="Confirm New Password"
               placeholderTextColor={colors.placeholder}
@@ -141,6 +160,8 @@ export default function ChangePasswordScreen() {
               secureTextEntry={!showConfirmPassword}
             />
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"}
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
             >
               <Feather
@@ -153,6 +174,9 @@ export default function ChangePasswordScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isSubmitting ? "Updating" : "Update Password"}
+          accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
           onPress={handleSubmit}
           className={`bg-accent h-14 rounded-xl items-center justify-center mb-4 ${isSubmitting ? "opacity-70" : ""}`}
           disabled={isSubmitting}

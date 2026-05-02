@@ -5,6 +5,9 @@ import { env } from "../config/env";
 import { db } from "../db";
 import { userDeviceTokensTable, userTable } from "../db/schema";
 import { isFcmEnabled, isFcmTokenError, sendFcmPush } from "./fcm.service";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger({ component: "push-service" });
 
 // Only pass accessToken when it is actually set — passing an empty string
 // causes the Expo Push API to reject every request with UNAUTHORIZED since
@@ -22,7 +25,7 @@ function warnMissingExpoAccessTokenOnce() {
       env.nodeEnv === "production"
         ? " Push delivery depends on whether Expo enhanced push security is enabled. If pushes fail with UNAUTHORIZED, set EXPO_ACCESS_TOKEN (Expo Dashboard → Access Tokens)."
         : " Set EXPO_ACCESS_TOKEN if your Expo project has enhanced push security enabled.";
-    console.warn(`[Push Service] EXPO_ACCESS_TOKEN is empty or missing.${suffix}`);
+    log.warn({ detail: suffix }, "EXPO_ACCESS_TOKEN is empty or missing");
   }
 }
 
@@ -67,7 +70,7 @@ function stringifyPushData(data?: Record<string, any>): Record<string, string> {
 async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
   for (const ticket of tickets) {
     if (ticket.status === "ok") {
-      console.log(`[Push Service] Expo accepted push for user ${userId} (receipt ${ticket.id})`);
+      log.debug({ userId, receiptId: ticket.id }, "Expo accepted push");
       logDebugPush({
         location: "push.service.ts:applyPushTickets",
         message: "expo_ticket_ok",
@@ -77,10 +80,7 @@ async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
     }
 
     const code = ticket.details?.error;
-    console.error(
-      `[Push Service] Expo push ticket error for user ${userId}: ${ticket.message}`,
-      code ? { error: code } : ticket.details,
-    );
+    log.error({ userId, ticketMessage: ticket.message, errorCode: code ?? null }, "Expo push ticket error");
     logDebugPush({
       location: "push.service.ts:applyPushTickets",
       message: "expo_ticket_error",
@@ -94,7 +94,7 @@ async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
 
     if (code === "DeviceNotRegistered") {
       await db.update(userTable).set({ expoPushToken: null, updatedAt: new Date() }).where(eq(userTable.id, userId));
-      console.warn(`[Push Service] Cleared expo push token for user ${userId} (device not registered)`);
+      log.warn({ userId }, "Cleared expo push token (device not registered)");
     }
   }
 }
@@ -136,7 +136,7 @@ async function sendToAdditionalDevices(
       data: { userId, extraDeviceCount: extraTokens.length, ticketCount: tickets.length },
     });
   } catch (err) {
-    console.error(`[Push Service] Multi-device send failed for user ${userId}:`, err);
+    log.error({ userId, err }, "Multi-device push send failed");
   }
 }
 
@@ -161,7 +161,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
           body,
           link: data?.url || "/notifications",
         }),
-      }).catch((err) => console.error("[Push Service] Webhook failed:", err));
+      }).catch((err) => log.error({ err }, "Push webhook failed"));
     }
 
     const [user] = await db
@@ -220,7 +220,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
         });
         return;
       } catch (err) {
-        console.error(`[Push Service] FCM send failed for user ${userId}:`, err);
+        log.error({ userId, err }, "FCM send failed");
         logDebugPush({
           location: "push.service.ts:sendPushNotification",
           message: "push_send_fcm_failed",
@@ -235,16 +235,14 @@ export async function sendPushNotification(userId: number, title: string, body: 
             .update(userTable)
             .set({ devicePushToken: null, devicePushTokenType: null, updatedAt: new Date() })
             .where(eq(userTable.id, userId));
-          console.warn(`[Push Service] Cleared device push token for user ${userId} (FCM token invalid/unregistered)`);
+          log.warn({ userId }, "Cleared device push token (FCM token invalid)");
         }
         // Fallback to Expo below if available.
       }
     }
 
     if (!token) {
-      console.warn(
-        `[Push Service] No push token saved for user ${userId} (deviceType=${devicePushTokenType ?? "none"})`,
-      );
+      log.warn({ userId, devicePushTokenType: devicePushTokenType ?? "none" }, "No push token saved for user");
       logDebugPush({
         location: "push.service.ts:sendPushNotification",
         message: "no_push_token_for_user",
@@ -254,7 +252,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
     }
 
     if (!Expo.isExpoPushToken(token)) {
-      console.warn(`[Push Service] Invalid Expo push token for user ${userId}`);
+      log.warn({ userId }, "Invalid Expo push token");
       logDebugPush({
         location: "push.service.ts:sendPushNotification",
         message: "invalid_expo_token",
@@ -312,7 +310,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
     // Send to any additional devices registered via the per-device token table.
     await sendToAdditionalDevices(userId, token, { title, body, data: dataForDevice, channelId, categoryId });
   } catch (err) {
-    console.error(`[Push Service] Failed to send push to user ${userId}:`, err);
+    log.error({ userId, err }, "Failed to send push notification");
     logDebugPush({
       location: "push.service.ts:sendPushNotification",
       message: "sendPushNotificationsAsync_threw",

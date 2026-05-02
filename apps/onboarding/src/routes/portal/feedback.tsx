@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Send, Loader2, Bug, Lightbulb, Heart, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { motion, PageTransition, StaggerList, StaggerItem } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/feedback")({
 	component: FeedbackPage,
@@ -42,33 +43,41 @@ function FeedbackPage() {
 	};
 
 	return (
-		<div className="p-6 max-w-2xl mx-auto space-y-6">
-			<div className="flex flex-col gap-2">
+		<PageTransition className="p-6 max-w-2xl mx-auto space-y-6">
+			<motion.div
+				initial={{ opacity: 0, y: -10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.4 }}
+				className="flex flex-col gap-2"
+			>
 				<h1 className="text-3xl font-black uppercase italic tracking-tighter text-foreground">We Value Your Input</h1>
 				<p className="text-muted-foreground">Help us improve the platform by sharing your thoughts or reporting issues.</p>
-			</div>
+			</motion.div>
 
-			<div className="grid grid-cols-2 gap-3">
+			<StaggerList className="grid grid-cols-2 gap-3">
 				{categories.map((cat) => {
 					const Icon = cat.icon;
 					const active = category === cat.label;
 					return (
-						<button
-							key={cat.label}
-							onClick={() => setCategory(cat.label)}
-							className={cn(
-								"flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all active:scale-95",
-								active 
-									? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" 
-									: "bg-card border-muted-foreground/10 hover:border-primary/40"
-							)}
-						>
-							<Icon className={cn("h-6 w-6 mb-2", active ? "text-primary-foreground" : "text-primary")} />
-							<span className="text-[10px] font-black uppercase tracking-widest leading-none text-center">{cat.label}</span>
-						</button>
+						<StaggerItem key={cat.label}>
+							<motion.button
+								whileHover={{ y: -2 }}
+								whileTap={{ scale: 0.95 }}
+								onClick={() => setCategory(cat.label)}
+								className={cn(
+									"w-full flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all",
+									active
+										? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
+										: "bg-card border-muted-foreground/10 hover:border-primary/40"
+								)}
+							>
+								<Icon className={cn("h-6 w-6 mb-2", active ? "text-primary-foreground" : "text-primary")} />
+								<span className="text-[10px] font-black uppercase tracking-widest leading-none text-center">{cat.label}</span>
+							</motion.button>
+						</StaggerItem>
 					);
 				})}
-			</div>
+			</StaggerList>
 
 			<Card className="border-2">
 				<CardHeader>
@@ -95,6 +104,6 @@ function FeedbackPage() {
 					</Button>
 				</CardContent>
 			</Card>
-		</div>
+		</PageTransition>
 	);
 }

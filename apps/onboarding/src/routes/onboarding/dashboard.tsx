@@ -29,6 +29,7 @@ import {
 	PORTAL_UNAUTHORIZED_ERROR,
 } from "#/portal/portal-errors";
 import { useRedirectOnPortalUnauthorized } from "#/portal/use-redirect-on-portal-unauthorized";
+import { clearAuthToken } from "#/lib/client-storage";
 
 export const Route = createFileRoute("/onboarding/dashboard")({
 	component: OnboardingDashboardRoute,
@@ -105,8 +106,8 @@ function Dashboard() {
 	useRedirectOnPortalUnauthorized();
 	const { user: userData, loading: isLoading, error, refresh } = usePortal();
 
-	const handleLogout = () => {
-		localStorage.removeItem("auth_token");
+	const handleLogout = async () => {
+		await clearAuthToken();
 		localStorage.removeItem("user_type");
 		toast.success("Logged out successfully");
 		window.location.href = "/login";

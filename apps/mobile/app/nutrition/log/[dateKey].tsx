@@ -6,7 +6,8 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import { SkeletonNutritionLogScreen } from "@/components/ui/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 
@@ -153,9 +154,7 @@ export default function NutritionLogDetailScreen() {
 
       <View className="px-4 pt-3 gap-4">
         {loading ? (
-          <View className="items-center py-10">
-            <ActivityIndicator size="large" color={colors.accent} />
-          </View>
+          <SkeletonNutritionLogScreen />
         ) : error === "Log not found." ? (
           <View
             className="rounded-3xl border px-5 py-6 gap-4 items-center"

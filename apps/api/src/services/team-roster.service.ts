@@ -3,7 +3,7 @@ import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 
 import { env } from "../config/env";
 import { db } from "../db";
-import { athleteTable, legalAcceptanceTable, teamTable, userTable } from "../db/schema";
+import { athleteTable, legalAcceptanceTable, subscriptionPlanTable, teamTable, userTable } from "../db/schema";
 import { slugifySegment } from "../lib/slug";
 import { getUserByEmail } from "./user.service";
 import { addTeamAthleteToTeamChat } from "./admin/team.service";
@@ -79,6 +79,7 @@ export async function listTeamRosterForCoach(user: AuthUser, teamIdQuery?: numbe
       birthDate: athleteTable.birthDate,
       profilePicture: athleteTable.profilePicture,
       athleteType: athleteTable.athleteType,
+      isSponsored: athleteTable.isSponsored,
       email: userTable.email,
       userId: userTable.id,
     })
@@ -95,6 +96,8 @@ export async function listTeamRosterForCoach(user: AuthUser, teamIdQuery?: numbe
       emailSlug,
       memberCount,
       slotsRemaining: Math.max(0, team.maxAthletes - memberCount),
+      sponsoredPlayerCount: team.sponsoredPlayerCount,
+      sponsoredPlanId: team.sponsoredPlanId,
     },
     members,
   };
@@ -230,6 +233,7 @@ export async function createTeamRosterAthlete(
     birthDate?: string | null;
     profilePicture?: string | null;
     customPassword?: string;
+    isSponsored?: boolean;
   },
 ) {
   const team = await getManagedTeamForUser(user, input.teamId ?? null);
@@ -309,6 +313,20 @@ export async function createTeamRosterAthlete(
     userId = insertedUser[0]?.id ?? null;
     if (!userId) throw new Error("User insert failed");
 
+    let sponsoredTier: typeof athleteTable.$inferInsert["currentProgramTier"] = undefined;
+    let sponsoredPlanIdValue: number | undefined;
+    if (input.isSponsored && team.sponsoredPlanId) {
+      const [sponsoredPlan] = await db
+        .select({ id: subscriptionPlanTable.id, tier: subscriptionPlanTable.tier })
+        .from(subscriptionPlanTable)
+        .where(eq(subscriptionPlanTable.id, team.sponsoredPlanId))
+        .limit(1);
+      if (sponsoredPlan?.tier) {
+        sponsoredTier = sponsoredPlan.tier;
+        sponsoredPlanIdValue = sponsoredPlan.id;
+      }
+    }
+
     const insertedAthlete = await db
       .insert(athleteTable)
       .values({
@@ -322,6 +340,9 @@ export async function createTeamRosterAthlete(
         team: team.name,
         trainingPerWeek: 3,
         profilePicture: input.profilePicture?.trim() || null,
+        isSponsored: input.isSponsored ?? false,
+        currentProgramTier: sponsoredTier ?? undefined,
+        currentPlanId: sponsoredPlanIdValue ?? undefined,
         onboardingCompleted: true,
         onboardingCompletedAt: new Date(),
       })

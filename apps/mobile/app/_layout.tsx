@@ -1,3 +1,5 @@
+import { initSentry } from "@/lib/sentry";
+initSentry();
 import "@/lib/debug/updateDepthProbe";
 import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 import { FontScaleProvider } from "@/context/FontScaleContext";
@@ -115,11 +117,12 @@ function RootLayout() {
   }, []);
 
   // Stable reference: inline `screenOptions={{ ... }}` recreates every render and can
-  // churn react-native-screen-transitions blank-stack descriptors → useLocalRoutes
-  // layout setState loops when any ancestor (e.g. SocketProvider) re-renders.
+  // churn route descriptors into useLocalRoutes setState loops when any ancestor
+  // (e.g. SocketProvider) re-renders.
   const rootStackScreenOptions = useMemo(
     () => ({
       ...slideFromRight,
+      headerShown: false,
     }),
     [],
   );
@@ -149,6 +152,8 @@ function RootLayout() {
         <StartupSplashController />
         <AndroidBackToTabs />
         <Stack screenOptions={rootStackScreenOptions}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="programs/content/[contentId]"
             options={({ route }: any) =>
@@ -242,15 +247,15 @@ function RootLayout() {
           />
           <Stack.Screen
             name="admin-audience-workspace/[audienceLabel]"
-            options={{ title: "Content Workspace" }}
+            options={{ headerShown: true, title: "Content Workspace" }}
           />
           <Stack.Screen
             name="admin-audience-workspace/modules/[moduleId]"
-            options={{ title: "Module Detail" }}
+            options={{ headerShown: true, title: "Module Detail" }}
           />
           <Stack.Screen
             name="admin-audience-workspace/sessions/[sessionId]"
-            options={{ title: "Session Detail" }}
+            options={{ headerShown: true, title: "Session Detail" }}
           />
           <Stack.Screen
             name="schedule/event"

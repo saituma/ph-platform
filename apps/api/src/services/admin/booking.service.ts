@@ -12,7 +12,7 @@ import {
 } from "../../db/schema";
 import { env } from "../../config/env";
 import { sendBookingApprovedEmail, sendBookingDeclinedEmail } from "../../lib/mailer";
-import { sendPushNotification } from "../push.service";
+import { pushQueue } from "../../jobs";
 
 export async function listBookingsAdmin(options?: { q?: string; limit?: number }) {
   const q = options?.q?.trim() ?? "";
@@ -176,12 +176,12 @@ export async function updateBookingStatusAdmin(input: {
         link: "/schedule",
       });
 
-      void sendPushNotification(
-        detail.guardianUserId,
-        "Booking confirmed",
-        `${detail.serviceName ?? "Session"} confirmed`,
-        { type: "booking", screen: "schedule", url: "/schedule" },
-      );
+      void pushQueue.enqueue({
+        userId: detail.guardianUserId,
+        title: "Booking confirmed",
+        body: `${detail.serviceName ?? "Session"} confirmed`,
+        data: { type: "booking", screen: "schedule", url: "/schedule" },
+      });
 
       if (detail.guardianEmail) {
         try {
@@ -250,12 +250,12 @@ export async function updateBookingStatusAdmin(input: {
         link: "/schedule",
       });
 
-      void sendPushNotification(
-        detail.guardianUserId,
-        "Booking declined",
-        `${detail.serviceName ?? "Session"} declined`,
-        { type: "booking", screen: "schedule", url: "/schedule" },
-      );
+      void pushQueue.enqueue({
+        userId: detail.guardianUserId,
+        title: "Booking declined",
+        body: `${detail.serviceName ?? "Session"} declined`,
+        data: { type: "booking", screen: "schedule", url: "/schedule" },
+      });
 
       if (detail.guardianEmail) {
         try {

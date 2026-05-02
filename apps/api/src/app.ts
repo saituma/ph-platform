@@ -1,4 +1,5 @@
 import express from "express";
+import compression from "compression";
 import cors from "cors";
 import helmet from "helmet";
 
@@ -7,6 +8,7 @@ import { healthCheck } from "./controllers/health.controller";
 import { stripeWebhook } from "./controllers/billing.controller";
 import { errorHandler } from "./middlewares/error";
 import { requestLogger } from "./middlewares/request-logger";
+import { rateLimiters } from "./lib/rateLimiter";
 import { env } from "./config/env";
 import { isApiReady } from "./config/readiness";
 
@@ -27,7 +29,7 @@ export function createApp() {
   app.use((req, res, next) => {
     if (!isApiReady()) {
       const p = req.path ?? "";
-      if (p.startsWith("/api") && !p.startsWith("/api/health")) {
+      if (p.startsWith("/api") && !p.startsWith("/api/health") && !p.startsWith("/api/v1/health")) {
         res.setHeader("Retry-After", "5");
         return res.status(503).json({ error: "Service is starting up. Try again shortly.", ready: false });
       }
@@ -35,6 +37,7 @@ export function createApp() {
     return next();
   });
 
+  app.use(compression());
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -104,12 +107,13 @@ export function createApp() {
   app.use(requestLogger);
   const bodyLimit = env.requestBodyLimit ?? "1mb";
   app.post("/api/billing/webhook", express.raw({ type: "application/json", limit: bodyLimit }), stripeWebhook);
+  app.post("/api/v1/billing/webhook", express.raw({ type: "application/json", limit: bodyLimit }), stripeWebhook);
   app.use(express.json({ limit: bodyLimit }));
   app.use(express.urlencoded({ extended: false, limit: bodyLimit }));
   app.use((req, res, next) => {
     const path = req.path ?? "";
-    const isStripeWebhook = path.startsWith("/api/billing/webhook");
-    const isMediaUpload = path.startsWith("/api/media/upload");
+    const isStripeWebhook = path.startsWith("/api/billing/webhook") || path.startsWith("/api/v1/billing/webhook");
+    const isMediaUpload = path.startsWith("/api/media/upload") || path.startsWith("/api/v1/media/upload");
     if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && !isStripeWebhook && !isMediaUpload) {
       const contentType = req.headers["content-type"] ?? "";
       if (!contentType.toString().includes("application/json")) {
@@ -119,7 +123,23 @@ export function createApp() {
     return next();
   });
 
-  app.use("/api", routes);
+  // Versioned API — canonical path
+  app.use("/api/v1", rateLimiters.api, routes);
+
+  // Legacy unversioned API — backwards compatible, with deprecation headers
+  app.use(
+    "/api",
+    (_req, res, next) => {
+      res.setHeader("X-API-Version", "v1");
+      res.setHeader("X-API-Deprecated", "Use /api/v1 prefix");
+      next();
+    },
+    rateLimiters.api,
+    routes,
+  );
+  app.use((_req, res) => {
+    res.status(404).json({ error: "Not found" });
+  });
   app.use(errorHandler);
 
   return app;

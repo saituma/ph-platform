@@ -1,26 +1,32 @@
 import { useRouter } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
+import { getTokenStatus } from "@/lib/client-storage";
 
 interface ProtectedLayoutProps {
 	children: ReactNode;
 }
 
 /**
- * Gate that blocks rendering until we confirm there's an auth token in localStorage.
- * Full session verification (calling /api/auth/me) is handled by PortalContext —
- * keeping it here too caused redundant API calls and race conditions.
+ * Gate that blocks rendering until we confirm there's an auth token cookie.
+ * Full session verification (calling /api/auth/me) is handled by PortalContext.
  */
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
 	const router = useRouter();
 	const [ready, setReady] = useState(false);
 
 	useEffect(() => {
-		const token = localStorage.getItem("auth_token");
-		if (!token) {
-			router.navigate({ to: "/login", replace: true });
-			return;
+		let cancelled = false;
+		async function check() {
+			const status = await getTokenStatus();
+			if (cancelled) return;
+			if (!status.authenticated) {
+				router.navigate({ to: "/login", replace: true });
+				return;
+			}
+			setReady(true);
 		}
-		setReady(true);
+		void check();
+		return () => { cancelled = true; };
 	}, [router]);
 
 	if (!ready) {

@@ -111,6 +111,11 @@ export default function AddTeamPage() {
   const [paymentMethod, setPaymentMethod] = useState<"pay_now" | "email_link" | "cash">("pay_now");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "6months" | "yearly">("monthly");
 
+  // Sponsored players
+  const [hasSponsoredPlayers, setHasSponsoredPlayers] = useState(false);
+  const [sponsoredPlayerCount, setSponsoredPlayerCount] = useState(1);
+  const [sponsoredTier, setSponsoredTier] = useState<ProgramTier>("PHP");
+
   // Misc
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -181,6 +186,9 @@ export default function AddTeamPage() {
           maxAthletes,
           paymentMethod,
           billingCycle,
+          hasSponsoredPlayers,
+          sponsoredPlayerCount: hasSponsoredPlayers ? sponsoredPlayerCount : 0,
+          sponsoredTier: hasSponsoredPlayers ? sponsoredTier : undefined,
         }),
       });
       const payload = await res.json().catch(() => ({}));
@@ -503,6 +511,80 @@ export default function AddTeamPage() {
                     ? "* A Stripe payment link will be emailed to the manager."
                     : "* You will be redirected to Stripe to pay now."}
                 </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Sponsored Players ────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Sponsored Players</CardTitle>
+            <CardDescription>
+              Are there players who can&apos;t afford this plan? The manager can sponsor them with a different tier.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="flex items-center gap-3">
+              <Label htmlFor="hasSponsoredPlayers" className="flex-1">
+                Are there players who can&apos;t afford this plan?
+              </Label>
+              <button
+                id="hasSponsoredPlayers"
+                type="button"
+                role="switch"
+                aria-checked={hasSponsoredPlayers}
+                onClick={() => setHasSponsoredPlayers((v) => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hasSponsoredPlayers ? "bg-primary" : "bg-muted"}`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hasSponsoredPlayers ? "translate-x-6" : "translate-x-1"}`}
+                />
+              </button>
+            </div>
+
+            {hasSponsoredPlayers && (
+              <div className="grid gap-4 sm:grid-cols-2 border-t pt-4">
+                <div className="space-y-2">
+                  <Label>Sponsored Player Plan</Label>
+                  <Select
+                    items={TIER_ITEMS}
+                    value={sponsoredTier}
+                    onValueChange={(v) => setSponsoredTier((v ?? "PHP") as ProgramTier)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      {TIER_ITEMS.map((i) => (
+                        <SelectItem key={i.value} value={i.value}>
+                          <span className="font-medium">{i.label}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{i.description}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sponsoredPlayerCount">Number of Sponsored Players</Label>
+                  <Input
+                    id="sponsoredPlayerCount"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={sponsoredPlayerCount}
+                    onChange={(e) => setSponsoredPlayerCount(parseInt(e.target.value, 10) || 1)}
+                  />
+                </div>
+
+                <div className="col-span-full rounded-xl bg-amber-500/5 border border-amber-500/20 p-4 space-y-1">
+                  <p className="text-sm text-amber-200/80">
+                    The manager will pay for <strong>{sponsoredPlayerCount}</strong> sponsored player{sponsoredPlayerCount !== 1 ? "s" : ""} on the{" "}
+                    <strong>{TIER_ITEMS.find((t) => t.value === sponsoredTier)?.label ?? sponsoredTier}</strong> tier.
+                  </p>
+                  <p className="text-[10px] text-amber-200/60 italic">
+                    Sponsored players are added later in the team management section by email. They receive limited access based on their plan tier.
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>

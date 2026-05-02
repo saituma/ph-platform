@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
+import { enforceHTTPS } from "@/lib/ssl/pinning";
 import { store } from "@/store";
 import {
   hashString,
@@ -15,6 +16,11 @@ import {
 } from "./auth/session";
 
 export { clearApiCache };
+
+/* ------------------------------------------------------------------ */
+/*  In-flight request deduplication for GET requests                   */
+/* ------------------------------------------------------------------ */
+const inflightRequests = new Map<string, Promise<any>>();
 
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -73,6 +79,8 @@ export async function apiRequest<T>(
   const apiBaseUrl = withApi;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${apiBaseUrl}${normalizedPath}`;
+  // Enforce HTTPS for production API — blocks cleartext downgrade attacks.
+  enforceHTTPS(url);
   const fallbackBaseUrl = withoutApi !== withApi ? withoutApi : null;
   const fallbackUrl = fallbackBaseUrl
     ? `${fallbackBaseUrl}${normalizedPath}`
@@ -135,6 +143,14 @@ export async function apiRequest<T>(
     const cached = getCachedData<T>(cacheKey, 5 * 60 * 1000);
     if (cached) return cached;
   }
+
+  /* ---- GET request deduplication ---- */
+  if (method === "GET") {
+    const existing = inflightRequests.get(cacheKey);
+    if (existing) return existing as Promise<T>;
+  }
+
+  const executeRequest = async (): Promise<T> => {
 
   const performRequest = async (authToken?: string | null) => {
     let res: Response;
@@ -258,4 +274,17 @@ export async function apiRequest<T>(
   }
 
   return payload as T;
+
+  }; // end executeRequest
+
+  /* ---- Wire up deduplication for GETs ---- */
+  if (method === "GET") {
+    const promise = executeRequest().finally(() => {
+      inflightRequests.delete(cacheKey);
+    });
+    inflightRequests.set(cacheKey, promise);
+    return promise;
+  }
+
+  return executeRequest();
 }

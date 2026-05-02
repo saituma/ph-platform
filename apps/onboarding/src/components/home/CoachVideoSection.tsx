@@ -47,15 +47,18 @@ export function CoachVideoSection({
 	const sectionRef = useRef<HTMLElement>(null);
 	const videoRef = useRef<HTMLVideoElement>(null);
 
+	const [videoReady, setVideoReady] = useState(false);
+
 	useEffect(() => {
 		const observer = new IntersectionObserver(
 			([entry]) => {
 				if (entry.isIntersecting) {
 					setIsVisible(true);
+					setVideoReady(true);
 					observer.disconnect();
 				}
 			},
-			{ threshold: 0.12, rootMargin: "0px 0px -40px 0px" },
+			{ threshold: 0.12, rootMargin: "200px 0px 0px 0px" },
 		);
 		if (sectionRef.current) observer.observe(sectionRef.current);
 		return () => observer.disconnect();
@@ -179,10 +182,10 @@ export function CoachVideoSection({
 							>
 								<video
 									ref={videoRef}
-									src={videoUrl}
+									src={videoReady ? videoUrl : undefined}
 									className="w-full h-full object-cover cursor-pointer"
 									playsInline
-									preload="metadata"
+									preload="none"
 									onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
 									onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
 									onEnded={() => { setIsPlaying(false); setHasStarted(false); }}

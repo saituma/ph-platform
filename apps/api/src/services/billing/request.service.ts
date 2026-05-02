@@ -24,7 +24,7 @@ import {
 import { newReceiptPublicId } from "../../lib/receipt-public-id";
 import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
 import { computePlanPeriodEnd, computeAthleteAccessEnd, quoteAthleteBillingCycleAmount } from "./plan.service";
-import { sendPushNotification } from "../push.service";
+import { pushQueue } from "../../jobs";
 import {
   notifySubscriptionEnteredPendingApproval,
   notifySubscriptionPlanApproved,
@@ -759,12 +759,12 @@ export async function approveSubscriptionRequest(requestId: number) {
     });
 
     try {
-      await sendPushNotification(
-        request.userId,
-        "Plan approved",
-        `Your ${planLabel} plan is now active.`,
-        { url: "/plans", type: "plan_approved", planTier: request.planTier ?? "custom" },
-      );
+      await pushQueue.enqueue({
+        userId: request.userId,
+        title: "Plan approved",
+        body: `Your ${planLabel} plan is now active.`,
+        data: { url: "/plans", type: "plan_approved", planTier: request.planTier ?? "custom" },
+      });
     } catch (error) {
       console.error("[Billing] Failed to send plan approval push:", error);
     }

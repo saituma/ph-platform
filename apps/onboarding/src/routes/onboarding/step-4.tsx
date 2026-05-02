@@ -18,6 +18,7 @@ import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
+import { getTokenStatus } from "#/lib/client-storage";
 import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/onboarding/step-4")({
@@ -76,8 +77,8 @@ function OnboardingStep4() {
 		}
 
 		const fetchStatus = async () => {
-			const token = localStorage.getItem("auth_token");
-			if (!token) {
+			const status = await getTokenStatus();
+			if (!status.authenticated) {
 				navigate({ to: "/" });
 				return;
 			}
@@ -85,9 +86,7 @@ function OnboardingStep4() {
 			try {
 				const baseUrl = config.api.baseUrl;
 				const response = await fetch(`${baseUrl}/api/onboarding`, {
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
+					credentials: "include",
 				});
 
 				if (!response.ok) throw new Error("Failed to fetch profile");

@@ -397,11 +397,11 @@ function MessagingPageInner() {
       window.location.hostname === "127.0.0.1";
     const fallbackLocalUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
     const socketUrl = socketEnvUrl
-      ? socketEnvUrl.replace(/\/api\/?$/, "")
+      ? socketEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
       : localDevHost
         ? fallbackLocalUrl
         : apiEnvUrl
-          ? apiEnvUrl.replace(/\/api\/?$/, "")
+          ? apiEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
           : fallbackLocalUrl;
 
     const accessToken =

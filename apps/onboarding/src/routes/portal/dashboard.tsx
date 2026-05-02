@@ -7,7 +7,6 @@ import {
 	Clock,
 	CreditCard,
 	Dumbbell,
-	Loader2,
 	MessageSquare,
 	Shield,
 	TrendingUp,
@@ -15,7 +14,17 @@ import {
 	Users,
 	Utensils,
 } from "lucide-react";
-import { getClientAuthToken } from "@/lib/client-storage";
+import { getTokenStatus } from "@/lib/client-storage";
+import {
+	motion,
+	PageTransition,
+	StaggerList,
+	StaggerItem,
+	SkeletonDashboard,
+	staggerItem,
+	fadeUp,
+	scaleIn,
+} from "@/lib/motion";
 import {
 	getCoachTeamPortalPlanSummary,
 	isCoachPortalUser,
@@ -30,11 +39,11 @@ export const homeKeys = homeQueryKeys;
 
 export const Route = createFileRoute("/portal/dashboard")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = getClientAuthToken();
-		if (token) {
+		const status = await getTokenStatus();
+		if (status.authenticated) {
 			await queryClient.ensureQueryData({
-				queryKey: homeKeys.content(token),
-				queryFn: () => fetchHomeContent(token),
+				queryKey: homeKeys.content("cookie"),
+				queryFn: () => fetchHomeContent(),
 			}).catch(() => null);
 		}
 	},
@@ -71,33 +80,31 @@ function DashboardPage() {
 	});
 
 	if (portalLoading || (token && homeLoading && !homeContent)) {
-		return (
-			<div className="flex h-screen items-center justify-center pb-20">
-				<div className="text-center">
-					<div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground animate-spin mx-auto" />
-					<p className="mt-4 font-mono text-xs text-foreground/40 uppercase tracking-wider">
-						Loading dashboard...
-					</p>
-				</div>
-			</div>
-		);
+		return <SkeletonDashboard />;
 	}
 
 	if (portalError || !user) {
 		return (
-			<div className="flex h-screen items-center justify-center pb-20 px-4">
-				<div className="text-center space-y-4">
-					<p className="text-sm text-muted-foreground">
-						{portalError || "Please log in to access your dashboard"}
-					</p>
-					<Link
-						to="/login"
-						className="inline-block bg-primary text-primary-foreground px-5 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
+			<PageTransition>
+				<div className="flex h-screen items-center justify-center pb-20 px-4">
+					<motion.div
+						initial={{ opacity: 0, scale: 0.95 }}
+						animate={{ opacity: 1, scale: 1 }}
+						transition={{ duration: 0.4 }}
+						className="text-center space-y-4"
 					>
-						Go to Login
-					</Link>
+						<p className="text-sm text-muted-foreground">
+							{portalError || "Please log in to access your dashboard"}
+						</p>
+						<Link
+							to="/login"
+							className="inline-block bg-primary text-primary-foreground px-5 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
+						>
+							Go to Login
+						</Link>
+					</motion.div>
 				</div>
-			</div>
+			</PageTransition>
 		);
 	}
 
@@ -165,49 +172,79 @@ function CoachDashboard({
 		new Date(dateString).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 
 	return (
-		<div className="max-w-6xl mx-auto p-4 md:p-6 pb-20 space-y-6">
+		<PageTransition className="max-w-6xl mx-auto p-4 md:p-6 pb-20 space-y-6">
 			{homeError && (
-				<div className="border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+				<motion.div
+					initial={{ opacity: 0, height: 0 }}
+					animate={{ opacity: 1, height: "auto" }}
+					className="border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+				>
 					{homeError instanceof Error ? homeError.message : "Error loading dashboard"}
-				</div>
+				</motion.div>
 			)}
 
 			{/* Hero */}
-			<div className="border border-foreground/[0.06] p-6 md:p-8">
+			<motion.div
+				variants={fadeUp}
+				initial="hidden"
+				animate="visible"
+				className="border border-foreground/[0.06] p-6 md:p-8 group hover:border-foreground/[0.1] transition-colors duration-300"
+			>
 				<div className="flex items-center gap-3 mb-3">
-					<div className="h-8 w-8 bg-foreground/10 flex items-center justify-center">
+					<motion.div
+						initial={{ rotate: -10, opacity: 0 }}
+						animate={{ rotate: 0, opacity: 1 }}
+						transition={{ delay: 0.2, duration: 0.4, type: "spring" }}
+						className="h-8 w-8 bg-foreground/10 flex items-center justify-center"
+					>
 						<Shield className="h-4 w-4 text-foreground/60" />
-					</div>
+					</motion.div>
 					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Coach Dashboard</p>
 				</div>
-				<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
+				<motion.h1
+					initial={{ opacity: 0, x: -10 }}
+					animate={{ opacity: 1, x: 0 }}
+					transition={{ delay: 0.15, duration: 0.5 }}
+					className="text-2xl md:text-3xl font-medium tracking-tight text-foreground"
+				>
 					{teamName}
-				</h1>
-				<p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-xl">
+				</motion.h1>
+				<motion.p
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					transition={{ delay: 0.3, duration: 0.5 }}
+					className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-xl"
+				>
 					{homeContent?.description || "Manage your squad, programs, and schedule from one place."}
-				</p>
-			</div>
+				</motion.p>
+			</motion.div>
 
 			{/* Stat Cards */}
-			<div className="grid grid-cols-2 md:grid-cols-4 border border-foreground/[0.06] divide-x divide-y md:divide-y-0 divide-foreground/[0.06]">
-				<StatCard label="Athletes" value={String(memberCount)} sub={`of ${maxAthletes} slots`} icon={<Users className="h-4 w-4" />} />
-				<StatCard label="Open Slots" value={String(Math.max(0, slotsRemaining))} sub="available" icon={<UserPlus className="h-4 w-4" />} />
-				<StatCard label="Pending" value={String(pendingBookings.length)} sub="booking requests" icon={<Clock className="h-4 w-4" />} />
-				<StatCard label="Plan" value={daysRemaining != null ? `${daysRemaining}d` : "Active"} sub={daysRemaining != null ? "remaining" : (coachPlan?.title ?? "Team plan")} icon={<CreditCard className="h-4 w-4" />} />
-			</div>
+			<StaggerList className="grid grid-cols-2 md:grid-cols-4 border border-foreground/[0.06] divide-x divide-y md:divide-y-0 divide-foreground/[0.06]">
+				<StaggerItem><StatCard label="Athletes" value={String(memberCount)} sub={`of ${maxAthletes} slots`} icon={<Users className="h-4 w-4" />} /></StaggerItem>
+				<StaggerItem><StatCard label="Open Slots" value={String(Math.max(0, slotsRemaining))} sub="available" icon={<UserPlus className="h-4 w-4" />} /></StaggerItem>
+				<StaggerItem><StatCard label="Pending" value={String(pendingBookings.length)} sub="booking requests" icon={<Clock className="h-4 w-4" />} /></StaggerItem>
+				<StaggerItem><StatCard label="Plan" value={daysRemaining != null ? `${daysRemaining}d` : "Active"} sub={daysRemaining != null ? "remaining" : (coachPlan?.title ?? "Team plan")} icon={<CreditCard className="h-4 w-4" />} /></StaggerItem>
+			</StaggerList>
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 				<div className="lg:col-span-2 space-y-6">
 					{/* Quick Actions */}
-					<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-						<QuickAction to="/portal/programs" icon={<Dumbbell className="h-4 w-4" />} label="Programs" />
-						<QuickAction to="/portal/schedule" icon={<Calendar className="h-4 w-4" />} label="Schedule" />
-						<QuickAction to="/portal/messages" icon={<MessageSquare className="h-4 w-4" />} label="Messages" />
-						<QuickAction to="/portal/team" icon={<Users className="h-4 w-4" />} label="Team" />
-					</div>
+					<StaggerList className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+						<StaggerItem><QuickAction to="/portal/programs" icon={<Dumbbell className="h-4 w-4" />} label="Programs" /></StaggerItem>
+						<StaggerItem><QuickAction to="/portal/schedule" icon={<Calendar className="h-4 w-4" />} label="Schedule" /></StaggerItem>
+						<StaggerItem><QuickAction to="/portal/messages" icon={<MessageSquare className="h-4 w-4" />} label="Messages" /></StaggerItem>
+						<StaggerItem><QuickAction to="/portal/team" icon={<Users className="h-4 w-4" />} label="Team" /></StaggerItem>
+					</StaggerList>
 
 					{/* Upcoming Sessions */}
-					<section className="border border-foreground/[0.06] p-6 space-y-4">
+					<motion.section
+						variants={fadeUp}
+						initial="hidden"
+						animate="visible"
+						transition={{ delay: 0.3 }}
+						className="border border-foreground/[0.06] p-6 space-y-4"
+					>
 						<div className="flex items-center justify-between">
 							<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">Upcoming Sessions</h2>
 							<Link to="/portal/schedule" className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 hover:text-foreground transition-colors">
@@ -215,44 +252,58 @@ function CoachDashboard({
 							</Link>
 						</div>
 						{upcomingBookings.length > 0 ? (
-							<div className="space-y-2">
+							<StaggerList className="space-y-2">
 								{upcomingBookings.map((b) => (
-									<BookingRow key={b.id} booking={b} />
+									<StaggerItem key={b.id}><BookingRow booking={b} /></StaggerItem>
 								))}
-							</div>
+							</StaggerList>
 						) : (
 							<div className="py-8 text-center">
 								<Calendar className="h-6 w-6 mx-auto mb-2 text-foreground/20" />
 								<p className="text-sm text-muted-foreground">No upcoming sessions scheduled.</p>
 							</div>
 						)}
-					</section>
+					</motion.section>
 
 					{/* Pending Requests */}
 					{pendingBookings.length > 0 && (
-						<section className="border border-foreground/[0.06] p-6 space-y-4">
+						<motion.section
+							variants={fadeUp}
+							initial="hidden"
+							animate="visible"
+							className="border border-foreground/[0.06] p-6 space-y-4"
+						>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-2">
-									<div className="h-1.5 w-1.5 rounded-full bg-foreground/50" />
+									<motion.div
+										animate={{ scale: [1, 1.3, 1] }}
+										transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+										className="h-1.5 w-1.5 rounded-full bg-primary"
+									/>
 									<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">Pending Requests</h2>
 								</div>
 								<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 									{pendingBookings.length} awaiting
 								</span>
 							</div>
-							<div className="space-y-2">
+							<StaggerList className="space-y-2">
 								{pendingBookings.slice(0, 5).map((b) => (
-									<BookingRow key={b.id} booking={b} />
+									<StaggerItem key={b.id}><BookingRow booking={b} /></StaggerItem>
 								))}
-							</div>
-						</section>
+							</StaggerList>
+						</motion.section>
 					)}
 				</div>
 
 				{/* Right column */}
-				<div className="space-y-6">
+				<motion.div
+					initial="hidden"
+					animate="visible"
+					variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } } }}
+					className="space-y-6"
+				>
 					{/* Plan Card */}
-					<div className="border border-foreground/[0.06] p-6 space-y-4">
+					<motion.div variants={staggerItem} className="border border-foreground/[0.06] p-6 space-y-4 hover:border-foreground/[0.1] transition-colors duration-300">
 						<div className="flex items-center justify-between">
 							<h3 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 								Team Plan
@@ -276,11 +327,11 @@ function CoachDashboard({
 									<span className="font-medium">{formatDate(planExpiresAt)}</span>
 								</div>
 								<div className="h-1 w-full bg-foreground/[0.06] overflow-hidden">
-									<div
-										className="h-full bg-foreground/40 transition-all"
-										style={{
-											width: `${Math.max(2, Math.min(100, (daysRemaining / 365) * 100))}%`,
-										}}
+									<motion.div
+										initial={{ width: 0 }}
+										animate={{ width: `${Math.max(2, Math.min(100, (daysRemaining / 365) * 100))}%` }}
+										transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
+										className="h-full bg-primary/60"
 									/>
 								</div>
 								<p className="font-mono text-[10px] text-foreground/40 text-center uppercase tracking-wider">
@@ -288,10 +339,10 @@ function CoachDashboard({
 								</p>
 							</div>
 						)}
-					</div>
+					</motion.div>
 
 					{/* Roster Snapshot */}
-					<div className="border border-foreground/[0.06] p-6 space-y-4">
+					<motion.div variants={staggerItem} className="border border-foreground/[0.06] p-6 space-y-4 hover:border-foreground/[0.1] transition-colors duration-300">
 						<div className="flex items-center justify-between">
 							<h3 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 								Roster
@@ -301,19 +352,21 @@ function CoachDashboard({
 							</Link>
 						</div>
 						{roster?.members && roster.members.length > 0 ? (
-							<div className="space-y-2">
+							<StaggerList className="space-y-2">
 								{roster.members.slice(0, 5).map((m) => (
-									<div key={m.athleteId} className="flex items-center gap-3 py-1.5">
-										<div className="h-7 w-7 bg-foreground/10 flex items-center justify-center text-[10px] font-mono text-foreground/60 shrink-0">
-											{m.name?.slice(0, 2).toUpperCase() || "?"}
+									<StaggerItem key={m.athleteId}>
+										<div className="flex items-center gap-3 py-1.5 group/member">
+											<div className="h-7 w-7 bg-foreground/10 flex items-center justify-center text-[10px] font-mono text-foreground/60 shrink-0 group-hover/member:bg-primary/10 group-hover/member:text-primary transition-colors duration-200">
+												{m.name?.slice(0, 2).toUpperCase() || "?"}
+											</div>
+											<div className="min-w-0 flex-1">
+												<p className="text-sm font-medium truncate">{m.name}</p>
+												<p className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
+													Age {m.age}
+												</p>
+											</div>
 										</div>
-										<div className="min-w-0 flex-1">
-											<p className="text-sm font-medium truncate">{m.name}</p>
-											<p className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
-												Age {m.age}
-											</p>
-										</div>
-									</div>
+									</StaggerItem>
 								))}
 								{roster.members.length > 5 && (
 									<Link
@@ -323,7 +376,7 @@ function CoachDashboard({
 										+{roster.members.length - 5} more athletes
 									</Link>
 								)}
-							</div>
+							</StaggerList>
 						) : (
 							<div className="py-6 text-center">
 								<Users className="h-5 w-5 mx-auto mb-2 text-foreground/20" />
@@ -333,10 +386,10 @@ function CoachDashboard({
 								</Link>
 							</div>
 						)}
-					</div>
+					</motion.div>
 
 					{/* Coach Info */}
-					<div className="border border-foreground/[0.06] p-6 space-y-3">
+					<motion.div variants={staggerItem} className="border border-foreground/[0.06] p-6 space-y-3 hover:border-foreground/[0.1] transition-colors duration-300">
 						<h3 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 							Account
 						</h3>
@@ -356,14 +409,14 @@ function CoachDashboard({
 						</div>
 						<Link
 							to="/portal/profile"
-							className="block w-full text-center py-2 text-sm font-medium border border-foreground/[0.06] hover:bg-foreground/[0.02] transition-colors mt-2"
+							className="block w-full text-center py-2 text-sm font-medium border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.12] transition-all duration-200 mt-2"
 						>
 							Edit Profile
 						</Link>
-					</div>
-				</div>
+					</motion.div>
+				</motion.div>
 			</div>
-		</div>
+		</PageTransition>
 	);
 }
 
@@ -374,15 +427,23 @@ function StatCard({ label, value, sub, icon }: {
 	icon: React.ReactNode;
 }) {
 	return (
-		<div className="p-5 space-y-3">
+		<div className="p-5 space-y-3 group/stat hover:bg-foreground/[0.015] transition-colors duration-200">
 			<div className="flex items-center justify-between">
 				<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">{label}</p>
-				<div className="h-7 w-7 flex items-center justify-center text-foreground/40">
+				<div className="h-7 w-7 flex items-center justify-center text-foreground/40 group-hover/stat:text-primary transition-colors duration-200">
 					{icon}
 				</div>
 			</div>
 			<div>
-				<p className="text-2xl font-medium tracking-tight">{value}</p>
+				<motion.p
+					key={value}
+					initial={{ opacity: 0, y: 8 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ duration: 0.4 }}
+					className="text-2xl font-medium tracking-tight"
+				>
+					{value}
+				</motion.p>
 				<p className="text-xs text-muted-foreground">{sub}</p>
 			</div>
 		</div>
@@ -393,25 +454,33 @@ function QuickAction({ to, icon, label }: { to: string; icon: React.ReactNode; l
 	return (
 		<Link
 			to={to}
-			className="flex flex-col items-center gap-2 p-4 border border-foreground/[0.06] hover:bg-foreground/[0.02] transition-colors group"
+			className="flex flex-col items-center gap-2 p-4 border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.12] transition-all duration-200 group/action"
 		>
-			<div className="h-9 w-9 flex items-center justify-center text-foreground/50 group-hover:text-foreground transition-colors">
+			<motion.div
+				whileHover={{ scale: 1.1 }}
+				whileTap={{ scale: 0.95 }}
+				className="h-9 w-9 flex items-center justify-center text-foreground/50 group-hover/action:text-primary transition-colors duration-200"
+			>
 				{icon}
-			</div>
-			<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/60">{label}</p>
+			</motion.div>
+			<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/60 group-hover/action:text-foreground transition-colors duration-200">{label}</p>
 		</Link>
 	);
 }
 
 function BookingRow({ booking }: { booking: ScheduleEvent }) {
 	const statusColors: Record<string, string> = {
-		confirmed: "text-foreground/60",
+		confirmed: "text-primary/70",
 		pending: "text-foreground/40",
 		declined: "text-destructive",
 		cancelled: "text-muted-foreground",
 	};
 	return (
-		<div className="flex items-center gap-4 p-3 border border-foreground/[0.06] hover:bg-foreground/[0.02] transition-colors">
+		<motion.div
+			whileHover={{ x: 2 }}
+			transition={{ duration: 0.15 }}
+			className="flex items-center gap-4 p-3 border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.1] transition-all duration-200"
+		>
 			<div className="h-8 w-8 flex items-center justify-center text-foreground/40 shrink-0">
 				<Calendar className="h-4 w-4" />
 			</div>
@@ -429,7 +498,7 @@ function BookingRow({ booking }: { booking: ScheduleEvent }) {
 					{booking.status}
 				</span>
 			)}
-		</div>
+		</motion.div>
 	);
 }
 
@@ -484,29 +553,51 @@ function AthleteDashboard({
 	};
 
 	return (
-		<div className="max-w-6xl mx-auto p-4 md:p-6 pb-20 space-y-6">
+		<PageTransition className="max-w-6xl mx-auto p-4 md:p-6 pb-20 space-y-6">
 			{homeError && (
-				<div className="border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+				<motion.div
+					initial={{ opacity: 0, height: 0 }}
+					animate={{ opacity: 1, height: "auto" }}
+					className="border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+				>
 					{homeError instanceof Error ? homeError.message : "Error loading dashboard"}
-				</div>
+				</motion.div>
 			)}
 
-			{homeContent && (
-				<div className="border border-foreground/[0.06] p-6 md:p-8">
+			{/* Hero */}
+			<motion.div
+				variants={fadeUp}
+				initial="hidden"
+				animate="visible"
+				className="border border-foreground/[0.06] p-6 md:p-8 hover:border-foreground/[0.1] transition-colors duration-300"
+			>
+				{homeContent ? (
 					<div className="max-w-2xl">
-						<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground mb-2">
+						<motion.h1
+							initial={{ opacity: 0, x: -10 }}
+							animate={{ opacity: 1, x: 0 }}
+							transition={{ delay: 0.1, duration: 0.5 }}
+							className="text-2xl md:text-3xl font-medium tracking-tight text-foreground mb-2"
+						>
 							{homeContent.headline || `Welcome back, ${displayName}`}
-						</h1>
-						<p className="text-sm text-muted-foreground leading-relaxed">
+						</motion.h1>
+						<motion.p
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							transition={{ delay: 0.25, duration: 0.5 }}
+							className="text-sm text-muted-foreground leading-relaxed"
+						>
 							{homeContent.description || "Your daily performance overview."}
-						</p>
+						</motion.p>
 						{user.team?.name?.trim() && (
 							<p className="mt-3 font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 								Club · <span className="text-foreground/60">{user.team.name.trim()}</span>
 							</p>
 						)}
 						{homeContent.introVideoUrl && (
-							<a
+							<motion.a
+								whileHover={{ scale: 1.02 }}
+								whileTap={{ scale: 0.98 }}
 								href={homeContent.introVideoUrl}
 								target="_blank"
 								rel="noopener noreferrer"
@@ -514,26 +605,37 @@ function AthleteDashboard({
 							>
 								<TrendingUp className="h-4 w-4" />
 								Watch Intro
-							</a>
+							</motion.a>
 						)}
 					</div>
-				</div>
-			)}
+				) : (
+					<div>
+						<motion.h1
+							initial={{ opacity: 0, x: -10 }}
+							animate={{ opacity: 1, x: 0 }}
+							transition={{ delay: 0.1 }}
+							className="text-2xl md:text-3xl font-medium tracking-tight mb-2"
+						>
+							Welcome back, {displayName}
+						</motion.h1>
+						<p className="text-sm text-muted-foreground">
+							{user.role && user.role !== "athlete" ? `Role: ${user.role}` : "Athlete dashboard"}
+							{user.team?.name?.trim() && (
+								<span className="mt-2 block font-mono text-[10px] uppercase tracking-wider text-foreground/40">Club: {user.team.name.trim()}</span>
+							)}
+						</p>
+					</div>
+				)}
+			</motion.div>
 
-			{!homeContent && (
-				<div className="border border-foreground/[0.06] p-6 md:p-8">
-					<h1 className="text-2xl md:text-3xl font-medium tracking-tight mb-2">Welcome back, {displayName}</h1>
-					<p className="text-sm text-muted-foreground">
-						{user.role && user.role !== "athlete" ? `Role: ${user.role}` : "Athlete dashboard"}
-						{user.team?.name?.trim() && (
-							<span className="mt-2 block font-mono text-[10px] uppercase tracking-wider text-foreground/40">Club: {user.team.name.trim()}</span>
-						)}
-					</p>
-				</div>
-			)}
-
+			{/* Plan + Profile row */}
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<div className="md:col-span-2 border border-foreground/[0.06] p-6">
+				<motion.div
+					variants={scaleIn}
+					initial="hidden"
+					animate="visible"
+					className="md:col-span-2 border border-foreground/[0.06] p-6 hover:border-foreground/[0.1] transition-colors duration-300"
+				>
 					<div className="flex items-center justify-between mb-4">
 						<div>
 							<h2 className="text-lg font-medium tracking-tight">{planCardTitle}</h2>
@@ -554,11 +656,11 @@ function AthleteDashboard({
 								</p>
 							</div>
 							<div className="h-1 w-full bg-foreground/[0.06] overflow-hidden">
-								<div
-									className="h-full bg-foreground/40"
-									style={{
-										width: `${Math.max(0, Math.min(100, ((new Date(planExpiresAt).getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)) * 100))}%`,
-									}}
+								<motion.div
+									initial={{ width: 0 }}
+									animate={{ width: `${Math.max(0, Math.min(100, ((new Date(planExpiresAt).getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)) * 100))}%` }}
+									transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
+									className="h-full bg-primary/60"
 								/>
 							</div>
 							<p className="mt-2 font-mono text-[10px] text-foreground/40 uppercase tracking-wider">Expires on {formatDate(planExpiresAt)}</p>
@@ -578,9 +680,15 @@ function AthleteDashboard({
 							</p>
 						</div>
 					)}
-				</div>
+				</motion.div>
 
-				<div className="border border-foreground/[0.06] p-6 flex flex-col justify-between">
+				<motion.div
+					variants={scaleIn}
+					initial="hidden"
+					animate="visible"
+					transition={{ delay: 0.1 }}
+					className="border border-foreground/[0.06] p-6 flex flex-col justify-between hover:border-foreground/[0.1] transition-colors duration-300"
+				>
 					<div className="space-y-4">
 						<h2 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Profile Info</h2>
 						<div className="space-y-2">
@@ -608,21 +716,28 @@ function AthleteDashboard({
 					</div>
 					<Link
 						to="/portal/profile"
-						className="block w-full mt-4 py-2 text-sm font-medium border border-foreground/[0.06] hover:bg-foreground/[0.02] transition-colors text-center"
+						className="block w-full mt-4 py-2 text-sm font-medium border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.12] transition-all duration-200 text-center"
 					>
 						Edit Profile
 					</Link>
-				</div>
+				</motion.div>
 			</div>
 
-			<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-				<QuickAction to="/portal/programs" icon={<Dumbbell className="h-4 w-4" />} label="Programs" />
-				<QuickAction to="/portal/schedule" icon={<Calendar className="h-4 w-4" />} label="Schedule" />
-				<QuickAction to="/portal/messages" icon={<MessageSquare className="h-4 w-4" />} label="Messages" />
-			</div>
+			{/* Quick Actions */}
+			<StaggerList className="grid grid-cols-2 md:grid-cols-3 gap-3">
+				<StaggerItem><QuickAction to="/portal/programs" icon={<Dumbbell className="h-4 w-4" />} label="Programs" /></StaggerItem>
+				<StaggerItem><QuickAction to="/portal/schedule" icon={<Calendar className="h-4 w-4" />} label="Schedule" /></StaggerItem>
+				<StaggerItem><QuickAction to="/portal/messages" icon={<MessageSquare className="h-4 w-4" />} label="Messages" /></StaggerItem>
+			</StaggerList>
 
 			{/* Activity Feed */}
-			<div className="space-y-4">
+			<motion.div
+				variants={fadeUp}
+				initial="hidden"
+				animate="visible"
+				transition={{ delay: 0.35 }}
+				className="space-y-4"
+			>
 				<div className="flex items-center justify-between px-1">
 					<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">Recent Activity</h2>
 					<Link to="/portal/nutrition" className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 hover:text-foreground transition-colors">
@@ -630,8 +745,17 @@ function AthleteDashboard({
 					</Link>
 				</div>
 				{feedLoading ? (
-					<div className="flex items-center justify-center border border-foreground/[0.06] py-10">
-						<Loader2 className="h-5 w-5 animate-spin text-foreground/30" />
+					<div className="border border-foreground/[0.06] divide-y divide-foreground/[0.06]">
+						{[1, 2, 3].map((i) => (
+							<div key={i} className="flex items-start gap-4 px-5 py-4">
+								<div className="h-7 w-7 bg-foreground/[0.06] animate-pulse shrink-0" />
+								<div className="flex-1 space-y-2">
+									<div className="h-3 w-48 bg-foreground/[0.06] animate-pulse" />
+									<div className="h-2.5 w-32 bg-foreground/[0.04] animate-pulse" />
+								</div>
+								<div className="h-2.5 w-12 bg-foreground/[0.04] animate-pulse" />
+							</div>
+						))}
 					</div>
 				) : !feedData?.items?.length ? (
 					<div className="border border-foreground/[0.06] p-8 text-center">
@@ -641,35 +765,53 @@ function AthleteDashboard({
 						</p>
 					</div>
 				) : (
-					<div className="border border-foreground/[0.06] divide-y divide-foreground/[0.06]">
+					<StaggerList className="border border-foreground/[0.06] divide-y divide-foreground/[0.06]">
 						{feedData.items.map((item: any) => (
-							<div key={item.id} className="flex items-start gap-4 px-5 py-4">
-								<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center text-foreground/40">
-									{item.icon === "utensils" ? <Utensils className="h-4 w-4" /> :
-									 item.icon === "activity" ? <Activity className="h-4 w-4" /> :
-									 item.icon === "credit-card" ? <CreditCard className="h-4 w-4" /> :
-									 item.icon === "bell" ? <Bell className="h-4 w-4" /> :
-									 <Dumbbell className="h-4 w-4" />}
-								</div>
-								<div className="min-w-0 flex-1">
-									<p className="text-sm font-medium text-foreground leading-snug">{item.title}</p>
-									{item.description && (
-										<p className="text-xs text-muted-foreground mt-0.5 truncate">{item.description}</p>
-									)}
-								</div>
-								<p className="shrink-0 font-mono text-[10px] text-foreground/40 uppercase tracking-wider">{formatRelativeDate(item.date)}</p>
-							</div>
+							<StaggerItem key={item.id}>
+								<motion.div
+									whileHover={{ x: 2 }}
+									transition={{ duration: 0.15 }}
+									className="flex items-start gap-4 px-5 py-4 hover:bg-foreground/[0.015] transition-colors duration-200"
+								>
+									<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center text-foreground/40">
+										{item.icon === "utensils" ? <Utensils className="h-4 w-4" /> :
+										 item.icon === "activity" ? <Activity className="h-4 w-4" /> :
+										 item.icon === "credit-card" ? <CreditCard className="h-4 w-4" /> :
+										 item.icon === "bell" ? <Bell className="h-4 w-4" /> :
+										 <Dumbbell className="h-4 w-4" />}
+									</div>
+									<div className="min-w-0 flex-1">
+										<p className="text-sm font-medium text-foreground leading-snug">{item.title}</p>
+										{item.description && (
+											<p className="text-xs text-muted-foreground mt-0.5 truncate">{item.description}</p>
+										)}
+									</div>
+									<p className="shrink-0 font-mono text-[10px] text-foreground/40 uppercase tracking-wider">{formatRelativeDate(item.date)}</p>
+								</motion.div>
+							</StaggerItem>
 						))}
-					</div>
+					</StaggerList>
 				)}
-			</div>
+			</motion.div>
 
+			{/* Testimonials */}
 			{homeContent?.testimonials && homeContent.testimonials.length > 0 && (
-				<div className="space-y-4">
+				<motion.div
+					variants={fadeUp}
+					initial="hidden"
+					animate="visible"
+					transition={{ delay: 0.4 }}
+					className="space-y-4"
+				>
 					<h2 className="font-mono text-xs uppercase tracking-wider text-foreground px-1">What Athletes Say</h2>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						{homeContent.testimonials.slice(0, 2).map((t: any) => (
-							<div key={t.id} className="p-6 border border-foreground/[0.06] text-muted-foreground relative">
+							<motion.div
+								key={t.id}
+								whileHover={{ y: -2 }}
+								transition={{ duration: 0.2 }}
+								className="p-6 border border-foreground/[0.06] text-muted-foreground relative hover:border-foreground/[0.1] transition-colors duration-300"
+							>
 								<span className="text-3xl absolute top-4 left-4 text-foreground/10">"</span>
 								<p className="relative z-10 mb-4 text-sm italic leading-relaxed">{t.quote}</p>
 								<div className="flex items-center gap-3">
@@ -679,11 +821,11 @@ function AthleteDashboard({
 										{t.role && <p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 not-italic">{t.role}</p>}
 									</div>
 								</div>
-							</div>
+							</motion.div>
 						))}
 					</div>
-				</div>
+				</motion.div>
 			)}
-		</div>
+		</PageTransition>
 	);
 }

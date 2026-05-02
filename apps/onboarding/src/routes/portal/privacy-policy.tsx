@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, Lock, Eye, Database } from "lucide-react";
+import { PageTransition } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/privacy-policy")({
 	component: PrivacyPolicyPage,
@@ -8,7 +9,7 @@ export const Route = createFileRoute("/portal/privacy-policy")({
 
 function PrivacyPolicyPage() {
 	return (
-		<div className="p-6 max-w-4xl mx-auto space-y-8">
+		<PageTransition className="p-6 max-w-4xl mx-auto space-y-8">
 			<div className="flex flex-col gap-2">
 				<h1 className="text-3xl font-black uppercase italic tracking-tighter">Privacy Policy</h1>
 				<p className="text-muted-foreground">How we handle and protect your personal data.</p>
@@ -66,6 +67,6 @@ function PrivacyPolicyPage() {
 					For questions regarding our privacy practices, please contact us at <span className="font-bold text-primary">privacy@phperformance.uk</span>
 				</p>
 			</div>
-		</div>
+		</PageTransition>
 	);
 }

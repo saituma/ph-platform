@@ -16,6 +16,14 @@ const customJestConfig = {
     "^react-dom/client$": "<rootDir>/../../node_modules/react-dom/client",
     "^react/jsx-runtime$": "<rootDir>/../../node_modules/react/jsx-runtime.js",
   },
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+  },
 };
 
 module.exports = createJestConfig(customJestConfig);

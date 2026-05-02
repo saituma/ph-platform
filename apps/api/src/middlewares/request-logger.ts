@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import type { NextFunction, Request, Response } from "express";
+import { createLogger } from "../lib/logger";
 
 function getClientIp(req: Request) {
   const forwarded = req.headers["x-forwarded-for"];
@@ -20,6 +21,9 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
   res.locals.requestId = requestId;
   res.setHeader("x-request-id", requestId);
 
+  const log = createLogger({ requestId });
+  (req as any).log = log;
+
   let finished = false;
   const method = req.method;
   const path = req.originalUrl || req.url;
@@ -31,29 +35,29 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
 
     const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
     const statusCode = aborted ? 499 : res.statusCode;
-    const level = statusCode >= 500 ? "error" : statusCode >= 400 ? "warn" : "info";
 
     const authId = (res.locals as { authUserId?: number }).authUserId;
 
     const payload = {
-      level,
       event: "http_request",
-      requestId,
       method,
       path,
       statusCode,
       durationMs: Number(durationMs.toFixed(2)),
       ip,
-      // res.locals.authUserId is set at end of requireAuth (mirrors req.user) for rare cases where close fires oddly.
       userId: req.user?.id ?? authId ?? null,
       role: req.user?.role ?? null,
     };
 
     if (statusCode >= 500) {
-      console.error(JSON.stringify(payload));
+      log.error(payload);
       return;
     }
-    console.log(JSON.stringify(payload));
+    if (statusCode >= 400) {
+      log.warn(payload);
+      return;
+    }
+    log.info(payload);
   };
 
   res.on("finish", () => logCompletion(false));

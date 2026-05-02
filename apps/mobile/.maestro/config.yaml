@@ -1,0 +1,15 @@
+# Maestro E2E Test Configuration
+# https://maestro.mobile.dev/
+
+# App identifier (update if different for your builds)
+appId: com.phperformance.app
+
+# Global tags for filtering
+tags:
+  - mobile
+  - e2e
+
+# Environment variables available to all flows
+env:
+  TEST_EMAIL: "test@phperformance.com"
+  TEST_PASSWORD: "TestPassword123!"

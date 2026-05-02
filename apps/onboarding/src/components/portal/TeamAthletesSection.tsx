@@ -53,6 +53,7 @@ export function TeamAthletesSection({
 	const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 	const [customPassword, setCustomPassword] = useState("");
 	const [customPasswordConfirm, setCustomPasswordConfirm] = useState("");
+	const [isSponsored, setIsSponsored] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [slugDraft, setSlugDraft] = useState("");
 
@@ -95,6 +96,7 @@ export function TeamAthletesSection({
 		setAge("");
 		setCustomPassword("");
 		setCustomPasswordConfirm("");
+		setIsSponsored(false);
 		setPhotoFile(null);
 		if (fileInputRef.current) fileInputRef.current.value = "";
 	};
@@ -183,6 +185,7 @@ export function TeamAthletesSection({
 				name: displayName.trim(),
 				age: a,
 				profilePicture,
+				isSponsored,
 				...(initialPassword ? { customPassword: initialPassword } : {}),
 			});
 			resetAddForm();
@@ -260,6 +263,11 @@ export function TeamAthletesSection({
 							{team.slotsRemaining} slot{team.slotsRemaining === 1 ? "" : "s"}{" "}
 							left
 						</span>
+						{(team.sponsoredPlayerCount ?? 0) > 0 ? (
+							<span className="text-violet-600 dark:text-violet-400">
+								{roster?.members.filter((m) => m.isSponsored).length ?? 0} / {team.sponsoredPlayerCount} sponsored
+							</span>
+						) : null}
 					</div>
 
 					<div className="rounded-xl border bg-muted/30 p-4 space-y-2">
@@ -404,6 +412,22 @@ export function TeamAthletesSection({
 										required
 									/>
 								</label>
+								{(team?.sponsoredPlayerCount ?? 0) > 0 ? (
+									<label className="flex items-center gap-3 rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={isSponsored}
+											onChange={(e) => setIsSponsored(e.target.checked)}
+											className="h-4 w-4 accent-violet-500"
+										/>
+										<div>
+											<p className="text-sm font-medium">Sponsored player</p>
+											<p className="text-xs text-muted-foreground">
+												Gets the team&apos;s sponsored plan tier
+											</p>
+										</div>
+									</label>
+								) : null}
 								<div className="grid gap-2 rounded-xl border bg-muted/30 p-3">
 									<p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
 										Initial password (optional)
@@ -480,7 +504,14 @@ export function TeamAthletesSection({
 												)}
 											</div>
 											<div className="min-w-0 flex-1">
-												<p className="font-semibold truncate">{m.name}</p>
+												<div className="flex items-center gap-2">
+													<p className="font-semibold truncate">{m.name}</p>
+													{m.isSponsored ? (
+														<span className="shrink-0 rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-violet-600 dark:text-violet-400">
+															Sponsored
+														</span>
+													) : null}
+												</div>
 												<p className="truncate font-mono text-xs text-muted-foreground">
 													{m.email}
 												</p>

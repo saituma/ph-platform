@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import {
 	Bell,
 	CalendarCheck,
@@ -47,6 +48,7 @@ import {
 } from "@/lib/portal-roles";
 import { useRouterPathname } from "@/lib/use-router-pathname";
 import { cn } from "@/lib/utils";
+import { clearAuthToken } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
 
 function normalizePortalPathname(pathname: string): string {
@@ -114,28 +116,41 @@ export function AppSidebar() {
 
 	const isActive = (path: string) => portalNavItemIsActive(pathname, path);
 
-	const handleLogout = () => {
-		localStorage.removeItem("auth_token");
+	const handleLogout = async () => {
+		await clearAuthToken();
 		window.location.href = "/login";
 	};
 
 	const renderNavItem = (item: { label: string; path: string; icon: any }, active: boolean) => {
 		const Icon = item.icon;
 		return (
-			<SidebarMenuItem key={item.path}>
+			<SidebarMenuItem key={item.path} className="relative">
+				{active && (
+					<motion.div
+						layoutId="sidebar-active"
+						className="absolute inset-0 bg-primary/10 border-l-2 border-primary"
+						transition={{ type: "spring", stiffness: 350, damping: 30 }}
+					/>
+				)}
 				<SidebarMenuButton
 					asChild
 					isActive={active}
 					tooltip={item.label}
 					className={cn(
-						"transition-colors duration-150 h-9",
+						"relative z-10 transition-colors duration-150 h-9",
 						active
-							? "bg-primary text-primary-foreground font-medium"
+							? "text-primary font-medium bg-transparent"
 							: "text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]",
 					)}
 				>
 					<Link to={item.path}>
-						<Icon className="h-4 w-4" />
+						<motion.div
+							whileHover={{ scale: 1.05 }}
+							whileTap={{ scale: 0.95 }}
+							transition={{ duration: 0.15 }}
+						>
+							<Icon className="h-4 w-4" />
+						</motion.div>
 						<span className="font-mono text-xs tracking-wide">{item.label}</span>
 					</Link>
 				</SidebarMenuButton>
@@ -162,9 +177,13 @@ export function AppSidebar() {
 									to="/portal/dashboard"
 									className="flex items-center gap-2"
 								>
-									<div className="flex aspect-square size-7 items-center justify-center bg-primary text-primary-foreground">
+									<motion.div
+										whileHover={{ rotate: 5 }}
+										transition={{ type: "spring", stiffness: 300 }}
+										className="flex aspect-square size-7 items-center justify-center bg-primary text-primary-foreground"
+									>
 										<Dumbbell className="h-4 w-4" />
-									</div>
+									</motion.div>
 									<div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden ml-1">
 										<span className="font-mono text-xs uppercase tracking-wider text-foreground">
 											PH App

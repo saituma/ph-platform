@@ -1,26 +1,6 @@
 ---
 name: play-store-submission-auditor
-description: >
-  Scans Android app projects for Google Play rejection and enforcement risk before
-  submission. Reads source directly with no back-and-forth. Auto-detects vibe coder
-  vs developer mode, supports Flutter/React Native/native Android, detects mid-build
-  state and asks whether to run a submission audit or build checklist. Outputs a
-  strict risk register, evidence-backed findings, Play Console declaration tasks,
-  reviewer simulation, App Access notes draft, and a manual checklist.
-
-  TRIGGER THIS SKILL for any of these phrases:
-  "audit my app" / "is my app ready" / "about to submit" / "submitting soon" /
-  "ready to launch" / "ready to ship" / "Google Play review" /
-  "Play Store rejection" / "policy violation" / "Data safety" /
-  "permission declaration" / "target API" / "Play Console" /
-  "pre-submission" / "release audit" / "first app" / "first time submitting" /
-  "why did Google reject" / "what do I need to fix".
-  Also trigger proactively when the user is shipping an Android app soon.
-
-  Flutter/RN stack: load references/android-patterns.md.
-  First-time submitter: load references/first-time-dev.md.
-  Data safety mapping: load references/data-safety-mapping.md.
-  Policy maintenance: load references/policy-refresh-playbook.md when asked to update policy logic.
+description: "Audits Android apps for Google Play submission and policy risks with evidence-backed findings and declaration guidance."
 ---
 
 # Play Store Submission Auditor

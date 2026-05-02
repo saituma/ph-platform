@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-const apiBase = rawBase.replace(/\/api\/?$/, "");
+const apiBase = rawBase.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
 
 const rawWorker =
   process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? process.env.BETTER_AUTH_URL ?? "";

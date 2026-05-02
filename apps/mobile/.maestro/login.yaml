@@ -1,0 +1,39 @@
+appId: com.phperformance.app
+tags:
+  - critical
+  - auth
+name: "Login Flow"
+---
+
+# ── Login Flow ──────────────────────────────────────────────────────────
+# Verifies a user can sign in with email/password and land on the home screen.
+
+- launchApp
+
+# Wait for the login screen to render
+- assertVisible: "Welcome back"
+- assertVisible: "Sign in to keep your training progress"
+
+# Verify key UI elements are present (no raw header titles)
+- assertVisible: "Email"
+- assertVisible: "Password"
+- assertVisible: "Forgot Password?"
+- assertVisible: "Sign In"
+
+# Enter credentials
+- tapOn:
+    text: "name@example.com"
+- inputText: ${TEST_EMAIL}
+
+- tapOn:
+    text: "Enter your password"
+- inputText: ${TEST_PASSWORD}
+
+# Submit login form
+- tapOn: "Sign In"
+
+# Wait for home screen to load (tab bar should appear)
+# The tab bar renders "Home" as one of the tab labels
+- assertVisible:
+    text: "Home"
+    enabled: true

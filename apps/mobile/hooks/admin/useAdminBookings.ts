@@ -2,8 +2,11 @@ import { useCallback, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { AdminBooking, AdminBookingDetail, AdminUserLite } from "@/types/admin";
 import { parseIntOrUndefined } from "@/lib/admin-utils";
+import { useAdminMutation } from "./useAdminQuery";
+import { parseApiError } from "@/lib/errors";
 
 export function useAdminBookings(token: string | null, canLoad: boolean) {
+  const enabled = Boolean(token && canLoad);
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [bookingsError, setBookingsError] = useState<string | null>(null);
@@ -12,11 +15,10 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
   const [bookingMutatingId, setBookingMutatingId] = useState<number | null>(null);
 
   const [createBookingUsers, setCreateBookingUsers] = useState<AdminUserLite[]>([]);
-  const [createBookingBusy, setCreateBookingBusy] = useState(false);
 
   const loadBookings = useCallback(
     async (query: string, limitStr: string, forceRefresh: boolean) => {
-      if (!canLoad || !token) return;
+      if (!enabled) return;
       setBookingsLoading(true);
       setBookingsError(null);
       try {
@@ -27,40 +29,29 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
         params.set("limit", String(limit));
         const res = await apiRequest<{ bookings?: AdminBooking[] }>(
           `/admin/bookings?${params.toString()}`,
-          {
-            token,
-            suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
-          },
+          { token: token!, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
         );
         setBookings(Array.isArray(res?.bookings) ? res.bookings : []);
       } catch (e) {
-        setBookingsError(e instanceof Error ? e.message : "Failed to load bookings");
+        setBookingsError(parseApiError(e).message);
         setBookings([]);
       } finally {
         setBookingsLoading(false);
       }
     },
-    [canLoad, token],
+    [enabled, token],
   );
 
   const loadBookingDetail = useCallback(
     async (bookingId: number, forceRefresh: boolean) => {
-      if (!canLoad || !token || !bookingId) return;
+      if (!enabled || !bookingId) return;
       setBookingDetailLoadingIds((prev) => ({ ...prev, [bookingId]: true }));
       try {
         const res = await apiRequest<{ booking?: AdminBookingDetail }>(
           `/admin/bookings/${bookingId}`,
-          {
-            token,
-            suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
-          },
+          { token: token!, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
         );
-        const detail = res?.booking;
-        setBookingDetails((prev) => ({ ...prev, [bookingId]: detail }));
+        setBookingDetails((prev) => ({ ...prev, [bookingId]: res?.booking }));
       } catch (e) {
         setBookingDetails((prev) => ({
           ...prev,
@@ -71,33 +62,40 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
         setBookingDetailLoadingIds((prev) => ({ ...prev, [bookingId]: false }));
       }
     },
-    [canLoad, token],
+    [enabled, token],
   );
 
-  const updateBookingStatus = useCallback(
-    async (bookingId: number, status: string, onComplete?: () => Promise<void>, updates?: Record<string, any>) => {
-      if (!canLoad || !token) return;
-      setBookingMutatingId(bookingId);
-      try {
-        await apiRequest(`/admin/bookings/${bookingId}`, {
-          method: "PATCH",
-          token,
-          body: { status, ...updates },
-          suppressStatusCodes: [403],
-          skipCache: true,
-          forceRefresh: true,
-        });
-        if (onComplete) await onComplete();
-      } finally {
-        setBookingMutatingId(null);
-      }
-    },
-    [canLoad, token],
+  const statusMutation = useAdminMutation<{
+    bookingId: number;
+    status: string;
+    onComplete?: () => Promise<void>;
+    updates?: Record<string, any>;
+  }>(
+    useCallback(
+      async ({ bookingId, status, onComplete, updates }) => {
+        if (!enabled) return;
+        setBookingMutatingId(bookingId);
+        try {
+          await apiRequest(`/admin/bookings/${bookingId}`, {
+            method: "PATCH",
+            token: token!,
+            body: { status, ...updates },
+            suppressStatusCodes: [403],
+            skipCache: true,
+            forceRefresh: true,
+          });
+          if (onComplete) await onComplete();
+        } finally {
+          setBookingMutatingId(null);
+        }
+      },
+      [enabled, token],
+    ),
   );
 
   const searchUsers = useCallback(
     async (query: string, forceRefresh: boolean) => {
-      if (!canLoad || !token) return;
+      if (!enabled) return;
       const q = query.trim();
       if (!q) {
         setCreateBookingUsers([]);
@@ -109,48 +107,39 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
         params.set("limit", "25");
         const res = await apiRequest<{ users?: AdminUserLite[] }>(
           `/admin/users?${params.toString()}`,
-          {
-            token,
-            suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
-          },
+          { token: token!, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
         );
         setCreateBookingUsers(Array.isArray(res?.users) ? res.users : []);
-      } catch (e) {
+      } catch {
         setCreateBookingUsers([]);
-        throw e;
       }
     },
-    [canLoad, token],
+    [enabled, token],
   );
 
-  const createBooking = useCallback(async (params: {
+  const createMutation = useAdminMutation<{
     userId: number;
     serviceTypeId: number;
     startsAt: string;
     endsAt: string;
     location?: string;
     meetingLink?: string;
-  }) => {
-    if (!canLoad || !token) return;
-    setCreateBookingBusy(true);
-    try {
-      await apiRequest("/admin/bookings", {
-        method: "POST",
-        token,
-        body: {
-          ...params,
-          status: "confirmed",
-        },
-        suppressStatusCodes: [400, 403],
-        skipCache: true,
-        forceRefresh: true,
-      });
-    } finally {
-      setCreateBookingBusy(false);
-    }
-  }, [canLoad, token]);
+  }>(
+    useCallback(
+      async (params) => {
+        if (!enabled) return;
+        await apiRequest("/admin/bookings", {
+          method: "POST",
+          token: token!,
+          body: { ...params, status: "confirmed" },
+          suppressStatusCodes: [400, 403],
+          skipCache: true,
+          forceRefresh: true,
+        });
+      },
+      [enabled, token],
+    ),
+  );
 
   return {
     bookings,
@@ -160,12 +149,20 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
     bookingDetailLoadingIds,
     bookingMutatingId,
     createBookingUsers,
-    createBookingBusy,
+    createBookingBusy: createMutation.busy,
     loadBookings,
     loadBookingDetail,
-    updateBookingStatus,
+    updateBookingStatus: (bookingId: number, status: string, onComplete?: () => Promise<void>, updates?: Record<string, any>) =>
+      statusMutation.run({ bookingId, status, onComplete, updates }),
     searchUsers,
-    createBooking,
+    createBooking: (params: {
+      userId: number;
+      serviceTypeId: number;
+      startsAt: string;
+      endsAt: string;
+      location?: string;
+      meetingLink?: string;
+    }) => createMutation.run(params),
     setBookingsError,
     setCreateBookingUsers,
   };

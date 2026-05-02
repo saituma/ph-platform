@@ -1,7 +1,6 @@
 import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
 import { Pressable, View } from "react-native";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { Button } from "@/components/ui/Button";
 
@@ -49,6 +48,9 @@ export function ActionButton({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
       onPress={onPress}
       disabled={disabled}
       className={`flex-1 items-center gap-3 ${disabled ? "opacity-40" : ""}`}

@@ -114,6 +114,7 @@ function Lightbox({
 					<img
 						src={item.src}
 						alt={item.caption ?? "Gallery image"}
+						loading="lazy"
 						className="w-full max-h-[80vh] object-contain"
 					/>
 				)}

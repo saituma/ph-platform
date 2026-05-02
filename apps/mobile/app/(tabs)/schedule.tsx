@@ -31,6 +31,7 @@ import { AgeGate } from "@/components/AgeGate";
 import { SkeletonScheduleScreen } from "@/components/ui/Skeleton";
 import { BookingModal } from "@/components/tracking/schedule/BookingModal";
 import { useScheduleData } from "@/components/tracking/schedule/hooks";
+import { useActingUser } from "@/hooks/useActingUser";
 import { canSelfBookSchedule } from "@/lib/scheduleBookingAccess";
 import type { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
@@ -475,6 +476,7 @@ export default memo(function ScheduleScreen() {
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
+  const { effectiveProfileId } = useActingUser();
   const canBook = canSelfBookSchedule(apiUserRole);
   const userTeamId = authTeamMembership?.teamId ?? null;
   const userAthleteType = useMemo(() => {
@@ -497,7 +499,7 @@ export default memo(function ScheduleScreen() {
     useCallback(() => {
       if (!token) return;
       void queryClient.prefetchQuery({
-        queryKey: queryKeys.bookings.all(),
+        queryKey: queryKeys.bookings.all(effectiveProfileId),
         queryFn: async () => {
           const { apiRequest } = await import("@/lib/api");
           const data = await apiRequest<{ items: any[] }>("/bookings", { token });
@@ -507,7 +509,7 @@ export default memo(function ScheduleScreen() {
         staleTime: 2 * 60 * 1000,
       });
       void queryClient.prefetchQuery({
-        queryKey: queryKeys.bookings.services(),
+        queryKey: queryKeys.bookings.services(effectiveProfileId),
         queryFn: async () => {
           const { apiRequest } = await import("@/lib/api");
           const data = await apiRequest<{ items: any[] }>(
@@ -518,12 +520,12 @@ export default memo(function ScheduleScreen() {
         },
         staleTime: 5 * 60 * 1000,
       });
-    }, [token, queryClient]),
+    }, [token, effectiveProfileId, queryClient]),
   );
 
   // ── Data ──────────────────────────────────────────────────────
   const { events, eventsLoading, services, servicesLoading, servicesError,
-          refreshEvents, refreshServices } = useScheduleData(token, isFocused);
+          refreshEvents, refreshServices } = useScheduleData(token, effectiveProfileId, isFocused);
 
   const bookingServices = useMemo(() => {
     const base = capabilities?.semiPrivateBooking

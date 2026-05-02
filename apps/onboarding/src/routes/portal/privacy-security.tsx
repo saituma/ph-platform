@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { clearAuthToken } from "@/lib/client-storage";
 import { settingsService } from "@/services/settingsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Key, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { PageTransition } from "@/lib/motion";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -62,7 +64,7 @@ function PrivacySecurityPage() {
 		setIsDeleting(true);
 		try {
 			await settingsService.deleteAccount(password);
-			localStorage.removeItem("auth_token");
+			await clearAuthToken();
 			toast.success("Account deleted successfully");
 			window.location.href = "/login";
 		} catch (error: any) {
@@ -73,7 +75,7 @@ function PrivacySecurityPage() {
 	};
 
 	return (
-		<div className="p-6 max-w-2xl mx-auto space-y-6">
+		<PageTransition className="p-6 max-w-2xl mx-auto space-y-6">
 			<div className="flex flex-col gap-2">
 				<h1 className="text-3xl font-black uppercase italic tracking-tighter">Privacy & Security</h1>
 				<p className="text-muted-foreground">Manage your account security and data privacy.</p>
@@ -209,6 +211,6 @@ function PrivacySecurityPage() {
 					</AlertDialog>
 				</CardContent>
 			</Card>
-		</div>
+		</PageTransition>
 	);
 }

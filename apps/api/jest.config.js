@@ -15,4 +15,12 @@ module.exports = {
       ? []
       : ["<rootDir>/test/api.test.ts", "<rootDir>/test/integration"],
   setupFiles: ["<rootDir>/test/jest.setup.ts"],
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
 };

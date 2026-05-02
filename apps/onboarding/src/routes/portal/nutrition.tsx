@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PageTransition } from "@/lib/motion";
 import {
 	Activity,
 	Calendar,
@@ -263,7 +264,7 @@ function NutritionPage() {
 	);
 
 	return (
-		<div className="p-6 max-w-4xl mx-auto space-y-6">
+		<PageTransition className="p-6 max-w-4xl mx-auto space-y-6">
 			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 				<div className="flex flex-col gap-1">
 					<h1 className="text-3xl font-black uppercase italic tracking-tighter">
@@ -583,6 +584,6 @@ function NutritionPage() {
 				)}
 			</>
 			)}
-		</div>
+		</PageTransition>
 	);
 }

@@ -26,7 +26,12 @@ export default function ResetPasswordScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app">
       <View className="px-4 pt-4">
-        <Pressable onPress={() => router.back()} className="p-2 self-start">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          className="p-2 self-start"
+        >
           <Feather
             name="arrow-left"
             size={24}
@@ -62,6 +67,8 @@ export default function ResetPasswordScreen() {
               color={colors.textSecondary}
             />
             <TextInput
+              accessibilityRole="text"
+              accessibilityLabel="Verification Code"
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="Verification Code"
               placeholderTextColor={colors.placeholder}
@@ -75,6 +82,8 @@ export default function ResetPasswordScreen() {
           <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
             <Feather name="lock" size={20} color={colors.textSecondary} />
             <TextInput
+              accessibilityRole="text"
+              accessibilityLabel="New Password"
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="New Password"
               placeholderTextColor={colors.placeholder}
@@ -82,7 +91,11 @@ export default function ResetPasswordScreen() {
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
             />
-            <Pressable onPress={() => setShowPassword(!showPassword)}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+              onPress={() => setShowPassword(!showPassword)}
+            >
               <Feather
                 name={showPassword ? "eye" : "eye-off"}
                 size={20}
@@ -94,6 +107,8 @@ export default function ResetPasswordScreen() {
           <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
             <Feather name="lock" size={20} color={colors.textSecondary} />
             <TextInput
+              accessibilityRole="text"
+              accessibilityLabel="Confirm New Password"
               className="flex-1 ml-3 text-app text-base font-outfit"
               placeholder="Confirm New Password"
               placeholderTextColor={colors.placeholder}
@@ -102,6 +117,8 @@ export default function ResetPasswordScreen() {
               secureTextEntry={!showConfirmPassword}
             />
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"}
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
             >
               <Feather
@@ -114,6 +131,9 @@ export default function ResetPasswordScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isSubmitting ? "Resetting" : "Reset Password"}
+          accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
           onPress={async () => {
             setFormError(null);
             if (!email) {

@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
-import { GeneratedAvailabilityOccurrence, ScheduleEvent, ServiceType } from "./types";
+import { GeneratedAvailabilityOccurrence, ServiceType } from "./types";
 import { endOfLocalDay, mapBookingsToEvents, startOfLocalDay } from "./utils";
 
-export function useScheduleData(token: string | null, isFocused: boolean) {
+export function useScheduleData(token: string | null, profileId: number, isFocused: boolean) {
   const eventsQuery = useQuery({
-    queryKey: queryKeys.bookings.all(),
+    queryKey: queryKeys.bookings.all(profileId),
     queryFn: async () => {
       const data = await apiRequest<{ items: any[] }>("/bookings", { token });
       return mapBookingsToEvents(data.items ?? []);
@@ -17,7 +17,7 @@ export function useScheduleData(token: string | null, isFocused: boolean) {
   });
 
   const servicesQuery = useQuery({
-    queryKey: queryKeys.bookings.services(),
+    queryKey: queryKeys.bookings.services(profileId),
     queryFn: async () => {
       const data = await apiRequest<{ items: ServiceType[] }>(
         "/bookings/services?includeLocked=true&omitWithoutBookableSlots=true",
@@ -47,6 +47,7 @@ export function useScheduleData(token: string | null, isFocused: boolean) {
 
 export function useGeneratedAvailability(input: {
   token: string | null;
+  profileId: number;
   from: Date;
   to: Date;
   enabled: boolean;
@@ -55,7 +56,7 @@ export function useGeneratedAvailability(input: {
   const toIso = endOfLocalDay(input.to).toISOString();
 
   const query = useQuery({
-    queryKey: queryKeys.bookings.generatedAvailability(fromIso, toIso),
+    queryKey: queryKeys.bookings.generatedAvailability(input.profileId, fromIso, toIso),
     queryFn: async () => {
       const data = await apiRequest<{ items: GeneratedAvailabilityOccurrence[] }>(
         `/bookings/generated-availability?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,

@@ -63,6 +63,8 @@ export default function ForgotScreen() {
             color={colors.textSecondary}
           />
           <TextInput
+            accessibilityRole="text"
+            accessibilityLabel="Email Address"
             className="flex-1 ml-3 text-app text-base font-outfit"
             placeholder="Email Address"
             placeholderTextColor={colors.placeholder}
@@ -75,6 +77,9 @@ export default function ForgotScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isSubmitting ? "Sending" : "Send OTP"}
+          accessibilityState={{ disabled: isSubmitting || !normalizedEmail, busy: isSubmitting }}
           onPress={async () => {
             setFormError(null);
             if (!normalizedEmail) {
@@ -118,7 +123,12 @@ export default function ForgotScreen() {
           <Text className="text-secondary text-base font-outfit">
             Remember your password?{" "}
           </Text>
-          <Pressable onPress={() => router.back()}>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Log In"
+            accessibilityHint="Navigate back to login screen"
+            onPress={() => router.back()}
+          >
             <Text className="text-accent font-bold text-base font-outfit">
               Log In
             </Text>

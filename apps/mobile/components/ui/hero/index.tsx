@@ -172,6 +172,9 @@ export function UIButton({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: finalDisabled }}
       disabled={finalDisabled}
       className={twMerge(
         "min-h-12 rounded-[18px] px-4 py-3 active:scale-[0.98]",
@@ -248,6 +251,9 @@ export function UIChip({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       className={twMerge("self-start rounded-full border px-3 py-1.5", className)}
       style={[
@@ -281,6 +287,7 @@ export function UITextArea({ className, style, ...props }: UITextAreaProps) {
 
   return (
     <RNTextInput
+      accessibilityRole="text"
       multiline
       textAlignVertical="top"
       placeholderTextColor={colors.placeholder}
@@ -324,6 +331,7 @@ export function UISectionHeader({
           </Text>
         ) : null}
         <Text
+          accessibilityRole="header"
           className="mt-1 font-satoshi-bold text-[28px] font-bold tracking-tight"
           style={{ color: colors.text }}
         >

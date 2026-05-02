@@ -1,3 +1,5 @@
+import { authRateLimiter } from "../../../src/lib/rate-limiter";
+
 function workerAuthBase() {
   return (
     process.env.BETTER_AUTH_URL ??
@@ -30,6 +32,28 @@ function buildUpstreamHeaders(incoming: Headers) {
 }
 
 export default async function (request: Request): Promise<Response> {
+  // Rate-limit auth requests by IP
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+  const { success, limit, remaining, reset } = await authRateLimiter.limit(ip);
+  if (!success) {
+    return new Response(
+      JSON.stringify({ error: "Too many requests. Please try again later." }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": "60",
+          "X-RateLimit-Limit": String(limit),
+          "X-RateLimit-Remaining": String(remaining),
+          "X-RateLimit-Reset": String(reset),
+        },
+      },
+    );
+  }
+
   const base = workerAuthBase();
   if (!base) {
     return new Response(

@@ -17,6 +17,7 @@ import {
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
+import { setAuthToken } from "#/lib/client-storage";
 
 export const Route = createFileRoute("/verification")({
 	head: () => ({
@@ -104,7 +105,7 @@ function VerificationComponent() {
 
             // Store token for subsequent onboarding steps
             if (data.accessToken) {
-                localStorage.setItem("auth_token", data.accessToken);
+                await setAuthToken(data.accessToken);
             }
 
             toast.success("Account verified!", {

@@ -27,6 +27,7 @@ import {
   Users,
   Video,
   Quote,
+  Inbox,
 } from "lucide-react";
 
 import {
@@ -63,11 +64,11 @@ function getOrCreateSocket(): Socket {
       ? `${window.location.protocol}//${window.location.hostname}:3001`
       : "";
   const socketUrl = socketEnvUrl
-    ? socketEnvUrl.replace(/\/api\/?$/, "")
+    ? socketEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
     : isLocal
       ? fallback
       : apiEnvUrl
-        ? apiEnvUrl.replace(/\/api\/?$/, "")
+        ? apiEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
         : fallback;
   const token =
     typeof document !== "undefined"
@@ -160,6 +161,7 @@ const NAV: Array<{ label: string; separator?: boolean; items: Array<{ label: str
     label: "Business",
     separator: true,
     items: [
+      { label: "Enquiries", href: "/enquiries", icon: Inbox },
       { label: "Billing", href: "/billing", icon: CreditCard },
       { label: "Stats", href: "/stats", icon: Activity },
       { label: "Portal Config", href: "/portal-config", icon: SlidersHorizontal },

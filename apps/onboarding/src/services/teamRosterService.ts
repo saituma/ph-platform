@@ -31,9 +31,9 @@ export type NutritionLogSummary = {
 	coachFeedback?: string | null;
 };
 
-/** Coach/admin: load an athlete’s nutrition rows (same auth as `/api/nutrition/logs`). */
+/** Coach/admin: load an athlete's nutrition rows (same auth as `/api/nutrition/logs`). */
 export async function fetchAthleteNutritionLogs(
-	token: string,
+	_token: string,
 	athleteUserId: number,
 	lastNDays: number,
 ): Promise<{ logs: NutritionLogSummary[] }> {
@@ -49,7 +49,7 @@ export async function fetchAthleteNutritionLogs(
 		limit: String(Math.max(lastNDays + 10, 40)),
 	});
 	const res = await fetch(`${baseUrl()}/api/nutrition/logs?${qs}`, {
-		headers: { Authorization: `Bearer ${token}` },
+		credentials: "include",
 	});
 	const data = await res.json().catch(() => ({}));
 	if (!res.ok) {
@@ -68,6 +68,8 @@ export type TeamRosterResponse = {
 		emailSlug: string;
 		memberCount: number;
 		slotsRemaining: number;
+		sponsoredPlayerCount: number;
+		sponsoredPlanId: number | null;
 	};
 	members: Array<{
 		athleteId: number;
@@ -76,16 +78,17 @@ export type TeamRosterResponse = {
 		birthDate: string | null;
 		profilePicture: string | null;
 		athleteType: string;
+		isSponsored: boolean;
 		email: string;
 		userId: number;
 	}>;
 };
 
 export async function fetchTeamRoster(
-	token: string,
+	_token?: string,
 ): Promise<TeamRosterResponse> {
 	const res = await fetch(`${baseUrl()}/api/team/roster`, {
-		headers: { Authorization: `Bearer ${token}` },
+		credentials: "include",
 	});
 	if (!res.ok) {
 		const err = await res.json().catch(() => ({}));
@@ -97,15 +100,15 @@ export async function fetchTeamRoster(
 }
 
 export async function createTeamAthlete(
-	token: string,
+	_token: string,
 	body: {
 		username: string;
 		name: string;
 		age: number;
 		birthDate?: string | null;
 		profilePicture?: string | null;
-		/** If omitted, server generates a random temporary password. */
 		customPassword?: string;
+		isSponsored?: boolean;
 	},
 ): Promise<{
 	athleteId: number;
@@ -116,8 +119,8 @@ export async function createTeamAthlete(
 }> {
 	const res = await fetch(`${baseUrl()}/api/team/roster/athletes`, {
 		method: "POST",
+		credentials: "include",
 		headers: {
-			Authorization: `Bearer ${token}`,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify(body),
@@ -162,13 +165,13 @@ export type TeamAthleteDetail = {
 };
 
 export async function fetchTeamAthleteDetail(
-	token: string,
+	_token: string,
 	athleteId: number,
 ): Promise<TeamAthleteDetail> {
 	const res = await fetch(
 		`${baseUrl()}/api/team/roster/athletes/${athleteId}`,
 		{
-			headers: { Authorization: `Bearer ${token}` },
+			credentials: "include",
 		},
 	);
 	const data = await res.json().catch(() => ({}));
@@ -181,7 +184,7 @@ export async function fetchTeamAthleteDetail(
 }
 
 export async function resetTeamAthletePassword(
-	token: string,
+	_token: string,
 	athleteId: number,
 	customPassword?: string,
 ): Promise<{ email: string; temporaryPassword: string }> {
@@ -193,8 +196,8 @@ export async function resetTeamAthletePassword(
 		`${baseUrl()}/api/team/roster/athletes/${athleteId}/reset-password`,
 		{
 			method: "POST",
+			credentials: "include",
 			headers: {
-				Authorization: `Bearer ${token}`,
 				"Content-Type": "application/json",
 			},
 			body,
@@ -222,7 +225,7 @@ export type UpdateTeamAthleteBody = {
 };
 
 export async function updateTeamAthlete(
-	token: string,
+	_token: string,
 	athleteId: number,
 	body: UpdateTeamAthleteBody,
 ): Promise<{ ok: true }> {
@@ -230,8 +233,8 @@ export async function updateTeamAthlete(
 		`${baseUrl()}/api/team/roster/athletes/${athleteId}`,
 		{
 			method: "PATCH",
+			credentials: "include",
 			headers: {
-				Authorization: `Bearer ${token}`,
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify(body),
@@ -248,13 +251,13 @@ export async function updateTeamAthlete(
 
 /** Upload a local image via presigned URL; returns public URL for profilePicture. */
 export async function uploadTeamAthletePhoto(
-	token: string,
+	_token: string,
 	file: File,
 ): Promise<string> {
 	const presign = await fetch(`${baseUrl()}/api/media/presign`, {
 		method: "POST",
+		credentials: "include",
 		headers: {
-			Authorization: `Bearer ${token}`,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({
@@ -289,13 +292,13 @@ export async function uploadTeamAthletePhoto(
 }
 
 export async function updateTeamEmailSlug(
-	token: string,
+	_token: string,
 	emailSlug: string,
 ): Promise<void> {
 	const res = await fetch(`${baseUrl()}/api/team/roster/email-slug`, {
 		method: "PATCH",
+		credentials: "include",
 		headers: {
-			Authorization: `Bearer ${token}`,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({ emailSlug }),

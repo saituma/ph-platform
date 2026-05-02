@@ -1,3 +1,4 @@
+import { Alert } from "react-native";
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread, TypingStatus } from "@/types/messages";
 
@@ -53,6 +54,7 @@ export function useMessagesRealtime({
 }: UseMessagesRealtimeParams) {
   const { socket } = useSocket();
   const typingRef = useRef<{ active: boolean; timer?: ReturnType<typeof setTimeout> | null }>({ active: false, timer: null });
+  const typingTimeoutMapRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const prevOnlineKeyRef = useRef<string>("");
 
   // --- Stable refs so socket handlers always see latest values ---
@@ -266,6 +268,25 @@ export function useMessagesRealtime({
           : payload.fromUserId
           ? `user:${payload.fromUserId}`
           : "direct";
+
+      // Clear any existing auto-clear timeout for this key
+      const existingTimeout = typingTimeoutMapRef.current.get(key);
+      if (existingTimeout) clearTimeout(existingTimeout);
+
+      if (payload.isTyping) {
+        // Auto-clear typing state after 8 seconds in case server never sends typing:stop
+        const timeout = setTimeout(() => {
+          typingTimeoutMapRef.current.delete(key);
+          setTypingStatusRef.current((prev) => ({
+            ...prev,
+            [key]: { name: payload.name, isTyping: false },
+          }));
+        }, 8000);
+        typingTimeoutMapRef.current.set(key, timeout);
+      } else {
+        typingTimeoutMapRef.current.delete(key);
+      }
+
       setTypingStatusRef.current((prev) => ({
         ...prev,
         [key]: { name: payload.name, isTyping: payload.isTyping },
@@ -366,6 +387,25 @@ export function useMessagesRealtime({
       );
     };
 
+    // --- Error event handlers ---
+    const handleErrorBlocked = (payload: { event: string; clientId?: string; code: string; message: string }) => {
+      console.warn("[socket] error:blocked", payload);
+      Alert.alert("Message Not Sent", payload.message);
+    };
+
+    const handleErrorRateLimited = (payload: { event: string; message: string }) => {
+      console.warn("[socket] error:rate_limited", payload);
+      Alert.alert("Slow Down", "You're sending messages too quickly. Please wait a moment.");
+    };
+
+    const handleErrorServer = (payload: { event: string; message: string }) => {
+      console.warn("[socket] error:server", payload);
+    };
+
+    const handleErrorValidation = (payload: { event: string; issues: unknown }) => {
+      console.warn("[socket] error:validation", payload);
+    };
+
     // Invalidate the TQ thread cache whenever the socket (re)connects so we
     // immediately get fresh data after a disconnect/reconnect cycle.
     const handleConnect = () => { invalidateThreadsRef.current?.(); };
@@ -381,6 +421,10 @@ export function useMessagesRealtime({
     socket.on("message:read", handleMessageRead);
     socket.on("group:read", handleGroupRead);
     socket.on("presence:update", handlePresenceUpdate);
+    socket.on("error:blocked", handleErrorBlocked);
+    socket.on("error:rate_limited", handleErrorRateLimited);
+    socket.on("error:server", handleErrorServer);
+    socket.on("error:validation", handleErrorValidation);
 
     return () => {
       socket.off("connect", handleConnect);
@@ -394,6 +438,15 @@ export function useMessagesRealtime({
       socket.off("message:read", handleMessageRead);
       socket.off("group:read", handleGroupRead);
       socket.off("presence:update", handlePresenceUpdate);
+      socket.off("error:blocked", handleErrorBlocked);
+      socket.off("error:rate_limited", handleErrorRateLimited);
+      socket.off("error:server", handleErrorServer);
+      socket.off("error:validation", handleErrorValidation);
+      // Clear all typing auto-clear timeouts
+      for (const timeout of typingTimeoutMapRef.current.values()) {
+        clearTimeout(timeout);
+      }
+      typingTimeoutMapRef.current.clear();
     };
   }, [socket]);
 

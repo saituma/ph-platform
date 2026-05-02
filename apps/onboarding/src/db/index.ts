@@ -1,5 +1,16 @@
-import { drizzle } from 'drizzle-orm/node-postgres'
+import { neon, neonConfig } from '@neondatabase/serverless'
+import { drizzle } from 'drizzle-orm/neon-http'
 
 import * as schema from './schema.ts'
 
-export const db = drizzle(process.env.DATABASE_URL!, { schema })
+// Enable connection pooling for serverless environments.
+// fetchConnectionCache reuses HTTP connections across requests,
+// eliminating cold-start connection overhead. No PgBouncer needed
+// for serverless deployments on Neon.
+neonConfig.fetchConnectionCache = true
+
+const DATABASE_URL = process.env.DATABASE_URL
+if (!DATABASE_URL) throw new Error('DATABASE_URL is required')
+
+export const sql = neon(DATABASE_URL)
+export const db = drizzle(sql, { schema })

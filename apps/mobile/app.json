@@ -9,6 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
+      "associatedDomains": [
+        "applinks:ph-platform-onboarding.vercel.app",
+        "applinks:ph-performance-2cae29f7922d.herokuapp.com"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIStatusBarHidden": true,
@@ -57,6 +61,32 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.clientreachai.phperformance",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "ph-platform-onboarding.vercel.app",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "ph-performance-2cae29f7922d.herokuapp.com",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -139,6 +169,7 @@
           "cameraPermission": "PH Performance uses your camera to record training videos and take progress photos."
         }
       ],
+      "./plugins/withSSLPinning",
       "expo-secure-store",
       "expo-video",
       "expo-web-browser",

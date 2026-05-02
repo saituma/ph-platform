@@ -7,6 +7,30 @@ import type {
 
 type ApiPayload = Record<string, unknown>;
 
+type EnquiryRecord = {
+  id: number;
+  athleteType?: string | null;
+  athleteName: string;
+  age?: number | null;
+  parentName?: string | null;
+  phone: string;
+  email: string;
+  interestedIn: string;
+  locationPreference?: string[] | null;
+  groupNeeded?: boolean | null;
+  teamName?: string | null;
+  ageGroup?: string | null;
+  squadSize?: number | null;
+  availabilityDays?: string[] | null;
+  availabilityTime?: string | null;
+  goal?: string | null;
+  photoUrl?: string | null;
+  status: string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type AdminProfileUser = {
   id?: number;
   name?: string;
@@ -179,7 +203,10 @@ type UserListRow = {
   cognitoSub?: string | null;
   athleteId?: number | null;
   athleteName?: string | null;
+  athleteAge?: number | null;
+  athleteTeam?: string | null;
   athleteType?: "youth" | "adult" | null;
+  profilePicture?: string | null;
   programTier?: string | null;
   guardianProgramTier?: string | null;
 };
@@ -388,6 +415,7 @@ export const apiSlice = createApi({
     "AgeExperience",
     "UserLocations",
     "TrackingGoals",
+    "Enquiries",
   ],
   endpoints: (builder) => ({
     getAdminProfile: builder.query<AdminProfileResponse, void>({
@@ -813,6 +841,57 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Bookings"],
     }),
+
+    // ── Enquiries ──────────────────────────────────────────
+    getEnquiries: builder.query<
+      { items: EnquiryRecord[]; total: number; page: number; limit: number },
+      { status?: string; service?: string; search?: string; page?: number; limit?: number; sort?: string } | void
+    >({
+      query: (params) => {
+        const q = new URLSearchParams();
+        if (params?.status) q.set("status", params.status);
+        if (params?.service) q.set("service", params.service);
+        if (params?.search) q.set("search", params.search);
+        if (params?.page) q.set("page", String(params.page));
+        if (params?.limit) q.set("limit", String(params.limit));
+        if (params?.sort) q.set("sort", params.sort);
+        const qs = q.toString();
+        return qs ? `/admin/enquiries?${qs}` : "/admin/enquiries";
+      },
+      providesTags: ["Enquiries"],
+    }),
+    getEnquiryStats: builder.query<
+      { total: number; byStatus: Record<string, number>; byService: Record<string, number> },
+      { from?: string; to?: string } | void
+    >({
+      query: (params) => {
+        const q = new URLSearchParams();
+        if (params?.from) q.set("from", params.from);
+        if (params?.to) q.set("to", params.to);
+        const qs = q.toString();
+        return qs ? `/admin/enquiries/stats?${qs}` : "/admin/enquiries/stats";
+      },
+      providesTags: ["Enquiries"],
+    }),
+    updateEnquiry: builder.mutation<
+      { ok: boolean; enquiry: EnquiryRecord },
+      { id: number; status: string; notes?: string }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/admin/enquiries/${id}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Enquiries"],
+    }),
+    deleteEnquiry: builder.mutation<{ ok: boolean }, number>({
+      query: (id) => ({
+        url: `/admin/enquiries/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Enquiries"],
+    }),
+
     getThreads: builder.query<
       { threads: any[] },
       { q?: string; limit?: number } | void
@@ -1831,4 +1910,8 @@ export const {
   useSendChatGroupMessageMutation,
   useToggleChatGroupMessageReactionMutation,
   useCancelBookingMutation,
+  useGetEnquiriesQuery,
+  useGetEnquiryStatsQuery,
+  useUpdateEnquiryMutation,
+  useDeleteEnquiryMutation,
 } = apiSlice;

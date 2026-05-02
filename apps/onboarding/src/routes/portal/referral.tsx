@@ -4,7 +4,6 @@ import {
 	Check,
 	Copy,
 	Gift,
-	Loader2,
 	Share2,
 	UserCheck,
 	Users,
@@ -18,6 +17,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { motion, PageTransition, Skeleton } from "@/lib/motion";
 import { usePortal } from "@/portal/PortalContext";
 import { settingsService } from "@/services/settingsService";
 
@@ -78,8 +78,13 @@ function ReferralPage() {
 	};
 
 	return (
-		<div className="p-6 max-w-3xl mx-auto space-y-6">
-			<div className="space-y-2">
+		<PageTransition className="p-6 max-w-3xl mx-auto space-y-6">
+			<motion.div
+				initial={{ opacity: 0, y: -10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.4 }}
+				className="space-y-2"
+			>
 				<div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-primary">
 					<Gift className="h-3.5 w-3.5" />
 					Referral Program
@@ -90,11 +95,22 @@ function ReferralPage() {
 				<p className="text-muted-foreground max-w-lg">
 					Share your unique code with friends and fellow athletes. Every athlete who joins using your code is tracked here.
 				</p>
-			</div>
+			</motion.div>
 
 			{loading ? (
-				<div className="flex items-center justify-center py-16">
-					<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+				<div className="space-y-4">
+					<div className="rounded-2xl border-2 p-6 space-y-4">
+						<Skeleton className="h-5 w-40" />
+						<Skeleton className="h-12 w-full rounded-xl" />
+						<div className="flex gap-2">
+							<Skeleton className="h-11 flex-1 rounded-xl" />
+							<Skeleton className="h-11 flex-1 rounded-xl" />
+						</div>
+					</div>
+					<div className="grid grid-cols-2 gap-4">
+						<Skeleton className="h-24 rounded-2xl" />
+						<Skeleton className="h-24 rounded-2xl" />
+					</div>
 				</div>
 			) : (
 				<>
@@ -254,6 +270,6 @@ function ReferralPage() {
 					</Card>
 				</>
 			)}
-		</div>
+		</PageTransition>
 	);
 }

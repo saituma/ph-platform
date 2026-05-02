@@ -197,7 +197,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   // Re-emit acting:join when the acting user changes after initial connect.
   // Intentionally omit connection state from React — triggering setIsConnected
   // re-renders the whole tree on every connect event, causing update-depth loops
-  // in react-native-screen-transitions.
+  // in the root navigation tree.
   useEffect(() => {
     if (!socketRef.current?.connected) return;
     const id = isStaff ? null : actingUserId;

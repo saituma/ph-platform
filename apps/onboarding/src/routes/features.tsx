@@ -5,7 +5,6 @@ import {
     VideoCamera,
     Users,
     AppWindow,
-    Lightning,
     ShieldCheck,
     Globe
 } from "@phosphor-icons/react";
@@ -70,7 +69,7 @@ const features = [
 
 function Features() {
 	return (
-		<main className="pt-[calc(var(--topbar-height)+2rem)] pb-20">
+		<main className="pt-8 pb-20">
 			<section className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-7">
 				<motion.div
 					initial={{ opacity: 0, y: 12 }}
@@ -78,12 +77,11 @@ function Features() {
 					transition={{ duration: 0.5, ease: "easeOut" }}
 					className="mb-16"
 				>
-					<div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-200/80 dark:bg-neutral-800/80 mb-4">
-						<Lightning weight="fill" className="w-3 h-3 text-neutral-600 dark:text-neutral-100" />
-						<span className="text-xs text-neutral-600 dark:text-neutral-100 font-light">Platform Capabilities</span>
-					</div>
-					<h1 className="text-3xl md:text-4xl xl:text-5xl tracking-tight font-medium text-foreground leading-tight text-balance">
-						Professional tools for elite teams
+					<p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-primary mb-4">
+						Platform Capabilities
+					</p>
+					<h1 className="landing-section-heading text-foreground">
+						Professional tools for <span className="text-primary">elite teams</span>
 					</h1>
 					<p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-lg">
 						PH Performance brings together professional tracking, real-time analytics, and coaching tools into one refined ecosystem.
@@ -104,9 +102,9 @@ function Features() {
 							<div className="text-foreground/50 mb-5">
 								<feature.icon size={28} weight="light" />
 							</div>
-							<h3 className="text-base font-medium text-foreground mb-2 tracking-tight">
+							<h2 className="text-base font-medium text-foreground mb-2 tracking-tight">
 								{feature.title}
-							</h3>
+							</h2>
 							<p className="text-sm text-muted-foreground leading-relaxed">
 								{feature.desc}
 							</p>

@@ -17,7 +17,9 @@ export function useSessionUploads(token: string | null, athleteUserId: number | 
       const items = data.items ?? [];
       setHasUploadedBySectionId(prev => ({ ...prev, [sectionContentId]: items.length > 0 }));
       setUploadsBySectionId(prev => ({ ...prev, [sectionContentId]: items }));
-    } catch {}
+    } catch (err) {
+      console.warn("[useSessionUploads] loadUploadsForSection failed", err);
+    }
   }, [token, athleteUserId]);
 
   return { uploadsBySectionId, hasUploadedBySectionId, loadUploadsForSection };

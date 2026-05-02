@@ -19,7 +19,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showPortalNutritionNav } from "@/lib/portal-roles";
+import { clearAuthToken } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
+import { PageTransition } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/more")({
   component: MorePage,
@@ -28,8 +30,8 @@ export const Route = createFileRoute("/portal/more")({
 function MorePage() {
 	const { user, loading } = usePortal();
 
-	const handleLogout = () => {
-		localStorage.removeItem("auth_token");
+	const handleLogout = async () => {
+		await clearAuthToken();
 		window.location.href = "/login";
 	};
 
@@ -53,7 +55,7 @@ function MorePage() {
 	}
 
 	return (
-		<div className="container mx-auto p-4 pb-24 space-y-8 max-w-2xl">
+		<PageTransition className="container mx-auto p-4 pb-24 space-y-8 max-w-2xl">
 			<div className="flex items-center gap-3 px-2">
 				<div className="h-8 w-2 rounded-full bg-primary" />
 				<h1 className="text-4xl font-black italic uppercase tracking-tight">
@@ -150,7 +152,7 @@ function MorePage() {
            PH Performance v1.2.0 (Stable)
         </p>
       </div>
-    </div>
+    </PageTransition>
   );
 }
 

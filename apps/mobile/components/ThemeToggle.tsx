@@ -59,6 +59,9 @@ export function ThemeToggle({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      accessibilityState={{ disabled: isSwitching }}
       onPress={toggleColorScheme}
       disabled={isSwitching}
       style={({ pressed }) => [

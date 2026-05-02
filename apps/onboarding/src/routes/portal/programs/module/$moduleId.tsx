@@ -7,7 +7,7 @@ import {
 	Clock,
 	Lock,
 } from "lucide-react";
-import { getClientAuthToken } from "@/lib/client-storage";
+import { getTokenStatus } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
 import { fetchTeamWorkspace } from "@/services/programsService";
 import { programKeys } from "../index";
@@ -35,11 +35,11 @@ type TrainingModule = {
 
 export const Route = createFileRoute("/portal/programs/module/$moduleId")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = getClientAuthToken();
-		if (token) {
+		const status = await getTokenStatus();
+		if (status.authenticated) {
 			await queryClient.ensureQueryData({
-				queryKey: programKeys.workspace(token, null),
-				queryFn: () => fetchTeamWorkspace(token, null),
+				queryKey: programKeys.workspace("cookie", null),
+				queryFn: () => fetchTeamWorkspace("cookie", null),
 			});
 		}
 	},

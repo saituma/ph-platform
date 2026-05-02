@@ -103,6 +103,7 @@ const createBody = z.object({
     z.union([z.string().url(), z.null()]).optional(),
   ),
   customPassword: optionalCoachSetPassword,
+  isSponsored: z.coerce.boolean().optional().default(false),
 });
 
 export async function postTeamRosterAthlete(req: Request, res: Response) {

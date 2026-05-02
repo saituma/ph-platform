@@ -32,6 +32,7 @@ import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
 import { TeamProgramView } from "@/components/programs/TeamProgramView";
 import { hasAssignedTeam } from "@/lib/teamMembership";
 import { Shadows } from "@/constants/theme";
+import { SkeletonBox } from "@/components/ui/Skeleton";
 
 // ── Continue Watching Card ───────────────────────────────────────────
 
@@ -264,7 +265,6 @@ const ProgramsScreen = memo(function ProgramsScreen() {
             <FlashList
               data={watchHistory}
               renderItem={renderWatchItem}
-              estimatedItemSize={160}
               horizontal
               keyExtractor={watchKeyExtractor}
               showsHorizontalScrollIndicator={false}
@@ -300,7 +300,6 @@ const ProgramsScreen = memo(function ProgramsScreen() {
           <FlashList
             data={watchHistory}
             renderItem={renderWatchItem}
-            estimatedItemSize={160}
             horizontal
             keyExtractor={watchKeyExtractor}
             showsHorizontalScrollIndicator={false}
@@ -327,16 +326,11 @@ const ProgramsScreen = memo(function ProgramsScreen() {
         {programsLoading && programs.length === 0 ? (
           <View style={{ gap: 12 }}>
             {Array.from({ length: 3 }).map((_, i) => (
-              <View
+              <SkeletonBox
                 key={`skeleton-${i}`}
-                style={{
-                  backgroundColor: colors.card,
-                  borderColor: borderSoft,
-                  borderWidth: 1,
-                  borderRadius: 24,
-                  padding: 20,
-                  height: 90,
-                }}
+                width="100%"
+                height={90}
+                borderRadius={24}
               />
             ))}
           </View>

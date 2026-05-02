@@ -10,6 +10,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
+import { SkeletonNotificationsScreen } from "@/components/ui/Skeleton";
 import {
   formatRelativeTime,
   formatSectionHeading,
@@ -189,7 +190,7 @@ export default function NotificationsScreen() {
           </View>
 
           {loadingNotifications ? (
-            <Text className="text-base font-outfit text-secondary">Loading notifications...</Text>
+            <SkeletonNotificationsScreen />
           ) : notifications.length === 0 ? (
             <View className="bg-card rounded-3xl border border-border p-6">
               <Text className="text-base font-outfit text-secondary">

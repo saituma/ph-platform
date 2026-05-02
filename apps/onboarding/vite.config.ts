@@ -52,7 +52,21 @@ export default defineConfig(({ mode }) => {
 			neon,
 			tailwindcss(),
 			tanstackStart(),
-			nitro({ preset: (process.env.NITRO_PRESET ?? "vercel") as "vercel" | "node-server", serverDir: "./server" }),
+			nitro({
+				preset: (process.env.NITRO_PRESET ?? "vercel") as "vercel" | "node-server",
+				serverDir: "./server",
+				routeRules: {
+					"/api/auth/**": { cache: false, headers: { "cache-control": "no-store" } },
+					"/api/app/**":  { cache: false, headers: { "cache-control": "no-store" } },
+					"/assets/**":   { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+					"/about":       { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
+					"/features":    { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
+					"/services":    { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
+					"/gallery":     { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
+					"/terms-privacy": { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
+					"/**":          { headers: { "cache-control": "public, max-age=0, s-maxage=300, stale-while-revalidate=3600" } },
+				},
+			}),
 			viteReact(),
 		],
 	};

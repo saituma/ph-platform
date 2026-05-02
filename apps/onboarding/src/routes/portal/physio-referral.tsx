@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { settingsService } from "@/services/settingsService";
+import { PageTransition } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/physio-referral")({
 	component: PhysioReferralPage,
@@ -23,7 +24,7 @@ function PhysioReferralPage() {
 	}, []);
 
 	return (
-		<div className="p-6 max-w-2xl mx-auto space-y-6">
+		<PageTransition className="p-6 max-w-2xl mx-auto space-y-6">
 			<div className="space-y-2">
 				<div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-primary">
 					<Stethoscope className="h-3.5 w-3.5" />
@@ -56,7 +57,7 @@ function PhysioReferralPage() {
 			) : (
 				<ReferralCard referral={referral} />
 			)}
-		</div>
+		</PageTransition>
 	);
 }
 

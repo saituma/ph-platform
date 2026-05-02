@@ -41,6 +41,8 @@ export function FullScreenMediaModal({
         <SafeAreaView style={{ flex: 1 }}>
           <View className="px-6 py-4 flex-row justify-end">
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close media viewer"
               onPress={onClose}
               className="h-10 w-10 rounded-full bg-white/10 items-center justify-center"
             >
@@ -105,6 +107,8 @@ function InternalVideo({
         nativeControls
       />
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={isMuted ? "Unmute video" : "Mute video"}
         onPress={() => setIsMuted((prev) => !prev)}
         style={{
           position: "absolute",

@@ -69,6 +69,7 @@ export async function createTeamCheckoutSession(input: {
   mode: "subscription" | "payment";
   customerEmail?: string;
   metadata?: Record<string, string>;
+  sponsoredLineItem?: { priceLookupKey: string; tier: (typeof ProgramType.enumValues)[number]; quantity: number };
 }) {
   const stripeClient = getStripeClient();
 
@@ -111,16 +112,32 @@ export async function createTeamCheckoutSession(input: {
     throw error;
   }
 
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    { price: priceId, quantity: input.quantity },
+  ];
+
+  if (input.sponsoredLineItem && input.sponsoredLineItem.quantity > 0) {
+    let sponsoredPriceId: string | undefined;
+    const sponsoredKey = input.sponsoredLineItem.priceLookupKey;
+    try {
+      const prices = await stripeClient.prices.list({ lookup_keys: [sponsoredKey], active: true });
+      if (prices.data[0]) sponsoredPriceId = prices.data[0].id;
+    } catch {
+      // lookup failed, try fallback
+    }
+    if (!sponsoredPriceId && input.interval === "monthly") {
+      sponsoredPriceId = resolveTierFallbackPrice(input.sponsoredLineItem.tier, "monthly") || undefined;
+    }
+    if (sponsoredPriceId) {
+      lineItems.push({ price: sponsoredPriceId, quantity: input.sponsoredLineItem.quantity });
+    }
+  }
+
   const session = await stripeClient.checkout.sessions.create({
     mode: input.mode,
     customer_email: input.customerEmail,
     payment_method_types: ["card"],
-    line_items: [
-      {
-        price: priceId,
-        quantity: input.quantity,
-      },
-    ],
+    line_items: lineItems,
     metadata: {
       teamId: input.teamId,
       adminId: input.adminId,

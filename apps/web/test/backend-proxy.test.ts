@@ -49,4 +49,24 @@ describe("backend proxy route", () => {
     expect(res.status).toBe(200);
     expect(body).toEqual({ ok: true });
   });
+
+  it("normalizes trailing slash and /api suffix in API base URL", async () => {
+    process.env.API_BASE_URL = " https://api.test/api/ ";
+
+    (global.fetch as jest.Mock).mockResolvedValue({
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      text: async () => JSON.stringify({ ok: true }),
+    });
+
+    const { GET } = await import("@/app/api/backend/[...path]/route");
+    const req = new NextRequest("http://localhost:3000/api/backend/admin/videos");
+
+    await GET(req);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://api.test/api/admin/videos",
+      expect.any(Object)
+    );
+  });
 });

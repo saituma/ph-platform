@@ -17,6 +17,7 @@ import { Separator } from "#/components/ui/separator";
 import { Skeleton } from "#/components/ui/skeleton";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
+import { getTokenStatus } from "#/lib/client-storage";
 import { cn } from "#/lib/utils";
 import { featureKeyToLabel } from "#/lib/billing-features";
 
@@ -318,10 +319,11 @@ function OnboardingStep5() {
 
 	useEffect(() => {
 		if (!isTeam) return;
-		const token = localStorage.getItem("auth_token");
-		if (!token) return;
 
 		const hydrate = async () => {
+			const status = await getTokenStatus();
+			if (!status.authenticated) return;
+
 			const raw = localStorage.getItem("team_onboarding_basic");
 			if (raw) {
 				try {
@@ -344,7 +346,7 @@ function OnboardingStep5() {
 			try {
 				const baseUrl = config.api.baseUrl;
 				const res = await fetch(`${baseUrl}/api/auth/me`, {
-					headers: { Authorization: `Bearer ${token}` },
+					credentials: "include",
 				});
 				const data = await res.json().catch(() => ({}));
 				if (!res.ok) return;
@@ -380,8 +382,8 @@ function OnboardingStep5() {
 		setIsSubmitting(true);
 		try {
 			const baseUrl = config.api.baseUrl;
-			const token = localStorage.getItem("auth_token");
-			if (!token) {
+			const status = await getTokenStatus();
+			if (!status.authenticated) {
 				throw new Error("Your session expired. Sign in again to continue.");
 			}
 
@@ -389,7 +391,7 @@ function OnboardingStep5() {
 			if (isTeam && (!teamId || !Number.isFinite(teamId))) {
 				try {
 					const res = await fetch(`${baseUrl}/api/auth/me`, {
-						headers: { Authorization: `Bearer ${token}` },
+						credentials: "include",
 					});
 					const data = await res.json().catch(() => ({}));
 					if (res.ok) {
@@ -407,9 +409,9 @@ function OnboardingStep5() {
 
 			const response = await fetch(`${baseUrl}/api/billing/${isTeam ? "team/checkout" : "checkout"}`, {
 				method: "POST",
+				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({
 					...(isTeam ? { teamId } : null),

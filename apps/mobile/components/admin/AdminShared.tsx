@@ -16,6 +16,8 @@ export function Chip({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => [
         {
@@ -105,6 +107,8 @@ export function SmallAction({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({

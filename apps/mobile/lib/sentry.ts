@@ -22,6 +22,8 @@ export function initSentry() {
     environment: __DEV__ ? "development" : "production",
     release: `${Constants.expoConfig?.name ?? "mobile"}@${Constants.expoConfig?.version ?? "0.0.0"}+${Constants.expoConfig?.ios?.buildNumber ?? Constants.expoConfig?.android?.versionCode ?? "0"}`,
   });
+
+  Sentry.addBreadcrumb({ category: "lifecycle", message: "Sentry initialized", level: "info" });
 }
 
 export { Sentry };

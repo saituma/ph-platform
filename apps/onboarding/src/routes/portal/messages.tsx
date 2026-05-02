@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageTransition } from "@/lib/motion";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	ArrowLeft,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
-import { getClientAuthToken } from "@/lib/client-storage";
+import { getTokenStatus } from "@/lib/client-storage";
 import { getPublicApiBaseUrl } from "@/lib/public-api";
 import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
 import { cn } from "@/lib/utils";
@@ -33,11 +34,11 @@ import { messageKeys } from "@/lib/portal-messages-keys";
 
 export const Route = createFileRoute("/portal/messages")({
 	loader: async ({ context: { queryClient } }) => {
-		const token = getClientAuthToken();
-		if (token) {
+		const status = await getTokenStatus();
+		if (status.authenticated) {
 			await queryClient.ensureQueryData({
-				queryKey: messageKeys.inbox(token),
-				queryFn: () => fetchInbox(token),
+				queryKey: messageKeys.inbox("cookie"),
+				queryFn: () => fetchInbox("cookie"),
 			});
 		}
 	},
@@ -109,13 +110,19 @@ function MessagesPage() {
 	const isManager = isPortalTeamRosterManagerRole(user?.role);
 	const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
 	const [newMessage, setNewMessage] = useState("");
+	const [searchQuery, setSearchQuery] = useState("");
 	const [attachedFile, setAttachedFile] = useState<File | null>(null);
 	const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+	const [typingIndicator, setTypingIndicator] = useState<Record<string, { name: string; timeout: ReturnType<typeof setTimeout> } | null>>({});
+	const [sendError, setSendError] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const activeThreadIdRef = useRef<string | null>(null);
+	const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const socketRef = useRef<Socket | null>(null);
 	const queryClient = useQueryClient();
 	const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
+	const MESSAGE_MAX_LENGTH = 2000;
 
 	useEffect(() => {
 		activeThreadIdRef.current = activeThreadId;
@@ -131,13 +138,22 @@ function MessagesPage() {
 		staleTime: 1000 * 60, // 1 minute
 	});
 
-	const threads = inboxData?.threads ?? [];
+	const allThreads = inboxData?.threads ?? [];
+	const threads = useMemo(() => {
+		if (!searchQuery.trim()) return allThreads;
+		const q = searchQuery.toLowerCase();
+		return allThreads.filter(
+			(t) =>
+				t.name?.toLowerCase().includes(q) ||
+				t.preview?.toLowerCase().includes(q),
+		);
+	}, [allThreads, searchQuery]);
 
 	useEffect(() => {
-		if (threads.length > 0 && !activeThreadId) {
-			setActiveThreadId(threads[0].id);
+		if (allThreads.length > 0 && !activeThreadId) {
+			setActiveThreadId(allThreads[0].id);
 		}
-	}, [threads, activeThreadId]);
+	}, [allThreads, activeThreadId]);
 
 	const { data: messages = [], isLoading: messagesLoading } = useQuery({
 		queryKey: messageKeys.thread(token, activeThreadId),
@@ -336,9 +352,37 @@ function MessagesPage() {
 		}
 	}, [messages, activeThreadId, messagesLoading]);
 
+	const emitTyping = (isTyping: boolean) => {
+		const socket = socketRef.current;
+		if (!socket || !activeThreadId) return;
+		const event = isTyping ? "typing:start" : "typing:stop";
+		if (activeThreadId.startsWith("group:")) {
+			socket.emit(event, { groupId: Number(activeThreadId.replace("group:", "")) });
+		} else {
+			const [, rawPeerId] = activeThreadId.split(":");
+			const peerId = Number(rawPeerId);
+			if (Number.isFinite(peerId)) socket.emit(event, { toUserId: peerId });
+		}
+	};
+
+	const handleDraftChange = (value: string) => {
+		if (value.length > MESSAGE_MAX_LENGTH) return;
+		setNewMessage(value);
+		setSendError(null);
+		if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+		if (value.trim()) {
+			emitTyping(true);
+			typingTimerRef.current = setTimeout(() => emitTyping(false), 1500);
+		} else {
+			emitTyping(false);
+		}
+	};
+
 	const handleSendMessage = async (e: React.FormEvent) => {
 		e.preventDefault();
+		setSendError(null);
 		if ((!newMessage.trim() && !attachedFile) || sendMutation.isPending || isUploadingAttachment) return;
+		emitTyping(false);
 		try {
 			let mediaUrl: string | undefined;
 			let contentType: "text" | "image" | "video" | undefined;
@@ -354,6 +398,8 @@ function MessagesPage() {
 				contentType: contentType ?? "text",
 				mediaUrl,
 			});
+		} catch {
+			setSendError("Failed to send message. Please try again.");
 		} finally {
 			setIsUploadingAttachment(false);
 		}
@@ -536,8 +582,42 @@ function MessagesPage() {
 			}
 		});
 
+		socket.on("typing:update", (payload: { fromUserId?: number; name?: string; isTyping?: boolean; scope?: string; groupId?: number }) => {
+			const key = payload.scope === "group" && payload.groupId
+				? `group:${payload.groupId}`
+				: payload.fromUserId ? String(payload.fromUserId) : null;
+			if (!key) return;
+			setTypingIndicator((prev) => {
+				if (prev[key]?.timeout) clearTimeout(prev[key]!.timeout);
+				if (!payload.isTyping) {
+					const next = { ...prev };
+					delete next[key];
+					return next;
+				}
+				const timeout = setTimeout(() => {
+					setTypingIndicator((p) => {
+						const n = { ...p };
+						delete n[key];
+						return n;
+					});
+				}, 8000);
+				return { ...prev, [key]: { name: payload.name ?? "Someone", timeout } };
+			});
+		});
+
+		socket.on("error:blocked", (payload: { message?: string }) => {
+			setSendError(payload?.message ?? "Message blocked by your current plan");
+		});
+
+		socket.on("error:rate_limited", () => {
+			setSendError("You're sending messages too quickly. Please wait a moment.");
+		});
+
+		socketRef.current = socket;
+
 		return () => {
 			socket.disconnect();
+			socketRef.current = null;
 		};
 	}, [isManager, portalLoading, queryClient, token]);
 
@@ -555,7 +635,7 @@ function MessagesPage() {
 	}
 
 	return (
-		<div className="container mx-auto p-4 h-[calc(100vh-140px)] flex flex-col space-y-4">
+		<PageTransition className="container mx-auto p-4 h-[calc(100vh-140px)] flex flex-col space-y-4">
 			<div className="flex items-center justify-between px-2">
 				<div>
 					<h1 className="text-3xl font-black italic uppercase tracking-tight">
@@ -579,7 +659,9 @@ function MessagesPage() {
 						<div className="relative">
 							<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 							<input
-								placeholder="Search messages..."
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								placeholder="Search conversations..."
 								className="w-full pl-10 pr-4 py-2.5 bg-muted/20 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
 							/>
 						</div>
@@ -675,7 +757,14 @@ function MessagesPage() {
 											{activeThread.name}
 										</h2>
 										<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-											{activeThread.role}
+											{(() => {
+												const typingKey = activeThreadId?.startsWith("group:")
+													? activeThreadId
+													: activeThreadId?.split(":")[1];
+												const typer = typingKey ? typingIndicator[typingKey] : null;
+												if (typer) return <span className="text-primary animate-pulse">{typer.name} is typing...</span>;
+												return activeThread.role;
+											})()}
 										</p>
 									</div>
 								</div>
@@ -860,6 +949,14 @@ function MessagesPage() {
 										e.currentTarget.value = "";
 									}}
 								/>
+								{sendError && (
+									<div className="mb-2 px-4 py-2 bg-destructive/10 text-destructive text-xs font-bold rounded-xl flex items-center justify-between">
+										<span>{sendError}</span>
+										<button type="button" onClick={() => setSendError(null)} className="ml-2 hover:opacity-70">
+											<X className="w-3 h-3" />
+										</button>
+									</div>
+								)}
 								<div className="relative flex items-center gap-3">
 									<button
 										type="button"
@@ -871,7 +968,8 @@ function MessagesPage() {
 									</button>
 									<input
 										value={newMessage}
-										onChange={(e) => setNewMessage(e.target.value)}
+										onChange={(e) => handleDraftChange(e.target.value)}
+										maxLength={MESSAGE_MAX_LENGTH}
 										placeholder="Type your message..."
 										className="flex-1 h-14 pl-6 pr-16 bg-background border rounded-[1.25rem] text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-inner"
 									/>
@@ -891,6 +989,14 @@ function MessagesPage() {
 										)}
 									</button>
 								</div>
+								{newMessage.length > MESSAGE_MAX_LENGTH * 0.9 && (
+									<p className={cn(
+										"text-[10px] font-bold text-right mt-1 pr-2",
+										newMessage.length >= MESSAGE_MAX_LENGTH ? "text-destructive" : "text-muted-foreground",
+									)}>
+										{newMessage.length}/{MESSAGE_MAX_LENGTH}
+									</p>
+								)}
 							</form>
 						</>
 					) : (
@@ -911,6 +1017,6 @@ function MessagesPage() {
 					)}
 				</div>
 			</div>
-		</div>
+		</PageTransition>
 	);
 }

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, ChevronRight } from "lucide-react";
+import { PageTransition } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/terms")({
 	component: TermsPage,
@@ -27,7 +28,7 @@ function TermsPage() {
 	];
 
 	return (
-		<div className="p-6 max-w-4xl mx-auto space-y-8">
+		<PageTransition className="p-6 max-w-4xl mx-auto space-y-8">
 			<div className="flex flex-col gap-2">
 				<h1 className="text-3xl font-black uppercase italic tracking-tighter">Terms of Service</h1>
 				<p className="text-muted-foreground">Last updated: April 21, 2026</p>
@@ -63,6 +64,6 @@ function TermsPage() {
 					</div>
 				</CardContent>
 			</Card>
-		</div>
+		</PageTransition>
 	);
 }

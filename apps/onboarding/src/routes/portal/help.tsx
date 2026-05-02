@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, ChevronDown, ChevronUp, HelpCircle, MessageCircle, Zap, Shield, Headphones } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, PageTransition, StaggerList, StaggerItem, AnimatePresence } from "@/lib/motion";
 
 export const Route = createFileRoute("/portal/help")({
 	component: HelpPage,
@@ -44,11 +45,16 @@ function HelpPage() {
 	);
 
 	return (
-		<div className="p-6 max-w-4xl mx-auto space-y-8">
-			<div className="flex flex-col gap-2 text-center md:text-left">
+		<PageTransition className="p-6 max-w-4xl mx-auto space-y-8">
+			<motion.div
+				initial={{ opacity: 0, y: -10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.4 }}
+				className="flex flex-col gap-2 text-center md:text-left"
+			>
 				<h1 className="text-3xl font-black uppercase italic tracking-tighter">Help Center</h1>
 				<p className="text-muted-foreground">Search answers and find support to optimize your experience.</p>
-			</div>
+			</motion.div>
 
 			<div className="relative group max-w-2xl mx-auto md:mx-0">
 				<Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground transition-colors group-focus-within:text-primary" />
@@ -60,32 +66,30 @@ function HelpPage() {
 				/>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-				<Card className="border-2 hover:border-primary/40 transition-colors cursor-pointer group">
-					<CardHeader className="items-center text-center space-y-2">
-						<div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-							<Zap className="h-6 w-6" />
-						</div>
-						<CardTitle className="text-sm font-bold uppercase tracking-tight">Quick Start</CardTitle>
-					</CardHeader>
-				</Card>
-				<Card className="border-2 hover:border-primary/40 transition-colors cursor-pointer group">
-					<CardHeader className="items-center text-center space-y-2">
-						<div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-							<Shield className="h-6 w-6" />
-						</div>
-						<CardTitle className="text-sm font-bold uppercase tracking-tight">Account Safety</CardTitle>
-					</CardHeader>
-				</Card>
-				<Card className="border-2 hover:border-primary/40 transition-colors cursor-pointer group">
-					<CardHeader className="items-center text-center space-y-2">
-						<div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-							<Headphones className="h-6 w-6" />
-						</div>
-						<CardTitle className="text-sm font-bold uppercase tracking-tight">Contact Support</CardTitle>
-					</CardHeader>
-				</Card>
-			</div>
+			<StaggerList className="grid grid-cols-1 md:grid-cols-3 gap-4">
+				{[
+					{ icon: Zap, label: "Quick Start" },
+					{ icon: Shield, label: "Account Safety" },
+					{ icon: Headphones, label: "Contact Support" },
+				].map((card) => (
+					<StaggerItem key={card.label}>
+						<motion.div whileHover={{ y: -4 }} transition={{ duration: 0.2 }}>
+							<Card className="border-2 hover:border-primary/40 transition-colors cursor-pointer group">
+								<CardHeader className="items-center text-center space-y-2">
+									<motion.div
+										whileHover={{ rotate: 5, scale: 1.1 }}
+										transition={{ type: "spring", stiffness: 300 }}
+										className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all"
+									>
+										<card.icon className="h-6 w-6" />
+									</motion.div>
+									<CardTitle className="text-sm font-bold uppercase tracking-tight">{card.label}</CardTitle>
+								</CardHeader>
+							</Card>
+						</motion.div>
+					</StaggerItem>
+				))}
+			</StaggerList>
 
 			<div className="space-y-4">
 				<h2 className="text-xl font-bold uppercase italic tracking-tight px-1 flex items-center gap-2">
@@ -107,11 +111,21 @@ function HelpPage() {
 									<p className="font-bold text-sm md:text-base pr-4">{faq.question}</p>
 									{expandedFaq === faq.id ? <ChevronUp className="h-5 w-5 shrink-0" /> : <ChevronDown className="h-5 w-5 shrink-0" />}
 								</CardHeader>
-								{expandedFaq === faq.id && (
-									<CardContent className="p-4 pt-0 text-sm md:text-base text-muted-foreground leading-relaxed">
-										{faq.answer}
-									</CardContent>
-								)}
+								<AnimatePresence>
+									{expandedFaq === faq.id && (
+										<motion.div
+											initial={{ height: 0, opacity: 0 }}
+											animate={{ height: "auto", opacity: 1 }}
+											exit={{ height: 0, opacity: 0 }}
+											transition={{ duration: 0.25, ease: "easeOut" }}
+											className="overflow-hidden"
+										>
+											<CardContent className="p-4 pt-0 text-sm md:text-base text-muted-foreground leading-relaxed">
+												{faq.answer}
+											</CardContent>
+										</motion.div>
+									)}
+								</AnimatePresence>
 							</Card>
 						))
 					) : (
@@ -137,6 +151,6 @@ function HelpPage() {
 					</Button>
 				</div>
 			</div>
-		</div>
+		</PageTransition>
 	);
 }

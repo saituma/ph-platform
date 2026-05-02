@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/refresh"];
 const csrfCookieName = "csrfToken";
 const rawBase = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-const apiBase = rawBase.replace(/\/api\/?$/, "");
+const apiBase = rawBase.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
 const generateCsrfToken = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();

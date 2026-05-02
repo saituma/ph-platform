@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from "react-native";
+import { SkeletonTrackingSocialScreen } from "@/components/ui/Skeleton";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -1062,9 +1063,7 @@ function ManagerDashboard({
         </View>
 
         {loading ? (
-          <View style={{ paddingVertical: 80, alignItems: "center" }}>
-            <ActivityIndicator color={colors.accent} size="large" />
-          </View>
+          <SkeletonTrackingSocialScreen />
         ) : fetchError ? (
           <View style={{ paddingVertical: 60, alignItems: "center", gap: 12, paddingHorizontal: spacing.xl }}>
             <Ionicons name="cloud-offline-outline" size={36} color={labelColor} />

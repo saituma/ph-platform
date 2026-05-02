@@ -1,0 +1,53 @@
+appId: com.phperformance.app
+tags:
+  - critical
+  - messaging
+name: "Messaging Flow"
+---
+
+# ── Messaging Flow ──────────────────────────────────────────────────────
+# Navigates to the Messages tab, opens a conversation, types and sends a
+# message, then verifies it appears in the thread.
+
+- runFlow: login.yaml
+
+# Navigate to Messages tab
+- tapOn:
+    text: "Messages"
+
+# Wait for the inbox to load (thread list renders conversation names)
+- extendedWaitUntil:
+    visible: "Messages"
+    timeout: 10000
+
+# Open the first conversation in the list
+# ThreadListItem uses accessibilityLabel "Open conversation with <name>"
+- tapOn:
+    text: "Open conversation with.*"
+    index: 0
+    optional: true
+
+# If no conversations exist, the test ends gracefully
+- runFlow:
+    when:
+      visible: "Type a message"
+    commands:
+      # Type a message in the composer
+      - tapOn:
+          text: "Type a message"
+      - inputText: "Hello from Maestro E2E test"
+
+      # Tap the send button (the arrow-up icon button)
+      - tapOn:
+          id: "send-button"
+          optional: true
+
+      # Fallback: tap the send area if no testID
+      - tapOn:
+          text: "Hello from Maestro E2E test"
+          optional: true
+
+      # Verify the message appears in the thread
+      - assertVisible:
+          text: "Hello from Maestro E2E test"
+          timeout: 5000

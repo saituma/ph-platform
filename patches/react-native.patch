@@ -1,0 +1,22 @@
+diff --git a/Libraries/PushNotificationIOS/PushNotificationIOS.js b/Libraries/PushNotificationIOS/PushNotificationIOS.js
+index 26e1dacfb47c28bf4c0c6ee795360b507e848a58..4f25a51d808561ad87db4f4ba9e34de67013d555 100644
+--- a/Libraries/PushNotificationIOS/PushNotificationIOS.js
++++ b/Libraries/PushNotificationIOS/PushNotificationIOS.js
+@@ -63,12 +63,11 @@ type NativePushNotificationIOSEventDefinitions = {
+   localNotificationReceived: [{...}],
+ };
+ 
+-const PushNotificationEmitter =
+-  new NativeEventEmitter<NativePushNotificationIOSEventDefinitions>(
+-    // T88715063: NativeEventEmitter only used this parameter on iOS. Now it uses it on all platforms, so this code was modified automatically to preserve its behavior
+-    // If you want to use the native module on other platforms, please remove this condition and test its behavior
+-    Platform.OS !== 'ios' ? null : NativePushNotificationManagerIOS,
+-  );
++const PushNotificationEmitter = (Platform.OS === 'ios' && NativePushNotificationManagerIOS != null)
++  ? new NativeEventEmitter<NativePushNotificationIOSEventDefinitions>(
++      NativePushNotificationManagerIOS,
++    )
++  : null;
+ 
+ const _notifHandlers = new Map<string, void | EventSubscription>();
+ 

@@ -93,6 +93,8 @@ export class NavigationRecoveryBoundary extends Component<Props, State> {
               "Returning from camera/upload. Please wait a moment."}
           </Text>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
             onPress={() => {
               this.retryCount = 0;
               this.retryScheduled = false;

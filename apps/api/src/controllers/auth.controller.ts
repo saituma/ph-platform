@@ -28,6 +28,7 @@ import {
 } from "../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { isTrainingStaff } from "../lib/user-roles";
+import { cache, cacheKeys } from "../lib/cache";
 import { isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
 import { featuresForTier, getFeaturesForAthlete } from "../services/billing/feature-access.service";
 
@@ -369,54 +370,52 @@ export async function updatePassword(req: Request, res: Response) {
 
 export async function getMe(req: Request, res: Response) {
   const user = req.user!;
-  const [athleteData, messagingAccessTiers] = await Promise.all([
-    getOnboardingByUser(user.id),
-    getMessagingAccessTiers(),
-  ]);
 
-  const athlete = athleteData as any;
-  const isCoachRole = isTrainingStaff(user.role);
+  const payload = await cache.getOrSet(cacheKeys.userProfile(user.id), 60, async () => {
+    const [athleteData, messagingAccessTiers] = await Promise.all([
+      getOnboardingByUser(user.id),
+      getMessagingAccessTiers(),
+    ]);
 
-  const coachManagedTeam = isCoachRole
-    ? await withTeamPlanTier(
-        (await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.adminId, user.id)).limit(1))[0] ?? null,
-      )
-    : null;
+    const athlete = athleteData as any;
+    const isCoachRole = isTrainingStaff(user.role);
 
-  // Coach/admin: managed team. Athletes/guardians: roster team (same shape) when `athletes.teamId` is set.
-  const teamForUser = isCoachRole
-    ? coachManagedTeam
-    : await withTeamPlanTier(await resolveAthleteTeamForMe(athlete));
-  const teamTierFallback = teamForUser?.planTier ?? null;
-  const guardianTier = user.role === "guardian" ? (athlete?.guardianProgramTier ?? null) : null;
-  const programTier = guardianTier ?? athlete?.currentProgramTier ?? teamTierFallback;
-  const tierSource =
-    guardianTier != null
-      ? "guardian"
-      : athlete?.currentProgramTier != null
-        ? "athlete"
-        : teamTierFallback != null
-          ? "team"
-          : "none";
-  const planFeatures = athlete?.id
-    ? await getFeaturesForAthlete(Number(athlete.id))
-    : featuresForTier(programTier ?? null);
-  const capabilities = buildAppCapabilities({
-    role: user.role,
-    programTier,
-    messagingAccessTiers,
-    athleteType: athlete?.athleteType ?? null,
-    hasTeam: hasAssignedTeamContext(athlete),
-    planFeatures,
-  });
+    const coachManagedTeam = isCoachRole
+      ? await withTeamPlanTier(
+          (await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.adminId, user.id)).limit(1))[0] ?? null,
+        )
+      : null;
 
-  return res.status(200).json({
-    user: {
+    const teamForUser = isCoachRole
+      ? coachManagedTeam
+      : await withTeamPlanTier(await resolveAthleteTeamForMe(athlete));
+    const teamTierFallback = teamForUser?.planTier ?? null;
+    const guardianTier = user.role === "guardian" ? (athlete?.guardianProgramTier ?? null) : null;
+    const programTier = guardianTier ?? athlete?.currentProgramTier ?? teamTierFallback;
+    const tierSource =
+      guardianTier != null
+        ? "guardian"
+        : athlete?.currentProgramTier != null
+          ? "athlete"
+          : teamTierFallback != null
+            ? "team"
+            : "none";
+    const planFeatures = athlete?.id
+      ? await getFeaturesForAthlete(Number(athlete.id))
+      : featuresForTier(programTier ?? null);
+    const capabilities = buildAppCapabilities({
+      role: user.role,
+      programTier,
+      messagingAccessTiers,
+      athleteType: athlete?.athleteType ?? null,
+      hasTeam: hasAssignedTeamContext(athlete),
+      planFeatures,
+    });
+
+    return {
       ...user,
-      ...athlete, // Spread athlete data to include everything (trainingStats, planExpiresAt, etc.)
-      // Athlete row `id` is the athlete PK; clients expect `user.id` = auth account id (`users.id`).
+      ...athlete,
       id: user.id,
-      // Preserve raw athlete team value if roster/team lookup returns null.
       team: teamForUser ?? athlete?.team ?? null,
       programTier,
       debugProgramAccess: {
@@ -447,16 +446,15 @@ export async function getMe(req: Request, res: Response) {
       trainingStats: athlete?.trainingStats ?? null,
       allAthletes: athlete?.allAthletes ?? null,
       capabilities,
-      // Plan-level feature keys ("video_upload", "physio_referrals", etc.) for client-side gating.
-      // Computed from the user's current plan; falls back to tier defaults when a plan has no features set.
       planFeatures: Array.from(planFeatures),
       messagingAccessTiers,
-      // Never let merged athlete/guardian payloads override the authenticated account identity.
       role: user.role,
       email: user.email,
       name: user.name && user.name !== "User" ? user.name : (athlete?.name ?? coachManagedTeam?.name ?? user.name),
-    },
+    };
   });
+
+  return res.status(200).json({ user: payload });
 }
 
 export async function deleteAccount(req: Request, res: Response) {
@@ -483,6 +481,7 @@ export async function updateMe(req: Request, res: Response) {
   if (!updated) {
     return res.status(404).json({ error: "User not found" });
   }
+  void cache.del(cacheKeys.userProfile(req.user!.id));
   return res.status(200).json({
     user: {
       id: updated.id,
