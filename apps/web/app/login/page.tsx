@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 
@@ -11,6 +11,27 @@ import { Field, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import { Spinner } from "../../components/ui/spinner";
 
+const TURNSTILE_SCRIPT_ID = "cf-turnstile-script";
+const TURNSTILE_SCRIPT_SRC =
+  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: HTMLElement,
+        options: {
+          sitekey: string;
+          callback?: (token: string) => void;
+          "expired-callback"?: () => void;
+          "error-callback"?: () => void;
+        },
+      ) => string;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -18,10 +39,72 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReady, setTurnstileReady] = useState(false);
+  const [turnstileFailed, setTurnstileFailed] = useState(false);
+  const turnstileRef = useRef<HTMLDivElement | null>(null);
+  const widgetIdRef = useRef<string | null>(null);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+
+  useEffect(() => {
+    if (!turnstileSiteKey) return;
+    let cancelled = false;
+
+    const renderWidget = () => {
+      if (cancelled || !turnstileRef.current || !window.turnstile) return;
+      widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+        sitekey: turnstileSiteKey,
+        callback: (token) => {
+          setTurnstileToken(token);
+          setTurnstileFailed(false);
+          setTurnstileReady(true);
+        },
+        "expired-callback": () => setTurnstileToken(null),
+        "error-callback": () => {
+          setTurnstileFailed(true);
+          setTurnstileToken(null);
+          setTurnstileReady(true);
+        },
+      });
+      setTurnstileReady(true);
+    };
+
+    const existing = document.getElementById(TURNSTILE_SCRIPT_ID) as
+      | HTMLScriptElement
+      | null;
+    if (window.turnstile) {
+      renderWidget();
+    } else if (existing) {
+      existing.addEventListener("load", renderWidget, { once: true });
+      existing.addEventListener("error", () => setTurnstileFailed(true), { once: true });
+    } else {
+      const script = document.createElement("script");
+      script.id = TURNSTILE_SCRIPT_ID;
+      script.src = TURNSTILE_SCRIPT_SRC;
+      script.async = true;
+      script.defer = true;
+      script.onload = renderWidget;
+      script.onerror = () => setTurnstileFailed(true);
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      cancelled = true;
+      if (widgetIdRef.current && window.turnstile) {
+        try {
+          window.turnstile.remove(widgetIdRef.current);
+        } catch {}
+      }
+    };
+  }, [turnstileSiteKey]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    if (turnstileSiteKey && !turnstileFailed && !turnstileToken) {
+      setError("Please complete the verification challenge.");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -36,7 +119,7 @@ export default function LoginPage() {
           "Content-Type": "application/json",
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, turnstileToken }),
       });
 
       if (!res.ok) {
@@ -120,7 +203,28 @@ export default function LoginPage() {
                 </Alert>
               ) : null}
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              {turnstileSiteKey ? (
+                <div className="space-y-2">
+                  <div ref={turnstileRef} />
+                  {!turnstileReady ? (
+                    <p className="text-xs text-muted-foreground">Loading verification challenge…</p>
+                  ) : null}
+                </div>
+              ) : (
+                <Alert variant="error">
+                  <AlertDescription>
+                    Missing `NEXT_PUBLIC_TURNSTILE_SITE_KEY` in web environment.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={
+                  loading || (Boolean(turnstileSiteKey) && !turnstileFailed && !turnstileToken)
+                }
+              >
                 {loading ? (
                   <Spinner className="mr-2 h-4 w-4" />
                 ) : (
