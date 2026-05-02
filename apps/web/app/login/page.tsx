@@ -158,6 +158,14 @@ export default function LoginPage() {
         .map((part) => part.trim())
         .find((part) => part.startsWith("csrfToken="))
         ?.split("=")[1];
+      console.info(`${turnstileLogPrefix} csrf state`, {
+        hasCookie: !!csrfToken,
+        cookieLength: csrfToken?.length,
+        allCookieKeys: document.cookie
+          .split(";")
+          .map((c) => c.trim().split("=")[0])
+          .filter(Boolean),
+      });
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
