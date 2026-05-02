@@ -13,6 +13,9 @@ patchedDependencies:
   '@react-native-community/progress-bar-android@1.0.5':
     hash: 121ff1473c719dea75ad236caa7c8cedfef1f1e3bebdd2f46757dbf059b3c786
     path: patches/@react-native-community__progress-bar-android@1.0.5.patch
+  react-native:
+    hash: a5264bdd40309528dbf712e604dbf280ef0abfc6ddd886ce99550522442a865a
+    path: patches/react-native.patch
   react-native-youtube-iframe@2.4.1:
     hash: 4cfe1271857f654258d67394a51bf2181f941cf36b9e9d8aa6e0ee22a7ff6634
     path: patches/react-native-youtube-iframe@2.4.1.patch
@@ -834,6 +837,12 @@ importers:
       '@tanstack/router-plugin':
         specifier: ^1.132.0
         version: 1.167.22(@rsbuild/core@2.0.1(core-js@3.49.0))(@tanstack/react-router@1.169.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(vite@8.0.8(@types/node@22.19.17)(esbuild@0.28.0)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
+      '@upstash/ratelimit':
+        specifier: ^2.0.5
+        version: 2.0.8(@upstash/redis@1.37.0)
+      '@upstash/redis':
+        specifier: ^1.34.3
+        version: 1.37.0
       better-auth:
         specifier: ^1.5.3
         version: 1.6.5(1187e3cde706afb7c98fb89c98ea502c)
@@ -910,6 +919,9 @@ importers:
       '@biomejs/biome':
         specifier: 2.4.5
         version: 2.4.5
+      '@playwright/test':
+        specifier: ^1.52.0
+        version: 1.59.1
       '@rsbuild/core':
         specifier: ^2.0.1
         version: 2.0.1(core-js@3.49.0)
