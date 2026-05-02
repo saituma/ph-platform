@@ -1,10 +1,11 @@
 import * as Sentry from "@sentry/tanstackstart-react";
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import type { QueryClient } from "@tanstack/react-query";
+import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import {
 	createRootRouteWithContext,
 	Link,
 	Outlet,
+	useRouteContext,
 	useRouter,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
@@ -56,6 +57,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootLayout() {
 	const router = useRouter();
+	const { queryClient } = useRouteContext({ from: "__root__" });
 	const pathname = router.state.location.pathname;
 
 	useEffect(() => {
@@ -81,6 +83,7 @@ function RootLayout() {
 	const showChrome = marketingPages.includes(pathname);
 
 	return (
+		<QueryClientProvider client={queryClient}>
 		<div className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-foreground selection:text-background">
 			<NavigationProgress />
 			<OfflineIndicator />
@@ -121,5 +124,6 @@ function RootLayout() {
 				)}
 			</TooltipProvider>
 		</div>
+		</QueryClientProvider>
 	);
 }
