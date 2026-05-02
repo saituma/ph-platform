@@ -17,7 +17,7 @@ import { Separator } from "#/components/ui/separator";
 import { Skeleton } from "#/components/ui/skeleton";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
-import { getTokenStatus } from "#/lib/client-storage";
+import { getAuthHeaders, getTokenStatus } from "#/lib/client-storage";
 import { cn } from "#/lib/utils";
 import { featureKeyToLabel } from "#/lib/billing-features";
 
@@ -347,6 +347,7 @@ function OnboardingStep5() {
 				const baseUrl = config.api.baseUrl;
 				const res = await fetch(`${baseUrl}/api/auth/me`, {
 					credentials: "include",
+					headers: getAuthHeaders(),
 				});
 				const data = await res.json().catch(() => ({}));
 				if (!res.ok) return;
@@ -392,6 +393,7 @@ function OnboardingStep5() {
 				try {
 					const res = await fetch(`${baseUrl}/api/auth/me`, {
 						credentials: "include",
+						headers: getAuthHeaders(),
 					});
 					const data = await res.json().catch(() => ({}));
 					if (res.ok) {

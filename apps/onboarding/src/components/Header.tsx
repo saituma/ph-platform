@@ -5,7 +5,7 @@ import { Menu, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { config } from "../lib/config";
-import { clearAuthToken, getTokenStatus } from "../lib/client-storage";
+import { clearAuthToken, getAuthHeaders, getTokenStatus } from "../lib/client-storage";
 import { usePortalConfig } from "../hooks/usePortalConfig";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -60,6 +60,7 @@ export default function Header() {
 				let response = await fetch(`${baseUrl}/api/auth/me`, {
 					credentials: "include",
 					cache: "no-store",
+					headers: getAuthHeaders(),
 				});
 
 				if (response.status === 401) {
@@ -67,6 +68,7 @@ export default function Header() {
 					response = await fetch(`${baseUrl}/api/auth/me`, {
 						credentials: "include",
 						cache: "no-store",
+						headers: getAuthHeaders(),
 					});
 				}
 

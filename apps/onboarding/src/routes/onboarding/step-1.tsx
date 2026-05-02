@@ -18,7 +18,7 @@ import { Input } from "#/components/ui/input";
 import { cn } from "#/lib/utils";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
-import { getTokenStatus } from "#/lib/client-storage";
+import { getAuthHeaders, getTokenStatus } from "#/lib/client-storage";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/onboarding/step-1")({
@@ -105,6 +105,7 @@ function OnboardingStep1() {
 				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
+					...getAuthHeaders(),
 				},
 				body: JSON.stringify({ email, type: selected, password }),
 			});
