@@ -1,15 +1,13 @@
 "use client";
 
-import { Suspense, useMemo, useState, useEffect } from "react";
+import { Suspense, useMemo, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Users,
   UserCheck,
   UserPlus,
   UserX,
-  FolderOpen,
   Search,
-  Filter,
   Download,
 } from "lucide-react";
 
@@ -35,6 +33,7 @@ type AdminUser = {
   name?: string | null;
   email?: string | null;
   isBlocked?: boolean | null;
+  isDeleted?: boolean | null;
   onboardingCompleted?: boolean | null;
   createdAt?: string | null;
   athleteId?: number | null;
@@ -97,7 +96,8 @@ function getProgramLabel(tier?: string | null): string {
 
 function getUserStatus(
   user: AdminUser,
-): "Active" | "Inactive" | "Trial" | "Blocked" {
+): "Active" | "Inactive" | "Trial" | "Blocked" | "Archived" {
+  if (user.isDeleted) return "Archived";
   if (user.isBlocked) return "Blocked";
   if (!user.onboardingCompleted) return "Trial";
   return "Active";
@@ -108,13 +108,11 @@ function StatCard({
   iconBg,
   label,
   value,
-  change,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   iconBg: string;
   label: string;
   value: number;
-  change: string;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
@@ -126,7 +124,6 @@ function StatCard({
       <div>
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="text-xl font-bold text-foreground">{value}</p>
-        <p className="text-[11px] text-emerald-400">{change}</p>
       </div>
     </div>
   );
@@ -177,6 +174,10 @@ function UsersPageContent() {
   const [activeTab, setActiveTab] = useState("All Users");
   const [searchTerm, setSearchTerm] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [programFilter, setProgramFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [athleteTypeFilter, setAthleteTypeFilter] = useState("all");
+  const [sortValue, setSortValue] = useState("newest");
 
   const tabs = ["All Users", "Active", "Inactive", "Trial", "Archived"];
 
@@ -200,10 +201,11 @@ function UsersPageContent() {
         age: user.athleteAge ?? null,
         team: user.athleteTeam ?? null,
         program: getProgramLabel(user.programTier ?? user.guardianProgramTier),
+        programTier: user.programTier ?? user.guardianProgramTier ?? null,
         status: getUserStatus(user),
         joined: formatJoinedDate(user.createdAt),
+        joinedRaw: user.createdAt ?? null,
         lastActive: formatLastActive(user.createdAt),
-        progress: ((user.id * 17 + 13) % 80) + 20,
         profilePicture: user.profilePicture ?? null,
       };
     });
@@ -212,6 +214,7 @@ function UsersPageContent() {
   const filteredUsers = useMemo(() => {
     let result = mappedUsers;
 
+    // Tab filter
     if (activeTab === "Active") {
       result = result.filter((u) => u.status === "Active");
     } else if (activeTab === "Inactive") {
@@ -220,19 +223,76 @@ function UsersPageContent() {
       );
     } else if (activeTab === "Trial") {
       result = result.filter((u) => u.status === "Trial");
+    } else if (activeTab === "Archived") {
+      result = result.filter((u) => u.status === "Archived");
     }
 
+    // Program filter
+    if (programFilter !== "all") {
+      result = result.filter((u) => u.programTier === programFilter);
+    }
+
+    // Status filter (from dropdown, independent of tab)
+    if (statusFilter !== "all") {
+      result = result.filter((u) => u.status === statusFilter);
+    }
+
+    // Athlete type filter
+    if (athleteTypeFilter !== "all") {
+      result = result.filter((u) => u.athleteType === athleteTypeFilter);
+    }
+
+    // Search
     const normalized = searchTerm.trim().toLowerCase();
     if (normalized) {
       result = result.filter((u) => {
         const haystack =
-          `${u.name ?? ""} ${u.email ?? ""}`.toLowerCase();
+          `${u.name ?? ""} ${u.email ?? ""} ${u.team ?? ""}`.toLowerCase();
         return haystack.includes(normalized);
       });
     }
 
+    // Sort
+    result = [...result].sort((a, b) => {
+      if (sortValue === "newest") {
+        return (b.joinedRaw ?? "").localeCompare(a.joinedRaw ?? "");
+      }
+      if (sortValue === "oldest") {
+        return (a.joinedRaw ?? "").localeCompare(b.joinedRaw ?? "");
+      }
+      if (sortValue === "name_asc") {
+        return a.name.localeCompare(b.name);
+      }
+      if (sortValue === "name_desc") {
+        return b.name.localeCompare(a.name);
+      }
+      return 0;
+    });
+
     return result;
-  }, [activeTab, searchTerm, mappedUsers]);
+  }, [activeTab, searchTerm, mappedUsers, programFilter, statusFilter, athleteTypeFilter, sortValue]);
+
+  const handleExport = useCallback(() => {
+    const header = ["Name", "Email", "Age", "Team", "Program", "Status", "Type", "Joined"];
+    const rows = filteredUsers.map((u) => [
+      u.name,
+      u.email ?? "",
+      u.age ?? "",
+      u.team ?? "",
+      u.program ?? "",
+      u.status,
+      u.athleteType,
+      u.joined ?? "",
+    ]);
+    const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `users-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filteredUsers]);
 
   useEffect(() => {
     const userIdParam = searchParams.get("userId");
@@ -293,13 +353,7 @@ function UsersPageContent() {
             </div>
             <button
               type="button"
-              className="flex h-9 items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-3 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <Filter className="h-3.5 w-3.5" />
-              Filter
-            </button>
-            <button
-              type="button"
+              onClick={handleExport}
               className="flex h-9 items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-3 text-sm text-muted-foreground hover:text-foreground"
             >
               <Download className="h-3.5 w-3.5" />
@@ -309,41 +363,30 @@ function UsersPageContent() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard
             icon={Users}
             iconBg="bg-blue-500/15 text-blue-400"
             label="Total Users"
             value={stats.total}
-            change="↑ 18% vs last month"
           />
           <StatCard
             icon={UserCheck}
             iconBg="bg-emerald-500/15 text-emerald-400"
             label="Active Users"
             value={stats.active}
-            change="↑ 22% vs last month"
           />
           <StatCard
             icon={UserPlus}
             iconBg="bg-cyan-500/15 text-cyan-400"
             label="New This Month"
             value={stats.newThisMonth}
-            change="↑ 14% vs last month"
           />
           <StatCard
             icon={UserX}
             iconBg="bg-rose-500/15 text-rose-400"
-            label="Inactive Users"
+            label="Inactive / Blocked"
             value={stats.inactive}
-            change="↑ 8% vs last month"
-          />
-          <StatCard
-            icon={FolderOpen}
-            iconBg="bg-violet-500/15 text-violet-400"
-            label="Total Programs"
-            value={42}
-            change="↑ 10% vs last month"
           />
         </div>
 
@@ -354,6 +397,14 @@ function UsersPageContent() {
               tabs={tabs}
               activeTab={activeTab}
               onTabChange={setActiveTab}
+              programFilter={programFilter}
+              onProgramChange={(v) => setProgramFilter(v ?? "all")}
+              statusFilter={statusFilter}
+              onStatusChange={(v) => setStatusFilter(v ?? "all")}
+              athleteTypeFilter={athleteTypeFilter}
+              onAthleteTypeChange={(v) => setAthleteTypeFilter(v ?? "all")}
+              sortValue={sortValue}
+              onSortChange={(v) => setSortValue(v ?? "newest")}
             />
 
             {isLoading ? (

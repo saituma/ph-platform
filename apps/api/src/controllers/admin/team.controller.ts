@@ -4,6 +4,7 @@ import {
   listTeamsAdmin,
   createTeamAdmin,
   approveTeamAdmin,
+  deleteTeamAdmin,
   getTeamDetailsAdmin,
   getTeamMemberAdmin,
   updateTeamDefaultsAdmin,
@@ -225,6 +226,19 @@ export async function approveTeamAdminDetails(req: Request, res: Response) {
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to approve team.";
     if (status >= 500) console.error("[admin] approveTeamAdminDetails", error);
+    return res.status(status).json({ error: message });
+  }
+}
+
+export async function deleteTeamAdminDetails(req: Request, res: Response) {
+  const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
+  try {
+    const result = await deleteTeamAdmin(teamId);
+    return res.status(200).json(result);
+  } catch (error: any) {
+    const status = typeof error?.status === "number" ? error.status : 500;
+    const message = typeof error?.message === "string" ? error.message : "Failed to delete team.";
+    if (status >= 500) console.error("[admin] deleteTeamAdminDetails", error);
     return res.status(status).json({ error: message });
   }
 }

@@ -47,6 +47,7 @@ function Register() {
 	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 	const [turnstileReady, setTurnstileReady] = useState(false);
 	const [turnstileFailed, setTurnstileFailed] = useState(false);
+	const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 	const navigate = useNavigate();
 	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 
@@ -80,6 +81,8 @@ function Register() {
 			const data = await response.json();
 
 			if (!response.ok) {
+				setTurnstileToken(null);
+				setTurnstileResetKey((k) => k + 1);
 				if (response.status === 409) {
 					toast.error("Account already exists", {
 						description:
@@ -190,6 +193,7 @@ function Register() {
 							<Turnstile
 								siteKey={turnstileSiteKey}
 								action="register"
+								resetKey={turnstileResetKey}
 								onVerify={(token) => {
 									setTurnstileToken(token);
 									setTurnstileFailed(false);
