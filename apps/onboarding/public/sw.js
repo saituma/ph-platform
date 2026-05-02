@@ -28,8 +28,15 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET and API requests
-  if (request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
+  // Only handle same-origin HTTP(S) GET requests; ignore extensions/third-party
+  if (
+    request.method !== 'GET' ||
+    url.origin !== self.location.origin ||
+    (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+    url.pathname.startsWith('/api/')
+  ) {
+    return;
+  }
 
   // Static assets: cache-first
   if (url.pathname.startsWith('/assets/') || url.pathname.match(/\.(js|css|png|jpg|svg|woff2?)$/)) {
@@ -37,7 +44,9 @@ self.addEventListener('fetch', (event) => {
       caches.match(request).then((cached) => cached || fetch(request).then((response) => {
         if (response.ok) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, clone).catch(() => {});
+          });
         }
         return response;
       }))
