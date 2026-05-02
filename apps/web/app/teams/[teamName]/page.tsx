@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
@@ -67,6 +67,7 @@ type TeamMember = {
 
 type TeamDetails = {
   team: string;
+  teamId: number;
   athleteType: "youth" | "adult";
   minAge: number | null;
   maxAge: number | null;
@@ -74,6 +75,8 @@ type TeamDetails = {
   planName: string | null;
   sponsoredPlayerCount: number;
   sponsoredPlanId: number | null;
+  subscriptionStatus: string;
+  manager: { id: number; name: string | null; email: string; role: string | null } | null;
   summary: {
     memberCount: number;
     youthCount?: number;
@@ -210,10 +213,13 @@ export default function TeamDetailPage() {
     [encodedName],
   );
   const cleanTeamName = useMemo(() => teamName.trim(), [teamName]);
+  const router = useRouter();
   const [details, setDetails] = useState<TeamDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageNotice, setPageNotice] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Quick Add state (uses team's plan automatically)
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -282,6 +288,26 @@ export default function TeamDetailPage() {
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!details?.teamId) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/backend/admin/teams/${details.teamId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to delete team.");
+      }
+      router.push("/teams");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete team.");
+      setIsDeleting(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -436,13 +462,6 @@ export default function TeamDetailPage() {
             >
               Add Athlete
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setFullPlanOpen(true)}
-            >
-              Add Athlete with Different Plan
-            </Button>
             {athleteType === "adult" ? (
               <Button size="sm" render={<Link href={`/exercise-library/teams/${encodeURIComponent(teamName)}`} />}>
                 Post to whole team
@@ -451,8 +470,48 @@ export default function TeamDetailPage() {
             <Button variant="outline" size="sm" render={<Link href="/teams" />}>
               Back to teams
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+              onClick={() => setConfirmDelete(true)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting…" : "Delete Team"}
+            </Button>
           </CardContent>
         </Card>
+
+        {details?.manager ? (
+          <Card>
+            <CardHeader>
+              <SectionHeader
+                title="Team Manager"
+                description="The manager assigned to this team."
+              />
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">Name</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {details.manager.name || "—"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="mt-1 text-sm font-semibold text-foreground break-all">
+                  {details.manager.email}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">Role</p>
+                <p className="mt-1 text-sm font-semibold text-foreground capitalize">
+                  {(details.manager.role ?? "team_coach").replace(/_/g, " ")}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>
@@ -612,7 +671,7 @@ export default function TeamDetailPage() {
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
               Plan: <span className="font-medium text-foreground">
                 {details?.planName ?? (details?.planTier ? TIER_LABELS[details.planTier] : "Team plan")}
-              </span> - same as the team. Use "Add Athlete with Different Plan" to override.
+              </span>
             </div>
             {(details?.sponsoredPlayerCount ?? 0) > 0 ? (
               <label className="flex items-center gap-3 rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-2.5 cursor-pointer">
@@ -654,7 +713,31 @@ export default function TeamDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Full Plan Dialog */}
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Team</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{teamName}</strong>? Athletes will be detached but not deleted. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+              <Button
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => void handleDelete()}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting…" : "Delete Team"}
+              </Button>
+            </div>
+          </DialogPanel>
+        </DialogContent>
+      </Dialog>
+
+      {/* Full Plan Dialog (kept for existing athletes) */}
       <Dialog open={fullPlanOpen} onOpenChange={(open) => { setFullPlanOpen(open); if (!open) resetFullPlan(); }}>
         <DialogContent>
           <DialogHeader>

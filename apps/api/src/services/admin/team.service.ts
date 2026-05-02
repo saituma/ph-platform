@@ -461,11 +461,13 @@ export async function getTeamDetailsAdmin(teamName: string) {
       athleteType: teamTable.athleteType,
       minAge: teamTable.minAge,
       maxAge: teamTable.maxAge,
+      adminId: teamTable.adminId,
       planId: teamTable.planId,
       planTier: subscriptionPlanTable.tier,
       planName: subscriptionPlanTable.name,
       sponsoredPlayerCount: teamTable.sponsoredPlayerCount,
       sponsoredPlanId: teamTable.sponsoredPlanId,
+      subscriptionStatus: teamTable.subscriptionStatus,
       createdAt: teamTable.createdAt,
       updatedAt: teamTable.updatedAt,
     })
@@ -475,6 +477,16 @@ export async function getTeamDetailsAdmin(teamName: string) {
     .limit(1);
   const team = teamRows[0];
   if (!team) return null;
+
+  let manager: { id: number; name: string | null; email: string; role: string | null } | null = null;
+  if (team.adminId) {
+    const [row] = await db
+      .select({ id: userTable.id, name: userTable.name, email: userTable.email, role: userTable.role })
+      .from(userTable)
+      .where(eq(userTable.id, team.adminId))
+      .limit(1);
+    if (row) manager = row;
+  }
 
   const sessionsCompletedExpr = sql<number>`(SELECT count(*) FROM ${athleteTrainingSessionCompletionTable} WHERE ${athleteTrainingSessionCompletionTable.athleteId} = ${athleteTable.id})`;
   const modulesCompletedExpr = sql<number>`(
@@ -550,6 +562,7 @@ export async function getTeamDetailsAdmin(teamName: string) {
 
   return {
     team: team.name,
+    teamId: team.id,
     athleteType: team.athleteType ?? "youth",
     minAge: team.minAge,
     maxAge: team.maxAge,
@@ -557,6 +570,8 @@ export async function getTeamDetailsAdmin(teamName: string) {
     planName: team.planName ?? null,
     sponsoredPlayerCount: team.sponsoredPlayerCount,
     sponsoredPlanId: team.sponsoredPlanId,
+    subscriptionStatus: team.subscriptionStatus ?? "pending_payment",
+    manager,
     summary: {
       memberCount,
       guardianCount,
@@ -869,6 +884,37 @@ export async function attachAthleteToTeamAdmin(input: {
     ok: true,
     alreadyInTeam: false,
   };
+}
+
+export async function deleteTeamAdmin(teamId: number) {
+  const rows = await db
+    .select({ id: teamTable.id, name: teamTable.name })
+    .from(teamTable)
+    .where(eq(teamTable.id, teamId))
+    .limit(1);
+  const team = rows[0];
+  if (!team) throw { status: 404, message: "Team not found." };
+
+  // Detach athletes from this team (don't delete them — just unlink)
+  await db
+    .update(athleteTable)
+    .set({ teamId: null, team: "", updatedAt: new Date() })
+    .where(eq(athleteTable.teamId, teamId));
+
+  // Remove team chat group
+  const groups = await db
+    .select({ id: chatGroupTable.id })
+    .from(chatGroupTable)
+    .where(and(eq(chatGroupTable.name, team.name), eq(chatGroupTable.category, "team")))
+    .limit(1);
+  if (groups[0]) {
+    await db.delete(chatGroupMemberTable).where(eq(chatGroupMemberTable.groupId, groups[0].id));
+    await db.delete(chatGroupTable).where(eq(chatGroupTable.id, groups[0].id));
+  }
+
+  await db.delete(teamTable).where(eq(teamTable.id, teamId));
+
+  return { ok: true, teamId, teamName: team.name };
 }
 
 /** Adds a coach-provisioned athlete user to the team chat group (best-effort). */

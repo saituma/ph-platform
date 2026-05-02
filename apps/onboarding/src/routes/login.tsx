@@ -1,18 +1,8 @@
-import {
-	ArrowRight,
-	CircleNotch,
-	EnvelopeSimple,
-	Eye,
-	EyeSlash,
-	LockKey,
-	WarningCircle,
-} from "@phosphor-icons/react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Input } from "#/components/ui/input";
+import { SignInPage, type Testimonial } from "#/components/ui/sign-in";
 import { Turnstile } from "#/components/Turnstile";
 import { config } from "#/lib/config";
 import { csrfFetch } from "#/lib/csrf";
@@ -42,40 +32,51 @@ const loginSchema = z.object({
 	password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+const testimonials: Testimonial[] = [
+	{
+		avatarSrc: "https://randomuser.me/api/portraits/women/57.jpg",
+		name: "Sarah Chen",
+		handle: "@sarahdigital",
+		text: "PH Performance transformed my training. The coaching feedback is top-notch!",
+	},
+	{
+		avatarSrc: "https://randomuser.me/api/portraits/men/64.jpg",
+		name: "Marcus Johnson",
+		handle: "@marcustech",
+		text: "My team's performance improved dramatically since we started using this platform.",
+	},
+	{
+		avatarSrc: "https://randomuser.me/api/portraits/men/32.jpg",
+		name: "David Martinez",
+		handle: "@davidcreates",
+		text: "Best athletic management tool I've used. Clean design and powerful features.",
+	},
+];
+
 function Login() {
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-	const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 	const [turnstileReady, setTurnstileReady] = useState(false);
 	const [turnstileFailed, setTurnstileFailed] = useState(false);
+	const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 	const navigate = useNavigate();
 	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 
-	const handleLogin = async (e: React.FormEvent) => {
+	const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		if (isLoading) return;
-		setErrors({});
+
+		const formData = new FormData(e.currentTarget);
+		const email = formData.get("email") as string;
+		const password = formData.get("password") as string;
 
 		const result = loginSchema.safeParse({ email, password });
 		if (!result.success) {
-			const fieldErrors: any = {};
 			for (const issue of result.error.issues) {
-				fieldErrors[issue.path[0]] = issue.message;
+				toast.error(issue.message);
 			}
-			setErrors(fieldErrors);
 			return;
 		}
-
-		console.info("[login] turnstile state", {
-			siteKey: turnstileSiteKey ? `${turnstileSiteKey.slice(0, 8)}...` : "(none)",
-			ready: turnstileReady,
-			failed: turnstileFailed,
-			hasToken: !!turnstileToken,
-			tokenLength: turnstileToken?.length,
-		});
 
 		if (turnstileSiteKey && !turnstileFailed && turnstileReady && !turnstileToken) {
 			toast.error("Please complete the verification challenge");
@@ -84,10 +85,6 @@ function Login() {
 
 		setIsLoading(true);
 		const apiUrl = `${config.api.baseUrl}/api/auth/login`;
-		console.info("[login] request", {
-			url: apiUrl,
-			hasTurnstileToken: !!turnstileToken,
-		});
 		try {
 			const tokenResponse = await csrfFetch(apiUrl, {
 				method: "POST",
@@ -95,11 +92,6 @@ function Login() {
 				body: JSON.stringify({ email, password, turnstileToken }),
 			});
 			const data = await tokenResponse.json().catch(() => ({}));
-			console.info("[login] response", {
-				status: tokenResponse.status,
-				ok: tokenResponse.ok,
-				body: data,
-			});
 			if (!tokenResponse.ok) {
 				throw new Error(data.error || "Login failed");
 			}
@@ -115,7 +107,8 @@ function Login() {
 			localStorage.setItem("pending_email", email);
 			navigate({ to: "/portal/dashboard", replace: true });
 		} catch (error: any) {
-			console.error("[login] error", error.message);
+			setTurnstileToken(null);
+			setTurnstileResetKey((k) => k + 1);
 			trackEvent("login_failure", { email });
 			toast.error("Login failed", {
 				description: error.message || "Invalid email or password.",
@@ -125,155 +118,50 @@ function Login() {
 		}
 	};
 
+	const handleGoogleSignIn = () => {
+		window.location.href = `${config.api.baseUrl}/api/auth/google`;
+	};
+
+	const handleResetPassword = () => {
+		navigate({ to: "/register" });
+	};
+
+	const handleCreateAccount = () => {
+		navigate({ to: "/register" });
+	};
+
 	return (
-		<main className="relative min-h-[100dvh] flex flex-col items-center justify-center p-4 sm:p-8 overflow-hidden">
-			<div className="absolute inset-0 overflow-hidden bg-background pointer-events-none" aria-hidden="true">
-				<div className="w-full h-full bg-noise-pattern opacity-[0.02] dark:opacity-[0.05]" />
-			</div>
-
-			<motion.section
-				initial={{ opacity: 0, y: 12 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.5, ease: "easeOut" }}
-				className="relative w-full max-w-sm space-y-8"
-			>
-				<div className="space-y-3">
-					<Link to="/" className="inline-flex items-center gap-2 mb-4">
-						<div className="w-6 h-6 overflow-hidden">
-							<img src="/ph.jpg" alt="PH Performance" className="w-full h-full object-cover" />
-						</div>
-						<span className="font-mono text-xs uppercase tracking-wider text-foreground/50">PH Performance</span>
-					</Link>
-					<h1 className="text-2xl md:text-3xl tracking-tight font-medium text-foreground">
-						Sign in to your account
-					</h1>
-					<p className="text-sm text-muted-foreground">
-						Access your performance dashboard
-					</p>
+		<div className="relative">
+			<SignInPage
+				title={<span className="font-light text-foreground tracking-tighter">Welcome Back</span>}
+				description="Sign in to access your PH Performance dashboard, training programs, and coaching tools."
+				heroImageSrc="/landing/piers.png"
+				testimonials={testimonials}
+				onSignIn={handleSignIn}
+				onGoogleSignIn={handleGoogleSignIn}
+				onResetPassword={handleResetPassword}
+				onCreateAccount={handleCreateAccount}
+			/>
+			{turnstileSiteKey && (
+				<div className="fixed bottom-4 right-4 z-50">
+					<Turnstile
+						siteKey={turnstileSiteKey}
+						action="login"
+						resetKey={turnstileResetKey}
+						onVerify={(token) => {
+							setTurnstileToken(token);
+							setTurnstileFailed(false);
+						}}
+						onReady={() => setTurnstileReady(true)}
+						onExpire={() => setTurnstileToken(null)}
+						onError={() => {
+							setTurnstileToken(null);
+							setTurnstileFailed(true);
+						}}
+						className="flex justify-center"
+					/>
 				</div>
-
-				<div className="border border-foreground/[0.06] bg-card/50 p-6 sm:p-8 space-y-6">
-					<form onSubmit={handleLogin} className="space-y-5">
-						<div className="space-y-2">
-							<label
-								htmlFor="email-input"
-								className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
-							>
-								<EnvelopeSimple weight="bold" size={12} className="text-foreground/40" />
-								Email
-							</label>
-							<Input
-								type="email"
-								id="email-input"
-								placeholder="name@example.com"
-								value={email}
-								onChange={(e) => {
-									setEmail(e.target.value);
-									if (errors.email) setErrors({ ...errors, email: undefined });
-								}}
-								aria-invalid={!!errors.email}
-								aria-describedby={errors.email ? "email-error" : undefined}
-								className={`h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm placeholder:text-foreground/20 focus-visible:ring-0 focus-visible:border-foreground/20 transition-colors ${
-									errors.email ? "border-destructive/50" : ""
-								}`}
-							/>
-							{errors.email && (
-								<p id="email-error" role="alert" className="text-xs text-destructive flex items-center gap-1.5 font-mono">
-									<WarningCircle weight="fill" size={12} />
-									{errors.email}
-								</p>
-							)}
-						</div>
-
-						<div className="space-y-2">
-							<label
-								htmlFor="password-input"
-								className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
-							>
-								<LockKey weight="bold" size={12} className="text-foreground/40" />
-								Password
-							</label>
-							<div className="relative">
-								<Input
-									type={showPassword ? "text" : "password"}
-									id="password-input"
-									placeholder="••••••••"
-									value={password}
-									onChange={(e) => {
-										setPassword(e.target.value);
-										if (errors.password) setErrors({ ...errors, password: undefined });
-									}}
-									aria-invalid={!!errors.password}
-									aria-describedby={errors.password ? "password-error" : undefined}
-									className={`h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm pr-10 placeholder:text-foreground/20 focus-visible:ring-0 focus-visible:border-foreground/20 transition-colors ${
-										errors.password ? "border-destructive/50" : ""
-									}`}
-								/>
-								<button
-									type="button"
-									onClick={() => setShowPassword(!showPassword)}
-									aria-label={showPassword ? "Hide password" : "Show password"}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60 transition-colors duration-150"
-								>
-									{showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
-								</button>
-							</div>
-							{errors.password && (
-								<p id="password-error" role="alert" className="text-xs text-destructive flex items-center gap-1.5 font-mono">
-									<WarningCircle weight="fill" size={12} />
-									{errors.password}
-								</p>
-							)}
-						</div>
-
-						{turnstileSiteKey && (
-							<Turnstile
-								siteKey={turnstileSiteKey}
-								action="login"
-								onVerify={(token) => {
-									setTurnstileToken(token);
-									setTurnstileFailed(false);
-								}}
-								onReady={() => setTurnstileReady(true)}
-								onExpire={() => setTurnstileToken(null)}
-								onError={() => {
-									setTurnstileToken(null);
-									setTurnstileFailed(true);
-								}}
-								className="flex justify-center"
-							/>
-						)}
-
-						<button
-							type="submit"
-							disabled={
-								isLoading ||
-								(!!turnstileSiteKey && !turnstileFailed && turnstileReady && !turnstileToken)
-							}
-							className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
-						>
-							{isLoading ? (
-								<CircleNotch className="w-4 h-4 animate-spin" weight="bold" />
-							) : (
-								<>
-									Sign In
-									<ArrowRight weight="bold" className="w-3.5 h-3.5" />
-								</>
-							)}
-						</button>
-					</form>
-				</div>
-
-				<p className="text-center font-mono text-[11px] text-foreground/40 uppercase tracking-wider">
-					Don't have an account?{" "}
-					<Link
-						to="/register"
-						className="text-foreground/60 hover:text-foreground transition-colors duration-150 border-b border-foreground/20"
-					>
-						Register
-					</Link>
-				</p>
-			</motion.section>
-		</main>
+			)}
+		</div>
 	);
 }

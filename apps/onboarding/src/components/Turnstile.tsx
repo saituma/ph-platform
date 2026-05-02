@@ -104,6 +104,7 @@ export interface TurnstileProps {
 	action?: string;
 	theme?: "light" | "dark" | "auto";
 	className?: string;
+	resetKey?: number;
 }
 
 export function Turnstile({
@@ -115,6 +116,7 @@ export function Turnstile({
 	action,
 	theme = "auto",
 	className,
+	resetKey = 0,
 }: TurnstileProps) {
 	const ref = useRef<HTMLDivElement | null>(null);
 	const widgetIdRef = useRef<string | null>(null);
@@ -124,6 +126,10 @@ export function Turnstile({
 		loadScript()
 			.then(() => {
 				if (cancelled || !ref.current || !window.turnstile) return;
+				if (widgetIdRef.current) {
+					try { window.turnstile.remove(widgetIdRef.current); } catch { /* noop */ }
+				}
+				ref.current.innerHTML = "";
 				widgetIdRef.current = window.turnstile.render(ref.current, {
 					sitekey: siteKey,
 					theme,
@@ -145,7 +151,7 @@ export function Turnstile({
 				}
 			}
 		};
-	}, [siteKey, theme, action, onVerify, onExpire, onError, onReady]);
+	}, [siteKey, theme, action, onVerify, onExpire, onError, onReady, resetKey]);
 
 	return <div ref={ref} className={className} />;
 }
