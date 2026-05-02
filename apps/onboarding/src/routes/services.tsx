@@ -157,7 +157,7 @@ function ServicesPage() {
                             <div
                                 className={`relative overflow-hidden bg-card ${i % 2 === 1 ? "lg:order-2" : ""
                                     }`}
-                                style={{ aspectRatio: "16/10" }}
+                                style={{ aspectRatio: "3/4" }}
                             >
                                 <img
                                     src={service.image}
