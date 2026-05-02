@@ -24,7 +24,7 @@ function getFileSizes(dir, ext) {
   return total;
 }
 
-const outputDir = ".output/public";
+const outputDir = "dist";
 const jsSize = getFileSizes(outputDir, ".js") / 1024;
 const cssSize = getFileSizes(outputDir, ".css") / 1024;
 const totalSize = jsSize + cssSize;

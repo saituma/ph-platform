@@ -2,12 +2,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
-
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
-import { nitro } from "nitro/vite";
 import neon from "./neon-vite-plugin.ts";
 
 const onboardingRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -28,7 +26,6 @@ export default defineConfig(({ mode }) => {
 				"react",
 				"react-dom",
 				"@tanstack/react-router",
-				"@tanstack/react-start",
 			],
 		},
 		server: {
@@ -51,21 +48,11 @@ export default defineConfig(({ mode }) => {
 			devtools(),
 			neon,
 			tailwindcss(),
-			tanstackStart(),
-			nitro({
-				preset: (process.env.NITRO_PRESET ?? "vercel") as "vercel" | "node-server",
-				serverDir: "./server",
-				routeRules: {
-					"/api/auth/**": { cache: false, headers: { "cache-control": "no-store" } },
-					"/api/app/**":  { cache: false, headers: { "cache-control": "no-store" } },
-					"/assets/**":   { headers: { "cache-control": "public, max-age=31536000, immutable" } },
-					"/about":       { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
-					"/features":    { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
-					"/services":    { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
-					"/gallery":     { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
-					"/terms-privacy": { headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" } },
-					"/**":          { headers: { "cache-control": "public, max-age=0, s-maxage=300, stale-while-revalidate=3600" } },
-				},
+			tanstackRouter({
+				target: "react",
+				routesDirectory: "./src/routes",
+				generatedRouteTree: "./src/routeTree.gen.ts",
+				routeFileIgnorePattern: "api/.*",
 			}),
 			viteReact(),
 		],
