@@ -44,7 +44,7 @@ export default function LoginPage() {
   const [turnstileFailed, setTurnstileFailed] = useState(false);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const turnstileSiteKey = (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "").trim();
   const turnstileLogPrefix = "[turnstile]";
 
   useEffect(() => {
@@ -56,6 +56,8 @@ export default function LoginPage() {
       host: window.location.hostname,
       origin: window.location.origin,
       siteKeyPrefix: `${turnstileSiteKey.slice(0, 8)}...`,
+      siteKeySuffix: `...${turnstileSiteKey.slice(-6)}`,
+      siteKeyLength: turnstileSiteKey.length,
     });
     let cancelled = false;
 
