@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { db } from "../../db";
+import { logger } from "../../lib/logger";
 import { ROLES_ATHLETE } from "../../lib/user-roles";
 import {
   athleteTable,
@@ -637,7 +638,7 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
         temporaryPassword: tempPassword,
       });
     } catch (mailErr) {
-      console.error("[admin] Welcome email failed after provisioning", mailErr);
+      logger.error({ err: mailErr }, "[admin] Welcome email failed after provisioning");
       emailSent = false;
     }
 
@@ -801,7 +802,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
         temporaryPassword: tempPassword,
       });
     } catch (mailErr) {
-      console.error("[admin] Adult welcome email failed after provisioning", mailErr);
+      logger.error({ err: mailErr }, "[admin] Adult welcome email failed after provisioning");
       emailSent = false;
     }
 
@@ -847,7 +848,7 @@ export async function resetUserPasswordAdmin(input: { userId: number; temporaryP
       temporaryPassword: nextPassword,
     });
   } catch (mailErr) {
-    console.error("[admin] Password reset email failed", mailErr);
+    logger.error({ err: mailErr }, "[admin] Password reset email failed");
     emailSent = false;
   }
 

@@ -4,10 +4,10 @@ import {
   Modal,
   Platform,
   ActivityIndicator,
-  FlatList,
   Pressable,
   TextInput,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -170,6 +170,38 @@ export function AdminDmSection({
     dms.setActiveDmName(name);
     dms.loadMessages(userId, false);
   }, [dms]);
+
+  const renderUserSearchItem = useCallback(({ item }: { item: { id: number; name: string; role: string } }) => (
+    <Pressable
+      onPress={() => handleSelectNewDmUser(item.id, item.name ?? `User ${item.id}`)}
+      style={({ pressed }) => ({
+        flexDirection: "row", alignItems: "center", gap: 12,
+        paddingHorizontal: 16, paddingVertical: 12,
+        backgroundColor: pressed ? "rgba(48,176,199,0.08)" : "transparent",
+      })}
+    >
+      <View style={{
+        width: 44, height: 44, borderRadius: 14,
+        alignItems: "center", justifyContent: "center",
+        backgroundColor: "rgba(48,176,199,0.14)",
+        borderWidth: 1, borderColor: "rgba(48,176,199,0.24)",
+      }}>
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#30B0C7" }}>
+          {getInitials(item.name) || "?"}
+        </Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 15, color: colors.textPrimary }}>
+          {item.name ?? `User ${item.id}`}
+        </Text>
+        {item.role ? (
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 1 }}>
+            {item.role}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  ), [handleSelectNewDmUser, getInitials, colors.textPrimary, colors.textSecondary]);
 
   useEffect(() => {
     if (!socket || !dms.activeDmUserId) return;
@@ -630,41 +662,11 @@ export function AdminDmSection({
               <ActivityIndicator color="#30B0C7" />
             </View>
           ) : (
-            <FlatList
+            <FlashList
               data={userResults}
               keyExtractor={(item) => String(item.id)}
               keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => handleSelectNewDmUser(item.id, item.name ?? `User ${item.id}`)}
-                  style={({ pressed }) => ({
-                    flexDirection: "row", alignItems: "center", gap: 12,
-                    paddingHorizontal: 16, paddingVertical: 12,
-                    backgroundColor: pressed ? "rgba(48,176,199,0.08)" : "transparent",
-                  })}
-                >
-                  <View style={{
-                    width: 44, height: 44, borderRadius: 14,
-                    alignItems: "center", justifyContent: "center",
-                    backgroundColor: "rgba(48,176,199,0.14)",
-                    borderWidth: 1, borderColor: "rgba(48,176,199,0.24)",
-                  }}>
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#30B0C7" }}>
-                      {getInitials(item.name) || "?"}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 15, color: colors.textPrimary }}>
-                      {item.name ?? `User ${item.id}`}
-                    </Text>
-                    {item.role ? (
-                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 1 }}>
-                        {item.role}
-                      </Text>
-                    ) : null}
-                  </View>
-                </Pressable>
-              )}
+              renderItem={renderUserSearchItem}
               ListEmptyComponent={
                 userSearch.trim() ? (
                   <View style={{ paddingTop: 40, alignItems: "center" }}>

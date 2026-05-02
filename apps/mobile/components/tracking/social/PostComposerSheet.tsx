@@ -6,10 +6,10 @@ import {
   Pressable,
   TextInput,
   View,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";

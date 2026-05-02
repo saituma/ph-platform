@@ -36,10 +36,27 @@ export async function getOrCreateReferralCode(userId: number): Promise<string> {
     try {
       await db.insert(userReferralCodesTable).values({ userId, code });
       return code;
-    } catch {
-      // unique constraint violated — retry with a new code
+    } catch (err: unknown) {
+      // Only retry on unique constraint violations (code collision or race on userId).
+      // Re-throw anything else (connection errors, missing table, etc.).
+      const isConstraintViolation =
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        (err as { code: string }).code === "23505";
+      if (!isConstraintViolation) throw err;
     }
   }
+
+  // If we exhausted retries, a concurrent request may have created the code for this user.
+  // Re-query before giving up.
+  const raceCheck = await db
+    .select({ code: userReferralCodesTable.code })
+    .from(userReferralCodesTable)
+    .where(eq(userReferralCodesTable.userId, userId))
+    .limit(1);
+  if (raceCheck[0]) return raceCheck[0].code;
+
   throw new Error("Failed to generate a unique referral code");
 }
 

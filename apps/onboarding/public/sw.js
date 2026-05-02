@@ -1,11 +1,12 @@
-const CACHE_NAME = 'ph-cache-v1';
+const CACHE_VERSION = 2;
+const CACHE_NAME = `ph-cache-v${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
   '/',
   '/offline.html',
-  '/ph.jpg',
   '/favicon.ico',
+  '/logo192.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -28,42 +29,58 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle same-origin HTTP(S) GET requests; ignore extensions/third-party
   if (
     request.method !== 'GET' ||
     url.origin !== self.location.origin ||
     (url.protocol !== 'http:' && url.protocol !== 'https:') ||
-    url.pathname.startsWith('/api/')
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/socket.io/')
   ) {
     return;
   }
 
-  // Static assets: cache-first
-  if (url.pathname.startsWith('/assets/') || url.pathname.match(/\.(js|css|png|jpg|svg|woff2?)$/)) {
+  if (url.pathname.startsWith('/assets/') || url.pathname.match(/\.(js|css|png|jpg|webp|avif|svg|woff2?)$/)) {
     event.respondWith(
-      caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, clone).catch(() => {});
-          });
-        }
-        return response;
-      }))
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, clone).catch(() => {});
+            });
+          }
+          return response;
+        });
+      })
     );
     return;
   }
 
-  // HTML pages: network-first with offline fallback
   if (request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
-      fetch(request).catch(() => caches.match(OFFLINE_URL))
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, clone).catch(() => {});
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match(OFFLINE_URL)))
     );
     return;
   }
 
-  // Everything else: network with cache fallback
   event.respondWith(
     fetch(request).catch(() => caches.match(request))
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

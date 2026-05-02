@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, View, useWindowDimensions } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
 import { SkeletonTrackingSocialScreen } from "@/components/ui/Skeleton";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,8 +11,13 @@ import Animated, {
   FadeInDown,
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedReaction,
   withSpring,
+  withTiming,
+  Easing,
+  runOnJS,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
@@ -50,6 +55,47 @@ const SPORT_CATEGORIES: { label: string; icon: string; sports: string[] }[] = [
   { label: "Cycle Sports", icon: "bike", sports: ["ride"] },
   { label: "Water Sports", icon: "swim", sports: ["swim"] },
 ];
+
+// ── AnimatedStat — Strava-style count-up number ────────────────────────────
+
+function AnimatedStat({
+  value,
+  suffix = "",
+  decimals = 0,
+  style,
+}: {
+  value: number;
+  suffix?: string;
+  decimals?: number;
+  style?: StyleProp<TextStyle>;
+}) {
+  const animValue = useSharedValue(0);
+  const [display, setDisplay] = useState("0");
+
+  useEffect(() => {
+    animValue.value = 0;
+    animValue.value = withTiming(value, {
+      duration: 1000,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [value]);
+
+  useAnimatedReaction(
+    () => animValue.value,
+    (current) => {
+      const formatted =
+        decimals > 0 ? current.toFixed(decimals) : String(Math.round(current));
+      runOnJS(setDisplay)(formatted);
+    },
+  );
+
+  return (
+    <Text style={style}>
+      {display}
+      {suffix}
+    </Text>
+  );
+}
 
 export default function TrackingHomeScreen() {
   const router = useRouter();
@@ -90,15 +136,6 @@ export default function TrackingHomeScreen() {
   const fabAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: fabScale.value }],
   }));
-
-  const handleFabPressIn = () => {
-    fabScale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
-
-  const handleFabPressOut = () => {
-    fabScale.value = withSpring(1.0, { damping: 20, stiffness: 400 });
-  };
 
   const reload = useCallback(() => {
     try {
@@ -188,6 +225,7 @@ export default function TrackingHomeScreen() {
     : "No runs yet";
 
   const runStatus = useRunStore((s) => s.status);
+  const [refreshing, setRefreshing] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportId>("run");
 
@@ -212,6 +250,31 @@ export default function TrackingHomeScreen() {
     }
     setSportSheetOpen(true);
   }, [router, runStatus]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    reload();
+    apiRequest<{ goals: TrackingGoal[] }>("/tracking/goals")
+      .then((r) => setGoals(r.goals))
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
+  }, [reload]);
+
+  const fabTap = Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      fabScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      fabScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(handleStartRun)();
+    });
 
   useEffect(() => {
     if (!capabilitiesLoaded || canAccessTracking) return;
@@ -248,6 +311,14 @@ export default function TrackingHomeScreen() {
         bounces
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: trackingScrollBottomPad(insets) }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
       >
         <View style={{ paddingHorizontal: spacing.xl }}>
           <TrackingHeaderTabs
@@ -376,7 +447,8 @@ export default function TrackingHomeScreen() {
           )}
 
           {/* ── This Week hero card ── */}
-          <View
+          <Animated.View
+            entering={FadeInDown.delay(0).springify().damping(15)}
             style={{
               backgroundColor: cardBg,
               borderRadius: 24,
@@ -412,18 +484,17 @@ export default function TrackingHomeScreen() {
 
             {/* Big number */}
             <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
-              <Text
+              <AnimatedStat
+                value={weeklyStats.totalDistance / 1000}
+                decimals={1}
                 style={{
                   fontFamily: fonts.heroDisplay,
                   fontSize: 52,
                   lineHeight: 52,
-                  // Robis: tinted not pure white
                   color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
                   letterSpacing: -1,
                 }}
-              >
-                {formatKm(weeklyStats.totalDistance)}
-              </Text>
+              />
               <Text
                 style={{
                   fontFamily: fonts.bodyMedium,
@@ -458,10 +529,11 @@ export default function TrackingHomeScreen() {
                 valueIsAccent
               />
             </View>
-          </View>
+          </Animated.View>
 
           {/* ── Weekly distance chart ── */}
-          <View
+          <Animated.View
+            entering={FadeInDown.delay(50).springify().damping(15)}
             style={{
               backgroundColor: cardBg,
               borderRadius: 24,
@@ -491,7 +563,7 @@ export default function TrackingHomeScreen() {
               color={colors.accent}
               gridColor={isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)"}
             />
-          </View>
+          </Animated.View>
 
           {/* ── Progress shortcut ── */}
           <Pressable
@@ -627,28 +699,24 @@ export default function TrackingHomeScreen() {
               }),
         }}
       >
-        <Animated.View style={fabAnimatedStyle}>
-          <Pressable
-            onPress={handleStartRun}
-            onPressIn={handleFabPressIn}
-            onPressOut={handleFabPressOut}
-            style={{
+        <GestureDetector gesture={fabTap}>
+          <Animated.View
+            style={[fabAnimatedStyle, {
               width: 64,
               height: 64,
               borderRadius: 32,
               backgroundColor: colors.accent,
               alignItems: "center",
               justifyContent: "center",
-              // Robis: dark mode uses border for elevation, not shadow
               borderWidth: isDark ? 1 : 0,
               borderColor: isDark ? "rgba(255,255,255,0.12)" : "transparent",
-            }}
+            }]}
             accessibilityRole="button"
             accessibilityLabel="Start run"
           >
             <Ionicons name="play" size={28} color={isDark ? "hsl(220,8%,10%)" : "#fafafa"} style={{ marginLeft: 4 }} />
-          </Pressable>
-        </Animated.View>
+          </Animated.View>
+        </GestureDetector>
       </View>}
     </View>
 
@@ -696,6 +764,7 @@ function RunRow({
   onPress: () => void;
 }) {
   return (
+    <Animated.View entering={FadeInDown.delay(Math.min(idx, 10) * 50).springify().damping(15)}>
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
@@ -732,6 +801,7 @@ function RunRow({
         <View style={{ position: "absolute", bottom: 0, left: 35, right: 20, height: 1, backgroundColor: separatorColor }} />
       )}
     </Pressable>
+    </Animated.View>
   );
 }
 
@@ -850,6 +920,21 @@ function TrackingEmptyState({
   const scale = useSharedValue(1);
   const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
+  const emptyStateTap = Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(onStartRun)();
+    });
+
   return (
     <View
       style={{
@@ -880,30 +965,23 @@ function TrackingEmptyState({
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(160).duration(500).springify()} style={{ width: "100%", paddingTop: 8 }}>
-        <Animated.View style={btnStyle}>
-          <Pressable
-            onPress={onStartRun}
-            onPressIn={() => {
-              scale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            }}
-            onPressOut={() => { scale.value = withSpring(1, { damping: 20, stiffness: 400 }); }}
-            style={{
+        <GestureDetector gesture={emptyStateTap}>
+          <Animated.View
+            style={[btnStyle, {
               backgroundColor: colors.accent,
               height: 52,
               borderRadius: 26,
               justifyContent: "center",
               alignItems: "center",
-              // Robis: dark mode border not shadow
               borderWidth: isDark ? 1 : 0,
               borderColor: isDark ? "rgba(255,255,255,0.10)" : "transparent",
-            }}
+            }]}
           >
             <Text style={{ fontFamily: fonts.heading2, fontSize: 15, color: isDark ? "hsl(220,8%,10%)" : "hsl(0,0%,98%)" }}>
               Start your first run
             </Text>
-          </Pressable>
-        </Animated.View>
+          </Animated.View>
+        </GestureDetector>
       </Animated.View>
     </View>
   );

@@ -67,31 +67,31 @@ export function EngagementTrendsChart({ metrics }: EngagementTrendsChartProps) {
 
   const tooltipStyle = {
     contentStyle: {
-      background: "hsl(0 0% 6%)",
-      border: "1px solid hsl(142 20% 20%)",
-      borderRadius: 0,
-      fontSize: 11,
-      fontFamily: "monospace",
-      textTransform: "uppercase" as const,
-      color: "hsl(0 0% 95%)",
+      background: "hsl(var(--card))",
+      border: "1px solid hsl(var(--border))",
+      borderRadius: 12,
+      fontSize: 12,
+      color: "hsl(var(--foreground))",
+      boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
     },
-    itemStyle: { color: "hsl(0 0% 80%)" },
+    itemStyle: { color: "hsl(var(--muted-foreground))" },
     labelStyle: {
-      fontWeight: 900,
-      fontSize: 10,
-      letterSpacing: "0.15em",
-      color: "hsl(142 71% 45%)",
+      fontWeight: 600,
+      fontSize: 11,
+      color: "hsl(var(--primary))",
     },
   };
 
   const axisStyle = {
-    tick: { fontSize: 10, fontFamily: "monospace", fill: "hsl(0 0% 50%)" },
-    axisLine: { stroke: "hsl(0 0% 20%)" },
+    tick: { fontSize: 11, fill: "hsl(var(--muted-foreground))" },
+    axisLine: { stroke: "hsl(var(--border))" },
+    tickLine: false as const,
   };
 
   const gridStyle = {
-    strokeDasharray: "2 4",
-    stroke: "hsl(0 0% 15%)",
+    strokeDasharray: "3 6",
+    stroke: "hsl(var(--border))",
+    opacity: 0.5,
   };
 
   const activeSeries =
@@ -118,7 +118,7 @@ export function EngagementTrendsChart({ metrics }: EngagementTrendsChartProps) {
                 dataKey={s.key}
                 name={s.name}
                 fill={s.color}
-                radius={[0, 0, 0, 0]}
+                radius={[4, 4, 0, 0]}
               />
             ))}
           </BarChart>
@@ -177,9 +177,9 @@ export function EngagementTrendsChart({ metrics }: EngagementTrendsChartProps) {
   };
 
   return (
-    <div className="rounded-none border border-border bg-card transition duration-200 hover:border-primary flex flex-col md:flex-row">
+    <div className="rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 flex flex-col md:flex-row overflow-hidden">
       {/* Left Sidebar / Tabs */}
-      <div className="flex w-full flex-col border-b border-border md:w-[280px] md:shrink-0 md:border-b-0 md:border-r bg-secondary/10">
+      <div className="flex w-full flex-col border-b border-border md:w-[280px] md:shrink-0 md:border-b-0 md:border-r bg-gradient-to-b from-secondary/10 to-transparent">
         <button
           onClick={() => setSelectedMetric("ALL")}
           className={`flex flex-col items-start gap-1 p-5 text-left transition ${
@@ -193,8 +193,8 @@ export function EngagementTrendsChart({ metrics }: EngagementTrendsChartProps) {
               Combined
             </span>
             {selectedMetric === "ALL" && (
-              <Badge variant="outline" className="rounded-none border-primary/30 text-primary text-[8px] font-mono leading-none py-[2px] px-1.5 h-auto">
-                ALL METRICS
+              <Badge variant="outline" className="border-primary/30 text-primary text-[9px] font-medium">
+                All
               </Badge>
             )}
           </div>
@@ -224,8 +224,8 @@ export function EngagementTrendsChart({ metrics }: EngagementTrendsChartProps) {
                   {metric.title}
                 </span>
                 {isSelected && (
-                  <Badge variant="outline" className="rounded-none border-primary/30 text-primary text-[8px] font-mono leading-none py-[2px] px-1.5 h-auto shrink-0">
-                    LIVE_DATA
+                  <Badge variant="outline" className="border-primary/30 text-primary text-[9px] font-medium shrink-0">
+                    Live
                   </Badge>
                 )}
               </div>
@@ -251,15 +251,16 @@ export function EngagementTrendsChart({ metrics }: EngagementTrendsChartProps) {
               {selectedMetric === "ALL" ? "ALL METRICS · " : ""}7-DAY TREND
             </p>
           </div>
-          <div className="flex gap-0 shrink-0">
+          <div className="flex gap-1 shrink-0 rounded-lg bg-secondary/40 p-1">
             {CHART_TYPES.map((type) => (
               <button
                 key={type}
                 onClick={() => setChartType(type)}
-                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition border ${
+                aria-label={`${type} chart`}
+                className={`rounded-md px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-all ${
                   chartType === type
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-border bg-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    ? "bg-primary/15 text-primary shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {type}

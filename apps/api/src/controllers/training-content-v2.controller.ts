@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 import { eq } from "drizzle-orm";
 import { db } from "../db";
@@ -213,7 +214,7 @@ export async function copySelectedModulesToAudienceHandler(req: Request, res: Re
     return res.status(200).json(workspace);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Copy failed.";
-    console.error("[copy-selected] failed", err);
+    logger.error({ err }, "[copy-selected] failed");
     return res.status(400).json({ error: message });
   }
 }
@@ -260,11 +261,11 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
     });
     return res.status(200).json(workspace);
   } catch (error) {
-    console.error("[training-content-v2/mobile] failed", {
+    logger.error({
+      err: error,
       userId: req.user?.id ?? null,
       query: req.query,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    }, "[training-content-v2/mobile] failed");
     return res.status(200).json({ age: null, tabs: ["Modules"], modules: [], others: [] });
   }
 }
@@ -292,11 +293,11 @@ export async function getTrainingContentMobileWorkoutsHandler(req: Request, res:
     });
     return res.status(200).json(payload);
   } catch (error) {
-    console.error("[training-content-v2/mobile/workouts] failed", {
+    logger.error({
+      err: error,
       userId: req.user?.id ?? null,
       query: req.query,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    }, "[training-content-v2/mobile/workouts] failed");
     return res.status(200).json({
       generatedAt: new Date().toISOString(),
       nextWorkoutSessionId: null,
@@ -536,7 +537,7 @@ async function completeTrainingSessionRequest(req: Request, res: Response) {
     });
     return res.status(201).json({ item });
   } catch (error: any) {
-    console.error("finishTrainingSession error:", error);
+    logger.error({ err: error }, "finishTrainingSession error");
     if (error?.message === "Session already completed") {
       return res.status(409).json({ error: "Session already completed" });
     }

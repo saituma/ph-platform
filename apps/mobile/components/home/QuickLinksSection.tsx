@@ -1,9 +1,10 @@
 import React, { useCallback } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import type { AppRole } from "@/lib/appRole";
@@ -67,18 +68,24 @@ function QuickLinkItem({ link }: { link: QuickLink }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.94, { damping: 15, stiffness: 350 });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [scale]);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1.0, { damping: 18, stiffness: 400 });
-  }, [scale]);
-
   const handlePress = useCallback(() => {
     router.push(link.route as any);
   }, [router, link.route]);
+
+  const tap = Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(handlePress)();
+    });
 
   // Robis: tinted not pure dark — hsl(220,8%,11%) instead of #1A1A1A
   const cardBg = isDark ? "hsl(220, 8%, 11%)" : colors.card;
@@ -90,57 +97,58 @@ function QuickLinkItem({ link }: { link: QuickLink }) {
   const labelColor = isDark ? "hsl(220, 5%, 82%)" : "hsl(220, 8%, 20%)";
 
   return (
-    <Animated.View style={[{ flex: 1 }, animStyle]}>
-      <Pressable
-        onPress={handlePress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+    <GestureDetector gesture={tap}>
+      <Animated.View
+        style={[{ flex: 1 }, animStyle]}
         accessibilityRole="button"
         accessibilityLabel={link.label}
         accessibilityHint={`Navigate to ${link.label}`}
-        style={{
-          // Robis: outer borderRadius 20, paddingHorizontal 8
-          // → iconWrap inner radius = 20 - 8 = 12
-          borderRadius: 20,
-          paddingVertical: 18,
-          paddingHorizontal: 8,
-          alignItems: "center",
-          gap: 10,
-          backgroundColor: cardBg,
-          borderWidth: 1,
-          borderColor: cardBorder,
-        }}
       >
-        {/* Icon wrap — radius 12 = outer(20) - padding(8) */}
         <View
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            backgroundColor: iconBg,
+            // Robis: outer borderRadius 20, paddingHorizontal 8
+            // -> iconWrap inner radius = 20 - 8 = 12
+            borderRadius: 20,
+            paddingVertical: 18,
+            paddingHorizontal: 8,
             alignItems: "center",
-            justifyContent: "center",
+            gap: 10,
+            backgroundColor: cardBg,
+            borderWidth: 1,
+            borderColor: cardBorder,
           }}
         >
-          {/* Robis: icon consistency — outline at rest (used as default, iconActive on press not needed here since no selected state) */}
-          <Ionicons name={link.icon} size={22} color={colors.accent} />
-        </View>
+          {/* Icon wrap — radius 12 = outer(20) - padding(8) */}
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              backgroundColor: iconBg,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {/* Robis: icon consistency — outline at rest (used as default, iconActive on press not needed here since no selected state) */}
+            <Ionicons name={link.icon} size={22} color={colors.accent} />
+          </View>
 
-        {/* Robis: explicit color, no opacity, correct font size */}
-        <Text
-          style={{
-            fontFamily: "Outfit-Medium",
-            fontSize: 12,
-            letterSpacing: 0.1,
-            textAlign: "center",
-            color: labelColor,
-          }}
-          numberOfLines={1}
-        >
-          {link.label}
-        </Text>
-      </Pressable>
-    </Animated.View>
+          {/* Robis: explicit color, no opacity, correct font size */}
+          <Text
+            style={{
+              fontFamily: "Outfit-Medium",
+              fontSize: 12,
+              letterSpacing: 0.1,
+              textAlign: "center",
+              color: labelColor,
+            }}
+            numberOfLines={1}
+          >
+            {link.label}
+          </Text>
+        </View>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

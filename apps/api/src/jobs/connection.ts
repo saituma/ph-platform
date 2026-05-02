@@ -11,6 +11,7 @@
  * fall back to synchronous execution — no jobs are lost, just not queued.
  */
 import IORedis from "ioredis";
+import { logger } from "../lib/logger";
 
 let _connection: IORedis | null | undefined;
 
@@ -26,7 +27,7 @@ export function getRedisConnection(): IORedis | null {
     enableReadyCheck: false,
   });
   _connection.on("error", (err) => {
-    console.error("[BullMQ] Redis connection error:", err.message);
+    logger.error({ err }, "Redis connection error");
   });
   return _connection;
 }

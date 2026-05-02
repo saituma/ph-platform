@@ -1,10 +1,10 @@
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useMemo } from "react";
 import {
-  Pressable,
   RefreshControl,
   StyleSheet,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -20,6 +20,7 @@ import Animated, {
   Extrapolation,
   withSpring,
   useReducedMotion,
+  runOnJS,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
@@ -148,14 +149,23 @@ const HomeScreen = memo(function HomeScreen() {
     router.push("/(tabs)/tracking" as any);
   }, [router]);
 
-  // Spring micro-interactions
+  // Spring micro-interactions via native gesture handler
   const ctaScale = useSharedValue(1);
   const ctaStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
-  const ctaPressIn = useCallback(() => {
-    ctaScale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, [ctaScale]);
-  const ctaPressOut = useCallback(() => { ctaScale.value = withSpring(1.0, { damping: 20, stiffness: 400 }); }, [ctaScale]);
+  const ctaTap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      ctaScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      ctaScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(navigateToTracking)();
+    }), [navigateToTracking]);
 
 
   if (isLoading) {
@@ -268,27 +278,28 @@ const HomeScreen = memo(function HomeScreen() {
               </>
             )}
 
-            <Animated.View style={[ctaStyle, { marginTop: 20 }]}>
-              <Pressable
-                onPress={navigateToTracking}
-                onPressIn={ctaPressIn}
-                onPressOut={ctaPressOut}
-                style={[
-                  styles.ctaBtn,
-                  {
-                    backgroundColor: colors.accent,
-                    borderWidth: isDark ? 1 : 0,
-                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "transparent",
-                  },
-                ]}
+            <GestureDetector gesture={ctaTap}>
+              <Animated.View
+                style={[ctaStyle, { marginTop: 20 }]}
                 accessibilityRole="button"
                 accessibilityLabel="Start session"
               >
-                <Text style={[styles.ctaText, { fontFamily: "Outfit-Bold", color: isDark ? "hsl(220,8%,10%)" : "hsl(0,0%,98%)" }]}>
-                  {isRunActive ? "Running" : watchHistory.length > 0 ? "Resume watching" : "Start session"}
-                </Text>
-              </Pressable>
-            </Animated.View>
+                <View
+                  style={[
+                    styles.ctaBtn,
+                    {
+                      backgroundColor: colors.accent,
+                      borderWidth: isDark ? 1 : 0,
+                      borderColor: isDark ? "rgba(255,255,255,0.10)" : "transparent",
+                    },
+                  ]}
+                >
+                  <Text style={[styles.ctaText, { fontFamily: "Outfit-Bold", color: isDark ? "hsl(220,8%,10%)" : "hsl(0,0%,98%)" }]}>
+                    {isRunActive ? "Running" : watchHistory.length > 0 ? "Resume watching" : "Start session"}
+                  </Text>
+                </View>
+              </Animated.View>
+            </GestureDetector>
           </View>
         </Animated.View>
         )}
@@ -377,39 +388,53 @@ function HomeStatCard({
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
+  const tap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(onPress)();
+    }), [onPress]);
+
   return (
-    <Animated.View style={[animStyle, { flex: 1 }]}>
-      <Pressable
-        onPressIn={() => { scale.value = withSpring(0.97, { damping: 18, stiffness: 350 }); }}
-        onPressOut={() => { scale.value = withSpring(1.0, { damping: 20, stiffness: 400 }); }}
-        onPress={onPress}
-        style={[
-          styles.statCard,
-          {
-            backgroundColor: cardBg,
-            borderWidth: 1,
-            borderColor: cardBorder,
-          },
-        ]}
-      >
-        <Text style={[styles.statLabel, { color: accentColor }]} numberOfLines={1}>
-          {stat.label}
-        </Text>
-        <View style={styles.statValueRow}>
-          <Text
-            style={[styles.statValue, { fontFamily: "Chillax-Semibold", color: primaryText }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-          >
-            {stat.value}
+    <GestureDetector gesture={tap}>
+      <Animated.View style={[animStyle, { flex: 1 }]}>
+        <View
+          style={[
+            styles.statCard,
+            {
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor: cardBorder,
+            },
+          ]}
+        >
+          <Text style={[styles.statLabel, { color: accentColor }]} numberOfLines={1}>
+            {stat.label}
           </Text>
-          {stat.unit ? (
-            <Text style={[styles.statUnit, { color: secondaryText }]}>{stat.unit}</Text>
-          ) : null}
+          <View style={styles.statValueRow}>
+            <Text
+              style={[styles.statValue, { fontFamily: "Chillax-Semibold", color: primaryText }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
+              {stat.value}
+            </Text>
+            {stat.unit ? (
+              <Text style={[styles.statUnit, { color: secondaryText }]}>{stat.unit}</Text>
+            ) : null}
+          </View>
         </View>
-      </Pressable>
-    </Animated.View>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

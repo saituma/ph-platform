@@ -36,11 +36,32 @@ export default defineConfig(({ mode }) => {
 					target: apiTarget,
 					changeOrigin: true,
 				},
-				// Same origin as the page: avoids CORS / wrong host when the API is on a different port (e.g. 3001)
 				"/socket.io": {
 					target: apiTarget,
 					changeOrigin: true,
 					ws: true,
+				},
+			},
+		},
+		build: {
+			target: "es2022",
+			cssMinify: "lightningcss",
+			sourcemap: mode === "production" ? "hidden" : true,
+			chunkSizeWarningLimit: 600,
+			rollupOptions: {
+				output: {
+					manualChunks(id: string) {
+						if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) return "vendor-react";
+						if (id.includes("node_modules/@tanstack/react-router") || id.includes("node_modules/@tanstack/react-query")) return "vendor-router";
+						if (id.includes("node_modules/framer-motion")) return "vendor-motion";
+						if (id.includes("node_modules/@sentry")) return "vendor-sentry";
+						if (id.includes("node_modules/lucide-react") || id.includes("node_modules/sonner")) return "vendor-ui";
+						if (id.includes("node_modules/radix-ui") || id.includes("node_modules/@radix-ui")) return "vendor-radix";
+						if (id.includes("node_modules/zod")) return "vendor-zod";
+						if (id.includes("node_modules/date-fns")) return "vendor-date";
+						if (id.includes("node_modules/socket.io")) return "vendor-socket";
+						if (id.includes("node_modules/embla-carousel")) return "vendor-carousel";
+					},
 				},
 			},
 		},
@@ -53,6 +74,7 @@ export default defineConfig(({ mode }) => {
 				routesDirectory: "./src/routes",
 				generatedRouteTree: "./src/routeTree.gen.ts",
 				routeFileIgnorePattern: "api/.*",
+				autoCodeSplitting: true,
 			}),
 			viteReact(),
 		],

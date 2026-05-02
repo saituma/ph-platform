@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from "express";
 import { getDbOutageRemainingMs, isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
 import { verifyAccessToken } from "../lib/jwt";
 import { env } from "../config/env";
+import { logger } from "../lib/logger";
 import { createUserFromCognito, getAthleteForUser, getUserByCognitoSub, getUserById } from "../services/user.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
 
@@ -19,11 +20,11 @@ function maybeLogDbAuthOutage(err: unknown) {
   const isCooldownHit = message.includes("skipping DB query during transient outage cooldown");
 
   if (isCooldownHit) {
-    console.warn(`[Auth] Database outage cooldown active (${remainingMs}ms remaining)`);
+    logger.warn({ remainingMs }, "Database outage cooldown active during auth");
     return;
   }
 
-  console.error("[Auth] Database unavailable during auth (not a token rejection):", err);
+  logger.error({ err }, "Database unavailable during auth (not a token rejection)");
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -118,7 +119,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       });
     }
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[Auth] Bearer token rejected: ${message}`);
+    logger.warn({ reason: message }, "Bearer token rejected");
     return res.status(401).json({ error: "Unauthorized" });
   }
 }

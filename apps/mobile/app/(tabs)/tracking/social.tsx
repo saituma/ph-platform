@@ -8,17 +8,27 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
   RefreshControl,
   Share,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withDelay,
+  withTiming,
+  FadeInDown,
+  runOnJS,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 import { useRunStore } from "@/store/useRunStore";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -278,6 +288,7 @@ export default function TrackingSocialScreen() {
   }, [loadFeed, loadLeaderboard, loadPosts, token, useTeamFeed]);
 
   const handleRefresh = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setRefreshing(true);
     await Promise.all([loadSettings(), loadCommunity()]);
     setRefreshing(false);
@@ -1089,7 +1100,7 @@ function FeedTab({
   }, [loading, unifiedFeed]);
 
   const renderItem = useCallback(
-    ({ item }: { item: ListItem }) => {
+    ({ item, index }: { item: ListItem; index: number }) => {
       if (item._listType === "composer") {
         return (
           <PostComposerRow
@@ -1165,28 +1176,33 @@ function FeedTab({
       }
       // item
       const feedItem = item.data;
+      const itemIndex = Math.max(0, index - 3); // offset for header items
       if (feedItem._type === "run") {
         return (
-          <RunCard
+          <Animated.View entering={FadeInDown.delay(Math.min(itemIndex, 10) * 50).springify().damping(15)}>
+            <RunCard
+              item={feedItem}
+              colors={colors}
+              cardBg={cardBg}
+              cardBorder={cardBorder}
+              onPressComment={() => onPressRunComment(feedItem.runLogId)}
+              onToggleLike={() => onToggleRunLike(feedItem)}
+              onPressOpen={() => onPressOpenRun(feedItem.runLogId)}
+            />
+          </Animated.View>
+        );
+      }
+      return (
+        <Animated.View entering={FadeInDown.delay(Math.min(itemIndex, 10) * 50).springify().damping(15)}>
+          <PostCard
             item={feedItem}
             colors={colors}
             cardBg={cardBg}
             cardBorder={cardBorder}
-            onPressComment={() => onPressRunComment(feedItem.runLogId)}
-            onToggleLike={() => onToggleRunLike(feedItem)}
-            onPressOpen={() => onPressOpenRun(feedItem.runLogId)}
+            onPressComment={() => onPressPostComment(feedItem.id)}
+            onToggleLike={() => onTogglePostLike(feedItem)}
           />
-        );
-      }
-      return (
-        <PostCard
-          item={feedItem}
-          colors={colors}
-          cardBg={cardBg}
-          cardBorder={cardBorder}
-          onPressComment={() => onPressPostComment(feedItem.id)}
-          onToggleLike={() => onTogglePostLike(feedItem)}
-        />
+        </Animated.View>
       );
     },
     [
@@ -1218,7 +1234,7 @@ function FeedTab({
   }, []);
 
   return (
-    <FlatList
+    <FlashList
       data={listData}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -1226,7 +1242,6 @@ function FeedTab({
         paddingHorizontal: spacing.xl,
         paddingTop: spacing.sm,
         paddingBottom: bottomPad,
-        gap: 12,
       }}
       showsVerticalScrollIndicator={false}
       onEndReached={handleEndReached}
@@ -1364,7 +1379,7 @@ function LeaderboardTab({
   }, []);
 
   return (
-    <FlatList
+    <FlashList
       data={listData}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -1372,7 +1387,6 @@ function LeaderboardTab({
         paddingHorizontal: spacing.xl,
         paddingTop: spacing.sm,
         paddingBottom: bottomPad,
-        gap: 10,
       }}
       showsVerticalScrollIndicator={false}
       refreshControl={
@@ -1542,7 +1556,7 @@ function SquadTab({
   }, []);
 
   return (
-    <FlatList
+    <FlashList
       data={listData}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -1550,7 +1564,6 @@ function SquadTab({
         paddingHorizontal: spacing.xl,
         paddingTop: spacing.sm,
         paddingBottom: bottomPad,
-        gap: 10,
       }}
       showsVerticalScrollIndicator={false}
       refreshControl={
@@ -1593,197 +1606,249 @@ const RunCard = memo(function RunCard({
   const commentCount = item.commentCount ?? 0;
   const dateLabel = relativeTime(item.date);
 
+  // Double-tap heart burst animation
+  const heartScale = useSharedValue(0);
+  const heartOpacity = useSharedValue(0);
+
+  const triggerLikeHaptic = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (!item.userLiked) {
+      onToggleLike();
+    }
+  }, [item.userLiked, onToggleLike]);
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd((_e, success) => {
+      if (success) {
+        heartScale.value = 0;
+        heartOpacity.value = 1;
+        heartScale.value = withSpring(1.2, { damping: 6, stiffness: 200 });
+        heartOpacity.value = withDelay(600, withTiming(0, { duration: 300 }));
+        runOnJS(triggerLikeHaptic)();
+      }
+    });
+
+  const singleTap = Gesture.Tap()
+    .numberOfTaps(1)
+    .onEnd(() => {
+      // single tap on the card body does nothing — action buttons handle it
+    });
+
+  const composedGesture = Gesture.Exclusive(doubleTap, singleTap);
+
+  const heartStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: heartScale.value }],
+    opacity: heartOpacity.value,
+    position: "absolute" as const,
+    alignSelf: "center" as const,
+    top: "40%",
+    left: 0,
+    right: 0,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+    zIndex: 100,
+    pointerEvents: "none" as const,
+  }));
+
   return (
-    <View
-      style={{
-        width: "100%",
-        backgroundColor: cardBg,
-        borderWidth: 1,
-        borderColor: cardBorder,
-        borderRadius: 20,
-        overflow: "hidden",
-      }}
-    >
-      {/* Header row */}
+    <GestureDetector gesture={composedGesture}>
       <View
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingTop: 14,
-          paddingBottom: 10,
-          gap: 10,
+          width: "100%",
+          backgroundColor: cardBg,
+          borderWidth: 1,
+          borderColor: cardBorder,
+          borderRadius: 20,
+          overflow: "hidden",
         }}
       >
-        <InitialAvatar
-          initial={item.name.slice(0, 1).toUpperCase()}
-          url={item.avatarUrl}
-          size={40}
-        />
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontFamily: fonts.bodyBold,
-              fontSize: 14,
-              color: colors.textPrimary,
-            }}
-          >
-            {item.name}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.bodyMedium,
-              fontSize: 12,
-              color: colors.textSecondary,
-              marginTop: 1,
-            }}
-          >
-            {dateLabel}
-          </Text>
-        </View>
-        <View
-          style={{
-            paddingHorizontal: 8,
-            paddingVertical: 3,
-            borderRadius: 20,
-            backgroundColor: colors.accentLight,
-          }}
-        >
-          <Text
-            style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: colors.accent }}
-          >
-            Run
-          </Text>
-        </View>
-      </View>
+        {/* Heart burst overlay */}
+        <Animated.View style={heartStyle} pointerEvents="none">
+          <Ionicons name="heart" size={80} color="#FF3B30" />
+        </Animated.View>
 
-      {/* Route preview */}
-      <Pressable onPress={onPressOpen} style={({ pressed }) => ({ opacity: pressed ? 0.95 : 1 })}>
-        <MiniRunPathPreview points={item.pathPreview} height={180} colors={colors} />
-      </Pressable>
-
-      {/* Stats row */}
-      <View
-        style={{
-          flexDirection: "row",
-          paddingHorizontal: 16,
-          paddingTop: 14,
-          paddingBottom: 2,
-          gap: 0,
-        }}
-      >
-        <StatColumn label="Distance" value={`${km} km`} colors={colors} />
-        <StatDivider />
-        <StatColumn label="Time" value={time} colors={colors} />
-        <StatDivider />
-        <StatColumn label="Pace" value={pace} colors={colors} />
-      </View>
-
-      {/* Interaction row */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 12,
-          paddingTop: 12,
-          paddingBottom: 14,
-          gap: 8,
-        }}
-      >
-        {/* Kudos count */}
+        {/* Header row */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
-            gap: 4,
-            flex: 1,
+            paddingHorizontal: 16,
+            paddingTop: 14,
+            paddingBottom: 10,
+            gap: 10,
           }}
         >
-          <Ionicons name="heart" size={14} color={colors.textDim} />
-          <Text
-            style={{
-              fontFamily: fonts.bodyMedium,
-              fontSize: 12,
-              color: colors.textSecondary,
-            }}
-          >
-            {likeCount}
-          </Text>
-          <Ionicons
-            name="chatbubble-outline"
-            size={13}
-            color={colors.textDim}
-            style={{ marginLeft: 8 }}
+          <InitialAvatar
+            initial={item.name.slice(0, 1).toUpperCase()}
+            url={item.avatarUrl}
+            size={40}
           />
-          <Text
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: fonts.bodyBold,
+                fontSize: 14,
+                color: colors.textPrimary,
+              }}
+            >
+              {item.name}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.bodyMedium,
+                fontSize: 12,
+                color: colors.textSecondary,
+                marginTop: 1,
+              }}
+            >
+              {dateLabel}
+            </Text>
+          </View>
+          <View
             style={{
-              fontFamily: fonts.bodyMedium,
-              fontSize: 12,
-              color: colors.textSecondary,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 20,
+              backgroundColor: colors.accentLight,
             }}
           >
-            {commentCount}
-          </Text>
+            <Text
+              style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: colors.accent }}
+            >
+              Run
+            </Text>
+          </View>
         </View>
 
-        {/* Action buttons */}
-        <Pressable
-          onPress={onToggleLike}
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-            borderRadius: 12,
-            backgroundColor: item.userLiked ? colors.accentLight : "rgba(255,255,255,0.06)",
-            opacity: pressed ? 0.8 : 1,
-          })}
-          accessibilityLabel={item.userLiked ? "Unlike" : "Like"}
-        >
-          <Ionicons
-            name={item.userLiked ? "heart" : "heart-outline"}
-            size={16}
-            color={item.userLiked ? colors.accent : colors.textSecondary}
-          />
-          <Text
-            style={{
-              fontFamily: fonts.bodyBold,
-              fontSize: 13,
-              color: item.userLiked ? colors.accent : colors.textSecondary,
-            }}
-          >
-            Kudos
-          </Text>
+        {/* Route preview */}
+        <Pressable onPress={onPressOpen} style={({ pressed }) => ({ opacity: pressed ? 0.95 : 1 })}>
+          <MiniRunPathPreview points={item.pathPreview} height={180} colors={colors} />
         </Pressable>
 
-        <Pressable
-          onPress={onPressComment}
-          style={({ pressed }) => ({
+        {/* Stats row */}
+        <View
+          style={{
+            flexDirection: "row",
+            paddingHorizontal: 16,
+            paddingTop: 14,
+            paddingBottom: 2,
+            gap: 0,
+          }}
+        >
+          <StatColumn label="Distance" value={`${km} km`} colors={colors} />
+          <StatDivider />
+          <StatColumn label="Time" value={time} colors={colors} />
+          <StatDivider />
+          <StatColumn label="Pace" value={pace} colors={colors} />
+        </View>
+
+        {/* Interaction row */}
+        <View
+          style={{
             flexDirection: "row",
             alignItems: "center",
-            gap: 6,
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-            borderRadius: 12,
-            backgroundColor: "rgba(255,255,255,0.06)",
-            opacity: pressed ? 0.8 : 1,
-          })}
-          accessibilityLabel="Comment"
+            paddingHorizontal: 12,
+            paddingTop: 12,
+            paddingBottom: 14,
+            gap: 8,
+          }}
         >
-          <Ionicons name="chatbubble-outline" size={15} color={colors.textSecondary} />
-          <Text
+          {/* Kudos count */}
+          <View
             style={{
-              fontFamily: fonts.bodyBold,
-              fontSize: 13,
-              color: colors.textSecondary,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              flex: 1,
             }}
           >
-            Comment
-          </Text>
-        </Pressable>
+            <Ionicons name="heart" size={14} color={colors.textDim} />
+            <Text
+              style={{
+                fontFamily: fonts.bodyMedium,
+                fontSize: 12,
+                color: colors.textSecondary,
+              }}
+            >
+              {likeCount}
+            </Text>
+            <Ionicons
+              name="chatbubble-outline"
+              size={13}
+              color={colors.textDim}
+              style={{ marginLeft: 8 }}
+            />
+            <Text
+              style={{
+                fontFamily: fonts.bodyMedium,
+                fontSize: 12,
+                color: colors.textSecondary,
+              }}
+            >
+              {commentCount}
+            </Text>
+          </View>
+
+          {/* Action buttons */}
+          <Pressable
+            onPress={onToggleLike}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor: item.userLiked ? colors.accentLight : "rgba(255,255,255,0.06)",
+              opacity: pressed ? 0.8 : 1,
+            })}
+            accessibilityLabel={item.userLiked ? "Unlike" : "Like"}
+          >
+            <Ionicons
+              name={item.userLiked ? "heart" : "heart-outline"}
+              size={16}
+              color={item.userLiked ? colors.accent : colors.textSecondary}
+            />
+            <Text
+              style={{
+                fontFamily: fonts.bodyBold,
+                fontSize: 13,
+                color: item.userLiked ? colors.accent : colors.textSecondary,
+              }}
+            >
+              Kudos
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={onPressComment}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor: "rgba(255,255,255,0.06)",
+              opacity: pressed ? 0.8 : 1,
+            })}
+            accessibilityLabel="Comment"
+          >
+            <Ionicons name="chatbubble-outline" size={15} color={colors.textSecondary} />
+            <Text
+              style={{
+                fontFamily: fonts.bodyBold,
+                fontSize: 13,
+                color: colors.textSecondary,
+              }}
+            >
+              Comment
+            </Text>
+          </Pressable>
+        </View>
       </View>
-    </View>
+    </GestureDetector>
   );
 });
 
@@ -1810,290 +1875,342 @@ const PostCard = memo(function PostCard({
   const dateLabel = relativeTime(item.date);
   const isLongText = item.content && item.content.length > 180;
 
+  // Double-tap heart burst animation
+  const heartScale = useSharedValue(0);
+  const heartOpacity = useSharedValue(0);
+
+  const triggerLikeHaptic = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (!item.userLiked) {
+      onToggleLike();
+    }
+  }, [item.userLiked, onToggleLike]);
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd((_e, success) => {
+      if (success) {
+        heartScale.value = 0;
+        heartOpacity.value = 1;
+        heartScale.value = withSpring(1.2, { damping: 6, stiffness: 200 });
+        heartOpacity.value = withDelay(600, withTiming(0, { duration: 300 }));
+        runOnJS(triggerLikeHaptic)();
+      }
+    });
+
+  const singleTap = Gesture.Tap()
+    .numberOfTaps(1)
+    .onEnd(() => {
+      // single tap on the card body does nothing — action buttons handle it
+    });
+
+  const composedGesture = Gesture.Exclusive(doubleTap, singleTap);
+
+  const heartStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: heartScale.value }],
+    opacity: heartOpacity.value,
+    position: "absolute" as const,
+    alignSelf: "center" as const,
+    top: "40%",
+    left: 0,
+    right: 0,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+    zIndex: 100,
+    pointerEvents: "none" as const,
+  }));
+
   return (
-    <View
-      style={{
-        width: "100%",
-        backgroundColor: cardBg,
-        borderWidth: 1,
-        borderColor: cardBorder,
-        borderRadius: 20,
-        overflow: "hidden",
-      }}
-    >
-      {/* Header */}
+    <GestureDetector gesture={composedGesture}>
       <View
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingTop: 14,
-          paddingBottom: 10,
-          gap: 10,
+          width: "100%",
+          backgroundColor: cardBg,
+          borderWidth: 1,
+          borderColor: cardBorder,
+          borderRadius: 20,
+          overflow: "hidden",
         }}
       >
-        <InitialAvatar
-          initial={item.name.slice(0, 1).toUpperCase()}
-          url={item.avatarUrl}
-          size={40}
-        />
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontFamily: fonts.bodyBold,
-              fontSize: 14,
-              color: colors.textPrimary,
-            }}
-          >
-            {item.name}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.bodyMedium,
-              fontSize: 12,
-              color: colors.textSecondary,
-              marginTop: 1,
-            }}
-          >
-            {dateLabel}
-          </Text>
-        </View>
+        {/* Heart burst overlay */}
+        <Animated.View style={heartStyle} pointerEvents="none">
+          <Ionicons name="heart" size={80} color="#FF3B30" />
+        </Animated.View>
+
+        {/* Header */}
         <View
           style={{
-            paddingHorizontal: 8,
-            paddingVertical: 3,
-            borderRadius: 20,
-            backgroundColor: "rgba(123,97,255,0.12)",
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 16,
+            paddingTop: 14,
+            paddingBottom: 10,
+            gap: 10,
           }}
         >
-          <Text
-            style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: "#7B61FF" }}
-          >
-            Post
-          </Text>
-        </View>
-      </View>
-
-      {/* Text content */}
-      {item.content ? (
-        <View style={{ paddingHorizontal: 16, paddingBottom: item.mediaUrl ? 10 : 0 }}>
-          <Text
-            numberOfLines={expanded ? undefined : isLongText ? 3 : undefined}
-            style={{
-              fontFamily: fonts.bodyMedium,
-              fontSize: 15,
-              color: colors.textPrimary,
-              lineHeight: 22,
-            }}
-          >
-            {item.content}
-          </Text>
-          {isLongText && !expanded ? (
-            <Pressable onPress={() => setExpanded(true)} hitSlop={8}>
-              <Text
-                style={{
-                  fontFamily: fonts.bodyBold,
-                  fontSize: 13,
-                  color: colors.accent,
-                  marginTop: 4,
-                }}
-              >
-                Read more
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-
-      {/* Media */}
-      {item.mediaUrl ? (
-        <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+          <InitialAvatar
+            initial={item.name.slice(0, 1).toUpperCase()}
+            url={item.avatarUrl}
+            size={40}
+          />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: fonts.bodyBold,
+                fontSize: 14,
+                color: colors.textPrimary,
+              }}
+            >
+              {item.name}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.bodyMedium,
+                fontSize: 12,
+                color: colors.textSecondary,
+                marginTop: 1,
+              }}
+            >
+              {dateLabel}
+            </Text>
+          </View>
           <View
             style={{
-              borderRadius: 12,
-              overflow: "hidden",
-              backgroundColor: colors.surfaceHigh,
-              borderWidth: 1,
-              borderColor: cardBorder,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 20,
+              backgroundColor: "rgba(123,97,255,0.12)",
             }}
           >
-            {item.mediaType === "video" ? (
-              <View
-                style={{
-                  height: 180,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                }}
-              >
-                <View
-                  style={{
-                    width: 46,
-                    height: 46,
-                    borderRadius: 23,
-                    backgroundColor: colors.accentLight,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons name="play" size={20} color={colors.accent} />
-                </View>
+            <Text
+              style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: "#7B61FF" }}
+            >
+              Post
+            </Text>
+          </View>
+        </View>
+
+        {/* Text content */}
+        {item.content ? (
+          <View style={{ paddingHorizontal: 16, paddingBottom: item.mediaUrl ? 10 : 0 }}>
+            <Text
+              numberOfLines={expanded ? undefined : isLongText ? 3 : undefined}
+              style={{
+                fontFamily: fonts.bodyMedium,
+                fontSize: 15,
+                color: colors.textPrimary,
+                lineHeight: 22,
+              }}
+            >
+              {item.content}
+            </Text>
+            {isLongText && !expanded ? (
+              <Pressable onPress={() => setExpanded(true)} hitSlop={8}>
                 <Text
                   style={{
                     fontFamily: fonts.bodyBold,
                     fontSize: 13,
-                    color: colors.textPrimary,
+                    color: colors.accent,
+                    marginTop: 4,
                   }}
                 >
-                  Video post
+                  Read more
                 </Text>
-              </View>
-            ) : (
-              <View>
-                <Image
-                  source={{ uri: item.mediaUrl }}
-                  style={{ width: "100%", aspectRatio: 16 / 9 }}
-                  contentFit="cover"
-                  transition={200}
-                />
-                <LinearGradient
-                  colors={["transparent", "rgba(7,7,15,0.45)"]}
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 60,
-                  }}
-                />
-              </View>
-            )}
-          </View>
-        </View>
-      ) : null}
-
-      {/* Like/comment counts + actions */}
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingTop: 4,
-          paddingBottom: 14,
-        }}
-      >
-        {(likeCount > 0 || commentCount > 0) ? (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              paddingBottom: 10,
-            }}
-          >
-            {likeCount > 0 ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="heart" size={13} color={colors.textDim} />
-                <Text
-                  style={{
-                    fontFamily: fonts.bodyMedium,
-                    fontSize: 12,
-                    color: colors.textSecondary,
-                  }}
-                >
-                  {likeCount} {likeCount === 1 ? "like" : "likes"}
-                </Text>
-              </View>
-            ) : null}
-            {commentCount > 0 ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="chatbubble-outline" size={12} color={colors.textDim} />
-                <Text
-                  style={{
-                    fontFamily: fonts.bodyMedium,
-                    fontSize: 12,
-                    color: colors.textSecondary,
-                  }}
-                >
-                  {commentCount} {commentCount === 1 ? "comment" : "comments"}
-                </Text>
-              </View>
+              </Pressable>
             ) : null}
           </View>
         ) : null}
 
-        {/* Divider */}
+        {/* Media */}
+        {item.mediaUrl ? (
+          <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+            <View
+              style={{
+                borderRadius: 12,
+                overflow: "hidden",
+                backgroundColor: colors.surfaceHigh,
+                borderWidth: 1,
+                borderColor: cardBorder,
+              }}
+            >
+              {item.mediaType === "video" ? (
+                <View
+                  style={{
+                    height: 180,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 46,
+                      height: 46,
+                      borderRadius: 23,
+                      backgroundColor: colors.accentLight,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Ionicons name="play" size={20} color={colors.accent} />
+                  </View>
+                  <Text
+                    style={{
+                      fontFamily: fonts.bodyBold,
+                      fontSize: 13,
+                      color: colors.textPrimary,
+                    }}
+                  >
+                    Video post
+                  </Text>
+                </View>
+              ) : (
+                <View>
+                  <Image
+                    source={{ uri: item.mediaUrl }}
+                    style={{ width: "100%", aspectRatio: 16 / 9 }}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                  <LinearGradient
+                    colors={["transparent", "rgba(7,7,15,0.45)"]}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 60,
+                    }}
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Like/comment counts + actions */}
         <View
           style={{
-            height: 1,
-            backgroundColor: cardBorder,
-            marginBottom: 10,
-            opacity: 0.5,
+            paddingHorizontal: 16,
+            paddingTop: 4,
+            paddingBottom: 14,
           }}
-        />
-
-        {/* Action buttons */}
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable
-            onPress={onToggleLike}
-            style={({ pressed }) => ({
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              paddingVertical: 9,
-              borderRadius: 12,
-              backgroundColor: item.userLiked
-                ? colors.accentLight
-                : "rgba(255,255,255,0.05)",
-              opacity: pressed ? 0.8 : 1,
-            })}
-            accessibilityLabel={item.userLiked ? "Unlike" : "Like"}
-          >
-            <Ionicons
-              name={item.userLiked ? "heart" : "heart-outline"}
-              size={16}
-              color={item.userLiked ? colors.accent : colors.textSecondary}
-            />
-            <Text
+        >
+          {(likeCount > 0 || commentCount > 0) ? (
+            <View
               style={{
-                fontFamily: fonts.bodyBold,
-                fontSize: 13,
-                color: item.userLiked ? colors.accent : colors.textSecondary,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                paddingBottom: 10,
               }}
             >
-              Like
-            </Text>
-          </Pressable>
+              {likeCount > 0 ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Ionicons name="heart" size={13} color={colors.textDim} />
+                  <Text
+                    style={{
+                      fontFamily: fonts.bodyMedium,
+                      fontSize: 12,
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    {likeCount} {likeCount === 1 ? "like" : "likes"}
+                  </Text>
+                </View>
+              ) : null}
+              {commentCount > 0 ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Ionicons name="chatbubble-outline" size={12} color={colors.textDim} />
+                  <Text
+                    style={{
+                      fontFamily: fonts.bodyMedium,
+                      fontSize: 12,
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    {commentCount} {commentCount === 1 ? "comment" : "comments"}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
 
-          <Pressable
-            onPress={onPressComment}
-            style={({ pressed }) => ({
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              paddingVertical: 9,
-              borderRadius: 12,
-              backgroundColor: "rgba(255,255,255,0.05)",
-              opacity: pressed ? 0.8 : 1,
-            })}
-            accessibilityLabel="Comment"
-          >
-            <Ionicons name="chatbubble-outline" size={15} color={colors.textSecondary} />
-            <Text
-              style={{
-                fontFamily: fonts.bodyBold,
-                fontSize: 13,
-                color: colors.textSecondary,
-              }}
+          {/* Divider */}
+          <View
+            style={{
+              height: 1,
+              backgroundColor: cardBorder,
+              marginBottom: 10,
+              opacity: 0.5,
+            }}
+          />
+
+          {/* Action buttons */}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable
+              onPress={onToggleLike}
+              style={({ pressed }) => ({
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                paddingVertical: 9,
+                borderRadius: 12,
+                backgroundColor: item.userLiked
+                  ? colors.accentLight
+                  : "rgba(255,255,255,0.05)",
+                opacity: pressed ? 0.8 : 1,
+              })}
+              accessibilityLabel={item.userLiked ? "Unlike" : "Like"}
             >
-              Comment
-            </Text>
-          </Pressable>
+              <Ionicons
+                name={item.userLiked ? "heart" : "heart-outline"}
+                size={16}
+                color={item.userLiked ? colors.accent : colors.textSecondary}
+              />
+              <Text
+                style={{
+                  fontFamily: fonts.bodyBold,
+                  fontSize: 13,
+                  color: item.userLiked ? colors.accent : colors.textSecondary,
+                }}
+              >
+                Like
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={onPressComment}
+              style={({ pressed }) => ({
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                paddingVertical: 9,
+                borderRadius: 12,
+                backgroundColor: "rgba(255,255,255,0.05)",
+                opacity: pressed ? 0.8 : 1,
+              })}
+              accessibilityLabel="Comment"
+            >
+              <Ionicons name="chatbubble-outline" size={15} color={colors.textSecondary} />
+              <Text
+                style={{
+                  fontFamily: fonts.bodyBold,
+                  fontSize: 13,
+                  color: colors.textSecondary,
+                }}
+              >
+                Comment
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
-    </View>
+    </GestureDetector>
   );
 });
 
@@ -2581,185 +2698,102 @@ function ChallengesTab({
     ? [{ _listType: "loading" }]
     : [{ _listType: "weekly-goal" }, { _listType: "participation" }, { _listType: "streaks" }];
 
-  return (
-    <FlatList
-      data={data}
-      keyExtractor={(item) => item._listType}
-      contentContainerStyle={{
-        paddingHorizontal: spacing.xl,
-        paddingTop: spacing.sm,
-        paddingBottom: bottomPad,
-        gap: 14,
-      }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+  const renderChallengeItem = useCallback(
+    ({ item }: { item: ListItem }) => {
+      if (item._listType === "loading") {
+        return <ActivityIndicator color={colors.accent} style={{ marginVertical: 40 }} />;
       }
-      renderItem={({ item }) => {
-        if (item._listType === "loading") {
-          return <ActivityIndicator color={colors.accent} style={{ marginVertical: 40 }} />;
-        }
 
-        if (item._listType === "weekly-goal") {
-          return (
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                borderRadius: 20,
-                padding: 20,
-                gap: 16,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <View
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: "rgba(255,176,32,0.12)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text style={{ fontSize: 22 }}>🏆</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.heading2, fontSize: 17, color: colors.textPrimary }}>
-                    Weekly Team Goal
-                  </Text>
-                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                    {teamName} · {weeklyGoalKm} km target
-                  </Text>
-                </View>
+      if (item._listType === "weekly-goal") {
+        return (
+          <View
+            style={{
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor: cardBorder,
+              borderRadius: 20,
+              padding: 20,
+              gap: 16,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: "rgba(255,176,32,0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontSize: 22 }}>🏆</Text>
               </View>
-
-              <View style={{ gap: 8 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textPrimary }}>
-                    {totalKm.toFixed(1)} / {weeklyGoalKm} km
-                  </Text>
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.accent }}>
-                    {Math.round(goalProgress * 100)}%
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    height: 10,
-                    borderRadius: 5,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <LinearGradient
-                    colors={["#C8F135", "#A0D911"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{
-                      height: "100%",
-                      width: `${Math.round(goalProgress * 100)}%`,
-                      borderRadius: 5,
-                    }}
-                  />
-                </View>
-              </View>
-
-              <View style={{ flexDirection: "row", justifyContent: "space-around", paddingTop: 4 }}>
-                <View style={{ alignItems: "center" }}>
-                  <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
-                    {totalKm.toFixed(1)}
-                  </Text>
-                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>km total</Text>
-                </View>
-                <View style={{ alignItems: "center" }}>
-                  <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
-                    {activeRunners}
-                  </Text>
-                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>runners</Text>
-                </View>
-                <View style={{ alignItems: "center" }}>
-                  <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
-                    {leaderboard.length}
-                  </Text>
-                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>members</Text>
-                </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.heading2, fontSize: 17, color: colors.textPrimary }}>
+                  Weekly Team Goal
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                  {teamName} · {weeklyGoalKm} km target
+                </Text>
               </View>
             </View>
-          );
-        }
 
-        if (item._listType === "participation") {
-          return (
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderWidth: 1,
-                borderColor: cardBorder,
-                borderRadius: 20,
-                padding: 20,
-                gap: 14,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: "rgba(59,130,246,0.12)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons name="people" size={18} color="#3B82F6" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.textPrimary }}>
-                    Team Participation
-                  </Text>
-                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
-                    {activeRunners} of {memberCount} members active
-                  </Text>
-                </View>
-                <Text style={{ fontFamily: fonts.statNumber, fontSize: 22, color: "#3B82F6" }}>
-                  {participationPct}%
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textPrimary }}>
+                  {totalKm.toFixed(1)} / {weeklyGoalKm} km
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.accent }}>
+                  {Math.round(goalProgress * 100)}%
                 </Text>
               </View>
               <View
                 style={{
-                  height: 8,
-                  borderRadius: 4,
+                  height: 10,
+                  borderRadius: 5,
                   backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
                   overflow: "hidden",
                 }}
               >
-                <View
+                <LinearGradient
+                  colors={["#C8F135", "#A0D911"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                   style={{
                     height: "100%",
-                    width: `${participationPct}%`,
-                    borderRadius: 4,
-                    backgroundColor: "#3B82F6",
+                    width: `${Math.round(goalProgress * 100)}%`,
+                    borderRadius: 5,
                   }}
                 />
               </View>
             </View>
-          );
-        }
 
-        // streaks - show top 5 performers
-        const top5 = leaderboard.filter((l) => l.kmTotal > 0).slice(0, 5);
-        if (top5.length === 0) {
-          return (
-            <EmptyState
-              title="No activity yet"
-              subtitle="Start running to see team challenges!"
-              colors={colors}
-              cardBg={cardBg}
-              cardBorder={cardBorder}
-            />
-          );
-        }
+            <View style={{ flexDirection: "row", justifyContent: "space-around", paddingTop: 4 }}>
+              <View style={{ alignItems: "center" }}>
+                <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
+                  {totalKm.toFixed(1)}
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>km total</Text>
+              </View>
+              <View style={{ alignItems: "center" }}>
+                <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
+                  {activeRunners}
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>runners</Text>
+              </View>
+              <View style={{ alignItems: "center" }}>
+                <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
+                  {leaderboard.length}
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>members</Text>
+              </View>
+            </View>
+          </View>
+        );
+      }
+
+      if (item._listType === "participation") {
         return (
           <View
             style={{
@@ -2777,53 +2811,140 @@ function ChallengesTab({
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: "rgba(249,115,22,0.12)",
+                  backgroundColor: "rgba(59,130,246,0.12)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Ionicons name="flame" size={18} color="#F97316" />
+                <Ionicons name="people" size={18} color="#3B82F6" />
               </View>
-              <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.textPrimary }}>
-                Top Performers
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.textPrimary }}>
+                  Team Participation
+                </Text>
+                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                  {activeRunners} of {memberCount} members active
+                </Text>
+              </View>
+              <Text style={{ fontFamily: fonts.statNumber, fontSize: 22, color: "#3B82F6" }}>
+                {participationPct}%
               </Text>
             </View>
-            {top5.map((athlete, i) => (
+            <View
+              style={{
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                overflow: "hidden",
+              }}
+            >
               <View
-                key={athlete.userId}
                 style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                  paddingVertical: 6,
+                  height: "100%",
+                  width: `${participationPct}%`,
+                  borderRadius: 4,
+                  backgroundColor: "#3B82F6",
                 }}
-              >
-                <Text
-                  style={{
-                    fontFamily: fonts.bodyBold,
-                    fontSize: 14,
-                    color: i === 0 ? "#FFB020" : i === 1 ? "#B0BEC5" : i === 2 ? "#CD7F32" : colors.textSecondary,
-                    width: 22,
-                  }}
-                >
-                  #{i + 1}
-                </Text>
-                <InitialAvatar
-                  initial={athlete.name.slice(0, 1).toUpperCase()}
-                  url={athlete.avatarUrl}
-                  size={34}
-                />
-                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary, flex: 1 }}>
-                  {athlete.name}
-                </Text>
-                <Text style={{ fontFamily: fonts.statNumber, fontSize: 14, color: colors.accent }}>
-                  {athlete.kmTotal.toFixed(1)} km
-                </Text>
-              </View>
-            ))}
+              />
+            </View>
           </View>
         );
+      }
+
+      // streaks - show top 5 performers
+      const top5 = leaderboard.filter((l) => l.kmTotal > 0).slice(0, 5);
+      if (top5.length === 0) {
+        return (
+          <EmptyState
+            title="No activity yet"
+            subtitle="Start running to see team challenges!"
+            colors={colors}
+            cardBg={cardBg}
+            cardBorder={cardBorder}
+          />
+        );
+      }
+      return (
+        <View
+          style={{
+            backgroundColor: cardBg,
+            borderWidth: 1,
+            borderColor: cardBorder,
+            borderRadius: 20,
+            padding: 20,
+            gap: 14,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "rgba(249,115,22,0.12)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="flame" size={18} color="#F97316" />
+            </View>
+            <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.textPrimary }}>
+              Top Performers
+            </Text>
+          </View>
+          {top5.map((athlete, i) => (
+            <View
+              key={athlete.userId}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                paddingVertical: 6,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.bodyBold,
+                  fontSize: 14,
+                  color: i === 0 ? "#FFB020" : i === 1 ? "#B0BEC5" : i === 2 ? "#CD7F32" : colors.textSecondary,
+                  width: 22,
+                }}
+              >
+                #{i + 1}
+              </Text>
+              <InitialAvatar
+                initial={athlete.name.slice(0, 1).toUpperCase()}
+                url={athlete.avatarUrl}
+                size={34}
+              />
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary, flex: 1 }}>
+                {athlete.name}
+              </Text>
+              <Text style={{ fontFamily: fonts.statNumber, fontSize: 14, color: colors.accent }}>
+                {athlete.kmTotal.toFixed(1)} km
+              </Text>
+            </View>
+          ))}
+        </View>
+      );
+    },
+    [activeRunners, cardBg, cardBorder, colors, goalProgress, isDark, leaderboard, memberCount, participationPct, teamName, totalKm, weeklyGoalKm],
+  );
+
+  return (
+    <FlashList
+      data={data}
+      keyExtractor={(item) => item._listType}
+      contentContainerStyle={{
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.sm,
+        paddingBottom: bottomPad,
       }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+      }
+      renderItem={renderChallengeItem}
     />
   );
 }

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
+import { logger } from "../../lib/logger";
 import {
   athleteTable,
   subscriptionPlanTable,
@@ -111,7 +112,7 @@ function logStripePriceDisplayWarning(priceId: string, err: unknown) {
     code === "resource_missing"
       ? " (DB price IDs must exist in the Stripe account for STRIPE_SECRET_KEY — check test vs live and account match.)"
       : "";
-  console.warn(`[Billing] Could not load Stripe price for display ${priceId}: ${message}${hint}`);
+  logger.warn({ priceId, hint }, `[Billing] Could not load Stripe price for display: ${message}`);
 }
 
 export async function quoteAthleteBillingCycleAmount(

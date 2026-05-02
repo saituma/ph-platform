@@ -13,6 +13,7 @@
 import { Queue, Worker } from "bullmq";
 import { getRedisConnection } from "./connection";
 import { deliverEmail, type EmailAttachment } from "../lib/mailer/base.mailer";
+import { logger } from "../lib/logger";
 
 const QUEUE_NAME = "emails";
 
@@ -68,5 +69,5 @@ export function startEmailWorker(): void {
       concurrency: 3,
     },
   );
-  console.log("[BullMQ] Email worker started");
+  logger.info("Email worker started");
 }

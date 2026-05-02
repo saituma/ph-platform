@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
+import { logger } from "../../lib/logger";
 import {
   athleteTable,
   guardianTable,
@@ -33,7 +34,7 @@ import {
 function schedulePendingApprovalEmails(requestId: number, previousStatus: string, newStatus: string) {
   if (newStatus !== "pending_approval" || previousStatus === "pending_approval") return;
   void notifySubscriptionEnteredPendingApproval(requestId).catch((err) => {
-    console.warn("[Billing] notifySubscriptionEnteredPendingApproval failed", err);
+    logger.warn({ err }, "[Billing] notifySubscriptionEnteredPendingApproval failed");
   });
 }
 
@@ -766,7 +767,7 @@ export async function approveSubscriptionRequest(requestId: number) {
         data: { url: "/plans", type: "plan_approved", planTier: request.planTier ?? "custom" },
       });
     } catch (error) {
-      console.error("[Billing] Failed to send plan approval push:", error);
+      logger.error({ err: error }, "[Billing] Failed to send plan approval push");
     }
 
     const approvedRow = updated[0] ?? null;
@@ -776,7 +777,7 @@ export async function approveSubscriptionRequest(requestId: number) {
 
   if (planApprovedEmail) {
     void notifySubscriptionPlanApproved(planApprovedEmail.userId, planApprovedEmail.planTier).catch((err) => {
-      console.warn("[Billing] notifySubscriptionPlanApproved failed", err);
+      logger.warn({ err }, "[Billing] notifySubscriptionPlanApproved failed");
     });
   }
 

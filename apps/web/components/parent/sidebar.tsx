@@ -28,7 +28,7 @@ const navGroups: NavGroup[] = [
     id: "athlete",
     label: "Athlete",
     items: [
-      { label: "Onboarding", href: "/parent/onboarding", icon: ClipboardCheck, badge: "2" },
+      { label: "Onboarding", href: "/parent/onboarding", icon: ClipboardCheck },
       { label: "Athlete Profile", href: "/parent/athlete", icon: UserRound },
       { label: "Progress", href: "/parent/progress", icon: BarChart3 },
     ],
@@ -37,7 +37,7 @@ const navGroups: NavGroup[] = [
     id: "communication",
     label: "Communication",
     items: [
-      { label: "Messages", href: "/parent/messages", icon: MessageCircle, badge: "3" },
+      { label: "Messages", href: "/parent/messages", icon: MessageCircle },
       { label: "Schedule", href: "/parent/schedule", icon: CalendarDays },
     ],
   },

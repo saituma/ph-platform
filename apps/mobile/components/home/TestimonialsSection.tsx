@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
   View,
   useWindowDimensions,
 } from "react-native";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 
@@ -151,7 +151,7 @@ function TestimonialCard({
 export function TestimonialsSection({ items, loading }: TestimonialsSectionProps) {
   const { width: screenWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashListRef<TestimonialItem>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const isUserInteractingRef = useRef(false);
   const activeIndexRef = useRef(0);
@@ -223,6 +223,10 @@ export function TestimonialsSection({ items, loading }: TestimonialsSectionProps
     }
   };
 
+  const renderTestimonialItem = useCallback(({ item }: { item: TestimonialItem }) => (
+    <TestimonialCard item={item} colors={colors} isDark={isDark} cardWidth={cardWidth} />
+  ), [colors, isDark, cardWidth]);
+
   return (
     <View style={{ gap: spacing.md }}>
       <View
@@ -271,12 +275,10 @@ export function TestimonialsSection({ items, loading }: TestimonialsSectionProps
         ) : null}
       </View>
 
-      <FlatList
+      <FlashList
         ref={flatListRef}
         data={testimonials}
-        renderItem={({ item }) => (
-          <TestimonialCard item={item} colors={colors} isDark={isDark} cardWidth={cardWidth} />
-        )}
+        renderItem={renderTestimonialItem}
         keyExtractor={(item, index) => (item.id ? String(item.id) : `t-${index}`)}
         horizontal
         showsHorizontalScrollIndicator={false}

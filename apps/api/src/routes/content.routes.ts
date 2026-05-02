@@ -27,6 +27,7 @@ import {
   getContentAiInsightController,
   replaceStoriesHandler,
   listGalleryItems,
+  listTestimonials,
 } from "../controllers/content.controller";
 
 const router = Router();
@@ -59,6 +60,8 @@ router.post(
   requireRole(["coach", "admin", "superAdmin"]),
   rejectTestimonialSubmission,
 );
+router.get("/content/testimonials", requireAuth, listTestimonials);
+router.get("/content/courses", requireAuth, listParentCoursesHandler);
 router.get("/content/parent-courses", requireAuth, listParentCoursesHandler);
 router.get("/content/parent-courses/:courseId", requireAuth, getParentCourseHandler);
 router.get("/content/parent-courses/:courseId/ai-insight", requireAuth, getParentCourseAiInsightController);

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 import {
   createContent,
@@ -284,7 +285,7 @@ export async function listParentContent(req: Request, res: Response) {
   return res.status(200).json({ items });
 }
 
-export async function listLegalContent(req: Request, res: Response) {
+export async function listLegalContent(_req: Request, res: Response) {
   const items = await getLegalContentForUser();
   return res.status(200).json({ items });
 }
@@ -294,7 +295,7 @@ export async function listAnnouncementsContent(_req: Request, res: Response) {
   return res.status(200).json({ items });
 }
 
-export async function listStories(req: Request, res: Response) {
+export async function listStories(_req: Request, res: Response) {
   const items = await listStoriesForUser();
   return res.status(200).json({ items });
 }
@@ -435,6 +436,21 @@ export async function submitTestimonial(req: Request, res: Response) {
   return res.status(201).json({ item });
 }
 
+export async function listTestimonials(req: Request, res: Response) {
+  const homeItems = await getHomeContentForUser(req.user!.id);
+  const homeItem = homeItems[0];
+  let homeBody: any = {};
+  if (homeItem?.body) {
+    try {
+      homeBody = JSON.parse(homeItem.body);
+    } catch {
+      homeBody = {};
+    }
+  }
+  const testimonials = Array.isArray(homeBody.testimonials) ? homeBody.testimonials : [];
+  return res.status(200).json({ items: testimonials });
+}
+
 export async function listTestimonialSubmissions(_req: Request, res: Response) {
   const items = await getTestimonialSubmissions();
   const pending = items.filter((item) => {
@@ -558,8 +574,8 @@ export async function createParentCourseHandler(req: Request, res: Response) {
 }
 
 export async function updateParentCourseHandler(req: Request, res: Response) {
-  console.log("Updating parent course:", req.params.courseId);
-  console.log("Request body:", JSON.stringify(req.body, null, 2));
+  logger.info({ courseId: req.params.courseId }, "Updating parent course");
+  logger.info({ body: req.body }, "Request body");
   const courseId = z.coerce.number().int().min(1).parse(req.params.courseId);
   const input = parentCourseUpdateSchema.parse(req.body);
   const item = await updateParentCourse({
@@ -595,7 +611,7 @@ export async function getParentCourseAiInsightController(req: Request, res: Resp
     const insight = await getParentCourseAiInsight(courseId);
     return res.status(200).json({ insight });
   } catch (error) {
-    console.error("[Content Controller] Error getting parent course insight:", error);
+    logger.error({ err: error }, "[Content Controller] Error getting parent course insight");
     return res.status(500).json({ error: "Failed to generate AI insight" });
   }
 }
@@ -620,7 +636,7 @@ export async function listGalleryItems(_req: Request, res: Response) {
     });
     return res.json({ items });
   } catch (err) {
-    console.error("[Gallery] list error:", err);
+    logger.error({ err }, "[Gallery] list error");
     return res.status(500).json({ error: "Failed to fetch gallery" });
   }
 }
@@ -636,7 +652,7 @@ export async function getContentAiInsightController(req: Request, res: Response)
     const insight = await getContentAiInsight(contentId, ageQuery);
     return res.status(200).json({ insight });
   } catch (error) {
-    console.error("[Content Controller] Error getting content AI insight:", error);
+    logger.error({ err: error }, "[Content Controller] Error getting content AI insight");
     return res.status(500).json({ error: "Failed to generate AI insight" });
   }
 }

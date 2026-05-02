@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 import {
   getOnboardingByUser,
@@ -216,7 +217,7 @@ export async function submitTeamBasic(req: Request, res: Response) {
       return res.status(409).json({ error: "A team with that name already exists. Please choose a different name." });
     }
 
-    console.error("[onboarding] submitTeamBasic", err);
+    logger.error({ err }, "[onboarding] submitTeamBasic");
     return res.status(500).json({ error: safeOnboardingErrorMessage(err, "Failed to create team.") });
   }
 }

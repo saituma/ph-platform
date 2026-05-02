@@ -1,10 +1,17 @@
-import React from "react";
-import { View, Pressable } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View } from "react-native";
 import Animated, {
+  FadeInDown,
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedReaction,
   withSpring,
+  withTiming,
+  Easing,
+  runOnJS,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import * as Haptics from "expo-haptics";
 import { fonts, radius } from "@/constants/theme";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -25,9 +32,53 @@ interface RunCardProps {
   effortLevel?: number;
   feelTags?: FeelTagDetails[];
   onPress?: () => void;
+  /** Index for staggered entering animation */
+  index?: number;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+/** Animate a numeric value from 0 to its parsed target when the card mounts. */
+function AnimatedNumericText({
+  text,
+  style,
+}: {
+  text: string;
+  style: any;
+}) {
+  // Extract leading number (e.g. "5.2 km" -> 5.2, "32:04" -> pass-through)
+  const match = text.match(/^(\d+\.?\d*)/);
+  const numericValue = match ? parseFloat(match[1]) : null;
+  const suffix = match ? text.slice(match[0].length) : "";
+  const hasDecimal = match ? match[1].includes(".") : false;
+  const decimals = hasDecimal ? (match![1].split(".")[1]?.length ?? 1) : 0;
+
+  const animValue = useSharedValue(0);
+  const [display, setDisplay] = useState(numericValue != null ? "0" : text);
+
+  useEffect(() => {
+    if (numericValue == null) return;
+    animValue.value = 0;
+    animValue.value = withTiming(numericValue, {
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [numericValue]);
+
+  useAnimatedReaction(
+    () => animValue.value,
+    (current) => {
+      if (numericValue == null) return;
+      const formatted =
+        decimals > 0 ? current.toFixed(decimals) : String(Math.round(current));
+      runOnJS(setDisplay)(formatted + suffix);
+    },
+  );
+
+  if (numericValue == null) {
+    return <Text style={style}>{text}</Text>;
+  }
+
+  return <Text style={style}>{display}</Text>;
+}
 
 export const RunCard = ({
   distance,
@@ -37,21 +88,31 @@ export const RunCard = ({
   effortLevel,
   feelTags,
   onPress,
+  index = 0,
 }: RunCardProps) => {
   const { colors } = useAppTheme();
   const scale = useSharedValue(1);
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.98, { damping: 15, stiffness: 300 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
-  };
-
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
+
+  const onPressHandler = onPress ?? (() => {});
+
+  const tap = Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(onPressHandler)();
+    });
 
   // Resolve accent color based on effort mapping:
   // RPE: <=4 (Lime), 5-6 (Purple), >=7 (Coral)
@@ -69,22 +130,21 @@ export const RunCard = ({
   };
 
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={[
-        animatedStyle,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          borderWidth: 1,
-          borderRadius: radius.xl,
-          padding: 16,
-          overflow: "hidden",
-        },
-      ]}
-    >
+    <Animated.View entering={FadeInDown.delay(Math.min(index, 10) * 50).springify().damping(15)}>
+    <GestureDetector gesture={tap}>
+      <Animated.View
+        style={[
+          animatedStyle,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            borderWidth: 1,
+            borderRadius: radius.xl,
+            padding: 16,
+            overflow: "hidden",
+          },
+        ]}
+      >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <View
           style={{
@@ -107,15 +167,14 @@ export const RunCard = ({
         </View>
 
         <View style={{ flex: 1, justifyContent: "center" }}>
-          <Text
+          <AnimatedNumericText
+            text={distance}
             style={{
               fontFamily: fonts.heading2,
               fontSize: 18,
               color: colors.text,
             }}
-          >
-            {distance}
-          </Text>
+          />
           <Text
             style={{
               fontFamily: fonts.bodyMedium,
@@ -135,26 +194,24 @@ export const RunCard = ({
             marginRight: 16,
           }}
         >
-          <Text
+          <AnimatedNumericText
+            text={time}
             style={{
               fontFamily: fonts.statNumber,
               fontSize: 16,
               color: colors.text,
               fontVariant: ["tabular-nums"],
             }}
-          >
-            {time}
-          </Text>
-          <Text
+          />
+          <AnimatedNumericText
+            text={pace}
             style={{
               fontFamily: fonts.bodyMedium,
               fontSize: 12,
               color: colors.textSecondary,
               marginTop: 4,
             }}
-          >
-            {pace}
-          </Text>
+          />
         </View>
 
         <Ionicons
@@ -216,6 +273,8 @@ export const RunCard = ({
         }}
         pointerEvents="none"
       />
-    </AnimatedPressable>
+      </Animated.View>
+    </GestureDetector>
+    </Animated.View>
   );
 };

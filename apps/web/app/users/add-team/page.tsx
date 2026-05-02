@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, RefreshCw, Copy, Check, Eye, EyeOff } from "lucide-react";
+import { isStrongPassword } from "@/lib/password-rules";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
@@ -161,7 +162,7 @@ export default function AddTeamPage() {
     if (!cleanName) return setError("Team name is required.");
     if (!cleanSlug) return setError("Athlete email slug is required.");
     if (!cleanEmail) return setError("Team manager email is required.");
-    if (!cleanPassword || cleanPassword.length < 8) return setError("Manager password must be at least 8 characters.");
+    if (!cleanPassword || !isStrongPassword(cleanPassword)) return setError("Manager password must be 8+ characters with uppercase, lowercase, number, and special character.");
 
     setIsSubmitting(true);
     try {
@@ -204,7 +205,7 @@ export default function AddTeamPage() {
     }
   };
 
-  const canSubmit = teamName.trim() && emailSlug.trim() && managerEmail.trim() && managerPassword.trim().length >= 8 && tier && !isSubmitting;
+  const canSubmit = teamName.trim() && emailSlug.trim() && managerEmail.trim() && isStrongPassword(managerPassword.trim()) && tier && !isSubmitting;
 
   return (
     <AdminShell

@@ -5,6 +5,7 @@ import { Suspense, useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Camera, Loader2, RefreshCw, User } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { isStrongPassword } from "@/lib/password-rules";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { Button } from "../../../components/ui/button";
@@ -179,8 +180,8 @@ function AddUserPageInner() {
     e.preventDefault();
     const selectedPassword =
       passwordMode === "manual" ? manualPassword.trim() : generatedPassword.trim();
-    if (selectedPassword.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+    if (!isStrongPassword(selectedPassword)) {
+      toast.error("Password must be 8+ characters with uppercase, lowercase, number, and special character.");
       return;
     }
     const n = Number.parseInt(trainingPerWeek, 10);

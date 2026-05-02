@@ -98,7 +98,10 @@ export default function ContentProfilePage() {
       .replace(/`(.*?)`/g, "<code>$1</code>")
       .replace(/^> (.*)$/gm, "<blockquote>$1</blockquote>")
       .replace(/^\- (.*)$/gm, "<li>$1</li>")
-      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+      .replace(/\[(.*?)\]\((.*?)\)/g, (_match, text, url) => {
+        const safeUrl = /^(https?:\/\/|\/|#|mailto:)/i.test(url) ? url : "#";
+        return `<a href="${safeUrl}" rel="noopener noreferrer">${text}</a>`;
+      })
       .replace(/\n/g, "<br />");
   };
 

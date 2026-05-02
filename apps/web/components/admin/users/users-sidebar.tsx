@@ -49,8 +49,9 @@ function buildMonthlyChartData(users: UserRow[]): { month: string; users: number
     const label = d.toLocaleDateString("en-US", { month: "short" });
     const cutoff = new Date(d.getFullYear(), d.getMonth() + 1, 1);
     const count = users.filter((u) => {
-      if (!u.joined || u.joined === "-") return false;
-      const parsed = new Date(u.joined);
+      const raw = u.joinedRaw ?? u.joined;
+      if (!raw || raw === "-") return false;
+      const parsed = new Date(raw);
       return !isNaN(parsed.getTime()) && parsed < cutoff;
     }).length;
     months.push({ month: label, users: count });

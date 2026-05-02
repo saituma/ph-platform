@@ -1,5 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
+import { logger } from "../../lib/logger";
 import { athleteTable, bookingTable, guardianTable, notificationTable, serviceTypeTable, userTable } from "../../db/schema";
 import { env } from "../../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../../lib/mailer";
@@ -64,7 +65,7 @@ export async function notifyBookingRequested(input: {
         adminUrl,
       });
     } catch (error) {
-      console.error("Failed to send booking request admin email", error);
+      logger.error({ err: error }, "Failed to send booking request admin email");
     }
   }
 
@@ -92,7 +93,7 @@ export async function notifyBookingRequested(input: {
         meetingLink: input.meetingLink ?? undefined,
       });
     } catch (error) {
-      console.error("Failed to send booking confirmation email", error);
+      logger.error({ err: error }, "Failed to send booking confirmation email");
     }
   }
 
@@ -116,7 +117,7 @@ export async function notifyBookingRequested(input: {
         }),
       });
     } catch (error) {
-      console.error("Failed to send push notification", error);
+      logger.error({ err: error }, "Failed to send push notification");
     }
   }
 }

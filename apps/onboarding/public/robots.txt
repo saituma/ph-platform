@@ -3,6 +3,16 @@ Allow: /
 Disallow: /portal/
 Disallow: /onboarding/
 Disallow: /verification
+Disallow: /payment-success
 Disallow: /api/
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
 
 Sitemap: https://ph-platform-onboarding.vercel.app/sitemap.xml

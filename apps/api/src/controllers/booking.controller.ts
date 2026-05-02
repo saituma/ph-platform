@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 import {
   buildAvailabilitySlots,
@@ -150,7 +151,7 @@ export async function listServices(req: Request, res: Response) {
 }
 
 export async function createService(req: Request, res: Response) {
-  console.log("Creating service:", JSON.stringify(req.body, null, 2));
+  logger.info({ body: req.body }, "Creating service");
   const input = serviceTypeSchema.parse(req.body);
   const item = await createServiceType({
     name: input.name,
@@ -197,7 +198,7 @@ export async function deleteService(req: Request, res: Response) {
     if (msg.startsWith("Cannot delete")) {
       return res.status(409).json({ error: msg });
     }
-    console.error(err);
+    logger.error({ err }, "Failed to delete service");
     return res.status(500).json({ error: "Failed to delete service" });
   }
 }
@@ -207,7 +208,7 @@ export async function updateService(req: Request, res: Response) {
   if (!serviceId) {
     return res.status(400).json({ error: "Invalid service id" });
   }
-  console.log("Updating service:", serviceId, JSON.stringify(req.body, null, 2));
+  logger.info({ serviceId, body: req.body }, "Updating service");
   const input = serviceTypeUpdateSchema.parse(req.body);
   if (Object.keys(input).length === 0) {
     return res.status(400).json({ error: "No updates provided" });
@@ -341,7 +342,7 @@ export async function listBookings(req: Request, res: Response) {
     });
     return res.status(200).json({ items });
   } catch (error) {
-    console.error("listBookings error:", error);
+    logger.error({ err: error }, "listBookings error");
     return res.status(200).json({ items: [] });
   }
 }

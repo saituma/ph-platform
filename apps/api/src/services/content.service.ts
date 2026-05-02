@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "../db";
+import { logger } from "../lib/logger";
 import {
   athleteTable,
   chatGroupMemberTable,
@@ -370,7 +371,7 @@ export async function createContent(input: {
   const row = result[0];
   if (row && input.surface === "announcements") {
     void sendAnnouncementCreatedPushes(row).catch((err) =>
-      console.error("[Content] announcement push fan-out failed:", err),
+      logger.error({ err }, "[Content] announcement push fan-out failed"),
     );
   }
 

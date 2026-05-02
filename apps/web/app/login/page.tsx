@@ -194,15 +194,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        {/* Branding above card */}
+    <div className="relative min-h-screen bg-background flex items-center justify-center px-6 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--color-primary)/8%,transparent_50%)]" />
+      <div className="pointer-events-none absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
+      <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <img
-            src="/ph.jpg"
-            alt="PH Performance"
-            className="h-16 w-16 rounded-2xl object-cover shadow-md"
-          />
+          <div className="rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 p-1 shadow-lg shadow-primary/10 ring-1 ring-primary/20">
+            <img
+              src="/ph.jpg"
+              alt="PH Performance"
+              className="h-16 w-16 rounded-xl object-cover"
+            />
+          </div>
         </div>
 
         <Card>

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import Stripe from "stripe";
 import { z } from "zod";
 import { desc, eq } from "drizzle-orm";
+import { logger } from "../lib/logger";
 
 import { ProgramType } from "../db/schema";
 import { env } from "../config/env";
@@ -557,7 +558,7 @@ export async function confirmCheckout(req: Request, res: Response) {
                 "Could not save subscription request: team, plan, or user no longer matches checkout metadata. Try creating a new checkout session.",
             });
           }
-          console.error("[billing] confirmCheckout team_subscription db", inner);
+          logger.error({ err: inner }, "[billing] confirmCheckout team_subscription db");
           return res.status(500).json({ error: "Could not save subscription confirmation. Please contact support." });
         }
         throw inner;
@@ -779,7 +780,7 @@ export async function listStripePricesAdmin(_req: Request, res: Response) {
 
     return res.status(200).json({ products });
   } catch (error: any) {
-    console.error("[listStripePricesAdmin]", error);
+    logger.error({ err: error }, "[listStripePricesAdmin]");
     return res.status(500).json({ error: error?.message ?? "Failed to fetch Stripe prices" });
   }
 }
@@ -1053,7 +1054,7 @@ export async function verifyRevenueCatPurchase(req: any, res: any) {
 
     return res.json({ success: true, message: "Purchase verified via RevenueCat" });
   } catch (error) {
-    console.error("Error verifying RevenueCat purchase", error);
+    logger.error({ err: error }, "Error verifying RevenueCat purchase");
     return res.status(500).json({ error: "Internal server error" });
   }
 }

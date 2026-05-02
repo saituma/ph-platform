@@ -19,7 +19,7 @@ import { Card } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
-import { getTokenStatus } from "#/lib/client-storage";
+import { getAuthHeaders, getTokenStatus } from "#/lib/client-storage";
 import { cn } from "#/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 
@@ -89,6 +89,7 @@ function OnboardingStep3() {
 				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
+					...getAuthHeaders(),
 				},
 				body: JSON.stringify({
 					trainingPerWeek,

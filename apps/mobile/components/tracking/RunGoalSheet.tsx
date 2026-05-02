@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -8,6 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import type { Region } from "react-native-maps";
 import * as Location from "expo-location";
 import Constants from "expo-constants";

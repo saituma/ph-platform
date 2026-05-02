@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "../../db";
+import { logger } from "../../lib/logger";
 import { subscriptionPlanTable, teamSubscriptionRequestTable, teamTable, userTable } from "../../db/schema";
 import { newReceiptPublicId } from "../../lib/receipt-public-id";
 import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
@@ -14,7 +15,7 @@ import {
 function scheduleTeamPendingApprovalEmails(requestId: number, previousStatus: string, newStatus: string) {
   if (newStatus !== "pending_approval" || previousStatus === "pending_approval") return;
   void notifyTeamSubscriptionEnteredPendingApproval(requestId).catch((err) => {
-    console.warn("[Billing] notifyTeamSubscriptionEnteredPendingApproval failed", err);
+    logger.warn({ err }, "[Billing] notifyTeamSubscriptionEnteredPendingApproval failed");
   });
 }
 
@@ -210,7 +211,7 @@ export async function approveTeamSubscriptionRequest(requestId: number) {
 
   if (updatedRequest && previousStatus !== "approved") {
     void notifyTeamSubscriptionApproved(updatedRequest.id).catch((err) => {
-      console.warn("[Billing] notifyTeamSubscriptionApproved failed", err);
+      logger.warn({ err }, "[Billing] notifyTeamSubscriptionApproved failed");
     });
   }
 

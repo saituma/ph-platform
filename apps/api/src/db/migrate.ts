@@ -1,9 +1,10 @@
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { db, pool } from "./index";
 import path from "path";
+import { logger } from "../lib/logger";
 
 async function main() {
-  console.log("Running migrations...");
+  logger.info("Running migrations...");
 
   try {
     // This will run migrations from the drizzle folder
@@ -11,9 +12,9 @@ async function main() {
       migrationsFolder: path.resolve(__dirname, "../../drizzle"),
     });
 
-    console.log("Migrations completed successfully!");
+    logger.info("Migrations completed successfully!");
   } catch (error) {
-    console.error("Migrations failed:", error);
+    logger.error({ err: error }, "Migrations failed");
     process.exit(1);
   } finally {
     await pool.end();

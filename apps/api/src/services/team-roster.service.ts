@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 
 import { env } from "../config/env";
+import { logger } from "../lib/logger";
 import { db } from "../db";
 import { athleteTable, legalAcceptanceTable, subscriptionPlanTable, teamTable, userTable } from "../db/schema";
 import { slugifySegment } from "../lib/slug";
@@ -361,7 +362,7 @@ export async function createTeamRosterAthlete(
     });
 
     await addTeamAthleteToTeamChat(team.name, userId, user.id).catch((err) => {
-      console.warn("[team-roster] addTeamAthleteToTeamChat failed", err);
+      logger.warn({ err }, "[team-roster] addTeamAthleteToTeamChat failed");
     });
 
     return {

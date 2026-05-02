@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { SignJWT, jwtVerify } from "jose";
+import { logger } from "../lib/logger";
 
 import { getSignedMediaUrl } from "../services/signed-media.service";
 import { env } from "../config/env";
@@ -85,7 +86,7 @@ export async function createMediaUploadUrl(req: Request, res: Response) {
     const publicUrl = getPublicObjectUrl(key);
     return res.status(200).json({ uploadUrl, publicUrl, key });
   } catch (error: any) {
-    console.error("Failed to create presigned upload URL", error);
+    logger.error({ err: error }, "Failed to create presigned upload URL");
     return res.status(500).json({ error: error?.message || "Failed to create upload URL" });
   }
 }

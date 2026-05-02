@@ -15,7 +15,9 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  runOnJS,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import MapView, { Polyline } from "react-native-maps";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Sharing from "expo-sharing";
@@ -210,6 +212,36 @@ export function RunShareCard({
     transform: [{ scale: scaleShare.value }],
   }));
 
+  const shutterTap = Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      scaleShutter.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      scaleShutter.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(handleCaptureFromGesture)();
+    });
+
+  const shareTap = Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      scaleShare.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      scaleShare.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(handleShareFromGesture)();
+    });
+
   const distLabel = formatDistanceKm(distanceMeters, 2);
   const timeLabel = formatTimeDisplay(elapsedSeconds);
   const { paceMinPerKm } = calculatePaceAndSpeed(distanceMeters, elapsedSeconds);
@@ -254,6 +286,47 @@ export function RunShareCard({
   const handleClose = () => {
     Haptics.selectionAsync();
     onClose();
+  };
+
+  const handleCaptureFromGesture = () => {
+    handleCapture();
+  };
+
+  const handleShareFromGesture = async () => {
+    if (sharing) return;
+    setSharing(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (isTeamMember && token && !teamPosted) {
+      createSocialPost(token, { content: `🏃 ${distLabel} km in ${timeLabel} at ${paceMinPerKm}/km` }, { useTeamFeed: true }).catch(() => {});
+      setTeamPosted(true);
+    }
+
+    try {
+      const targetRef = phase === "map" ? mapPreviewRef : previewRef;
+      const compositeUri = targetRef.current
+        ? await captureRef(targetRef, { format: "jpg", quality: 0.92 })
+        : (phase === "map" ? mapSnapshotUri : photoUri);
+
+      if (!compositeUri) {
+        await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
+        return;
+      }
+      if (Platform.OS === "ios") {
+        await Share.share({ url: compositeUri }).catch(() => {});
+      } else {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(compositeUri).catch(() => {});
+        } else {
+          await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn("[RunShareCard] share failed:", e);
+    } finally {
+      setSharing(false);
+    }
   };
 
   // ── stats + route overlay (reused in both phases) ──────────────
@@ -454,17 +527,11 @@ export function RunShareCard({
         <View style={[styles.controls, { paddingBottom: insets.bottom + 28 }]}>
           {phase === "camera" ? (
             <>
-              <Animated.View style={shutterStyle}>
-                <Pressable
-                  onPress={handleCapture}
-                  onPressIn={() => (scaleShutter.value = withSpring(0.92, { damping: 15, stiffness: 300 }))}
-                  onPressOut={() => (scaleShutter.value = withSpring(1, { damping: 15, stiffness: 300 }))}
-                  disabled={capturing}
-                  style={[styles.shutterOuter, capturing && { opacity: 0.6 }]}
-                >
+              <GestureDetector gesture={shutterTap}>
+                <Animated.View style={[shutterStyle, styles.shutterOuter, capturing && { opacity: 0.6 }]}>
                   <View style={styles.shutterInner} />
-                </Pressable>
-              </Animated.View>
+                </Animated.View>
+              </GestureDetector>
               <Pressable onPress={handleClose} style={{ marginTop: 16 }}>
                 <Text style={styles.skipText}>Skip</Text>
               </Pressable>
@@ -472,58 +539,19 @@ export function RunShareCard({
           ) : (
             /* ── Preview / Map: share + retake ── */
             <>
-              <Animated.View style={[shareStyle, styles.shareWrap]}>
-                <Pressable
-                  onPress={async () => {
-                    if (sharing) return;
-                    setSharing(true);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-                    if (isTeamMember && token && !teamPosted) {
-                      createSocialPost(token, { content: `🏃 ${distLabel} km in ${timeLabel} at ${paceMinPerKm}/km` }, { useTeamFeed: true }).catch(() => {});
-                      setTeamPosted(true);
-                    }
-
-                    try {
-                      const targetRef = phase === "map" ? mapPreviewRef : previewRef;
-                      const compositeUri = targetRef.current
-                        ? await captureRef(targetRef, { format: "jpg", quality: 0.92 })
-                        : (phase === "map" ? mapSnapshotUri : photoUri);
-
-                      if (!compositeUri) {
-                        await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
-                        return;
-                      }
-                      if (Platform.OS === "ios") {
-                        await Share.share({ url: compositeUri }).catch(() => {});
-                      } else {
-                        const canShare = await Sharing.isAvailableAsync();
-                        if (canShare) {
-                          await Sharing.shareAsync(compositeUri).catch(() => {});
-                        } else {
-                          await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
-                        }
-                      }
-                    } catch (e) {
-                      console.warn("[RunShareCard] share failed:", e);
-                    } finally {
-                      setSharing(false);
-                    }
-                  }}
-                  onPressIn={() => (scaleShare.value = withSpring(0.96, { damping: 15, stiffness: 300 }))}
-                  onPressOut={() => (scaleShare.value = withSpring(1, { damping: 15, stiffness: 300 }))}
-                  disabled={sharing}
-                  style={[styles.shareBtn, sharing && { opacity: 0.7 }]}
-                >
-                  <Share2 size={20} color="#0a0a0a" strokeWidth={2.5} />
-                  <Text style={styles.shareBtnText}>{sharing ? "Preparing…" : "Share"}</Text>
-                  {isTeamMember && !teamPosted && (
-                    <View style={styles.teamBadge}>
-                      <Users size={11} color="#fff" strokeWidth={2.5} />
-                    </View>
-                  )}
-                </Pressable>
-              </Animated.View>
+              <GestureDetector gesture={shareTap}>
+                <Animated.View style={[shareStyle, styles.shareWrap]}>
+                  <View style={[styles.shareBtn, sharing && { opacity: 0.7 }]}>
+                    <Share2 size={20} color="#0a0a0a" strokeWidth={2.5} />
+                    <Text style={styles.shareBtnText}>{sharing ? "Preparing…" : "Share"}</Text>
+                    {isTeamMember && !teamPosted && (
+                      <View style={styles.teamBadge}>
+                        <Users size={11} color="#fff" strokeWidth={2.5} />
+                      </View>
+                    )}
+                  </View>
+                </Animated.View>
+              </GestureDetector>
 
               {isTeamMember && (
                 <View style={styles.teamHint}>

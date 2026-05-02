@@ -50,7 +50,7 @@ function getCategoryId(type?: string) {
 
 /** Structured logs for push delivery debugging; grep host logs for `PH_PUSH_DEBUG`. */
 function logDebugPush(payload: Record<string, unknown>) {
-  console.info(`[PH_PUSH_DEBUG] ${JSON.stringify({ timestamp: Date.now(), ...payload })}`);
+  log.info({ ...payload, timestamp: Date.now() }, "[PH_PUSH_DEBUG]");
 }
 
 /** Expo/FCM expect string values in `data`; non-strings can break Android delivery. */
