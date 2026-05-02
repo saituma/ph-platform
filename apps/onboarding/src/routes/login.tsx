@@ -69,19 +69,37 @@ function Login() {
 			return;
 		}
 
+		console.info("[login] turnstile state", {
+			siteKey: turnstileSiteKey ? `${turnstileSiteKey.slice(0, 8)}...` : "(none)",
+			ready: turnstileReady,
+			failed: turnstileFailed,
+			hasToken: !!turnstileToken,
+			tokenLength: turnstileToken?.length,
+		});
+
 		if (turnstileSiteKey && !turnstileFailed && turnstileReady && !turnstileToken) {
 			toast.error("Please complete the verification challenge");
 			return;
 		}
 
 		setIsLoading(true);
+		const apiUrl = `${config.api.baseUrl}/api/auth/login`;
+		console.info("[login] request", {
+			url: apiUrl,
+			hasTurnstileToken: !!turnstileToken,
+		});
 		try {
-			const tokenResponse = await csrfFetch(`${config.api.baseUrl}/api/auth/login`, {
+			const tokenResponse = await csrfFetch(apiUrl, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email, password, turnstileToken }),
 			});
 			const data = await tokenResponse.json().catch(() => ({}));
+			console.info("[login] response", {
+				status: tokenResponse.status,
+				ok: tokenResponse.ok,
+				body: data,
+			});
 			if (!tokenResponse.ok) {
 				throw new Error(data.error || "Login failed");
 			}
@@ -97,6 +115,7 @@ function Login() {
 			localStorage.setItem("pending_email", email);
 			navigate({ to: "/portal/dashboard", replace: true });
 		} catch (error: any) {
+			console.error("[login] error", error.message);
 			trackEvent("login_failure", { email });
 			toast.error("Login failed", {
 				description: error.message || "Invalid email or password.",
