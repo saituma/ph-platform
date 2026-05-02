@@ -1,6 +1,5 @@
 "use client";
 
-import { SlidersHorizontal } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -36,6 +35,7 @@ const STATUS_ITEMS = [
   { label: "Active", value: "Active" },
   { label: "Inactive", value: "Inactive" },
   { label: "Trial", value: "Trial" },
+  { label: "Blocked", value: "Blocked" },
 ];
 
 const ATHLETE_TYPE_ITEMS = [
@@ -72,7 +72,7 @@ export function UsersFilters({
           <button
             key={tab}
             type="button"
-            className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+            className={`px-5 py-3 text-sm font-semibold transition-colors relative ${
               activeTab === tab
                 ? "text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary"
                 : "text-muted-foreground hover:text-foreground"
@@ -136,14 +136,6 @@ export function UsersFilters({
             ))}
           </SelectPopup>
         </Select>
-
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded-md border border-border px-3 h-9 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <SlidersHorizontal className="h-3.5 w-3.5" />
-          More Filters
-        </button>
 
         <div className="ml-auto">
           <Select

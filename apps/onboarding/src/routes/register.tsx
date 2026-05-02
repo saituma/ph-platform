@@ -1,14 +1,8 @@
-import {
-	CircleNotch,
-	EnvelopeSimple,
-	WarningCircle,
-} from "@phosphor-icons/react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Input } from "#/components/ui/input";
+import { SignUpPage, type Testimonial } from "#/components/ui/sign-up";
 import { Turnstile } from "#/components/Turnstile";
 import { config } from "#/lib/config";
 import { csrfFetch } from "#/lib/csrf";
@@ -40,10 +34,29 @@ const registrationSchema = z.object({
 	email: z.string().email("Please enter a valid email address"),
 });
 
+const testimonials: Testimonial[] = [
+	{
+		avatarSrc: "https://randomuser.me/api/portraits/women/44.jpg",
+		name: "Emily Rodriguez",
+		handle: "@emilyfit",
+		text: "Signing up took seconds. Within a day I had my full training plan ready to go!",
+	},
+	{
+		avatarSrc: "https://randomuser.me/api/portraits/men/22.jpg",
+		name: "James Wright",
+		handle: "@jamescoach",
+		text: "Managing my youth team has never been easier. The onboarding flow is seamless.",
+	},
+	{
+		avatarSrc: "https://randomuser.me/api/portraits/women/68.jpg",
+		name: "Lisa Park",
+		handle: "@lisatrains",
+		text: "Finally a platform that understands athlete development. Highly recommend!",
+	},
+];
+
 function Register() {
-	const [email, setEmail] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState<string | undefined>();
 	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 	const [turnstileReady, setTurnstileReady] = useState(false);
 	const [turnstileFailed, setTurnstileFailed] = useState(false);
@@ -51,14 +64,16 @@ function Register() {
 	const navigate = useNavigate();
 	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		if (isLoading) return;
-		setError(undefined);
+
+		const formData = new FormData(e.currentTarget);
+		const email = formData.get("email") as string;
 
 		const result = registrationSchema.safeParse({ email });
 		if (!result.success) {
-			setError(result.error.issues[0].message);
+			toast.error(result.error.issues[0].message);
 			return;
 		}
 
@@ -114,127 +129,46 @@ function Register() {
 		}
 	};
 
+	const handleGoogleSignUp = () => {
+		window.location.href = `${config.api.baseUrl}/api/auth/google`;
+	};
+
+	const handleSignIn = () => {
+		navigate({ to: "/login" });
+	};
+
 	return (
-		<main className="relative min-h-[100dvh] flex flex-col items-center justify-center p-6 overflow-hidden">
-			<div
-				className="absolute inset-0 overflow-hidden bg-background pointer-events-none"
-				aria-hidden="true"
+		<div className="relative">
+			<SignUpPage
+				title={<span className="font-light text-foreground tracking-tighter">Get Started</span>}
+				description="Create your PH Performance account. Start your free 14-day trial — no credit card required."
+				heroImageSrc="/landing/piers.png"
+				testimonials={testimonials}
+				onSignUp={handleSignUp}
+				onGoogleSignUp={handleGoogleSignUp}
+				onSignIn={handleSignIn}
 			>
-				<div className="w-full h-full bg-noise-pattern opacity-[0.02] dark:opacity-[0.05]" />
-			</div>
-
-			<motion.div
-				initial={{ opacity: 0, y: 12 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.5, ease: "easeOut" }}
-				className="relative w-full max-w-sm space-y-8"
-			>
-				<div className="space-y-3">
-					<Link to="/" className="inline-flex items-center gap-2 mb-4">
-						<div className="w-6 h-6 overflow-hidden">
-							<img
-								src="/ph.jpg"
-								alt="PH Performance"
-								className="w-full h-full object-cover"
-							/>
-						</div>
-						<span className="font-mono text-xs uppercase tracking-wider text-foreground/50">
-							PH Performance
-						</span>
-					</Link>
-					<h1 className="text-2xl md:text-3xl tracking-tight font-medium text-foreground">
-						Create your account
-					</h1>
-				</div>
-
-				<div className="border border-foreground/[0.06] bg-card/50 p-6 sm:p-8 space-y-6">
-					<form onSubmit={handleSubmit} className="space-y-5">
-						<div className="space-y-2">
-							<label
-								htmlFor="email-input"
-								className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
-							>
-								<EnvelopeSimple
-									weight="bold"
-									size={12}
-									className="text-foreground/40"
-								/>
-								Email
-							</label>
-							<Input
-								id="email-input"
-								type="email"
-								placeholder="name@example.com"
-								value={email}
-								onChange={(e) => {
-									setEmail(e.target.value);
-									if (error) setError(undefined);
-								}}
-								disabled={isLoading}
-								aria-invalid={!!error}
-								aria-describedby={error ? "register-email-error" : undefined}
-								className={`h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm placeholder:text-foreground/20 focus-visible:ring-0 focus-visible:border-foreground/20 transition-colors ${
-									error ? "border-destructive/50" : ""
-								}`}
-							/>
-							{error && (
-								<p
-									id="register-email-error"
-									role="alert"
-									className="text-xs text-destructive flex items-center gap-1.5 font-mono"
-								>
-									<WarningCircle weight="fill" size={12} />
-									{error}
-								</p>
-							)}
-						</div>
-
-						{turnstileSiteKey && (
-							<Turnstile
-								siteKey={turnstileSiteKey}
-								action="register"
-								resetKey={turnstileResetKey}
-								onVerify={(token) => {
-									setTurnstileToken(token);
-									setTurnstileFailed(false);
-								}}
-								onReady={() => setTurnstileReady(true)}
-								onExpire={() => setTurnstileToken(null)}
-								onError={() => {
-									setTurnstileToken(null);
-									setTurnstileFailed(true);
-								}}
-								className="flex justify-center"
-							/>
-						)}
-
-						<button
-							type="submit"
-							disabled={
-								isLoading ||
-								(!!turnstileSiteKey && !turnstileFailed && turnstileReady && !turnstileToken)
-							}
-							className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
-						>
-							{isLoading ? (
-								<CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
-							) : (
-								"Get Started Free"
-							)}
-						</button>
-					</form>
-				</div>
-
-				<p className="text-center font-mono text-[11px] text-foreground/40 uppercase tracking-wider">
-					Already have an account?{" "}
-					<Link
-						to="/login"
-						className="text-foreground/60 hover:text-foreground transition-colors duration-150 border-b border-foreground/20"
-					>
-						Sign In
-					</Link>
-				</p>
-			</motion.div>
-		</main>
+				{turnstileSiteKey && (
+					<div className="animate-element animate-delay-400">
+						<Turnstile
+							siteKey={turnstileSiteKey}
+							action="register"
+							resetKey={turnstileResetKey}
+							onVerify={(token) => {
+								setTurnstileToken(token);
+								setTurnstileFailed(false);
+							}}
+							onReady={() => setTurnstileReady(true)}
+							onExpire={() => setTurnstileToken(null)}
+							onError={() => {
+								setTurnstileToken(null);
+								setTurnstileFailed(true);
+							}}
+							className="flex justify-center"
+						/>
+					</div>
+				)}
+			</SignUpPage>
+		</div>
 	);
 }
