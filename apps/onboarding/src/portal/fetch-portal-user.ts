@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/client-storage";
 import {
 	PORTAL_SERVICE_UNAVAILABLE,
 	PORTAL_UNAUTHORIZED_ERROR,
@@ -27,7 +28,7 @@ export async function fetchPortalUser(_token?: string): Promise<PortalUser> {
 	const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
 	const res = await fetchWithRetry(
 		`${baseUrl}/api/auth/me`,
-		{ credentials: "include", cache: "no-store" },
+		{ credentials: "include", cache: "no-store", headers: getAuthHeaders() },
 	);
 
 	if (res.status === 401) {
