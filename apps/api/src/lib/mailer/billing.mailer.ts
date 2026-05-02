@@ -1,6 +1,7 @@
 import { deliverEmail, emailLayout, escapeHtml, textP, E } from "./base.mailer";
 import type { BillingReceiptEmailBlockInput } from "./billing-receipt-email";
 import { billingReceiptEmailBlock, greetingLine } from "./billing-receipt-email";
+import { logger } from "../logger";
 
 function formatProgramTierLabel(tier: string | null | undefined) {
   return (tier ?? "").replace(/_/g, " ");
@@ -58,8 +59,7 @@ ${textP(`<span style="color:${E.muted};font-size:14px;">Didn’t make this purch
     });
     await deliverEmail({ to: input.to, subject, html });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    console.warn("[Mailer] sendSubscriptionPendingUserEmail skipped:", detail);
+    logger.warn({ err }, "sendSubscriptionPendingUserEmail skipped");
   }
 }
 
@@ -100,7 +100,7 @@ ${textP(`<span style="color:${E.muted};font-size:14px;">Open the PH Performance 
     });
     await deliverEmail({ to: input.to, subject, html });
   } catch (err) {
-    console.warn("[Mailer] sendPlanExpiringSoonEmail skipped:", err);
+    logger.warn({ err }, "sendPlanExpiringSoonEmail skipped");
   }
 }
 
@@ -129,7 +129,7 @@ ${textP(`Questions? Reply to this email or reach support from the app — we’r
     });
     await deliverEmail({ to: input.to, subject, html });
   } catch (err) {
-    console.warn("[Mailer] sendPlanExpiredEmail skipped:", err);
+    logger.warn({ err }, "sendPlanExpiredEmail skipped");
   }
 }
 
@@ -157,7 +157,7 @@ ${textP(`Your coach has approved your <strong>${tier}</strong> plan. You now hav
     });
     await deliverEmail({ to: input.to, subject, html });
   } catch (err) {
-    console.warn("[Mailer] sendSubscriptionApprovedUserEmail skipped:", err);
+    logger.warn({ err }, "sendSubscriptionApprovedUserEmail skipped");
   }
 }
 
@@ -217,6 +217,6 @@ ${textP(`<span style="color:${E.muted};font-size:13px;">Didn't expect this email
     });
     await deliverEmail({ to: input.to, subject, html });
   } catch (err) {
-    console.warn("[Mailer] sendPlanInviteEmail skipped:", err);
+    logger.warn({ err }, "sendPlanInviteEmail skipped");
   }
 }

@@ -6,6 +6,7 @@ import {
 } from "./billing-receipt-email";
 import { deliverEmail, emailLayout, escapeHtml, escapeAttr, textP, labelRow, E } from "./base.mailer";
 import { displayGreetingName } from "./greeting";
+import { logger } from "../logger";
 
 function formatProgramTierLabel(tier: string) {
   return tier.replace(/_/g, " ");
@@ -133,8 +134,7 @@ ${reviewBtn}`;
 
     await deliverEmail({ to: input.to, subject, html, attachments });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error("[Mailer] sendSubscriptionPendingStaffEmail failed:", detail);
+    logger.error({ err }, "sendSubscriptionPendingStaffEmail failed");
     throw err;
   }
 }

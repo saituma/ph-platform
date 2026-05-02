@@ -1,6 +1,7 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
 
 import { env } from "../config/env";
+import { logger } from "../lib/logger";
 import { db } from "../db";
 import { athleteTable, subscriptionPlanTable, subscriptionRequestTable, userTable } from "../db/schema";
 import { pushQueue } from "../jobs";
@@ -22,7 +23,7 @@ import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
  */
 export async function notifySubscriptionEnteredPendingApproval(requestId: number) {
   if (!isMailDeliveryConfigured()) {
-    console.warn(
+    logger.warn(
       "[Mailer] Subscription emails skipped: outbound mail is not configured. Set RESEND_API_KEY, or SMTP_USER + SMTP_PASS + SMTP_FROM, in apps/api/.env then restart the API.",
     );
     return;
@@ -57,7 +58,7 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
 
   const row = rows[0];
   if (!row?.userEmail || !row.planName || !row.planTier) {
-    console.warn("[Billing] notifySubscriptionEnteredPendingApproval: missing data", requestId);
+    logger.warn({ requestId }, "[Billing] notifySubscriptionEnteredPendingApproval: missing data");
     return;
   }
 
@@ -114,7 +115,7 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
         athleteBlock: `${row.athleteName ?? "Athlete"} · athlete #${row.athleteId}`,
       });
     } catch (err) {
-      console.warn("[Billing] Could not load Stripe session for receipt email", sid, err);
+      logger.warn({ err, stripeSessionId: sid }, "[Billing] Could not load Stripe session for receipt email");
     }
   }
 
@@ -148,7 +149,8 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
     );
 
   if (!staff.length) {
-    console.warn(
+    logger.warn(
+      { requestId },
       `[Billing] notifySubscriptionEnteredPendingApproval: no staff users found for request #${requestId}. ` +
         "Ensure at least one user with role admin/superAdmin/coach/team_coach/program_coach exists and is not deleted/blocked.",
     );
@@ -178,9 +180,9 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
         adminReviewUrl,
         receipt,
       });
-      console.info(`[Billing] Staff notification sent to ${s.email} for request #${requestId}`);
+      logger.info({ email: s.email, requestId }, "[Billing] Staff notification sent");
     } catch (staffEmailErr) {
-      console.error(`[Billing] Failed to send staff notification to ${s.email} for request #${requestId}:`, staffEmailErr);
+      logger.error({ err: staffEmailErr, email: s.email, requestId }, "[Billing] Failed to send staff notification");
     }
   }
 }

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { and, desc, eq, ne } from "drizzle-orm";
 import { Expo } from "expo-server-sdk";
+import { logger } from "../lib/logger";
 
 import { db } from "../db";
 import { notificationTable, userDeviceTokensTable, userTable } from "../db/schema";
@@ -73,8 +74,9 @@ export async function savePushToken(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid Expo push token" });
   }
 
-  console.log(
-    `[PushToken] Saving push token(s) for user ${req.user.id} deviceId=${deviceId ?? "none"}: expo=${expoPushToken ? expoPushToken.slice(0, 10) + "…" : "none"} device=${devicePushToken ? devicePushToken.slice(0, 10) + "…" : "none"}`,
+  logger.info(
+    { userId: req.user.id, deviceId: deviceId ?? "none", expoToken: expoPushToken ? expoPushToken.slice(0, 10) + "…" : "none", deviceToken: devicePushToken ? devicePushToken.slice(0, 10) + "…" : "none" },
+    "[PushToken] Saving push token(s)",
   );
 
   // Evict this device's tokens from any other user so a logout→login switch stops
@@ -126,7 +128,7 @@ export async function savePushToken(req: Request, res: Response) {
           updatedAt: new Date(),
         },
       });
-    console.log(`[PushToken] Device token upserted for user ${req.user.id} deviceId=${deviceId}`);
+    logger.info({ userId: req.user.id, deviceId }, "[PushToken] Device token upserted");
   }
 
   return res.status(200).json({ success: true });
@@ -164,7 +166,7 @@ export async function clearPushToken(req: Request, res: Response) {
     await db.delete(userDeviceTokensTable).where(eq(userDeviceTokensTable.userId, req.user.id));
   }
 
-  console.log(`[PushToken] Cleared push tokens for user ${req.user.id} deviceId=${deviceId ?? "none"}`);
+  logger.info({ userId: req.user.id, deviceId: deviceId ?? "none" }, "[PushToken] Cleared push tokens");
   return res.status(200).json({ success: true });
 }
 

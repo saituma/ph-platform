@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  FlatList,
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -8,6 +7,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { NavigationContext } from "@react-navigation/native";
 import { Image as ExpoImage } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
@@ -100,7 +100,7 @@ function AnnouncementsSectionWithNav(props: AnnouncementsSectionProps) {
 function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProps & { isFocused: boolean }) {
   const { width } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashListRef<AnnouncementItem>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
@@ -140,7 +140,7 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
     }
   };
 
-  const renderItem = ({ item }: { item: AnnouncementItem }) => {
+  const renderItem = useCallback(({ item }: { item: AnnouncementItem }) => {
     const parsed = extractAnnouncements(item);
     const title = item.title?.trim() || "Announcement";
     const date = item.updatedAt || item.createdAt;
@@ -245,7 +245,7 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
         </View>
       </View>
     );
-  };
+  }, [cardWidth, isDark, imageErrors, setImageErrors, isFocused]);
 
   return (
     <View className="py-2 items-center">
@@ -271,7 +271,7 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
       </View>
 
       <View className="w-full items-center">
-        <FlatList
+        <FlashList
           ref={flatListRef}
           data={announcements}
           renderItem={renderItem}

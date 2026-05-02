@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, Modal, Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, Modal, Pressable, TextInput, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
@@ -148,7 +149,7 @@ export default function ThreadSearchModal({ visible, threadId, token, onClose, o
         {!loading && !error && searched && results.length === 0 && <CenterMsg text="No messages found" color={ts} />}
 
         {/* Results */}
-        <FlatList
+        <FlashList
           data={results}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}

@@ -17,13 +17,11 @@ import { CalendarPanel } from "../components/admin/dashboard/calendar-panel";
 import { EngagementTrendsChart } from "../components/admin/dashboard/engagement-trends-chart";
 import {
   BookingTodayRow,
-  DashboardPulseStrip,
   DashboardQuickLinks,
   DashboardSectionHeading,
   HighlightTile,
   KpiStatTile,
   TopAthleteRow,
-  TrendInsightCard,
 } from "../components/admin/dashboard/dashboard-overview";
 import { useGetAdminTeamsQuery, useGetDashboardQuery, useGetHomeContentQuery } from "../lib/apiSlice";
 
@@ -648,6 +646,8 @@ export default function Home() {
 
           <CalendarPanel
             visible={showCalendar}
+            bookings={Array.isArray(dashboardData?.bookingsToday) ? dashboardData.bookingsToday : []}
+            isLoading={isLoading}
             onOpenSlots={() => setActiveDialog("slots")}
           />
 

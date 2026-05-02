@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 import {
   STRONG_TEAM_PASSWORD_MAX,
@@ -47,7 +48,7 @@ export async function getTeamRosterAthlete(req: Request, res: Response) {
     const e = error as { status?: number; message?: string };
     const status = typeof e?.status === "number" ? e.status : 500;
     const message = typeof e?.message === "string" ? e.message : "Failed to load athlete.";
-    if (status >= 500) console.error("[team-roster] getTeamRosterAthlete", error);
+    if (status >= 500) logger.error({ err: error }, "[team-roster] getTeamRosterAthlete");
     return res.status(status).json({ error: message });
   }
 }
@@ -76,7 +77,7 @@ export async function postTeamRosterAthleteResetPassword(req: Request, res: Resp
     const e = error as { status?: number; message?: string };
     const status = typeof e?.status === "number" ? e.status : 500;
     const message = typeof e?.message === "string" ? e.message : "Failed to reset password.";
-    if (status >= 500) console.error("[team-roster] postTeamRosterAthleteResetPassword", error);
+    if (status >= 500) logger.error({ err: error }, "[team-roster] postTeamRosterAthleteResetPassword");
     return res.status(status).json({ error: message });
   }
 }
@@ -118,7 +119,7 @@ export async function postTeamRosterAthlete(req: Request, res: Response) {
     const e = error as { status?: number; message?: string };
     const status = typeof e?.status === "number" ? e.status : 500;
     const message = typeof e?.message === "string" ? e.message : "Failed to create athlete.";
-    if (status >= 500) console.error("[team-roster] postTeamRosterAthlete", error);
+    if (status >= 500) logger.error({ err: error }, "[team-roster] postTeamRosterAthlete");
     return res.status(status).json({ error: message });
   }
 }
@@ -140,7 +141,7 @@ export async function patchTeamRosterEmailSlug(req: Request, res: Response) {
     const e = error as { status?: number; message?: string };
     const status = typeof e?.status === "number" ? e.status : 500;
     const message = typeof e?.message === "string" ? e.message : "Failed to update.";
-    if (status >= 500) console.error("[team-roster] patchTeamRosterEmailSlug", error);
+    if (status >= 500) logger.error({ err: error }, "[team-roster] patchTeamRosterEmailSlug");
     return res.status(status).json({ error: message });
   }
 }
@@ -174,7 +175,7 @@ export async function patchTeamRosterAthleteHandler(req: Request, res: Response)
     const e = error as { status?: number; message?: string };
     const status = typeof e?.status === "number" ? e.status : 500;
     const message = typeof e?.message === "string" ? e.message : "Failed to update athlete.";
-    if (status >= 500) console.error("[team-roster] patchTeamRosterAthleteHandler", error);
+    if (status >= 500) logger.error({ err: error }, "[team-roster] patchTeamRosterAthleteHandler");
     return res.status(status).json({ error: message });
   }
 }

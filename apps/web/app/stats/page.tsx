@@ -47,9 +47,9 @@ function parseMoneyAmount(input?: string | null) {
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-GB", {
     style: "currency",
-    currency: "USD",
+    currency: "GBP",
     maximumFractionDigits: 2,
   }).format(value);
 }
@@ -106,8 +106,9 @@ export default function StatsPage() {
         if (!mounted) return;
         setPlans(Array.isArray(plansRes?.plans) ? plansRes.plans : []);
         setRequests(Array.isArray(requestsRes?.requests) ? requestsRes.requests : []);
-      } catch {
+      } catch (err) {
         if (!mounted) return;
+        console.error("Failed to load stats data:", err);
         setPlans([]);
         setRequests([]);
       } finally {

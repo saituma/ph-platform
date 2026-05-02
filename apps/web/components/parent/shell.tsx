@@ -1,8 +1,11 @@
 "use client";
 
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "../admin/app-sidebar";
-import { AdminTopbar } from "../admin/topbar";
+import { useState } from "react";
+import { Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ParentSidebar, ParentSidebarContent } from "./sidebar";
+import { ParentTopbar } from "./topbar";
+import { usePathname } from "next/navigation";
 
 type ParentShellProps = {
   title: string;
@@ -12,15 +15,44 @@ type ParentShellProps = {
 };
 
 export function ParentShell({ title, subtitle, actions, children }: ParentShellProps) {
-  return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <AdminTopbar title={title} subtitle={subtitle} actions={actions} />
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
 
-        {/* Mobile header */}
+  return (
+    <div className="flex min-h-screen">
+      <ParentSidebar collapsed={collapsed} />
+
+      {mobileOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto bg-card border-r border-border py-8 px-6 lg:hidden">
+            <ParentSidebarContent currentPath={pathname} />
+          </aside>
+        </>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ParentTopbar
+          title={title}
+          subtitle={subtitle}
+          actions={actions}
+          isSidebarCollapsed={collapsed}
+          onToggleSidebar={() => setCollapsed((prev) => !prev)}
+        />
+
         <header className="flex items-center gap-2 border-b border-border bg-card px-4 py-3 lg:hidden">
-          <SidebarTrigger className="-ml-1" />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="-ml-1"
+            onClick={() => setMobileOpen((prev) => !prev)}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
           <div className="h-4 w-px bg-border" />
           <div className="flex min-w-0 flex-col">
             {subtitle && (
@@ -38,7 +70,7 @@ export function ParentShell({ title, subtitle, actions, children }: ParentShellP
         <main className="mx-auto w-full min-w-0 max-w-[1300px] space-y-6 px-3 py-5 sm:px-4 sm:py-6 lg:space-y-8 lg:px-8 lg:py-8 xl:px-10">
           {children}
         </main>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </div>
   );
 }

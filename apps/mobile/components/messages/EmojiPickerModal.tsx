@@ -1,5 +1,6 @@
-import React from "react";
-import { Modal, Pressable, TextInput, View, FlatList } from "react-native";
+import React, { useCallback } from "react";
+import { Modal, Pressable, TextInput, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -91,6 +92,23 @@ export function EmojiPickerModal({
     setQuery("");
     setCategory(CATEGORIES[0] ?? "");
   }, [open]);
+
+  const renderEmojiItem = useCallback(({ item }: { item: EmojiItem }) => (
+    <Pressable
+      onPress={() => onSelectEmoji(item.emoji)}
+      className="mb-2 items-center justify-center rounded-[16px] border"
+      style={{
+        width: `${100 / 8}%`,
+        height: 46,
+        borderColor: isDark
+          ? "rgba(255,255,255,0.08)"
+          : colors.borderSubtle,
+        backgroundColor: colors.backgroundSecondary,
+      }}
+    >
+      <Text className="text-[24px]">{item.emoji}</Text>
+    </Pressable>
+  ), [onSelectEmoji, isDark, colors.borderSubtle, colors.backgroundSecondary]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const items = React.useMemo(() => {
@@ -201,7 +219,7 @@ export function EmojiPickerModal({
           </View>
         </View>
 
-        <FlatList
+        <FlashList
           data={items}
           keyExtractor={(item) => item.key}
           numColumns={8}
@@ -209,22 +227,7 @@ export function EmojiPickerModal({
             paddingHorizontal: 20,
             paddingBottom: Math.max(insets.bottom + 24, 28),
           }}
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => onSelectEmoji(item.emoji)}
-              className="mb-2 items-center justify-center rounded-[16px] border"
-              style={{
-                width: `${100 / 8}%`,
-                height: 46,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : colors.borderSubtle,
-                backgroundColor: colors.backgroundSecondary,
-              }}
-            >
-              <Text className="text-[24px]">{item.emoji}</Text>
-            </Pressable>
-          )}
+          renderItem={renderEmojiItem}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         />

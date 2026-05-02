@@ -1,6 +1,7 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
 
 import { env } from "../config/env";
+import { logger } from "../lib/logger";
 import { db } from "../db";
 import { subscriptionPlanTable, teamSubscriptionRequestTable, teamTable, userTable } from "../db/schema";
 import { buildBillingReceiptEmailFromStripeSession } from "../lib/mailer/billing-receipt-email";
@@ -26,7 +27,7 @@ function formatStripeAmount(amountCents: number | null, currency: string | null)
 
 export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId: number) {
   if (!isMailDeliveryConfigured()) {
-    console.warn(
+    logger.warn(
       '[Mailer] Team subscription emails skipped: outbound mail is not configured. Set RESEND_API_KEY, or SMTP_USER + SMTP_PASS + SMTP_FROM (From can be e.g. "PH Performance <on@resend.dev>"), in apps/api/.env then restart the API.',
     );
     return;
@@ -59,7 +60,7 @@ export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId
 
   const row = rows[0];
   if (!row?.adminEmail || !row.planName || !row.planTier) {
-    console.warn("[Billing] notifyTeamSubscriptionEnteredPendingApproval: missing data", teamRequestId);
+    logger.warn({ teamRequestId }, "[Billing] notifyTeamSubscriptionEnteredPendingApproval: missing data");
     return;
   }
 
@@ -98,7 +99,7 @@ export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId
         athleteBlock: null,
       });
     } catch (err) {
-      console.warn("[Billing] Could not load Stripe session for team receipt email", sid, err);
+      logger.warn({ err, stripeSessionId: sid }, "[Billing] Could not load Stripe session for team receipt email");
     }
   }
 

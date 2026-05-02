@@ -1,5 +1,6 @@
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
+import { logger } from "../../lib/logger";
 import { getSocketServer } from "../../socket-hub";
 import {
   athleteTable,
@@ -194,7 +195,7 @@ export async function updateBookingStatusAdmin(input: {
             meetingLink: detail.meetingLink ?? undefined,
           });
         } catch (error) {
-          console.error("Failed to send booking confirmation email", error);
+          logger.error({ err: error }, "Failed to send booking confirmation email");
         }
       }
 
@@ -218,7 +219,7 @@ export async function updateBookingStatusAdmin(input: {
             }),
           });
         } catch (error) {
-          console.error("Failed to send booking confirmation push", error);
+          logger.error({ err: error }, "Failed to send booking confirmation push");
         }
       }
     }
@@ -268,7 +269,7 @@ export async function updateBookingStatusAdmin(input: {
             meetingLink: detail.meetingLink ?? undefined,
           });
         } catch (error) {
-          console.error("Failed to send booking decline email", error);
+          logger.error({ err: error }, "Failed to send booking decline email");
         }
       }
 
@@ -292,7 +293,7 @@ export async function updateBookingStatusAdmin(input: {
             }),
           });
         } catch (error) {
-          console.error("Failed to send booking declined push", error);
+          logger.error({ err: error }, "Failed to send booking declined push");
         }
       }
     }

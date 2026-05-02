@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import {
 	ActivityIndicator,
 	Platform,
@@ -7,9 +8,11 @@ import {
 	View,
 } from "react-native";
 import { Image } from "expo-image";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
 	FadeIn,
 	FadeOut,
+	runOnJS,
 	useAnimatedStyle,
 	useSharedValue,
 	withSpring,
@@ -38,8 +41,6 @@ interface Props {
 	insets: EdgeInsets;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 export function ChatComposer({
 	draft,
 	onDraftChange,
@@ -64,6 +65,59 @@ export function ChatComposer({
 	const sendStyle = useAnimatedStyle(() => ({
 		transform: [{ scale: sendButtonScale.value }],
 	}));
+
+	const micButtonScale = useSharedValue(1);
+	const micStyle = useAnimatedStyle(() => ({
+		transform: [{ scale: micButtonScale.value }],
+	}));
+
+	const plusTap = Gesture.Tap()
+		.onBegin(() => {
+			'worklet';
+			plusButtonScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+			runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+		})
+		.onFinalize(() => {
+			'worklet';
+			plusButtonScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+		})
+		.onEnd(() => {
+			'worklet';
+			runOnJS(onOpenMenu)();
+		});
+
+	const sendTap = Gesture.Tap()
+		.onBegin(() => {
+			'worklet';
+			sendButtonScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+			runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+		})
+		.onFinalize(() => {
+			'worklet';
+			sendButtonScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+		})
+		.onEnd(() => {
+			'worklet';
+			runOnJS(onSend)();
+		})
+		.enabled(!!(!disabled && !isUploading && (draft.trim().length > 0 || !!pendingAttachment)));
+
+	const micTap = Gesture.Tap()
+		.onBegin(() => {
+			'worklet';
+			micButtonScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+			runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+		})
+		.onFinalize(() => {
+			'worklet';
+			micButtonScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+		})
+		.onEnd(() => {
+			'worklet';
+			if (onOpenVoiceRecorder) {
+				runOnJS(onOpenVoiceRecorder)();
+			}
+		});
 
 	const hasContent = draft.trim().length > 0 || !!pendingAttachment;
 	const canSend = !disabled && !isUploading && hasContent;
@@ -155,21 +209,20 @@ export function ChatComposer({
 						},
 					]}
 				>
-					<AnimatedPressable
-						onPress={onOpenMenu}
-						style={[
-							styles.addButton,
-							plusStyle,
-							{
-								backgroundColor: addButtonBg,
-								borderColor,
-							},
-						]}
-						onPressIn={() => (plusButtonScale.value = withSpring(0.9))}
-						onPressOut={() => (plusButtonScale.value = withSpring(1))}
-					>
-						<Ionicons name="add" size={22} color={colors.accent} />
-					</AnimatedPressable>
+					<GestureDetector gesture={plusTap}>
+						<Animated.View
+							style={[
+								styles.addButton,
+								plusStyle,
+								{
+									backgroundColor: addButtonBg,
+									borderColor,
+								},
+							]}
+						>
+							<Ionicons name="add" size={22} color={colors.accent} />
+						</Animated.View>
+					</GestureDetector>
 
 					<TextInput
 						style={[
@@ -193,53 +246,50 @@ export function ChatComposer({
 
 				{hasContent || !onOpenVoiceRecorder ? (
 					<Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} key="send">
-						<AnimatedPressable
-							onPress={onSend}
-							disabled={!canSend}
-							style={[
-								styles.sendButton,
-								sendStyle,
-								{
-									width: sendButtonSize,
-									height: sendButtonSize,
-									borderRadius: sendButtonSize / 2,
-								},
-								{
-									backgroundColor: colors.accent,
-									opacity: canSend ? 1 : 0.5,
-								},
-							]}
-							onPressIn={() => (sendButtonScale.value = withSpring(0.85))}
-							onPressOut={() => (sendButtonScale.value = withSpring(1))}
-						>
-							{isUploading || disabled ? (
-								<ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
-							) : (
-								<Ionicons name="arrow-up" size={20} color="hsl(220, 5%, 98%)" />
-							)}
-						</AnimatedPressable>
+						<GestureDetector gesture={sendTap}>
+							<Animated.View
+								style={[
+									styles.sendButton,
+									sendStyle,
+									{
+										width: sendButtonSize,
+										height: sendButtonSize,
+										borderRadius: sendButtonSize / 2,
+									},
+									{
+										backgroundColor: colors.accent,
+										opacity: canSend ? 1 : 0.5,
+									},
+								]}
+							>
+								{isUploading || disabled ? (
+									<ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
+								) : (
+									<Ionicons name="arrow-up" size={20} color="hsl(220, 5%, 98%)" />
+								)}
+							</Animated.View>
+						</GestureDetector>
 					</Animated.View>
 				) : (
 					<Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} key="mic">
-						<AnimatedPressable
-							onPress={onOpenVoiceRecorder}
-							style={[
-								styles.sendButton,
-								sendStyle,
-								{
-									width: sendButtonSize,
-									height: sendButtonSize,
-									borderRadius: sendButtonSize / 2,
-								},
-								{
-									backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-								},
-							]}
-							onPressIn={() => (sendButtonScale.value = withSpring(0.85))}
-							onPressOut={() => (sendButtonScale.value = withSpring(1))}
-						>
-							<Ionicons name="mic" size={22} color={colors.accent} />
-						</AnimatedPressable>
+						<GestureDetector gesture={micTap}>
+							<Animated.View
+								style={[
+									styles.sendButton,
+									micStyle,
+									{
+										width: sendButtonSize,
+										height: sendButtonSize,
+										borderRadius: sendButtonSize / 2,
+									},
+									{
+										backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+									},
+								]}
+							>
+								<Ionicons name="mic" size={22} color={colors.accent} />
+							</Animated.View>
+						</GestureDetector>
 					</Animated.View>
 				)}
 			</View>

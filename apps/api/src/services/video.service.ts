@@ -1,6 +1,7 @@
 import { and, desc, eq, or } from "drizzle-orm";
 
 import { db } from "../db";
+import { logger } from "../lib/logger";
 import {
   athleteTable,
   guardianTable,
@@ -93,7 +94,7 @@ export async function notifyCoachResponseVideo(input: { videoUploadId: number })
         })),
       );
     } catch (err) {
-      console.error("[Video Service] Failed to store response video notification", err);
+      logger.error({ err }, "[Video Service] Failed to store response video notification");
     }
 
     for (const userId of recipients) {
@@ -109,7 +110,7 @@ export async function notifyCoachResponseVideo(input: { videoUploadId: number })
       });
     }
   } catch (err) {
-    console.error("[Video Service] Failed to send response video push", err);
+    logger.error({ err }, "[Video Service] Failed to send response video push");
   }
 }
 
@@ -156,7 +157,7 @@ export async function createVideoUpload(input: {
         }
       }
     } catch (err) {
-      console.error("[Video Service] AI feedback failed:", err);
+      logger.error({ err }, "[Video Service] AI feedback failed");
     }
   })();
 
@@ -175,16 +176,15 @@ export async function createVideoUpload(input: {
         .where(eq(videoUploadTable.id, upload.id));
 
       await cleanupOriginalVideoObject(optimized.originalKey).catch((err) => {
-        console.warn("[VideoOptimization] Failed to delete original object:", err);
+        logger.warn({ err }, "[VideoOptimization] Failed to delete original object");
       });
 
-      console.info(
-        `[VideoOptimization] upload=${upload.id} saved ${
-          optimized.bytesBefore - optimized.bytesAfter
-        } bytes (${optimized.bytesBefore} -> ${optimized.bytesAfter})`,
+      logger.info(
+        { uploadId: upload.id, bytesBefore: optimized.bytesBefore, bytesAfter: optimized.bytesAfter, bytesSaved: optimized.bytesBefore - optimized.bytesAfter },
+        `[VideoOptimization] upload=${upload.id} optimized`,
       );
     } catch (err) {
-      console.warn("[VideoOptimization] Optimization skipped/failed:", err);
+      logger.warn({ err }, "[VideoOptimization] Optimization skipped/failed");
     }
   })();
 
@@ -267,7 +267,7 @@ export async function reviewVideoUpload(input: { uploadId: number; coachId: numb
       }
     }
   } catch (err) {
-    console.error("[Video Service] Failed to send feedback notification:", err);
+    logger.error({ err }, "[Video Service] Failed to send feedback notification");
   }
 
   return upload;

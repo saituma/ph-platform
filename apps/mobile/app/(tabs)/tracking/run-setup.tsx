@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import type { Region } from "react-native-maps";
 import * as Location from "expo-location";
 import { Stack, useRouter } from "expo-router";

@@ -54,9 +54,10 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  runOnJS,
 } from "react-native-reanimated";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import * as Haptics from "expo-haptics";
 
 interface Props {
   token: string | null;
@@ -277,6 +278,21 @@ export function AdminGroupSection({
       setIsUploading(false);
     }
   };
+
+  const sendTap = Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      sendButtonScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      sendButtonScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(handleSend)();
+    });
 
   const handleCreateGroup = async () => {
     if (!createName.trim()) return;
@@ -862,41 +878,35 @@ export function AdminGroupSection({
                 />
               </View>
 
-              <AnimatedPressable
-                onPress={handleSend}
-                disabled={!canSendGroupMessage}
-                onPressIn={() => {
-                  sendButtonScale.value = withSpring(0.85);
-                }}
-                onPressOut={() => {
-                  sendButtonScale.value = withSpring(1);
-                }}
-                style={[
-                  sendButtonStyle,
-                  {
-                    width: 44,
-                    height: 44,
-                    flexShrink: 0,
-                    borderRadius: 22,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: colors.accent,
-                    opacity: canSendGroupMessage ? 1 : 0.5,
-                    elevation: 2,
-                    zIndex: 30,
-                  },
-                ]}
-              >
-                {isSending || isUploading ? (
-                  <ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
-                ) : (
-                  <Ionicons
-                    name="arrow-up"
-                    size={20}
-                    color="hsl(220, 5%, 98%)"
-                  />
-                )}
-              </AnimatedPressable>
+              <GestureDetector gesture={sendTap}>
+                <Animated.View
+                  style={[
+                    sendButtonStyle,
+                    {
+                      width: 44,
+                      height: 44,
+                      flexShrink: 0,
+                      borderRadius: 22,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: colors.accent,
+                      opacity: canSendGroupMessage ? 1 : 0.5,
+                      elevation: 2,
+                      zIndex: 30,
+                    },
+                  ]}
+                >
+                  {isSending || isUploading ? (
+                    <ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
+                  ) : (
+                    <Ionicons
+                      name="arrow-up"
+                      size={20}
+                      color="hsl(220, 5%, 98%)"
+                    />
+                  )}
+                </Animated.View>
+              </GestureDetector>
             </View>
           </View>
         </View>

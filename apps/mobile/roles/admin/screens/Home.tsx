@@ -12,7 +12,6 @@ import {
     Modal,
     Platform,
     Pressable,
-    TouchableOpacity,
     View,
 } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -22,7 +21,10 @@ import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withSpring,
+    runOnJS,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import * as Haptics from "expo-haptics";
 import { ADMIN_TAB_ROUTES } from "../tabs";
 import { Feather } from "@/components/ui/theme-icons";
 import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
@@ -142,51 +144,63 @@ function PressableActionTile({
     const animStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
     }));
+    const tap = Gesture.Tap()
+        .onBegin(() => {
+            'worklet';
+            scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+            runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+        })
+        .onFinalize(() => {
+            'worklet';
+            scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+        })
+        .onEnd(() => {
+            'worklet';
+            runOnJS(onPress)();
+        });
     return (
-        <Animated.View entering={ZoomIn.delay(80 + index * 35)} style={[animStyle, { flex: 1 }]}>
-            <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={onPress}
-                onPressIn={() => { scale.value = withSpring(0.94, { damping: 14 }); }}
-                onPressOut={() => { scale.value = withSpring(1, { damping: 14 }); }}
-                style={{
-                    alignItems: "center",
-                    paddingVertical: 16,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    backgroundColor: isDark ? `${color}${bgAlpha}` : `${color}12`,
-                    borderColor: isDark ? `${color}30` : `${color}25`,
-                }}
-            >
+        <GestureDetector gesture={tap}>
+            <Animated.View entering={ZoomIn.delay(80 + index * 35)} style={[animStyle, { flex: 1 }]}>
                 <View
                     style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 14,
-                        backgroundColor: isDark ? `${color}25` : `${color}18`,
                         alignItems: "center",
-                        justifyContent: "center",
-                        marginBottom: 10,
+                        paddingVertical: 16,
+                        borderRadius: 20,
                         borderWidth: 1,
-                        borderColor: isDark ? `${color}35` : `${color}22`,
+                        backgroundColor: isDark ? `${color}${bgAlpha}` : `${color}12`,
+                        borderColor: isDark ? `${color}30` : `${color}25`,
                     }}
                 >
-                    <Feather name={icon as any} size={20} color={color} />
+                    <View
+                        style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 14,
+                            backgroundColor: isDark ? `${color}25` : `${color}18`,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginBottom: 10,
+                            borderWidth: 1,
+                            borderColor: isDark ? `${color}35` : `${color}22`,
+                        }}
+                    >
+                        <Feather name={icon as any} size={20} color={color} />
+                    </View>
+                    <Text
+                        style={{
+                            fontFamily: "Outfit-Bold",
+                            fontSize: 11,
+                            letterSpacing: 0.8,
+                            textTransform: "uppercase",
+                            color: color,
+                        }}
+                        numberOfLines={1}
+                    >
+                        {label}
+                    </Text>
                 </View>
-                <Text
-                    style={{
-                        fontFamily: "Outfit-Bold",
-                        fontSize: 11,
-                        letterSpacing: 0.8,
-                        textTransform: "uppercase",
-                        color: color,
-                    }}
-                    numberOfLines={1}
-                >
-                    {label}
-                </Text>
-            </TouchableOpacity>
-        </Animated.View>
+            </Animated.View>
+        </GestureDetector>
     );
 }
 
@@ -214,85 +228,97 @@ function StatCard({
     const animStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
     }));
+    const tap = Gesture.Tap()
+        .onBegin(() => {
+            'worklet';
+            scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+            runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+        })
+        .onFinalize(() => {
+            'worklet';
+            scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+        })
+        .onEnd(() => {
+            'worklet';
+            runOnJS(onPress)();
+        });
 
     return (
-        <Animated.View
-            entering={ZoomIn.delay(160 + index * 50)}
-            style={[animStyle, { flex: 1 }]}
-        >
-            <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={onPress}
-                onPressIn={() => { scale.value = withSpring(0.96, { damping: 14 }); }}
-                onPressOut={() => { scale.value = withSpring(1, { damping: 14 }); }}
-                style={{
-                    minHeight: 110,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    backgroundColor: isDark ? colors.cardElevated : colors.card,
-                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
-                    padding: 16,
-                    overflow: "hidden",
-                }}
+        <GestureDetector gesture={tap}>
+            <Animated.View
+                entering={ZoomIn.delay(160 + index * 50)}
+                style={[animStyle, { flex: 1 }]}
             >
-                {/* Colored top bar accent */}
                 <View
                     style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 16,
-                        right: 16,
-                        height: 2,
-                        borderRadius: 1,
-                        backgroundColor: color,
-                        opacity: 0.6,
+                        minHeight: 110,
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        backgroundColor: isDark ? colors.cardElevated : colors.card,
+                        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+                        padding: 16,
+                        overflow: "hidden",
                     }}
-                />
-                <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
-                    <Text
-                        style={{
-                            fontFamily: "Outfit-Bold",
-                            fontSize: 10,
-                            letterSpacing: 1.4,
-                            textTransform: "uppercase",
-                            color: colors.textSecondary,
-                        }}
-                    >
-                        {label}
-                    </Text>
+                >
+                    {/* Colored top bar accent */}
                     <View
                         style={{
-                            width: 30,
-                            height: 30,
-                            borderRadius: 10,
-                            backgroundColor: `${color}${bgAlpha}`,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            borderWidth: 1,
-                            borderColor: `${color}30`,
+                            position: "absolute",
+                            top: 0,
+                            left: 16,
+                            right: 16,
+                            height: 2,
+                            borderRadius: 1,
+                            backgroundColor: color,
+                            opacity: 0.6,
                         }}
-                    >
-                        <Feather name={icon as any} size={14} color={color} />
+                    />
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                        <Text
+                            style={{
+                                fontFamily: "Outfit-Bold",
+                                fontSize: 10,
+                                letterSpacing: 1.4,
+                                textTransform: "uppercase",
+                                color: colors.textSecondary,
+                            }}
+                        >
+                            {label}
+                        </Text>
+                        <View
+                            style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: 10,
+                                backgroundColor: `${color}${bgAlpha}`,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderWidth: 1,
+                                borderColor: `${color}30`,
+                            }}
+                        >
+                            <Feather name={icon as any} size={14} color={color} />
+                        </View>
                     </View>
+                    {loading && value === null ? (
+                        <Skeleton width={60} height={36} borderRadius={8} />
+                    ) : (
+                        <Text
+                            style={{
+                                fontFamily: "Outfit-Black",
+                                fontSize: 38,
+                                lineHeight: 42,
+                                color: colors.textPrimary,
+                                fontVariant: ["tabular-nums"] as any,
+                            }}
+                            numberOfLines={1}
+                        >
+                            {value ?? "—"}
+                        </Text>
+                    )}
                 </View>
-                {loading && value === null ? (
-                    <Skeleton width={60} height={36} borderRadius={8} />
-                ) : (
-                    <Text
-                        style={{
-                            fontFamily: "Outfit-Black",
-                            fontSize: 38,
-                            lineHeight: 42,
-                            color: colors.textPrimary,
-                            fontVariant: ["tabular-nums"] as any,
-                        }}
-                        numberOfLines={1}
-                    >
-                        {value ?? "—"}
-                    </Text>
-                )}
-            </TouchableOpacity>
-        </Animated.View>
+            </Animated.View>
+        </GestureDetector>
     );
 }
 

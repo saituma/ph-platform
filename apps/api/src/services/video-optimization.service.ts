@@ -4,6 +4,7 @@ import path from "path";
 import { spawn, spawnSync } from "child_process";
 
 import { deleteObject, getMediaObjectKeyFromPublicUrl, getObjectBuffer, getPublicObjectUrl, putObject } from "./s3.service";
+import { logger } from "../lib/logger";
 
 let ffmpegAvailable: boolean | null = null;
 
@@ -12,7 +13,7 @@ function isFfmpegAvailable() {
   const result = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" });
   ffmpegAvailable = result.status === 0;
   if (!ffmpegAvailable) {
-    console.warn("[VideoOptimization] ffmpeg not available on host; skipping optimization.");
+    logger.warn("[VideoOptimization] ffmpeg not available on host; skipping optimization.");
   }
   return ffmpegAvailable;
 }

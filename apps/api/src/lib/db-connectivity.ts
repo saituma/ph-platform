@@ -1,3 +1,5 @@
+import { logger } from "./logger";
+
 const TRANSIENT_PG_CODES = new Set([
   "ECONNRESET",
   "ETIMEDOUT",
@@ -94,8 +96,9 @@ export async function withTransientDbRetryConfigured<T>(
         throw err;
       }
       const delay = baseDelayMs * 2 ** attempt;
-      console.warn(
-        `[DB] ${label}: transient connection error (attempt ${attempt + 1}/${maxAttempts}), retry in ${delay}ms`,
+      logger.warn(
+        { label, attempt: attempt + 1, maxAttempts, delayMs: delay },
+        "Transient DB connection error, retrying",
       );
       await new Promise((r) => setTimeout(r, delay));
     }

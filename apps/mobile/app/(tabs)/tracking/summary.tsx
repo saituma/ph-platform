@@ -5,10 +5,11 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
@@ -21,6 +22,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  runOnJS,
 } from "react-native-reanimated";
 import {
   Trophy,
@@ -64,8 +66,6 @@ import {
   FEEL_TAGS,
 } from "../../../components/tracking/FeelTagSelector";
 import { pushRunsToCloud } from "../../../lib/runSync";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function RunSummaryScreen() {
   const { height: screenHeight } = useWindowDimensions();
@@ -518,28 +518,42 @@ export default function RunSummaryScreen() {
 
               {/* Action buttons */}
               <View style={{ gap: 12, marginTop: 24 }}>
-                <AnimatedPressable
-                  onPress={handleSave}
-                  onPressIn={() => (scaleSaveBtn.value = withSpring(0.96, { damping: 15, stiffness: 300 }))}
-                  onPressOut={() => (scaleSaveBtn.value = withSpring(1, { damping: 15, stiffness: 300 }))}
-                  style={[
-                    animatedSaveBtnStyle,
-                    {
-                      width: "100%",
-                      height: 64,
-                      backgroundColor: colors.accent,
-                      borderRadius: radius.xxl,
-                      flexDirection: "row",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      gap: 10,
-                      ...(isDark ? {} : { shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 10 }, elevation: 8 }),
-                    },
-                  ]}
-                >
-                  <Save size={20} color="#FFF" strokeWidth={2.5} />
-                  <Text style={{ fontFamily: fonts.accentBold, fontSize: 18, color: "#FFF" }}>SAVE RUN</Text>
-                </AnimatedPressable>
+                <GestureDetector gesture={
+                  Gesture.Tap()
+                    .onBegin(() => {
+                      'worklet';
+                      scaleSaveBtn.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+                      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+                    })
+                    .onFinalize(() => {
+                      'worklet';
+                      scaleSaveBtn.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+                    })
+                    .onEnd(() => {
+                      'worklet';
+                      runOnJS(handleSave)();
+                    })
+                }>
+                  <Animated.View
+                    style={[
+                      animatedSaveBtnStyle,
+                      {
+                        width: "100%",
+                        height: 64,
+                        backgroundColor: colors.accent,
+                        borderRadius: radius.xxl,
+                        flexDirection: "row",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: 10,
+                        ...(isDark ? {} : { shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 10 }, elevation: 8 }),
+                      },
+                    ]}
+                  >
+                    <Save size={20} color="#FFF" strokeWidth={2.5} />
+                    <Text style={{ fontFamily: fonts.accentBold, fontSize: 18, color: "#FFF" }}>SAVE RUN</Text>
+                  </Animated.View>
+                </GestureDetector>
 
                 <Pressable
                   onPress={handleDiscard}

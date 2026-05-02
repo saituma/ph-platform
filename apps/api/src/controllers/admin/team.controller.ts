@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { logger } from "../../lib/logger";
 import {
   listTeamsAdmin,
   createTeamAdmin,
@@ -129,7 +130,7 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = safeAdminErrorMessage(error, "Failed to create team.");
     if (status >= 500) {
-      console.error("[admin] createTeamAdminDetails", error);
+      logger.error({ err: error }, "[admin] createTeamAdminDetails");
     }
     return res.status(status).json({ error: message });
   }
@@ -148,7 +149,7 @@ export async function getTeamAdminDetails(req: Request, res: Response) {
     return res.status(200).json(details);
   } catch (error) {
     const status = typeof (error as any)?.status === "number" ? (error as any).status : 500;
-    if (status >= 500) console.error("[getTeamAdminDetails]", error);
+    if (status >= 500) logger.error({ err: error }, "[getTeamAdminDetails]");
     return res.status(status).json({ error: safeAdminErrorMessage(error, "Failed to load team details.") });
   }
 }
@@ -182,7 +183,7 @@ export async function saveTeamDefaultsAdmin(req: Request, res: Response) {
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to save team defaults.";
     if (status >= 500) {
-      console.error("[admin] saveTeamDefaultsAdmin", error);
+      logger.error({ err: error }, "[admin] saveTeamDefaultsAdmin");
     }
     return res.status(status).json({ error: message });
   }
@@ -210,7 +211,7 @@ export async function updateTeamMemberAdminDetails(req: Request, res: Response) 
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to update team member.";
     if (status >= 500) {
-      console.error("[admin] updateTeamMemberAdminDetails", error);
+      logger.error({ err: error }, "[admin] updateTeamMemberAdminDetails");
     }
     return res.status(status).json({ error: message });
   }
@@ -225,7 +226,7 @@ export async function approveTeamAdminDetails(req: Request, res: Response) {
   } catch (error: any) {
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to approve team.";
-    if (status >= 500) console.error("[admin] approveTeamAdminDetails", error);
+    if (status >= 500) logger.error({ err: error }, "[admin] approveTeamAdminDetails");
     return res.status(status).json({ error: message });
   }
 }
@@ -238,7 +239,7 @@ export async function deleteTeamAdminDetails(req: Request, res: Response) {
   } catch (error: any) {
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to delete team.";
-    if (status >= 500) console.error("[admin] deleteTeamAdminDetails", error);
+    if (status >= 500) logger.error({ err: error }, "[admin] deleteTeamAdminDetails");
     return res.status(status).json({ error: message });
   }
 }
@@ -270,7 +271,7 @@ export async function attachAthleteToTeamAdminDetails(req: Request, res: Respons
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to attach athlete to team.";
     if (status >= 500) {
-      console.error("[admin] attachAthleteToTeamAdminDetails", error);
+      logger.error({ err: error }, "[admin] attachAthleteToTeamAdminDetails");
     }
     return res.status(status).json({ error: message });
   }

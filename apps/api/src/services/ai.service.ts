@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { env } from "../config/env";
+import { logger } from "../lib/logger";
 
 import { eq } from "drizzle-orm";
 import { db } from "../db";
@@ -74,7 +75,7 @@ export async function generateAiCoachResponse(
       "I'm having trouble thinking right now. Let's try again in a moment."
     );
   } catch (error) {
-    console.error("[AI Service] Error generating coach response:", error);
+    logger.error({ err: error }, "[AI Service] Error generating coach response");
     return "I'm experiencing a tactical delay. Please try again later.";
   }
 }
@@ -94,7 +95,7 @@ export async function generateVideoFeedback(notes: string) {
 
     return response.choices[0]?.message?.content?.trim() ?? null;
   } catch (error) {
-    console.error("[AI Service] Error generating video feedback:", error);
+    logger.error({ err: error }, "[AI Service] Error generating video feedback");
     return null;
   }
 }
@@ -114,7 +115,7 @@ export async function generateContentSummary(title: string, content: string, age
 
     return response.choices[0]?.message?.content?.trim() ?? null;
   } catch (error) {
-    console.error("[AI Service] Error generating content summary:", error);
+    logger.error({ err: error }, "[AI Service] Error generating content summary");
     return null;
   }
 }
@@ -134,7 +135,7 @@ export async function generateParentEducationalInsight(courseContext: string) {
 
     return response.choices[0]?.message?.content?.trim() ?? null;
   } catch (error) {
-    console.error("[AI Service] Error generating parent insight:", error);
+    logger.error({ err: error }, "[AI Service] Error generating parent insight");
     return null;
   }
 }

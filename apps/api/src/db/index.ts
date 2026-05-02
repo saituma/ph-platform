@@ -4,6 +4,7 @@ import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 
 import { env } from "../config/env";
+import { logger } from "../lib/logger";
 
 dns.setDefaultResultOrder("ipv4first");
 if (typeof net.setDefaultAutoSelectFamily === "function") {
@@ -131,21 +132,21 @@ if (isNeonHost) {
 export const pool = new Pool(poolConfig);
 
 pool.on("error", (err) => {
-  console.error("[DB] Pool idle client error:", err);
+  logger.error({ err }, "Pool idle client error");
 });
 
 if (env.databaseUrl !== chosenDatabaseUrl) {
   try {
     const fromHost = new URL(env.databaseUrl).hostname;
     const toHost = new URL(chosenDatabaseUrl).hostname;
-    console.info(`[DB] Using direct Neon host in dev: ${fromHost} -> ${toHost}`);
+    logger.info({ fromHost, toHost }, "Using direct Neon host in dev");
   } catch {
-    console.info("[DB] Using direct Neon host in dev");
+    logger.info("Using direct Neon host in dev");
   }
 } else {
   try {
     const activeHost = new URL(chosenDatabaseUrl).hostname;
-    console.info(`[DB] Active database host: ${activeHost}`);
+    logger.info({ host: activeHost }, "Active database host");
   } catch {
     // no-op
   }

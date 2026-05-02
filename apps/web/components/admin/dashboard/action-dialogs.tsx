@@ -1,10 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { MessageCircle, Dumbbell, Video, BookOpen, CalendarPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { Select } from "../../ui/select";
-import { Textarea } from "../../ui/textarea";
 
 export type DashboardDialog =
   | null
@@ -19,106 +18,84 @@ type ActionDialogsProps = {
   onClose: () => void;
 };
 
+const DIALOG_CONFIG = {
+  message: {
+    title: "New Message",
+    description: "Send a direct message, team announcement, or group message.",
+    icon: MessageCircle,
+    actions: [
+      { label: "Open Messaging", href: "/messaging" },
+    ],
+  },
+  program: {
+    title: "Create Program",
+    description: "Build a new training program with modules, sessions, and exercises.",
+    icon: Dumbbell,
+    actions: [
+      { label: "Go to Programs", href: "/programs" },
+    ],
+  },
+  exercise: {
+    title: "Add Exercise Content",
+    description: "Upload exercise videos and coaching notes to the library.",
+    icon: Video,
+    actions: [
+      { label: "Open Exercise Library", href: "/exercise-library" },
+    ],
+  },
+  article: {
+    title: "Publish Content",
+    description: "Create articles, testimonials, or update your profile content.",
+    icon: BookOpen,
+    actions: [
+      { label: "Manage Content", href: "/content/profile" },
+      { label: "Testimonials", href: "/content/testimonials" },
+    ],
+  },
+  slots: {
+    title: "Open Booking Slots",
+    description: "Set your availability and create new booking slots for athletes.",
+    icon: CalendarPlus,
+    actions: [
+      { label: "Manage Bookings", href: "/bookings" },
+    ],
+  },
+} as const;
+
 export function ActionDialogs({ active, onClose }: ActionDialogsProps) {
+  const router = useRouter();
+
+  if (!active) return null;
+
+  const config = DIALOG_CONFIG[active];
+  const Icon = config.icon;
+
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {active === "message" && "New Message"}
-            {active === "program" && "Create Program Template"}
-            {active === "exercise" && "Add Exercise Video"}
-            {active === "article" && "Publish Parent Article"}
-            {active === "slots" && "Open Booking Slots"}
+          <DialogTitle className="flex items-center gap-2">
+            <Icon className="h-5 w-5 text-primary" />
+            {config.title}
           </DialogTitle>
-          <DialogDescription>
-            Fill the details below. This is UI-only for now.
-          </DialogDescription>
+          <DialogDescription>{config.description}</DialogDescription>
         </DialogHeader>
-        <div className="mt-6 space-y-4">
-          {active === "message" ? (
-            <>
-              <Input placeholder="Recipient" />
-              <Textarea placeholder="Write your message..." />
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button onClick={onClose}>Send</Button>
-              </div>
-            </>
-          ) : null}
-          {active === "program" ? (
-            <>
-              <Input placeholder="Template name" />
-              <Select>
-                <option>Tier</option>
-                <option>PHP Program</option>
-                <option>PHP Premium Plus</option>
-                <option>PHP Premium</option>
-              </Select>
-              <Textarea placeholder="Summary" />
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button onClick={onClose}>Create</Button>
-              </div>
-            </>
-          ) : null}
-          {active === "exercise" ? (
-            <>
-              <Input placeholder="Exercise name" />
-              <Input placeholder="Video URL" />
-              <Textarea placeholder="Coaching notes" />
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button onClick={onClose}>Add</Button>
-              </div>
-            </>
-          ) : null}
-          {active === "article" ? (
-            <>
-              <Input placeholder="Article title" />
-              <Select>
-                <option>Category</option>
-                <option>Growth & Maturation</option>
-                <option>Nutrition</option>
-                <option>Mindset</option>
-              </Select>
-              <Textarea placeholder="Write the article..." />
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button onClick={onClose}>Publish</Button>
-              </div>
-            </>
-          ) : null}
-          {active === "slots" ? (
-            <>
-              <Input placeholder="Date range" />
-              <Select>
-                <option>Service type</option>
-                <option>Role Model Meeting</option>
-                <option>Lift Lab 1:1</option>
-                <option>Group Call</option>
-              </Select>
-              <Select>
-                <option>Fixed call window</option>
-                <option>13:00 - 13:30</option>
-                <option>15:30 - 16:00</option>
-              </Select>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button onClick={onClose}>Open Slots</Button>
-              </div>
-            </>
-          ) : null}
+        <div className="mt-4 space-y-3">
+          {config.actions.map((action) => (
+            <Button
+              key={action.href}
+              className="w-full"
+              onClick={() => {
+                onClose();
+                router.push(action.href);
+              }}
+            >
+              {action.label}
+            </Button>
+          ))}
+          <Button variant="outline" className="w-full" onClick={onClose}>
+            Cancel
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -10,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Megaphone, Users2, Clock, Search, Plus, Trash2, RefreshCw, Send, Pencil } from "lucide-react-native";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -45,7 +45,7 @@ function formatDate(value: string | Date | null) {
   return date.toLocaleDateString();
 }
 
-export default function TeamsPage() {
+function TeamsPageContent() {
   const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -205,5 +205,13 @@ export default function TeamsPage() {
         </Card>
       </div>
     </AdminShell>
+  );
+}
+
+export default function TeamsPage() {
+  return (
+    <Suspense>
+      <TeamsPageContent />
+    </Suspense>
   );
 }

@@ -19,7 +19,7 @@ import { Card } from "#/components/ui/card";
 import { cn } from "#/lib/utils";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
-import { getTokenStatus } from "#/lib/client-storage";
+import { getAuthHeaders, getTokenStatus } from "#/lib/client-storage";
 import { DatePicker } from "#/components/ui/date-picker";
 import { format, differenceInYears } from "date-fns";
 import { useMutation } from "@tanstack/react-query";
@@ -205,6 +205,7 @@ function OnboardingStep2() {
 				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
+					...getAuthHeaders(),
 				},
 				body: JSON.stringify({ email, ...body }),
 			});

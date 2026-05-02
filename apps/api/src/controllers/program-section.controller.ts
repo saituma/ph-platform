@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { inArray } from "drizzle-orm";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 import { db } from "../db";
 import { ProgramType, programSectionContentTable, sessionType } from "../db/schema";
@@ -317,12 +318,12 @@ export async function completeTrainingSessionHandler(req: Request, res: Response
       programKey: input.programKey ?? null,
     });
 
-    console.info("[training] session_completed", {
+    logger.info({
       athleteId: athlete.id,
       exerciseCount: result.completionsLogged,
       programKey: input.programKey ?? null,
       weekNumber: input.weekNumber ?? null,
-    });
+    }, "[training] session_completed");
 
     return res.status(201).json(result);
   } catch (err: unknown) {

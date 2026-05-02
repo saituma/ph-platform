@@ -4,13 +4,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import {
   Alert,
-  Pressable,
   RefreshControl,
   ScrollView,
   View,
   StyleSheet,
   Linking,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   FadeInDown,
@@ -18,6 +18,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useReducedMotion,
+  runOnJS,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
@@ -140,6 +141,68 @@ const DateGroup = memo(function DateGroup({ dateKey }: { dateKey: string }) {
 
 interface CardProps { event: ScheduleEvent; index: number; onCancel?: () => void; }
 
+const MeetingLinkTap = memo(function MeetingLinkTap({ meetingLink }: { meetingLink: string }) {
+  const linkScale = useSharedValue(1);
+  const linkAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: linkScale.value }] }));
+  const openLink = useCallback(() => { Linking.openURL(meetingLink); }, [meetingLink]);
+  const linkTap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      linkScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      linkScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(openLink)();
+    }), [openLink, linkScale]);
+  return (
+    <GestureDetector gesture={linkTap}>
+      <Animated.View style={[s.row, { marginTop: 4 }, linkAnimStyle]}>
+        <Ionicons name="videocam-outline" size={12} color="#6366F1" />
+        <Text style={[s.meta, { color: "#6366F1", fontFamily: "Outfit-Regular", marginLeft: 3 }]}>
+          Join online
+        </Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+});
+
+const CancelTap = memo(function CancelTap({ onCancel }: { onCancel: () => void }) {
+  const cancelScale = useSharedValue(1);
+  const cancelAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: cancelScale.value }] }));
+  const cancelTap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      cancelScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      cancelScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(onCancel)();
+    }), [onCancel, cancelScale]);
+  return (
+    <GestureDetector gesture={cancelTap}>
+      <Animated.View
+        style={[s.cancelLink, cancelAnimStyle]}
+        accessibilityRole="button"
+        accessibilityLabel="Cancel request"
+      >
+        <Text style={[s.cancelLinkText, { fontFamily: "Outfit-Medium" }]}>
+          Cancel request
+        </Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+});
+
 const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardProps) {
   const { colors, isDark } = useAppTheme();
   const reduceMotion = useReducedMotion();
@@ -149,12 +212,8 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardPr
   const isDeclined = event.status?.toLowerCase() === "declined" || event.status?.toLowerCase() === "cancelled";
 
   const entering = !reduceMotion
-    ? FadeInDown.delay(index * 45).duration(200).springify()
+    ? FadeInDown.delay(Math.min(index, 10) * 50).springify().damping(15)
     : undefined;
-
-  const openLink = useCallback(() => {
-    if (event.meetingLink) Linking.openURL(event.meetingLink);
-  }, [event.meetingLink]);
 
   return (
     <Animated.View entering={entering}>
@@ -199,12 +258,7 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardPr
 
           {/* Location / link */}
           {event.meetingLink ? (
-            <Pressable onPress={openLink} style={[s.row, { marginTop: 4 }]}>
-              <Ionicons name="videocam-outline" size={12} color="#6366F1" />
-              <Text style={[s.meta, { color: "#6366F1", fontFamily: "Outfit-Regular", marginLeft: 3 }]}>
-                Join online
-              </Text>
-            </Pressable>
+            <MeetingLinkTap meetingLink={event.meetingLink} />
           ) : event.location && event.location !== "TBD" ? (
             <View style={[s.row, { marginTop: 4 }]}>
               <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
@@ -222,18 +276,7 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardPr
           ) : null}
 
           {/* Cancel action (pending only) */}
-          {onCancel && (
-            <Pressable
-              onPress={onCancel}
-              style={({ pressed }) => [s.cancelLink, pressed && { opacity: 0.5 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel request"
-            >
-              <Text style={[s.cancelLinkText, { fontFamily: "Outfit-Medium" }]}>
-                Cancel request
-              </Text>
-            </Pressable>
-          )}
+          {onCancel && <CancelTap onCancel={onCancel} />}
         </View>
 
         {/* Type icon */}
@@ -266,22 +309,39 @@ const PastToggle = memo(function PastToggle({
   count, open, onToggle,
 }: { count: number; open: boolean; onToggle: () => void }) {
   const { colors } = useAppTheme();
+  const toggleScale = useSharedValue(1);
+  const toggleAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: toggleScale.value }] }));
+  const toggleTap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      toggleScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      toggleScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(onToggle)();
+    }), [onToggle, toggleScale]);
   return (
-    <Pressable
-      onPress={onToggle}
-      style={({ pressed }) => [s.pastToggle, pressed && { opacity: 0.65 }]}
-      accessibilityRole="button"
-    >
-      <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-      <Text style={[s.pastToggleText, { color: colors.textSecondary, fontFamily: "Outfit-Medium" }]}>
-        {open ? "Hide" : `Show ${count} past session${count !== 1 ? "s" : ""}`}
-      </Text>
-      <Ionicons
-        name={open ? "chevron-up" : "chevron-down"}
-        size={14}
-        color={colors.textSecondary}
-      />
-    </Pressable>
+    <GestureDetector gesture={toggleTap}>
+      <Animated.View
+        style={[s.pastToggle, toggleAnimStyle]}
+        accessibilityRole="button"
+      >
+        <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+        <Text style={[s.pastToggleText, { color: colors.textSecondary, fontFamily: "Outfit-Medium" }]}>
+          {open ? "Hide" : `Show ${count} past session${count !== 1 ? "s" : ""}`}
+        </Text>
+        <Ionicons
+          name={open ? "chevron-up" : "chevron-down"}
+          size={14}
+          color={colors.textSecondary}
+        />
+      </Animated.View>
+    </GestureDetector>
   );
 });
 
@@ -369,6 +429,38 @@ interface ServiceCardProps {
   colors: Record<string, string>;
 }
 
+const BookButton = memo(function BookButton({
+  onBook, serviceName, accentColor,
+}: { onBook: () => void; serviceName: string; accentColor: string }) {
+  const bookScale = useSharedValue(1);
+  const bookAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: bookScale.value }] }));
+  const bookTap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      bookScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      bookScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(onBook)();
+    }), [onBook, bookScale]);
+  return (
+    <GestureDetector gesture={bookTap}>
+      <Animated.View
+        style={[sc.bookBtn, { backgroundColor: accentColor }, bookAnimStyle]}
+        accessibilityRole="button"
+        accessibilityLabel={`Book ${serviceName}`}
+      >
+        <Text style={[sc.bookBtnText, { fontFamily: "Outfit-SemiBold" }]}>Book</Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+});
+
 const ServiceCard = memo(function ServiceCard({ service, onBook, isDark, colors }: ServiceCardProps) {
   const scheduleLabel = useMemo(() => formatServiceSchedule(service), [service]);
   const isRecurring = service.schedulePattern === "weekly_recurring";
@@ -403,14 +495,7 @@ const ServiceCard = memo(function ServiceCard({ service, onBook, isDark, colors 
         )}
       </View>
       {bookable && onBook ? (
-        <Pressable
-          onPress={onBook}
-          style={({ pressed }) => [sc.bookBtn, { backgroundColor: colors.accent, opacity: pressed ? 0.8 : 1 }]}
-          accessibilityRole="button"
-          accessibilityLabel={`Book ${service.name}`}
-        >
-          <Text style={[sc.bookBtnText, { fontFamily: "Outfit-SemiBold" }]}>Book</Text>
-        </Pressable>
+        <BookButton onBook={onBook} serviceName={service.name} accentColor={colors.accent} />
       ) : (
         <View style={[sc.infoTag, { backgroundColor: `${colors.textSecondary}18` }]}>
           <Text style={[sc.infoTagText, { color: colors.textSecondary, fontFamily: "Outfit-Medium" }]}>
@@ -628,19 +713,27 @@ export default memo(function ScheduleScreen() {
   // ── FAB animation ────────────────────────────────────────────
   const fabScale = useSharedValue(1);
   const fabStyle = useAnimatedStyle(() => ({ transform: [{ scale: fabScale.value }] }));
-  const onFabIn  = useCallback(() => {
-    fabScale.value = withSpring(0.94, { damping: 15, stiffness: 300 });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, [fabScale]);
-  const onFabOut = useCallback(() => {
-    fabScale.value = withSpring(1, { damping: 20, stiffness: 400 });
-  }, [fabScale]);
 
   const openBooking = useCallback(() => {
     if (services.length === 0) refreshServices();
     setBookingServiceId(null);
     setBookingOpen(true);
   }, [services.length, refreshServices]);
+
+  const fabTap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      fabScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      'worklet';
+      fabScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(openBooking)();
+    }), [openBooking, fabScale]);
 
   const openBookingForService = useCallback((serviceId: number) => {
     if (services.length === 0) refreshServices();
@@ -767,10 +860,7 @@ export default memo(function ScheduleScreen() {
             <PastToggle
               count={past.length}
               open={pastOpen}
-              onToggle={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setPastOpen((v) => !v);
-              }}
+              onToggle={() => { setPastOpen((v) => !v); }}
             />
             {pastOpen && past.map((evt, i) => (
               <View key={evt.id}>
@@ -786,21 +876,20 @@ export default memo(function ScheduleScreen() {
 
       {/* ── FAB ── */}
       {canBook && (
-        <Animated.View style={[s.fabWrap, { bottom: fabBottom }, fabStyle]}>
-          <Pressable
-            onPress={openBooking}
-            onPressIn={onFabIn}
-            onPressOut={onFabOut}
-            style={[s.fabBtn, { backgroundColor: colors.accent }]}
+        <GestureDetector gesture={fabTap}>
+          <Animated.View
+            style={[s.fabWrap, { bottom: fabBottom }, fabStyle]}
             accessibilityLabel="Book a session"
             accessibilityRole="button"
           >
-            <Ionicons name="add" size={22} color="#FFF" />
-            <Text style={[s.fabLabel, { fontFamily: "Outfit-SemiBold" }]}>
-              Book a Session
-            </Text>
-          </Pressable>
-        </Animated.View>
+            <View style={[s.fabBtn, { backgroundColor: colors.accent }]}>
+              <Ionicons name="add" size={22} color="#FFF" />
+              <Text style={[s.fabLabel, { fontFamily: "Outfit-SemiBold" }]}>
+                Book a Session
+              </Text>
+            </View>
+          </Animated.View>
+        </GestureDetector>
       )}
 
       {/* ── Booking modal ── */}

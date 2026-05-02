@@ -1,7 +1,7 @@
 {
   "name": "PH Performance",
-  "short_name": "PH Performance",
-  "description": "Youth & adult athletic performance coaching platform",
+  "short_name": "PH Perf",
+  "description": "Youth & adult athletic performance coaching platform — training programmes, nutrition, GPS tracking, and team management.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -12,20 +12,36 @@
       "src": "logo192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": "/portal/dashboard",
   "scope": "/",
+  "id": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#0a0a0a",
   "background_color": "#0a0a0a",
-  "categories": ["fitness", "health", "sports"]
+  "categories": ["fitness", "health", "sports"],
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false
 }

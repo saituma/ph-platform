@@ -1,6 +1,7 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "../db";
+import { logger } from "../lib/logger";
 import { athleteTable, guardianTable, nutritionLogsTable, userTable } from "../db/schema";
 import { pushQueue } from "../jobs";
 
@@ -175,8 +176,9 @@ export async function runNutritionLogReminderSweep() {
     sent++;
   }
 
-  console.log(
-    `[nutrition-reminder] sweep complete sent=${sent} skippedNotYet=${skippedNotYet} skippedLogged=${skippedLogged} skippedDup=${skippedDup} totalEligible=${athletes.length}`,
+  logger.info(
+    { sent, skippedNotYet, skippedLogged, skippedDup, totalEligible: athletes.length },
+    "[nutrition-reminder] sweep complete",
   );
 
   return { sent, skippedNotYet, skippedLogged, skippedDup, totalEligible: athletes.length };

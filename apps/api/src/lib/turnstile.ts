@@ -49,6 +49,12 @@ export function requireTurnstile(req: Request, res: Response, next: NextFunction
     | string
     | undefined;
   if (!token || typeof token !== "string") {
+    // Mobile/native clients don't support Turnstile — skip verification.
+    // Rate limiting still protects these endpoints.
+    const ua = req.header("user-agent") ?? "";
+    if (/Expo|okhttp|CFNetwork|Darwin/i.test(ua)) {
+      return next();
+    }
     return res.status(400).json({ error: "Verification challenge required." });
   }
   void verifyToken(token, clientIp(req)).then((result) => {

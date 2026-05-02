@@ -1,6 +1,7 @@
 import { and, desc, eq, sql, count, countDistinct, or } from "drizzle-orm";
 
 import { db } from "../db";
+import { logger } from "../lib/logger";
 import {
   AthleteType,
   athleteTable,
@@ -422,7 +423,7 @@ export async function getOnboardingByUser(userId: number) {
     try {
       await maybeSendBirthdayNotifications(decorated);
     } catch (error) {
-      console.warn("[Onboarding] Failed birthday notification side effect for athlete onboarding status", error);
+      logger.warn({ err: error }, "[Onboarding] Failed birthday notification side effect for athlete onboarding status");
     }
     return decorated;
   }
@@ -460,7 +461,7 @@ export async function getOnboardingByUser(userId: number) {
       try {
         ensured = await ensureAthleteUserRecord(row.athlete);
       } catch (error) {
-        console.warn("[Onboarding] Failed to ensure athlete user record during status lookup", error);
+        logger.warn({ err: error }, "[Onboarding] Failed to ensure athlete user record during status lookup");
       }
 
       // Get training stats for each athlete
@@ -494,7 +495,7 @@ export async function getOnboardingByUser(userId: number) {
       await maybeSendBirthdayNotifications(primary);
     }
   } catch (error) {
-    console.warn("[Onboarding] Failed birthday notification side effect for guardian onboarding status", error);
+    logger.warn({ err: error }, "[Onboarding] Failed birthday notification side effect for guardian onboarding status");
   }
 
   // Return the first athlete as primary for backward compatibility, but include allAthletes.
@@ -750,7 +751,7 @@ export async function updateAthleteProfilePicture(input: { userId: number; profi
   try {
     ensured = await ensureAthleteUserRecord(athlete);
   } catch (error) {
-    console.warn("[Onboarding] Failed to ensure athlete user record during profile picture update", error);
+    logger.warn({ err: error }, "[Onboarding] Failed to ensure athlete user record during profile picture update");
   }
   const [updated] = await db
     .update(athleteTable)
@@ -780,7 +781,7 @@ export async function listGuardianAthletesWithUsers(userId: number) {
       try {
         return await ensureAthleteUserRecord(athlete);
       } catch (error) {
-        console.warn("[Onboarding] Failed to ensure athlete user record while listing guardian athletes", error);
+        logger.warn({ err: error }, "[Onboarding] Failed to ensure athlete user record while listing guardian athletes");
         return athlete;
       }
     }),
@@ -791,7 +792,7 @@ export async function listGuardianAthletesWithUsers(userId: number) {
       try {
         await maybeSendBirthdayNotifications(athlete);
       } catch (error) {
-        console.warn("[Onboarding] Failed birthday notification side effect while listing guardian athletes", error);
+        logger.warn({ err: error }, "[Onboarding] Failed birthday notification side effect while listing guardian athletes");
       }
     }),
   );

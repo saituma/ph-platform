@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { env } from "../../config/env";
 import { ProgramType } from "../../db/schema";
+import { logger } from "../../lib/logger";
 
 export const stripe = env.stripeSecretKey
   ? new Stripe(env.stripeSecretKey, {
@@ -85,7 +86,7 @@ export async function createTeamCheckoutSession(input: {
       priceId = prices.data[0].id;
     }
   } catch (err) {
-    console.warn(`[Stripe] Lookup key search failed for '${input.priceLookupKey}':`, err);
+    logger.warn({ err, priceLookupKey: input.priceLookupKey }, "[Stripe] Lookup key search failed");
   }
 
   // 2. If lookup key failed, fallback to ENV variables (only valid for monthly)
@@ -226,7 +227,7 @@ export async function resolvePriceIdByTierLookup(
     const prices = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
     return prices.data[0]?.id ?? null;
   } catch (err) {
-    console.warn(`[Stripe] Lookup failed for ${lookupKey}`, err);
+    logger.warn({ err, lookupKey }, "[Stripe] Lookup failed");
     return null;
   }
 }
@@ -239,7 +240,7 @@ async function resolvePriceIdByLookupKey(lookupKey: string): Promise<string | nu
     const prices = await stripe.prices.list({ lookup_keys: [key], active: true, limit: 1 });
     return prices.data[0]?.id ?? null;
   } catch (err) {
-    console.warn(`[Stripe] Lookup failed for ${key}`, err);
+    logger.warn({ err, lookupKey: key }, "[Stripe] Lookup failed");
     return null;
   }
 }

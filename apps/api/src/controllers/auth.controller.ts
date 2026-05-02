@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 import {
   confirmForgotPasswordLocal,
@@ -221,7 +222,7 @@ export async function startRegistration(req: Request, res: Response) {
       message.includes("not configured") ||
       message.includes("Resend API");
     if (isMailConfig) {
-      console.error("[Auth] OTP email failed:", message);
+      logger.error({ message }, "[Auth] OTP email failed");
       return res.status(503).json({
         error: "Email delivery is not configured on this server. Please contact the administrator.",
       });
@@ -259,7 +260,7 @@ export async function resendConfirmation(req: Request, res: Response) {
       message.includes("not configured") ||
       message.includes("Resend API");
     if (isMailConfig) {
-      console.error("[Auth] Resend OTP email failed:", message);
+      logger.error({ message }, "[Auth] Resend OTP email failed");
       return res.status(503).json({
         error: "Email delivery is not configured on this server. Please contact the administrator.",
       });

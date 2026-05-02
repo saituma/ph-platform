@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { logger } from "../../lib/logger";
 import {
   listUsers,
   setUserBlocked,
@@ -140,7 +141,7 @@ export async function provisionGuardianWithOnboarding(req: Request, res: Respons
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to create user";
     if (status >= 500) {
-      console.error("[admin] provisionGuardianWithOnboarding", error);
+      logger.error({ err: error }, "[admin] provisionGuardianWithOnboarding");
     }
     return res.status(status).json({ error: message });
   }
@@ -158,7 +159,7 @@ export async function provisionAdultAthlete(req: Request, res: Response) {
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to create adult athlete";
     if (status >= 500) {
-      console.error("[admin] provisionAdultAthlete", error);
+      logger.error({ err: error }, "[admin] provisionAdultAthlete");
     }
     return res.status(status).json({ error: message });
   }
@@ -220,7 +221,7 @@ export async function provisionTeamWithPlan(req: Request, res: Response) {
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to create team.";
     if (status >= 500) {
-      console.error("[admin] provisionTeamWithPlan", error);
+      logger.error({ err: error }, "[admin] provisionTeamWithPlan");
     }
     return res.status(status).json({ error: message });
   }
@@ -249,7 +250,7 @@ export async function resetPassword(req: Request, res: Response) {
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to reset password";
     if (status >= 500) {
-      console.error("[admin] resetPassword", error);
+      logger.error({ err: error }, "[admin] resetPassword");
     }
     return res.status(status).json({ error: message });
   }

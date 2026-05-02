@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   Pressable,
   Modal,
-  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 

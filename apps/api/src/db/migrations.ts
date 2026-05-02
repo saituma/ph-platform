@@ -10,6 +10,7 @@ import { readMigrationFiles } from "drizzle-orm/migrator";
 import { Client } from "pg";
 
 import { env } from "../config/env";
+import { logger } from "../lib/logger";
 
 dns.setDefaultResultOrder("ipv4first");
 if (typeof net.setDefaultAutoSelectFamily === "function") {
@@ -429,7 +430,7 @@ async function executeMigrationsOnce(options: {
     try {
       await normalizeRunLogsSchema(db);
     } catch (e) {
-      console.warn("[Migrations] Could not normalize run_logs schema (discovery failed), proceeding...");
+      logger.warn("Could not normalize run_logs schema (discovery failed), proceeding...");
     }
 
     // Compatibility shim: older booking/service type values (group_call, one_on_one, etc.)
@@ -437,7 +438,7 @@ async function executeMigrationsOnce(options: {
     try {
       await normalizeLegacyBookingTypes(db);
     } catch (e) {
-      console.warn("[Migrations] Could not normalize legacy booking types (discovery failed), proceeding...");
+      logger.warn("Could not normalize legacy booking types (discovery failed), proceeding...");
     }
 
     const migrationsFolder = options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
@@ -495,7 +496,7 @@ async function executeMigrationsOnce(options: {
             `insert into "${migrationsSchema}"."${migrationsTable}" ("hash", "created_at") values ('${baseline.hash}', ${baseline.folderMillis})`,
           ),
         );
-        console.log(`[Migrations] Bootstrapped drizzle migration history at ${baseline.folderMillis}.`);
+        logger.info({ folderMillis: baseline.folderMillis }, "Bootstrapped drizzle migration history");
       }
     }
 
@@ -543,15 +544,17 @@ export async function runMigrations(options?: {
 
       if (attempt < MIGRATION_CONNECTION_ATTEMPTS - 1 && isTransientMigrationConnectionError(error)) {
         const delay = Math.min(15_000, 500 * Math.pow(2, attempt));
-        console.warn(
-          `[Migrations] ${describeMigrationErr(error)} — retry ${attempt + 2}/${MIGRATION_CONNECTION_ATTEMPTS} after ${delay}ms...`,
+        logger.warn(
+          { attempt: attempt + 2, maxAttempts: MIGRATION_CONNECTION_ATTEMPTS, delayMs: delay },
+          `${describeMigrationErr(error)} — retrying...`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
 
-      console.error(
-        `[Migrations] Failed (ssl=${useSsl ? "on" : "off"}, folder=${folder}, host=${target.host}${target.port ? `:${target.port}` : ""}${target.database ? `/${target.database}` : ""}).\n${message}`,
+      logger.error(
+        { ssl: useSsl, folder, host: target.host, port: target.port, database: target.database },
+        `Migrations failed: ${message}`,
       );
       throw error;
     }

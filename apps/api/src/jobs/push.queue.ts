@@ -13,6 +13,7 @@
 import { Queue, Worker } from "bullmq";
 import { getRedisConnection } from "./connection";
 import { sendPushNotification } from "../services/push.service";
+import { logger } from "../lib/logger";
 
 const QUEUE_NAME = "push-notifications";
 
@@ -69,5 +70,5 @@ export function startPushWorker(): void {
       concurrency: 5,
     },
   );
-  console.log("[BullMQ] Push notification worker started");
+  logger.info("Push notification worker started");
 }

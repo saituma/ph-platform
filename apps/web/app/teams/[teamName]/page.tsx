@@ -317,6 +317,8 @@ export default function TeamDetailPage() {
     setNewIsSponsored(false);
   };
 
+  const athleteType = details?.athleteType ?? "youth";
+
   const handleProvision = async () => {
     setPageNotice(null);
     const password = generatePassword();
@@ -350,8 +352,7 @@ export default function TeamDetailPage() {
         athleteId = res.athleteId;
       }
 
-      // attach to team roster
-      await fetch(
+      const attachRes = await fetch(
         `/api/backend/admin/teams/${encodeURIComponent(cleanTeamName)}/athletes/${athleteId}/attach`,
         {
           method: "POST",
@@ -360,6 +361,10 @@ export default function TeamDetailPage() {
           body: JSON.stringify({ allowMoveFromOtherTeam: false, isSponsored: newIsSponsored }),
         },
       );
+      if (!attachRes.ok) {
+        const attachErr = await attachRes.json().catch(() => ({}));
+        throw new Error(attachErr?.error ?? "Failed to attach athlete to team.");
+      }
 
       setAssignModalOpen(false);
       resetForm();
@@ -412,10 +417,14 @@ export default function TeamDetailPage() {
         }).unwrap();
         athleteId = res.athleteId;
       }
-      await fetch(
+      const attachRes = await fetch(
         `/api/backend/admin/teams/${encodeURIComponent(cleanTeamName)}/athletes/${athleteId}/attach`,
         { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ allowMoveFromOtherTeam: false }) },
       );
+      if (!attachRes.ok) {
+        const attachErr = await attachRes.json().catch(() => ({}));
+        throw new Error(attachErr?.error ?? "Failed to attach athlete to team.");
+      }
       setFullPlanOpen(false);
       resetFullPlan();
       setPageNotice(`${fpName.trim()} added (${TIER_LABELS[fpTier] ?? fpTier}). Login: ${fpGeneratedEmail} · Password: ${password}`);
@@ -431,7 +440,6 @@ export default function TeamDetailPage() {
     void loadDetails();
   }, [teamName]);
 
-  const athleteType = details?.athleteType ?? "youth";
   const ageBandGroups = useMemo(() => {
     if (!details?.members) return {};
     return groupByAgeBand(details.members);

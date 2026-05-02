@@ -9,15 +9,19 @@ import {
 	View,
 } from "react-native";
 import { Image } from "expo-image";
-import { Swipeable } from "react-native-gesture-handler";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
 	Easing,
 	cancelAnimation,
+	interpolate,
+	runOnJS,
 	useAnimatedStyle,
 	useSharedValue,
 	withRepeat,
 	withSpring,
 	withTiming,
+	type SharedValue,
 } from "react-native-reanimated";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -51,11 +55,6 @@ type MessageBubbleProps = {
 	token?: string | null;
 };
 
-const BUBBLE_SPRING = {
-	damping: 16,
-	stiffness: 200,
-	mass: 0.6,
-};
 
 function MessageBubbleComponent({
 	message,
@@ -87,7 +86,7 @@ function MessageBubbleComponent({
 	const [reactionsOpen, setReactionsOpen] = useState(false);
 	const { width: viewportWidth } = useWindowDimensions();
 
-	const swipeRef = useRef<Swipeable | null>(null);
+	const swipeRef = useRef<React.ComponentRef<typeof ReanimatedSwipeable> | null>(null);
 	const lastTapRef = useRef<number>(0);
 
 	const { mediaDimensions } = useMessageDimensions(
@@ -183,6 +182,43 @@ function MessageBubbleComponent({
 		}
 	};
 
+	const handleLongPress = () => {
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+		onLongPress(message);
+	};
+
+	const bubbleTap = Gesture.Tap()
+		.onBegin(() => {
+			'worklet';
+			bubbleScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+			runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+		})
+		.onFinalize(() => {
+			'worklet';
+			bubbleScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+		})
+		.onEnd(() => {
+			'worklet';
+			runOnJS(handlePress)();
+		});
+
+	const bubbleLongPress = Gesture.LongPress()
+		.minDuration(500)
+		.onBegin(() => {
+			'worklet';
+			bubbleScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+		})
+		.onStart(() => {
+			'worklet';
+			runOnJS(handleLongPress)();
+		})
+		.onFinalize(() => {
+			'worklet';
+			bubbleScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+		});
+
+	const bubbleGesture = Gesture.Exclusive(bubbleLongPress, bubbleTap);
+
 	const bubbleBackgroundColor = isUser
 		? colors.accent
 		: isDark
@@ -271,31 +307,43 @@ function MessageBubbleComponent({
 						alignSelf: isUser ? "flex-end" : "flex-start",
 					}}
 				>
-					<Swipeable
+					<ReanimatedSwipeable
 						ref={swipeRef}
 						friction={1.5}
 						rightThreshold={40}
+						onSwipeableWillOpen={() => {
+							Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+						}}
 						onSwipeableOpen={handleSwipeOpen}
-						renderLeftActions={() => (
-							<View style={{ width: 64, alignItems: "center", justifyContent: "center", paddingLeft: 8 }}>
-								<View
-									style={{
-										height: 40,
-										width: 40,
-										borderRadius: 20,
-										alignItems: "center",
-										justifyContent: "center",
-										backgroundColor: colors.surfaceHigher,
-									}}
-								>
-									<Ionicons
-										name="arrow-undo"
-										size={18}
-										color={colors.textSecondary}
-									/>
-								</View>
-							</View>
-						)}
+						renderLeftActions={(_progress: SharedValue<number>, dragX: SharedValue<number>) => {
+							const AnimatedAction = () => {
+								const style = useAnimatedStyle(() => ({
+									transform: [{ translateX: interpolate(dragX.value, [0, 64], [-64, 0], 'clamp') }],
+									opacity: interpolate(dragX.value, [0, 32, 64], [0, 0.5, 1], 'clamp'),
+								}));
+								return (
+									<Animated.View style={[{ width: 64, alignItems: "center", justifyContent: "center", paddingLeft: 8 }, style]}>
+										<View
+											style={{
+												height: 40,
+												width: 40,
+												borderRadius: 20,
+												alignItems: "center",
+												justifyContent: "center",
+												backgroundColor: colors.surfaceHigher,
+											}}
+										>
+											<Ionicons
+												name="arrow-undo"
+												size={18}
+												color={colors.textSecondary}
+											/>
+										</View>
+									</Animated.View>
+								);
+							};
+							return <AnimatedAction />;
+						}}
 					>
 						<Animated.View style={animatedStyle}>
 							<View
@@ -319,18 +367,10 @@ function MessageBubbleComponent({
 									</Text>
 								) : null}
 
-								<Pressable
-									onPress={handlePress}
-									onPressIn={() =>
-										(bubbleScale.value = withSpring(0.97, BUBBLE_SPRING))
-									}
-									onPressOut={() =>
-										(bubbleScale.value = withSpring(1, BUBBLE_SPRING))
-									}
-									onLongPress={() => {
-										Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-										onLongPress(message);
-									}}
+								<GestureDetector gesture={bubbleGesture}>
+								<Animated.View
+									accessible
+									accessibilityRole="button"
 									style={{
 										overflow: "hidden",
 										paddingHorizontal: isAttachmentOnly ? 0 : 16,
@@ -501,7 +541,8 @@ function MessageBubbleComponent({
 											/>
 										)}
 									</View>
-								</Pressable>
+								</Animated.View>
+							</GestureDetector>
 
 								{hasReactions && (
 									<View
@@ -573,7 +614,7 @@ function MessageBubbleComponent({
 								)}
 							</View>
 						</Animated.View>
-					</Swipeable>
+					</ReanimatedSwipeable>
 				</View>
 			</View>
 

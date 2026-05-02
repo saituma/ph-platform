@@ -1,9 +1,10 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { FlatList, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import type { FlashListRef } from "@shopify/flash-list";
 import { ChatMessage } from "@/constants/messages";
 
 export function useChatScroll(messages: ChatMessage[], threadId: string) {
-  const listRef = useRef<FlatList<ChatMessage> | null>(null);
+  const listRef = useRef<FlashListRef<ChatMessage> | null>(null);
   const isNearBottomRef = useRef(true);
   const hasInitialScrolled = useRef<string | null>(null);
   const previousLengthRef = useRef(0);

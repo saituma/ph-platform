@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db";
+import { logger } from "../../lib/logger";
 import {
   athleteTable,
   chatGroupMemberTable,
@@ -335,7 +336,7 @@ export async function createTeamAdmin(input: {
         });
       }
     } catch (err: any) {
-      console.error("[Stripe] Failed to create team checkout session:", err);
+      logger.error({ err }, "[Stripe] Failed to create team checkout session");
     }
   }
 

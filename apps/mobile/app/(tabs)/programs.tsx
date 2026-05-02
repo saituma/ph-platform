@@ -1,6 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -16,7 +15,9 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useReducedMotion,
+  runOnJS,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -48,59 +49,60 @@ const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.97, { damping: 18, stiffness: 350 });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [scale]);
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1.0, { damping: 20, stiffness: 400 });
-  }, [scale]);
+  const tap = Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    });
 
   const entering = reduceMotion
     ? undefined
-    : FadeInDown.delay(index * 60).duration(250).springify();
+    : FadeInDown.delay(Math.min(index, 10) * 50).springify().damping(15);
 
   return (
     <Animated.View entering={entering}>
-      <Animated.View style={animStyle}>
-      <Pressable
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={[styles.watchCard, { backgroundColor: isDark ? "#1A1A1A" : "#FFFFFF" }]}
-        accessibilityLabel={`Continue watching ${entry.title}`}
-      >
-        {/* Thumbnail */}
-        <View style={styles.watchThumb}>
-          {entry.thumbnail ? (
-            <Image
-              source={{ uri: entry.thumbnail }}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
-            />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#242424" : "#E5E5EA" }]} />
-          )}
-          {/* Progress bar */}
-          <View style={styles.watchProgressTrack}>
-            <View
-              style={[
-                styles.watchProgressFill,
-                { backgroundColor: colors.accent, width: `${Math.round(entry.progress * 100)}%` },
-              ]}
-            />
-          </View>
-        </View>
-        {/* Title */}
-        <Text
-          style={[styles.watchTitle, { fontFamily: "Outfit-Medium", color: colors.textPrimary }]}
-          numberOfLines={2}
+      <GestureDetector gesture={tap}>
+        <Animated.View
+          style={[animStyle, styles.watchCard, { backgroundColor: isDark ? "#1A1A1A" : "#FFFFFF" }]}
+          accessibilityLabel={`Continue watching ${entry.title}`}
         >
-          {entry.title}
-        </Text>
-      </Pressable>
-      </Animated.View>
+          {/* Thumbnail */}
+          <View style={styles.watchThumb}>
+            {entry.thumbnail ? (
+              <Image
+                source={{ uri: entry.thumbnail }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#242424" : "#E5E5EA" }]} />
+            )}
+            {/* Progress bar */}
+            <View style={styles.watchProgressTrack}>
+              <View
+                style={[
+                  styles.watchProgressFill,
+                  { backgroundColor: colors.accent, width: `${Math.round(entry.progress * 100)}%` },
+                ]}
+              />
+            </View>
+          </View>
+          {/* Title */}
+          <Text
+            style={[styles.watchTitle, { fontFamily: "Outfit-Medium", color: colors.textPrimary }]}
+            numberOfLines={2}
+          >
+            {entry.title}
+          </Text>
+        </Animated.View>
+      </GestureDetector>
     </Animated.View>
   );
 });
@@ -122,56 +124,61 @@ const ProgramCard = memo(function ProgramCard({
   const { colors, isDark } = useAppTheme();
   const reduceMotion = useReducedMotion();
   const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    backgroundColor: colors.card,
+    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 12,
+    ...(isDark ? {} : Shadows.md),
+  }));
+
+  const tap = Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(onPress)();
+    });
 
   const entering = reduceMotion
     ? undefined
-    : FadeInDown.delay(index * 80).duration(300).springify();
+    : FadeInDown.delay(Math.min(index, 10) * 50).springify().damping(15);
 
   return (
     <Animated.View entering={entering}>
-      <Animated.View style={animStyle}>
-      <Pressable
-        onPressIn={() => {
-          scale.value = withSpring(0.97, { damping: 18, stiffness: 350 });
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }}
-        onPressOut={() => {
-          scale.value = withSpring(1.0, { damping: 20, stiffness: 400 });
-        }}
-        onPress={onPress}
-        style={{
-          backgroundColor: colors.card,
-          borderColor: borderSoft,
-          borderWidth: 1,
-          borderRadius: 24,
-          padding: 20,
-          marginBottom: 12,
-          ...(isDark ? {} : Shadows.md),
-        }}
-      >
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: colors.textPrimary }}>
-              {program.name}
-            </Text>
-            {program.description ? (
-              <Text
-                style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginTop: 4 }}
-                numberOfLines={2}
-              >
-                {program.description}
+      <GestureDetector gesture={tap}>
+        <Animated.View style={animStyle}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: colors.textPrimary }}>
+                {program.name}
               </Text>
-            ) : null}
-            <Text style={{ fontSize: 12, fontFamily: "Outfit-Medium", color: colors.accent, marginTop: 8 }}>
-              {program.moduleCount} {program.moduleCount === 1 ? "module" : "modules"}
-            </Text>
+              {program.description ? (
+                <Text
+                  style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginTop: 4 }}
+                  numberOfLines={2}
+                >
+                  {program.description}
+                </Text>
+              ) : null}
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Medium", color: colors.accent, marginTop: 8 }}>
+                {program.moduleCount} {program.moduleCount === 1 ? "module" : "modules"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
           </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-        </View>
-      </Pressable>
-      </Animated.View>
+        </Animated.View>
+      </GestureDetector>
     </Animated.View>
   );
 });

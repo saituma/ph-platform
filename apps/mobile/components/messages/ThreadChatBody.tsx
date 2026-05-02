@@ -2,13 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	ActivityIndicator,
-	FlatList,
 	Keyboard,
-	KeyboardAvoidingView,
 	Platform,
 	Pressable,
 	View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { FlashList } from "@shopify/flash-list";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { fonts } from "@/constants/theme";
@@ -205,19 +205,14 @@ const MessageListSection = React.memo(function MessageListSection({
 
 	return (
 		<>
-			<FlatList
+			<FlashList
 				ref={listRef}
-				inverted
 				data={reversed}
 				keyExtractor={keyExtractor}
 				onScroll={handleScroll}
 				extraData={highlightedId}
-				removeClippedSubviews={Platform.OS === "android"}
-				maxToRenderPerBatch={10}
-				windowSize={5}
-				initialNumToRender={14}
-				updateCellsBatchingPeriod={16}
 				keyboardShouldPersistTaps="handled"
+				maintainVisibleContentPosition={{ startRenderingFromBottom: true, autoscrollToBottomThreshold: 60 }}
 				contentContainerStyle={{
 					paddingHorizontal: 12,
 					paddingTop: 56,

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 import {
   SocialAccessError,
@@ -42,7 +43,9 @@ export function handleSocialError(res: Response, err: unknown) {
 export async function leaderboard(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertGlobalSocialDeprecated(req.user.id);
+    if (req.user.role !== "admin") {
+      await assertGlobalSocialDeprecated(req.user.id);
+    }
     const windowDays = req.query.windowDays ? Number(req.query.windowDays) : 7;
     const limit = req.query.limit ? Number(req.query.limit) : 50;
     const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
@@ -374,7 +377,7 @@ export async function mySocialRuns(req: Request, res: Response) {
     const out = await getMySocialRuns(req.user.id, { limit, cursor });
     return res.status(200).json(out);
   } catch (err) {
-    console.error("[social] mySocialRuns", err);
+    logger.error({ err }, "[social] mySocialRuns");
     return handleSocialError(res, err);
   }
 }

@@ -2,13 +2,12 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  Pressable,
   TextInput,
   ScrollView,
   Alert,
-  KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -17,7 +16,9 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  runOnJS,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { 
   Smile, 
   Tag, 
@@ -43,8 +44,6 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text as ScaledText } from "@/components/ScaledText";
 import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function FeedbackScreen() {
   const router = useRouter();
@@ -288,32 +287,46 @@ export default function FeedbackScreen() {
           </View>
 
           {/* Save button */}
-          <AnimatedPressable
-            onPress={handleSave}
-            onPressIn={() => effort !== null && (scaleSaveBtn.value = withSpring(0.96, { damping: 15, stiffness: 300 }))}
-            onPressOut={() => effort !== null && (scaleSaveBtn.value = withSpring(1, { damping: 15, stiffness: 300 }))}
-            disabled={effort === null}
-            style={[
-              animatedSaveBtnStyle,
-              {
-                width: "100%",
-                height: 72,
-                backgroundColor: colors.accent,
-                borderRadius: radius.xxl,
-                flexDirection: "row",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 12,
-                opacity: effort === null ? 0.4 : 1,
-                ...(isDark || effort === null ? {} : { shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 10 }, elevation: 8 }),
-              },
-            ]}
-          >
-            <Save size={22} color="#FFF" strokeWidth={2.5} />
-            <ScaledText style={{ fontFamily: fonts.accentBold, fontSize: 20, color: "#FFF" }}>
-              SAVE WORKOUT
-            </ScaledText>
-          </AnimatedPressable>
+          <GestureDetector gesture={
+            Gesture.Tap()
+              .enabled(effort !== null)
+              .onBegin(() => {
+                'worklet';
+                scaleSaveBtn.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+                runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+              })
+              .onFinalize(() => {
+                'worklet';
+                scaleSaveBtn.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+              })
+              .onEnd(() => {
+                'worklet';
+                runOnJS(handleSave)();
+              })
+          }>
+            <Animated.View
+              style={[
+                animatedSaveBtnStyle,
+                {
+                  width: "100%",
+                  height: 72,
+                  backgroundColor: colors.accent,
+                  borderRadius: radius.xxl,
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 12,
+                  opacity: effort === null ? 0.4 : 1,
+                  ...(isDark || effort === null ? {} : { shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 10 }, elevation: 8 }),
+                },
+              ]}
+            >
+              <Save size={22} color="#FFF" strokeWidth={2.5} />
+              <ScaledText style={{ fontFamily: fonts.accentBold, fontSize: 20, color: "#FFF" }}>
+                SAVE WORKOUT
+              </ScaledText>
+            </Animated.View>
+          </GestureDetector>
           </Animated.ScrollView>
         </KeyboardAvoidingView>
 
