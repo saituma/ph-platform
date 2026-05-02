@@ -26,7 +26,12 @@ export const Route = createFileRoute("/register")({
 			},
 			{ name: "robots", content: "noindex, follow" },
 		],
-		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/register" }],
+		links: [
+			{
+				rel: "canonical",
+				href: "https://ph-platform-onboarding.vercel.app/register",
+			},
+		],
 	}),
 	component: Register,
 });
@@ -106,7 +111,10 @@ function Register() {
 
 	return (
 		<main className="relative min-h-[100dvh] flex flex-col items-center justify-center p-6 overflow-hidden">
-			<div className="absolute inset-0 overflow-hidden bg-background pointer-events-none" aria-hidden="true">
+			<div
+				className="absolute inset-0 overflow-hidden bg-background pointer-events-none"
+				aria-hidden="true"
+			>
 				<div className="w-full h-full bg-noise-pattern opacity-[0.02] dark:opacity-[0.05]" />
 			</div>
 
@@ -119,16 +127,19 @@ function Register() {
 				<div className="space-y-3">
 					<Link to="/" className="inline-flex items-center gap-2 mb-4">
 						<div className="w-6 h-6 overflow-hidden">
-							<img src="/ph.jpg" alt="PH Performance" className="w-full h-full object-cover" />
+							<img
+								src="/ph.jpg"
+								alt="PH Performance"
+								className="w-full h-full object-cover"
+							/>
 						</div>
-						<span className="font-mono text-xs uppercase tracking-wider text-foreground/50">PH Performance</span>
+						<span className="font-mono text-xs uppercase tracking-wider text-foreground/50">
+							PH Performance
+						</span>
 					</Link>
 					<h1 className="text-2xl md:text-3xl tracking-tight font-medium text-foreground">
 						Create your account
 					</h1>
-					<p className="text-sm text-muted-foreground">
-						Start your free 14-day trial — no credit card required
-					</p>
 				</div>
 
 				<div className="border border-foreground/[0.06] bg-card/50 p-6 sm:p-8 space-y-6">
@@ -138,7 +149,11 @@ function Register() {
 								htmlFor="email-input"
 								className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
 							>
-								<EnvelopeSimple weight="bold" size={12} className="text-foreground/40" />
+								<EnvelopeSimple
+									weight="bold"
+									size={12}
+									className="text-foreground/40"
+								/>
 								Email
 							</label>
 							<Input
@@ -158,7 +173,11 @@ function Register() {
 								}`}
 							/>
 							{error && (
-								<p id="register-email-error" role="alert" className="text-xs text-destructive flex items-center gap-1.5 font-mono">
+								<p
+									id="register-email-error"
+									role="alert"
+									className="text-xs text-destructive flex items-center gap-1.5 font-mono"
+								>
 									<WarningCircle weight="fill" size={12} />
 									{error}
 								</p>
