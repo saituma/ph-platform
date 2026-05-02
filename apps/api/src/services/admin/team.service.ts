@@ -15,6 +15,7 @@ import {
 } from "../../db/schema";
 import { getStripeClient, getSuccessUrl, getCancelUrl, createTeamCheckoutSession } from "../billing/stripe.service";
 import { createTeamManagerUser } from "./user.service";
+import { sendPlanInviteEmail } from "../../lib/mailer/billing.mailer";
 
 async function ensureTeamExists(input: {
   name: string;
@@ -317,10 +318,21 @@ export async function createTeamAdmin(input: {
 
       checkoutUrl = session.url;
 
-      if (paymentMethod === "email_link") {
-        // Send the link via email (mocking for now, replace with your email service)
-        console.log(`[Email] Sending payment link to ${adminEmail}: ${checkoutUrl}`);
-        // await sendPaymentLinkEmail(adminEmail, checkoutUrl);
+      if (paymentMethod === "email_link" && checkoutUrl && adminEmail) {
+        const managerName = adminUserRows[0]
+          ? (input.managerName || adminEmail.split("@")[0])
+          : adminEmail.split("@")[0];
+        await sendPlanInviteEmail({
+          to: adminEmail,
+          name: managerName,
+          planName: cleanTeamName,
+          planTier: input.tier,
+          checkoutUrl,
+          invitedByName: null,
+          loginCredentials: input.managerEmail && input.managerPassword
+            ? { email: input.managerEmail, temporaryPassword: input.managerPassword }
+            : null,
+        });
       }
     } catch (err: any) {
       console.error("[Stripe] Failed to create team checkout session:", err);
@@ -339,6 +351,34 @@ export async function createTeamAdmin(input: {
     checkoutUrl: paymentMethod === "pay_now" ? checkoutUrl : null,
     sentToEmail: paymentMethod === "email_link",
   };
+}
+
+export async function approveTeamAdmin(teamId: number, billingCycle: "monthly" | "6months" | "yearly" = "monthly") {
+  const rows = await db
+    .select({ id: teamTable.id, name: teamTable.name, subscriptionStatus: teamTable.subscriptionStatus })
+    .from(teamTable)
+    .where(eq(teamTable.id, teamId))
+    .limit(1);
+  const team = rows[0];
+  if (!team) throw { status: 404, message: "Team not found." };
+
+  const expiresAt = new Date();
+  if (billingCycle === "6months") expiresAt.setMonth(expiresAt.getMonth() + 6);
+  else if (billingCycle === "yearly") expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+  else expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+  await db
+    .update(teamTable)
+    .set({
+      subscriptionStatus: "active",
+      planPaymentType: billingCycle === "monthly" ? "monthly" : "upfront",
+      planCommitmentMonths: billingCycle === "6months" ? 6 : billingCycle === "yearly" ? 12 : 1,
+      planExpiresAt: expiresAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(teamTable.id, teamId));
+
+  return { ok: true, teamId, status: "active" };
 }
 
 export async function listTeamsAdmin(options?: { adminId?: number | null; limit?: number }) {

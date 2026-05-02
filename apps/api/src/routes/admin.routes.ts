@@ -40,6 +40,7 @@ router.patch("/admin/teams/:teamName/members/:athleteId", AdminTeamController.up
 router.post("/admin/teams/:teamName/athletes/:athleteId/attach", AdminTeamController.attachAthleteToTeamAdminDetails);
 router.post("/admin/teams/provision", AdminUserController.provisionTeamWithPlan); // Provisioning uses createGuardianWithOnboardingAdmin
 router.post("/admin/teams/defaults", AdminTeamController.saveTeamDefaultsAdmin);
+router.post("/admin/teams/:teamId/approve", AdminTeamController.approveTeamAdminDetails);
 
 // Dashboard & Settings
 router.get("/admin/dashboard", AdminSettingsController.getDashboard);
