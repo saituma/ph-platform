@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { enforceHTTPS } from "@/lib/ssl/pinning";
+import { Sentry } from "@/lib/sentry";
 import { store } from "@/store";
 import {
   hashString,
@@ -170,7 +171,9 @@ export async function apiRequest<T>(
         : error instanceof Error
           ? error.message
           : "Network request failed";
-      throw new Error(`Cannot reach API at ${url}. ${message}`);
+      const networkError = new Error(`Cannot reach API at ${url}. ${message}`);
+      Sentry.addBreadcrumb({ category: "api", message: `${method} ${normalizedPath} network error`, level: "error", data: { url } });
+      throw networkError;
     }
 
     let requestUrl = url;
@@ -260,6 +263,13 @@ export async function apiRequest<T>(
         url: requestUrl,
         status: res.status,
         message,
+      });
+    }
+    Sentry.addBreadcrumb({ category: "api", message: `${method} ${normalizedPath} → ${res.status}`, level: "warning", data: { url: requestUrl, status: res.status } });
+    if (res.status >= 500) {
+      Sentry.captureException(new Error(`API ${res.status}: ${normalizedPath}`), {
+        tags: { "api.path": normalizedPath, "api.status": res.status },
+        extra: { message, url: requestUrl },
       });
     }
     throw new Error(`${res.status} ${message}`);

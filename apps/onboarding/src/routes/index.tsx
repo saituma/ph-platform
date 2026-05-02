@@ -393,11 +393,11 @@ function LandingPage() {
                                     </div>
 
                                     {/* Right: Athlete image + PH watermark */}
-                                    <div className="hidden lg:flex w-[54%] items-center justify-end relative">
+                                    <div className="hidden lg:flex w-[54%] items-end justify-end relative self-stretch">
                                         <img
                                             src="hero.png"
                                             alt="Elite athlete training"
-                                            className="h-[87vh] max-h-[680px] w-auto object-contain relative z-10"
+                                            className="h-[92vh] max-h-[820px] w-auto object-contain relative z-10 drop-shadow-2xl"
                                             onError={(e) => {
                                                 (e.target as HTMLImageElement).style.display = "none";
                                             }}
@@ -456,7 +456,7 @@ function LandingPage() {
                                     {/* Card image with icon overlay */}
                                     <div
                                         className="relative overflow-hidden bg-[#181818]"
-                                        style={{ aspectRatio: "16/11" }}
+                                        style={{ aspectRatio: "3/4" }}
                                     >
                                         <img
                                             src={card.image}

@@ -24,8 +24,8 @@ function getLocalIP() {
 const localIP = getLocalIP();
 /** Same default as eas.json — used when env is missing during prebuild (e.g. local gradle). */
 const DEFAULT_API_BASE_URL = process.env.NODE_ENV === "development" || !process.env.EAS_BUILD
-  ? `http://${localIP}:3001/api`
-  : "https://ph-platform.onrender.com/api";
+  ? "https://ph-performance-2cae29f7922d.herokuapp.com/api"
+  : "https://ph-performance-2cae29f7922d.herokuapp.com/api";
 
 function normalizePlugins(plugins) {
   if (!Array.isArray(plugins)) return [];

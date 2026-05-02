@@ -31,6 +31,7 @@ import {
 } from "@/lib/auth/session";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
 import { resolveAppRole } from "@/lib/appRole";
+import { Sentry } from "@/lib/sentry";
 import { hasAssignedTeam } from "@/lib/teamMembership";
 import { enrichTeamFieldsIfOnboardingHasThem } from "@/lib/auth/enrichTeamFromOnboarding";
 import { parseTeamIdFromApi } from "@/lib/tracking/teamTrackingGate";
@@ -109,6 +110,7 @@ export function AuthPersist() {
         if (!mounted) return;
 
         if (!tokenIsValid) {
+          Sentry.addBreadcrumb({ category: "auth", message: "stored token rejected by /auth/me", level: "warning" });
           await clearCredentials();
           return;
         }
@@ -257,8 +259,9 @@ export function AuthPersist() {
           );
         }
         syncResolvedAppRole();
-      } catch {
+      } catch (error) {
         if (!active) return;
+        Sentry.addBreadcrumb({ category: "auth", message: "syncProfile failed", level: "warning" });
       }
     };
 
@@ -317,6 +320,11 @@ export function AuthPersist() {
     ]).then(() => {
       if (!active) return;
       syncResolvedAppRole();
+      const state = require("@/store").store.getState();
+      const p = state.user.profile;
+      if (p?.id || p?.email) {
+        Sentry.setUser({ id: p.id ? String(p.id) : undefined, email: p.email ?? undefined });
+      }
       dispatch(setBootstrapReady(true));
     });
 
@@ -375,6 +383,7 @@ export function AuthPersist() {
           lastSavedRefreshToken.current = refreshToken ?? null;
         }
       } else {
+        Sentry.setUser(null);
         dispatch(setBootstrapReady(false));
         await clearCredentials();
         clearApiCache();

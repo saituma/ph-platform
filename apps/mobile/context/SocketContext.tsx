@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { io, Socket } from "socket.io-client";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
+import { Sentry } from "@/lib/sentry";
 import { useAppSelector } from "@/store/hooks";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
 import { useActingUser } from "@/hooks/useActingUser";
@@ -105,6 +106,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     newSocket.on("connect_error", (error) => {
       connectErrorCountRef.current += 1;
       dispatch(socketConnectError());
+      Sentry.addBreadcrumb({ category: "socket", message: `connect_error #${connectErrorCountRef.current}`, level: "warning", data: { message: error.message } });
+      if (connectErrorCountRef.current >= 5) {
+        Sentry.captureException(error, {
+          tags: { "socket.attempts": connectErrorCountRef.current },
+        });
+      }
       if (__DEV__) {
         console.log("[Socket] connect_error", {
           attempt: connectErrorCountRef.current,
