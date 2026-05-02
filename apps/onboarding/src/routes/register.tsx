@@ -45,6 +45,8 @@ function Register() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | undefined>();
 	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+	const [turnstileReady, setTurnstileReady] = useState(false);
+	const [turnstileFailed, setTurnstileFailed] = useState(false);
 	const navigate = useNavigate();
 	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 
@@ -59,7 +61,7 @@ function Register() {
 			return;
 		}
 
-		if (turnstileSiteKey && !turnstileToken) {
+		if (turnstileSiteKey && !turnstileFailed && turnstileReady && !turnstileToken) {
 			toast.error("Please complete the verification challenge");
 			return;
 		}
@@ -188,16 +190,26 @@ function Register() {
 							<Turnstile
 								siteKey={turnstileSiteKey}
 								action="register"
-								onVerify={setTurnstileToken}
+								onVerify={(token) => {
+									setTurnstileToken(token);
+									setTurnstileFailed(false);
+								}}
+								onReady={() => setTurnstileReady(true)}
 								onExpire={() => setTurnstileToken(null)}
-								onError={() => setTurnstileToken(null)}
+								onError={() => {
+									setTurnstileToken(null);
+									setTurnstileFailed(true);
+								}}
 								className="flex justify-center"
 							/>
 						)}
 
 						<button
 							type="submit"
-							disabled={isLoading || (!!turnstileSiteKey && !turnstileToken)}
+							disabled={
+								isLoading ||
+								(!!turnstileSiteKey && !turnstileFailed && turnstileReady && !turnstileToken)
+							}
 							className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
 						>
 							{isLoading ? (
