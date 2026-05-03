@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { getClientAuthToken } from "@/lib/client-storage";
 
 /** React Query keys for `/api/content/home` (dashboard + coach info page). */
 export const homeQueryKeys = {
@@ -35,8 +36,10 @@ export type HomeContentPayload = {
 export async function fetchHomeContent(_token?: string): Promise<HomeContentPayload | null> {
   const baseUrl = config.api.baseUrl;
 
+  const token = getClientAuthToken();
   const response = await fetch(`${baseUrl}/api/content/home`, {
     credentials: "include",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 
   if (!response.ok) {

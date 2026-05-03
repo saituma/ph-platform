@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { getClientAuthToken } from "@/lib/client-storage";
 
 export type PortalLink = { label: string; href: string };
 export type Stat = { value: string; label: string };
@@ -133,7 +134,13 @@ export async function fetchPortalConfig(force = false): Promise<PortalConfig> {
 	cached = (async () => {
 		try {
 			const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
-			const response = await fetch(`${baseUrl}/api/portal-config`, { cache: "no-store" });
+			const token = getClientAuthToken();
+			const response = await fetch(`${baseUrl}/api/portal-config`, {
+				cache: "no-store",
+				headers: {
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
+			});
 			if (!response.ok) return DEFAULT_PORTAL_CONFIG;
 			const data = await response.json();
 			return (data?.config as PortalConfig) ?? DEFAULT_PORTAL_CONFIG;

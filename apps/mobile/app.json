@@ -50,7 +50,7 @@
     "androidStatusBar": {
       "hidden": true,
       "translucent": true,
-      "backgroundColor": "#00000000"
+      "backgroundColor": "#0a0a0b"
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
@@ -125,7 +125,6 @@
         }
       ],
       "expo-router",
-      "react-native-maps",
       [
         "expo-notifications",
         {

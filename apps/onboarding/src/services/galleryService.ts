@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { getClientAuthToken } from "@/lib/client-storage";
 
 export type GalleryApiItem = {
 	id: number;
@@ -14,8 +15,12 @@ export type GalleryApiItem = {
 
 export async function fetchGalleryItems(): Promise<GalleryApiItem[]> {
 	const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
+	const token = getClientAuthToken();
 	const response = await fetch(`${baseUrl}/api/content/gallery`, {
 		cache: "no-store",
+		headers: {
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
+		},
 	});
 
 	if (!response.ok) return [];
