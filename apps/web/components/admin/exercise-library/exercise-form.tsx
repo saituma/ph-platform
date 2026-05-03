@@ -46,7 +46,19 @@ export function ExerciseForm({
     { label: "Category", value: "" },
     { label: "Power", value: "Power" },
     { label: "Speed", value: "Speed" },
+    { label: "Strength", value: "Strength" },
+    { label: "Conditioning", value: "Conditioning" },
+    { label: "Agility", value: "Agility" },
+    { label: "Plyometrics", value: "Plyometrics" },
+    { label: "Mobility", value: "Mobility" },
+    { label: "Flexibility", value: "Flexibility" },
+    { label: "Warm-up", value: "Warmup" },
+    { label: "Cooldown", value: "Cooldown" },
     { label: "Recovery", value: "Recovery" },
+    { label: "Core", value: "Core" },
+    { label: "Balance", value: "Balance" },
+    { label: "Endurance", value: "Endurance" },
+    { label: "Sport-Specific", value: "Sport-Specific" },
   ];
 
   return (

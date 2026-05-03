@@ -1384,6 +1384,17 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ["Content"],
     }),
+    updateExercise: builder.mutation<
+      { exercise: any },
+      { exerciseId: number; patch: Record<string, any> }
+    >({
+      query: ({ exerciseId, patch }) => ({
+        url: `/admin/exercises/${exerciseId}`,
+        method: "PATCH",
+        body: patch,
+      }),
+      invalidatesTags: ["Content", "ProgramBuilder"],
+    }),
 	    presignMediaUpload: builder.mutation<
 	      { uploadUrl: string; publicUrl: string; key: string },
 	      {
@@ -1871,6 +1882,7 @@ export const {
   useGetUserProgramSectionCompletionsQuery,
   useGetExercisesQuery,
   useCreateExerciseMutation,
+  useUpdateExerciseMutation,
   usePresignMediaUploadMutation,
   useGetProgramFullQuery,
   useGetProgramModulesQuery,
