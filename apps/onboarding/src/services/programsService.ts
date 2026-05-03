@@ -139,6 +139,75 @@ export async function fetchMySessionExercises(_token: string, sessionId: number)
   return response.json();
 }
 
+export async function presignVideoUpload(file: File) {
+  const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
+  const response = await fetch(`${baseUrl}/api/media/presign`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      folder: "training-videos",
+      fileName: file.name,
+      contentType: file.type || "video/mp4",
+      sizeBytes: file.size,
+    }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to prepare upload");
+  }
+  return response.json() as Promise<{ uploadUrl: string; publicUrl: string; key: string }>;
+}
+
+export async function createAthleteVideo(videoUrl: string, notes?: string) {
+  const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
+  const response = await fetch(`${baseUrl}/api/videos`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ videoUrl, notes }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to save video");
+  }
+  return response.json();
+}
+
+export async function completeSession(
+  _token: string,
+  sessionId: number,
+  feedback?: { weightsUsed?: string; repsCompleted?: string; rpe?: number },
+) {
+  const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
+  const response = await fetch(
+    `${baseUrl}/api/training-content-v2/mobile/workouts/${sessionId}/complete`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(feedback ?? {}),
+    },
+  );
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to complete session");
+  }
+  return response.json();
+}
+
 export async function fetchProgramDetail(_token: string, programId: number): Promise<Program> {
   const baseUrl = config.api.baseUrl;
 

@@ -37,8 +37,16 @@ type SessionDialog = null | "create" | "edit";
 
 const SESSION_TYPES = [
   { label: "Program", value: "program" },
-  { label: "Assessment", value: "assessment" },
+  { label: "Warm-up", value: "warmup" },
+  { label: "Cooldown", value: "cooldown" },
+  { label: "Stretching", value: "stretching" },
+  { label: "Screening", value: "screening" },
+  { label: "Mobility", value: "mobility" },
   { label: "Recovery", value: "recovery" },
+  { label: "Offseason", value: "offseason" },
+  { label: "In-season", value: "inseason" },
+  { label: "Education", value: "education" },
+  { label: "Nutrition", value: "nutrition" },
 ];
 
 export default function ModuleDetailPage() {

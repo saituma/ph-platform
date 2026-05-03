@@ -15,13 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../../../../../../components/ui/dialog";
-import { ChevronRight, Dumbbell, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Dumbbell, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   useGetProgramFullQuery,
   useGetSessionExercisesQuery,
   useAddSessionExerciseMutation,
   useDeleteSessionExerciseMutation,
   useCreateExerciseMutation,
+  useUpdateExerciseMutation,
 } from "../../../../../../../lib/apiSlice";
 import { ExerciseForm } from "../../../../../../../components/admin/exercise-library/exercise-form";
 import type { Exercise } from "../../../../../../../components/admin/exercise-library/types";
@@ -41,6 +42,24 @@ const emptyForm: Exercise = {
   regression: "",
 };
 
+function exerciseToForm(ex: any): Exercise {
+  return {
+    id: ex.id,
+    name: ex.name ?? "",
+    category: ex.category ?? "",
+    sets: ex.sets != null ? String(ex.sets) : "",
+    reps: ex.reps != null ? String(ex.reps) : "",
+    time: ex.duration != null ? String(ex.duration) : "",
+    rest: ex.restSeconds != null ? String(ex.restSeconds) : "",
+    videoUrl: ex.videoUrl ?? "",
+    notes: ex.notes ?? "",
+    cues: ex.cues ?? "",
+    howTo: ex.howTo ?? "",
+    progression: ex.progression ?? "",
+    regression: ex.regression ?? "",
+  };
+}
+
 export default function SessionDetailPage() {
   const params = useParams();
   const programId = Number(params?.programId);
@@ -58,9 +77,11 @@ export default function SessionDetailPage() {
   const [addExercise, { isLoading: isAdding }] = useAddSessionExerciseMutation();
   const [removeExercise, { isLoading: isRemoving }] = useDeleteSessionExerciseMutation();
   const [createExercise, { isLoading: isCreatingExercise }] = useCreateExerciseMutation();
+  const [updateExercise, { isLoading: isUpdatingExercise }] = useUpdateExerciseMutation();
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
   const [exerciseForm, setExerciseForm] = useState<Exercise>(emptyForm);
+  const [editingExerciseId, setEditingExerciseId] = useState<number | null>(null);
 
   const program = fullData?.program ?? null;
   const currentModule = useMemo(
@@ -77,6 +98,18 @@ export default function SessionDetailPage() {
   const nextOrder = sessionExercises.length
     ? Math.max(...sessionExercises.map((e: any) => e.order ?? 0)) + 1
     : 1;
+
+  const openCreate = () => {
+    setExerciseForm(emptyForm);
+    setEditingExerciseId(null);
+    setDialogMode("create");
+  };
+
+  const openEdit = (se: any) => {
+    setExerciseForm(exerciseToForm(se.exercise));
+    setEditingExerciseId(se.exercise?.id);
+    setDialogMode("edit");
+  };
 
   const handleCreateAndAdd = async () => {
     if (!exerciseForm.name.trim()) return;
@@ -99,7 +132,29 @@ export default function SessionDetailPage() {
       await addExercise({ sessionId, exerciseId: newId, order: nextOrder }).unwrap();
     }
     setExerciseForm(emptyForm);
-    setDialogOpen(false);
+    setDialogMode(null);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingExerciseId || !exerciseForm.name.trim()) return;
+    await updateExercise({
+      exerciseId: editingExerciseId,
+      patch: {
+        name: exerciseForm.name,
+        category: exerciseForm.category || null,
+        cues: exerciseForm.cues || undefined,
+        howTo: exerciseForm.howTo || null,
+        progression: exerciseForm.progression || null,
+        regression: exerciseForm.regression || null,
+        sets: exerciseForm.sets ? Number(exerciseForm.sets) : null,
+        reps: exerciseForm.reps ? Number(exerciseForm.reps) : null,
+        duration: exerciseForm.time ? Number(exerciseForm.time) : null,
+        restSeconds: exerciseForm.rest ? Number(exerciseForm.rest) : null,
+        notes: exerciseForm.notes || null,
+        videoUrl: exerciseForm.videoUrl || null,
+      },
+    }).unwrap();
+    setDialogMode(null);
   };
 
   const handleRemove = async (sessionExerciseId: number) => {
@@ -128,7 +183,7 @@ export default function SessionDetailPage() {
         </span>
       }
       actions={
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={openCreate}>
           <Plus className="mr-1 h-4 w-4" /> Add Exercise
         </Button>
       }
@@ -148,7 +203,7 @@ export default function SessionDetailPage() {
         <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
           <Dumbbell className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
           <p className="font-semibold text-foreground">No exercises yet</p>
-          <p className="mt-1">Click "Add Exercise" to pick from the library or create a new one.</p>
+          <p className="mt-1">Click &quot;Add Exercise&quot; to pick from the library or create a new one.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -160,7 +215,7 @@ export default function SessionDetailPage() {
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                 {index + 1}
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-foreground">
                   {se.exercise?.name ?? "Unknown exercise"}
                 </div>
@@ -172,6 +227,8 @@ export default function SessionDetailPage() {
                   )}
                   {se.exercise?.sets != null && <span>{se.exercise.sets} sets</span>}
                   {se.exercise?.reps != null && <span>{se.exercise.reps} reps</span>}
+                  {se.exercise?.duration != null && <span>{se.exercise.duration}s</span>}
+                  {se.exercise?.restSeconds != null && <span>{se.exercise.restSeconds}s rest</span>}
                   {se.exercise?.videoUrl && (
                     <a
                       href={se.exercise.videoUrl}
@@ -189,26 +246,38 @@ export default function SessionDetailPage() {
                   </div>
                 )}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 shrink-0 p-0 text-destructive"
-                onClick={() => handleRemove(se.id)}
-                disabled={isRemoving}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => openEdit(se)}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 shrink-0 p-0 text-destructive"
+                  onClick={() => handleRemove(se.id)}
+                  disabled={isRemoving}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setExerciseForm(emptyForm); }}>
+      <Dialog open={dialogMode !== null} onOpenChange={(open) => { if (!open) { setDialogMode(null); setExerciseForm(emptyForm); } }}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create Exercise</DialogTitle>
+            <DialogTitle>{dialogMode === "edit" ? "Edit Exercise" : "Create Exercise"}</DialogTitle>
             <DialogDescription>
-              Create a new exercise and add it to this session.
+              {dialogMode === "edit"
+                ? "Update this exercise. Changes apply everywhere it is used."
+                : "Create a new exercise and add it to this session."}
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">
@@ -217,10 +286,11 @@ export default function SessionDetailPage() {
               onChange={(field, value) =>
                 setExerciseForm((prev) => ({ ...prev, [field]: value }))
               }
-              onSubmit={handleCreateAndAdd}
-              onCancel={() => setDialogOpen(false)}
-              saving={isCreatingExercise || isAdding}
-              submitLabel="Create & Add"
+              onSubmit={dialogMode === "edit" ? handleUpdate : handleCreateAndAdd}
+              onCancel={() => { setDialogMode(null); setExerciseForm(emptyForm); }}
+              saving={isCreatingExercise || isAdding || isUpdatingExercise}
+              isEdit={dialogMode === "edit"}
+              submitLabel={dialogMode === "edit" ? "Save Changes" : "Create & Add"}
             />
           </div>
         </DialogContent>

@@ -1,15 +1,22 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
 	ArrowLeft,
+	CheckCircle,
 	Dumbbell,
 	ExternalLink,
 	Info,
 	Video,
+	X,
 } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import { getTokenStatus } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
-import { fetchMySessionExercises } from "@/services/programsService";
+import {
+	completeSession,
+	fetchMySessionExercises,
+	presignVideoUpload,
+} from "@/services/programsService";
 import { programKeys } from "../index";
 
 export const Route = createFileRoute(
@@ -143,12 +150,221 @@ function VideoPlayer({ videoUrl }: { videoUrl: string }) {
 	);
 }
 
+function CompletionSheet({
+	open,
+	onClose,
+	onSubmit,
+	submitting,
+}: {
+	open: boolean;
+	onClose: () => void;
+	onSubmit: (data: {
+		weightsUsed: string;
+		repsCompleted: string;
+		rpe: number | null;
+		videoUrl: string | null;
+	}) => void;
+	submitting: boolean;
+}) {
+	const [weightsUsed, setWeightsUsed] = useState("");
+	const [repsCompleted, setRepsCompleted] = useState("");
+	const [rpe, setRpe] = useState<number | null>(null);
+	const [videoFile, setVideoFile] = useState<File | null>(null);
+	const [videoPreview, setVideoPreview] = useState<string | null>(null);
+	const [uploading, setUploading] = useState(false);
+	const [uploadProgress, setUploadProgress] = useState(0);
+	const [uploadError, setUploadError] = useState<string | null>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		if (file.size > 200 * 1024 * 1024) {
+			setUploadError("Video must be under 200MB");
+			return;
+		}
+		setVideoFile(file);
+		setVideoPreview(URL.createObjectURL(file));
+		setUploadError(null);
+	};
+
+	const removeVideo = () => {
+		setVideoFile(null);
+		if (videoPreview) URL.revokeObjectURL(videoPreview);
+		setVideoPreview(null);
+		if (fileInputRef.current) fileInputRef.current.value = "";
+	};
+
+	const handleSubmit = async () => {
+		let videoUrl: string | null = null;
+
+		if (videoFile) {
+			try {
+				setUploading(true);
+				setUploadProgress(0);
+				const presign = await presignVideoUpload(videoFile);
+
+				await new Promise<void>((resolve, reject) => {
+					const xhr = new XMLHttpRequest();
+					xhr.upload.onprogress = (ev) => {
+						if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+					};
+					xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error("Upload failed")));
+					xhr.onerror = () => reject(new Error("Upload failed"));
+					xhr.open("PUT", presign.uploadUrl);
+					xhr.setRequestHeader("Content-Type", videoFile.type || "video/mp4");
+					xhr.send(videoFile);
+				});
+
+				videoUrl = presign.publicUrl;
+			} catch (err: any) {
+				setUploadError(err?.message || "Video upload failed");
+				setUploading(false);
+				return;
+			} finally {
+				setUploading(false);
+			}
+		}
+
+		onSubmit({ weightsUsed, repsCompleted, rpe, videoUrl });
+	};
+
+	if (!open) return null;
+
+	const busy = submitting || uploading;
+
+	return (
+		<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+			<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} onKeyDown={() => {}} />
+			<div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-card border border-border rounded-t-3xl sm:rounded-3xl p-6 animate-in slide-in-from-bottom-8 duration-300 shadow-2xl">
+				<div className="flex items-center justify-between mb-6">
+					<h2 className="text-lg font-black italic uppercase tracking-tight">Complete Session</h2>
+					<button type="button" onClick={onClose} className="p-1 hover:bg-muted rounded-full transition-colors">
+						<X className="w-5 h-5" />
+					</button>
+				</div>
+
+				<div className="space-y-4">
+					<label className="block">
+						<span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+							Weights Used
+						</span>
+						<input
+							className="mt-1 w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
+							placeholder="e.g. 135 lbs squat, 95 lbs bench"
+							value={weightsUsed}
+							onChange={(e) => setWeightsUsed(e.target.value)}
+							maxLength={2000}
+						/>
+					</label>
+
+					<label className="block">
+						<span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+							Reps Completed
+						</span>
+						<input
+							className="mt-1 w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
+							placeholder="e.g. 10, 8, 6"
+							value={repsCompleted}
+							onChange={(e) => setRepsCompleted(e.target.value)}
+							maxLength={2000}
+						/>
+					</label>
+
+					<div>
+						<span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+							RPE (Rate of Perceived Exertion)
+						</span>
+						<div className="mt-2 flex gap-1.5 flex-wrap">
+							{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+								<button
+									key={n}
+									type="button"
+									onClick={() => setRpe(rpe === n ? null : n)}
+									className={`w-9 h-9 rounded-xl text-sm font-bold transition-colors ${
+										rpe === n
+											? "bg-primary text-primary-foreground"
+											: "border border-border bg-background hover:bg-muted"
+									}`}
+								>
+									{n}
+								</button>
+							))}
+						</div>
+						<p className="mt-1 text-[10px] text-muted-foreground">1 = very easy · 10 = maximal effort</p>
+					</div>
+
+					<div>
+						<span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+							Upload Video (optional)
+						</span>
+						{videoPreview ? (
+							<div className="mt-2 relative">
+								<video
+									className="w-full rounded-xl border border-border aspect-video object-cover"
+									src={videoPreview}
+									controls
+									playsInline
+									muted
+								/>
+								<button
+									type="button"
+									onClick={removeVideo}
+									className="absolute top-2 right-2 p-1 bg-black/60 rounded-full text-white hover:bg-black/80"
+								>
+									<X className="w-4 h-4" />
+								</button>
+							</div>
+						) : (
+							<button
+								type="button"
+								onClick={() => fileInputRef.current?.click()}
+								className="mt-2 w-full py-6 rounded-xl border-2 border-dashed border-border bg-background hover:bg-muted/50 transition-colors flex flex-col items-center gap-2 text-muted-foreground"
+							>
+								<Video className="w-8 h-8" />
+								<span className="text-xs font-semibold">Tap to upload or record video</span>
+								<span className="text-[10px]">MP4, MOV up to 200MB</span>
+							</button>
+						)}
+						<input
+							ref={fileInputRef}
+							type="file"
+							accept="video/*"
+							capture="environment"
+							onChange={handleVideoSelect}
+							className="hidden"
+						/>
+						{uploadError && <p className="mt-1 text-xs text-red-500">{uploadError}</p>}
+						{uploading && (
+							<div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+								<div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+							</div>
+						)}
+					</div>
+				</div>
+
+				<button
+					type="button"
+					disabled={busy}
+					onClick={handleSubmit}
+					className="mt-6 w-full h-12 rounded-full bg-primary text-primary-foreground font-bold text-sm uppercase tracking-wider disabled:opacity-60 transition-opacity"
+				>
+					{uploading ? `Uploading ${uploadProgress}%…` : submitting ? "Submitting…" : "Mark Complete"}
+				</button>
+			</div>
+		</div>
+	);
+}
+
 function AssignedSessionDetailPage() {
 	const { sessionId } = Route.useParams();
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const { token, loading: portalLoading, error: portalError } = usePortal();
 
 	const sessionIdNumber = Number(sessionId);
+	const [sheetOpen, setSheetOpen] = useState(false);
+	const [completed, setCompleted] = useState(false);
 
 	const {
 		data: exercisesData,
@@ -160,6 +376,27 @@ function AssignedSessionDetailPage() {
 		enabled: !!token && !portalLoading && !Number.isNaN(sessionIdNumber),
 		staleTime: 1000 * 60 * 15,
 	});
+
+	const completeMutation = useMutation({
+		mutationFn: (data: { weightsUsed: string; repsCompleted: string; rpe: number | null; videoUrl: string | null }) =>
+			completeSession(token!, sessionIdNumber, {
+				weightsUsed: data.weightsUsed || undefined,
+				repsCompleted: data.repsCompleted || undefined,
+				rpe: data.rpe ?? undefined,
+			}),
+		onSuccess: () => {
+			setSheetOpen(false);
+			setCompleted(true);
+			queryClient.invalidateQueries({ queryKey: programKeys.all });
+		},
+	});
+
+	const handleComplete = useCallback(
+		(data: { weightsUsed: string; repsCompleted: string; rpe: number | null; videoUrl: string | null }) => {
+			completeMutation.mutate(data);
+		},
+		[completeMutation],
+	);
 
 	if (portalLoading || isLoading) {
 		return (
@@ -336,6 +573,48 @@ function AssignedSessionDetailPage() {
 						</div>
 					))}
 				</div>
+			)}
+
+			{exercises.length > 0 && !completed && (
+				<div className="flex justify-center pt-4 pb-8">
+					<button
+						type="button"
+						onClick={() => setSheetOpen(true)}
+						className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
+					>
+						<CheckCircle className="w-5 h-5" />
+						Complete Session
+					</button>
+				</div>
+			)}
+
+			{completed && (
+				<div className="flex flex-col items-center gap-3 pt-4 pb-8 animate-in fade-in duration-500">
+					<CheckCircle className="w-12 h-12 text-green-500" />
+					<p className="text-lg font-bold text-green-600">Session Completed!</p>
+					<button
+						type="button"
+						onClick={() => navigate({ to: "/portal/programs" })}
+						className="text-sm text-primary font-semibold hover:underline"
+					>
+						Back to Programs
+					</button>
+				</div>
+			)}
+
+			<CompletionSheet
+				open={sheetOpen}
+				onClose={() => setSheetOpen(false)}
+				onSubmit={handleComplete}
+				submitting={completeMutation.isPending}
+			/>
+
+			{completeMutation.isError && (
+				<p className="text-center text-sm text-red-500 pb-4">
+					{completeMutation.error instanceof Error
+						? completeMutation.error.message
+						: "Failed to complete session."}
+				</p>
 			)}
 		</div>
 	);
