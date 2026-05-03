@@ -317,13 +317,14 @@ export async function createBookingForUser(req: Request, res: Response) {
         error: "Team roster athletes cannot book sessions themselves. Your coach will add sessions to your schedule.",
       });
     }
-    const knownErrors = [
+    const knownPrefixes = [
       "Capacity reached",
       "Service limit reached",
       "Service type not found",
       "Service type not available",
+      "This service is not open for booking",
     ];
-    if (knownErrors.includes(error?.message)) {
+    if (knownPrefixes.some((p) => error?.message?.startsWith(p))) {
       return res.status(400).json({ error: error.message });
     }
     throw error;
