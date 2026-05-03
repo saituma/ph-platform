@@ -1,4 +1,5 @@
 import { publicApiUrl } from "@/lib/public-api";
+import { getClientAuthToken } from "@/lib/client-storage";
 
 export type ApiChatMessage = {
 	id: number;
@@ -108,12 +109,16 @@ export async function fetchInbox(
 	isManager: boolean = false,
 ): Promise<{ threads: MessageThread[] }> {
 	try {
+		const token = getClientAuthToken();
 		const inboxRes = await fetch(
 			publicApiUrl(
 				`/api/messages/inbox?includeAdminThreads=${isManager ? "1" : "0"}`,
 			),
 			{
 				credentials: "include",
+				headers: {
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
 			},
 		);
 		const inboxData = inboxRes.ok
@@ -163,8 +168,12 @@ export async function fetchThreadMessages(
 	if (type === "coach")
 		endpoint = publicApiUrl(`/api/messages?peerUserId=${id}`);
 
+	const token = getClientAuthToken();
 	const response = await fetch(endpoint, {
 		credentials: "include",
+		headers: {
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
+		},
 	});
 
 	if (!response.ok) throw new Error("Failed to fetch messages");
@@ -189,11 +198,13 @@ export async function uploadMessageAttachment(
 		: isVideo
 			? "messages/videos"
 			: "messages/files";
+	const token = getClientAuthToken();
 	const presignRes = await fetch(publicApiUrl("/api/media/presign"), {
 		method: "POST",
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
 		},
 		body: JSON.stringify({
 			folder,
@@ -236,11 +247,13 @@ export async function sendMessage(
 	};
 	if (type === "coach") body.receiverId = Number(id);
 
+	const token = getClientAuthToken();
 	const response = await fetch(endpoint, {
 		method: "POST",
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
 		},
 		body: JSON.stringify(body),
 	});
@@ -262,11 +275,13 @@ export async function toggleMessageReaction(
 			`/api/chat/groups/${id}/messages/${messageId}/reactions`,
 		);
 	}
+	const token = getClientAuthToken();
 	const response = await fetch(endpoint, {
 		method: "PUT",
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
 		},
 		body: JSON.stringify({ emoji }),
 	});

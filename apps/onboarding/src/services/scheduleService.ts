@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { getClientAuthToken } from "@/lib/client-storage";
 
 export interface ScheduleEvent {
   id: string;
@@ -58,9 +59,13 @@ export function mapBookingsToEvents(items: any[]): ScheduleEvent[] {
 
 export async function fetchBookings(_token?: string): Promise<ScheduleEvent[]> {
   const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
 
   const response = await fetch(`${baseUrl}/api/bookings`, {
     credentials: "include",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
 
   if (!response.ok) {
@@ -73,11 +78,15 @@ export async function fetchBookings(_token?: string): Promise<ScheduleEvent[]> {
 
 export async function fetchBookingServices(_token?: string) {
   const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
 
   const response = await fetch(
     `${baseUrl}/api/bookings/services?includeLocked=true&omitWithoutBookableSlots=true`,
     {
       credentials: "include",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
     },
   );
 
@@ -100,8 +109,12 @@ export async function fetchGeneratedAvailability(
     to: params.to.toISOString(),
     serviceTypeId: String(params.serviceTypeId),
   });
+  const token = getClientAuthToken();
   const response = await fetch(`${baseUrl}/api/bookings/generated-availability?${qs}`, {
     credentials: "include",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch availability: ${response.status}`);
@@ -142,11 +155,13 @@ export function sumReportedOpeningsForService(
 export async function createBooking(_token: string, body: any) {
   const baseUrl = config.api.baseUrl;
 
+  const token = getClientAuthToken();
   const response = await fetch(`${baseUrl}/api/bookings`, {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
   });

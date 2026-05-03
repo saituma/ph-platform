@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { getClientAuthToken } from "@/lib/client-storage";
 
 const API_BASE_URL = config.api.baseUrl.replace(/\/+$/, "");
 
@@ -15,11 +16,13 @@ async function apiRequest<T>(
 	const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 	const url = `${API_BASE_URL}/api${path}`;
 
+	const token = getClientAuthToken();
 	const res = await fetch(url, {
 		method,
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
 			...headers,
 		},
 		body: body ? JSON.stringify(body) : undefined,
