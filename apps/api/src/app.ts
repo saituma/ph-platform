@@ -17,18 +17,10 @@ export function createApp() {
 
   app.set("trust proxy", 1);
 
-  // Render and other platforms may send health checks to `/` by default.
-  // Returning 200 here avoids noisy 404s and prevents false-negative health checks.
-  app.get("/", (_req, res) => res.status(200).json({ ok: true }));
-  app.head("/", (_req, res) => res.sendStatus(200));
-
-  // Load balancers / monitors often probe `/health` without the `/api` prefix.
-  app.get("/health", healthCheck);
-  app.head("/health", (_req, res) => res.sendStatus(200));
-
   app.use((req, res, next) => {
     if (!isApiReady()) {
       const p = req.path ?? "";
+      if (p === "/health" || p === "/") return next();
       if (p.startsWith("/api") && !p.startsWith("/api/health") && !p.startsWith("/api/v1/health")) {
         res.setHeader("Retry-After", "5");
         return res.status(503).json({ error: "Service is starting up. Try again shortly.", ready: false });
@@ -104,6 +96,12 @@ export function createApp() {
       credentials: true,
     }),
   );
+
+  app.get("/", (_req, res) => res.status(200).json({ ok: true }));
+  app.head("/", (_req, res) => res.sendStatus(200));
+  app.get("/health", healthCheck);
+  app.head("/health", (_req, res) => res.sendStatus(200));
+
   app.use(requestLogger);
   const bodyLimit = env.requestBodyLimit ?? "1mb";
   app.post("/api/billing/webhook", express.raw({ type: "application/json", limit: bodyLimit }), stripeWebhook);
