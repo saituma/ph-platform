@@ -417,7 +417,7 @@ export async function createBooking(input: {
   }
 
   if (serviceType[0].isActive === false) {
-    throw new Error("Service type not available");
+    throw new Error("Service type not available: service is inactive");
   }
 
   if ((serviceType[0] as any).isBookable === false) {
@@ -425,7 +425,10 @@ export async function createBooking(input: {
   }
 
   if (!serviceAllowsAthlete(serviceType[0], input.viewerAthlete ?? null)) {
-    throw new Error("Service type not available");
+    const st = serviceType[0];
+    throw new Error(
+      `Service type not available: athlete not eligible (targets=${JSON.stringify(st.eligibleTargets)}, plans=${JSON.stringify(st.eligiblePlans)}, athleteType=${input.viewerAthlete?.athleteType}, tier=${input.viewerAthlete?.currentProgramTier}, teamId=${input.viewerAthlete?.teamId})`,
+    );
   }
 
   if (!input.bypassAvailability && serviceType[0].totalSlots != null) {
@@ -448,7 +451,7 @@ export async function createBooking(input: {
       slotKey,
     });
     if (!resolved) {
-      throw new Error("Service type not available");
+      throw new Error("Service type not available: no matching availability window");
     }
     startsAt = resolved.startsAt;
     endsAt = resolved.endsAt;
@@ -458,11 +461,11 @@ export async function createBooking(input: {
   }
 
   if (!startsAt || !endsAt) {
-    throw new Error("Service type not available");
+    throw new Error("Service type not available: missing start/end time");
   }
 
   if (!input.bypassAvailability && startsAt.getTime() < Date.now()) {
-    throw new Error("Service type not available");
+    throw new Error("Service type not available: requested time is in the past");
   }
 
   if (!input.bypassAvailability) {
