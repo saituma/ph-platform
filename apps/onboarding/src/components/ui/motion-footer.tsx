@@ -398,34 +398,17 @@ export function CinematicFooter() {
 							href="https://clientreach.ai"
 							target="_blank"
 							rel="noreferrer"
-							className="footer-glass-pill px-6 py-3 rounded-full flex items-center gap-2 order-1 md:order-2 border-white/[0.04] no-underline hover:border-[#8aff00]/20 transition-colors"
+							className="footer-glass-pill px-6 py-3 rounded-full flex items-center gap-3 order-1 md:order-2 border-white/[0.04] no-underline hover:border-[#0EA5E9]/40 transition-colors"
 						>
 							<img
-								src="/ph.jpg"
-								alt="PH Performance"
-								className="w-5 h-5 rounded object-cover"
+								src="/clientreach-logo.png"
+								alt="Client Reach AI"
+								className="w-6 h-6 rounded object-contain"
 							/>
-							<span className="text-white/60 text-[10px] md:text-xs font-bold uppercase tracking-widest">
-								<span className="font-black italic text-white">
-									P
-								</span>
-								<span className="font-black italic text-[#8aff00]">
-									H
-								</span>
-								<span className="ml-1 font-light tracking-[0.18em] text-[10px]">
-									PERFORMANCE
-								</span>
+							<span className="text-white/50 text-[10px] md:text-xs font-medium tracking-wider">
+								Made by
 							</span>
-							<span className="animate-footer-heartbeat text-sm text-[#8aff00] ml-1">
-								&#9829;
-							</span>
-							<span className="text-white/20 text-[10px] mx-1">
-								|
-							</span>
-							<span className="text-white/40 text-[10px] md:text-xs font-medium tracking-wider">
-								Made in
-							</span>
-							<span className="text-white font-bold text-[10px] md:text-xs tracking-wide">
+							<span className="text-[#0EA5E9] font-bold text-xs md:text-sm tracking-wide">
 								Client Reach AI
 							</span>
 						</a>
