@@ -8,11 +8,7 @@ interface VerifyResult {
   errorCodes?: string[];
 }
 
-async function verifyToken(token: string, remoteIp?: string): Promise<VerifyResult> {
-  const secret = env.turnstileSecretKey;
-  if (!secret) {
-    return { success: true };
-  }
+async function verifyToken(token: string, secret: string, remoteIp?: string): Promise<VerifyResult> {
   if (!token) return { success: false, errorCodes: ["missing-input-response"] };
 
   const body = new URLSearchParams();
@@ -33,6 +29,17 @@ async function verifyToken(token: string, remoteIp?: string): Promise<VerifyResu
   }
 }
 
+async function verifyWithAnySecret(token: string, remoteIp?: string): Promise<VerifyResult> {
+  const secrets = [env.turnstileSecretKey, env.turnstileSecretKey2].filter(Boolean);
+  if (secrets.length === 0) return { success: true };
+
+  for (const secret of secrets) {
+    const result = await verifyToken(token, secret, remoteIp);
+    if (result.success) return result;
+  }
+  return { success: false, errorCodes: ["all-secrets-failed"] };
+}
+
 function clientIp(req: Request): string | undefined {
   const cf = req.header("cf-connecting-ip");
   if (cf) return cf;
@@ -42,22 +49,20 @@ function clientIp(req: Request): string | undefined {
 }
 
 export function requireTurnstile(req: Request, res: Response, next: NextFunction) {
-  if (!env.turnstileSecretKey) {
+  if (!env.turnstileSecretKey && !env.turnstileSecretKey2) {
     return next();
   }
   const token = (req.body && (req.body.turnstileToken || req.body["cf-turnstile-response"])) as
     | string
     | undefined;
   if (!token || typeof token !== "string") {
-    // Mobile/native clients don't support Turnstile — skip verification.
-    // Rate limiting still protects these endpoints.
     const ua = req.header("user-agent") ?? "";
     if (/Expo|okhttp|CFNetwork|Darwin/i.test(ua)) {
       return next();
     }
     return res.status(400).json({ error: "Verification challenge required." });
   }
-  void verifyToken(token, clientIp(req)).then((result) => {
+  void verifyWithAnySecret(token, clientIp(req)).then((result) => {
     if (!result.success) {
       return res
         .status(403)

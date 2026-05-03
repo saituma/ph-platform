@@ -88,6 +88,7 @@ const optionalWhenScript = (messageWhenRequired: string) =>
 	  TEAM_ATHLETE_EMAIL_DOMAIN: z.string().optional(),
 	  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
 	  TURNSTILE_SECRET_KEY: z.string().optional(),
+  TURNSTILE_SECRET_KEY_2: z.string().optional(),
 	});
 
 const parsed = envSchema.safeParse(process.env);
@@ -155,4 +156,5 @@ const scriptPlaceholder = "__ph_api_script_unused__";
 	  sentryDsn: raw.SENTRY_DSN ?? "",
 	  logLevel: raw.LOG_LEVEL,
 	  turnstileSecretKey: raw.TURNSTILE_SECRET_KEY ?? "",
+  turnstileSecretKey2: raw.TURNSTILE_SECRET_KEY_2 ?? "",
 	};
