@@ -230,31 +230,53 @@ export default function BookingActionClient(props: {
               </p>
             ) : (
               <>
-                <div className="mt-6 grid gap-4">
-                  <label className="grid gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      Starts at
-                    </span>
-                    <input
-                      className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
-                      type="datetime-local"
-                      value={startsAt}
-                      onChange={(e) => setStartsAt(e.target.value)}
-                    />
-                  </label>
+                {booking.startsAt ? (
+                  <div className="mt-6 rounded-2xl border border-border p-4 grid gap-2">
+                    <p className="text-xs font-semibold text-muted-foreground">Scheduled time</p>
+                    <p className="text-sm">
+                      {new Date(booking.startsAt).toLocaleString()}
+                      {booking.endTime ? ` — ${new Date(booking.endTime).toLocaleString()}` : ""}
+                    </p>
+                    {booking.location ? (
+                      <p className="text-xs text-muted-foreground">Location: {booking.location}</p>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setBooking({ ...booking, startsAt: null })}
+                      className="mt-1 text-xs text-primary underline justify-self-start"
+                    >
+                      Change time
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-6 grid gap-4">
+                    <label className="grid gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Starts at
+                      </span>
+                      <input
+                        className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
+                        type="datetime-local"
+                        value={startsAt}
+                        onChange={(e) => setStartsAt(e.target.value)}
+                      />
+                    </label>
 
-                  <label className="grid gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      End time (optional)
-                    </span>
-                    <input
-                      className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
-                      type="datetime-local"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                    />
-                  </label>
+                    <label className="grid gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        End time (optional)
+                      </span>
+                      <input
+                        className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
+                        type="datetime-local"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                )}
 
+                <div className="mt-4 grid gap-4">
                   <label className="grid gap-2">
                     <span className="text-xs font-semibold text-muted-foreground">
                       Location
