@@ -5,6 +5,7 @@ import {
 	Flame,
 	Footprints,
 	Gauge,
+	Layers,
 	Loader2,
 	MapPin,
 	Pause,
@@ -43,6 +44,7 @@ function TrackingPage() {
 	const [notes, setNotes] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [showHistory, setShowHistory] = useState(false);
+	const [mapStyle, setMapStyle] = useState<"street" | "satellite">("street");
 
 	const watchIdRef = useRef<number | null>(null);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -234,7 +236,7 @@ function TrackingPage() {
 			<Card className="overflow-hidden border-2">
 				<CardContent className="p-0 h-[300px] relative">
 					{gpsReady && currentPos ? (
-						<RunMap coordinates={coordinates} center={currentPos} isRunning={status === "running"} />
+						<RunMap coordinates={coordinates} center={currentPos} isRunning={status === "running"} mapStyle={mapStyle} />
 					) : gpsError ? (
 						<div className="flex items-center justify-center h-full text-sm text-destructive gap-2">
 							<MapPin className="h-4 w-4" />
@@ -245,6 +247,16 @@ function TrackingPage() {
 							<Loader2 className="h-4 w-4 animate-spin" />
 							Acquiring GPS...
 						</div>
+					)}
+					{gpsReady && (
+						<button
+							type="button"
+							onClick={() => setMapStyle(mapStyle === "street" ? "satellite" : "street")}
+							className="absolute top-3 right-3 z-[1000] h-8 px-2.5 rounded-lg bg-background/90 backdrop-blur border shadow-sm flex items-center gap-1.5 text-xs font-semibold hover:bg-background transition-colors"
+						>
+							<Layers className="h-3.5 w-3.5" />
+							{mapStyle === "street" ? "Satellite" : "Street"}
+						</button>
 					)}
 				</CardContent>
 			</Card>
@@ -455,19 +467,27 @@ function RunSummary({
 	);
 }
 
+const TILE_LAYERS = {
+	street: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+	satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+};
+
 function RunMap({
 	coordinates,
 	center,
 	isRunning,
+	mapStyle,
 }: {
 	coordinates: RunCoordinate[];
 	center: { lat: number; lng: number };
 	isRunning: boolean;
+	mapStyle: "street" | "satellite";
 }) {
 	const mapContainerRef = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<L.Map | null>(null);
 	const polylineRef = useRef<L.Polyline | null>(null);
 	const markerRef = useRef<L.CircleMarker | null>(null);
+	const tileLayerRef = useRef<L.TileLayer | null>(null);
 
 	useEffect(() => {
 		if (!mapContainerRef.current || mapRef.current) return;
@@ -480,7 +500,7 @@ function RunMap({
 				attributionControl: false,
 			}).setView([center.lat, center.lng], 16);
 
-			L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+			tileLayerRef.current = L.tileLayer(TILE_LAYERS[mapStyle], {
 				maxZoom: 19,
 			}).addTo(map);
 
@@ -506,6 +526,11 @@ function RunMap({
 			mapRef.current = null;
 		};
 	}, []);
+
+	useEffect(() => {
+		if (!mapRef.current || !tileLayerRef.current) return;
+		tileLayerRef.current.setUrl(TILE_LAYERS[mapStyle]);
+	}, [mapStyle]);
 
 	useEffect(() => {
 		if (!mapRef.current || !markerRef.current) return;

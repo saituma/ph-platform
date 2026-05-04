@@ -79,8 +79,11 @@ const mainNavItems = [
 	{ label: "Dashboard", path: "/portal/dashboard", icon: House },
 	{ label: "Programs", path: "/portal/programs", icon: Dumbbell },
 	{ label: "Schedule", path: "/portal/schedule", icon: CalendarCheck },
-	{ label: "Run Tracker", path: "/portal/tracking", icon: Footprints },
 	{ label: "Messages", path: "/portal/messages", icon: MessageCircle },
+];
+
+const activityItems = [
+	{ label: "Run Tracker", path: "/portal/tracking", icon: Footprints },
 ];
 
 const coachOnlyNavItems = [
@@ -225,6 +228,17 @@ export function AppSidebar() {
 							{isPortalCoachLikeRole(user?.role)
 								? coachOnlyNavItems.map((item) => renderNavItem(item, isActive(item.path)))
 								: null}
+						</SidebarMenu>
+					</SidebarGroupContent>
+				</SidebarGroup>
+
+				<SidebarGroup>
+					<SidebarGroupLabel className="group-data-[collapsible=icon]:hidden px-2 font-mono text-[10px] uppercase tracking-wider text-foreground/30">
+						Activity
+					</SidebarGroupLabel>
+					<SidebarGroupContent>
+						<SidebarMenu>
+							{activityItems.map((item) => renderNavItem(item, isActive(item.path)))}
 						</SidebarMenu>
 					</SidebarGroupContent>
 				</SidebarGroup>
