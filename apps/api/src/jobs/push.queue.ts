@@ -11,7 +11,7 @@
  * Falls back to synchronous send if Redis is not configured.
  */
 import { Queue, Worker } from "bullmq";
-import { getRedisConnection } from "./connection";
+import { getRedisConnection, isRedisLimitExceeded } from "./connection";
 import { sendPushNotification } from "../services/push.service";
 import { logger } from "../lib/logger";
 
@@ -45,8 +45,7 @@ function getQueue(): Queue<PushJob> | null {
 export const pushQueue = {
   async enqueue(job: PushJob): Promise<void> {
     const queue = getQueue();
-    if (!queue) {
-      // No Redis — send synchronously (graceful fallback)
+    if (!queue || isRedisLimitExceeded()) {
       await sendPushNotification(job.userId, job.title, job.body, job.data);
       return;
     }

@@ -11,7 +11,7 @@
  * Falls back to synchronous send if Redis is not configured.
  */
 import { Queue, Worker } from "bullmq";
-import { getRedisConnection } from "./connection";
+import { getRedisConnection, isRedisLimitExceeded } from "./connection";
 import { deliverEmail, type EmailAttachment } from "../lib/mailer/base.mailer";
 import { logger } from "../lib/logger";
 
@@ -45,8 +45,7 @@ function getQueue(): Queue<EmailJob> | null {
 export const emailQueue = {
   async enqueue(job: EmailJob): Promise<void> {
     const queue = getQueue();
-    if (!queue) {
-      // No Redis — deliver synchronously (graceful fallback)
+    if (!queue || isRedisLimitExceeded()) {
       await deliverEmail(job);
       return;
     }
