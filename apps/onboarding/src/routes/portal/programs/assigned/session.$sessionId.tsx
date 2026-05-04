@@ -332,7 +332,6 @@ function CompletionSheet({
 							ref={fileInputRef}
 							type="file"
 							accept="video/*"
-							capture="environment"
 							onChange={handleVideoSelect}
 							className="hidden"
 						/>
