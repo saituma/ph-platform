@@ -190,7 +190,7 @@ export async function completeSession(
   const baseUrl = config.api.baseUrl;
   const token = getClientAuthToken();
   const response = await fetch(
-    `${baseUrl}/api/training-content-v2/mobile/workouts/${sessionId}/complete`,
+    `${baseUrl}/api/programs/my-sessions/${sessionId}/complete`,
     {
       method: "POST",
       credentials: "include",
