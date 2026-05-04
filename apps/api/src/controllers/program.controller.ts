@@ -81,7 +81,13 @@ export async function getMySessionExercisesController(req: Request, res: Respons
 
 export async function completeMySessionController(req: Request, res: Response) {
   const sessionId = sessionIdSchema.parse(req.params.sessionId);
-  const result = await completeMySession(req.user!.id, sessionId);
+  const feedback = req.body ?? {};
+  const result = await completeMySession(req.user!.id, sessionId, {
+    videoUrl: typeof feedback.videoUrl === "string" ? feedback.videoUrl.trim() || null : null,
+    weightsUsed: typeof feedback.weightsUsed === "string" ? feedback.weightsUsed.trim() || null : null,
+    repsCompleted: typeof feedback.repsCompleted === "string" ? feedback.repsCompleted.trim() || null : null,
+    rpe: typeof feedback.rpe === "number" && feedback.rpe >= 1 && feedback.rpe <= 10 ? feedback.rpe : null,
+  });
   if (!result) {
     return res.status(404).json({ error: "Session not found or not assigned" });
   }

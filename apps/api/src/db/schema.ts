@@ -770,6 +770,12 @@ export const programSessionCompletionTable = pgTable(
     sessionId: integer()
       .notNull()
       .references(() => sessionTable.id),
+    videoUrl: varchar({ length: 500 }),
+    weightsUsed: text(),
+    repsCompleted: text(),
+    rpe: integer(),
+    coachResponse: text(),
+    coachResponseAt: timestamp(),
     completedAt: timestamp().notNull().defaultNow(),
     createdAt: timestamp().notNull().defaultNow(),
   },

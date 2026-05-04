@@ -266,7 +266,11 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
     .orderBy(asc(sessionExerciseTable.order));
 }
 
-export async function completeMySession(userId: number, sessionId: number) {
+export async function completeMySession(
+  userId: number,
+  sessionId: number,
+  feedback?: { videoUrl?: string | null; weightsUsed?: string | null; repsCompleted?: string | null; rpe?: number | null },
+) {
   const athlete = await getAthleteForUser(userId);
   if (!athlete) return null;
 
@@ -293,7 +297,14 @@ export async function completeMySession(userId: number, sessionId: number) {
 
   await db
     .insert(programSessionCompletionTable)
-    .values({ athleteId: athlete.id, sessionId })
+    .values({
+      athleteId: athlete.id,
+      sessionId,
+      videoUrl: feedback?.videoUrl ?? null,
+      weightsUsed: feedback?.weightsUsed ?? null,
+      repsCompleted: feedback?.repsCompleted ?? null,
+      rpe: feedback?.rpe ?? null,
+    })
     .onConflictDoNothing();
 
   const nextSession = await db

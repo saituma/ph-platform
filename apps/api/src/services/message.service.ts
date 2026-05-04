@@ -377,12 +377,17 @@ export async function sendMessage(input: {
       }
 
       if (!input.bypassMessagingTierForCoach && !isMessagingMyTeamManager) {
-        const { getAthleteForUser } = await import("./user.service");
+        const { getAthleteForUser, getGuardianAndAthlete } = await import("./user.service");
         const { getMessagingAccessTiers } = await import("./messaging-policy.service");
         const athlete = await getAthleteForUser(input.senderId);
         const tier = athlete?.currentProgramTier ?? null;
+        let hasActivePlan = athlete?.currentPlanId != null;
+        if (!hasActivePlan) {
+          const { guardian } = await getGuardianAndAthlete(input.senderId);
+          if (guardian?.currentPlanId != null) hasActivePlan = true;
+        }
         const allowed = await getMessagingAccessTiers();
-        if (!tier || !(allowed as readonly string[]).includes(tier)) {
+        if (!hasActivePlan && (!tier || !(allowed as readonly string[]).includes(tier))) {
           throw new Error("MESSAGING_DISABLED_FOR_TIER");
         }
       }

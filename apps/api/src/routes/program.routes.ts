@@ -5,6 +5,7 @@ import {
   completeMySessionController,
   getActiveProgramAiInsightController,
   getMyProgramFullController,
+  getMySessionCompletionController,
   getMySessionExercisesController,
   getProgram,
   getProgramAiInsightController,
@@ -22,6 +23,7 @@ router.get("/programs/active-insight", requireAuth, getActiveProgramAiInsightCon
 router.get("/programs/my-assigned", requireAuth, listMyAssignedPrograms);
 router.get("/programs/my-assigned/:programId", requireAuth, getMyProgramFullController);
 router.get("/programs/my-sessions/:sessionId/exercises", requireAuth, getMySessionExercisesController);
+router.get("/programs/my-sessions/:sessionId/completion", requireAuth, getMySessionCompletionController);
 router.post("/programs/my-sessions/:sessionId/complete", requireAuth, completeMySessionController);
 router.get("/programs/:programId", requireAuth, getProgram);
 router.get("/programs/:programId/sessions", requireAuth, getProgramSessionsById);
