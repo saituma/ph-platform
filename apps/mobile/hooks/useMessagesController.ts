@@ -67,7 +67,10 @@ export type MessagesControllerResult = {
   loadMessages: (options?: { silent?: boolean }) => Promise<void>;
 };
 
-export function useMessagesController(): MessagesControllerResult {
+export function useMessagesController(options?: {
+  enabled?: boolean;
+}): MessagesControllerResult {
+  const enabled = options?.enabled ?? true;
   const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
   const router = useRouter();
   const routerRef = useRef(router);
@@ -102,7 +105,7 @@ export function useMessagesController(): MessagesControllerResult {
     token,
     actingHeaders,
     effectiveProfileId,
-    enabled: true,
+    enabled,
   });
 
   const {
@@ -190,9 +193,9 @@ export function useMessagesController(): MessagesControllerResult {
   // When TanStack Query delivers fresh thread/message data, process it into state.
   // TQ owns the fetch (dedup, cache, stale-while-revalidate); this owns the mapping.
   useEffect(() => {
-    if (!threadsQuery.data) return;
+    if (!enabled || !threadsQuery.data) return;
     applyFetchedData(threadsQuery.data.inbox, threadsQuery.data.messages);
-  }, [threadsQuery.data, applyFetchedData]);
+  }, [enabled, threadsQuery.data, applyFetchedData]);
 
   useEffect(() => {
     setReplyTarget(null);
@@ -306,13 +309,13 @@ export function useMessagesController(): MessagesControllerResult {
       mediaUrl?: string;
       contentType?: "text" | "image" | "video";
     }) => {
+      if (!enabled) return;
       const trimmed = payload.text?.trim() ?? "";
       if ((!trimmed && !payload.mediaUrl) || !currentThread || !token) return;
 
       if (currentThread.id.startsWith("group:")) {
         const groupId = Number(currentThread.id.replace("group:", ""));
         const clientId = `client-${Date.now()}`;
-        console.log("[DEBUG-msg] group send: optimistic ADD", { clientId, groupId, text: trimmed.slice(0, 40) });
         const previewLabel =
           trimmed ||
           getMediaPreviewLabel(payload.contentType, Boolean(payload.mediaUrl));
@@ -422,17 +425,9 @@ export function useMessagesController(): MessagesControllerResult {
             // The message was almost certainly saved on the server — keep the
             // optimistic visible and let loadGroupMessages reconcile it with
             // the real server-side row when the server has indexed it.
-            console.warn(
-              "[DEBUG-msg] group send: success without message.id — keeping optimistic, reconciling via loadGroupMessages",
-              { clientId, response: created },
-            );
             void loadGroupMessages(groupId, { silent: true });
           }
         } catch (err) {
-          console.warn(
-            "[DEBUG-msg] group send: API threw — removing optimistic and restoring draft",
-            { clientId, err },
-          );
           setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
           void loadGroupMessages(groupId, { silent: true });
           throw err;
@@ -443,7 +438,6 @@ export function useMessagesController(): MessagesControllerResult {
       const toUserId = Number(currentThread.id);
       if (!Number.isFinite(toUserId) || toUserId <= 0) return;
       const clientId = `client-${Date.now()}`;
-      console.log("[DEBUG-msg] direct send: optimistic ADD", { clientId, toUserId, text: trimmed.slice(0, 40) });
       setMessages((prev) => [
         ...prev,
         {
@@ -499,7 +493,6 @@ export function useMessagesController(): MessagesControllerResult {
         );
         const serverMsg = created?.message;
         if (serverMsg?.id) {
-          console.log("[DEBUG-msg] direct send: API success with id =", serverMsg.id, "clientId =", clientId);
           const mapped = mapApiDirectMessageToChatMessage(
             serverMsg,
             String(effectiveProfileId),
@@ -518,10 +511,6 @@ export function useMessagesController(): MessagesControllerResult {
           // API returned 2xx but no `message` object — server almost certainly
           // saved it. Keep the optimistic visible; loadMessages will replace it
           // with the canonical version when the server has indexed it.
-          console.warn(
-            "[DEBUG-msg] direct send: success without message.id — keeping optimistic, reconciling via loadMessages",
-            { clientId, response: created },
-          );
           void loadMessages({ silent: true });
         }
         if (payload.mediaUrl && payload.contentType === "image") {
@@ -533,10 +522,6 @@ export function useMessagesController(): MessagesControllerResult {
           void Image.prefetch(serverMsg.mediaUrl);
         }
       } catch (err) {
-        console.warn(
-          "[DEBUG-msg] direct send: API threw — removing optimistic and restoring draft",
-          { clientId, err },
-        );
         setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
         void loadMessages({ silent: true });
         throw err;
@@ -545,6 +530,7 @@ export function useMessagesController(): MessagesControllerResult {
     [
       actingHeaders,
       currentThread,
+      enabled,
       effectiveProfileId,
       effectiveProfileName,
       loadGroupMessages,

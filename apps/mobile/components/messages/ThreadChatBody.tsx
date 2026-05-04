@@ -109,6 +109,7 @@ const MessageListSection = React.memo(function MessageListSection({
 	const insets = useAppSafeAreaInsets();
 	const reversed = useMemo(() => [...messages].reverse(), [messages]);
 	const groupingMap = useMemo(() => computeGroupingMap(messages), [messages]);
+	const isGroupThread = useMemo(() => thread.id.startsWith("group:"), [thread.id]);
 	const { listRef, handleScroll, jumpTo, newIncomingCount, highlightedId } =
 		useChatScroll(messages, thread.id);
 
@@ -142,7 +143,7 @@ const MessageListSection = React.memo(function MessageListSection({
 					<MessageBubble
 						message={item}
 						selfUserId={effectiveProfileId}
-						isGroupThread={thread.id.startsWith("group:")}
+						isGroupThread={isGroupThread}
 						groupPosition={meta?.position}
 						showGroupAvatar={meta?.showAvatar}
 						showGroupSenderName={meta?.showSenderName}
@@ -188,7 +189,7 @@ const MessageListSection = React.memo(function MessageListSection({
 			token,
 			resolveReactionUserName,
 			jumpTo,
-			thread.id,
+			isGroupThread,
 			groupingMap,
 			isDark,
 			colors.textDim,
@@ -203,6 +204,68 @@ const MessageListSection = React.memo(function MessageListSection({
 
 	const keyExtractor = useCallback((m: ChatMessage) => String(m.id), []);
 
+	const showLoadingFooter = isThreadLoading || (isLoading && messages.length === 0);
+	const showEmptyFooter = messages.length === 0 && !isLoading && !isThreadLoading;
+	const footerComponent = useMemo(
+		() => (
+			<View style={{ paddingBottom: 8 }}>
+				{showLoadingFooter && (
+					<View
+						style={{
+							alignSelf: "center",
+							borderRadius: 999,
+							paddingHorizontal: 12,
+							paddingVertical: 6,
+							backgroundColor: isDark
+								? "rgba(255,255,255,0.08)"
+								: "rgba(15,23,42,0.06)",
+							flexDirection: "row",
+							alignItems: "center",
+							gap: 8,
+						}}
+					>
+						<ActivityIndicator size="small" color={colors.accent} />
+						<Text
+							style={{
+								color: colors.textSecondary,
+								fontFamily: "Outfit-SemiBold",
+								fontSize: 11,
+							}}
+						>
+							Loading messages
+						</Text>
+					</View>
+				)}
+				{showEmptyFooter ? (
+					<View
+						style={{
+							alignSelf: "center",
+							borderRadius: 16,
+							paddingHorizontal: 14,
+							paddingVertical: 10,
+							backgroundColor: isDark
+								? "rgba(255,255,255,0.06)"
+								: "rgba(15,23,42,0.05)",
+						}}
+					>
+						<Text
+							style={{
+								color: colors.textSecondary,
+								fontFamily: "Outfit-Medium",
+								fontSize: 12,
+							}}
+						>
+							{coachingContextLabel
+								? `Start chatting about ${coachingContextLabel}`
+								: "Start the conversation"}
+						</Text>
+					</View>
+				) : null}
+			</View>
+		),
+		[showLoadingFooter, showEmptyFooter, isDark, colors.accent, colors.textSecondary, coachingContextLabel],
+	);
+
 	return (
 		<>
 			<FlashList
@@ -211,7 +274,9 @@ const MessageListSection = React.memo(function MessageListSection({
 				keyExtractor={keyExtractor}
 				onScroll={handleScroll}
 				extraData={highlightedId}
+				drawDistance={300}
 				keyboardShouldPersistTaps="handled"
+				keyboardDismissMode="interactive"
 				maintainVisibleContentPosition={{ startRenderingFromBottom: true, autoscrollToBottomThreshold: 60 }}
 				contentContainerStyle={{
 					paddingHorizontal: 12,
@@ -219,63 +284,7 @@ const MessageListSection = React.memo(function MessageListSection({
 					paddingBottom: listBottomPadding,
 				}}
 				renderItem={renderItem}
-				ListFooterComponent={
-					<View style={{ paddingBottom: 8 }}>
-						{(isThreadLoading || (isLoading && messages.length === 0)) && (
-							<View
-								style={{
-									alignSelf: "center",
-									borderRadius: 999,
-									paddingHorizontal: 12,
-									paddingVertical: 6,
-									backgroundColor: isDark
-										? "rgba(255,255,255,0.08)"
-										: "rgba(15,23,42,0.06)",
-									flexDirection: "row",
-									alignItems: "center",
-									gap: 8,
-								}}
-							>
-								<ActivityIndicator size="small" color={colors.accent} />
-								<Text
-									style={{
-										color: colors.textSecondary,
-										fontFamily: "Outfit-SemiBold",
-										fontSize: 11,
-									}}
-								>
-									Loading messages
-								</Text>
-							</View>
-						)}
-
-						{messages.length === 0 && !isLoading && !isThreadLoading ? (
-							<View
-								style={{
-									alignSelf: "center",
-									borderRadius: 16,
-									paddingHorizontal: 14,
-									paddingVertical: 10,
-									backgroundColor: isDark
-										? "rgba(255,255,255,0.06)"
-										: "rgba(15,23,42,0.05)",
-								}}
-							>
-								<Text
-									style={{
-										color: colors.textSecondary,
-										fontFamily: "Outfit-Medium",
-										fontSize: 12,
-									}}
-								>
-									{coachingContextLabel
-										? `Start chatting about ${coachingContextLabel}`
-										: "Start the conversation"}
-								</Text>
-							</View>
-						) : null}
-					</View>
-				}
+				ListFooterComponent={footerComponent}
 			/>
 
 			{newIncomingCount > 0 && (
@@ -385,7 +394,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 		<KeyboardAvoidingView
 			style={{ flex: 1, backgroundColor: colors.background }}
 			behavior={Platform.OS === "ios" ? "padding" : "height"}
-			keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+			keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 56 : 0}
 		>
 			<MessageListSection
 				thread={thread}

@@ -15,6 +15,8 @@ type OpenGraphData = {
   siteName: string | null;
 };
 
+const ogCache = new Map<string, OpenGraphData | null>();
+
 function getDisplayHost(rawUrl: string) {
   try {
     const u = new URL(rawUrl);
@@ -24,7 +26,7 @@ function getDisplayHost(rawUrl: string) {
   }
 }
 
-export function OpenGraphPreview({
+export const OpenGraphPreview = React.memo(function OpenGraphPreview({
   url,
   token,
   compact = false,
@@ -34,12 +36,18 @@ export function OpenGraphPreview({
   compact?: boolean;
 }) {
   const { colors, isDark } = useAppTheme();
-  const [data, setData] = React.useState<OpenGraphData | null>(null);
+  const cached = ogCache.get(url);
+  const [data, setData] = React.useState<OpenGraphData | null>(cached ?? null);
   const [status, setStatus] = React.useState<"loading" | "loaded" | "error">(
-    "loading",
+    cached !== undefined ? (cached ? "loaded" : "error") : "loading",
   );
 
   React.useEffect(() => {
+    if (ogCache.has(url)) {
+      setData(ogCache.get(url) ?? null);
+      setStatus(ogCache.get(url) ? "loaded" : "error");
+      return;
+    }
     let active = true;
     setStatus("loading");
     (async () => {
@@ -49,10 +57,13 @@ export function OpenGraphPreview({
           { token, suppressStatusCodes: [400, 401, 403, 404] },
         );
         if (!active) return;
-        setData(res?.data ?? null);
-        setStatus(res?.data ? "loaded" : "error");
+        const result = res?.data ?? null;
+        ogCache.set(url, result);
+        setData(result);
+        setStatus(result ? "loaded" : "error");
       } catch {
         if (!active) return;
+        ogCache.set(url, null);
         setData(null);
         setStatus("error");
       }
@@ -344,4 +355,4 @@ export function OpenGraphPreview({
       </View>
     </Pressable>
   );
-}
+});

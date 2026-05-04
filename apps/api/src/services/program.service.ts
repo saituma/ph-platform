@@ -6,6 +6,7 @@ import {
   exerciseTable,
   programAssignmentTable,
   programModuleTable,
+  programSessionCompletionTable,
   programTable,
   sessionExerciseTable,
   sessionTable,
@@ -243,6 +244,8 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
       exerciseId: sessionExerciseTable.exerciseId,
       order: sessionExerciseTable.order,
       coachingNotes: sessionExerciseTable.coachingNotes,
+      progressionNotes: sessionExerciseTable.progressionNotes,
+      regressionNotes: sessionExerciseTable.regressionNotes,
       exercise: {
         id: exerciseTable.id,
         name: exerciseTable.name,
@@ -261,6 +264,53 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
     .innerJoin(exerciseTable, eq(exerciseTable.id, sessionExerciseTable.exerciseId))
     .where(eq(sessionExerciseTable.sessionId, sessionId))
     .orderBy(asc(sessionExerciseTable.order));
+}
+
+export async function completeMySession(userId: number, sessionId: number) {
+  const athlete = await getAthleteForUser(userId);
+  if (!athlete) return null;
+
+  const [session] = await db.select().from(sessionTable).where(eq(sessionTable.id, sessionId)).limit(1);
+  if (!session) return null;
+
+  if (session.moduleId) {
+    const [mod] = await db
+      .select({ programId: programModuleTable.programId })
+      .from(programModuleTable)
+      .where(eq(programModuleTable.id, session.moduleId))
+      .limit(1);
+    if (mod?.programId) {
+      const [assignment] = await db
+        .select({ id: programAssignmentTable.id })
+        .from(programAssignmentTable)
+        .where(
+          and(eq(programAssignmentTable.athleteId, athlete.id), eq(programAssignmentTable.programId, mod.programId)),
+        )
+        .limit(1);
+      if (!assignment) return null;
+    }
+  }
+
+  await db
+    .insert(programSessionCompletionTable)
+    .values({ athleteId: athlete.id, sessionId })
+    .onConflictDoNothing();
+
+  const nextSession = await db
+    .select({ id: sessionTable.id, title: sessionTable.title, sessionNumber: sessionTable.sessionNumber })
+    .from(sessionTable)
+    .where(
+      and(
+        eq(sessionTable.moduleId, session.moduleId!),
+        eq(sessionTable.programId, session.programId),
+      ),
+    )
+    .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
+
+  const currentIdx = nextSession.findIndex((s) => s.id === sessionId);
+  const next = currentIdx >= 0 && currentIdx < nextSession.length - 1 ? nextSession[currentIdx + 1] : null;
+
+  return { completed: true, nextSession: next };
 }
 
 export async function getProgramAiInsight(programId: number) {

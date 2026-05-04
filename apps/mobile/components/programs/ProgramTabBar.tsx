@@ -1,6 +1,6 @@
 import React from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { useColorScheme } from "nativewind";
+import { useUniwind } from "uniwind";
 import { Text } from "@/components/ScaledText";
 
 export function ProgramTabBar({
@@ -16,8 +16,8 @@ export function ProgramTabBar({
   onTabPress?: (tab: string) => void;
   showSectionHeader?: boolean;
 }) {
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const { theme } = useUniwind();
+  const isDark = theme === "dark";
 
   return (
     <View style={styles.container}>

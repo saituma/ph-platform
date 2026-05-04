@@ -19,6 +19,7 @@ import {
   socketConnectError,
   socketReset,
 } from "@/store/slices/socketSlice";
+import { selectBootstrapReady } from "@/store/slices/appSlice";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -35,6 +36,7 @@ const SocketContext = createContext<SocketContextType>({
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const token = useAppSelector((state) => state.user.token);
+  const bootstrapReady = useAppSelector(selectBootstrapReady);
   const { actingUserId, isStaff } = useActingUser();
   const dispatch = useAppDispatch();
 
@@ -51,8 +53,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   // ── Socket lifecycle ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!token) {
-      if (__DEV__) console.log("[Socket] Skipping connect: missing token");
+    if (!token || !bootstrapReady) {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -65,12 +66,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const baseUrl = getApiBaseUrl();
     const socketUrl = baseUrl ? baseUrl.replace(/\/api\/?$/, "") : "";
     if (!socketUrl) {
-      if (__DEV__) console.log("[Socket] Skipping connect: missing EXPO_PUBLIC_API_BASE_URL");
       return;
     }
 
     if (socketRef.current) return;
-    if (__DEV__) console.log("[Socket] Connecting", { socketUrl });
 
     const newSocket: Socket = io(socketUrl, {
       auth: { token },
@@ -92,14 +91,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     newSocket.on("connect", () => {
-      if (__DEV__) console.log("[Socket] Global connected");
       connectErrorCountRef.current = 0;
       dispatch(socketConnected());
       emitActingJoin();
     });
 
     newSocket.on("disconnect", (reason) => {
-      if (__DEV__) console.log("[Socket] Global disconnected", reason);
       dispatch(socketDisconnected(String(reason)));
     });
 
@@ -110,12 +107,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       if (connectErrorCountRef.current >= 5) {
         Sentry.captureException(error, {
           tags: { "socket.attempts": connectErrorCountRef.current },
-        });
-      }
-      if (__DEV__) {
-        console.log("[Socket] connect_error", {
-          attempt: connectErrorCountRef.current,
-          message: error?.message ?? error,
         });
       }
     });
@@ -199,7 +190,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setSocket(null);
       dispatch(socketReset());
     };
-  }, [token]);
+  }, [token, bootstrapReady, dispatch]);
 
   // Re-emit acting:join when the acting user changes after initial connect.
   // Intentionally omit connection state from React — triggering setIsConnected

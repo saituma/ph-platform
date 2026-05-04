@@ -208,71 +208,12 @@ export function useChatActions({
           seen.add(String(msg.id));
           next.push(msg);
         }
-        console.log(
-          "[DEBUG-msg] applyFetchedData reconcile:",
-          "prev=", prev.length,
-          "mappedFromServer=", mappedMessages.length,
-          "preservedConfirmed=", confirmedDirect.length,
-          "preservedOptimistic=", optimisticDirect.length,
-          "preservedGroup=", groupMessages.length,
-          "next=", next.length,
-        );
         return next;
       });
       schedulePrefetchChatMessageMedia(mappedMessages);
-
-      // Prefetch messages for the top 3 group threads in the background.
-      const topGroupIds = sortedThreads
-        .filter((thread) => String(thread.id).startsWith("group:"))
-        .slice(0, 3)
-        .map((thread) => Number(String(thread.id).replace("group:", "")))
-        .filter((id) => Number.isFinite(id) && id > 0);
-      for (const groupId of topGroupIds) {
-        void chatService
-          .fetchGroupMessages(token!, groupId, actingHeaders)
-          .then((groupData) => {
-            const mappedGroupMessages = (groupData.messages ?? [])
-              .slice()
-              .sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0))
-              .map((msg) =>
-                mapApiGroupMessageToChatMessage(msg, groupId, selfId, {}),
-              );
-            if (!mappedGroupMessages.length) return;
-            setMessages((prev) => {
-              const threadKey = `group:${groupId}`;
-              const nonGroup = prev.filter((m) => m.threadId !== threadKey);
-              const optimistic = prev.filter(
-                (m) =>
-                  m.threadId === threadKey &&
-                  typeof m.id === "string" &&
-                  m.id.startsWith("client-"),
-              );
-              const confirmedInGroup = prev.filter(
-                (m) =>
-                  m.threadId === threadKey &&
-                  !(typeof m.id === "string" && m.id.startsWith("client-")) &&
-                  !pendingDeleteIds.current.has(m.id),
-              );
-              const seen = new Set<string>();
-              const next: ChatMessage[] = [];
-              for (const msg of [
-                ...nonGroup,
-                ...mappedGroupMessages,
-                ...confirmedInGroup,
-                ...optimistic,
-              ]) {
-                if (!msg?.id || seen.has(msg.id)) continue;
-                seen.add(msg.id);
-                next.push(msg);
-              }
-              return next;
-            });
-            schedulePrefetchChatMessageMedia(mappedGroupMessages);
-          })
-          .catch(() => {});
-      }
+      setIsLoading(false);
     },
-    [actingHeaders, effectiveProfileId, profileName, programTier, token, setThreads, setMessages],
+    [actingHeaders, effectiveProfileId, profileName, programTier, token, setThreads, setMessages, setIsLoading],
   );
 
   /**
@@ -303,7 +244,6 @@ export function useChatActions({
     async (groupId: number, options?: { silent?: boolean }) => {
       if (!token) return;
       if (inFlightGroupLoadRef.current.has(groupId)) {
-        console.log("[DEBUG-msg] loadGroupMessages: skipped (in flight)", groupId);
         return;
       }
       inFlightGroupLoadRef.current.add(groupId);

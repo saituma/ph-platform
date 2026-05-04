@@ -44,10 +44,12 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text as ScaledText } from "@/components/ScaledText";
 import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+import { useAppToast } from "@/hooks/useAppToast";
 
 export default function FeedbackScreen() {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
+  const toast = useAppToast();
   const { colors, isDark } = useAppTheme();
   const {
     status,
@@ -120,7 +122,7 @@ export default function FeedbackScreen() {
       }, 1000);
     } catch (e) {
       console.error(e);
-      Alert.alert("Error saving run");
+      toast.error("Error", "Could not save run data.");
     }
   };
 

@@ -224,7 +224,7 @@ export function useRunTrackingEngine(
     lastRouteFetchTime.current = now;
 
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${destLng},${destLat}?overview=full&geometries=geojson`;
       const res = await fetch(url, { headers: { Accept: "application/json" } });
       if (!res.ok) throw new Error(`OSRM HTTP ${res.status}`);
       const data = await res.json();

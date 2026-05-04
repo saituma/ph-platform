@@ -5,6 +5,7 @@ import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, Pressable, Switch, View } from "react-native";
+import { useAppToast } from "@/hooks/useAppToast";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,6 +35,7 @@ const MEAL_ROWS: { slot: MealSlot; label: string; icon: React.ComponentProps<typ
 type AllPrefs = Record<MealSlot, MealReminderPrefs>;
 
 function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record<string, string> }) {
+  const toast = useAppToast();
   const [prefs, setPrefs] = useState<AllPrefs>({
     breakfast: { enabled: false, hour: 8, minute: 0 },
     lunch: { enabled: false, hour: 12, minute: 30 },
@@ -59,10 +61,7 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
     if (value) {
       const granted = await requestMealNotificationPermission();
       if (!granted) {
-        Alert.alert(
-          "Notifications off",
-          "Enable notifications in system settings to receive meal reminders.",
-        );
+        toast.info("Notifications off", "Enable notifications in system settings to receive meal reminders.");
         return;
       }
     }
@@ -250,6 +249,7 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
 export default function NutritionScreen() {
   const insets = useAppSafeAreaInsets();
   const router = useRouter();
+  const toast = useAppToast();
   const { colors, isDark } = useAppTheme();
   const { appRole, capabilities } = useAppSelector((state) => state.user);
   const canLog = Boolean(capabilities?.nutrition);

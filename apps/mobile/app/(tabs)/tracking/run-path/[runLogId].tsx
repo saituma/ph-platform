@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Share, View } from "react-native";
+import { ActivityIndicator, Pressable, Share, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
+import { useAppToast } from "@/hooks/useAppToast";
 import { radius, spacing } from "@/constants/theme";
 import { fetchRunDetail } from "@/services/tracking/socialService";
 import { TrackingMapView } from "@/components/tracking/TrackingMapView";
@@ -21,6 +22,7 @@ type LatLng = { latitude: number; longitude: number };
 export default function RunPathScreen() {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
+  const toast = useAppToast();
   const { colors } = useAppTheme();
   const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
@@ -68,7 +70,7 @@ export default function RunPathScreen() {
         setItem(res.item ?? null);
       } catch (e: any) {
         if (!alive) return;
-        Alert.alert("Couldn't load run", String(e?.message ?? "Error"));
+        toast.error("Couldn't load run", String(e?.message ?? "Error"));
         setItem(null);
       } finally {
         if (alive) setLoading(false);

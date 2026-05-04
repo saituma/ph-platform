@@ -760,6 +760,27 @@ export const sessionExerciseTable = pgTable("session_exercises", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const programSessionCompletionTable = pgTable(
+  "program_session_completions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer()
+      .notNull()
+      .references(() => athleteTable.id),
+    sessionId: integer()
+      .notNull()
+      .references(() => sessionTable.id),
+    completedAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdx: index("program_session_completions_athlete_idx").on(table.athleteId),
+    athleteSessionUnique: uniqueIndex("program_session_completions_unique").on(
+      table.athleteId,
+      table.sessionId,
+    ),
+  }),
+);
 
 export const messageTable = pgTable(
   "messages",

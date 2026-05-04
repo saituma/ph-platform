@@ -855,6 +855,13 @@
       "when": 1778327200000,
       "tag": "0121_user_search_fts_gin_index",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1777845645051,
+      "tag": "0122_mean_nuke",
+      "breakpoints": true
     }
   ]
 }

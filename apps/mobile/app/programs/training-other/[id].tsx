@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Linking, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
-import { SkeletonTrainingContentScreen } from "@/components/ui/Skeleton";
+import { SkeletonTrainingContentScreen } from "@/components/ui/legacy-skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";

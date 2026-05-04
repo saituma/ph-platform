@@ -5,14 +5,8 @@ import MessagesScreen from "@/app/(tabs)/messages";
 import MoreScreen from "@/app/(tabs)/more";
 import ProgramsScreen from "@/app/(tabs)/programs";
 import ScheduleScreen from "@/app/(tabs)/schedule";
-import TrackingLayout from "@/app/(tabs)/tracking/_layout";
+import TrackingHomeScreen from "@/app/(tabs)/tracking";
 import ParentPlatformScreen from "@/app/parent-platform/index";
-
-/**
- * Always mount the tracking Stack here. Toggling Stack vs index screen by pathname
- * caused navigator remount loops (max update depth) when the URL synced asynchronously.
- */
-const TrackingWrapper = React.memo(() => <TrackingLayout />);
 
 export const SHARED_TAB_COMPONENTS: Record<
   string,
@@ -22,7 +16,7 @@ export const SHARED_TAB_COMPONENTS: Record<
   programs: React.memo(ProgramsScreen),
   messages: React.memo(MessagesScreen),
   schedule: React.memo(ScheduleScreen),
-  tracking: TrackingWrapper,
+  tracking: React.memo(TrackingHomeScreen),
   "parent-platform": React.memo(ParentPlatformScreen),
   more: React.memo(MoreScreen),
 };

@@ -127,6 +127,20 @@ function resolveApiBaseUrl(): string {
   return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
 }
 
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 10_000,
+) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 /**
  * Attempt to exchange a refresh token for a new access token.
  * Updates SecureStore and Redux on success.
@@ -141,7 +155,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 
     try {
       const apiBaseUrl = resolveApiBaseUrl();
-      const response = await fetch(`${apiBaseUrl}/auth/refresh`, {
+      const response = await fetchWithTimeout(`${apiBaseUrl}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken: storedRefresh }),

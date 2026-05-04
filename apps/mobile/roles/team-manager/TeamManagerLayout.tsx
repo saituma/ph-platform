@@ -3,15 +3,13 @@ import { useAppSelector } from "@/store/hooks";
 import { SwipeableTabLayout } from "@/components/navigation";
 import { useUnreadMessaging } from "@/hooks/navigation/useUnreadMessaging";
 import ScheduleScreen from "@/app/(tabs)/schedule";
-import TrackingLayout from "@/app/(tabs)/tracking/_layout";
+import TrackingHomeScreen from "@/app/(tabs)/tracking";
 import TeamMessagesScreen from "@/roles/team/screens/Messages";
 import { useBaseLayoutLogic } from "../shared/useBaseLayoutLogic";
 import { TEAM_MANAGER_TAB_ROUTES } from "./tabs";
 import TeamManagerHomeScreen from "./screens/Home";
 import TeamManagerManageScreen from "./screens/Manage";
 import TeamManagerProfileScreen from "./screens/Profile";
-
-const TrackingWrapper = React.memo(() => <TrackingLayout />);
 
 export function TeamManagerLayout() {
   const { token, profile, capabilities } = useAppSelector((state) => state.user);
@@ -34,7 +32,7 @@ export function TeamManagerLayout() {
       "manager-manage": React.memo(TeamManagerManageScreen),
       messages: React.memo(TeamMessagesScreen),
       schedule: React.memo(ScheduleScreen),
-      tracking: TrackingWrapper,
+      tracking: React.memo(TrackingHomeScreen),
       "manager-profile": React.memo(TeamManagerProfileScreen),
     }),
     [],

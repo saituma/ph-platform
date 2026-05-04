@@ -24,7 +24,7 @@ import {
   safeNumber,
   categoryLabel,
 } from "@/lib/admin-messages-utils";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/legacy-card";
 import { SmallAction } from "../AdminShared";
 import { useAdminGroups } from "@/hooks/admin/useAdminGroups";
 import { useAdminTeams } from "@/hooks/admin/useAdminTeams";

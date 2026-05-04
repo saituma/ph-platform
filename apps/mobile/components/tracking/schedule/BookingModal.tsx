@@ -1,20 +1,19 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
+  Keyboard,
   Platform,
   Pressable,
+  ScrollView,
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { BottomSheet } from "heroui-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 import { Text } from "@/components/ScaledText";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ServiceType } from "./types";
-import { normalizeBookingCalendarDay } from "./utils";
 import { apiRequest } from "@/lib/api";
 import { useRouter } from "expo-router";
 
@@ -45,6 +44,8 @@ export function BookingModal({
   const insets = useAppSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
 
+  const snapPoints = useMemo(() => ["62%", "90%"], []);
+
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(
     null,
   );
@@ -74,7 +75,6 @@ export function BookingModal({
   const locationLabel = selectedService?.defaultLocation?.trim() || tbd;
   const meetingLinkLabel = selectedService?.defaultMeetingLink?.trim() || tbd;
 
-  const overlayColor = isDark ? "rgba(34,197,94,0.16)" : "rgba(15,23,42,0.18)";
   const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
   const mutedSurface = isDark
     ? "rgba(255,255,255,0.05)"
@@ -84,6 +84,8 @@ export function BookingModal({
     : "rgba(34,197,94,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
   const errorColor = isDark ? "#FCA5A5" : colors.danger;
+  const cardBg = isDark ? "rgba(36,34,29,0.98)" : "rgba(255,255,255,0.98)";
+  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.10)";
 
   useEffect(() => {
     if (!visible) {
@@ -92,8 +94,11 @@ export function BookingModal({
       setConfirmedStartsAt(null);
       setNotes("");
       hasUserSelectedService.current = false;
-      return;
     }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
     if (!activeServices.length) {
       setSelectedServiceId(null);
       return;
@@ -107,6 +112,16 @@ export function BookingModal({
       setSelectedServiceId(next.id);
     }
   }, [visible, activeServices, selectedServiceId, initialServiceId]);
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        Keyboard.dismiss();
+        onClose();
+      }
+    },
+    [onClose],
+  );
 
   const notifyBookingConfirmed = useCallback(async (startsAt?: Date | null) => {
     try {
@@ -153,7 +168,7 @@ export function BookingModal({
     if (selectedService.isLocked) {
       setBookingError(
         selectedService.lockReason ||
-          "This session type isn’t available for your account.",
+          "This session type isn't available for your account.",
       );
       return;
     }
@@ -207,299 +222,290 @@ export function BookingModal({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        className="flex-1 justify-end"
-        style={{ backgroundColor: overlayColor }}
-        onPress={onClose}
-      >
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
-          className="rounded-t-[30px] p-6"
-          style={{ backgroundColor: surfaceColor, maxHeight: "85%" }}
+    <BottomSheet isOpen={visible} onOpenChange={handleOpenChange}>
+      <BottomSheet.Portal>
+        <BottomSheet.Overlay className="bg-black/45" />
+        <BottomSheet.Content
+          snapPoints={snapPoints}
+          enablePanDownToClose
+          backgroundStyle={{
+            backgroundColor: cardBg,
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            borderWidth: 1,
+            borderColor: cardBorder,
+          }}
+          handleIndicatorStyle={{
+            backgroundColor: isDark ? "rgba(255,255,255,0.30)" : "rgba(15,23,42,0.22)",
+            width: 44,
+          }}
         >
-          <KeyboardAwareScrollView
-            showsVerticalScrollIndicator={false}
-            enableOnAndroid
-            extraHeight={Platform.OS === "ios" ? 120 : 160}
-            extraScrollHeight={Platform.OS === "ios" ? 40 : 96}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            contentContainerStyle={{
-              paddingBottom: Math.max(insets.bottom, 12) + 24 + 56,
-            }}
-          >
-            <View className="flex-row items-center justify-between">
-              <Text className="text-lg font-clash text-app">
-                {bookingConfirmed ? "Request sent" : "Request a session"}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: Math.max(insets.bottom, 12) + 24 + 56,
+        }}
+      >
+        <View
+          style={{
+            paddingTop: 14,
+            paddingHorizontal: 20,
+            paddingBottom: 26,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Text className="text-lg font-clash text-app">
+              {bookingConfirmed ? "Request sent" : "Request a session"}
+            </Text>
+            <Pressable onPress={onClose}>
+              <Feather name="x" size={20} className="text-secondary" />
+            </Pressable>
+          </View>
+
+          {!bookingConfirmed && !canCreateBookings ? (
+            <View
+              className="mt-3 rounded-[22px] border px-4 py-3 gap-2"
+              style={{
+                borderColor: borderSoft,
+                backgroundColor: accentSurface,
+              }}
+            >
+              <Text className="text-xs font-outfit text-app leading-5">
+                Pick a service, date, and time below. Booking requests need the right access level for your account.
               </Text>
-              <Pressable onPress={onClose}>
-                <Feather name="x" size={20} className="text-secondary" />
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  router.push("/(tabs)/programs");
+                }}
+                className="self-start"
+              >
+                <Text
+                  className="text-xs font-outfit font-semibold"
+                  style={{ color: colors.accent }}
+                >
+                  Open training →
+                </Text>
               </Pressable>
             </View>
+          ) : null}
 
-            {!bookingConfirmed && !canCreateBookings ? (
+          {bookingConfirmed ? (
+            <>
+              <Text className="text-sm font-outfit text-secondary mt-2">
+                {confirmedStartsAt
+                  ? `We sent your request for ${confirmedStartsAt.toLocaleDateString(
+                      [],
+                      {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      },
+                    )} at ${confirmedStartsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
+                  : "Your session request was sent."}
+              </Text>
               <View
-                className="mt-3 rounded-[22px] border px-4 py-3 gap-2"
+                className="mt-4 rounded-[22px] border p-4"
                 style={{
+                  backgroundColor: mutedSurface,
                   borderColor: borderSoft,
-                  backgroundColor: accentSurface,
                 }}
               >
-                <Text className="text-xs font-outfit text-app leading-5">
-                  Pick a service, date, and time below. Booking requests need the right access level for your account.
+                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                  Awaiting coach approval
                 </Text>
-                <Pressable
-                  onPress={() => {
-                    onClose();
-                    router.push("/(tabs)/programs");
-                  }}
-                  className="self-start"
-                >
-                  <Text
-                    className="text-xs font-outfit font-semibold"
-                    style={{ color: colors.accent }}
-                  >
-                    Open training →
-                  </Text>
-                </Pressable>
+                <Text className="text-sm font-outfit text-app mt-2">
+                  You&apos;ll see it on the calendar when it&apos;s confirmed.
+                  Check your email for a copy.
+                </Text>
+                <Text className="text-xs font-outfit text-secondary mt-3">
+                  Location: {locationLabel}
+                </Text>
+                <Text className="text-xs font-outfit text-secondary mt-1">
+                  Meeting link: {meetingLinkLabel}
+                </Text>
               </View>
-            ) : null}
-
-            {bookingConfirmed ? (
-              <>
-                <Text className="text-sm font-outfit text-secondary mt-2">
-                  {confirmedStartsAt
-                    ? `We sent your request for ${confirmedStartsAt.toLocaleDateString(
-                        [],
-                        {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        },
-                      )} at ${confirmedStartsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
-                    : "Your session request was sent."}
+              <Pressable
+                onPress={onClose}
+                className="mt-4 px-4 py-3 rounded-full bg-accent"
+              >
+                <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
+                  Done
                 </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text className="text-sm font-outfit text-secondary mt-2">
+                Choose the session type, then pick any day and time that works
+                for you. Nothing is final until the coach approves.
+              </Text>
+
+              {servicesLoading && (
+                <Text className="text-xs font-outfit text-secondary mt-3">
+                  Loading services...
+                </Text>
+              )}
+              {servicesError && (
+                <Text
+                  className="text-xs font-outfit mt-3"
+                  style={{ color: errorColor }}
+                >
+                  {servicesError}
+                </Text>
+              )}
+
+              {activeServices.length === 0 ? (
                 <View
-                  className="mt-4 rounded-[22px] border p-4"
+                  className="mt-4 rounded-[22px] border border-dashed p-4"
                   style={{
-                    backgroundColor: mutedSurface,
                     borderColor: borderSoft,
+                    backgroundColor: mutedSurface,
                   }}
                 >
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Awaiting coach approval
-                  </Text>
-                  <Text className="text-sm font-outfit text-app mt-2">
-                    You&apos;ll see it on the calendar when it&apos;s confirmed.
-                    Check your email for a copy.
-                  </Text>
-                  <Text className="text-xs font-outfit text-secondary mt-3">
-                    Location: {locationLabel}
-                  </Text>
-                  <Text className="text-xs font-outfit text-secondary mt-1">
-                    Meeting link: {meetingLinkLabel}
+                  <Text className="text-sm font-outfit text-secondary">
+                    No booking types are available right now.
                   </Text>
                 </View>
-                <Pressable
-                  onPress={onClose}
-                  className="mt-4 px-4 py-3 rounded-full bg-accent"
-                >
-                  <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
-                    Done
-                  </Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <Text className="text-sm font-outfit text-secondary mt-2">
-                  Choose the session type, then pick any day and time that works
-                  for you. Nothing is final until the coach approves.
-                </Text>
-
-                {servicesLoading && (
-                  <Text className="text-xs font-outfit text-secondary mt-3">
-                    Loading services...
-                  </Text>
-                )}
-                {servicesError && (
-                  <Text
-                    className="text-xs font-outfit mt-3"
-                    style={{ color: errorColor }}
-                  >
-                    {servicesError}
-                  </Text>
-                )}
-
-                {activeServices.length === 0 ? (
-                  <View
-                    className="mt-4 rounded-[22px] border border-dashed p-4"
-                    style={{
-                      borderColor: borderSoft,
-                      backgroundColor: mutedSurface,
-                    }}
-                  >
-                    <Text className="text-sm font-outfit text-secondary">
-                      No booking types are available right now.
-                    </Text>
-                  </View>
-                ) : (
-                  <View className="mt-4 flex-row flex-wrap gap-2">
-                    {activeServices.map((item) => {
-                      const active = selectedServiceId === item.id;
-                      const locked = item.isLocked === true;
-                      return (
-                        <Pressable
-                          key={item.id}
-                          onPress={() => {
-                            hasUserSelectedService.current = true;
-                            if (item.id) {
-                              setSelectedServiceId(item.id);
-                            }
-                          }}
-                          className="px-4 py-2 rounded-full border"
-                          style={{
-                            backgroundColor: active
-                              ? colors.accent
-                              : mutedSurface,
-                            borderColor: active ? colors.accent : borderSoft,
-                            opacity: locked && !active ? 0.6 : 1,
-                          }}
-                        >
-                          <Text
-                            className={`text-xs font-outfit uppercase tracking-[1.4px] ${
-                              active ? "text-white" : "text-secondary"
-                            }`}
-                          >
-                            {item.name}
-                            {locked ? " · LOCKED" : ""}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
-
-                {selectedService?.isLocked ? (
-                  <View
-                    className="mt-4 rounded-[22px] border px-4 py-3 gap-2"
-                    style={{
-                      borderColor: borderSoft,
-                      backgroundColor: accentSurface,
-                    }}
-                  >
-                    <Text className="text-xs font-outfit text-app leading-5">
-                      {selectedService.lockReason ||
-                        "This session type isn’t available for your account."}
-                    </Text>
-                    <Pressable
-                      onPress={() => {
-                        onClose();
-                        router.push("/(tabs)/programs");
-                      }}
-                      className="self-start"
-                    >
-                      <Text
-                        className="text-xs font-outfit font-semibold"
-                        style={{ color: colors.accent }}
+              ) : (
+                <View className="mt-4 flex-row flex-wrap gap-2">
+                  {activeServices.map((item) => {
+                    const active = selectedServiceId === item.id;
+                    const locked = item.isLocked === true;
+                    return (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => {
+                          hasUserSelectedService.current = true;
+                          if (item.id) {
+                            setSelectedServiceId(item.id);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-full border"
+                        style={{
+                          backgroundColor: active
+                            ? colors.accent
+                            : mutedSurface,
+                          borderColor: active ? colors.accent : borderSoft,
+                          opacity: locked && !active ? 0.6 : 1,
+                        }}
                       >
-                        Open training →
-                      </Text>
-                    </Pressable>
-                  </View>
-                ) : null}
+                        <Text
+                          className={`text-xs font-outfit uppercase tracking-[1.4px] ${
+                            active ? "text-white" : "text-secondary"
+                          }`}
+                        >
+                          {item.name}
+                          {locked ? " · LOCKED" : ""}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
 
-                {selectedService?.description?.trim() ? (
-                  <Text className="text-sm font-outfit text-secondary mt-3">
-                    {selectedService.description.trim()}
+              {selectedService?.isLocked ? (
+                <View
+                  className="mt-4 rounded-[22px] border px-4 py-3 gap-2"
+                  style={{
+                    borderColor: borderSoft,
+                    backgroundColor: accentSurface,
+                  }}
+                >
+                  <Text className="text-xs font-outfit text-app leading-5">
+                    {selectedService.lockReason ||
+                      "This session type isn't available for your account."}
                   </Text>
-                ) : null}
+                  <Pressable
+                    onPress={() => {
+                      onClose();
+                      router.push("/(tabs)/programs");
+                    }}
+                    className="self-start"
+                  >
+                    <Text
+                      className="text-xs font-outfit font-semibold"
+                      style={{ color: colors.accent }}
+                    >
+                      Open training →
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
 
-                {selectedService &&
-                  (() => {
-                    const total = selectedService.totalSlots;
-                    const remT = selectedService.remainingTotalSlots;
-                    if (total != null && remT != null) {
-                      const full = remT <= 0;
-                      return (
-                        <View
-                          className="mt-3 rounded-[22px] border px-4 py-3"
-                          style={{
-                            borderColor: full ? errorColor : borderSoft,
-                            backgroundColor: full
-                              ? isDark
-                                ? "rgba(248,113,113,0.12)"
-                                : "rgba(248,113,113,0.08)"
-                              : mutedSurface,
-                          }}
+              {selectedService?.description?.trim() ? (
+                <Text className="text-sm font-outfit text-secondary mt-3">
+                  {selectedService.description.trim()}
+                </Text>
+              ) : null}
+
+              {selectedService &&
+                (() => {
+                  const total = selectedService.totalSlots;
+                  const remT = selectedService.remainingTotalSlots;
+                  if (total != null && remT != null) {
+                    const full = remT <= 0;
+                    return (
+                      <View
+                        className="mt-3 rounded-[22px] border px-4 py-3"
+                        style={{
+                          borderColor: full ? errorColor : borderSoft,
+                          backgroundColor: full
+                            ? isDark
+                              ? "rgba(248,113,113,0.12)"
+                              : "rgba(248,113,113,0.08)"
+                            : mutedSurface,
+                        }}
+                      >
+                        <Text
+                          className="text-xs font-outfit font-semibold uppercase tracking-[1.2px]"
+                          style={{ color: full ? errorColor : colors.accent }}
                         >
-                          <Text
-                            className="text-xs font-outfit font-semibold uppercase tracking-[1.2px]"
-                            style={{ color: full ? errorColor : colors.accent }}
-                          >
-                            Slots
-                          </Text>
-                          <Text className="text-sm font-outfit text-app mt-1 leading-5">
-                            {full
-                              ? "No booking slots left for this service."
-                              : `${remT} of ${total} booking slot${total === 1 ? "" : "s"} left`}
-                          </Text>
-                        </View>
-                      );
-                    }
-                    const cap = selectedService.capacity;
-                    const rem = selectedService.remainingCapacity;
-                    if (cap != null && rem != null) {
-                      return (
-                        <View
-                          className="mt-3 rounded-[22px] border px-4 py-3"
-                          style={{
-                            borderColor: isSlotFull ? errorColor : borderSoft,
-                            backgroundColor: isSlotFull
-                              ? isDark
-                                ? "rgba(248,113,113,0.12)"
-                                : "rgba(248,113,113,0.08)"
-                              : mutedSurface,
-                          }}
+                          Slots
+                        </Text>
+                        <Text className="text-sm font-outfit text-app mt-1 leading-5">
+                          {full
+                            ? "No booking slots left for this service."
+                            : `${remT} of ${total} booking slot${total === 1 ? "" : "s"} left`}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  const cap = selectedService.capacity;
+                  const rem = selectedService.remainingCapacity;
+                  if (cap != null && rem != null) {
+                    return (
+                      <View
+                        className="mt-3 rounded-[22px] border px-4 py-3"
+                        style={{
+                          borderColor: isSlotFull ? errorColor : borderSoft,
+                          backgroundColor: isSlotFull
+                            ? isDark
+                              ? "rgba(248,113,113,0.12)"
+                              : "rgba(248,113,113,0.08)"
+                            : mutedSurface,
+                        }}
+                      >
+                        <Text
+                          className="text-xs font-outfit font-semibold uppercase tracking-[1.2px]"
+                          style={{ color: isSlotFull ? errorColor : colors.accent }}
                         >
-                          <Text
-                            className="text-xs font-outfit font-semibold uppercase tracking-[1.2px]"
-                            style={{ color: isSlotFull ? errorColor : colors.accent }}
-                          >
-                            Availability
-                          </Text>
-                          <Text className="text-sm font-outfit text-app mt-1 leading-5">
-                            {isSlotFull
-                              ? "No spots left for this session."
-                              : `${rem} of ${cap} spot${cap === 1 ? "" : "s"} open`}
-                          </Text>
-                        </View>
-                      );
-                    }
-                    if (cap != null && rem == null) {
-                      return (
-                        <View
-                          className="mt-3 rounded-[22px] border px-4 py-3"
-                          style={{
-                            borderColor: borderSoft,
-                            backgroundColor: mutedSurface,
-                          }}
-                        >
-                          <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                            Group size
-                          </Text>
-                          <Text className="text-sm font-outfit text-app mt-1 leading-5">
-                            Up to {cap} athlete{cap === 1 ? "" : "s"} per session — pick a
-                            date to see openings.
-                          </Text>
-                        </View>
-                      );
-                    }
+                          Availability
+                        </Text>
+                        <Text className="text-sm font-outfit text-app mt-1 leading-5">
+                          {isSlotFull
+                            ? "No spots left for this session."
+                            : `${rem} of ${cap} spot${cap === 1 ? "" : "s"} open`}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  if (cap != null && rem == null) {
                     return (
                       <View
                         className="mt-3 rounded-[22px] border px-4 py-3"
@@ -509,178 +515,197 @@ export function BookingModal({
                         }}
                       >
                         <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                          Scheduling
+                          Group size
                         </Text>
                         <Text className="text-sm font-outfit text-app mt-1 leading-5">
-                          You&apos;re requesting this session type — your coach confirms date, time, and
-                          availability after you send the request.
+                          Up to {cap} athlete{cap === 1 ? "" : "s"} per session — pick a
+                          date to see openings.
                         </Text>
                       </View>
                     );
-                  })()}
+                  }
+                  return (
+                    <View
+                      className="mt-3 rounded-[22px] border px-4 py-3"
+                      style={{
+                        borderColor: borderSoft,
+                        backgroundColor: mutedSurface,
+                      }}
+                    >
+                      <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                        Scheduling
+                      </Text>
+                      <Text className="text-sm font-outfit text-app mt-1 leading-5">
+                        You&apos;re requesting this session type — your coach confirms date, time, and
+                        availability after you send the request.
+                      </Text>
+                    </View>
+                  );
+                })()}
 
-                {selectedService && selectedService.oneTimeDate ? (
-                  <View
-                    className="mt-4 rounded-2xl border px-3 py-3"
-                    style={{
-                      borderColor: colors.accent,
-                      backgroundColor: accentSurface,
-                    }}
+              {selectedService && selectedService.oneTimeDate ? (
+                <View
+                  className="mt-4 rounded-2xl border px-3 py-3"
+                  style={{
+                    borderColor: colors.accent,
+                    backgroundColor: accentSurface,
+                  }}
+                >
+                  <Text
+                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
+                    style={{ color: colors.accent }}
                   >
-                    <Text
-                      className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
-                      style={{ color: colors.accent }}
-                    >
-                      Scheduled for
-                    </Text>
-                    <Text className="text-sm font-outfit text-app font-semibold mt-1">
-                      {new Date(
-                        `${selectedService.oneTimeDate}T12:00:00`,
-                      ).toLocaleDateString([], {
-                        weekday: "long",
-                        month: "short",
-                        day: "numeric",
-                      })}{" "}
-                      · {selectedService.oneTimeTime}
-                    </Text>
-                  </View>
-                ) : null}
-
-                <View
-                  className="mt-4 rounded-[22px] border p-4"
-                  style={{
-                    backgroundColor: mutedSurface,
-                    borderColor: borderSoft,
-                  }}
-                >
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Location & link
+                    Scheduled for
                   </Text>
-                  <View className="mt-3 gap-2">
-                    <View
-                      className="rounded-2xl border px-3 py-2"
-                      style={{
-                        backgroundColor: surfaceColor,
-                        borderColor: borderSoft,
-                      }}
-                    >
-                      <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Location
-                      </Text>
-                      <Text className="text-sm font-outfit text-app mt-1">
-                        {locationLabel}
-                      </Text>
-                    </View>
-                    <View
-                      className="rounded-2xl border px-3 py-2"
-                      style={{
-                        backgroundColor: surfaceColor,
-                        borderColor: borderSoft,
-                      }}
-                    >
-                      <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Meeting link
-                      </Text>
-                      <Text className="text-sm font-outfit text-app mt-1">
-                        {meetingLinkLabel}
-                      </Text>
-                    </View>
-                  </View>
+                  <Text className="text-sm font-outfit text-app font-semibold mt-1">
+                    {new Date(
+                      `${selectedService.oneTimeDate}T12:00:00`,
+                    ).toLocaleDateString([], {
+                      weekday: "long",
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    · {selectedService.oneTimeTime}
+                  </Text>
                 </View>
+              ) : null}
 
-                <View
-                  className="mt-4 rounded-[22px] border p-4"
-                  style={{
-                    backgroundColor: mutedSurface,
-                    borderColor: borderSoft,
-                  }}
-                >
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                    Notes (optional)
-                  </Text>
+              <View
+                className="mt-4 rounded-[22px] border p-4"
+                style={{
+                  backgroundColor: mutedSurface,
+                  borderColor: borderSoft,
+                }}
+              >
+                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                  Location & link
+                </Text>
+                <View className="mt-3 gap-2">
                   <View
-                    className="mt-3 rounded-2xl border px-3 py-2"
+                    className="rounded-2xl border px-3 py-2"
                     style={{
                       backgroundColor: surfaceColor,
                       borderColor: borderSoft,
                     }}
                   >
-                    <TextInput
-                      value={notes}
-                      onChangeText={setNotes}
-                      placeholder="Anything you'd like your coach to know?"
-                      placeholderTextColor={
-                        isDark
-                          ? "rgba(255,255,255,0.35)"
-                          : "rgba(15,23,42,0.35)"
-                      }
-                      multiline
-                      textAlignVertical="top"
-                      style={{
-                        minHeight: 72,
-                        color: isDark ? "#FFFFFF" : "#0F172A",
-                        fontFamily: Platform.select({
-                          ios: "System",
-                          android: "sans-serif",
-                        }),
-                        fontSize: 14,
-                      }}
-                    />
+                    <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
+                      Location
+                    </Text>
+                    <Text className="text-sm font-outfit text-app mt-1">
+                      {locationLabel}
+                    </Text>
+                  </View>
+                  <View
+                    className="rounded-2xl border px-3 py-2"
+                    style={{
+                      backgroundColor: surfaceColor,
+                      borderColor: borderSoft,
+                    }}
+                  >
+                    <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
+                      Meeting link
+                    </Text>
+                    <Text className="text-sm font-outfit text-app mt-1">
+                      {meetingLinkLabel}
+                    </Text>
                   </View>
                 </View>
+              </View>
 
-                <Pressable
-                  onPress={handleSubmit}
-                  disabled={
-                    !selectedService ||
-                    isSubmitting ||
-                    !canCreateBookings ||
-                    selectedService?.isLocked === true ||
-                    isSlotFull
-                  }
-                  className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
-                    selectedService &&
-                    canCreateBookings &&
-                    !selectedService?.isLocked &&
-                    !isSlotFull
-                      ? "bg-accent"
-                      : "bg-secondary/20"
+              <View
+                className="mt-4 rounded-[22px] border p-4"
+                style={{
+                  backgroundColor: mutedSurface,
+                  borderColor: borderSoft,
+                }}
+              >
+                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                  Notes (optional)
+                </Text>
+                <View
+                  className="mt-3 rounded-2xl border px-3 py-2"
+                  style={{
+                    backgroundColor: surfaceColor,
+                    borderColor: borderSoft,
+                  }}
+                >
+                  <TextInput
+                    value={notes}
+                    onChangeText={setNotes}
+                    placeholder="Anything you'd like your coach to know?"
+                    placeholderTextColor={
+                      isDark
+                        ? "rgba(255,255,255,0.35)"
+                        : "rgba(15,23,42,0.35)"
+                    }
+                    multiline
+                    textAlignVertical="top"
+                    style={{
+                      minHeight: 72,
+                      color: isDark ? "#FFFFFF" : "#0F172A",
+                      fontFamily: Platform.select({
+                        ios: "System",
+                        android: "sans-serif",
+                      }),
+                      fontSize: 14,
+                    }}
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                onPress={handleSubmit}
+                disabled={
+                  !selectedService ||
+                  isSubmitting ||
+                  !canCreateBookings ||
+                  selectedService?.isLocked === true ||
+                  isSlotFull
+                }
+                className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
+                  selectedService &&
+                  canCreateBookings &&
+                  !selectedService?.isLocked &&
+                  !isSlotFull
+                    ? "bg-accent"
+                    : "bg-secondary/20"
+                }`}
+              >
+                {isSubmitting && (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                )}
+                <Text
+                  className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
+                    selectedService && canCreateBookings && !isSlotFull
+                      ? "text-white"
+                      : "text-secondary"
                   }`}
                 >
-                  {isSubmitting && (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  )}
-                  <Text
-                    className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
-                      selectedService && canCreateBookings && !isSlotFull
-                        ? "text-white"
-                        : "text-secondary"
-                    }`}
-                  >
-                    {isSubmitting
-                      ? "Sending..."
-                      : selectedService?.isLocked
-                        ? "Locked"
-                        : isSlotFull
-                          ? "Slot Full"
-                          : !canCreateBookings
-                            ? "Access required"
-                            : "Send request"}
-                  </Text>
-                </Pressable>
-                {bookingError && (
-                  <Text
-                    className="text-xs font-outfit mt-3"
-                    style={{ color: errorColor }}
-                  >
-                    {bookingError}
-                  </Text>
-                )}
-              </>
-            )}
-          </KeyboardAwareScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+                  {isSubmitting
+                    ? "Sending..."
+                    : selectedService?.isLocked
+                      ? "Locked"
+                      : isSlotFull
+                        ? "Slot Full"
+                        : !canCreateBookings
+                          ? "Access required"
+                          : "Send request"}
+                </Text>
+              </Pressable>
+              {bookingError && (
+                <Text
+                  className="text-xs font-outfit mt-3"
+                  style={{ color: errorColor }}
+                >
+                  {bookingError}
+                </Text>
+              )}
+            </>
+          )}
+        </View>
+      </ScrollView>
+        </BottomSheet.Content>
+      </BottomSheet.Portal>
+    </BottomSheet>
   );
 }

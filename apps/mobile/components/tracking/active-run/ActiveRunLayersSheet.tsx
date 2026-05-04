@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -119,6 +119,7 @@ export function ActiveRunLayersSheet({
               />
             </View>
 
+            {Platform.OS !== "android" && (
             <View style={{ marginTop: 34 }}>
               <SectionTitle title="Layers" colors={colors} />
               <View style={{ flexDirection: "row", gap: 16, marginTop: 18 }}>
@@ -132,6 +133,7 @@ export function ActiveRunLayersSheet({
                 />
               </View>
             </View>
+            )}
           </View>
         </BottomSheetScrollView>
       ) : (

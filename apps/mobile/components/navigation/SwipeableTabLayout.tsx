@@ -233,7 +233,6 @@ export function SwipeableTabLayout({
               <NavigationRouteContext.Provider value={routeContext}>
                 {shouldRenderChild ? (
                   <ActiveTabProvider
-                    activeTabIndex={index}
                     currentTabIndex={index}
                   >
                     {child}

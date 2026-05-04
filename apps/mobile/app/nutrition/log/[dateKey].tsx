@@ -7,7 +7,7 @@ import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { TouchableOpacity, View } from "react-native";
-import { SkeletonNutritionLogScreen } from "@/components/ui/Skeleton";
+import { SkeletonNutritionLogScreen } from "@/components/ui/legacy-skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 

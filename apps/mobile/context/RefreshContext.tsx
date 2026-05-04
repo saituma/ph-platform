@@ -10,15 +10,19 @@ import React, {
 
 type RefreshHandler = () => Promise<void> | void;
 
-interface RefreshContextType {
+interface RefreshHandlerContextType {
   registerHandler: (handler: RefreshHandler) => void;
   unregisterHandler: (handler: RefreshHandler) => void;
   refreshHandler: RefreshHandler | null;
+}
+
+interface RefreshLoadingContextType {
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
 }
 
-const RefreshContext = createContext<RefreshContextType | undefined>(undefined);
+const RefreshHandlerContext = createContext<RefreshHandlerContextType | undefined>(undefined);
+const RefreshLoadingContext = createContext<RefreshLoadingContextType | undefined>(undefined);
 
 export function RefreshProvider({ children }: { children: React.ReactNode }) {
   const [refreshHandler, setRefreshHandler] = useState<RefreshHandler | null>(
@@ -38,28 +42,32 @@ export function RefreshProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(loading);
   }, []);
 
-  const value = useMemo(
-    () => ({
-      registerHandler,
-      unregisterHandler,
-      refreshHandler,
-      isLoading,
-      setIsLoading: setIsLoadingCb,
-    }),
-    [registerHandler, unregisterHandler, refreshHandler, isLoading, setIsLoadingCb],
+  const handlerValue = useMemo(
+    () => ({ registerHandler, unregisterHandler, refreshHandler }),
+    [registerHandler, unregisterHandler, refreshHandler],
+  );
+
+  const loadingValue = useMemo(
+    () => ({ isLoading, setIsLoading: setIsLoadingCb }),
+    [isLoading, setIsLoadingCb],
   );
 
   return (
-    <RefreshContext.Provider value={value}>{children}</RefreshContext.Provider>
+    <RefreshHandlerContext.Provider value={handlerValue}>
+      <RefreshLoadingContext.Provider value={loadingValue}>
+        {children}
+      </RefreshLoadingContext.Provider>
+    </RefreshHandlerContext.Provider>
   );
 }
 
 export function useRefreshContext() {
-  const context = useContext(RefreshContext);
-  if (!context) {
+  const handler = useContext(RefreshHandlerContext);
+  const loading = useContext(RefreshLoadingContext);
+  if (!handler || !loading) {
     throw new Error("useRefreshContext must be used within a RefreshProvider");
   }
-  return context;
+  return { ...handler, ...loading };
 }
 
 /**

@@ -45,15 +45,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 	const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
 	const { isSectionHidden } = useAgeExperience();
 
-	const {
-		sortedThreads,
-		typingStatus,
-		isLoading,
-		openingThreadId,
-		openThread,
-		loadMessages,
-		resetOpeningThread,
-	} = useMessagesController();
 	const router = useSafeRouter();
 	const pathname = useSafePathname("");
 	const activeTabIndex = useActiveTabIndex();
@@ -66,6 +57,15 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 	const isMessagesRoute =
 		pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
 	const isMessagesSurface = isOnMessagesTab || isMessagesRoute;
+	const {
+		sortedThreads,
+		typingStatus,
+		isLoading,
+		openingThreadId,
+		openThread,
+		loadMessages,
+		resetOpeningThread,
+	} = useMessagesController({ enabled: isMessagesSurface });
 
 	const unreadCount = React.useMemo(
 		() =>
@@ -105,7 +105,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 	}, [inboxFilter, mode, sortedThreads]);
 
 	React.useEffect(() => {
-		if (!token) {
+		if (!isMessagesSurface || !token) {
 			setAnnouncementsLoading(false);
 			setAnnouncementsMeta(null);
 			return;
@@ -165,7 +165,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 		return () => {
 			active = false;
 		};
-	}, [athleteUserId, token]);
+	}, [athleteUserId, isMessagesSurface, token]);
 
 	React.useEffect(() => {
 		if (!isMessagesSurface) return;

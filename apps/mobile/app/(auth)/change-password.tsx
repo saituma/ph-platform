@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, View, Alert } from "react-native";
+import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -9,6 +9,7 @@ import { apiRequest } from "@/lib/api";
 import { getFriendlyAuthErrorMessage } from "@/lib/auth-error-message";
 import { useAppSelector } from "@/store/hooks";
 import { Text, TextInput } from "@/components/ScaledText";
+import { useAppToast } from "@/hooks/useAppToast";
 
 export default function ChangePasswordScreen() {
   const [oldPassword, setOldPassword] = useState("");
@@ -23,6 +24,7 @@ export default function ChangePasswordScreen() {
   const router = useRouter();
   const { colors } = useAppTheme();
   const { token } = useAppSelector((state) => state.user);
+  const toast = useAppToast();
 
   const handleSubmit = async () => {
     setFormError(null);
@@ -50,9 +52,8 @@ export default function ChangePasswordScreen() {
         token,
         body: { oldPassword, newPassword },
       });
-      Alert.alert("Success", "Your password has been changed successfully.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      toast.success("Success", "Your password has been changed successfully.");
+      setTimeout(() => router.back(), 600);
     } catch (err: any) {
       setFormError(getFriendlyAuthErrorMessage(err, "change-password"));
     } finally {

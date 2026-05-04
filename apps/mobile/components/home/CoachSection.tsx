@@ -12,7 +12,7 @@ type CoachSectionProps = {
   introVideoUrl?: string | null;
 };
 
-export function CoachSection({
+export const CoachSection = React.memo(function CoachSection({
   headline,
   description,
   heroImageUrl,
@@ -96,4 +96,4 @@ export function CoachSection({
       </View>
     </View>
   );
-}
+});

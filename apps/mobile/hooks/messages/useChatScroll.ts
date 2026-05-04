@@ -48,10 +48,9 @@ export function useChatScroll(messages: ChatMessage[], threadId: string) {
 
   const jumpTo = useCallback(
     (messageId: number) => {
-      const index = [...messages]
-        .reverse()
-        .findIndex((m) => Number(m.id) === messageId);
-      if (index < 0) return;
+      const chronoIndex = messages.findIndex((m) => Number(m.id) === messageId);
+      if (chronoIndex < 0) return;
+      const index = messages.length - 1 - chronoIndex;
       listRef.current?.scrollToIndex({
         index,
         animated: true,

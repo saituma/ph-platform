@@ -1,18 +1,11 @@
 import React, { useMemo, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
-import BottomSheet, {
-  BottomSheetBackdrop,
-  BottomSheetScrollView,
-} from "@gorhom/bottom-sheet";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { BottomSheet } from "heroui-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { Text } from "@/components/ScaledText";
 import { fonts } from "@/constants/theme";
-
-// ─────────────────────────────────────────────
-// Sports data
-// ─────────────────────────────────────────────
 
 export type SportId =
   | "run"
@@ -66,13 +59,9 @@ const SPORT_CATEGORIES: { category: string; sports: Sport[] }[] = [
   },
 ];
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
-
 const SHEET_BG = "hsl(0, 0%, 11%)";
 const DIVIDER = "rgba(255,255,255,0.10)";
-const ACCENT = "#FF6600"; // replaced at runtime with colors.accent
+const ACCENT = "#FF6600";
 
 export function ActiveRunSportSheet({
   open,
@@ -87,9 +76,7 @@ export function ActiveRunSportSheet({
   onClose: () => void;
   colors: Record<string, string>;
 }) {
-  const snapPoints = useMemo(() => ["85%"] as const, []);
   const [query, setQuery] = useState("");
-
   const accent = colors.accent ?? ACCENT;
 
   const filteredCategories = useMemo(() => {
@@ -102,256 +89,242 @@ export function ActiveRunSportSheet({
   }, [query]);
 
   return (
-    <BottomSheet
-      index={open ? 0 : -1}
-      snapPoints={snapPoints as any}
-      onChange={(i) => { if (i === -1) onClose(); }}
-      enablePanDownToClose
-      enableOverDrag={false}
-      enableDynamicSizing={false}
-      backdropComponent={(props) => (
-        <BottomSheetBackdrop
-          {...props}
-          appearsOnIndex={0}
-          disappearsOnIndex={-1}
-          opacity={0.55}
-          pressBehavior="close"
-        />
-      )}
-      backgroundStyle={{
-        backgroundColor: SHEET_BG,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.08)",
-      }}
-      handleIndicatorStyle={{
-        backgroundColor: "rgba(255,255,255,0.22)",
-        width: 36,
-        height: 4,
-        borderRadius: 2,
-      }}
-    >
-      <BottomSheetScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
-        {/* ── Header ── */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 20,
-            paddingVertical: 16,
+    <BottomSheet isOpen={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <BottomSheet.Portal>
+        <BottomSheet.Overlay className="bg-black/55" />
+        <BottomSheet.Content
+          snapPoints={["85%"]}
+          enablePanDownToClose
+          backgroundStyle={{
+            backgroundColor: SHEET_BG,
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.08)",
+          }}
+          handleIndicatorStyle={{
+            backgroundColor: "rgba(255,255,255,0.22)",
+            width: 36,
+            height: 4,
+            borderRadius: 2,
           }}
         >
-          <Text
-            style={{
-              fontFamily: fonts.accentBold,
-              fontSize: 20,
-              color: "#FFF",
-              flex: 1,
-            }}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 40 }}
           >
-            Filter by Sport
-          </Text>
-          <Pressable
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onClose(); }}
-            hitSlop={12}
-          >
-            <Ionicons name="close" size={24} color="rgba(255,255,255,0.7)" />
-          </Pressable>
-        </View>
-
-        <View style={{ height: 1, backgroundColor: DIVIDER, marginHorizontal: 0 }} />
-
-        {/* ── Search ── */}
-        <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "rgba(255,255,255,0.09)",
-              borderRadius: 28,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              gap: 10,
-            }}
-          >
-            <Ionicons name="search" size={18} color="rgba(255,255,255,0.4)" />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search"
-              placeholderTextColor="rgba(255,255,255,0.35)"
-              style={{
-                flex: 1,
-                fontFamily: fonts.bodyMedium,
-                fontSize: 16,
-                color: "#FFF",
-                padding: 0,
-              }}
-            />
-          </View>
-        </View>
-
-        {/* ── Your Top Sports ── */}
-        {!query.trim() && (
-          <>
-            <Text
-              style={{
-                fontFamily: fonts.accentBold,
-                fontSize: 18,
-                color: "#FFF",
-                paddingHorizontal: 20,
-                marginBottom: 20,
-              }}
-            >
-              Your Top Sports
-            </Text>
-
             <View
               style={{
                 flexDirection: "row",
+                alignItems: "center",
                 paddingHorizontal: 20,
-                gap: 24,
-                marginBottom: 24,
+                paddingVertical: 16,
               }}
             >
-              {TOP_SPORTS.map((sport) => {
-                const selected = selectedSport === sport.id;
-                return (
-                  <Pressable
-                    key={sport.id}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      onSelect(sport.id);
-                    }}
-                    style={{ alignItems: "center", gap: 10 }}
-                  >
-                    {/* Circle */}
-                    <View style={{ position: "relative" }}>
-                      <View
-                        style={{
-                          width: 86,
-                          height: 86,
-                          borderRadius: 43,
-                          backgroundColor: selected
-                            ? "rgba(180,60,0,0.55)"
-                            : "rgba(255,255,255,0.10)",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <MaterialCommunityIcons
-                          name={sport.icon as any}
-                          size={38}
-                          color={selected ? accent : "#FFF"}
-                        />
-                      </View>
-                      {/* Badge */}
-                      {selected && (
-                        <View
-                          style={{
-                            position: "absolute",
-                            top: 2,
-                            right: 2,
-                            width: 26,
-                            height: 26,
-                            borderRadius: 13,
-                            backgroundColor: accent,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            borderWidth: 2,
-                            borderColor: SHEET_BG,
-                          }}
-                        >
-                          <Ionicons name="checkmark" size={14} color="#FFF" />
-                        </View>
-                      )}
-                    </View>
-                    <Text
-                      style={{
-                        fontFamily: fonts.bodyMedium,
-                        fontSize: 14,
-                        color: selected ? accent : "#FFF",
-                      }}
-                    >
-                      {sport.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              <Text
+                style={{
+                  fontFamily: fonts.accentBold,
+                  fontSize: 20,
+                  color: "#FFF",
+                  flex: 1,
+                }}
+              >
+                Filter by Sport
+              </Text>
+              <Pressable
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onClose(); }}
+                hitSlop={12}
+              >
+                <Ionicons name="close" size={24} color="rgba(255,255,255,0.7)" />
+              </Pressable>
             </View>
 
-            <View style={{ height: 1, backgroundColor: DIVIDER }} />
-          </>
-        )}
+            <View style={{ height: 1, backgroundColor: DIVIDER, marginHorizontal: 0 }} />
 
-        {/* ── Categorized list ── */}
-        {filteredCategories.map((cat) => (
-          <View key={cat.category}>
-            <Text
-              style={{
-                fontFamily: fonts.accentBold,
-                fontSize: 18,
-                color: "#FFF",
-                paddingHorizontal: 20,
-                paddingTop: 24,
-                paddingBottom: 8,
-              }}
-            >
-              {cat.category}
-            </Text>
-
-            {cat.sports.map((sport) => {
-              const selected = selectedSport === sport.id;
-              return (
-                <Pressable
-                  key={sport.id}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onSelect(sport.id);
+            <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "rgba(255,255,255,0.09)",
+                  borderRadius: 28,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  gap: 10,
+                }}
+              >
+                <Ionicons name="search" size={18} color="rgba(255,255,255,0.4)" />
+                <TextInput
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Search"
+                  placeholderTextColor="rgba(255,255,255,0.35)"
+                  style={{
+                    flex: 1,
+                    fontFamily: fonts.bodyMedium,
+                    fontSize: 16,
+                    color: "#FFF",
+                    padding: 0,
                   }}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+                />
+              </View>
+            </View>
+
+            {!query.trim() && (
+              <>
+                <Text
+                  style={{
+                    fontFamily: fonts.accentBold,
+                    fontSize: 18,
+                    color: "#FFF",
+                    paddingHorizontal: 20,
+                    marginBottom: 20,
+                  }}
                 >
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      paddingHorizontal: 20,
-                      paddingVertical: 16,
-                    }}
-                  >
-                    <View style={{ width: 36, alignItems: "center" }}>
-                      <MaterialCommunityIcons
-                        name={sport.icon as any}
-                        size={26}
-                        color={selected ? accent : "rgba(255,255,255,0.85)"}
-                      />
-                    </View>
-                    <Text
-                      style={{
-                        flex: 1,
-                        fontFamily: fonts.bodyMedium,
-                        fontSize: 17,
-                        color: selected ? accent : "#FFF",
-                        marginLeft: 14,
+                  Your Top Sports
+                </Text>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    paddingHorizontal: 20,
+                    gap: 24,
+                    marginBottom: 24,
+                  }}
+                >
+                  {TOP_SPORTS.map((sport) => {
+                    const selected = selectedSport === sport.id;
+                    return (
+                      <Pressable
+                        key={sport.id}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          onSelect(sport.id);
+                        }}
+                        style={{ alignItems: "center", gap: 10 }}
+                      >
+                        <View style={{ position: "relative" }}>
+                          <View
+                            style={{
+                              width: 86,
+                              height: 86,
+                              borderRadius: 43,
+                              backgroundColor: selected
+                                ? "rgba(180,60,0,0.55)"
+                                : "rgba(255,255,255,0.10)",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <MaterialCommunityIcons
+                              name={sport.icon as any}
+                              size={38}
+                              color={selected ? accent : "#FFF"}
+                            />
+                          </View>
+                          {selected && (
+                            <View
+                              style={{
+                                position: "absolute",
+                                top: 2,
+                                right: 2,
+                                width: 26,
+                                height: 26,
+                                borderRadius: 13,
+                                backgroundColor: accent,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderWidth: 2,
+                                borderColor: SHEET_BG,
+                              }}
+                            >
+                              <Ionicons name="checkmark" size={14} color="#FFF" />
+                            </View>
+                          )}
+                        </View>
+                        <Text
+                          style={{
+                            fontFamily: fonts.bodyMedium,
+                            fontSize: 14,
+                            color: selected ? accent : "#FFF",
+                          }}
+                        >
+                          {sport.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <View style={{ height: 1, backgroundColor: DIVIDER }} />
+              </>
+            )}
+
+            {filteredCategories.map((cat) => (
+              <View key={cat.category}>
+                <Text
+                  style={{
+                    fontFamily: fonts.accentBold,
+                    fontSize: 18,
+                    color: "#FFF",
+                    paddingHorizontal: 20,
+                    paddingTop: 24,
+                    paddingBottom: 8,
+                  }}
+                >
+                  {cat.category}
+                </Text>
+
+                {cat.sports.map((sport) => {
+                  const selected = selectedSport === sport.id;
+                  return (
+                    <Pressable
+                      key={sport.id}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        onSelect(sport.id);
                       }}
+                      style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
                     >
-                      {sport.label}
-                    </Text>
-                    {selected && (
-                      <Ionicons name="checkmark" size={22} color={accent} />
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
-      </BottomSheetScrollView>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingHorizontal: 20,
+                          paddingVertical: 16,
+                        }}
+                      >
+                        <View style={{ width: 36, alignItems: "center" }}>
+                          <MaterialCommunityIcons
+                            name={sport.icon as any}
+                            size={26}
+                            color={selected ? accent : "rgba(255,255,255,0.85)"}
+                          />
+                        </View>
+                        <Text
+                          style={{
+                            flex: 1,
+                            fontFamily: fonts.bodyMedium,
+                            fontSize: 17,
+                            color: selected ? accent : "#FFF",
+                            marginLeft: 14,
+                          }}
+                        >
+                          {sport.label}
+                        </Text>
+                        {selected && (
+                          <Ionicons name="checkmark" size={22} color={accent} />
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ))}
+          </ScrollView>
+        </BottomSheet.Content>
+      </BottomSheet.Portal>
     </BottomSheet>
   );
 }

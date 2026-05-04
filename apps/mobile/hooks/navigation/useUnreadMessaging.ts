@@ -56,7 +56,7 @@ export function useUnreadMessaging(token: string | null, enabled: boolean, userI
     let active = true;
     const task = runWhenIdle(() => {
       if (active) syncUnread();
-    });
+    }, { delayMs: 8_000 });
     // 60s instead of 30s — sockets do the heavy lifting; this is just a fallback
     // for missed events (transient disconnects).
     const timer = setInterval(() => {

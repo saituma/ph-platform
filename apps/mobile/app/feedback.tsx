@@ -8,6 +8,7 @@ import { Alert, Platform, Pressable, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text, TextInput } from "@/components/ScaledText";
+import { useAppToast } from "@/hooks/useAppToast";
 import { useAppSelector } from "@/store/hooks";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { fonts } from "@/constants/theme";
@@ -17,6 +18,7 @@ export default function FeedbackScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
+  const toast = useAppToast();
   const [feedback, setFeedback] = useState("");
   const [category, setCategory] = useState("Bug Report");
   const [isSending, setIsSending] = useState(false);
@@ -228,7 +230,7 @@ export default function FeedbackScreen() {
               const body = feedback.trim();
               if (!body || isSending) return;
               if (!token) {
-                Alert.alert("Sign in required", "Please sign in to send feedback.");
+                toast.warning("Sign in required", "Please sign in to send feedback.");
                 return;
               }
               setIsSending(true);
@@ -238,13 +240,12 @@ export default function FeedbackScreen() {
                   token,
                   body: { category, message: body },
                 });
-                Alert.alert("Thank you", "Your message was sent to the team.", [
-                  { text: "OK", onPress: () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/more")) },
-                ]);
+                toast.success("Thank you", "Your message was sent to the team.");
                 setFeedback("");
+                setTimeout(() => router.canGoBack() ? router.back() : router.replace("/(tabs)/more"), 600);
               } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : "Something went wrong. Please try again.";
-                Alert.alert("Could not send", msg);
+                toast.error("Could not send", msg);
               } finally {
                 setIsSending(false);
               }

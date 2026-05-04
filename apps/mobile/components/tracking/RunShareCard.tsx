@@ -34,7 +34,7 @@ import { useAppSelector } from "@/store/hooks";
 import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 import { createSocialPost } from "@/services/tracking/socialService";
 
-const { height: SH } = Dimensions.get("window");
+const { width: SW, height: SH } = Dimensions.get("window");
 
 type Coord = { latitude: number; longitude: number };
 type Phase = "camera" | "preview" | "map";
@@ -75,8 +75,8 @@ function projectCoords(coords: Coord[], w: number, h: number, pad = 10): Pt[] {
   }));
 }
 
-const ROUTE_W = 160;
-const ROUTE_H = 100;
+const ROUTE_W = 220;
+const ROUTE_H = 140;
 const GREEN = "#34C759";
 
 /**
@@ -148,8 +148,7 @@ export function RunShareCard({
     [appRole, authTeamMembership, managedAthletes],
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cameraRef = useRef<any>(null);
+  const cameraRef = useRef<CameraView>(null);
   // ref on the preview view — captureRef() screenshots it with stats baked in
   const previewRef = useRef<View>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -256,8 +255,13 @@ export function RunShareCard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setCapturing(true);
     try {
-      // CameraView class instance exposes takePictureAsync (not takePicture)
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.92, skipProcessing: false });
+      const cam = cameraRef.current;
+      const photo =
+        typeof cam.takePictureAsync === "function"
+          ? await cam.takePictureAsync({ quality: 0.92 })
+          : typeof cam.takePicture === "function"
+            ? await cam.takePicture({ quality: 0.92 })
+            : null;
       if (photo?.uri) {
         setPhotoUri(photo.uri);
         setPhase("preview");
@@ -527,11 +531,13 @@ export function RunShareCard({
         <View style={[styles.controls, { paddingBottom: insets.bottom + 28 }]}>
           {phase === "camera" ? (
             <>
-              <GestureDetector gesture={shutterTap}>
-                <Animated.View style={[shutterStyle, styles.shutterOuter, capturing && { opacity: 0.6 }]}>
-                  <View style={styles.shutterInner} />
-                </Animated.View>
-              </GestureDetector>
+              <Pressable
+                onPress={handleCapture}
+                disabled={capturing}
+                style={({ pressed }) => [styles.shutterOuter, capturing && { opacity: 0.6 }, pressed && { transform: [{ scale: 0.95 }] }]}
+              >
+                <View style={styles.shutterInner} />
+              </Pressable>
               <Pressable onPress={handleClose} style={{ marginTop: 16 }}>
                 <Text style={styles.skipText}>Skip</Text>
               </Pressable>
@@ -654,8 +660,9 @@ const styles = StyleSheet.create({
   },
   routeWrap: {
     position: "absolute",
-    left: 24,
-    bottom: 112,
+    alignSelf: "center",
+    left: (SW - ROUTE_W) / 2,
+    top: SH * 0.45,
     width: ROUTE_W,
     height: ROUTE_H,
     overflow: "hidden",

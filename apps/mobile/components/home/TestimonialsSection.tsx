@@ -12,7 +12,7 @@ import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated"
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { AppIcon } from "@/components/ui/app-icon";
-import { SkeletonBox } from "@/components/ui/Skeleton";
+import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import { radius, spacing } from "@/constants/theme";
 
 const AUTO_SCROLL_INTERVAL = 6000;
@@ -148,7 +148,7 @@ function TestimonialCard({
   );
 }
 
-export function TestimonialsSection({ items, loading }: TestimonialsSectionProps) {
+export const TestimonialsSection = React.memo(function TestimonialsSection({ items, loading }: TestimonialsSectionProps) {
   const { width: screenWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
   const flatListRef = useRef<FlashListRef<TestimonialItem>>(null);
@@ -180,6 +180,21 @@ export function TestimonialsSection({ items, loading }: TestimonialsSectionProps
 
     return () => clearInterval(interval);
   }, [cardWidth, testimonials.length]);
+
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+    setActiveIndex((prev) => {
+      if (index !== prev) {
+        activeIndexRef.current = index;
+        return index;
+      }
+      return prev;
+    });
+  }, [cardWidth]);
+
+  const renderTestimonialItem = useCallback(({ item }: { item: TestimonialItem }) => (
+    <TestimonialCard item={item} colors={colors} isDark={isDark} cardWidth={cardWidth} />
+  ), [colors, isDark, cardWidth]);
 
   if (!testimonials.length && !loading) return null;
 
@@ -214,18 +229,6 @@ export function TestimonialsSection({ items, loading }: TestimonialsSectionProps
       </View>
     );
   }
-
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
-    if (index !== activeIndex) {
-      setActiveIndex(index);
-      activeIndexRef.current = index;
-    }
-  };
-
-  const renderTestimonialItem = useCallback(({ item }: { item: TestimonialItem }) => (
-    <TestimonialCard item={item} colors={colors} isDark={isDark} cardWidth={cardWidth} />
-  ), [colors, isDark, cardWidth]);
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -296,7 +299,7 @@ export function TestimonialsSection({ items, loading }: TestimonialsSectionProps
       />
     </View>
   );
-}
+});
 
 function DotIndicator({
   isActive,

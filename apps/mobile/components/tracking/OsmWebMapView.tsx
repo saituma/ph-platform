@@ -21,6 +21,10 @@ const CARTO_DARK =
 /** Esri World Imagery — same source as iOS UrlTile satellite option (no Google key). */
 const ESRI_IMAGERY =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const ESRI_IMAGERY_LABELS =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
+const OTM_TERRAIN =
+  "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png";
 
 const LEAFLET_HTML = `<!DOCTYPE html>
 <html>
@@ -42,6 +46,8 @@ const LEAFLET_HTML = `<!DOCTYPE html>
     var TILE_LIGHT = ${JSON.stringify(CARTO_LIGHT)};
     var TILE_DARK = ${JSON.stringify(CARTO_DARK)};
     var TILE_SAT = ${JSON.stringify(ESRI_IMAGERY)};
+    var TILE_SAT_LABELS = ${JSON.stringify(ESRI_IMAGERY_LABELS)};
+    var TILE_TERRAIN = ${JSON.stringify(OTM_TERRAIN)};
 	    var map = L.map('map', { zoomControl: true, attributionControl: true }).setView([20, 0], 2);
 	    var layerGroup = L.featureGroup().addTo(map);
 	    var base = L.tileLayer(TILE_LIGHT, {
@@ -69,12 +75,28 @@ const LEAFLET_HTML = `<!DOCTYPE html>
       });
     }
 
+    var labelLayer = null;
 	    window.__setMapStyle = function (mode, dark) {
 	      map.removeLayer(base);
+	      if (labelLayer) { map.removeLayer(labelLayer); labelLayer = null; }
 	      if (mode === 'satellite') {
 	        base = L.tileLayer(TILE_SAT, {
 	          maxZoom: 19,
-	          attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> — Source: Esri, Maxar, Earthstar Geographics'
+	          attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a>'
+	        }).addTo(map);
+	      } else if (mode === 'hybrid') {
+	        base = L.tileLayer(TILE_SAT, {
+	          maxZoom: 19,
+	          attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a>'
+	        }).addTo(map);
+	        labelLayer = L.tileLayer(TILE_SAT_LABELS, {
+	          maxZoom: 19, pane: 'overlayPane'
+	        }).addTo(map);
+	      } else if (mode === 'terrain') {
+	        base = L.tileLayer(TILE_TERRAIN, {
+	          subdomains: 'abc',
+	          maxZoom: 17,
+	          attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
 	        }).addTo(map);
 	      } else {
 	        var u = dark ? TILE_DARK : TILE_LIGHT;
@@ -199,7 +221,7 @@ export const OsmWebMapView = forwardRef<TrackingMapViewRef, OsmWebMapViewProps>(
       const layersArg = JSON.stringify(JSON.stringify(p.layers));
       const fit = p.fitBounds ? "true" : "false";
       const dark = p.isDark ? "true" : "false";
-      const mode = p.mapStyle === "satellite" ? "'satellite'" : "'road'";
+      const mode = `'${p.mapStyle}'`;
       const basemapStamp = `${p.mapStyle}:${p.isDark ? "dark" : "light"}`;
 
       const markProgrammaticMapChange = () => {

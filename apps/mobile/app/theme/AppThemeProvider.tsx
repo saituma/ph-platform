@@ -1,7 +1,7 @@
 import { Colors } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useColorScheme } from "nativewind";
+import { Uniwind } from "uniwind";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Platform, useColorScheme as useSystemColorScheme } from "react-native";
 
@@ -50,7 +50,7 @@ export default function AppThemeProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { setColorScheme } = useColorScheme();
+  const setColorScheme = (scheme: "light" | "dark") => Uniwind.setTheme(scheme);
   const { isAuthenticated, profile } = useAppSelector((state) => state.user);
   const [isSwitching, setIsSwitching] = useState(false);
   const [themeMode, setThemeMode] = useState<ColorSchemeName>("system");
@@ -97,7 +97,7 @@ export default function AppThemeProvider({
   const colors = isDark ? Colors.dark : Colors.light;
 
   useEffect(() => {
-    // Theme switching logic (nativewind) is handled by setColorScheme above.
+    Uniwind.setTheme(resolvedScheme);
   }, [resolvedScheme]);
 
   const toggleColorScheme = React.useCallback(async () => {

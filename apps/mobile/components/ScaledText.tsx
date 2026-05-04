@@ -9,13 +9,10 @@ import {
   type TextStyle,
 } from "react-native";
 import Animated from "react-native-reanimated";
-import { cssInterop } from "nativewind";
 import { useFontScale } from "@/context/FontScaleContext";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
-const InteropText = cssInterop(RNText, { className: "style" });
-const InteropTextInput = cssInterop(RNTextInput, { className: "style" });
-const AnimatedInteropText = Animated.createAnimatedComponent(InteropText);
+const AnimatedRNText = Animated.createAnimatedComponent(RNText);
 
 const baseTextStyle: TextStyle = {
   fontFamily: "Outfit-Medium",
@@ -94,7 +91,7 @@ export function Text(props: TextProps & { className?: string }) {
     );
   }, [colors.text, fontScale, style]);
 
-  return <InteropText {...rest} style={scaledStyle} />;
+  return <RNText {...rest} style={scaledStyle} />;
 }
 
 export function TextInput(props: TextInputProps & { className?: string }) {
@@ -121,7 +118,7 @@ export function TextInput(props: TextInputProps & { className?: string }) {
   // rewrites the buffer mid-update. We default to safer typing behavior app-wide while
   // still allowing individual screens to opt back in explicitly.
   return (
-    <InteropTextInput
+    <RNTextInput
       {...rest}
       autoCorrect={autoCorrect ?? !shouldStabilizeControlledIosInput}
       spellCheck={spellCheck ?? !shouldStabilizeControlledIosInput}
@@ -148,5 +145,5 @@ export function AnimatedText(props: TextProps & { className?: string }) {
     );
   }, [colors.text, fontScale, style]);
 
-  return <AnimatedInteropText {...rest} style={scaledStyle} />;
+  return <AnimatedRNText {...rest} style={scaledStyle} />;
 }

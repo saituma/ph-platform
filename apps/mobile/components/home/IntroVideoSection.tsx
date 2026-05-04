@@ -3,7 +3,7 @@ import { View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
-import { SkeletonBox } from "@/components/ui/Skeleton";
+import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import VideoPlayer from "@/components/ui/VideoPlayer";
 import { spacing } from "@/constants/theme";
 
@@ -15,7 +15,7 @@ type IntroVideoSectionProps = {
   loading?: boolean;
 };
 
-export function IntroVideoSection({
+export const IntroVideoSection = React.memo(function IntroVideoSection({
   introVideoUrl,
   posterUrl,
   tabIndex = 0,
@@ -54,4 +54,4 @@ export function IntroVideoSection({
       )}
     </View>
   );
-}
+});

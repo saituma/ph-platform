@@ -36,6 +36,20 @@ import { FullScreenMediaModal } from "./FullScreenMediaModal";
 import { MessageMediaView } from "./MessageMediaView";
 import { ReactionsListModal } from "./ReactionsListModal";
 
+function SwipeReplyAction({ dragX, surfaceBg, iconColor }: { dragX: SharedValue<number>; surfaceBg: string; iconColor: string }) {
+	const style = useAnimatedStyle(() => ({
+		transform: [{ translateX: interpolate(dragX.value, [0, 64], [-64, 0], 'clamp') }],
+		opacity: interpolate(dragX.value, [0, 32, 64], [0, 0.5, 1], 'clamp'),
+	}));
+	return (
+		<Animated.View style={[{ width: 64, alignItems: "center", justifyContent: "center", paddingLeft: 8 }, style]}>
+			<View style={{ height: 40, width: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: surfaceBg }}>
+				<Ionicons name="arrow-undo" size={18} color={iconColor} />
+			</View>
+		</Animated.View>
+	);
+}
+
 type MessageBubbleProps = {
 	message: ChatMessage;
 	selfUserId: number;
@@ -191,7 +205,6 @@ function MessageBubbleComponent({
 		.onBegin(() => {
 			'worklet';
 			bubbleScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
-			runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
 		})
 		.onFinalize(() => {
 			'worklet';
@@ -315,35 +328,9 @@ function MessageBubbleComponent({
 							Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 						}}
 						onSwipeableOpen={handleSwipeOpen}
-						renderLeftActions={(_progress: SharedValue<number>, dragX: SharedValue<number>) => {
-							const AnimatedAction = () => {
-								const style = useAnimatedStyle(() => ({
-									transform: [{ translateX: interpolate(dragX.value, [0, 64], [-64, 0], 'clamp') }],
-									opacity: interpolate(dragX.value, [0, 32, 64], [0, 0.5, 1], 'clamp'),
-								}));
-								return (
-									<Animated.View style={[{ width: 64, alignItems: "center", justifyContent: "center", paddingLeft: 8 }, style]}>
-										<View
-											style={{
-												height: 40,
-												width: 40,
-												borderRadius: 20,
-												alignItems: "center",
-												justifyContent: "center",
-												backgroundColor: colors.surfaceHigher,
-											}}
-										>
-											<Ionicons
-												name="arrow-undo"
-												size={18}
-												color={colors.textSecondary}
-											/>
-										</View>
-									</Animated.View>
-								);
-							};
-							return <AnimatedAction />;
-						}}
+						renderLeftActions={(_progress: SharedValue<number>, dragX: SharedValue<number>) => (
+							<SwipeReplyAction dragX={dragX} surfaceBg={colors.surfaceHigher} iconColor={colors.textSecondary} />
+						)}
 					>
 						<Animated.View style={animatedStyle}>
 							<View
@@ -661,7 +648,7 @@ export const MessageBubble = React.memo(
 			prevMessage.replyPreview === nextMessage.replyPreview &&
 			prevMessage.authorName === nextMessage.authorName &&
 			prevMessage.authorAvatar === nextMessage.authorAvatar &&
-			JSON.stringify(prevMessage.reactions) === JSON.stringify(nextMessage.reactions) &&
+			prevMessage.reactions === nextMessage.reactions &&
 			prevMessage.pinnedAt === nextMessage.pinnedAt
 		);
 	},

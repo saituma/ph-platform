@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -60,7 +60,7 @@ function getLinksForRole(appRole: AppRole | null): QuickLink[] {
   }
 }
 
-function QuickLinkItem({ link }: { link: QuickLink }) {
+const QuickLinkItem = React.memo(function QuickLinkItem({ link }: { link: QuickLink }) {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
 
@@ -72,7 +72,7 @@ function QuickLinkItem({ link }: { link: QuickLink }) {
     router.push(link.route as any);
   }, [router, link.route]);
 
-  const tap = Gesture.Tap()
+  const tap = useMemo(() => Gesture.Tap()
     .onBegin(() => {
       'worklet';
       scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
@@ -85,7 +85,7 @@ function QuickLinkItem({ link }: { link: QuickLink }) {
     .onEnd(() => {
       'worklet';
       runOnJS(handlePress)();
-    });
+    }), [handlePress]);
 
   // Robis: tinted not pure dark — hsl(220,8%,11%) instead of #1A1A1A
   const cardBg = isDark ? "hsl(220, 8%, 11%)" : colors.card;
@@ -150,9 +150,9 @@ function QuickLinkItem({ link }: { link: QuickLink }) {
       </Animated.View>
     </GestureDetector>
   );
-}
+});
 
-export function QuickLinksSection({ appRole }: { appRole: AppRole | null }) {
+export const QuickLinksSection = React.memo(function QuickLinksSection({ appRole }: { appRole: AppRole | null }) {
   const links = getLinksForRole(appRole);
 
   return (
@@ -162,4 +162,4 @@ export function QuickLinksSection({ appRole }: { appRole: AppRole | null }) {
       ))}
     </View>
   );
-}
+});

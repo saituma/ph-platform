@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import {
+  completeMySession,
   getExerciseLibrary,
   getMyAssignedPrograms,
   getMyProgramFull,
@@ -76,6 +77,15 @@ export async function getMySessionExercisesController(req: Request, res: Respons
     return res.status(404).json({ error: "Session not found" });
   }
   return res.status(200).json({ exercises });
+}
+
+export async function completeMySessionController(req: Request, res: Response) {
+  const sessionId = sessionIdSchema.parse(req.params.sessionId);
+  const result = await completeMySession(req.user!.id, sessionId);
+  if (!result) {
+    return res.status(404).json({ error: "Session not found or not assigned" });
+  }
+  return res.status(200).json(result);
 }
 
 export async function getActiveProgramAiInsightController(req: Request, res: Response) {

@@ -96,16 +96,22 @@ const ActiveTabContext = createContext<ActiveTabContextType>({
   currentTabIndex: -200,
 });
 
-export const useActiveTab = () => useContext(ActiveTabContext);
+export function useActiveTab(): ActiveTabContextType {
+  const ctx = useContext(ActiveTabContext);
+  const globalIndex = useActiveTabIndex();
+  if (ctx.currentTabIndex !== -200) {
+    return { activeTabIndex: globalIndex, currentTabIndex: ctx.currentTabIndex };
+  }
+  return ctx;
+}
 
 export function ActiveTabProvider({
-  activeTabIndex,
   currentTabIndex,
   children,
-}: ActiveTabContextType & { children: ReactNode }) {
+}: { currentTabIndex: number; children: ReactNode }) {
   const value = useMemo(
-    () => ({ activeTabIndex, currentTabIndex }),
-    [activeTabIndex, currentTabIndex],
+    () => ({ activeTabIndex: 0, currentTabIndex }),
+    [currentTabIndex],
   );
   return (
     <ActiveTabContext.Provider value={value}>{children}</ActiveTabContext.Provider>

@@ -7,6 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { fonts } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +31,7 @@ export default function PrivacySecurityScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
+  const toast = useAppToast();
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -48,7 +50,7 @@ export default function PrivacySecurityScreen() {
   const performDelete = useCallback(async () => {
     if (!token || deleteBusy) return;
     if (deletePassword.length < 8) {
-      Alert.alert("Password required", "Enter your current password (at least 8 characters).");
+      toast.warning("Password required", "Enter your current password (at least 8 characters).");
       return;
     }
     setDeleteBusy(true);
@@ -64,12 +66,11 @@ export default function PrivacySecurityScreen() {
       await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY).catch(() => {});
       await SecureStore.deleteItemAsync(AUTH_REFRESH_KEY).catch(() => {});
       dispatch(logout());
-      Alert.alert("Account closed", "Your account has been deleted. You can register again with a new account if needed.", [
-        { text: "OK", onPress: () => router.replace("/(auth)/login") },
-      ]);
+      toast.success("Account closed", "Your account has been deleted.");
+      setTimeout(() => router.replace("/(auth)/login"), 800);
     } catch (e: any) {
       const msg = String(e?.message ?? "Could not delete account").replace(/^\d+\s+/, "");
-      Alert.alert("Could not delete", msg);
+      toast.error("Could not delete", msg);
     } finally {
       setDeleteBusy(false);
     }

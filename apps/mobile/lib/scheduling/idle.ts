@@ -23,7 +23,10 @@ function getCancelIdleCallback(): CancelIdleCallback | null {
   return (globalThis as any).cancelIdleCallback ?? null;
 }
 
-export function runWhenIdle(fn: () => void, options?: { timeoutMs?: number }): IdleTask {
+export function runWhenIdle(
+  fn: () => void,
+  options?: { delayMs?: number; timeoutMs?: number },
+): IdleTask {
   const requestIdleCallback = getRequestIdleCallback();
   const cancelIdleCallback = getCancelIdleCallback();
 
@@ -37,7 +40,7 @@ export function runWhenIdle(fn: () => void, options?: { timeoutMs?: number }): I
     return { cancel: () => cancelIdleCallback(handle) };
   }
 
-  const timeoutHandle = setTimeout(fn, 0);
+  const timeoutHandle = setTimeout(fn, options?.delayMs ?? 1_000);
   return { cancel: () => clearTimeout(timeoutHandle) };
 }
 

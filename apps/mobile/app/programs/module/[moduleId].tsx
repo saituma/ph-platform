@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { Alert, Pressable, View, Linking } from "react-native";
-import { SkeletonBox } from "@/components/ui/Skeleton";
+import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";

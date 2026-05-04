@@ -1,7 +1,6 @@
 import React from "react";
 import { ViewStyle } from "react-native";
-
-import { UISkeleton } from "@/components/ui/hero";
+import { Skeleton as HeroSkeleton, cn } from "heroui-native";
 
 interface SkeletonProps {
   width?: number | string;
@@ -19,8 +18,8 @@ export function Skeleton({
   circle,
 }: SkeletonProps) {
   return (
-    <UISkeleton
-      className={circle ? "rounded-full" : "rounded-2xl"}
+    <HeroSkeleton
+      className={cn(circle ? "rounded-full" : "rounded-2xl")}
       style={[
         {
           width: width as any,
@@ -29,9 +28,6 @@ export function Skeleton({
         },
         style,
       ]}
-    >
-      {/* HeroUI skeleton needs a child frame to size the placeholder consistently. */}
-      <></>
-    </UISkeleton>
+    />
   );
 }

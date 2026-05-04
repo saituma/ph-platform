@@ -271,6 +271,7 @@ function RootLayout() {
                   }
             }
           />
+          <Stack.Screen name="active-run" options={{ headerShown: false }} />
           {/* Standalone route (same pattern as nutrition.tsx) — explicit screen helps blank-stack registration */}
           <Stack.Screen name="progress" options={{ headerShown: false }} />
         </Stack>

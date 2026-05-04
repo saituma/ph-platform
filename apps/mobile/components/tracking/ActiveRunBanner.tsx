@@ -47,7 +47,7 @@ export function ActiveRunBanner() {
 
   return (
     <Pressable
-      onPress={() => router.push("/(tabs)/tracking/active-run" as any)}
+      onPress={() => router.push("/active-run" as any)}
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
@@ -107,7 +107,7 @@ export function ActiveRunBanner() {
           onPress={(e) => {
             e.stopPropagation();
             resumeRun();
-            router.push("/(tabs)/tracking/active-run" as any);
+            router.push("/active-run" as any);
           }}
           style={({ pressed }) => ({
             flexDirection: "row",

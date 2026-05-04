@@ -1,84 +1,47 @@
 import React, { useMemo } from "react";
-import { HeroUINativeProvider, type HeroUINativeConfig } from "heroui-native";
 import {
-  Pressable,
-  TextInput as RNTextInput,
+  HeroUINativeProvider,
+  type HeroUINativeConfig,
+  Button,
+  Card,
+  Chip,
+  Surface,
+  Skeleton,
+  SkeletonGroup,
+  TextArea,
+  TextField,
+  Input,
+  Label,
+  cn,
+  PressableFeedback,
+} from "heroui-native";
+import {
   View,
   type PressableProps,
-  type PressableStateCallbackType,
   type StyleProp,
   type TextInputProps,
-  type TextStyle,
   type ViewProps,
   type ViewStyle,
 } from "react-native";
-import { twMerge } from "tailwind-merge";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 
-type UIButtonProps = PressableProps & {
-  className?: string;
-  label?: string;
-  textClassName?: string;
-  children?: React.ReactNode;
-  variant?: "primary" | "secondary" | "ghost" | "outline" | "danger" | "danger-soft" | "tertiary";
-  isDisabled?: boolean;
-};
-
-type UICardProps = ViewProps & {
-  className?: string;
-  padded?: boolean;
-};
-
-type UIChipProps = PressableProps & {
-  className?: string;
-  label: string;
-  textClassName?: string;
-  children?: React.ReactNode;
-  color?: "accent" | "default" | "success" | "warning" | "danger";
-};
-
-type UITextAreaProps = TextInputProps & {
-  className?: string;
-};
-
-type UISectionHeaderProps = {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  rightSlot?: React.ReactNode;
-  className?: string;
-};
-
-type UIEmptyStateProps = {
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-  className?: string;
-};
-
-type UISurfaceProps = ViewProps & {
-  className?: string;
-  elevated?: boolean;
-};
-
-type UISkeletonProps = {
-  isLoading?: boolean;
-  className?: string;
-  style?: StyleProp<ViewStyle>;
-  children?: React.ReactNode;
-};
+// ─── Provider ────────────────────────────────────────────────────────────────
 
 export function HeroAppProvider({ children }: { children: React.ReactNode }) {
   const config = useMemo<HeroUINativeConfig>(
     () => ({
       textProps: {
-        allowFontScaling: false,
-        maxFontSizeMultiplier: 1.2,
-        adjustsFontSizeToFit: false,
+        allowFontScaling: true,
+        maxFontSizeMultiplier: 1.3,
       },
-      toast: false,
+      toast: {
+        defaultProps: {
+          variant: "success",
+          placement: "top",
+        },
+      },
       devInfo: {
         stylingPrinciples: false,
       },
@@ -89,60 +52,43 @@ export function HeroAppProvider({ children }: { children: React.ReactNode }) {
   return <HeroUINativeProvider config={config}>{children}</HeroUINativeProvider>;
 }
 
-export function UISurface({
-  children,
-  className,
-  style,
-  elevated = false,
-  ...props
-}: UISurfaceProps) {
-  const { colors, isDark } = useAppTheme();
+// ─── Re-exports from heroui-native ──────────────────────────────────────────
 
-  return (
-    <View
-      className={twMerge("rounded-[24px]", className)}
-      style={[
-        {
-          backgroundColor: elevated ? colors.cardElevated : colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-          shadowColor: isDark ? "#00000000" : "#101914",
-          shadowOpacity: isDark ? 0 : elevated ? 0.06 : 0.03,
-          shadowRadius: elevated ? 14 : 8,
-          shadowOffset: { width: 0, height: elevated ? 6 : 3 },
-          elevation: isDark ? 0 : elevated ? 4 : 2,
-        },
-        style,
-      ]}
-      {...props}
-    >
-      {children}
-    </View>
-  );
-}
+export {
+  Button,
+  Card,
+  Chip,
+  Surface,
+  Skeleton,
+  SkeletonGroup,
+  TextArea,
+  TextField,
+  Input,
+  Label,
+  cn,
+  PressableFeedback,
+};
 
-export function UICard({
-  children,
-  className,
-  style,
-  padded = true,
-  ...props
-}: UICardProps) {
-  return (
-    <UISurface
-      className={twMerge(
-        "overflow-hidden rounded-[24px]",
-        padded ? "px-5 py-4" : "",
-        className,
-      )}
-      elevated
-      style={style}
-      {...props}
-    >
-      {children}
-    </UISurface>
-  );
-}
+// ─── UIButton (HeroUI Button wrapper) ───────────────────────────────────────
+
+type UIButtonProps = PressableProps & {
+  className?: string;
+  label?: string;
+  textClassName?: string;
+  children?: React.ReactNode;
+  variant?: "primary" | "secondary" | "ghost" | "outline" | "danger" | "danger-soft" | "tertiary";
+  isDisabled?: boolean;
+};
+
+const VARIANT_MAP: Record<string, "primary" | "secondary" | "tertiary" | "outline" | "ghost" | "danger"> = {
+  primary: "primary",
+  secondary: "secondary",
+  ghost: "ghost",
+  outline: "outline",
+  danger: "danger",
+  "danger-soft": "danger",
+  tertiary: "tertiary",
+};
 
 export function UIButton({
   children,
@@ -155,65 +101,101 @@ export function UIButton({
   isDisabled,
   ...props
 }: UIButtonProps) {
-  const { colors } = useAppTheme();
   const finalDisabled = disabled ?? isDisabled ?? false;
-
-  const palette: Record<string, { bg: string; border: string; text: string }> = {
-    primary: { bg: colors.accent, border: colors.accent, text: colors.textInverse },
-    secondary: { bg: colors.backgroundSecondary, border: colors.border, text: colors.text },
-    ghost: { bg: "transparent", border: "transparent", text: colors.text },
-    outline: { bg: "transparent", border: colors.border, text: colors.text },
-    danger: { bg: colors.danger, border: colors.danger, text: colors.textInverse },
-    "danger-soft": { bg: colors.dangerSoft, border: colors.danger, text: colors.danger },
-    tertiary: { bg: colors.cardElevated, border: colors.border, text: colors.text },
-  };
-
-  const current = palette[variant] ?? palette.primary;
+  const heroVariant = VARIANT_MAP[variant] ?? "primary";
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: finalDisabled }}
+    <Button
+      variant={heroVariant}
       disabled={finalDisabled}
-      className={twMerge(
-        "min-h-12 rounded-[18px] px-4 py-3 active:scale-[0.98]",
-        className,
-      )}
-      style={(state: PressableStateCallbackType) => [
-        {
-          backgroundColor: current.bg,
-          borderColor: current.border,
-          borderWidth: variant === "primary" || variant === "ghost" ? 0 : 1,
-          opacity: finalDisabled ? 0.6 : state.pressed ? 0.92 : 1,
-        },
-        typeof style === "function" ? style(state) : style,
-      ]}
-      {...props}
+      className={cn("min-h-12 rounded-[18px] px-4 py-3", className)}
+      style={style as any}
+      accessibilityLabel={label}
+      {...(props as any)}
     >
-      {children ?? (
-        <Text
-          className={twMerge(
-            "text-center font-outfit text-sm font-semibold",
-            textClassName,
-          )}
-          style={{ color: current.text } as TextStyle}
-        >
-          {label}
-        </Text>
-      )}
-    </Pressable>
+      {children ?? <Button.Label className={cn("font-semibold", textClassName)}>{label}</Button.Label>}
+    </Button>
   );
 }
+
+// ─── UISurface (HeroUI Surface wrapper) ─────────────────────────────────────
+
+type UISurfaceProps = ViewProps & {
+  className?: string;
+  elevated?: boolean;
+};
+
+export function UISurface({
+  children,
+  className,
+  style,
+  elevated = false,
+  ...props
+}: UISurfaceProps) {
+  return (
+    <Surface
+      className={cn(
+        "rounded-[24px] border border-border",
+        elevated ? "bg-default" : "bg-surface",
+        className,
+      )}
+      style={style}
+      {...(props as any)}
+    >
+      {children}
+    </Surface>
+  );
+}
+
+// ─── UICard (HeroUI Card wrapper) ───────────────────────────────────────────
+
+type UICardProps = ViewProps & {
+  className?: string;
+  padded?: boolean;
+};
+
+export function UICard({
+  children,
+  className,
+  style,
+  padded = true,
+  ...props
+}: UICardProps) {
+  return (
+    <Card
+      className={cn(
+        "overflow-hidden rounded-[24px] border border-border",
+        padded && "px-5 py-4",
+        className,
+      )}
+      style={style}
+      {...(props as any)}
+    >
+      <Card.Body className="p-0">
+        {children}
+      </Card.Body>
+    </Card>
+  );
+}
+
+// ─── UIChip (HeroUI Chip wrapper) ───────────────────────────────────────────
+
+type UIChipProps = PressableProps & {
+  className?: string;
+  label: string;
+  textClassName?: string;
+  children?: React.ReactNode;
+  color?: "accent" | "default" | "success" | "warning" | "danger";
+};
 
 export function UIChip({
   label,
   children,
   className,
   textClassName,
-  style,
   color = "default",
   disabled,
+  style,
   ...props
 }: UIChipProps) {
   const { colors, isDark } = useAppTheme();
@@ -247,68 +229,70 @@ export function UIChip({
   };
 
   const current = palette[color] ?? palette.default;
-  const resolvedStyle = typeof style === "function" ? undefined : style;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
-      className={twMerge("self-start rounded-full border px-3 py-1.5", className)}
+    <Chip
+      className={cn("self-start", className)}
       style={[
         {
           backgroundColor: current.bg,
           borderColor: current.border,
           borderWidth: 1,
-          opacity: disabled ? 0.7 : 1,
         },
-        resolvedStyle,
+        style as any,
       ]}
-      {...props}
+      {...(props as any)}
     >
       {children ?? (
         <Text
-          className={twMerge(
-            "font-outfit text-[12px] font-semibold",
-            textClassName,
-          )}
-          style={{ color: current.text } as TextStyle}
+          className={cn("font-outfit text-[12px] font-semibold", textClassName)}
+          style={{ color: current.text }}
         >
           {label}
         </Text>
       )}
-    </Pressable>
+    </Chip>
   );
 }
+
+// ─── UITextArea (HeroUI TextArea wrapper) ────────────────────────────────────
+
+type UITextAreaProps = TextInputProps & {
+  className?: string;
+};
 
 export function UITextArea({ className, style, ...props }: UITextAreaProps) {
   const { colors } = useAppTheme();
 
   return (
-    <RNTextInput
-      accessibilityRole="text"
-      multiline
-      textAlignVertical="top"
+    <TextArea
       placeholderTextColor={colors.placeholder}
-      className={twMerge(
-        "min-h-[120px] rounded-[20px] px-4 py-3 font-outfit text-base",
+      className={cn(
+        "min-h-[120px] rounded-[20px] px-4 py-3 font-normal text-base",
         className,
       )}
       style={[
         {
           backgroundColor: colors.inputBackground,
           color: colors.text,
-          borderWidth: 1,
-          borderColor: colors.border,
           fontFamily: "Outfit",
         },
         style,
       ]}
-      {...props}
+      {...(props as any)}
     />
   );
 }
+
+// ─── UISectionHeader ─────────────────────────────────────────────────────────
+
+type UISectionHeaderProps = {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  rightSlot?: React.ReactNode;
+  className?: string;
+};
 
 export function UISectionHeader({
   eyebrow,
@@ -317,31 +301,22 @@ export function UISectionHeader({
   rightSlot,
   className,
 }: UISectionHeaderProps) {
-  const { colors } = useAppTheme();
-
   return (
-    <View className={twMerge("flex-row items-start justify-between gap-4", className)}>
+    <View className={cn("flex-row items-start justify-between gap-4", className)}>
       <View className="flex-1">
         {eyebrow ? (
-          <Text
-            className="font-outfit text-[11px] font-medium"
-            style={{ color: colors.textSecondary }}
-          >
+          <Text className="font-outfit text-[11px] font-medium text-muted">
             {eyebrow}
           </Text>
         ) : null}
         <Text
           accessibilityRole="header"
-          className="mt-1 font-satoshi-bold text-[28px] font-bold tracking-tight"
-          style={{ color: colors.text }}
+          className="mt-1 font-display text-[28px] font-bold tracking-tight text-foreground"
         >
           {title}
         </Text>
         {description ? (
-          <Text
-            className="mt-2 font-outfit text-sm leading-6"
-            style={{ color: colors.textSecondary }}
-          >
+          <Text className="mt-2 font-outfit text-sm leading-6 text-muted">
             {description}
           </Text>
         ) : null}
@@ -351,21 +326,25 @@ export function UISectionHeader({
   );
 }
 
+// ─── UIEmptyState ────────────────────────────────────────────────────────────
+
+type UIEmptyStateProps = {
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+  className?: string;
+};
+
 export function UIEmptyState({
   title,
   description,
   action,
   className,
 }: UIEmptyStateProps) {
-  const { colors } = useAppTheme();
-
   return (
-    <UICard className={twMerge("items-center px-5 py-8", className)}>
-      <Text className="font-satoshi-bold text-xl font-bold text-app">{title}</Text>
-      <Text
-        className="mt-2 text-center font-outfit text-sm leading-6"
-        style={{ color: colors.textSecondary }}
-      >
+    <UICard className={cn("items-center px-5 py-8", className)}>
+      <Text className="font-display text-xl font-bold text-foreground">{title}</Text>
+      <Text className="mt-2 text-center font-outfit text-sm leading-6 text-muted">
         {description}
       </Text>
       {action ? <View className="mt-5">{action}</View> : null}
@@ -373,31 +352,34 @@ export function UIEmptyState({
   );
 }
 
+// ─── UISkeleton (HeroUI Skeleton wrapper) ────────────────────────────────────
+
+type UISkeletonProps = {
+  isLoading?: boolean;
+  className?: string;
+  style?: StyleProp<ViewStyle>;
+  children?: React.ReactNode;
+};
+
 export function UISkeleton({
   children,
   isLoading = true,
   className,
   style,
 }: UISkeletonProps) {
-  const { colors, isDark } = useAppTheme();
-
   if (!isLoading) {
     return <>{children}</>;
   }
 
   return (
-    <View
-      className={twMerge("overflow-hidden rounded-2xl", className)}
-      style={[
-        {
-          backgroundColor: isDark ? colors.backgroundSecondary : colors.cardElevated,
-          opacity: isDark ? 0.42 : 0.72,
-        },
-        style,
-      ]}
+    <Skeleton
+      className={cn("rounded-2xl", className)}
+      style={style as any}
     />
   );
 }
+
+// ─── UIListItem (PressableFeedback + Surface) ────────────────────────────────
 
 export function UIListItem({
   children,
@@ -405,30 +387,16 @@ export function UIListItem({
   style,
   ...props
 }: ViewProps & { className?: string }) {
-  const { colors, isDark } = useAppTheme();
-
   return (
-    <View
-      className={twMerge(
-        "flex-row items-center justify-between rounded-[20px] px-4 py-4",
+    <Surface
+      className={cn(
+        "flex-row items-center justify-between rounded-[20px] border border-border px-4 py-4",
         className,
       )}
-      style={[
-        {
-          backgroundColor: colors.cardElevated,
-          borderWidth: 1,
-          borderColor: colors.border,
-          shadowColor: isDark ? "#00000000" : "#101914",
-          shadowOpacity: isDark ? 0 : 0.03,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 3 },
-          elevation: isDark ? 0 : 2,
-        },
-        style,
-      ]}
-      {...props}
+      style={style}
+      {...(props as any)}
     >
       {children}
-    </View>
+    </Surface>
   );
 }

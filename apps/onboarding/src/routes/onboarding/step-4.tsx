@@ -18,7 +18,7 @@ import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
-import { getTokenStatus } from "#/lib/client-storage";
+import { getTokenStatus, getAuthHeaders } from "#/lib/client-storage";
 import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/onboarding/step-4")({
@@ -87,6 +87,9 @@ function OnboardingStep4() {
 				const baseUrl = config.api.baseUrl;
 				const response = await fetch(`${baseUrl}/api/onboarding`, {
 					credentials: "include",
+					headers: {
+						...getAuthHeaders(),
+					},
 				});
 
 				if (!response.ok) throw new Error("Failed to fetch profile");

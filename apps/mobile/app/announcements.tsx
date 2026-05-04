@@ -20,14 +20,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
+import { useAppToast } from "@/hooks/useAppToast";
 import { Image as ExpoImage } from "expo-image";
-import { SkeletonAnnouncementsScreen } from "@/components/ui/Skeleton";
+import { SkeletonAnnouncementsScreen } from "@/components/ui/legacy-skeleton";
 import { OpenGraphPreview } from "@/components/media/OpenGraphPreview";
-import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetView,
-} from "@gorhom/bottom-sheet";
+import { BottomSheet } from "heroui-native";
 
 type AnnouncementItem = {
   id: number | string;
@@ -120,6 +117,7 @@ const extractAnnouncement = (item: AnnouncementItem): ParsedAnnouncement => {
 export default function AnnouncementsScreen() {
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
+  const toast = useAppToast();
   const token = useAppSelector((state) => state.user.token);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
@@ -141,7 +139,7 @@ export default function AnnouncementsScreen() {
   const [formIsActive, setFormIsActive] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
 
-  const bottomSheetModalRef = React.useRef<BottomSheetModal>(null);
+  const [sheetOpen, setSheetOpen] = React.useState(false);
 
   const load = React.useCallback(async () => {
     if (!token) return;
@@ -187,7 +185,7 @@ export default function AnnouncementsScreen() {
       setFormBody("");
       setFormIsActive(true);
     }
-    bottomSheetModalRef.current?.present();
+    setSheetOpen(true);
   };
 
   const handleSave = async () => {
@@ -216,10 +214,10 @@ export default function AnnouncementsScreen() {
           body: payload,
         });
       }
-      bottomSheetModalRef.current?.dismiss();
+      setSheetOpen(false);
       load();
     } catch (err) {
-      Alert.alert("Error", "Failed to save announcement");
+      toast.error("Error", "Failed to save announcement");
     } finally {
       setIsSaving(false);
     }
@@ -243,7 +241,7 @@ export default function AnnouncementsScreen() {
               });
               load();
             } catch (err) {
-              Alert.alert("Error", "Failed to delete announcement");
+              toast.error("Error", "Failed to delete announcement");
             }
           },
         },
@@ -545,153 +543,147 @@ export default function AnnouncementsScreen() {
         </ScrollView>
       )}
 
-      <BottomSheetModal
-        ref={bottomSheetModalRef}
-        index={0}
-        snapPoints={["85%"]}
-        enablePanDownToClose
-        backdropComponent={(props) => (
-          <BottomSheetBackdrop
-            {...props}
-            appearsOnIndex={0}
-            disappearsOnIndex={-1}
-            opacity={0.4}
-            pressBehavior="close"
-          />
-        )}
-        backgroundStyle={{ backgroundColor: colors.card }}
-        handleIndicatorStyle={{
-          backgroundColor: isDark
-            ? "rgba(255,255,255,0.28)"
-            : "rgba(15,23,42,0.22)",
-        }}
-      >
-        <BottomSheetView style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 40 }}>
-          <Text
-            className="text-2xl font-clash font-bold"
-            style={{ color: colors.text }}
+      <BottomSheet isOpen={sheetOpen} onOpenChange={setSheetOpen}>
+        <BottomSheet.Portal>
+          <BottomSheet.Overlay className="bg-black/40" />
+          <BottomSheet.Content
+            snapPoints={["85%"]}
+            enablePanDownToClose
+            backgroundStyle={{ backgroundColor: colors.card }}
+            handleIndicatorStyle={{
+              backgroundColor: isDark
+                ? "rgba(255,255,255,0.28)"
+                : "rgba(15,23,42,0.22)",
+            }}
           >
-            {editingId ? "Edit Announcement" : "New Announcement"}
-          </Text>
-          <Text
-            className="mt-1 text-sm font-outfit"
-            style={{ color: colors.textSecondary }}
-          >
-            Broadcast an update to your athletes. Markdown supported.
-          </Text>
-
-          <View className="mt-6 gap-5">
-            <View>
-              <Text
-                className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px] mb-2"
-                style={{ color: colors.textSecondary }}
-              >
-                Title
-              </Text>
-              <TextInput
-                value={formTitle}
-                onChangeText={setFormTitle}
-                placeholder="Announcement title..."
-                placeholderTextColor={colors.textSecondary}
-                className="h-14 rounded-2xl border px-4 font-outfit"
-                style={{
-                  borderColor: colors.borderSubtle,
-                  backgroundColor: colors.backgroundSecondary,
-                  color: colors.text,
-                }}
-              />
-            </View>
-
-            <View className="flex-1">
-              <Text
-                className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px] mb-2"
-                style={{ color: colors.textSecondary }}
-              >
-                Content
-              </Text>
-              <TextInput
-                value={formBody}
-                onChangeText={setFormBody}
-                placeholder="Markdown content..."
-                placeholderTextColor={colors.textSecondary}
-                multiline
-                numberOfLines={10}
-                className="min-h-[200px] rounded-2xl border p-4 font-outfit"
-                style={{
-                  borderColor: colors.borderSubtle,
-                  backgroundColor: colors.backgroundSecondary,
-                  color: colors.text,
-                  textAlignVertical: "top",
-                }}
-              />
-            </View>
-
-            <Pressable
-              onPress={() => setFormIsActive(!formIsActive)}
-              className="flex-row items-center justify-between h-14 rounded-2xl border px-4"
-              style={{
-                borderColor: colors.borderSubtle,
-                backgroundColor: colors.backgroundSecondary,
-              }}
-            >
-              <Text
-                className="text-sm font-outfit font-semibold"
+            <View style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 40 }}>
+              <BottomSheet.Title
+                className="text-2xl font-clash font-bold"
                 style={{ color: colors.text }}
               >
-                Published & Active
-              </Text>
-              <View
-                className="w-12 h-7 rounded-full px-1 justify-center"
-                style={{
-                  backgroundColor: formIsActive ? colors.accent : colors.border,
-                }}
+                {editingId ? "Edit Announcement" : "New Announcement"}
+              </BottomSheet.Title>
+              <BottomSheet.Description
+                className="mt-1 text-sm font-outfit"
+                style={{ color: colors.textSecondary }}
               >
-                <View
-                  className="w-5 h-5 rounded-full bg-white"
+                Broadcast an update to your athletes. Markdown supported.
+              </BottomSheet.Description>
+
+              <View className="mt-6 gap-5">
+                <View>
+                  <Text
+                    className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px] mb-2"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    Title
+                  </Text>
+                  <TextInput
+                    value={formTitle}
+                    onChangeText={setFormTitle}
+                    placeholder="Announcement title..."
+                    placeholderTextColor={colors.textSecondary}
+                    className="h-14 rounded-2xl border px-4 font-outfit"
+                    style={{
+                      borderColor: colors.borderSubtle,
+                      backgroundColor: colors.backgroundSecondary,
+                      color: colors.text,
+                    }}
+                  />
+                </View>
+
+                <View className="flex-1">
+                  <Text
+                    className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px] mb-2"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    Content
+                  </Text>
+                  <TextInput
+                    value={formBody}
+                    onChangeText={setFormBody}
+                    placeholder="Markdown content..."
+                    placeholderTextColor={colors.textSecondary}
+                    multiline
+                    numberOfLines={10}
+                    className="min-h-[200px] rounded-2xl border p-4 font-outfit"
+                    style={{
+                      borderColor: colors.borderSubtle,
+                      backgroundColor: colors.backgroundSecondary,
+                      color: colors.text,
+                      textAlignVertical: "top",
+                    }}
+                  />
+                </View>
+
+                <Pressable
+                  onPress={() => setFormIsActive(!formIsActive)}
+                  className="flex-row items-center justify-between h-14 rounded-2xl border px-4"
                   style={{
-                    alignSelf: formIsActive ? "flex-end" : "flex-start",
+                    borderColor: colors.borderSubtle,
+                    backgroundColor: colors.backgroundSecondary,
                   }}
-                />
+                >
+                  <Text
+                    className="text-sm font-outfit font-semibold"
+                    style={{ color: colors.text }}
+                  >
+                    Published & Active
+                  </Text>
+                  <View
+                    className="w-12 h-7 rounded-full px-1 justify-center"
+                    style={{
+                      backgroundColor: formIsActive ? colors.accent : colors.border,
+                    }}
+                  >
+                    <View
+                      className="w-5 h-5 rounded-full bg-white"
+                      style={{
+                        alignSelf: formIsActive ? "flex-end" : "flex-start",
+                      }}
+                    />
+                  </View>
+                </Pressable>
               </View>
-            </Pressable>
-          </View>
 
-          <View className="mt-8 flex-row items-center gap-3">
-            <Pressable
-              onPress={() => bottomSheetModalRef.current?.dismiss()}
-              className="flex-1 h-14 rounded-2xl items-center justify-center border"
-              style={{
-                borderColor: colors.borderSubtle,
-                backgroundColor: colors.backgroundSecondary,
-              }}
-            >
-              <Text
-                className="font-outfit font-bold"
-                style={{ color: colors.text }}
-              >
-                Cancel
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={handleSave}
-              disabled={isSaving || !formTitle.trim()}
-              className="flex-1 h-14 rounded-2xl items-center justify-center"
-              style={{
-                backgroundColor: colors.accent,
-                opacity: isSaving || !formTitle.trim() ? 0.6 : 1,
-              }}
-            >
-              {isSaving ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text className="font-outfit font-bold text-white">
-                  {editingId ? "Save changes" : "Post announcement"}
-                </Text>
-              )}
-            </Pressable>
-          </View>
-        </BottomSheetView>
-      </BottomSheetModal>
+              <View className="mt-8 flex-row items-center gap-3">
+                <Pressable
+                  onPress={() => setSheetOpen(false)}
+                  className="flex-1 h-14 rounded-2xl items-center justify-center border"
+                  style={{
+                    borderColor: colors.borderSubtle,
+                    backgroundColor: colors.backgroundSecondary,
+                  }}
+                >
+                  <Text
+                    className="font-outfit font-bold"
+                    style={{ color: colors.text }}
+                  >
+                    Cancel
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleSave}
+                  disabled={isSaving || !formTitle.trim()}
+                  className="flex-1 h-14 rounded-2xl items-center justify-center"
+                  style={{
+                    backgroundColor: colors.accent,
+                    opacity: isSaving || !formTitle.trim() ? 0.6 : 1,
+                  }}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text className="font-outfit font-bold text-white">
+                      {editingId ? "Save changes" : "Post announcement"}
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </BottomSheet.Content>
+        </BottomSheet.Portal>
+      </BottomSheet>
     </SafeAreaView>
   );
 }

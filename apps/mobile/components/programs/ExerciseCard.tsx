@@ -4,8 +4,8 @@ import { View } from "react-native";
 import { ExerciseItem } from "@/constants/program-details";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/legacy-card";
+import { Button } from "@/components/ui/legacy-button";
 
 export function ExerciseCard({
   exercise,

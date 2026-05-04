@@ -4,7 +4,7 @@ import { MarkdownText } from "@/components/ui/MarkdownText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows, radius, spacing } from "@/constants/theme";
 import { Text } from "@/components/ScaledText";
-import { SkeletonBox } from "@/components/ui/Skeleton";
+import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 
 type AdminStorySectionProps = {
   story?: string | null;
@@ -12,7 +12,7 @@ type AdminStorySectionProps = {
   loading?: boolean;
 };
 
-export function AdminStorySection({ story, photoUrl, loading }: AdminStorySectionProps) {
+export const AdminStorySection = React.memo(function AdminStorySection({ story, photoUrl, loading }: AdminStorySectionProps) {
   const { colors, isDark } = useAppTheme();
   const { width } = useWindowDimensions();
   const photo = photoUrl?.trim() || "";
@@ -74,4 +74,4 @@ export function AdminStorySection({ story, photoUrl, loading }: AdminStorySectio
       )}
     </View>
   );
-}
+});

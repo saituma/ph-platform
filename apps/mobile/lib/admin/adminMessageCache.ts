@@ -8,8 +8,8 @@ import type {
 import { safeNumber } from "@/lib/admin-messages-utils";
 
 const MESSAGE_CACHE_TTL_MS = 2 * 60 * 1000;
-const MAX_PREFETCH_THREADS = 8;
-const MAX_PARALLEL_PREFETCH = 2;
+const MAX_PREFETCH_THREADS = 3;
+const MAX_PARALLEL_PREFETCH = 1;
 
 type CacheEntry<T> = {
   messages: T[];

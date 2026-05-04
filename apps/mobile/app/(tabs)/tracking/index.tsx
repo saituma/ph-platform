@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
-import { SkeletonTrackingSocialScreen } from "@/components/ui/Skeleton";
+import { SkeletonTrackingSocialScreen } from "@/components/ui/legacy-skeleton";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -228,24 +228,23 @@ export default function TrackingHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportId>("run");
-
   // When a run is already active and the user lands on / returns to this screen,
-  // jump straight to the live stats screen. Crucially, this is `useFocusEffect`
-  // (not `useEffect`) — otherwise this fires on every store status change while
-  // the user is on /active-run, re-mounting that screen and wiping its local state
-  // (mapStyle, sheet positions, etc.).
+  // jump straight to the live stats screen. Read status imperatively so the
+  // callback reference is stable — useFocusEffect should only fire on actual
+  // focus gain, not on every Zustand status change while already focused.
   useFocusEffect(
     useCallback(() => {
-      if (runStatus === "running" || runStatus === "paused") {
-        router.replace("/(tabs)/tracking/active-run" as any);
+      const status = useRunStore.getState().status;
+      if (status === "running" || status === "paused") {
+        router.replace("/active-run" as any);
       }
-    }, [runStatus, router]),
+    }, [router]),
   );
 
   const handleStartRun = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (runStatus === "running" || runStatus === "paused") {
-      router.replace("/(tabs)/tracking/active-run" as any);
+      router.replace("/active-run" as any);
       return;
     }
     setSportSheetOpen(true);
@@ -733,7 +732,7 @@ export default function TrackingHomeScreen() {
         store.setProgressNotifyEveryMeters(null);
         store.startRun();
         store.pauseRun();
-        router.push("/(tabs)/tracking/active-run" as any);
+        router.push("/active-run" as any);
       }}
       onClose={() => setSportSheetOpen(false)}
       colors={colors}

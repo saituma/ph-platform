@@ -18,7 +18,7 @@ import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useFocusEffect } from "@react-navigation/native";
-import { SkeletonSessionScreen } from "@/components/ui/Skeleton";
+import { SkeletonSessionScreen } from "@/components/ui/legacy-skeleton";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 

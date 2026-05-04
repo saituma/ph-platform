@@ -1,5 +1,12 @@
 import { apiRequest } from "@/lib/api";
 
+jest.mock("@/lib/sentry", () => ({
+  Sentry: {
+    addBreadcrumb: jest.fn(),
+    captureException: jest.fn(),
+  },
+}));
+
 describe("mobile apiRequest", () => {
   const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => undefined);
 
@@ -44,6 +51,16 @@ describe("mobile apiRequest", () => {
 
     await expect(apiRequest("/messages")).rejects.toThrow(
       "Cannot reach API at http://localhost:3001/api/messages. Network request failed",
+    );
+  });
+
+  it("uses a bounded default request timeout", async () => {
+    const abortError = new Error("Aborted");
+    abortError.name = "AbortError";
+    (global.fetch as jest.Mock).mockRejectedValue(abortError);
+
+    await expect(apiRequest("/messages")).rejects.toThrow(
+      "Cannot reach API at http://localhost:3001/api/messages. Request timed out after 12000ms",
     );
   });
 

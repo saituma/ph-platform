@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Pressable, ActivityIndicator, BackHandler, Alert } from "react-native";
 import { Text } from "@/components/ScaledText";
 import * as Crypto from "expo-crypto";
-import { EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveRunRecord } from "../../../lib/sqliteRuns";
-import { estimateCalories } from "../../../lib/tracking/runUtils";
-import { pushRunsToCloud } from "../../../lib/runSync";
-import { announceRunComplete } from "../../../lib/tracking/audioCues";
-import { RunShareCard } from "../../../components/tracking/RunShareCard";
+import { EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveRunRecord } from "@/lib/sqliteRuns";
+import { estimateCalories } from "@/lib/tracking/runUtils";
+import { pushRunsToCloud } from "@/lib/runSync";
+import { announceRunComplete } from "@/lib/tracking/audioCues";
+import { RunShareCard } from "@/components/tracking/RunShareCard";
 import { useAppSelector } from "@/store/hooks";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -22,16 +22,16 @@ import Animated, {
 import { fonts, radius } from "@/constants/theme";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useTabVisibility } from "@/context/TabVisibilityContext";
-import { useRunStore } from "../../../store/useRunStore";
+import { useRunStore } from "@/store/useRunStore";
 import {
   stopLocationTracking,
   startLocationTracking,
   refreshRunNotification,
-} from "../../../lib/backgroundTask";
+} from "@/lib/backgroundTask";
 
-import { useRunTrackingEngine } from "../../../hooks/tracking/useRunTrackingEngine";
-import { LiveMap } from "../../../components/tracking/active-run/LiveMap";
-import { RunToast } from "../../../components/tracking/active-run/RunToast";
+import { useRunTrackingEngine } from "@/hooks/tracking/useRunTrackingEngine";
+import { LiveMap } from "@/components/tracking/active-run/LiveMap";
+import { RunToast } from "@/components/tracking/active-run/RunToast";
 import {
   getRunBackgroundTrackingDefault,
   getOsrmRoutingDefault,
@@ -39,16 +39,17 @@ import {
   getAudioCuesDefault,
   setAutoPauseDefault,
   setAudioCuesDefault,
-} from "../../../lib/runTrackingPreferences";
-import type { TrackingMapStyle } from "../../../components/tracking/trackingMapLayers";
-import { ActiveRunSheet, type ActiveRunSheetIndex } from "../../../components/tracking/active-run/ActiveRunSheet";
-import { ActiveRunMapControls } from "../../../components/tracking/active-run/ActiveRunMapControls";
-import { ActiveRunStatsCard } from "../../../components/tracking/active-run/ActiveRunStatsCard";
-import { ActiveRunActionDock } from "../../../components/tracking/active-run/ActiveRunActionDock";
-import { ActiveRunLayersSheet, type ActiveRunLayersSheetIndex } from "../../../components/tracking/active-run/ActiveRunLayersSheet";
-import { ActiveRunExpandedView } from "../../../components/tracking/active-run/ActiveRunExpandedView";
-import { ActiveRunSportSheet, type SportId } from "../../../components/tracking/active-run/ActiveRunSportSheet";
-import { ActiveRunStartSheet } from "../../../components/tracking/active-run/ActiveRunStartSheet";
+} from "@/lib/runTrackingPreferences";
+import type { TrackingMapStyle } from "@/components/tracking/trackingMapLayers";
+import { ActiveRunSheet, type ActiveRunSheetIndex } from "@/components/tracking/active-run/ActiveRunSheet";
+import { ActiveRunMapControls } from "@/components/tracking/active-run/ActiveRunMapControls";
+import { ActiveRunStatsCard } from "@/components/tracking/active-run/ActiveRunStatsCard";
+import { ActiveRunActionDock } from "@/components/tracking/active-run/ActiveRunActionDock";
+import { ActiveRunLayersSheet, type ActiveRunLayersSheetIndex } from "@/components/tracking/active-run/ActiveRunLayersSheet";
+import { ActiveRunExpandedView } from "@/components/tracking/active-run/ActiveRunExpandedView";
+import { ActiveRunSportSheet, type SportId } from "@/components/tracking/active-run/ActiveRunSportSheet";
+import { ActiveRunStartSheet } from "@/components/tracking/active-run/ActiveRunStartSheet";
+import { haversineDistance } from "@/lib/haversine";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
@@ -123,6 +124,16 @@ export default function ActiveRunScreen() {
   const bottomSafeInset = Math.max(insets.bottom, 12);
   const showWarmupBanner = !isWarmedUp && status === "running";
 
+  const activeRunScreenOptions = useMemo(
+    () => ({
+      headerShown: false as const,
+      presentation: "fullScreenModal" as const,
+      animation: "fade" as const,
+      gestureEnabled: status !== "running" && status !== "paused",
+    }),
+    [status],
+  );
+
   // Design Tokens
   const glassBg = isDark ? "rgba(10,10,10,0.65)" : "rgba(255,255,255,0.78)";
   const glassBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.10)";
@@ -143,7 +154,7 @@ export default function ActiveRunScreen() {
       };
 
   useEffect(() => {
-    setIsTabBarVisible(false);
+    requestAnimationFrame(() => setIsTabBarVisible(false));
     return () => {
       setIsTabBarVisible(true);
     };
@@ -309,6 +320,15 @@ export default function ActiveRunScreen() {
     recordMapInteraction();
   }, [recordMapInteraction]);
   const handleMapPress = useCallback((coord: { latitude: number; longitude: number }) => {
+    const dest = useRunStore.getState().destination;
+    if (dest) {
+      const dLat = Math.abs(coord.latitude - dest.latitude);
+      const dLng = Math.abs(coord.longitude - dest.longitude);
+      if (dLat < 0.0005 && dLng < 0.0005) {
+        setDestination(null);
+        return;
+      }
+    }
     setDestination(coord);
     setSheetIndex(-1);
   }, [setDestination]);
@@ -397,14 +417,7 @@ export default function ActiveRunScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-          presentation: "fullScreenModal",
-          animation: "fade",
-          gestureEnabled: status !== "running" && status !== "paused",
-        }}
-      />
+      <Stack.Screen options={activeRunScreenOptions} />
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <Animated.View style={screenStyle}>
         <LiveMap
@@ -553,37 +566,19 @@ export default function ActiveRunScreen() {
           </View>
         ) : null}
 
-        {osrmRoutingEnabled && destination && (isFetchingRoute || routeMetrics) ? (
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              left: 16,
-              top: showWarmupBanner ? insets.top + 150 : insets.top + 70,
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: radius.lg,
-              backgroundColor: glassBg,
-              borderWidth: 1,
-              borderColor: glassBorder,
-              opacity: 0.95,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              ...glassShadow
-            }}
-          >
-            {isFetchingRoute ? (
-              <ActivityIndicator size="small" color={colors.accent} />
-            ) : (
-              <Ionicons name="flash" size={14} color={colors.accent} />
-            )}
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.textSecondary }}>
-              {isFetchingRoute
-                ? "CALCULATING ROUTE..."
-                : `EST. ${Math.max(1, Math.round(routeMetrics!.durationSec / 60))} MIN · ${(routeMetrics!.distanceM / 1000).toFixed(2)} KM`}
-            </Text>
-          </View>
+        {destination ? (
+          <DestinationBanner
+            destination={destination}
+            routeMetrics={routeMetrics}
+            isFetchingRoute={isFetchingRoute}
+            osrmRoutingEnabled={osrmRoutingEnabled}
+            showWarmupBanner={showWarmupBanner}
+            insetsTop={insets.top}
+            glassBg={glassBg}
+            glassBorder={glassBorder}
+            glassShadow={glassShadow}
+            colors={colors}
+          />
         ) : null}
 
         {showRunDock ? (
@@ -715,5 +710,88 @@ export default function ActiveRunScreen() {
         />
       )}
     </>
+  );
+}
+
+function DestinationBanner({
+  destination,
+  routeMetrics,
+  isFetchingRoute,
+  osrmRoutingEnabled,
+  showWarmupBanner,
+  insetsTop,
+  glassBg,
+  glassBorder,
+  glassShadow,
+  colors,
+}: {
+  destination: { latitude: number; longitude: number };
+  routeMetrics: { durationSec: number; distanceM: number } | null;
+  isFetchingRoute: boolean;
+  osrmRoutingEnabled: boolean;
+  showWarmupBanner: boolean;
+  insetsTop: number;
+  glassBg: string;
+  glassBorder: string;
+  glassShadow: object;
+  colors: Record<string, string>;
+}) {
+  const liveCoord = useRunStore((s) => s.liveCoordinate);
+  const straightLineM =
+    liveCoord
+      ? haversineDistance(
+          liveCoord.latitude,
+          liveCoord.longitude,
+          destination.latitude,
+          destination.longitude,
+        )
+      : null;
+
+  const useRoute = osrmRoutingEnabled && routeMetrics && !isFetchingRoute;
+  const distLabel = useRoute
+    ? `${(routeMetrics!.distanceM / 1000).toFixed(2)} KM`
+    : straightLineM != null
+      ? straightLineM >= 1000
+        ? `${(straightLineM / 1000).toFixed(2)} KM`
+        : `${Math.round(straightLineM)} M`
+      : null;
+  const etaLabel = useRoute
+    ? `${Math.max(1, Math.round(routeMetrics!.durationSec / 60))} MIN`
+    : null;
+
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        left: 16,
+        right: 80,
+        top: showWarmupBanner ? insetsTop + 150 : insetsTop + 70,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: radius.lg,
+        backgroundColor: glassBg,
+        borderWidth: 1,
+        borderColor: glassBorder,
+        opacity: 0.95,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        ...glassShadow,
+      }}
+    >
+      {isFetchingRoute ? (
+        <ActivityIndicator size="small" color={colors.accent} />
+      ) : (
+        <Ionicons name="navigate" size={14} color={colors.accent} />
+      )}
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.textSecondary }}>
+        {isFetchingRoute
+          ? "CALCULATING..."
+          : etaLabel
+            ? `${distLabel} · EST. ${etaLabel}`
+            : distLabel ?? "DESTINATION SET"}
+      </Text>
+    </View>
   );
 }

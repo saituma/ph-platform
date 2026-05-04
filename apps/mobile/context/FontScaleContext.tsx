@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { rem } from "react-native-css-interop";
 export type FontSizeOption = "small" | "default" | "large" | "extraLarge";
 
 const SCALE_MAP: Record<FontSizeOption, number> = {
@@ -39,9 +38,6 @@ export function FontScaleProvider({ children }: { children: React.ReactNode }) {
     setIsLoaded(true);
   }, []);
 
-  useEffect(() => {
-    rem.set(BASE_REM * (SCALE_MAP[fontSizeOption] ?? 1));
-  }, [fontSizeOption]);
 
   useEffect(() => {
     if (!isLoaded) return;

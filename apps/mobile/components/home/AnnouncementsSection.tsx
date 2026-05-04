@@ -84,13 +84,13 @@ const extractAnnouncements = (item: AnnouncementItem): ParsedAnnouncement => {
   return { text, images, videos };
 };
 
-export function AnnouncementsSection(props: AnnouncementsSectionProps) {
+export const AnnouncementsSection = React.memo(function AnnouncementsSection(props: AnnouncementsSectionProps) {
   const navContext = React.useContext(NavigationContext);
   if (!navContext) {
     return <AnnouncementsSectionBase {...props} isFocused={true} />;
   }
   return <AnnouncementsSectionWithNav {...props} />;
-}
+});
 
 function AnnouncementsSectionWithNav(props: AnnouncementsSectionProps) {
   const isFocused = useSafeIsFocused(true);
@@ -112,7 +112,7 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
   }, [activeIndex]);
 
   useEffect(() => {
-    if (announcements.length <= 1) return;
+    if (announcements.length <= 1 || !isFocused) return;
     const interval = setInterval(() => {
       const current = activeIndexRef.current;
       const nextIndex = current + 1 >= announcements.length ? 0 : current + 1;
@@ -125,7 +125,7 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
     }, AUTO_SCROLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [announcements.length]);
+  }, [announcements.length, isFocused]);
 
   const isEmpty = announcements.length === 0;
   if (isEmpty) return null;

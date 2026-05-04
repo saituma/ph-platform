@@ -45,6 +45,7 @@ import {
   syncProgressWeeklyReminder,
 } from "@/lib/progressReminders";
 import { AdaptiveSheet } from "@/components/native/AdaptiveSheet";
+import { useAppToast } from "@/hooks/useAppToast";
 
 type Tab = "strength" | "weight" | "measure";
 
@@ -116,6 +117,7 @@ function SparkBars({
 export default function ProgressScreen() {
   const insets = useAppSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
+  const toast = useAppToast();
 
   const [tab, setTab] = useState<Tab>("strength");
   const [strength, setStrength] = useState<StrengthEntry[]>([]);
@@ -192,7 +194,7 @@ export default function ProgressScreen() {
       if (tab === "strength") {
         const w = parseFloat(liftKg.replace(",", "."));
         if (!exName.trim() || !isFinite(w)) {
-          Alert.alert("Missing info", "Add exercise name and weight (kg).");
+          toast.warning("Missing info", "Add exercise name and weight (kg).");
           return;
         }
         insertStrength({
@@ -206,14 +208,14 @@ export default function ProgressScreen() {
       } else if (tab === "weight") {
         const w = parseFloat(bwKg.replace(",", "."));
         if (!isFinite(w)) {
-          Alert.alert("Missing info", "Enter body weight in kg.");
+          toast.warning("Missing info", "Enter body weight in kg.");
           return;
         }
         insertBodyWeight({ date_iso: dateIso, weight_kg: w, notes });
       } else {
         const cm = parseFloat(measCm.replace(",", "."));
         if (!isFinite(cm)) {
-          Alert.alert("Missing info", "Enter measurement in cm.");
+          toast.warning("Missing info", "Enter measurement in cm.");
           return;
         }
         const preset = MEASURE_PRESETS.find((m) => m.kind === measKind);
@@ -233,7 +235,7 @@ export default function ProgressScreen() {
       setModalOpen(false);
       load();
     } catch (e) {
-      Alert.alert("Could not save", e instanceof Error ? e.message : "Unknown error");
+      toast.error("Could not save", e instanceof Error ? e.message : "Unknown error");
     }
   };
 
@@ -249,10 +251,7 @@ export default function ProgressScreen() {
       if (!ok) {
         setReminderOn(false);
         await setProgressReminderPrefs({ enabled: false });
-        Alert.alert(
-          "Notifications off",
-          "Enable notifications in system settings to get progress reminders.",
-        );
+        toast.info("Notifications off", "Enable notifications in system settings to get progress reminders.");
         return;
       }
     }

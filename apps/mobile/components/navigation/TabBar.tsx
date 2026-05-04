@@ -3,7 +3,6 @@ import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { BlurView } from "expo-blur";
 import Animated from "react-native-reanimated";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import * as Haptics from "expo-haptics";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 
@@ -128,9 +127,6 @@ const TabItem = React.memo(function TabItem({
     : "rgba(22,163,74,0.10)";
 
   const handlePress = () => {
-    if (index !== activeIndex) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
     onTabPress(index);
   };
 

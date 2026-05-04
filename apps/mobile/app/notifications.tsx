@@ -10,7 +10,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
-import { SkeletonNotificationsScreen } from "@/components/ui/Skeleton";
+import { SkeletonNotificationsScreen } from "@/components/ui/legacy-skeleton";
 import {
   formatRelativeTime,
   formatSectionHeading,

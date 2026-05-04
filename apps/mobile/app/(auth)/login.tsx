@@ -25,9 +25,16 @@ import {
   setApiUserRole,
   setAppRole,
   setAuthTeamMembership,
+  setCapabilities,
+  setManagedAthletes,
+  setMessagingAccessTiers,
+  setPlanFeatures,
+  setProgramTier,
+  type AppCapabilities,
 } from "../../store/slices/userSlice";
 import { enrichTeamFieldsIfOnboardingHasThem } from "@/lib/auth/enrichTeamFromOnboarding";
 import { resolveAppRole } from "@/lib/appRole";
+import { markLoginFresh } from "@/store/AuthPersist";
 
 // ─── Background video ─────────────────────────────────────────────────────────
 // Drop your video file at:  apps/mobile/assets/videos/login-bg.mp4
@@ -121,6 +128,22 @@ export default function LoginScreen() {
           email: string;
           role?: string | null;
           profilePicture?: string | null;
+          programTier?: string | null;
+          messagingAccessTiers?: string[];
+          capabilities?: AppCapabilities | null;
+          planFeatures?: string[];
+          allAthletes?: {
+            id?: number;
+            userId?: number | null;
+            name?: string | null;
+            age?: number | null;
+            athleteType?: "youth" | "adult" | null;
+            team?: string | null;
+            teamId?: number | null;
+            level?: string | null;
+            trainingPerWeek?: number | null;
+            profilePicture?: string | null;
+          }[] | null;
           team?: unknown;
           teamId?: number | null;
           athleteType?: "youth" | "adult" | null;
@@ -132,6 +155,7 @@ export default function LoginScreen() {
       const { fields: teamFields, athleteType: athleteTypeResolved } =
         await enrichTeamFieldsIfOnboardingHasThem({ token, meUser: me.user });
 
+      markLoginFresh();
       dispatch(
         setCredentials({
           token,
@@ -145,6 +169,13 @@ export default function LoginScreen() {
         }),
       );
       dispatch(setApiUserRole(apiRole));
+      dispatch(setProgramTier(me.user.programTier ?? null));
+      dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
+      dispatch(setCapabilities(me.user.capabilities ?? null));
+      dispatch(setPlanFeatures(me.user.planFeatures ?? []));
+      if (Array.isArray(me.user.allAthletes)) {
+        dispatch(setManagedAthletes(me.user.allAthletes));
+      }
       dispatch(setAuthTeamMembership({ team: teamFields.team, teamId: teamFields.teamId }));
       dispatch(
         setAppRole(

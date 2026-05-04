@@ -37,6 +37,15 @@ import { enrichTeamFieldsIfOnboardingHasThem } from "@/lib/auth/enrichTeamFromOn
 import { parseTeamIdFromApi } from "@/lib/tracking/teamTrackingGate";
 import { promptBatteryOptimizationConsentOnce } from "@/lib/batteryOptimizationConsent";
 
+/**
+ * Set by login screen after a fresh login so bootstrap skips the redundant
+ * /auth/me + /onboarding calls (login already fetched them).
+ */
+let _loginFreshUntil = 0;
+export function markLoginFresh() {
+  _loginFreshUntil = Date.now() + 10_000;
+}
+
 const isUnauthorizedError = (error: unknown) => {
   const message =
     error instanceof Error
@@ -203,6 +212,18 @@ export function AuthPersist() {
             messagingAccessTiers?: string[];
             capabilities?: AppCapabilities | null;
             planFeatures?: string[];
+            allAthletes?: {
+              id?: number;
+              userId?: number | null;
+              name?: string | null;
+              age?: number | null;
+              athleteType?: "youth" | "adult" | null;
+              team?: string | null;
+              teamId?: number | null;
+              level?: string | null;
+              trainingPerWeek?: number | null;
+              profilePicture?: string | null;
+            }[] | null;
             team?: unknown;
             teamId?: number | null;
             athleteType?: "youth" | "adult" | null;
@@ -245,6 +266,12 @@ export function AuthPersist() {
         dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
         dispatch(setCapabilities(me.user.capabilities ?? null));
         dispatch(setPlanFeatures(me.user.planFeatures ?? []));
+        if (Array.isArray(me.user.allAthletes)) {
+          dispatch(setManagedAthletes(me.user.allAthletes));
+          if (me.user.allAthletes.length > 0) {
+            latestOnboardingAthlete = me.user.allAthletes[0];
+          }
+        }
         dispatch(
           updateProfile({
             name: me.user.name ?? null,
@@ -261,6 +288,7 @@ export function AuthPersist() {
         syncResolvedAppRole();
       } catch (error) {
         if (!active) return;
+        dispatch(setCapabilities(null));
         Sentry.addBreadcrumb({ category: "auth", message: "syncProfile failed", level: "warning" });
       }
     };
@@ -283,6 +311,7 @@ export function AuthPersist() {
         }>("/onboarding/athletes", {
           token,
           suppressStatusCodes: [401, 403, 404],
+          timeoutMs: 6_000,
         });
         if (!active) return;
         const athletes = data.athletes ?? [];
@@ -313,19 +342,24 @@ export function AuthPersist() {
       }
     };
 
-    void Promise.allSettled([
-      syncProfile(),
-      syncManagedAthletes(),
-      syncPushToken(),
-    ]).then(() => {
+    const isLoginFresh = Date.now() < _loginFreshUntil;
+    if (isLoginFresh) _loginFreshUntil = 0;
+
+    const criticalWork = isLoginFresh ? [] : [syncProfile()];
+
+    void Promise.allSettled(criticalWork).then(() => {
       if (!active) return;
-      syncResolvedAppRole();
+      if (!isLoginFresh) {
+        syncResolvedAppRole();
+      }
       const state = require("@/store").store.getState();
       const p = state.user.profile;
       if (p?.id || p?.email) {
         Sentry.setUser({ id: p.id ? String(p.id) : undefined, email: p.email ?? undefined });
       }
       dispatch(setBootstrapReady(true));
+      void syncManagedAthletes();
+      void syncPushToken();
     });
 
     const appStateSub = AppState.addEventListener("change", (state) => {

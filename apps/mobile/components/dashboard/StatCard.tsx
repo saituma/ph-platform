@@ -2,7 +2,7 @@ import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
 import { View } from "react-native";
 import { Text } from "@/components/ScaledText";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/legacy-card";
 
 interface StatCardProps {
   label: string;

@@ -29,10 +29,11 @@ import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 import { Text } from "@/components/ScaledText";
 import { AgeGate } from "@/components/AgeGate";
-import { SkeletonScheduleScreen } from "@/components/ui/Skeleton";
+import { SkeletonScheduleScreen } from "@/components/ui/legacy-skeleton";
 import { BookingModal } from "@/components/tracking/schedule/BookingModal";
 import { useScheduleData } from "@/components/tracking/schedule/hooks";
 import { useActingUser } from "@/hooks/useActingUser";
+import { useAppToast } from "@/hooks/useAppToast";
 import { canSelfBookSchedule } from "@/lib/scheduleBookingAccess";
 import type { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
@@ -555,6 +556,7 @@ const ServicesPanel = memo(function ServicesPanel({ bookable, nonBookable, onBoo
 export default memo(function ScheduleScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
+  const toast = useAppToast();
   const token = useAppSelector((s) => s.user.token);
   const capabilities = useAppSelector((s) => s.user.capabilities);
   const apiUserRole = useAppSelector((s) => s.user.apiUserRole);
@@ -579,31 +581,17 @@ export default memo(function ScheduleScreen() {
   const [bookingServiceId, setBookingServiceId] = useState<number | null>(null);
   const [pastOpen, setPastOpen] = useState(false);
 
-  // Re-prefetch on each tab focus so data stays fresh
+  // Invalidate stale schedule queries on tab focus so useScheduleData refetches
   useFocusEffect(
     useCallback(() => {
       if (!token) return;
-      void queryClient.prefetchQuery({
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.bookings.all(effectiveProfileId),
-        queryFn: async () => {
-          const { apiRequest } = await import("@/lib/api");
-          const data = await apiRequest<{ items: any[] }>("/bookings", { token });
-          const { mapBookingsToEvents } = await import("@/components/tracking/schedule/utils");
-          return mapBookingsToEvents(data.items ?? []);
-        },
-        staleTime: 2 * 60 * 1000,
+        refetchType: "none",
       });
-      void queryClient.prefetchQuery({
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.bookings.services(effectiveProfileId),
-        queryFn: async () => {
-          const { apiRequest } = await import("@/lib/api");
-          const data = await apiRequest<{ items: any[] }>(
-            "/bookings/services?includeLocked=true&omitWithoutBookableSlots=true",
-            { token, timeoutMs: 6000 },
-          );
-          return data.items ?? [];
-        },
-        staleTime: 5 * 60 * 1000,
+        refetchType: "none",
       });
     }, [token, effectiveProfileId, queryClient]),
   );
@@ -702,7 +690,7 @@ export default memo(function ScheduleScreen() {
               );
               refreshEvents();
             } catch {
-              Alert.alert("Error", "Could not cancel the request. Please try again.");
+              toast.error("Error", "Could not cancel the request. Please try again.");
             }
           },
         },

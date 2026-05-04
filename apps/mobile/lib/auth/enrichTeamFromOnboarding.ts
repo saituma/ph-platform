@@ -36,8 +36,8 @@ export async function enrichTeamFieldsIfOnboardingHasThem(input: {
       "/onboarding",
       {
         token: input.token,
-        forceRefresh: true,
         suppressStatusCodes: [401, 403, 404],
+        timeoutMs: 4_000,
       },
     );
     const a = ob?.athlete;

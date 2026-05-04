@@ -29,9 +29,6 @@ export async function fetchHomeContent(token: string, forceRefresh = false) {
   const data = await apiRequest<{ items?: any[] }>("/content/home", {
     token,
     forceRefresh,
-    // Home content is edited frequently in admin; caching causes confusing "it didn't save" reports.
-    // Always skip the client cache and rely on HTTP no-cache headers + server freshness.
-    skipCache: true,
   });
   const items = Array.isArray(data.items) ? data.items : [];
   if (!items.length) return null;

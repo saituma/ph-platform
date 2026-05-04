@@ -36,11 +36,19 @@ export const hydrateCache = () =>
     })
     .catch(() => {});
 
-export function persistCache() {
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function doPersist() {
+  persistTimer = null;
   const obj = Object.fromEntries(apiCache.entries());
   Promise.resolve(
     AsyncStorage?.setItem?.(ASYNC_CACHE_KEY, JSON.stringify(obj)),
   ).catch(() => {});
+}
+
+export function persistCache() {
+  if (persistTimer) return;
+  persistTimer = setTimeout(doPersist, 5000);
 }
 
 export function clearApiCache() {

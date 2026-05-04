@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import type { Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { TrackingMapView } from "../TrackingMapView";
@@ -128,6 +128,21 @@ export const LiveMap = React.memo(function LiveMap({
         },
       });
     }
+    if (Platform.OS === "android" && lastCoordinate) {
+      out.push({
+        id: "current-location",
+        type: "marker",
+        coordinate: { latitude: lastCoordinate.latitude, longitude: lastCoordinate.longitude },
+        title: "You",
+        marker: {
+          kind: "circle",
+          color: "#4285F4",
+          borderColor: "#fff",
+          borderWidth: 3,
+          size: 8,
+        },
+      });
+    }
     if (destination?.latitude != null && destination?.longitude != null) {
       out.push({
         id: "destination",
@@ -141,7 +156,7 @@ export const LiveMap = React.memo(function LiveMap({
       });
     }
     return out;
-  }, [coordinates, destination, routePolyline, colors]);
+  }, [coordinates, destination, routePolyline, colors, lastCoordinate]);
 
   // Animate camera to follow user — throttled so it doesn't fight user gestures.
   // Only re-center when ≥2s passed AND user moved ≥12m, OR ≥4s passed regardless.

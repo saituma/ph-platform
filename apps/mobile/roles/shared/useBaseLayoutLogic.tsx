@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { TabConfig } from "@/components/navigation";
 import React from "react";
 import { useSafePathname, useSafeRouter } from "@/hooks/navigation/useSafeExpoRouter";
@@ -38,6 +38,15 @@ export function useBaseLayoutLogic(visibleTabs: TabConfig[], tabComponents: Reco
   const pathname = useSafePathname("");
   const router = useSafeRouter();
   const lastResolvedRef = useRef<{ pathname: string; index: number } | null>(null);
+  const routeSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (routeSyncTimerRef.current) {
+        clearTimeout(routeSyncTimerRef.current);
+      }
+    };
+  }, []);
 
   const initialIndex = useMemo(() => {
     if (!pathname) return lastResolvedRef.current?.index ?? 0;
@@ -60,16 +69,22 @@ export function useBaseLayoutLogic(visibleTabs: TabConfig[], tabComponents: Reco
   }, [pathname, visibleTabs]);
 
   const handleIndexChange = useCallback(
-    (index: number, _source: "swipe" | "press" | "sync") => {
+    (index: number, source: "swipe" | "press" | "sync") => {
       const tab = visibleTabs[index];
       if (!tab || !router) return;
       if (!TABS_SHELL_ROUTE_KEYS.has(tab.key)) return;
+      if (source === "press") return;
 
       const current = parsePrimaryTabSegment(pathname);
       if (current === tab.key) return;
 
       const href = tab.key === "index" ? "/(tabs)" : `/(tabs)/${tab.key}`;
-      router.replace(href as Parameters<typeof router.replace>[0]);
+      if (routeSyncTimerRef.current) {
+        clearTimeout(routeSyncTimerRef.current);
+      }
+      routeSyncTimerRef.current = setTimeout(() => {
+        router.replace(href as Parameters<typeof router.replace>[0]);
+      }, 250);
     },
     [visibleTabs, pathname, router],
   );

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { apiRequest } from "@/lib/api";
 
 export type AssignedProgram = {
@@ -35,6 +35,8 @@ export type SessionExercise = {
   exerciseId: number;
   order: number;
   coachingNotes: string | null;
+  progressionNotes: string | null;
+  regressionNotes: string | null;
   exercise: {
     id: number;
     name: string;
@@ -50,10 +52,11 @@ export type SessionExercise = {
   };
 };
 
-export function useMyPrograms(token: string | null) {
+export function useMyPrograms(token: string | null, autoFetch = false) {
   const [programs, setPrograms] = useState<AssignedProgram[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(autoFetch && !!token);
   const [error, setError] = useState<string | null>(null);
+  const hasFetched = useRef(false);
 
   const loadPrograms = useCallback(
     async (force = false) => {
@@ -74,6 +77,13 @@ export function useMyPrograms(token: string | null) {
     },
     [token],
   );
+
+  useEffect(() => {
+    if (autoFetch && token && !hasFetched.current) {
+      hasFetched.current = true;
+      loadPrograms();
+    }
+  }, [autoFetch, token, loadPrograms]);
 
   return { programs, isLoading, error, loadPrograms };
 }
@@ -137,4 +147,32 @@ export function useMySessionExercises(token: string | null) {
   );
 
   return { exercises, isLoading, error, loadExercises };
+}
+
+export function useCompleteSession(token: string | null) {
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  const completeSession = useCallback(
+    async (sessionId: number) => {
+      if (!token) return null;
+      setIsCompleting(true);
+      try {
+        const res = await apiRequest<{
+          completed: boolean;
+          nextSession: { id: number; title: string | null; sessionNumber: number } | null;
+        }>(`/programs/my-sessions/${sessionId}/complete`, {
+          method: "POST",
+          token,
+        });
+        return res;
+      } catch {
+        return null;
+      } finally {
+        setIsCompleting(false);
+      }
+    },
+    [token],
+  );
+
+  return { completeSession, isCompleting };
 }

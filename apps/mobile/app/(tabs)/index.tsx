@@ -28,7 +28,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { Text } from "@/components/ScaledText";
-import { SkeletonHomeScreen } from "@/components/ui/Skeleton";
+import { SkeletonHomeScreen } from "@/components/ui/legacy-skeleton";
 import { useWatchHistoryStore } from "@/lib/mmkv";
 import { getWeeklySummaries } from "@/lib/sqliteRuns";
 
@@ -368,7 +368,7 @@ export default HomeScreen;
 
 // ── HomeStatCard ────────────────────────────────────────────────────
 
-function HomeStatCard({
+const HomeStatCard = React.memo(function HomeStatCard({
   stat,
   onPress,
   cardBg,
@@ -436,7 +436,7 @@ function HomeStatCard({
       </Animated.View>
     </GestureDetector>
   );
-}
+});
 
 // ── Styles ───────────────────────────────────────────────────────────
 

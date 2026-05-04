@@ -14,7 +14,7 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ThreadListItem } from "@/components/messages/inbox";
 import { Text } from "@/components/ScaledText";
-import { SkeletonMessagingScreen } from "@/components/ui/Skeleton";
+import { SkeletonMessagingScreen } from "@/components/ui/legacy-skeleton";
 import type { MessageThread, TypingStatus } from "@/types/messages";
 
 // ── Props ────────────────────────────────────────────────────────────

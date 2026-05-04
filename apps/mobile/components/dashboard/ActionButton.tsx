@@ -2,7 +2,7 @@ import { Feather } from "@/components/ui/theme-icons";
 import React from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/components/ScaledText";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/legacy-button";
 
 interface ActionButtonProps {
   icon: any;

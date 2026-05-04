@@ -22,6 +22,7 @@ export { clearApiCache };
 /*  In-flight request deduplication for GET requests                   */
 /* ------------------------------------------------------------------ */
 const inflightRequests = new Map<string, Promise<any>>();
+const DEFAULT_REQUEST_TIMEOUT_MS = 12_000;
 
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -98,7 +99,7 @@ export async function apiRequest<T>(
     const controller = new AbortController();
     const timeoutMs = Number.isFinite(options.timeoutMs)
       ? (options.timeoutMs as number)
-      : 30000;
+      : DEFAULT_REQUEST_TIMEOUT_MS;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
       return await fetch(requestUrl, {
@@ -165,7 +166,7 @@ export async function apiRequest<T>(
         (error as { name: string }).name === "AbortError";
       const timeoutMs = Number.isFinite(options.timeoutMs)
         ? (options.timeoutMs as number)
-        : 30000;
+        : DEFAULT_REQUEST_TIMEOUT_MS;
       const message = isAbort
         ? `Request timed out after ${timeoutMs}ms`
         : error instanceof Error

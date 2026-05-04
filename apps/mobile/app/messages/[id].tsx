@@ -20,7 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams } from "expo-router";
 import { Text } from "@/components/ScaledText";
-import { SkeletonThreadScreen } from "@/components/ui/Skeleton";
+import { SkeletonThreadScreen } from "@/components/ui/legacy-skeleton";
 
 export default function ThreadScreen() {
   const { colors, isDark } = useAppTheme();

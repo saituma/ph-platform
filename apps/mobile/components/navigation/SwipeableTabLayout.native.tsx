@@ -20,15 +20,6 @@ import PagerView, {
 import { useSharedValue } from "react-native-reanimated";
 import { TabBar, TabConfig } from "./TabBar";
 
-// Cache haptics module at the top level to avoid dynamic import on every press
-let _hapticsPromise: Promise<any> | null = null;
-const getHaptics = () => {
-  if (!_hapticsPromise) {
-    _hapticsPromise = import("expo-haptics").catch(() => null);
-  }
-  return _hapticsPromise;
-};
-
 interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
   children: React.ReactNode[];
@@ -47,7 +38,6 @@ export function SwipeableTabLayout({
   const pagerRef = useRef<PagerView>(null);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
-
   useEffect(() => {
     setGlobalActiveTab(activeIndex);
   }, [activeIndex]);
@@ -145,11 +135,6 @@ export function SwipeableTabLayout({
   const handleTabPress = (index: number) => {
     if (index === lastSelectedIndex.current) return;
 
-    // Use cached haptics module
-    getHaptics()?.then((Haptics: any) => {
-      Haptics?.impactAsync?.(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    });
-
     isSyncingRef.current = true;
     lastChangeSourceRef.current = "press";
     pagerRef.current?.setPage(index);
@@ -183,17 +168,13 @@ export function SwipeableTabLayout({
   const pagerChildren = useMemo(() => {
     return childrenArray.map((child, index) => {
       const key = tabs[index]?.key ?? `page-${index}`;
-      
-      // Forward contexts because PagerView might break context propagation
+
       return (
         <View key={key} style={styles.page}>
           <NavigationContainerRefContext.Provider value={containerRefContext}>
             <NavigationContext.Provider value={navigationContext}>
               <NavigationRouteContext.Provider value={routeContext}>
-                <ActiveTabProvider
-                  activeTabIndex={activeIndex}
-                  currentTabIndex={index}
-                >
+                <ActiveTabProvider currentTabIndex={index}>
                   {child}
                 </ActiveTabProvider>
               </NavigationRouteContext.Provider>
@@ -205,7 +186,6 @@ export function SwipeableTabLayout({
   }, [
     childrenArray,
     tabs,
-    activeIndex,
     navigationContext,
     routeContext,
     containerRefContext,
@@ -215,30 +195,21 @@ export function SwipeableTabLayout({
   // React Navigation context propagation, causing "Couldn't find a navigation context" crashes.
   // Fallback to a non-PagerView implementation on non-iOS platforms (press-to-switch only).
   if (Platform.OS !== "ios") {
+    const activeChild = childrenArray[activeIndex] ?? null;
+    const activeKey = tabs[activeIndex]?.key ?? `page-${activeIndex}`;
+
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.pager}>
-          {childrenArray.map((child, index) => {
-            const key = tabs[index]?.key ?? `page-${index}`;
-            const isActive = index === activeIndex;
-            return (
-              <View
-                key={key}
-                style={[
-                  StyleSheet.absoluteFillObject,
-                  { display: isActive ? "flex" : "none" },
-                ]}
-              >
-                <ActiveTabProvider activeTabIndex={activeIndex} currentTabIndex={index}>
-                  {child}
-                </ActiveTabProvider>
-              </View>
-            );
-          })}
+          <View key={activeKey} style={StyleSheet.absoluteFillObject}>
+            <ActiveTabProvider currentTabIndex={activeIndex}>
+              {activeChild}
+            </ActiveTabProvider>
+          </View>
         </View>
 
         {isTabBarVisible ? (
-          <View style={styles.tabBarWrapper}>
+          <View style={styles.tabBarWrapper} pointerEvents="box-none">
             <TabBar tabs={tabs} activeIndex={activeIndex} onTabPress={handleTabPress} />
           </View>
         ) : null}
@@ -265,7 +236,7 @@ export function SwipeableTabLayout({
       </PagerView>
 
       {isTabBarVisible ? (
-        <View style={styles.tabBarWrapper}>
+        <View style={styles.tabBarWrapper} pointerEvents="box-none">
           <TabBar
             tabs={tabs}
             activeIndex={activeIndex}
