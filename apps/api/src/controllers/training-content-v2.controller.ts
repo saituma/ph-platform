@@ -519,7 +519,7 @@ async function completeTrainingSessionRequest(req: Request, res: Response) {
     }
     foundSession = { id: directSession.id, locked: false } as any;
   }
-  if (foundSession.locked) {
+  if (foundSession!.locked) {
     return res.status(403).json({ error: "Session locked" });
   }
 
