@@ -26,6 +26,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AppDownloadRouteImport } from './routes/app-download'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PortalTrackingRouteImport } from './routes/portal/tracking'
 import { Route as PortalTestimonialRouteImport } from './routes/portal/testimonial'
 import { Route as PortalTermsRouteImport } from './routes/portal/terms'
 import { Route as PortalScheduleRouteImport } from './routes/portal/schedule'
@@ -148,6 +149,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PortalTrackingRoute = PortalTrackingRouteImport.update({
+  id: '/tracking',
+  path: '/tracking',
+  getParentRoute: () => PortalRoute,
 } as any)
 const PortalTestimonialRoute = PortalTestimonialRouteImport.update({
   id: '/testimonial',
@@ -387,6 +393,7 @@ export interface FileRoutesByFullPath {
   '/portal/schedule': typeof PortalScheduleRoute
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
+  '/portal/tracking': typeof PortalTrackingRoute
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
   '/portal/team/': typeof PortalTeamIndexRoute
@@ -443,6 +450,7 @@ export interface FileRoutesByTo {
   '/portal/schedule': typeof PortalScheduleRoute
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
+  '/portal/tracking': typeof PortalTrackingRoute
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs': typeof PortalProgramsIndexRoute
   '/portal/team': typeof PortalTeamIndexRoute
@@ -500,6 +508,7 @@ export interface FileRoutesById {
   '/portal/schedule': typeof PortalScheduleRoute
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
+  '/portal/tracking': typeof PortalTrackingRoute
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
   '/portal/team/': typeof PortalTeamIndexRoute
@@ -558,6 +567,7 @@ export interface FileRouteTypes {
     | '/portal/schedule'
     | '/portal/terms'
     | '/portal/testimonial'
+    | '/portal/tracking'
     | '/portal/team/$athleteId'
     | '/portal/programs/'
     | '/portal/team/'
@@ -614,6 +624,7 @@ export interface FileRouteTypes {
     | '/portal/schedule'
     | '/portal/terms'
     | '/portal/testimonial'
+    | '/portal/tracking'
     | '/portal/team/$athleteId'
     | '/portal/programs'
     | '/portal/team'
@@ -670,6 +681,7 @@ export interface FileRouteTypes {
     | '/portal/schedule'
     | '/portal/terms'
     | '/portal/testimonial'
+    | '/portal/tracking'
     | '/portal/team/$athleteId'
     | '/portal/programs/'
     | '/portal/team/'
@@ -826,6 +838,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/portal/tracking': {
+      id: '/portal/tracking'
+      path: '/tracking'
+      fullPath: '/portal/tracking'
+      preLoaderRoute: typeof PortalTrackingRouteImport
+      parentRoute: typeof PortalRoute
     }
     '/portal/testimonial': {
       id: '/portal/testimonial'
@@ -1125,6 +1144,7 @@ interface PortalRouteChildren {
   PortalScheduleRoute: typeof PortalScheduleRoute
   PortalTermsRoute: typeof PortalTermsRoute
   PortalTestimonialRoute: typeof PortalTestimonialRoute
+  PortalTrackingRoute: typeof PortalTrackingRoute
   PortalTeamAthleteIdRoute: typeof PortalTeamAthleteIdRoute
   PortalProgramsIndexRoute: typeof PortalProgramsIndexRoute
   PortalTeamIndexRoute: typeof PortalTeamIndexRoute
@@ -1155,6 +1175,7 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalScheduleRoute: PortalScheduleRoute,
   PortalTermsRoute: PortalTermsRoute,
   PortalTestimonialRoute: PortalTestimonialRoute,
+  PortalTrackingRoute: PortalTrackingRoute,
   PortalTeamAthleteIdRoute: PortalTeamAthleteIdRoute,
   PortalProgramsIndexRoute: PortalProgramsIndexRoute,
   PortalTeamIndexRoute: PortalTeamIndexRoute,

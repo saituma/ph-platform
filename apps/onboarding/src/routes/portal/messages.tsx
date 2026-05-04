@@ -87,7 +87,7 @@ function isOwnThreadMessage(params: {
 	}
 
 	if (
-		(threadType === "coach" || threadType === "admin") &&
+		(threadType === "coach" || threadType === "admin" || threadType === "direct") &&
 		Number.isFinite(peerId) &&
 		Number.isFinite(senderId)
 	) {
@@ -95,7 +95,7 @@ function isOwnThreadMessage(params: {
 	}
 
 	if (
-		(threadType === "coach" || threadType === "admin") &&
+		(threadType === "coach" || threadType === "admin" || threadType === "direct") &&
 		Number.isFinite(peerId) &&
 		Number.isFinite(receiverId)
 	) {
@@ -451,7 +451,7 @@ function MessagesPage() {
 			const currentThreadId = activeThreadIdRef.current;
 			if (!currentThreadId) return false;
 			const [threadType, rawPeerId] = currentThreadId.split(":");
-			if (threadType !== "coach" && threadType !== "admin") return false;
+			if (threadType !== "coach" && threadType !== "admin" && threadType !== "direct") return false;
 			const peerId = Number(rawPeerId ?? Number.NaN);
 			const senderId = Number(payload.senderId ?? Number.NaN);
 			const receiverId = Number(payload.receiverId ?? Number.NaN);
@@ -513,7 +513,7 @@ function MessagesPage() {
 				const currentThreadId = activeThreadIdRef.current;
 				if (!currentThreadId) return;
 				const [threadType, rawPeerId] = currentThreadId.split(":");
-				if (threadType !== "coach" && threadType !== "admin") return;
+				if (threadType !== "coach" && threadType !== "admin" && threadType !== "direct") return;
 				const peerId = Number(rawPeerId ?? Number.NaN);
 				const readerUserId = Number(payload?.readerUserId ?? Number.NaN);
 				const peerUserIds = Array.isArray(payload?.peerUserIds)
