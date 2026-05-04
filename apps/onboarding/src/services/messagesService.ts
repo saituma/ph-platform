@@ -164,8 +164,7 @@ export async function fetchThreadMessages(
 	let endpoint = publicApiUrl("/api/messages");
 	if (type === "group")
 		endpoint = publicApiUrl(`/api/chat/groups/${id}/messages`);
-	if (type === "admin") endpoint = publicApiUrl(`/api/admin/messages/${id}`);
-	if (type === "coach")
+	if (type === "admin" || type === "coach")
 		endpoint = publicApiUrl(`/api/messages?peerUserId=${id}`);
 
 	const token = getClientAuthToken();
@@ -238,14 +237,13 @@ export async function sendMessage(
 	let endpoint = publicApiUrl("/api/messages");
 	if (type === "group")
 		endpoint = publicApiUrl(`/api/chat/groups/${id}/messages`);
-	if (type === "admin") endpoint = publicApiUrl(`/api/admin/messages/${id}`);
 
 	const body: any = {
 		content: input.content,
 		contentType: input.contentType ?? "text",
 		mediaUrl: input.mediaUrl,
 	};
-	if (type === "coach") body.receiverId = Number(id);
+	if (type === "admin" || type === "coach") body.receiverId = Number(id);
 
 	const token = getClientAuthToken();
 	const response = await fetch(endpoint, {

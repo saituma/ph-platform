@@ -372,9 +372,6 @@ export async function createPhysioReferralAdmin(req: Request, res: Response) {
     .where(eq(athleteTable.id, input.athleteId))
     .limit(1);
   const athleteTier = athleteRows[0]?.currentProgramTier ?? null;
-  if (!athleteTier) {
-    return res.status(400).json({ error: "Athlete program tier is missing." });
-  }
   // Feature-gate: physio referrals are only available to plans that include `physio_referrals`.
   if (!(await athleteHasFeature(input.athleteId, "physio_referrals"))) {
     return res.status(403).json({ error: "Physio referrals are not included in your plan." });

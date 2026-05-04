@@ -100,10 +100,16 @@ async function resolveUserId(payload: AuthPayload) {
 
 export function initSocket(server: HttpServer) {
   const allowedOrigins = new Set<string>();
+  const allowedWildcards: string[] = [];
   const addOrigin = (value?: string) => {
     if (!value) return;
     if (value === "*") {
       allowedOrigins.add("*");
+      return;
+    }
+    if (value.includes("*")) {
+      const escaped = value.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+      allowedWildcards.push(escaped);
       return;
     }
     try {
@@ -126,12 +132,17 @@ export function initSocket(server: HttpServer) {
   addOrigin("http://localhost:5173");
   addOrigin("http://127.0.0.1:5173");
 
+  const originAllowed = (origin: string) => {
+    if (allowedOrigins.has(origin)) return true;
+    return allowedWildcards.some((pattern) => new RegExp(`^${pattern}$`).test(origin));
+  };
+
   const io = new SocketIOServer(server, {
     cors: {
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
         if (allowedOrigins.has("*")) return callback(null, true);
-        if (allowedOrigins.has(origin)) return callback(null, true);
+        if (originAllowed(origin)) return callback(null, true);
         if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
           return callback(null, true);
         }

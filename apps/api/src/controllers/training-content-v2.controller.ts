@@ -4,7 +4,7 @@ import { logger } from "../lib/logger";
 
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { ProgramType, teamTable, trainingOtherType, trainingSessionBlockType } from "../db/schema";
+import { ProgramType, teamTable, trainingModuleSessionTable, trainingOtherType, trainingSessionBlockType } from "../db/schema";
 import {
   createTrainingAudience,
   createTrainingModule,
@@ -503,11 +503,21 @@ async function completeTrainingSessionRequest(req: Request, res: Response) {
     programTier: athlete.currentProgramTier ?? null,
     team: athlete.team ?? null,
   });
-  const foundSession = workspace.modules
+  let foundSession = workspace.modules
     .flatMap((module) => module.sessions)
     .find((session) => session.id === sessionId);
   if (!foundSession) {
-    return res.status(404).json({ error: "Session not found" });
+    // Custom plan users may not resolve to the correct workspace audience.
+    // Fall back to a direct session existence check.
+    const [directSession] = await db
+      .select({ id: trainingModuleSessionTable.id })
+      .from(trainingModuleSessionTable)
+      .where(eq(trainingModuleSessionTable.id, sessionId))
+      .limit(1);
+    if (!directSession) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    foundSession = { id: directSession.id, locked: false } as any;
   }
   if (foundSession.locked) {
     return res.status(403).json({ error: "Session locked" });
