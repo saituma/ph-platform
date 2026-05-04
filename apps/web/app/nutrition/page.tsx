@@ -705,7 +705,8 @@ export default function NutritionAdminPage() {
   const filteredAthletes = useMemo(() => {
     const q = athleteQuery.trim().toLowerCase();
     // Only show actual athletes here (guardians don't own nutrition logs).
-    const pool = users.filter((u) => u.role === "athlete");
+    const athleteRoles = ["athlete", "adult_athlete", "youth_athlete", "team_athlete"];
+    const pool = users.filter((u) => athleteRoles.includes(u.role ?? ""));
 
     const filteredByType =
       showAdult && showYouth

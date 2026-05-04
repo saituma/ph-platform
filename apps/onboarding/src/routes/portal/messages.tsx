@@ -135,7 +135,8 @@ function MessagesPage() {
 			return fetchInbox(token, isManager);
 		},
 		enabled: !!token && !portalLoading,
-		staleTime: 1000 * 60, // 1 minute
+		staleTime: 1000 * 10,
+		refetchInterval: 1000 * 30,
 	});
 
 	const allThreads = inboxData?.threads ?? [];
@@ -167,7 +168,8 @@ function MessagesPage() {
 			);
 		},
 		enabled: !!token && !!activeThreadId,
-		staleTime: 1000 * 30, // 30 seconds
+		staleTime: 1000 * 5,
+		refetchInterval: 1000 * 15,
 	});
 
 	const sendMutation = useMutation({
@@ -430,13 +432,13 @@ function MessagesPage() {
 			reconnectionDelayMax: 10000,
 		});
 
-		const invalidateInbox = () => {
+		const refetchInbox = () => {
 			queryClient.invalidateQueries({
 				queryKey: messageKeys.inbox(token, isManager),
 			});
 		};
 
-		const invalidateActiveThread = () => {
+		const refetchActiveThread = () => {
 			const currentThreadId = activeThreadIdRef.current;
 			if (!currentThreadId) return;
 			queryClient.invalidateQueries({
@@ -444,24 +446,31 @@ function MessagesPage() {
 			});
 		};
 
-		const isActiveDirectThreadPayload = (payload: {
-			senderId?: number | string | null;
-			receiverId?: number | string | null;
-		}) => {
+		const appendMessageToThread = (threadId: string, msg: ApiChatMessage) => {
+			const threadKey = messageKeys.thread(token, threadId);
+			queryClient.setQueryData<ApiChatMessage[]>(threadKey, (old) => {
+				if (!old) return [msg];
+				if (old.some((m) => m.id === msg.id || (m.messageKey && m.messageKey === msg.messageKey))) return old;
+				return [...old, msg];
+			});
+		};
+
+		const threadIdForDirectPayload = (payload: { senderId?: number | string; receiverId?: number | string }) => {
 			const currentThreadId = activeThreadIdRef.current;
-			if (!currentThreadId) return false;
+			if (!currentThreadId) return null;
 			const [threadType, rawPeerId] = currentThreadId.split(":");
-			if (threadType !== "coach" && threadType !== "admin" && threadType !== "direct") return false;
+			if (threadType !== "coach" && threadType !== "admin" && threadType !== "direct") return null;
 			const peerId = Number(rawPeerId ?? Number.NaN);
 			const senderId = Number(payload.senderId ?? Number.NaN);
 			const receiverId = Number(payload.receiverId ?? Number.NaN);
-			if (!Number.isFinite(peerId)) return false;
-			return senderId === peerId || receiverId === peerId;
+			if (!Number.isFinite(peerId)) return null;
+			if (senderId === peerId || receiverId === peerId) return currentThreadId;
+			return null;
 		};
 
 		const catchUp = () => {
-			invalidateInbox();
-			invalidateActiveThread();
+			refetchInbox();
+			refetchActiveThread();
 		};
 
 		socket.on("connect", () => {
@@ -493,13 +502,38 @@ function MessagesPage() {
 		socket.on(
 			"message:new",
 			(payload: {
+				id?: number;
 				senderId?: number | string;
 				receiverId?: number | string;
+				content?: string;
+				contentType?: string;
+				mediaUrl?: string;
+				createdAt?: string;
+				senderName?: string;
+				senderProfilePicture?: string;
+				clientId?: string;
+				messageKey?: string;
+				reactions?: { emoji: string; count: number; userIds: number[] }[];
 			}) => {
-				invalidateInbox();
-				if (isActiveDirectThreadPayload(payload)) {
-					invalidateActiveThread();
+				const matchedThread = threadIdForDirectPayload(payload);
+				if (matchedThread && payload.id) {
+					appendMessageToThread(matchedThread, {
+						id: payload.id,
+						messageKey: payload.messageKey ?? payload.clientId ?? `rt:${payload.id}`,
+						senderId: Number(payload.senderId ?? 0),
+						receiverId: Number(payload.receiverId),
+						content: payload.content ?? "",
+						contentType: (payload.contentType as "text" | "image" | "video") ?? "text",
+						mediaUrl: payload.mediaUrl,
+						read: false,
+						createdAt: payload.createdAt ?? new Date().toISOString(),
+						senderName: payload.senderName,
+						senderProfilePicture: payload.senderProfilePicture,
+						reactions: payload.reactions ?? [],
+					});
 				}
+				refetchInbox();
+				if (matchedThread) refetchActiveThread();
 			},
 		);
 
@@ -509,7 +543,7 @@ function MessagesPage() {
 				readerUserId?: number | string;
 				peerUserIds?: Array<number | string>;
 			}) => {
-				invalidateInbox();
+				refetchInbox();
 				const currentThreadId = activeThreadIdRef.current;
 				if (!currentThreadId) return;
 				const [threadType, rawPeerId] = currentThreadId.split(":");
@@ -523,28 +557,53 @@ function MessagesPage() {
 					: [];
 				if (!Number.isFinite(peerId)) return;
 				if (peerId === readerUserId || peerUserIds.includes(peerId)) {
-					invalidateActiveThread();
+					refetchActiveThread();
 				}
 			},
 		);
 
-		socket.on("group:message", (payload: { groupId?: number | string } & { message?: { groupId?: number } }) => {
-			invalidateInbox();
+		socket.on("group:message", (payload: {
+			groupId?: number | string;
+			message?: {
+				groupId?: number;
+				id?: number;
+				senderId?: number;
+				content?: string;
+				contentType?: string;
+				mediaUrl?: string;
+				createdAt?: string;
+				senderName?: string;
+				senderProfilePicture?: string;
+				messageKey?: string;
+				reactions?: { emoji: string; count: number; userIds: number[] }[];
+			};
+		}) => {
 			const currentThreadId = activeThreadIdRef.current;
-			const rawId =
-				payload?.groupId ?? payload?.message?.groupId;
+			const rawId = payload?.groupId ?? payload?.message?.groupId;
 			const groupId = Number(rawId ?? Number.NaN);
-			if (
-				currentThreadId &&
-				Number.isFinite(groupId) &&
-				currentThreadId === `group:${groupId}`
-			) {
-				invalidateActiveThread();
+			const isActiveGroup = currentThreadId && Number.isFinite(groupId) && currentThreadId === `group:${groupId}`;
+			const msg = payload.message;
+			if (isActiveGroup && msg?.id) {
+				appendMessageToThread(currentThreadId, {
+					id: msg.id,
+					messageKey: msg.messageKey ?? `rt:${msg.id}`,
+					senderId: Number(msg.senderId ?? 0),
+					content: msg.content ?? "",
+					contentType: (msg.contentType as "text" | "image" | "video") ?? "text",
+					mediaUrl: msg.mediaUrl,
+					read: false,
+					createdAt: msg.createdAt ?? new Date().toISOString(),
+					senderName: msg.senderName,
+					senderProfilePicture: msg.senderProfilePicture,
+					reactions: msg.reactions ?? [],
+				});
 			}
+			refetchInbox();
+			if (isActiveGroup) refetchActiveThread();
 		});
 
 		socket.on("group:read", (payload: { groupId?: number | string }) => {
-			invalidateInbox();
+			refetchInbox();
 			const currentThreadId = activeThreadIdRef.current;
 			const groupId = Number(payload?.groupId ?? Number.NaN);
 			if (
@@ -552,22 +611,22 @@ function MessagesPage() {
 				Number.isFinite(groupId) &&
 				currentThreadId === `group:${groupId}`
 			) {
-				invalidateActiveThread();
+				refetchActiveThread();
 			}
 		});
 
 		socket.on("message:deleted", () => {
-			invalidateInbox();
-			invalidateActiveThread();
+			refetchInbox();
+			refetchActiveThread();
 		});
 
 		socket.on("group:message:deleted", () => {
-			invalidateInbox();
-			invalidateActiveThread();
+			refetchInbox();
+			refetchActiveThread();
 		});
 
 		socket.on("message:reaction", () => {
-			invalidateActiveThread();
+			refetchActiveThread();
 		});
 
 		socket.on("group:reaction", (payload: { groupId?: number | string }) => {
@@ -578,7 +637,7 @@ function MessagesPage() {
 				Number.isFinite(groupId) &&
 				currentThreadId === `group:${groupId}`
 			) {
-				invalidateActiveThread();
+				refetchActiveThread();
 			}
 		});
 
