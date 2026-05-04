@@ -68,7 +68,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     isYouthFromAthleteData ||
     isUnder18Athlete ||
     (isTeamAthleteRole && !hasExplicitAdultProof);
-  const showNutritionTargets = !isBlockedYouthContext && isAdult;
+  const showNutritionTargets = !isBlockedYouthContext && (isAdult || hasExplicitAdultProof);
 
   const [activeTab, setActiveTab] = useState<"log" | "history" | "coach">(
     "log",

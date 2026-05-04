@@ -37,37 +37,6 @@ export const Route = createFileRoute("/portal/nutrition")({
 	component: NutritionPage,
 });
 
-function TargetBar({
-	label,
-	unit,
-	value,
-	target,
-	color,
-}: {
-	label: string;
-	unit: string;
-	value: number;
-	target: number;
-	color: string;
-}) {
-	const pct = Math.min(100, Math.round((value / target) * 100));
-	return (
-		<div className="space-y-1.5">
-			<div className="flex justify-between text-xs font-bold">
-				<span>{label}</span>
-				<span className="text-muted-foreground">
-					{value} / {target} {unit}
-				</span>
-			</div>
-			<div className="h-2 w-full rounded-full bg-muted/50 overflow-hidden">
-				<div
-					className={`h-full rounded-full ${color} transition-all`}
-					style={{ width: `${pct}%` }}
-				/>
-			</div>
-		</div>
-	);
-}
 
 function WellbeingDot({
 	value,
@@ -522,27 +491,42 @@ function NutritionPage() {
 					</div>
 				</div>
 
-				{/* Daily Targets Progress */}
+				{/* Coach-Set Daily Targets */}
 				{targets && (
 					<Card className="border-2">
 						<CardHeader className="pb-3">
 							<CardTitle className="text-lg font-bold uppercase tracking-tight">
 								Daily Targets
 							</CardTitle>
+							<p className="text-xs text-muted-foreground">Set by your coach — aim for these each day.</p>
 						</CardHeader>
-						<CardContent className="space-y-4">
-							{targets.calories && (
-								<TargetBar label="Calories" unit="kcal" value={0} target={targets.calories} color="bg-orange-500" />
-							)}
-							{targets.protein && (
-								<TargetBar label="Protein" unit="g" value={0} target={targets.protein} color="bg-blue-500" />
-							)}
-							{targets.carbs && (
-								<TargetBar label="Carbs" unit="g" value={0} target={targets.carbs} color="bg-yellow-500" />
-							)}
-							{targets.fats && (
-								<TargetBar label="Fats" unit="g" value={0} target={targets.fats} color="bg-red-500" />
-							)}
+						<CardContent className="space-y-3">
+							<div className="grid grid-cols-2 gap-3">
+								{targets.calories && (
+									<div className="rounded-xl bg-orange-500/10 border border-orange-500/20 p-3 text-center">
+										<div className="text-lg font-black text-orange-600">{targets.calories}</div>
+										<div className="text-[10px] font-bold uppercase tracking-wider text-orange-600/70">kcal</div>
+									</div>
+								)}
+								{targets.protein && (
+									<div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-3 text-center">
+										<div className="text-lg font-black text-blue-600">{targets.protein}g</div>
+										<div className="text-[10px] font-bold uppercase tracking-wider text-blue-600/70">Protein</div>
+									</div>
+								)}
+								{targets.carbs && (
+									<div className="rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-3 text-center">
+										<div className="text-lg font-black text-yellow-600">{targets.carbs}g</div>
+										<div className="text-[10px] font-bold uppercase tracking-wider text-yellow-600/70">Carbs</div>
+									</div>
+								)}
+								{targets.fats && (
+									<div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-center">
+										<div className="text-lg font-black text-red-600">{targets.fats}g</div>
+										<div className="text-[10px] font-bold uppercase tracking-wider text-red-600/70">Fats</div>
+									</div>
+								)}
+							</div>
 							{targets.micronutrientsGuidance && (
 								<p className="text-xs text-muted-foreground border-t pt-3 mt-1">
 									<span className="font-bold">Coach notes: </span>

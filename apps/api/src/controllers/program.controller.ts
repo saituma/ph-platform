@@ -81,24 +81,34 @@ export async function getMySessionExercisesController(req: Request, res: Respons
 }
 
 export async function getMySessionCompletionController(req: Request, res: Response) {
-  const sessionId = sessionIdSchema.parse(req.params.sessionId);
-  const completion = await getMySessionCompletion(req.user!.id, sessionId);
-  return res.status(200).json({ completion });
+  try {
+    const sessionId = sessionIdSchema.parse(req.params.sessionId);
+    const completion = await getMySessionCompletion(req.user!.id, sessionId);
+    return res.status(200).json({ completion });
+  } catch (err: any) {
+    console.error("[getMySessionCompletion] error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 }
 
 export async function completeMySessionController(req: Request, res: Response) {
-  const sessionId = sessionIdSchema.parse(req.params.sessionId);
-  const feedback = req.body ?? {};
-  const result = await completeMySession(req.user!.id, sessionId, {
-    videoUrl: typeof feedback.videoUrl === "string" ? feedback.videoUrl.trim() || null : null,
-    weightsUsed: typeof feedback.weightsUsed === "string" ? feedback.weightsUsed.trim() || null : null,
-    repsCompleted: typeof feedback.repsCompleted === "string" ? feedback.repsCompleted.trim() || null : null,
-    rpe: typeof feedback.rpe === "number" && feedback.rpe >= 1 && feedback.rpe <= 10 ? feedback.rpe : null,
-  });
-  if (!result) {
-    return res.status(404).json({ error: "Session not found or not assigned" });
+  try {
+    const sessionId = sessionIdSchema.parse(req.params.sessionId);
+    const feedback = req.body ?? {};
+    const result = await completeMySession(req.user!.id, sessionId, {
+      videoUrl: typeof feedback.videoUrl === "string" ? feedback.videoUrl.trim() || null : null,
+      weightsUsed: typeof feedback.weightsUsed === "string" ? feedback.weightsUsed.trim() || null : null,
+      repsCompleted: typeof feedback.repsCompleted === "string" ? feedback.repsCompleted.trim() || null : null,
+      rpe: typeof feedback.rpe === "number" && feedback.rpe >= 1 && feedback.rpe <= 10 ? feedback.rpe : null,
+    });
+    if (!result) {
+      return res.status(404).json({ error: "Session not found or not assigned" });
+    }
+    return res.status(200).json(result);
+  } catch (err: any) {
+    console.error("[completeMySession] error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
-  return res.status(200).json(result);
 }
 
 export async function getActiveProgramAiInsightController(req: Request, res: Response) {

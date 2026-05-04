@@ -307,19 +307,22 @@ export async function completeMySession(
     })
     .onConflictDoNothing();
 
-  const nextSession = await db
-    .select({ id: sessionTable.id, title: sessionTable.title, sessionNumber: sessionTable.sessionNumber })
-    .from(sessionTable)
-    .where(
-      and(
-        eq(sessionTable.moduleId, session.moduleId!),
-        eq(sessionTable.programId, session.programId),
-      ),
-    )
-    .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
+  let next = null;
+  if (session.moduleId) {
+    const nextSession = await db
+      .select({ id: sessionTable.id, title: sessionTable.title, sessionNumber: sessionTable.sessionNumber })
+      .from(sessionTable)
+      .where(
+        and(
+          eq(sessionTable.moduleId, session.moduleId),
+          eq(sessionTable.programId, session.programId),
+        ),
+      )
+      .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
 
-  const currentIdx = nextSession.findIndex((s) => s.id === sessionId);
-  const next = currentIdx >= 0 && currentIdx < nextSession.length - 1 ? nextSession[currentIdx + 1] : null;
+    const currentIdx = nextSession.findIndex((s) => s.id === sessionId);
+    next = currentIdx >= 0 && currentIdx < nextSession.length - 1 ? nextSession[currentIdx + 1] : null;
+  }
 
   return { completed: true, nextSession: next };
 }

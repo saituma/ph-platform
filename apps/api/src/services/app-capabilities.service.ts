@@ -137,7 +137,7 @@ export function buildAppCapabilities(input: {
     billingPortal: true,
     mobilePayments: false,
     semiPrivateBooking: hasPlanFeatures ? has("semi_private") : r >= 2,
-    coachVideoUpload: hasPlanFeatures ? has("video_upload") : r >= 2,
+    coachVideoUpload: hasPlanFeatures ? has("video_upload") || has("programs_full") || has("mobile_app") : r >= 2,
     physioReferrals: hasPlanFeatures ? has("physio_referrals") : r >= 3,
     runTracking: hasPlanFeatures ? has("run_tracking") : (isAdult || isTeamAthlete),
     achievements: hasPlanFeatures ? has("achievements") : true,
