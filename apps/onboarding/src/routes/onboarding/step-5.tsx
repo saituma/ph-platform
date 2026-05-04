@@ -414,6 +414,7 @@ function OnboardingStep5() {
 				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
+					...getAuthHeaders(),
 				},
 				body: JSON.stringify({
 					...(isTeam ? { teamId } : null),

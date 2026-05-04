@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { config } from "#/lib/config";
-import { getTokenStatus } from "#/lib/client-storage";
+import { getTokenStatus, getAuthHeaders } from "#/lib/client-storage";
 
 type CheckoutReceiptPayload = {
 	kind: "team" | "athlete";
@@ -92,6 +92,7 @@ function OnboardingSuccess() {
 				credentials: "include",
 				headers: {
 					"Content-Type": "application/json",
+					...getAuthHeaders(),
 				},
 				body: JSON.stringify({ sessionId }),
 			});
