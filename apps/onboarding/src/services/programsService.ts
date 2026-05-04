@@ -182,10 +182,27 @@ export async function createAthleteVideo(videoUrl: string, notes?: string) {
   return response.json();
 }
 
+export async function fetchSessionCompletion(_token: string, sessionId: number) {
+  const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
+  const response = await fetch(
+    `${baseUrl}/api/programs/my-sessions/${sessionId}/completion`,
+    {
+      credentials: "include",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    },
+  );
+  if (!response.ok) return null;
+  const data = await response.json();
+  return data.completion ?? null;
+}
+
 export async function completeSession(
   _token: string,
   sessionId: number,
-  feedback?: { weightsUsed?: string; repsCompleted?: string; rpe?: number },
+  feedback?: { weightsUsed?: string; repsCompleted?: string; rpe?: number; videoUrl?: string },
 ) {
   const baseUrl = config.api.baseUrl;
   const token = getClientAuthToken();

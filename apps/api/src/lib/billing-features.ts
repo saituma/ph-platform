@@ -188,7 +188,13 @@ export function getEffectivePlanFeatures(plan: {
   tier?: string | null;
 }): Set<FeatureKey> {
   const explicit = normalizeFeatureKeys(plan.features as unknown[] | null | undefined);
-  if (explicit.size > 0) return explicit;
+  if (explicit.size > 0) {
+    // Always include base-tier features so custom plans don't lose core access
+    const tier = plan.tier ?? "PHP";
+    const base = TIER_DEFAULT_FEATURES[tier] ?? TIER_DEFAULT_FEATURES.PHP;
+    for (const f of base) explicit.add(f);
+    return explicit;
+  }
   const tier = plan.tier ?? "PHP";
   return new Set(TIER_DEFAULT_FEATURES[tier] ?? TIER_DEFAULT_FEATURES.PHP);
 }

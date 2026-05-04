@@ -15,6 +15,7 @@ import { usePortal } from "@/portal/PortalContext";
 import {
 	completeSession,
 	fetchMySessionExercises,
+	fetchSessionCompletion,
 	presignVideoUpload,
 } from "@/services/programsService";
 import { programKeys } from "../index";
@@ -378,16 +379,25 @@ function AssignedSessionDetailPage() {
 		staleTime: 1000 * 60 * 15,
 	});
 
+	const { data: completionData, refetch: refetchCompletion } = useQuery({
+		queryKey: [...programKeys.all, "session-completion", token, sessionIdNumber],
+		queryFn: () => fetchSessionCompletion(token!, sessionIdNumber),
+		enabled: !!token && !portalLoading && !Number.isNaN(sessionIdNumber),
+		staleTime: 1000 * 60 * 5,
+	});
+
 	const completeMutation = useMutation({
 		mutationFn: (data: { weightsUsed: string; repsCompleted: string; rpe: number | null; videoUrl: string | null }) =>
 			completeSession(token!, sessionIdNumber, {
 				weightsUsed: data.weightsUsed || undefined,
 				repsCompleted: data.repsCompleted || undefined,
 				rpe: data.rpe ?? undefined,
+				videoUrl: data.videoUrl || undefined,
 			}),
 		onSuccess: () => {
 			setSheetOpen(false);
 			setCompleted(true);
+			refetchCompletion();
 			queryClient.invalidateQueries({ queryKey: programKeys.all });
 		},
 	});
@@ -576,7 +586,7 @@ function AssignedSessionDetailPage() {
 				</div>
 			)}
 
-			{exercises.length > 0 && !completed && (
+			{exercises.length > 0 && !completed && !completionData && (
 				<div className="flex justify-center pt-4 pb-8">
 					<button
 						type="button"
@@ -589,10 +599,36 @@ function AssignedSessionDetailPage() {
 				</div>
 			)}
 
-			{completed && (
-				<div className="flex flex-col items-center gap-3 pt-4 pb-8 animate-in fade-in duration-500">
+			{(completed || completionData) && (
+				<div className="flex flex-col items-center gap-4 pt-4 pb-8 animate-in fade-in duration-500">
 					<CheckCircle className="w-12 h-12 text-green-500" />
 					<p className="text-lg font-bold text-green-600">Session Completed!</p>
+
+					{completionData?.videoUrl && (
+						<div className="w-full max-w-lg rounded-2xl overflow-hidden border bg-card">
+							<div className="p-3 border-b bg-muted/30">
+								<p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+									<Video className="w-3.5 h-3.5" /> Your Uploaded Video
+								</p>
+							</div>
+							<video src={completionData.videoUrl} controls className="w-full aspect-video bg-black" />
+						</div>
+					)}
+
+					{completionData?.coachResponse && (
+						<div className="w-full max-w-lg rounded-2xl border bg-primary/5 border-primary/20 p-4">
+							<p className="text-xs font-bold uppercase tracking-wider text-primary mb-2">
+								Coach Response
+							</p>
+							<p className="text-sm text-foreground whitespace-pre-wrap">{completionData.coachResponse}</p>
+							{completionData.coachResponseAt && (
+								<p className="text-[10px] text-muted-foreground mt-2">
+									{new Date(completionData.coachResponseAt).toLocaleDateString()}
+								</p>
+							)}
+						</div>
+					)}
+
 					<button
 						type="button"
 						onClick={() => navigate({ to: "/portal/programs" })}

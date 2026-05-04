@@ -324,6 +324,33 @@ export async function completeMySession(
   return { completed: true, nextSession: next };
 }
 
+export async function getMySessionCompletion(userId: number, sessionId: number) {
+  const athlete = await getAthleteForUser(userId);
+  if (!athlete) return null;
+
+  const [completion] = await db
+    .select({
+      id: programSessionCompletionTable.id,
+      videoUrl: programSessionCompletionTable.videoUrl,
+      weightsUsed: programSessionCompletionTable.weightsUsed,
+      repsCompleted: programSessionCompletionTable.repsCompleted,
+      rpe: programSessionCompletionTable.rpe,
+      coachResponse: programSessionCompletionTable.coachResponse,
+      coachResponseAt: programSessionCompletionTable.coachResponseAt,
+      completedAt: programSessionCompletionTable.completedAt,
+    })
+    .from(programSessionCompletionTable)
+    .where(
+      and(
+        eq(programSessionCompletionTable.athleteId, athlete.id),
+        eq(programSessionCompletionTable.sessionId, sessionId),
+      ),
+    )
+    .limit(1);
+
+  return completion ?? null;
+}
+
 export async function getProgramAiInsight(programId: number) {
   const program = await getProgramById(programId);
   if (!program) return null;

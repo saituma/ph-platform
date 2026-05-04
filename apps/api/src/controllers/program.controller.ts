@@ -6,6 +6,7 @@ import {
   getExerciseLibrary,
   getMyAssignedPrograms,
   getMyProgramFull,
+  getMySessionCompletion,
   getMySessionExercises,
   getProgramAiInsight,
   getProgramByIdForUser,
@@ -77,6 +78,12 @@ export async function getMySessionExercisesController(req: Request, res: Respons
     return res.status(404).json({ error: "Session not found" });
   }
   return res.status(200).json({ exercises });
+}
+
+export async function getMySessionCompletionController(req: Request, res: Response) {
+  const sessionId = sessionIdSchema.parse(req.params.sessionId);
+  const completion = await getMySessionCompletion(req.user!.id, sessionId);
+  return res.status(200).json({ completion });
 }
 
 export async function completeMySessionController(req: Request, res: Response) {
