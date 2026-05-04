@@ -49,7 +49,8 @@ export function hasActivePortalSubscription(user: PortalUser): boolean {
 	}
 
 	if (!user.programTier) return false;
-	return isFutureExpiry(user.planExpiresAt ?? null);
+	if (!user.planExpiresAt) return true;
+	return isFutureExpiry(user.planExpiresAt);
 }
 
 /** True when this login is a team coach using the coach portal (one team), not an athlete/guardian account. */
