@@ -155,6 +155,7 @@ function CompletionSheet({
 	onClose,
 	onSubmit,
 	submitting,
+	allowVideoUpload = false,
 }: {
 	open: boolean;
 	onClose: () => void;
@@ -165,6 +166,7 @@ function CompletionSheet({
 		videoUrl: string | null;
 	}) => void;
 	submitting: boolean;
+	allowVideoUpload?: boolean;
 }) {
 	const [weightsUsed, setWeightsUsed] = useState("");
 	const [repsCompleted, setRepsCompleted] = useState("");
@@ -294,7 +296,7 @@ function CompletionSheet({
 						<p className="mt-1 text-[10px] text-muted-foreground">1 = very easy · 10 = maximal effort</p>
 					</div>
 
-					<div>
+					{allowVideoUpload && (<div>
 						<span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
 							Upload Video (optional)
 						</span>
@@ -340,7 +342,7 @@ function CompletionSheet({
 								<div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
 							</div>
 						)}
-					</div>
+					</div>)}
 				</div>
 
 				<button
@@ -360,7 +362,7 @@ function AssignedSessionDetailPage() {
 	const { sessionId } = Route.useParams();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { token, loading: portalLoading, error: portalError } = usePortal();
+	const { token, user, loading: portalLoading, error: portalError } = usePortal();
 
 	const sessionIdNumber = Number(sessionId);
 	const [sheetOpen, setSheetOpen] = useState(false);
@@ -607,6 +609,7 @@ function AssignedSessionDetailPage() {
 				onClose={() => setSheetOpen(false)}
 				onSubmit={handleComplete}
 				submitting={completeMutation.isPending}
+				allowVideoUpload={!!user?.capabilities?.coachVideoUpload}
 			/>
 
 			{completeMutation.isError && (
