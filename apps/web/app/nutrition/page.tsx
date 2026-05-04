@@ -89,12 +89,12 @@ function parseSlot(value: unknown) {
 
 function logSummaryLines(log: NutritionLog): string[] {
   if (!log) return [];
-  if (log.athleteType !== "youth") {
-    const diary = typeof log.foodDiary === "string" ? log.foodDiary.trim() : "";
-    return diary ? [`Food diary: ${diary}`] : [];
-  }
 
   const out: string[] = [];
+
+  const diary = typeof log.foodDiary === "string" ? log.foodDiary.trim() : "";
+  if (diary) out.push(`Food diary: ${diary}`);
+
   const b = parseSlot(log.breakfast);
   const l = parseSlot(log.lunch);
   const d = parseSlot(log.dinner);
