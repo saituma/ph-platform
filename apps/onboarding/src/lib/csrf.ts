@@ -40,5 +40,5 @@ export function csrfFetch(
     headers.set("X-CSRF-Token", getCsrfToken());
   }
 
-  return fetch(input, { ...init, headers });
+  return fetch(input, { ...init, credentials: "include", headers });
 }
