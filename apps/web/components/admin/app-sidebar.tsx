@@ -12,6 +12,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
+  ClipboardX,
   CreditCard,
   Images,
   LayoutDashboard,
@@ -47,6 +48,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useGetThreadsQuery, useGetUsersQuery, useGetVideoUploadsQuery, useGetAdminProfileQuery } from "../../lib/apiSlice";
+import { resolveSocketUrl } from "../../lib/socket-url";
 import { ThemeToggle } from "./theme-toggle";
 
 // Module-level singleton — persists across page navigations so we never
@@ -54,22 +56,7 @@ import { ThemeToggle } from "./theme-toggle";
 let _socket: Socket | null = null;
 function getOrCreateSocket(): Socket {
   if (_socket?.connected) return _socket;
-  const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-  const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-  const isLocal =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-  const fallback =
-    typeof window !== "undefined"
-      ? `${window.location.protocol}//${window.location.hostname}:3001`
-      : "";
-  const socketUrl = socketEnvUrl
-    ? socketEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
-    : isLocal
-      ? fallback
-      : apiEnvUrl
-        ? apiEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
-        : fallback;
+  const socketUrl = resolveSocketUrl();
   const token =
     typeof document !== "undefined"
       ? (document.cookie

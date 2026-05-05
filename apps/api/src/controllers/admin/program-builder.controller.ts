@@ -136,12 +136,24 @@ export async function listAdultAthletes(_req: Request, res: Response) {
 export async function assignProgram(req: Request, res: Response) {
   const programId = z.coerce.number().int().min(1).parse(req.params.programId);
   const { athleteId } = z.object({ athleteId: z.number().int().min(1) }).parse(req.body);
-  const assignment = await ProgramBuilderService.assignProgram({
-    athleteId,
-    programId,
-    assignedBy: req.user!.id,
-  });
-  return res.status(201).json({ assignment });
+  try {
+    const assignment = await ProgramBuilderService.assignProgram({
+      athleteId,
+      programId,
+      assignedBy: req.user!.id,
+    });
+    return res.status(201).json({ assignment });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found") || msg.includes("Not found")) {
+      return res.status(404).json({ error: msg });
+    }
+    const code = (err as any)?.code;
+    if (code === "23505" || msg.includes("unique") || msg.includes("duplicate")) {
+      return res.status(409).json({ error: "Already assigned" });
+    }
+    throw err;
+  }
 }
 
 export async function unassignProgram(req: Request, res: Response) {
@@ -153,7 +165,15 @@ export async function unassignProgram(req: Request, res: Response) {
 
 export async function getAthleteDetail(req: Request, res: Response) {
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
-  const athlete = await ProgramBuilderService.getAthleteDetail(athleteId);
-  if (!athlete) return res.status(404).json({ error: "Athlete not found." });
-  return res.status(200).json({ athlete });
+  try {
+    const athlete = await ProgramBuilderService.getAthleteDetail(athleteId);
+    if (!athlete) return res.status(404).json({ error: "Athlete not found." });
+    return res.status(200).json({ athlete });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found") || msg.includes("Not found")) {
+      return res.status(404).json({ error: msg });
+    }
+    throw err;
+  }
 }

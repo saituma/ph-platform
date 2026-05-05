@@ -32,16 +32,27 @@ async function forward(req: NextRequest) {
   const accessToken = req.cookies.get("accessToken")?.value ?? req.cookies.get("accessTokenClient")?.value;
   const forwardedAuth = req.headers.get("authorization") ?? "";
 
-  const res = await fetch(target, {
-    method: req.method,
-    headers: {
-      "Content-Type": req.headers.get("content-type") ?? "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...(forwardedAuth ? { Authorization: forwardedAuth } : {}),
-    },
-    body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.text(),
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(target, {
+      method: req.method,
+      headers: {
+        "Content-Type": req.headers.get("content-type") ?? "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...(forwardedAuth ? { Authorization: forwardedAuth } : {}),
+      },
+      body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.text(),
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error("[backend proxy] upstream fetch failed", {
+      method: req.method,
+      path,
+      target,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json({ error: "Backend unavailable", target }, { status: 502 });
+  }
 
   const data = await res.text();
   const responseHeaders: Record<string, string> = {

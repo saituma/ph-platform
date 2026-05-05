@@ -411,6 +411,7 @@ export async function getMe(req: Request, res: Response) {
       athleteType: athlete?.athleteType ?? null,
       hasTeam: hasAssignedTeamContext(athlete),
       planFeatures,
+      hasActivePlan: athlete?.currentPlanId != null,
     });
 
     return {
@@ -454,6 +455,28 @@ export async function getMe(req: Request, res: Response) {
       name: user.name && user.name !== "User" ? user.name : (athlete?.name ?? coachManagedTeam?.name ?? user.name),
     };
   });
+
+  if (String(payload?.email ?? "").trim().toLowerCase() === "dawitanother@gmail.com") {
+    logger.info(
+      {
+        marker: "portal-debug",
+        route: "GET /api/auth/me",
+        userId: payload.id,
+        email: payload.email,
+        role: payload.role,
+        athleteId: payload.athleteId,
+        onboardingCompleted: payload.onboardingCompleted,
+        birthDate: payload.birthDate,
+        trainingPerWeek: payload.trainingPerWeek,
+        performanceGoalsPresent: Boolean(String(payload.performanceGoals ?? "").trim()),
+        phonePresent: Boolean(String(payload.phoneNumber ?? "").trim()),
+        equipmentAccessPresent: Boolean(String(payload.equipmentAccess ?? "").trim()),
+        currentProgramTier: payload.programTier,
+        planExpiresAt: payload.planExpiresAt,
+      },
+      "[portal-debug] auth me snapshot",
+    );
+  }
 
   return res.status(200).json({ user: payload });
 }

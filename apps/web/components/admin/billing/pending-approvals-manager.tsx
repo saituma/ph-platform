@@ -28,6 +28,7 @@ type ApprovalRequest = {
   displayPrice?: string | null;
   billingInterval?: string | null;
   status?: string | null;
+  paymentStatus?: string | null;
 };
 
 type TeamApprovalRequest = {
@@ -86,6 +87,14 @@ function statusBadgeVariant(status: string | null | undefined) {
     default:
       return "secondary" as const;
   }
+}
+
+function canApproveGuardianRequest(request: ApprovalRequest) {
+  const status = String(request.status ?? "").toLowerCase();
+  const payment = String(request.paymentStatus ?? "").toLowerCase();
+  if (status === "approved") return false;
+  if (status === "pending_approval") return true;
+  return payment === "paid" || payment === "no_payment_required";
 }
 
 export function PendingApprovalsManager() {
@@ -387,6 +396,7 @@ export function PendingApprovalsManager() {
                               ) : (
                                 <Button
                                   size="sm"
+                                  disabled={!canApproveGuardianRequest(request)}
                                   onClick={() => handleApprove(request.requestId)}
                                 >
                                   Approve

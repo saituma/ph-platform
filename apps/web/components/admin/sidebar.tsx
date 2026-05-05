@@ -31,6 +31,7 @@ import { AdminNavGrouped, type NavGroup } from "./nav";
 import { cn } from "../../lib/utils";
 import { ScrollArea } from "../ui/scroll-area";
 import { useGetThreadsQuery, useGetUsersQuery, useGetVideoUploadsQuery } from "../../lib/apiSlice";
+import { resolveSocketUrl } from "../../lib/socket-url";
 
 type SidebarContentProps = {
   currentPath: string;
@@ -77,17 +78,7 @@ export function AdminSidebarContent({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-    const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-    const localDevHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-    const fallbackLocalUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
-    const socketUrl = socketEnvUrl
-      ? socketEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
-      : localDevHost
-      ? fallbackLocalUrl
-      : apiEnvUrl
-      ? apiEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
-      : fallbackLocalUrl;
+    const socketUrl = resolveSocketUrl();
 
     const accessToken = typeof document !== "undefined"
       ? document.cookie

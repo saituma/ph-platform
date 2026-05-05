@@ -6,15 +6,10 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { AgeGate } from "@/components/AgeGate";
 import { InboxScreen } from "@/components/messages/InboxScreen";
 import { Text } from "@/components/ScaledText";
-import { useActiveTabIndex } from "@/context/ActiveTabContext";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
-import {
-	useSafePathname,
-	useSafeRouter,
-} from "@/hooks/navigation/useSafeExpoRouter";
+import { useSafeRouter } from "@/hooks/navigation/useSafeExpoRouter";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import { apiRequest } from "@/lib/api";
-import { BASE_TEAM_TAB_ROUTES } from "@/roles/shared/tabs";
 import { useAppSelector } from "@/store/hooks";
 
 export type MessagesHomeMode = "team" | "adult" | "youth";
@@ -46,17 +41,9 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 	const { isSectionHidden } = useAgeExperience();
 
 	const router = useSafeRouter();
-	const pathname = useSafePathname("");
-	const activeTabIndex = useActiveTabIndex();
-	const messagesTabIndex = React.useMemo(
-		() => BASE_TEAM_TAB_ROUTES.findIndex((t) => t.key === "messages"),
-		[],
-	);
-	const isOnMessagesTab =
-		messagesTabIndex >= 0 && activeTabIndex === messagesTabIndex;
-	const isMessagesRoute =
-		pathname.startsWith("/(tabs)/messages") || pathname.startsWith("/messages");
-	const isMessagesSurface = isOnMessagesTab || isMessagesRoute;
+	// MessagesHome is only mounted as the Messages tab screen in non-admin shells.
+	// Keep controller always enabled here to avoid focus/path false negatives.
+	const isMessagesSurface = true;
 	const {
 		sortedThreads,
 		typingStatus,
@@ -88,9 +75,12 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 
 	const inboxThreads = React.useMemo(() => {
 		if (mode !== "team") {
-			const base = sortedThreads.filter((thread) => thread.channelType !== "team");
-			if (inboxFilter === "direct") return base.filter((t) => (t.unread ?? 0) > 0);
-			return base;
+			// Non-team shells can still receive team-channel threads (legacy/team DM routing).
+			// Do not drop them, otherwise unread badge can show >0 while list is empty.
+			if (inboxFilter === "direct") {
+				return sortedThreads.filter((t) => (t.unread ?? 0) > 0);
+			}
+			return sortedThreads;
 		}
 		if (inboxFilter === "direct") {
 			return sortedThreads.filter((thread) => thread.channelType === "direct");

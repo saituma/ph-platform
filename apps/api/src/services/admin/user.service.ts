@@ -275,6 +275,57 @@ export async function listUsers(options?: { q?: string; limit?: number; managedB
   });
 }
 
+export async function getUserSummaryById(
+  userId: number,
+  options?: { managedByTeamAdminId?: number | null },
+) {
+  const filterConditions = [eq(userTable.isDeleted, false), eq(userTable.id, userId)];
+  if (typeof options?.managedByTeamAdminId === "number") {
+    filterConditions.push(eq(teamTable.adminId, options.managedByTeamAdminId));
+  }
+
+  const users = await db
+    .select({
+      id: userTable.id,
+      cognitoSub: userTable.cognitoSub,
+      name: userTable.name,
+      email: userTable.email,
+      role: userTable.role,
+      profilePicture: userTable.profilePicture,
+      isBlocked: userTable.isBlocked,
+      createdAt: userTable.createdAt,
+      updatedAt: userTable.updatedAt,
+      athleteId: athleteTable.id,
+      athleteName: athleteTable.name,
+      athleteTeam: teamTable.name,
+      athleteAge: athleteTable.age,
+      athleteType: athleteTable.athleteType,
+      programTier: athleteTable.currentProgramTier,
+      onboardingCompleted: sql<boolean>`
+        coalesce(
+          ${athleteTable.onboardingCompleted},
+          (
+            SELECT EXISTS (
+              SELECT 1 FROM ${athleteTable} as a
+              WHERE a."guardianId" = ${guardianTable.id}
+              AND a."onboardingCompleted" = true
+            )
+          ),
+          false
+        )
+      `.as("onboarding_completed"),
+      guardianProgramTier: guardianTable.currentProgramTier,
+    })
+    .from(userTable)
+    .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
+    .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
+    .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+    .where(and(...filterConditions))
+    .limit(1);
+
+  return users[0] ?? null;
+}
+
 export async function setUserBlocked(userId: number, blocked: boolean) {
   const result = await db
     .update(userTable)
@@ -294,7 +345,36 @@ export async function softDeleteUser(userId: number) {
   const deletedEmail = `deleted+${stamp}@deleted.local`;
   const deletedSub = `deleted:${stamp}`;
 
-  const result = await db.transaction(async (tx) => {
+  const applyMinimalSoftDelete = async () => {
+    const minimalStamp = `${user.id}-${Date.now()}-minimal`;
+    const minimalEmail = `deleted+${minimalStamp}@deleted.local`;
+    const minimalSub = `deleted:${minimalStamp}`;
+    const updated = await db
+      .update(userTable)
+      .set({
+        isDeleted: true,
+        isBlocked: false,
+        name: `Deleted User ${user.id}`,
+        email: minimalEmail,
+        cognitoSub: minimalSub,
+        profilePicture: null,
+        passwordHash: null,
+        passwordSalt: null,
+        emailVerified: false,
+        verificationCode: null,
+        verificationExpiresAt: null,
+        verificationAttempts: 0,
+        tokenVersion: sql`${userTable.tokenVersion} + 1`,
+        expoPushToken: null,
+        updatedAt: now,
+      })
+      .where(eq(userTable.id, userId))
+      .returning();
+    return updated[0] ?? null;
+  };
+
+  try {
+    const result = await db.transaction(async (tx) => {
     const guardians = await tx
       .select({ id: guardianTable.id })
       .from(guardianTable)
@@ -408,9 +488,15 @@ export async function softDeleteUser(userId: number) {
       .returning();
 
     return updated[0] ?? null;
-  });
-
-  return result;
+    });
+    return result;
+  } catch (error) {
+    logger.error(
+      { err: error, userId },
+      "[admin] softDeleteUser full cleanup failed; falling back to minimal soft delete",
+    );
+    return applyMinimalSoftDelete();
+  }
 }
 
 export async function getUserOnboarding(userId: number) {
@@ -418,6 +504,28 @@ export async function getUserOnboarding(userId: number) {
   const guardian = guardians[0] ?? null;
   const athlete = await getAthleteForUser(userId);
   return { guardian, athlete };
+}
+
+export async function updateAthlete(athleteId: number, data: { profilePicture?: string | null; currentProgramTier?: string | null }) {
+  const updateData: any = { updatedAt: new Date() };
+  if (data.profilePicture !== undefined) updateData.profilePicture = data.profilePicture;
+  if (data.currentProgramTier !== undefined) updateData.currentProgramTier = data.currentProgramTier;
+
+  const result = await db
+    .update(athleteTable)
+    .set(updateData)
+    .where(eq(athleteTable.id, athleteId))
+    .returning();
+
+  const athlete = result[0];
+  if (athlete?.userId && data.profilePicture !== undefined) {
+    await db
+      .update(userTable)
+      .set({ profilePicture: data.profilePicture, updatedAt: new Date() })
+      .where(eq(userTable.id, athlete.userId));
+  }
+
+  return athlete ?? null;
 }
 
 export async function updateAthleteProgramTier(athleteId: number, tier: (typeof ProgramType.enumValues)[number]) {
@@ -582,6 +690,10 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
       birthDate: input.birthDate,
       team: resolvedTeam,
       trainingPerWeek: input.trainingPerWeek,
+      preferredTrainingDays: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].slice(
+        0,
+        Math.max(1, Math.min(7, input.trainingPerWeek)),
+      ),
       injuries: input.injuries,
       growthNotes: input.growthNotes ?? null,
       performanceGoals: input.performanceGoals ?? null,

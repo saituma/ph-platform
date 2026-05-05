@@ -14,7 +14,19 @@ if (env.sentryDsn) {
 import { fatalExit } from "./lib/fatal-exit";
 import { startServer } from "./server";
 
+function isBenignRedisRejection(reason: unknown): boolean {
+  const message = reason instanceof Error ? reason.message : String(reason ?? "");
+  return (
+    message.includes("max requests limit exceeded") ||
+    message.includes("Connection is closed")
+  );
+}
+
 process.on("unhandledRejection", (reason) => {
+  if (isBenignRedisRejection(reason)) {
+    logger.warn({ reason }, "Ignoring non-fatal Redis unhandled rejection");
+    return;
+  }
   if (env.sentryDsn) Sentry.captureException(reason);
   fatalExit("Unhandled promise rejection", reason, 1);
 });

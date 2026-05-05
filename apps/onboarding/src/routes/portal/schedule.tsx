@@ -11,9 +11,12 @@ import {
 	Plus,
 	Video,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { io, type Socket } from "socket.io-client";
 import { BookingModal } from "@/components/portal/BookingModal";
 import { getTokenStatus } from "@/lib/client-storage";
+import { getPublicApiBaseUrl } from "@/lib/public-api";
+import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
 import {
 	motion,
 	PageTransition,
@@ -23,7 +26,7 @@ import {
 } from "@/lib/motion";
 import { usePortal } from "@/portal/PortalContext";
 import { portalUserMaySelfBookSchedule } from "@/lib/portal-schedule-access";
-import { fetchBookings } from "@/services/scheduleService";
+import { createAdminCustomSession, fetchAdminNonTeamUsers, fetchBookings } from "@/services/scheduleService";
 
 export const scheduleKeys = {
 	all: ["schedule"] as const,
@@ -85,8 +88,21 @@ function ScheduleSkeleton() {
 
 function SchedulePage() {
 	const [isBookingOpen, setIsBookingOpen] = useState(false);
+	const [adminMode, setAdminMode] = useState<null | "one_to_one" | "small_group">(null);
+	const [candidateQuery, setCandidateQuery] = useState("");
+	const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+	const [customStartsAt, setCustomStartsAt] = useState("");
+	const [customEndsAt, setCustomEndsAt] = useState("");
+	const [customLocation, setCustomLocation] = useState("");
+	const [customMeetingLink, setCustomMeetingLink] = useState("");
+	const [customNotes, setCustomNotes] = useState("");
+	const [customGroupName, setCustomGroupName] = useState("");
+	const [customBookable, setCustomBookable] = useState(true);
+	const [customSaving, setCustomSaving] = useState(false);
+	const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
 	const { token, user, loading: portalLoading, error: portalError } = usePortal();
 	const canSelfBook = portalUserMaySelfBookSchedule(user);
+	const canManageSchedule = isPortalTeamRosterManagerRole(user?.role);
 
 	const {
 		data: events = [],
@@ -99,6 +115,131 @@ function SchedulePage() {
 		enabled: !!token && !portalLoading,
 		staleTime: 1000 * 60 * 5,
 	});
+
+	const {
+		data: scheduleCandidates = [],
+		isLoading: scheduleCandidatesLoading,
+		refetch: refetchCandidates,
+	} = useQuery({
+		queryKey: ["schedule", "admin-candidates", candidateQuery.trim().toLowerCase()],
+		queryFn: () => fetchAdminNonTeamUsers({ q: candidateQuery.trim(), limit: 120 }),
+		enabled: canManageSchedule && !!token && !portalLoading && adminMode !== null,
+		staleTime: 1000 * 30,
+	});
+
+	useEffect(() => {
+		if (!token) return;
+		const rawSocket = String(
+			(import.meta.env as Record<string, string | undefined>)
+				.VITE_PUBLIC_SOCKET_URL ?? "",
+		).trim();
+		const apiBase = getPublicApiBaseUrl();
+		const socketUrl = rawSocket
+			? rawSocket.replace(/\/api\/?$/, "")
+			: apiBase
+				? apiBase.replace(/\/api\/?$/, "")
+				: window.location.origin;
+		const socket: Socket = io(socketUrl, {
+			path: "/socket.io",
+			auth: { token },
+			transports: ["polling", "websocket"],
+			reconnection: true,
+			reconnectionDelayMax: 10000,
+		});
+
+		const onScheduleChanged = () => {
+			void refetch();
+		};
+		socket.on("schedule:changed", onScheduleChanged);
+		return () => {
+			socket.off("schedule:changed", onScheduleChanged);
+			socket.disconnect();
+		};
+	}, [token, refetch]);
+
+	const candidateList = useMemo(() => {
+		const q = candidateQuery.trim().toLowerCase();
+		if (!q) return scheduleCandidates;
+		return scheduleCandidates.filter((item) => {
+			return (
+				item.name?.toLowerCase().includes(q) ||
+				item.email?.toLowerCase().includes(q)
+			);
+		});
+	}, [scheduleCandidates, candidateQuery]);
+
+	const togglePickUser = (userId: number) => {
+		setSelectedUserIds((prev) => {
+			const has = prev.includes(userId);
+			if (has) return prev.filter((id) => id !== userId);
+			if (adminMode === "one_to_one") return [userId];
+			return [...prev, userId];
+		});
+	};
+
+	const resetAdminForm = () => {
+		setSelectedUserIds([]);
+		setCustomStartsAt("");
+		setCustomEndsAt("");
+		setCustomLocation("");
+		setCustomMeetingLink("");
+		setCustomNotes("");
+		setCustomGroupName("");
+		setCustomBookable(true);
+		setAdminFeedback(null);
+	};
+
+	const submitCustomSchedule = async () => {
+		if (!adminMode) return;
+		if (selectedUserIds.length === 0) {
+			setAdminFeedback("Pick at least one user.");
+			return;
+		}
+		if (adminMode === "one_to_one" && selectedUserIds.length !== 1) {
+			setAdminFeedback("1:1 schedule needs exactly one user.");
+			return;
+		}
+		if (!customStartsAt || !customEndsAt) {
+			setAdminFeedback("Start and end time are required.");
+			return;
+		}
+		const startIso = new Date(customStartsAt).toISOString();
+		const endIso = new Date(customEndsAt).toISOString();
+		if (new Date(startIso).getTime() >= new Date(endIso).getTime()) {
+			setAdminFeedback("End time must be after start time.");
+			return;
+		}
+
+		setCustomSaving(true);
+		setAdminFeedback(null);
+		try {
+			const result = await createAdminCustomSession({
+				mode: adminMode,
+				userIds: selectedUserIds,
+				startsAt: startIso,
+				endsAt: endIso,
+				isBookable: customBookable,
+				location: customLocation.trim() || null,
+				meetingLink: customMeetingLink.trim() || null,
+				notes: customNotes.trim() || null,
+				groupName: customGroupName.trim() || null,
+			});
+			await refetch();
+			if (result.failedCount > 0) {
+				setAdminFeedback(
+					`Created ${result.createdCount}. Failed ${result.failedCount}. First error: ${result.failures[0]?.reason ?? "Unknown"}`,
+				);
+			} else {
+				setAdminFeedback(`Created ${result.createdCount} session booking(s).`);
+			}
+			resetAdminForm();
+			setAdminMode(null);
+		} catch (e: any) {
+			setAdminFeedback(e?.message ?? "Failed to create session");
+		} finally {
+			setCustomSaving(false);
+		}
+	};
 
 	const getEventIcon = (type: string) => {
 		switch (type) {
@@ -220,6 +361,186 @@ function SchedulePage() {
 					</motion.button>
 				) : null}
 			</motion.div>
+
+			{canManageSchedule ? (
+				<div className="rounded-2xl border bg-card p-4 space-y-4">
+					<div className="flex flex-wrap gap-2">
+						<button
+							type="button"
+							onClick={() => {
+								setAdminMode("one_to_one");
+								setSelectedUserIds([]);
+								setAdminFeedback(null);
+							}}
+							className="px-3 py-2 rounded-xl border text-sm font-semibold hover:bg-muted"
+						>
+							1-1 Schedule
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setAdminMode("small_group");
+								setSelectedUserIds([]);
+								setAdminFeedback(null);
+							}}
+							className="px-3 py-2 rounded-xl border text-sm font-semibold hover:bg-muted"
+						>
+							Small Group Session
+						</button>
+						{adminMode ? (
+							<button
+								type="button"
+								onClick={() => {
+									setAdminMode(null);
+									resetAdminForm();
+								}}
+								className="px-3 py-2 rounded-xl border text-sm hover:bg-muted ml-auto"
+							>
+								Close
+							</button>
+						) : null}
+					</div>
+
+					{adminMode ? (
+						<div className="space-y-3">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								<label className="text-sm">
+									<div className="font-medium mb-1">Start</div>
+									<input
+										type="datetime-local"
+										value={customStartsAt}
+										onChange={(e) => setCustomStartsAt(e.target.value)}
+										className="w-full h-10 rounded-lg border px-3 bg-background"
+									/>
+								</label>
+								<label className="text-sm">
+									<div className="font-medium mb-1">End</div>
+									<input
+										type="datetime-local"
+										value={customEndsAt}
+										onChange={(e) => setCustomEndsAt(e.target.value)}
+										className="w-full h-10 rounded-lg border px-3 bg-background"
+									/>
+								</label>
+							</div>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								<label className="text-sm">
+									<div className="font-medium mb-1">Location</div>
+									<input
+										type="text"
+										value={customLocation}
+										onChange={(e) => setCustomLocation(e.target.value)}
+										className="w-full h-10 rounded-lg border px-3 bg-background"
+										placeholder="Gym / field / clinic"
+									/>
+								</label>
+								<label className="text-sm">
+									<div className="font-medium mb-1">Meeting Link</div>
+									<input
+										type="url"
+										value={customMeetingLink}
+										onChange={(e) => setCustomMeetingLink(e.target.value)}
+										className="w-full h-10 rounded-lg border px-3 bg-background"
+										placeholder="https://..."
+									/>
+								</label>
+							</div>
+							{adminMode === "small_group" ? (
+								<label className="text-sm block">
+									<div className="font-medium mb-1">Group Name</div>
+									<input
+										type="text"
+										value={customGroupName}
+										onChange={(e) => setCustomGroupName(e.target.value)}
+										className="w-full h-10 rounded-lg border px-3 bg-background"
+										placeholder="Morning speed group"
+									/>
+								</label>
+							) : null}
+							<label className="text-sm block">
+								<div className="font-medium mb-1">Notes</div>
+								<textarea
+									value={customNotes}
+									onChange={(e) => setCustomNotes(e.target.value)}
+									className="w-full min-h-[84px] rounded-lg border px-3 py-2 bg-background"
+									placeholder="Optional coach/admin notes"
+								/>
+							</label>
+							<label className="inline-flex items-center gap-2 text-sm">
+								<input
+									type="checkbox"
+									checked={customBookable}
+									onChange={(e) => setCustomBookable(e.target.checked)}
+								/>
+								Bookable session
+							</label>
+
+							<div className="space-y-2">
+								<div className="flex items-center gap-2">
+									<input
+										type="text"
+										value={candidateQuery}
+										onChange={(e) => setCandidateQuery(e.target.value)}
+										placeholder="Search non-team users"
+										className="h-10 rounded-lg border px-3 bg-background flex-1"
+									/>
+									<button
+										type="button"
+										onClick={() => void refetchCandidates()}
+										className="h-10 px-3 rounded-lg border text-sm"
+									>
+										Refresh
+									</button>
+								</div>
+								<div className="max-h-56 overflow-auto border rounded-lg divide-y">
+									{scheduleCandidatesLoading ? (
+										<div className="p-3 text-sm text-muted-foreground">Loading users...</div>
+									) : candidateList.length === 0 ? (
+										<div className="p-3 text-sm text-muted-foreground">No non-team users found.</div>
+									) : (
+										candidateList.map((item) => {
+											const checked = selectedUserIds.includes(item.userId);
+											return (
+												<label
+													key={item.userId}
+													className="flex items-center gap-3 p-2.5 text-sm cursor-pointer hover:bg-muted/50"
+												>
+													<input
+														type="checkbox"
+														checked={checked}
+														onChange={() => togglePickUser(item.userId)}
+													/>
+													<div>
+														<div className="font-medium">{item.name}</div>
+														<div className="text-xs text-muted-foreground">{item.email}</div>
+													</div>
+												</label>
+											);
+										})
+									)}
+								</div>
+								<div className="text-xs text-muted-foreground">
+									Selected users: {selectedUserIds.length}
+								</div>
+							</div>
+
+							<div className="flex items-center gap-2">
+								<button
+									type="button"
+									onClick={() => void submitCustomSchedule()}
+									disabled={customSaving}
+									className="px-4 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60"
+								>
+									{customSaving ? "Creating..." : "Create Schedule"}
+								</button>
+								{adminFeedback ? (
+									<span className="text-xs text-muted-foreground">{adminFeedback}</span>
+								) : null}
+							</div>
+						</div>
+					) : null}
+				</div>
+			) : null}
 
 			{!canSelfBook ? (
 				<motion.div

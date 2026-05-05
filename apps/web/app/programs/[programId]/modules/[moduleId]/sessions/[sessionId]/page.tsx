@@ -24,6 +24,7 @@ import {
   useCreateExerciseMutation,
   useUpdateExerciseMutation,
 } from "../../../../../../../lib/apiSlice";
+import { toast } from "@/lib/toast";
 import { ExerciseForm } from "../../../../../../../components/admin/exercise-library/exercise-form";
 import type { Exercise } from "../../../../../../../components/admin/exercise-library/types";
 
@@ -113,53 +114,68 @@ export default function SessionDetailPage() {
 
   const handleCreateAndAdd = async () => {
     if (!exerciseForm.name.trim()) return;
-    const created = await createExercise({
-      name: exerciseForm.name,
-      category: exerciseForm.category || undefined,
-      cues: exerciseForm.cues || undefined,
-      howTo: exerciseForm.howTo || undefined,
-      progression: exerciseForm.progression || undefined,
-      regression: exerciseForm.regression || undefined,
-      sets: exerciseForm.sets ? Number(exerciseForm.sets) : undefined,
-      reps: exerciseForm.reps ? Number(exerciseForm.reps) : undefined,
-      duration: exerciseForm.time ? Number(exerciseForm.time) : undefined,
-      restSeconds: exerciseForm.rest ? Number(exerciseForm.rest) : undefined,
-      notes: exerciseForm.notes || undefined,
-      videoUrl: exerciseForm.videoUrl || undefined,
-    } as any).unwrap();
-    const newId = created?.exercise?.id;
-    if (newId) {
-      await addExercise({ sessionId, exerciseId: newId, order: nextOrder }).unwrap();
+    try {
+      const created = await createExercise({
+        name: exerciseForm.name,
+        category: exerciseForm.category || undefined,
+        cues: exerciseForm.cues || undefined,
+        howTo: exerciseForm.howTo || undefined,
+        progression: exerciseForm.progression || undefined,
+        regression: exerciseForm.regression || undefined,
+        sets: exerciseForm.sets ? Number(exerciseForm.sets) : undefined,
+        reps: exerciseForm.reps ? Number(exerciseForm.reps) : undefined,
+        duration: exerciseForm.time ? Number(exerciseForm.time) : undefined,
+        restSeconds: exerciseForm.rest ? Number(exerciseForm.rest) : undefined,
+        notes: exerciseForm.notes || undefined,
+        videoUrl: exerciseForm.videoUrl || undefined,
+      } as any).unwrap();
+      const newId = created?.exercise?.id;
+      if (newId) {
+        await addExercise({ sessionId, exerciseId: newId, order: nextOrder }).unwrap();
+      }
+      setExerciseForm(emptyForm);
+      setDialogMode(null);
+      toast.success("Exercise added");
+    } catch {
+      toast.error("Failed to add exercise");
     }
-    setExerciseForm(emptyForm);
-    setDialogMode(null);
   };
 
   const handleUpdate = async () => {
     if (!editingExerciseId || !exerciseForm.name.trim()) return;
-    await updateExercise({
-      exerciseId: editingExerciseId,
-      patch: {
-        name: exerciseForm.name,
-        category: exerciseForm.category || null,
-        cues: exerciseForm.cues || undefined,
-        howTo: exerciseForm.howTo || null,
-        progression: exerciseForm.progression || null,
-        regression: exerciseForm.regression || null,
-        sets: exerciseForm.sets ? Number(exerciseForm.sets) : null,
-        reps: exerciseForm.reps ? Number(exerciseForm.reps) : null,
-        duration: exerciseForm.time ? Number(exerciseForm.time) : null,
-        restSeconds: exerciseForm.rest ? Number(exerciseForm.rest) : null,
-        notes: exerciseForm.notes || null,
-        videoUrl: exerciseForm.videoUrl || null,
-      },
-    }).unwrap();
-    setDialogMode(null);
+    try {
+      await updateExercise({
+        exerciseId: editingExerciseId,
+        patch: {
+          name: exerciseForm.name,
+          category: exerciseForm.category || null,
+          cues: exerciseForm.cues || undefined,
+          howTo: exerciseForm.howTo || null,
+          progression: exerciseForm.progression || null,
+          regression: exerciseForm.regression || null,
+          sets: exerciseForm.sets ? Number(exerciseForm.sets) : null,
+          reps: exerciseForm.reps ? Number(exerciseForm.reps) : null,
+          duration: exerciseForm.time ? Number(exerciseForm.time) : null,
+          restSeconds: exerciseForm.rest ? Number(exerciseForm.rest) : null,
+          notes: exerciseForm.notes || null,
+          videoUrl: exerciseForm.videoUrl || null,
+        },
+      }).unwrap();
+      setDialogMode(null);
+      toast.success("Exercise updated");
+    } catch {
+      toast.error("Failed to update exercise");
+    }
   };
 
   const handleRemove = async (sessionExerciseId: number) => {
     if (!window.confirm("Remove this exercise from the session?")) return;
-    await removeExercise({ sessionExerciseId }).unwrap();
+    try {
+      await removeExercise({ sessionExerciseId }).unwrap();
+      toast.success("Exercise removed");
+    } catch {
+      toast.error("Failed to remove exercise");
+    }
   };
 
   return (

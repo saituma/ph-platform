@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { env } from "../config/env";
 import { logger } from "../lib/logger";
+import { openaiBreaker } from "../lib/circuit-breaker";
 
 import { eq } from "drizzle-orm";
 import { db } from "../db";
@@ -59,16 +60,18 @@ export async function generateAiCoachResponse(
   if (!env.openaiApiKey) return "AI Coach is currently offline (API key missing).";
 
   try {
-    const response = await openai.chat.completions.create({
-      model: DEFAULT_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPTS.COACH_CHAT },
-        ...history.slice(-5), // Keep only last 5 messages for context/token saving
-        { role: "user", content: userMessage },
-      ],
-      max_tokens: 150,
-      temperature: 0.7,
-    });
+    const response = await openaiBreaker.fire(() =>
+      openai.chat.completions.create({
+        model: DEFAULT_MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPTS.COACH_CHAT },
+          ...history.slice(-5), // Keep only last 5 messages for context/token saving
+          { role: "user", content: userMessage },
+        ],
+        max_tokens: 150,
+        temperature: 0.7,
+      }),
+    );
 
     return (
       response.choices[0]?.message?.content?.trim() ??
@@ -84,14 +87,16 @@ export async function generateVideoFeedback(notes: string) {
   if (!env.openaiApiKey) return null;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: DEFAULT_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPTS.VIDEO_FEEDBACK },
-        { role: "user", content: `Athlete notes: ${notes}` },
-      ],
-      max_tokens: 100,
-    });
+    const response = await openaiBreaker.fire(() =>
+      openai.chat.completions.create({
+        model: DEFAULT_MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPTS.VIDEO_FEEDBACK },
+          { role: "user", content: `Athlete notes: ${notes}` },
+        ],
+        max_tokens: 100,
+      }),
+    );
 
     return response.choices[0]?.message?.content?.trim() ?? null;
   } catch (error) {
@@ -104,14 +109,16 @@ export async function generateContentSummary(title: string, content: string, age
   if (!env.openaiApiKey) return null;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: DEFAULT_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPTS.CONTENT_SUMMARY },
-        { role: "user", content: `Title: ${title}\nAge Group: ${ageGroup ?? "All"}\nContent: ${content}` },
-      ],
-      max_tokens: 80,
-    });
+    const response = await openaiBreaker.fire(() =>
+      openai.chat.completions.create({
+        model: DEFAULT_MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPTS.CONTENT_SUMMARY },
+          { role: "user", content: `Title: ${title}\nAge Group: ${ageGroup ?? "All"}\nContent: ${content}` },
+        ],
+        max_tokens: 80,
+      }),
+    );
 
     return response.choices[0]?.message?.content?.trim() ?? null;
   } catch (error) {
@@ -124,14 +131,16 @@ export async function generateParentEducationalInsight(courseContext: string) {
   if (!env.openaiApiKey) return null;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: DEFAULT_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPTS.PARENT_INSIGHT },
-        { role: "user", content: courseContext },
-      ],
-      max_tokens: 150,
-    });
+    const response = await openaiBreaker.fire(() =>
+      openai.chat.completions.create({
+        model: DEFAULT_MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPTS.PARENT_INSIGHT },
+          { role: "user", content: courseContext },
+        ],
+        max_tokens: 150,
+      }),
+    );
 
     return response.choices[0]?.message?.content?.trim() ?? null;
   } catch (error) {

@@ -4,12 +4,12 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { apiRequest } from "@/lib/api";
-import { getFriendlyAuthErrorMessage } from "@/lib/auth-error-message";
-import { useAppSelector } from "@/store/hooks";
-import { Text, TextInput } from "@/components/ScaledText";
-import { useAppToast } from "@/hooks/useAppToast";
+import { useAppTheme } from "../theme/AppThemeProvider";
+import { apiRequest } from "../../lib/api";
+import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
+import { useAppSelector } from "../../store/hooks";
+import { Text, TextInput } from "../../components/ScaledText";
+import { useAppToast } from "../../hooks/useAppToast";
 
 export default function ChangePasswordScreen() {
   const [oldPassword, setOldPassword] = useState("");

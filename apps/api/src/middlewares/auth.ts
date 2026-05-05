@@ -6,6 +6,7 @@ import { env } from "../config/env";
 import { logger } from "../lib/logger";
 import { createUserFromCognito, getAthleteForUser, getUserByCognitoSub, getUserById } from "../services/user.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
+import { cache, cacheKeys } from "../lib/cache";
 
 const DB_OUTAGE_AUTH_LOG_THROTTLE_MS = 2_000;
 let lastDbAuthOutageLogAt = 0;
@@ -51,7 +52,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 
     const allowBypass = env.allowJwtBypass && env.nodeEnv !== "production";
-    let user = userId ? await getUserById(Number(userId)) : await getUserByCognitoSub(sub!);
+    let user = userId
+      ? await cache.getOrSet(cacheKeys.userProfile(Number(userId)), 300, () => getUserById(Number(userId)))
+      : await getUserByCognitoSub(sub!);
     if (!user) {
       if (!email) {
         if (!allowBypass) {

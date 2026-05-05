@@ -220,3 +220,43 @@ ${textP(`<span style="color:${E.muted};font-size:13px;">Didn't expect this email
     logger.warn({ err }, "sendPlanInviteEmail skipped");
   }
 }
+
+export async function sendTeamPlayerPaymentInviteEmail(input: {
+  to: string;
+  payerName?: string | null;
+  teamName: string;
+  planName: string;
+  checkoutUrl: string;
+}) {
+  try {
+    const subject = `Payment link for ${input.teamName}`;
+    const safeUrl = escapeHtml(input.checkoutUrl);
+    const safeTeam = escapeHtml(input.teamName);
+    const safePlan = escapeHtml(input.planName);
+    const who = input.payerName ? escapeHtml(input.payerName) : "there";
+    const bodyHtml = `
+${textP(`Hi ${who},`)}
+${textP(`You’ve been selected to complete your payment for <strong>${safeTeam}</strong> on the <strong>${safePlan}</strong> plan.`)}
+${textP(`Use the secure Stripe checkout link below to complete payment.`)}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td style="border-radius:10px;background:#16a34a;">
+      <a href="${safeUrl}" style="display:inline-block;padding:14px 28px;font-family:${E.font};font-weight:700;font-size:15px;color:#ffffff;text-decoration:none;border-radius:10px;">
+        Open Stripe payment link
+      </a>
+    </td>
+  </tr>
+</table>
+${textP(`<span style="color:${E.muted};font-size:13px;">If the button does not open, paste this link into your browser:<br/><span style="word-break:break-all;">${safeUrl}</span></span>`, "0")}`;
+
+    const html = emailLayout({
+      preheader: `Complete your payment for ${input.teamName}.`,
+      eyebrow: "Team payment",
+      headline: "Your payment link is ready",
+      bodyHtml,
+    });
+    await deliverEmail({ to: input.to, subject, html });
+  } catch (err) {
+    logger.warn({ err, to: input.to }, "sendTeamPlayerPaymentInviteEmail skipped");
+  }
+}

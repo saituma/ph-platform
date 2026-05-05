@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChevronRight, Dumbbell, Play, Plus, Trophy, User, Video, X } from "lucide-react";
+import { ChevronRight, Dumbbell, Play, Plus, Trophy, User, Utensils, Video, X } from "lucide-react";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { SectionHeader } from "../../../components/admin/section-header";
@@ -143,6 +143,90 @@ export default function AthleteDetailPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Nutrition Onboarding */}
+        <div className="space-y-3">
+          <SectionHeader
+            title="Nutrition Onboarding"
+            description="Athlete nutrition profile for admin, coach, and team manager review."
+          />
+          {!athlete.nutritionOnboarding ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+              <Utensils className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+              <p className="font-semibold text-foreground">Not completed yet</p>
+              <p className="mt-1">This athlete has not submitted nutrition onboarding.</p>
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="space-y-4 p-5">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-border bg-background p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Primary Goal</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">
+                      {athlete.nutritionOnboarding.primaryGoal || "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Meals / Day</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">
+                      {athlete.nutritionOnboarding.mealsPerDay ?? "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Hydration L / Day</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">
+                      {athlete.nutritionOnboarding.hydrationLitersPerDay ?? "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-border bg-background p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Allergies</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                      {athlete.nutritionOnboarding.allergies || "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dietary Requirements</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                      {athlete.nutritionOnboarding.dietaryRequirements || "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">General Nutrition Habits</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                    {athlete.nutritionOnboarding.generalNutritionHabits || "—"}
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-border bg-background p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Supplements</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                      {athlete.nutritionOnboarding.supplements || "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Medical Notes</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                      {athlete.nutritionOnboarding.medicalNotes || "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Additional Context</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                    {athlete.nutritionOnboarding.additionalContext || "—"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Assigned Programs */}

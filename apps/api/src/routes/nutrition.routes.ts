@@ -3,6 +3,8 @@ import { Router } from "express";
 import { requireAuth } from "../middlewares/auth";
 import {
   getTargets,
+  getNutritionOnboardingProfile,
+  upsertNutritionOnboardingProfile,
   updateTargets,
   listLogs,
   upsertLog,
@@ -16,6 +18,10 @@ const router = Router();
 // Targets
 router.get("/nutrition/targets/:userId", requireAuth, getTargets);
 router.put("/nutrition/targets/:userId", requireAuth, updateTargets);
+
+// Nutrition onboarding profile
+router.get("/nutrition/onboarding-profile", requireAuth, getNutritionOnboardingProfile);
+router.put("/nutrition/onboarding-profile", requireAuth, upsertNutritionOnboardingProfile);
 
 // Logs
 router.get("/nutrition/logs", requireAuth, listLogs);

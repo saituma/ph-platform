@@ -21,6 +21,8 @@ import {
 import { AthleteType, ProgramType } from "../db/schema";
 import { calculateAge, clampYouthAge, parseISODate } from "../lib/age";
 
+const preferredTrainingDaysSchema = z.array(z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"])).min(1).max(7);
+
 const onboardingSchema = z
   .object({
     athleteName: z.string().min(1),
@@ -29,6 +31,7 @@ const onboardingSchema = z
     athleteType: z.enum(AthleteType.enumValues).optional(),
     team: z.string().optional().nullable(),
     trainingPerWeek: z.number().int().min(0),
+    preferredTrainingDays: preferredTrainingDaysSchema,
     injuries: z.unknown().optional(),
     growthNotes: z.string().optional().nullable(),
     performanceGoals: z.string().optional(),
@@ -71,6 +74,7 @@ const teamBasicSchema = z.object({
 
 const onboardingGoalsSchema = z.object({
   trainingPerWeek: z.number().int().min(0).max(7),
+  preferredTrainingDays: preferredTrainingDaysSchema,
   performanceGoals: z.string().min(1),
   injuries: z.any().optional(),
   equipmentAccess: z.string().optional(),
@@ -94,6 +98,7 @@ const athleteOnboardingPatchSchema = z
     birthDate: z.string().optional(),
     team: z.string().optional().nullable(),
     trainingPerWeek: z.number().int().min(0).optional(),
+    preferredTrainingDays: preferredTrainingDaysSchema.optional(),
     injuries: z.unknown().optional(),
     growthNotes: z.string().optional().nullable(),
     performanceGoals: z.string().optional().nullable(),
@@ -131,6 +136,7 @@ export async function submitOnboarding(req: Request, res: Response) {
     athleteType: input.athleteType,
     team: input.team ?? null,
     trainingPerWeek: input.trainingPerWeek,
+    preferredTrainingDays: input.preferredTrainingDays,
     injuries: input.injuries,
     growthNotes: input.growthNotes,
     performanceGoals: input.performanceGoals,
@@ -191,12 +197,16 @@ export async function submitTeamBasic(req: Request, res: Response) {
   function safeOnboardingErrorMessage(error: unknown, fallback: string) {
     const err = error as any;
     const message = typeof err?.message === "string" ? err.message : "";
+    const pgCode = err?.cause?.code ?? err?.code;
+    const pgMessage = err?.cause?.message ?? "";
 
     // Drizzle's DrizzleQueryError message includes full SQL + params.
     if (err?.name === "DrizzleQueryError" || typeof err?.query === "string" || message.startsWith("Failed query:")) {
-      const pgCode = err?.cause?.code ?? err?.code;
       // Missing table / missing column => typically indicates migrations haven't run.
       if (pgCode === "42P01" || pgCode === "42703") {
+        if (process.env.NODE_ENV !== "production") {
+          return `Database schema is out of date (${pgCode ?? "unknown"}: ${pgMessage || message || "query error"}).`;
+        }
         return "Database schema is out of date. Run migrations and try again.";
       }
       return fallback;
@@ -333,6 +343,7 @@ export async function updateGuardianAthlete(req: Request, res: Response) {
       birthDate: parsed.data.birthDate,
       team: parsed.data.team,
       trainingPerWeek: parsed.data.trainingPerWeek,
+      preferredTrainingDays: parsed.data.preferredTrainingDays,
       injuries: parsed.data.injuries,
       growthNotes: parsed.data.growthNotes,
       performanceGoals: parsed.data.performanceGoals,

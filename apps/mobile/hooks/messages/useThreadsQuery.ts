@@ -1,21 +1,16 @@
 /**
  * TanStack Query-backed thread list loader.
- *
- * Replaces the hand-rolled fetch + in-memory cache in useChatActions.loadMessages
- * for the threads/inbox portion. The existing optimistic message layer (useState in
- * useChatState) remains untouched — this hook only owns the server-truth side.
- *
- * Benefits:
- * - Socket reconnect → invalidate(['messages','threads']) — one line
- * - Acting user switch → invalidate(['messages','threads']) — one line
- * - Pull-to-refresh → refetch() — one line
- * - No inFlightLoadRef / pendingReloadRef concurrency guards needed
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { queryKeys } from "@/lib/queryKeys";
 import * as chatService from "@/services/messages/chatService";
 import { messagesApi } from "@/lib/apiClient/messages";
-import type { ChatMessagesResponse, InboxResponse } from "@/types/chat-api";
+import type {
+  ChatGroupsResponse,
+  ChatMessagesResponse,
+  InboxResponse,
+} from "@/types/chat-api";
 
 type ThreadsQueryOptions = {
   token: string | null;
@@ -35,27 +30,54 @@ export function useThreadsQuery({
   const threadsQuery = useQuery({
     queryKey: queryKeys.messages.threads(effectiveProfileId),
     queryFn: async () => {
-      const [inboxData, data] = await Promise.all([
-        chatService.fetchInbox(token!, actingHeaders) as Promise<InboxResponse>,
+      const actingUserHeaders = actingHeaders ?? {};
+      const [inboxResult, threadsResult, groupsResult] = await Promise.allSettled([
+        chatService.fetchInbox(token!, actingUserHeaders) as Promise<InboxResponse>,
         messagesApi.listThreads({
           token,
-          headers: actingHeaders,
+          headers: actingUserHeaders,
           suppressStatusCodes: [401, 403],
         }) as Promise<ChatMessagesResponse>,
+        messagesApi.groups.list({
+          token,
+          headers: actingUserHeaders,
+          suppressStatusCodes: [401, 403],
+        }) as Promise<ChatGroupsResponse>,
       ]);
-      return { inbox: inboxData, messages: data };
+
+      const inboxData: InboxResponse =
+        inboxResult.status === "fulfilled" && inboxResult.value
+          ? inboxResult.value
+          : ({ threads: [] } as InboxResponse);
+      const data: ChatMessagesResponse =
+        threadsResult.status === "fulfilled" && threadsResult.value
+          ? threadsResult.value
+          : ({ messages: [], coaches: [] } as ChatMessagesResponse);
+      const groups: ChatGroupsResponse =
+        groupsResult.status === "fulfilled" && groupsResult.value
+          ? groupsResult.value
+          : ({ groups: [] } as ChatGroupsResponse);
+
+      return {
+        inbox: inboxData,
+        messages: data,
+        groups,
+      };
     },
     enabled: Boolean(token) && enabled,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.messages.threads(effectiveProfileId),
-    });
+  const invalidate = useCallback(
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.messages.threads(effectiveProfileId),
+      }),
+    [queryClient, effectiveProfileId],
+  );
 
-  const refetch = () => threadsQuery.refetch();
+  const refetch = useCallback(() => threadsQuery.refetch(), [threadsQuery.refetch]);
 
   return {
     data: threadsQuery.data,

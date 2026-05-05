@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -13,7 +14,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { LinearGradient } from "expo-linear-gradient";
+import { Card } from "heroui-native";
+import { BuiltinCamera } from "@/components/media/BuiltinCamera";
 
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -23,9 +27,21 @@ import {
   useCompleteSession,
   type SessionExercise,
 } from "@/hooks/programs/useMyPrograms";
+import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import { Shadows, radius, spacing, fonts } from "@/constants/theme";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
+import type { SelectedVideo } from "@/types/video-upload";
+
+const VIDEO_MAX_MB = 90;
+const VIDEO_MAX_BYTES = VIDEO_MAX_MB * 1024 * 1024;
+const VIDEO_MAX_DURATION_SECONDS = 60;
+
+type ExerciseUploadState = {
+  progress: number | null;
+  error: string | null;
+  statusText: string | null;
+};
 
 export default function AssignedSessionDetailScreen() {
   const router = useRouter();
@@ -51,10 +67,139 @@ export default function AssignedSessionDetailScreen() {
 
   const sessionTitle = titleParam ? decodeURIComponent(titleParam) : "Session";
 
+  const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
   const { exercises, isLoading, error, loadExercises } = useMySessionExercises(token);
   const { completeSession, isCompleting } = useCompleteSession(token);
+  const {
+    uploadVideo,
+    isUploading,
+    status: uploadStatus,
+  } = useVideoUploadLogic(token, athleteUserId);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeVideoId, setActiveVideoId] = useState<number | null>(null);
+  const [recorderVisible, setRecorderVisible] = useState(false);
+  const [recordingExerciseId, setRecordingExerciseId] = useState<number | null>(null);
+  const [recordingSectionContentId, setRecordingSectionContentId] = useState<number | null>(null);
+  const [uploadStateByExId, setUploadStateByExId] = useState<
+    Record<number, ExerciseUploadState | undefined>
+  >({});
+
+  const handleUploadSelectedVideo = useCallback(
+    async (exerciseId: number, selected: SelectedVideo, sectionContentId?: number | null) => {
+      if (isUploading) return;
+      if (!sectionContentId || !Number.isFinite(sectionContentId) || sectionContentId <= 0) {
+        Alert.alert("Upload unavailable", "This exercise is missing its training section id, so the video cannot be linked yet.");
+        return;
+      }
+
+      try {
+        setUploadStateByExId((prev) => ({
+          ...prev,
+          [exerciseId]: { progress: 0, error: null, statusText: "Preparing..." },
+        }));
+
+        await uploadVideo({
+          video: selected,
+          sectionContentId: sectionContentId ?? undefined,
+          onProgress: (ratio) => {
+            setUploadStateByExId((prev) => ({
+              ...prev,
+              [exerciseId]: {
+                progress: ratio,
+                error: null,
+                statusText: `Uploading ${Math.round(ratio * 100)}%...`,
+              },
+            }));
+          },
+        });
+
+        setUploadStateByExId((prev) => ({
+          ...prev,
+          [exerciseId]: { progress: 1, error: null, statusText: "Uploaded!" },
+        }));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        // Clear success state after a short delay
+        setTimeout(() => {
+          setUploadStateByExId((prev) => {
+            const next = { ...prev };
+            delete next[exerciseId];
+            return next;
+          });
+        }, 3000);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Failed to upload video.";
+        setUploadStateByExId((prev) => ({
+          ...prev,
+          [exerciseId]: { progress: null, error: message, statusText: null },
+        }));
+        Alert.alert("Upload failed", message);
+      }
+    },
+    [isUploading, uploadVideo],
+  );
+
+  const handlePickAndUpload = useCallback(
+    async (exerciseId: number, source: "camera" | "library", sectionContentId?: number | null) => {
+      if (isUploading) return;
+      if (source === "camera") {
+        setRecordingExerciseId(exerciseId);
+        setRecordingSectionContentId(sectionContentId ?? null);
+        setRecorderVisible(true);
+        return;
+      }
+      try {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert("Permission needed", "Please allow access to your video library.");
+          return;
+        }
+        const iosCompressionOptions =
+          Platform.OS === "ios"
+            ? {
+                videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
+                videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+                preferredAssetRepresentationMode:
+                  ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+              }
+            : {};
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: "videos",
+          quality: 0.5,
+          videoMaxDuration: VIDEO_MAX_DURATION_SECONDS,
+          ...iosCompressionOptions,
+        });
+        if (result.canceled || !result.assets?.[0]) return;
+        const asset = result.assets[0];
+        const durationSeconds =
+          typeof asset.duration === "number" && Number.isFinite(asset.duration)
+            ? Math.round(asset.duration / 1000)
+            : null;
+        if (durationSeconds != null && durationSeconds > VIDEO_MAX_DURATION_SECONDS) {
+          Alert.alert("Video too long", `Video is ${durationSeconds}s. Please keep clips at ${VIDEO_MAX_DURATION_SECONDS}s or less.`);
+          return;
+        }
+        const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+        const sizeBytes = fileInfo.exists ? fileInfo.size : 0;
+        if (fileInfo.exists && sizeBytes > VIDEO_MAX_BYTES) {
+          Alert.alert("Video too large", `Video exceeds ${VIDEO_MAX_MB}MB limit. Pick a shorter clip.`);
+          return;
+        }
+        await handleUploadSelectedVideo(exerciseId, {
+          uri: asset.uri,
+          fileName: asset.uri.split("/").pop() ?? "video.mp4",
+          contentType: asset.mimeType || "video/mp4",
+          sizeBytes,
+          width: asset.width ?? undefined,
+          height: asset.height ?? undefined,
+        }, sectionContentId);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Failed to pick video.";
+        Alert.alert("Video picker failed", message);
+      }
+    },
+    [handleUploadSelectedVideo, isUploading],
+  );
 
   useEffect(() => {
     if (sessionIdNum) loadExercises(sessionIdNum);
@@ -203,6 +348,11 @@ export default function AssignedSessionDetailScreen() {
                     isDark={isDark}
                     videoExpanded={activeVideoId === ex.id}
                     onToggleVideo={() => setActiveVideoId((p) => (p === ex.id ? null : ex.id))}
+                    uploadState={uploadStateByExId[ex.id]}
+                    isUploading={isUploading}
+                    onUploadPress={(source, sectionContentId) =>
+                      handlePickAndUpload(ex.id, source, sectionContentId)
+                    }
                   />
                 </Animated.View>
               );
@@ -258,6 +408,41 @@ export default function AssignedSessionDetailScreen() {
           </View>
         </>
       )}
+      <BuiltinCamera
+        visible={recorderVisible}
+        maxDurationSeconds={VIDEO_MAX_DURATION_SECONDS}
+        onCancel={() => {
+          setRecorderVisible(false);
+          setRecordingExerciseId(null);
+          setRecordingSectionContentId(null);
+        }}
+        onRecorded={async ({ uri, width, height, duration }) => {
+          setRecorderVisible(false);
+          const exerciseId = recordingExerciseId;
+          const sectionContentId = recordingSectionContentId;
+          setRecordingExerciseId(null);
+          setRecordingSectionContentId(null);
+          if (!exerciseId) return;
+          if (duration > VIDEO_MAX_DURATION_SECONDS) {
+            Alert.alert("Video too long", `Please keep clips at ${VIDEO_MAX_DURATION_SECONDS}s or less.`);
+            return;
+          }
+          const fileInfo = await FileSystem.getInfoAsync(uri);
+          const sizeBytes = fileInfo.exists ? fileInfo.size : 0;
+          if (fileInfo.exists && sizeBytes > VIDEO_MAX_BYTES) {
+            Alert.alert("Video too large", `Video exceeds ${VIDEO_MAX_MB}MB limit. Record a shorter clip.`);
+            return;
+          }
+          await handleUploadSelectedVideo(exerciseId, {
+            uri,
+            fileName: uri.split("/").pop() ?? "recording.mp4",
+            contentType: "video/mp4",
+            sizeBytes,
+            width,
+            height,
+          }, sectionContentId);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -272,6 +457,9 @@ function ExerciseCard({
   isDark,
   videoExpanded,
   onToggleVideo,
+  uploadState,
+  isUploading,
+  onUploadPress,
 }: {
   exercise: SessionExercise;
   index: number;
@@ -280,7 +468,11 @@ function ExerciseCard({
   isDark: boolean;
   videoExpanded: boolean;
   onToggleVideo: () => void;
+  uploadState?: ExerciseUploadState;
+  isUploading: boolean;
+  onUploadPress: (source: "camera" | "library", sectionContentId?: number | null) => void;
 }) {
+  const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
   const meta = [
     ex.exercise.sets ? `${ex.exercise.sets} sets` : null,
     ex.exercise.reps ? `${ex.exercise.reps} reps` : null,
@@ -296,6 +488,15 @@ function ExerciseCard({
   const hasHowTo = !!ex.exercise.howTo;
   const hasNotes = !!ex.exercise.notes;
   const hasTextDetails = hasCues || hasHowTo || hasNotes || hasProgression || hasRegression || hasCoachNotes;
+  const rawSectionContentId =
+    (ex as any).programSectionContentId ??
+    (ex as any).sectionContentId ??
+    (ex as any).trainingSessionItemId ??
+    null;
+  const resolvedSectionContentId =
+    typeof rawSectionContentId === "number" && Number.isFinite(rawSectionContentId) && rawSectionContentId > 0
+      ? rawSectionContentId
+      : null;
 
   return (
     <View
@@ -374,112 +575,188 @@ function ExerciseCard({
       {/* Video Section - inline in body */}
       {hasVideo ? (
         <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
-          {videoExpanded ? (
-            <View
-              style={{
-                borderRadius: radius.md,
-                overflow: "hidden",
-                borderWidth: 1,
-                borderColor: isDark ? colors.borderSubtle : colors.borderMid,
-              }}
-            >
-              <VideoPlayer
-                uri={ex.exercise.videoUrl!}
-                height={200}
-                autoPlay
-                initialMuted={false}
-                isLooping
-                hideTopChrome
-                ignoreTabFocus
-              />
-              <Pressable
-                onPress={onToggleVideo}
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  backgroundColor: "rgba(0,0,0,0.55)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons name="close" size={16} color="#fff" />
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onToggleVideo();
-              }}
-              style={({ pressed }) => ({
-                height: 52,
-                borderRadius: radius.sm,
-                backgroundColor: isDark ? colors.surfaceHigher : colors.surfaceHigh,
-                borderWidth: 1,
-                borderColor: isDark ? colors.borderSubtle : colors.borderMid,
-                flexDirection: "row",
-                alignItems: "center",
-                paddingHorizontal: spacing.md,
-                gap: spacing.sm,
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <View
-                style={{
-                  width: 34, height: 34, borderRadius: radius.xs,
-                  backgroundColor: isDark ? colors.limeGlow : colors.accentLight,
-                  borderWidth: 1, borderColor: isDark ? colors.borderLime : colors.borderLime,
-                  alignItems: "center", justifyContent: "center",
-                }}
-              >
-                <Ionicons name="play" size={15} color={colors.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontFamily: fonts.labelMedium, color: colors.textPrimary }}>
-                  Watch Demo
-                </Text>
-                <Text style={{ fontSize: 11, fontFamily: fonts.bodyRegular, color: colors.textDim }}>
-                  Tap to play exercise video
-                </Text>
-              </View>
-              <Feather name="play-circle" size={18} color={colors.textDim} />
-            </Pressable>
-          )}
-
-          {/* Upload your video */}
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ["videos"],
-                quality: 0.8,
-                videoMaxDuration: 120,
-              });
+          <View
+            style={{
+              borderRadius: radius.md,
+              overflow: "hidden",
+              borderWidth: 1,
+              borderColor: isDark ? colors.borderSubtle : colors.borderMid,
             }}
-            style={({ pressed }) => ({
+          >
+            <VideoPlayer
+              uri={ex.exercise.videoUrl!}
+              height={200}
+              autoPlay
+              initialMuted={false}
+              isLooping
+              hideTopChrome
+              ignoreTabFocus
+            />
+          </View>
+
+          <Card
+            variant={isDark ? "secondary" : "default"}
+            style={{
               marginTop: spacing.sm,
-              height: 42,
               borderRadius: radius.sm,
               borderWidth: 1,
               borderColor: isDark ? colors.borderMid : colors.borderMid,
-              borderStyle: "dashed" as const,
-              backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: spacing.sm,
-              opacity: pressed ? 0.6 : 1,
-            })}
+              overflow: "visible",
+            }}
           >
-            <Ionicons name="cloud-upload-outline" size={15} color={colors.textDim} />
-            <Text style={{ fontSize: 12, fontFamily: fonts.labelMedium, color: colors.textDim }}>
-              Upload Your Video
+            <Card.Header style={{ paddingHorizontal: spacing.md, paddingTop: 10, paddingBottom: 6 }}>
+              <Text style={{ fontSize: 11, fontFamily: fonts.labelCaps, color: colors.textDim, letterSpacing: 0.8 }}>
+                Upload Your Video
+              </Text>
+            </Card.Header>
+            <Card.Body style={{ paddingHorizontal: spacing.md, paddingBottom: 10, paddingTop: 0 }}>
+              {uploadState?.progress != null && uploadState.progress < 1 ? (
+                <View
+                  style={{
+                    height: 42,
+                    borderRadius: radius.sm,
+                    borderWidth: 1,
+                    borderColor: isDark ? colors.borderMid : colors.borderMid,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
+                    overflow: "hidden",
+                    justifyContent: "center",
+                  }}
+                >
+                  <View
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${Math.round(uploadState.progress * 100)}%` as any,
+                      backgroundColor: isDark ? "rgba(163,230,53,0.12)" : "rgba(132,204,22,0.12)",
+                      borderRadius: radius.sm,
+                    }}
+                  />
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm }}>
+                    <ActivityIndicator size="small" color={colors.accent} />
+                    <Text style={{ fontSize: 12, fontFamily: fonts.labelMedium, color: colors.accent }}>
+                      {uploadState.statusText || `Uploading ${Math.round(uploadState.progress * 100)}%...`}
+                    </Text>
+                  </View>
+                </View>
+              ) : uploadState?.progress === 1 ? (
+                <View
+                  style={{
+                    height: 42,
+                    borderRadius: radius.sm,
+                    borderWidth: 1,
+                    borderColor: isDark ? colors.borderLime : colors.borderLime,
+                    backgroundColor: isDark ? colors.limeGlow : colors.accentLight,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: spacing.sm,
+                  }}
+                >
+                  <Ionicons name="checkmark-circle" size={15} color={colors.accent} />
+                  <Text style={{ fontSize: 12, fontFamily: fonts.labelMedium, color: colors.accent }}>
+                    Uploaded!
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: spacing.sm, position: "relative" }}>
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setIsSourceMenuOpen((v) => !v);
+                    }}
+                    disabled={isUploading}
+                    style={({ pressed }) => ({
+                      height: 42,
+                      borderRadius: radius.sm,
+                      borderWidth: 1,
+                      borderColor: isDark ? colors.borderMid : colors.borderMid,
+                      borderStyle: "dashed" as const,
+                      backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: spacing.sm,
+                      opacity: isUploading ? 0.4 : pressed ? 0.6 : 1,
+                    })}
+                  >
+                    <Ionicons name="cloud-upload-outline" size={15} color={colors.textDim} />
+                    <Text style={{ fontSize: 12, fontFamily: fonts.labelMedium, color: colors.textDim }}>
+                      Choose Source
+                    </Text>
+                  </Pressable>
+
+                  {isSourceMenuOpen ? (
+                    <View
+                      style={{
+                        position: "absolute",
+                        bottom: 48,
+                        left: 0,
+                        right: 0,
+                        zIndex: 30,
+                        borderWidth: 1,
+                        borderColor: isDark ? colors.borderSubtle : colors.borderMid,
+                        borderRadius: radius.sm,
+                        backgroundColor: isDark ? colors.surfaceHigher : colors.surfaceHigh,
+                        overflow: "hidden",
+                        ...(isDark ? Shadows.sm : Shadows.md),
+                      }}
+                    >
+                      <Pressable
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setIsSourceMenuOpen(false);
+                          setTimeout(() => onUploadPress("camera", resolvedSectionContentId), 50);
+                        }}
+                        style={({ pressed }) => ({
+                          minHeight: 42,
+                          paddingHorizontal: spacing.md,
+                          justifyContent: "center",
+                          backgroundColor: pressed
+                            ? isDark
+                              ? "rgba(255,255,255,0.08)"
+                              : "rgba(15,23,42,0.06)"
+                            : "transparent",
+                        })}
+                      >
+                        <Text style={{ fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
+                          Record Video
+                        </Text>
+                      </Pressable>
+                      <View style={{ height: 1, backgroundColor: isDark ? colors.borderSubtle : colors.borderMid }} />
+                      <Pressable
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setIsSourceMenuOpen(false);
+                          setTimeout(() => onUploadPress("library", resolvedSectionContentId), 50);
+                        }}
+                        style={({ pressed }) => ({
+                          minHeight: 42,
+                          paddingHorizontal: spacing.md,
+                          justifyContent: "center",
+                          backgroundColor: pressed
+                            ? isDark
+                              ? "rgba(255,255,255,0.08)"
+                              : "rgba(15,23,42,0.06)"
+                            : "transparent",
+                        })}
+                      >
+                        <Text style={{ fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
+                          Choose from Library
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              )}
+            </Card.Body>
+          </Card>
+          {uploadState?.error ? (
+            <Text style={{ fontSize: 11, fontFamily: fonts.bodyRegular, color: colors.danger, marginTop: 4, textAlign: "center" }}>
+              {uploadState.error}
             </Text>
-          </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -527,6 +804,38 @@ function ExerciseCard({
               borderColor={isDark ? colors.borderLime : colors.borderLime}
               colors={colors}
             />
+          ) : null}
+
+          {ex.videoUpload && (ex.videoUpload.coachVideoUrl || ex.videoUpload.feedback) ? (
+            <View
+              style={{
+                marginTop: spacing.sm,
+                padding: spacing.md,
+                borderRadius: radius.md,
+                backgroundColor: isDark ? "rgba(138, 255, 0, 0.05)" : "rgba(138, 255, 0, 0.03)",
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(138, 255, 0, 0.15)" : "rgba(138, 255, 0, 0.1)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: spacing.md }}>
+                <Ionicons name="videocam" size={16} color={colors.accent} />
+                <Text style={{ fontSize: 12, fontFamily: fonts.accentBold, color: colors.accent, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  Coach Feedback
+                </Text>
+              </View>
+
+              {ex.videoUpload.coachVideoUrl ? (
+                <View style={{ borderRadius: radius.sm, overflow: "hidden", marginBottom: spacing.sm }}>
+                  <VideoPlayer uri={ex.videoUpload.coachVideoUrl} height={180} />
+                </View>
+              ) : null}
+
+              {ex.videoUpload.feedback ? (
+                <Text style={{ fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.textPrimary, lineHeight: 20, fontStyle: "italic" }}>
+                  "{ex.videoUpload.feedback}"
+                </Text>
+              ) : null}
+            </View>
           ) : null}
         </View>
       ) : null}

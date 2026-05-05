@@ -61,6 +61,10 @@ function Login() {
 	const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 	const navigate = useNavigate();
 	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
+	const isLocalDev =
+		typeof window !== "undefined" &&
+		(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+	const shouldEnforceTurnstile = Boolean(turnstileSiteKey) && !isLocalDev;
 
 	const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -78,7 +82,7 @@ function Login() {
 			return;
 		}
 
-		if (turnstileSiteKey && !turnstileFailed && turnstileReady && !turnstileToken) {
+		if (shouldEnforceTurnstile && !turnstileFailed && turnstileReady && !turnstileToken) {
 			toast.error("Please complete the verification challenge");
 			return;
 		}
@@ -137,7 +141,7 @@ const handleResetPassword = () => {
 				onResetPassword={handleResetPassword}
 				onCreateAccount={handleCreateAccount}
 			/>
-			{turnstileSiteKey && (
+			{shouldEnforceTurnstile && (
 				<div className="fixed bottom-4 right-4 z-50">
 					<Turnstile
 						siteKey={turnstileSiteKey}
@@ -157,6 +161,14 @@ const handleResetPassword = () => {
 					/>
 				</div>
 			)}
+			<div className="fixed bottom-4 left-4 z-50 rounded-md border border-foreground/20 bg-background/90 px-3 py-2 text-[11px] leading-tight text-foreground shadow-sm">
+				<div>Turnstile key: {turnstileSiteKey ? "present" : "missing"}</div>
+				<div>enforced: {shouldEnforceTurnstile ? "yes" : "no (local bypass)"}</div>
+				<div>ready: {turnstileReady ? "yes" : "no"}</div>
+				<div>failed: {turnstileFailed ? "yes" : "no"}</div>
+				<div>token: {turnstileToken ? `${turnstileToken.length} chars` : "none"}</div>
+				<div>api: {config.api.baseUrl}</div>
+			</div>
 		</div>
 	);
 }

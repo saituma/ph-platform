@@ -19,6 +19,7 @@ export function Skeleton({
 }: SkeletonProps) {
   return (
     <HeroSkeleton
+      variant="pulse"
       className={cn(circle ? "rounded-full" : "rounded-2xl")}
       style={[
         {

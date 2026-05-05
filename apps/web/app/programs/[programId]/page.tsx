@@ -26,6 +26,7 @@ import {
   useUpdateProgramModuleMutation,
   useDeleteProgramModuleMutation,
 } from "../../../lib/apiSlice";
+import { toast } from "@/lib/toast";
 
 type ModuleDialog = null | "create" | "edit";
 
@@ -82,25 +83,36 @@ export default function ProgramDetailPage() {
 
   const handleSave = async () => {
     if (!title.trim()) return;
-    if (dialog === "edit" && editModuleId) {
-      await updateModule({
-        programId,
-        moduleId: editModuleId,
-        patch: { title: title.trim(), description: description.trim() || null },
-      }).unwrap();
-    } else {
-      await createModule({
-        programId,
-        title: title.trim(),
-        description: description.trim() || null,
-      }).unwrap();
+    try {
+      if (dialog === "edit" && editModuleId) {
+        await updateModule({
+          programId,
+          moduleId: editModuleId,
+          patch: { title: title.trim(), description: description.trim() || null },
+        }).unwrap();
+        toast.success("Module updated");
+      } else {
+        await createModule({
+          programId,
+          title: title.trim(),
+          description: description.trim() || null,
+        }).unwrap();
+        toast.success("Module created");
+      }
+      setDialog(null);
+    } catch {
+      toast.error(dialog === "edit" ? "Failed to update module" : "Failed to create module");
     }
-    setDialog(null);
   };
 
   const handleDelete = async (moduleId: number) => {
     if (!window.confirm("Delete this module and all its sessions?")) return;
-    await deleteModule({ programId, moduleId }).unwrap();
+    try {
+      await deleteModule({ programId, moduleId }).unwrap();
+      toast.success("Module deleted");
+    } catch {
+      toast.error("Failed to delete module");
+    }
   };
 
   if (isLoading) {

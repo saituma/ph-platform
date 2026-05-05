@@ -32,6 +32,7 @@ import {
   useUpdateBuilderSessionMutation,
   useDeleteBuilderSessionMutation,
 } from "../../../../../lib/apiSlice";
+import { toast } from "@/lib/toast";
 
 type SessionDialog = null | "create" | "edit";
 
@@ -104,34 +105,45 @@ export default function ModuleDetailPage() {
   };
 
   const handleSave = async () => {
-    if (dialog === "edit" && editSessionId) {
-      await updateSession({
-        sessionId: editSessionId,
-        patch: {
+    try {
+      if (dialog === "edit" && editSessionId) {
+        await updateSession({
+          sessionId: editSessionId,
+          patch: {
+            title: title.trim() || null,
+            description: description.trim() || null,
+            weekNumber: Number(weekNumber),
+            sessionNumber: Number(sessionNumber),
+            type: sessionType,
+          },
+        }).unwrap();
+        toast.success("Session updated");
+      } else {
+        await createSession({
+          programId,
+          moduleId,
           title: title.trim() || null,
           description: description.trim() || null,
           weekNumber: Number(weekNumber),
           sessionNumber: Number(sessionNumber),
           type: sessionType,
-        },
-      }).unwrap();
-    } else {
-      await createSession({
-        programId,
-        moduleId,
-        title: title.trim() || null,
-        description: description.trim() || null,
-        weekNumber: Number(weekNumber),
-        sessionNumber: Number(sessionNumber),
-        type: sessionType,
-      }).unwrap();
+        }).unwrap();
+        toast.success("Session created");
+      }
+      setDialog(null);
+    } catch {
+      toast.error(dialog === "edit" ? "Failed to update session" : "Failed to create session");
     }
-    setDialog(null);
   };
 
   const handleDelete = async (sessionId: number) => {
     if (!window.confirm("Delete this session and all its exercises?")) return;
-    await deleteSession({ sessionId }).unwrap();
+    try {
+      await deleteSession({ sessionId }).unwrap();
+      toast.success("Session deleted");
+    } catch {
+      toast.error("Failed to delete session");
+    }
   };
 
   return (

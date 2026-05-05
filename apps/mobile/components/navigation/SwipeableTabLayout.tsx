@@ -276,6 +276,7 @@ export function SwipeableTabLayout({
             <TabBar
               tabs={tabs}
               activeIndex={activeIndex}
+              scrollOffset={scrollOffset}
               onTabPress={handleTabPress}
             />
           </View>
@@ -305,6 +306,7 @@ export function SwipeableTabLayout({
           <TabBar
             tabs={tabs}
             activeIndex={activeIndex}
+            scrollOffset={scrollOffset}
             onTabPress={handleTabPress}
           />
         </View>

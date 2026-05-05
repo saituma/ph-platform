@@ -308,7 +308,11 @@ export async function listInbox(req: Request, res: Response) {
   if (!isTrainingStaff(role) && allThreads.length === 0) {
     let defaultCoach;
     if (role === "team_athlete") {
-      defaultCoach = await getTeamManagerForUser(userId).catch(() => null);
+      // Prefer strict team manager for team athletes, but never leave inbox empty
+      // if the team-manager link is missing/misconfigured.
+      defaultCoach =
+        (await getTeamManagerForUser(userId).catch(() => null)) ??
+        (await getCoachUser().catch(() => null));
     } else {
       defaultCoach = await getLastAdminContact(userId).catch(() => null)
         ?? await getCoachUser().catch(() => null);
@@ -353,9 +357,10 @@ export async function listMessages(req: Request, res: Response) {
   ]);
 
   const manager = threadPage.teamManager;
-  // Team athletes see only their team manager as the coach contact.
+  // Team athletes prefer their team manager, but still need a safe fallback
+  // to avoid a blank messaging surface when manager linkage is missing.
   const coach = role === "team_athlete"
-    ? manager
+    ? (manager ?? (await getCoachUser()))
     : (lastCoach ?? manager ?? (await getCoachUser()));
 
   const coachesMap = new Map<number, any>();

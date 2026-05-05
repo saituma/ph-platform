@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -235,7 +236,7 @@ function PartnerDetailsForm({
           ) : null}
         </div>
         {fields.imageUrl ? (
-          <img src={fields.imageUrl} alt="Referral preview" className="max-h-48 rounded-2xl border border-border object-cover" />
+          <Image src={fields.imageUrl} alt="Referral preview" width={400} height={192} className="max-h-48 rounded-2xl border border-border object-cover" />
         ) : (
           <p className="text-xs text-muted-foreground">Optional. Add an image for this referral campaign.</p>
         )}
@@ -1219,7 +1220,7 @@ function ReferralsPageInner() {
                         {hasMeta && editingId !== entry.id ? (
                           <div className="mt-3 space-y-1 rounded-2xl bg-secondary/30 px-4 py-3">
                             {meta.imageUrl ? (
-                              <img src={meta.imageUrl} alt={`${referralTypeLabel} referral`} className="mb-3 max-h-48 rounded-2xl border border-border object-cover" />
+                              <Image src={meta.imageUrl} alt={`${referralTypeLabel} referral`} width={400} height={192} className="mb-3 max-h-48 rounded-2xl border border-border object-cover" />
                             ) : null}
                             {providerLabel ? <p className="text-sm font-medium text-foreground">{providerLabel}</p> : null}
                             {organizationLabel ? <p className="text-xs text-muted-foreground">{organizationLabel}</p> : null}

@@ -21,10 +21,10 @@ type GiphySearchResponse = {
   data?: GiphyResult[];
 };
 
-const DEFAULT_GIPHY_BETA_KEY = "dc6zaTOxFJmzC";
-
 function getGiphyApiKey(): string {
-  return process.env.GIPHY_API_KEY ?? process.env.NEXT_PUBLIC_GIPHY_API_KEY ?? DEFAULT_GIPHY_BETA_KEY;
+  const key = process.env.GIPHY_API_KEY ?? process.env.NEXT_PUBLIC_GIPHY_API_KEY ?? "";
+  if (!key) throw new Error("GIPHY_API_KEY is not configured");
+  return key;
 }
 
 export async function GET(req: NextRequest) {

@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { env } from "../../config/env";
 import { ProgramType } from "../../db/schema";
 import { logger } from "../../lib/logger";
+import { stripeBreaker } from "../../lib/circuit-breaker";
 
 export const stripe = env.stripeSecretKey
   ? new Stripe(env.stripeSecretKey, {
@@ -75,18 +76,25 @@ export async function createTeamCheckoutSession(input: {
   const stripeClient = getStripeClient();
 
   let priceId: string | undefined;
+  const looksLikePriceId = input.priceLookupKey.startsWith("price_");
 
-  // 1. Try to find the price using the lookup key in Stripe (handles all intervals)
-  try {
-    const prices = await stripeClient.prices.list({
-      lookup_keys: [input.priceLookupKey],
-      active: true,
-    });
-    if (prices.data[0]) {
-      priceId = prices.data[0].id;
+  // 1. Resolve direct price id vs lookup key.
+  if (looksLikePriceId) {
+    priceId = input.priceLookupKey;
+  } else {
+    try {
+      const prices = await stripeBreaker.fire(() =>
+        stripeClient.prices.list({
+          lookup_keys: [input.priceLookupKey],
+          active: true,
+        }),
+      );
+      if (prices.data[0]) {
+        priceId = prices.data[0].id;
+      }
+    } catch (err) {
+      logger.warn({ err, priceLookupKey: input.priceLookupKey }, "[Stripe] Lookup key search failed");
     }
-  } catch (err) {
-    logger.warn({ err, priceLookupKey: input.priceLookupKey }, "[Stripe] Lookup key search failed");
   }
 
   // 2. If lookup key failed, fallback to ENV variables (only valid for monthly)
@@ -96,12 +104,12 @@ export async function createTeamCheckoutSession(input: {
 
   if (!priceId) {
     throw new Error(
-      `Price not found. Please ensure Lookup Key '${input.priceLookupKey}' is set in Stripe, or ${input.tier} environment variable is configured.`,
+      `Price not found. Please ensure Stripe price reference '${input.priceLookupKey}' exists and is active, or ${input.tier} environment variable is configured.`,
     );
   }
 
   try {
-    await stripeClient.prices.retrieve(priceId);
+    await stripeBreaker.fire(() => stripeClient.prices.retrieve(priceId!));
   } catch (error: unknown) {
     if (isStripePriceMissingError(error)) {
       const mode = stripeModeFromSecretKey(env.stripeSecretKey);
@@ -121,7 +129,9 @@ export async function createTeamCheckoutSession(input: {
     let sponsoredPriceId: string | undefined;
     const sponsoredKey = input.sponsoredLineItem.priceLookupKey;
     try {
-      const prices = await stripeClient.prices.list({ lookup_keys: [sponsoredKey], active: true });
+      const prices = await stripeBreaker.fire(() =>
+        stripeClient.prices.list({ lookup_keys: [sponsoredKey], active: true }),
+      );
       if (prices.data[0]) sponsoredPriceId = prices.data[0].id;
     } catch {
       // lookup failed, try fallback
@@ -134,11 +144,15 @@ export async function createTeamCheckoutSession(input: {
     }
   }
 
-  const session = await stripeClient.checkout.sessions.create({
+  const session = await stripeBreaker.fire(() => stripeClient.checkout.sessions.create({
     mode: input.mode,
     customer_email: input.customerEmail,
+    ...(input.mode === "payment" ? { customer_creation: "always" } : {}),
     payment_method_types: ["card"],
     line_items: lineItems,
+    ...(input.mode === "payment" && input.customerEmail
+      ? { payment_intent_data: { receipt_email: input.customerEmail } }
+      : {}),
     metadata: {
       teamId: input.teamId,
       adminId: input.adminId,
@@ -147,7 +161,7 @@ export async function createTeamCheckoutSession(input: {
     },
     success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&team_created=${input.teamId}`,
     cancel_url: getCancelUrl(),
-  });
+  }));
 
   return session;
 }
@@ -224,7 +238,9 @@ export async function resolvePriceIdByTierLookup(
   if (!stripe) return null;
   const lookupKey = lookupKeyForAthleteBilling(tier, billingCycle);
   try {
-    const prices = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
+    const prices = await stripeBreaker.fire(() =>
+      stripe!.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 }),
+    );
     return prices.data[0]?.id ?? null;
   } catch (err) {
     logger.warn({ err, lookupKey }, "[Stripe] Lookup failed");
@@ -237,7 +253,9 @@ async function resolvePriceIdByLookupKey(lookupKey: string): Promise<string | nu
   const key = String(lookupKey ?? "").trim();
   if (!key) return null;
   try {
-    const prices = await stripe.prices.list({ lookup_keys: [key], active: true, limit: 1 });
+    const prices = await stripeBreaker.fire(() =>
+      stripe!.prices.list({ lookup_keys: [key], active: true, limit: 1 }),
+    );
     return prices.data[0]?.id ?? null;
   } catch (err) {
     logger.warn({ err, lookupKey: key }, "[Stripe] Lookup failed");
@@ -297,28 +315,32 @@ export async function createStripePriceForPlan(input: {
   tier?: (typeof ProgramType.enumValues)[number] | null;
   interval: "monthly" | "yearly" | "one_time";
   unitAmount: number;
+  intervalLabel?: string | null;
 }) {
   const stripeClient = getStripeClient();
-  // Only "monthly" is a recurring subscription. "yearly" is a one-time payment for 1-year access,
-  // and "one_time" is a one-time payment for 6 months of access. This matches our billing model.
+  // Only "monthly" is recurring; "yearly"/"one_time" are upfront payments.
+  // Label can be caller-provided (e.g. "6 weeks") for duration plans.
   const intervalLabel =
-    input.interval === "yearly" ? "1 year" : input.interval === "one_time" ? "6 months" : "Monthly";
+    (input.intervalLabel ?? "").trim() ||
+    (input.interval === "yearly" ? "1 year" : input.interval === "one_time" ? "One-time" : "Monthly");
   // The DB column is `stripePriceIdOneTime`, but semantically this is a 6-month one-time payment,
   // so we tag the Stripe price with the `_six_months` lookup key to match athlete checkout's existing convention.
   const lookupSuffix = input.interval === "one_time" ? "six_months" : input.interval;
   const tierSlug = input.tier ? input.tier.toLowerCase() : "custom";
   const lookupKey = `${tierSlug}_${lookupSuffix}`;
   const isRecurring = input.interval === "monthly";
-  const price = await stripeClient.prices.create({
-    unit_amount: input.unitAmount,
-    currency: "gbp",
-    lookup_key: lookupKey,
-    transfer_lookup_key: true,
-    ...(isRecurring ? { recurring: { interval: "month" } } : {}),
-    product_data: {
-      name: `${input.name} - ${intervalLabel}`,
-      metadata: { tier: input.tier ?? "" },
-    },
-  });
+  const price = await stripeBreaker.fire(() =>
+    stripeClient.prices.create({
+      unit_amount: input.unitAmount,
+      currency: "gbp",
+      lookup_key: lookupKey,
+      transfer_lookup_key: true,
+      ...(isRecurring ? { recurring: { interval: "month" } } : {}),
+      product_data: {
+        name: `${input.name} - ${intervalLabel}`,
+        metadata: { tier: input.tier ?? "" },
+      },
+    }),
+  );
   return price.id;
 }

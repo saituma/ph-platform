@@ -74,4 +74,19 @@ describe("buildAppCapabilities", () => {
     expect(manager.eventManagement).toBe(true);
     expect(manager.mobilePayments).toBe(false);
   });
+
+  it("allows base plan access when tier is missing but user has an active plan", () => {
+    const athleteWithPlanNoTier = buildAppCapabilities({
+      role: "adult_athlete",
+      programTier: null,
+      messagingAccessTiers,
+      athleteType: "adult",
+      hasActivePlan: true,
+    });
+
+    expect(athleteWithPlanNoTier.schedule).toBe(true);
+    expect(athleteWithPlanNoTier.coachBooking).toBe(true);
+    expect(athleteWithPlanNoTier.messaging).toBe(true);
+    expect(athleteWithPlanNoTier.coachVideoUpload).toBe(true);
+  });
 });

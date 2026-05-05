@@ -176,6 +176,7 @@ export function useMessagesController(options?: {
   const [openingThreadId, setOpeningThreadId] = useState<string | null>(null);
   const draftConsumedRef = useRef<string | null>(null);
   const lastLoadedGroupThreadRef = useRef<string | null>(null);
+  const lastFocusRefetchAtRef = useRef(0);
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
@@ -194,7 +195,11 @@ export function useMessagesController(options?: {
   // TQ owns the fetch (dedup, cache, stale-while-revalidate); this owns the mapping.
   useEffect(() => {
     if (!enabled || !threadsQuery.data) return;
-    applyFetchedData(threadsQuery.data.inbox, threadsQuery.data.messages);
+    applyFetchedData(
+      threadsQuery.data.inbox,
+      threadsQuery.data.messages,
+      threadsQuery.data.groups,
+    );
   }, [enabled, threadsQuery.data, applyFetchedData]);
 
   useEffect(() => {
@@ -698,6 +703,10 @@ export function useMessagesController(options?: {
   useFocusEffect(
     useCallback(() => {
       if (!token) return;
+      const now = Date.now();
+      // Guard against focus churn causing repeated refetch storms on mount.
+      if (now - lastFocusRefetchAtRef.current < 5000) return;
+      lastFocusRefetchAtRef.current = now;
       void threadsQuery.refetch();
     }, [token, threadsQuery.refetch]),
   );

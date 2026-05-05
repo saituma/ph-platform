@@ -17,6 +17,8 @@ import {
 import { getStripeClient, getSuccessUrl, getCancelUrl, createTeamCheckoutSession } from "../billing/stripe.service";
 import { createTeamManagerUser } from "./user.service";
 import { sendPlanInviteEmail } from "../../lib/mailer/billing.mailer";
+import { teamPlayerPaymentInviteTable } from "../../db/schema";
+import { randomBytes } from "crypto";
 
 async function ensureTeamExists(input: {
   name: string;
@@ -29,6 +31,7 @@ async function ensureTeamExists(input: {
   maxAthletes?: number;
   sponsoredPlayerCount?: number;
   sponsoredPlanId?: number;
+  paymentMode?: "coach_pays_all" | "per_player_all" | "per_player_selected";
 }) {
   const cleanTeamName = input.name.trim();
   if (!cleanTeamName) return null;
@@ -51,6 +54,7 @@ async function ensureTeamExists(input: {
       adminId: input.adminId,
       planId: input.planId,
       maxAthletes: input.maxAthletes ?? 0,
+      paymentMode: input.paymentMode ?? "coach_pays_all",
       updatedAt: new Date(),
     })
     .onConflictDoNothing({ target: teamTable.name })
@@ -172,6 +176,9 @@ export async function createTeamAdmin(input: {
   hasSponsoredPlayers?: boolean;
   sponsoredPlayerCount?: number;
   sponsoredTier?: (typeof ProgramType.enumValues)[number];
+  paymentMode?: "coach_pays_all" | "per_player_all" | "per_player_selected";
+  coachPaysSeats?: number;
+  playerEmails?: string[];
 }) {
   const cleanTeamName = input.teamName.trim();
   if (!cleanTeamName) {
@@ -236,6 +243,7 @@ export async function createTeamAdmin(input: {
     adminId: resolvedAdminId,
     planId: resolvedPlanId ?? undefined,
     maxAthletes: input.maxAthletes + sponsoredCount,
+    paymentMode: input.paymentMode,
   });
 
   if (created && sponsoredCount > 0) {
@@ -345,12 +353,54 @@ export async function createTeamAdmin(input: {
     await syncTeamChatMembers(created.id, group.id);
   }
 
+  // Handle player payment invites if needed
+  let invitesSent = 0;
+  if (
+    input.paymentMode &&
+    input.paymentMode !== "coach_pays_all" &&
+    input.playerEmails &&
+    input.playerEmails.length > 0 &&
+    resolvedPlanId
+  ) {
+    const { randomUUID } = require("crypto");
+    
+    // 1. Create a team subscription request to act as the parent for these invites
+    const [reqRow] = await db
+      .insert(require("../../db/schema").teamSubscriptionRequestTable)
+      .values({
+        adminId: resolvedAdminId!,
+        teamId: created.id,
+        planId: resolvedPlanId,
+        planBillingCycle: billingCycle,
+        paymentMode: input.paymentMode,
+        coachPaysSeats: input.coachPaysSeats ?? 0,
+        receiptPublicId: randomUUID(),
+        status: "active", // Mark active since admin created it
+      })
+      .returning({ id: require("../../db/schema").teamSubscriptionRequestTable.id });
+
+    // 2. Create the invites
+    const invites = input.playerEmails.map((email) => ({
+      requestId: reqRow.id,
+      teamId: created.id,
+      playerEmail: email.trim().toLowerCase(),
+      currency: "gbp",
+      status: "pending" as const,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+    await db.insert(teamPlayerPaymentInviteTable).values(invites).onConflictDoNothing();
+    invitesSent = invites.length;
+  }
+
   return {
     ok: true,
     team: created.name,
     teamId: created.id,
-    checkoutUrl: paymentMethod === "pay_now" ? checkoutUrl : null,
-    sentToEmail: paymentMethod === "email_link",
+    checkoutUrl: paymentMethod === "pay_now" && input.paymentMode === "coach_pays_all" ? checkoutUrl : null,
+    sentToEmail: paymentMethod === "email_link" || (input.paymentMode && input.paymentMode !== "coach_pays_all"),
+    invitesSent,
   };
 }
 
@@ -383,7 +433,7 @@ export async function approveTeamAdmin(teamId: number, billingCycle: "monthly" |
 }
 
 export async function listTeamsAdmin(options?: { adminId?: number | null; limit?: number }) {
-  const filters = [];
+  const filters: any[] = [];
   if (typeof options?.adminId === "number") {
     filters.push(eq(teamTable.adminId, options.adminId));
   }
@@ -393,48 +443,101 @@ export async function listTeamsAdmin(options?: { adminId?: number | null; limit?
       ? Math.max(1, Math.min(200, Math.floor(options.limit)))
       : 200;
 
-  const rows = await db
-    .select({
-      id: teamTable.id,
-      team: teamTable.name,
-      athleteType: teamTable.athleteType,
-      minAge: teamTable.minAge,
-      maxAge: teamTable.maxAge,
-      adminId: teamTable.adminId,
-      planId: teamTable.planId,
-      maxAthletes: teamTable.maxAthletes,
-      subscriptionStatus: teamTable.subscriptionStatus,
-      planPaymentType: teamTable.planPaymentType,
-      planCommitmentMonths: teamTable.planCommitmentMonths,
-      planExpiresAt: teamTable.planExpiresAt,
-      memberCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`,
-      youthCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false and ${athleteTable.athleteType}::text = 'youth'), 0)`,
-      adultCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false and ${athleteTable.athleteType}::text = 'adult'), 0)`,
-      guardianCount: sql<number>`coalesce(count(distinct ${athleteTable.guardianId}) filter (where ${userTable.isDeleted} = false), 0)`,
-      createdAt: teamTable.createdAt,
-      updatedAt: teamTable.updatedAt,
-    })
-    .from(teamTable)
-    .leftJoin(athleteTable, eq(athleteTable.teamId, teamTable.id))
-    .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
-    .where(filters.length ? and(...filters) : undefined)
-    .groupBy(
-      teamTable.id,
-      teamTable.name,
-      teamTable.subscriptionStatus,
-      teamTable.planPaymentType,
-      teamTable.planCommitmentMonths,
-      teamTable.planExpiresAt,
-      teamTable.createdAt,
-      teamTable.updatedAt,
-    )
-    .orderBy(
-      desc(sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`),
-      teamTable.name,
-    )
-    .limit(effectiveLimit);
+  const baseQuery = () =>
+    db
+      .select({
+        id: teamTable.id,
+        team: teamTable.name,
+        athleteType: teamTable.athleteType,
+        minAge: teamTable.minAge,
+        maxAge: teamTable.maxAge,
+        adminId: teamTable.adminId,
+        planId: teamTable.planId,
+        maxAthletes: teamTable.maxAthletes,
+        paymentMode: teamTable.paymentMode,
+        subscriptionStatus: teamTable.subscriptionStatus,
+        planPaymentType: teamTable.planPaymentType,
+        planCommitmentMonths: teamTable.planCommitmentMonths,
+        planExpiresAt: teamTable.planExpiresAt,
+        memberCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`,
+        youthCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false and ${athleteTable.athleteType}::text = 'youth'), 0)`,
+        adultCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false and ${athleteTable.athleteType}::text = 'adult'), 0)`,
+        guardianCount: sql<number>`coalesce(count(distinct ${athleteTable.guardianId}) filter (where ${userTable.isDeleted} = false), 0)`,
+        createdAt: teamTable.createdAt,
+        updatedAt: teamTable.updatedAt,
+      })
+      .from(teamTable)
+      .leftJoin(athleteTable, eq(athleteTable.teamId, teamTable.id))
+      .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
+      .where(filters.length ? and(...filters) : undefined)
+      .groupBy(
+        teamTable.id,
+        teamTable.name,
+        teamTable.paymentMode,
+        teamTable.subscriptionStatus,
+        teamTable.planPaymentType,
+        teamTable.planCommitmentMonths,
+        teamTable.planExpiresAt,
+        teamTable.createdAt,
+        teamTable.updatedAt,
+      )
+      .orderBy(
+        desc(sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`),
+        teamTable.name,
+      )
+      .limit(effectiveLimit);
 
-  return rows;
+  try {
+    return await baseQuery();
+  } catch (err: any) {
+    const code = err?.cause?.code ?? err?.code;
+    const msg = `${err?.cause?.message ?? ""} ${err?.message ?? ""}`.toLowerCase();
+    if (!(code === "42703" && msg.includes("payment_mode"))) throw err;
+
+    logger.warn({ err }, "[admin.team] teams.payment_mode missing; using legacy team list query");
+    const rows = await db
+      .select({
+        id: teamTable.id,
+        team: teamTable.name,
+        athleteType: teamTable.athleteType,
+        minAge: teamTable.minAge,
+        maxAge: teamTable.maxAge,
+        adminId: teamTable.adminId,
+        planId: teamTable.planId,
+        maxAthletes: teamTable.maxAthletes,
+        paymentMode: sql<string>`'coach_pays_all'`,
+        subscriptionStatus: teamTable.subscriptionStatus,
+        planPaymentType: teamTable.planPaymentType,
+        planCommitmentMonths: teamTable.planCommitmentMonths,
+        planExpiresAt: teamTable.planExpiresAt,
+        memberCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`,
+        youthCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false and ${athleteTable.athleteType}::text = 'youth'), 0)`,
+        adultCount: sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false and ${athleteTable.athleteType}::text = 'adult'), 0)`,
+        guardianCount: sql<number>`coalesce(count(distinct ${athleteTable.guardianId}) filter (where ${userTable.isDeleted} = false), 0)`,
+        createdAt: teamTable.createdAt,
+        updatedAt: teamTable.updatedAt,
+      })
+      .from(teamTable)
+      .leftJoin(athleteTable, eq(athleteTable.teamId, teamTable.id))
+      .leftJoin(userTable, eq(athleteTable.userId, userTable.id))
+      .where(filters.length ? and(...filters) : undefined)
+      .groupBy(
+        teamTable.id,
+        teamTable.name,
+        teamTable.subscriptionStatus,
+        teamTable.planPaymentType,
+        teamTable.planCommitmentMonths,
+        teamTable.planExpiresAt,
+        teamTable.createdAt,
+        teamTable.updatedAt,
+      )
+      .orderBy(
+        desc(sql<number>`coalesce(count(${athleteTable.id}) filter (where ${userTable.isDeleted} = false), 0)`),
+        teamTable.name,
+      )
+      .limit(effectiveLimit);
+    return rows;
+  }
 }
 
 function normalizeInjuriesForText(value: unknown): string | null {

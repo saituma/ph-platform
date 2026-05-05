@@ -96,6 +96,9 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       hasSponsoredPlayers: z.coerce.boolean().optional().default(false),
       sponsoredPlayerCount: z.coerce.number().int().min(0).optional().default(0),
       sponsoredTier: z.enum(ProgramType.enumValues).optional().nullable(),
+      paymentMode: z.enum(["coach_pays_all", "per_player_all", "per_player_selected"]).optional().default("coach_pays_all"),
+      coachPaysSeats: z.coerce.number().int().min(0).optional(),
+      playerEmails: z.array(z.string().email()).optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) {
@@ -124,6 +127,9 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       hasSponsoredPlayers: parsed.data.hasSponsoredPlayers,
       sponsoredPlayerCount: parsed.data.sponsoredPlayerCount,
       sponsoredTier: parsed.data.sponsoredTier ?? undefined,
+      paymentMode: parsed.data.paymentMode,
+      coachPaysSeats: parsed.data.coachPaysSeats,
+      playerEmails: parsed.data.playerEmails,
     });
     return res.status(201).json(result);
   } catch (error: any) {

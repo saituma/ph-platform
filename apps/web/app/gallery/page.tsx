@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import NextImage from "next/image";
 import { Link2, Upload, Filter, Trash2, Image, Video } from "lucide-react";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -234,7 +235,7 @@ export default function GalleryPage() {
                   <div className="w-36 rounded-lg overflow-hidden border border-border">
                     {preview.type === "video"
                       ? <video src={preview.url} className="w-full h-auto" muted playsInline />
-                      : <img src={preview.url} alt="Preview" className="w-full h-auto" />}
+                      : <NextImage src={preview.url} alt="Preview" width={144} height={144} className="w-full h-auto" />}
                   </div>
                 )}
               </div>

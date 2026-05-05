@@ -221,7 +221,7 @@ export async function listStoriesForUser() {
 }
 
 export async function listStoriesAdmin() {
-  return db.select().from(storyTable).orderBy(asc(storyTable.order), desc(storyTable.updatedAt));
+  return db.select().from(storyTable).orderBy(asc(storyTable.order), desc(storyTable.updatedAt)).limit(100);
 }
 
 type StoryInput = {

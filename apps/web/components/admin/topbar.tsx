@@ -53,7 +53,7 @@ export function AdminTopbar({ title, subtitle, actions, onSearchOpen }: TopbarPr
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <div className="flex min-w-0 flex-col">
           {subtitle ? (
-            <p className="mb-1 truncate text-[10px] font-bold uppercase leading-none tracking-widest text-primary">{subtitle}</p>
+            <div className="mb-1 truncate text-[10px] font-bold uppercase leading-none tracking-widest text-primary">{subtitle}</div>
           ) : null}
           <h1 className="truncate text-xl font-black leading-none tracking-tight text-foreground">{title}</h1>
         </div>

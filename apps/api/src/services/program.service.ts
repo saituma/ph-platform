@@ -42,7 +42,7 @@ export async function getProgramCards(userId: number) {
   const enrollments = athleteId
     ? await db.select().from(enrollmentTable).where(eq(enrollmentTable.athleteId, athleteId))
     : [];
-  const programs = await db.select().from(programTable).orderBy(desc(programTable.updatedAt));
+  const programs = await db.select().from(programTable).orderBy(desc(programTable.updatedAt)).limit(200);
   const eligiblePrograms = programs.filter((program) => matchesAgeRange(program, age));
 
   const programByType = new Map<string, number>();
@@ -109,7 +109,7 @@ export async function getProgramSessions(programId: number) {
 }
 
 export async function getExerciseLibrary() {
-  return db.select().from(exerciseTable).orderBy(desc(exerciseTable.updatedAt));
+  return db.select().from(exerciseTable).orderBy(desc(exerciseTable.updatedAt)).limit(500);
 }
 
 export async function getMyAssignedPrograms(userId: number) {

@@ -17,6 +17,7 @@ import {
 	Utensils,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
 import { PasswordStrengthPanel } from "@/components/portal/PasswordStrengthPanel";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { isStrongPassword } from "@/lib/password-strength";
 import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
+import { getPublicApiBaseUrl } from "@/lib/public-api";
 import { usePortal } from "@/portal/PortalContext";
 import {
 	fetchAthleteNutritionLogs,
@@ -114,6 +116,43 @@ function TeamAthleteDetailPage() {
 		},
 		enabled: !!token && !!detailQ.data?.userId && canManageTeam,
 	});
+
+	useEffect(() => {
+		if (!token || !detailQ.data?.userId) return;
+		const rawSocket = String(
+			(import.meta.env as Record<string, string | undefined>)
+				.VITE_PUBLIC_SOCKET_URL ?? "",
+		).trim();
+		const apiBase = getPublicApiBaseUrl();
+		const socketUrl = rawSocket
+			? rawSocket.replace(/\/api\/?$/, "")
+			: apiBase
+				? apiBase.replace(/\/api\/?$/, "")
+				: window.location.origin;
+		const socket: Socket = io(socketUrl, {
+			path: "/socket.io",
+			auth: { token },
+			transports: ["polling", "websocket"],
+			reconnection: true,
+			reconnectionDelayMax: 10000,
+		});
+
+		const refreshIfMatchesAthlete = (payload?: { userId?: number | string | null }) => {
+			const target = Number(payload?.userId ?? Number.NaN);
+			if (!Number.isFinite(target) || target !== detailQ.data.userId) return;
+			void queryClient.invalidateQueries({
+				queryKey: rosterQueryKeys.nutrition(token, detailQ.data.userId),
+			});
+		};
+
+		socket.on("nutrition:log:updated", refreshIfMatchesAthlete);
+		socket.on("nutrition:feedback:updated", refreshIfMatchesAthlete);
+		return () => {
+			socket.off("nutrition:log:updated", refreshIfMatchesAthlete);
+			socket.off("nutrition:feedback:updated", refreshIfMatchesAthlete);
+			socket.disconnect();
+		};
+	}, [token, detailQ.data?.userId, queryClient]);
 
 	useEffect(() => {
 		const d = detailQ.data;

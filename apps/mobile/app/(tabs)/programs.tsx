@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -20,6 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
+import { Card } from "heroui-native";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
@@ -180,64 +181,84 @@ const ProgramContent = memo(function ProgramContent({
                 router.push(`/programs/assigned/${programId}?moduleId=${mod.id}&moduleName=${encodeURIComponent(mod.title)}` as any);
               }}
               style={({ pressed }) => ({
-                backgroundColor: isDark ? "#111311" : "#FFFFFF",
-                borderWidth: 1,
-                borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-                borderRadius: 22,
                 marginBottom: 14,
-                overflow: "hidden",
                 transform: [{ scale: pressed ? 0.97 : 1 }],
-                ...(isDark ? {} : Shadows.md),
               })}
             >
-              {/* Accent top stripe */}
-              <View style={{
-                height: 3,
-                backgroundColor: colors.accent,
-                opacity: 0.6,
-              }} />
+              <Card
+                variant={isDark ? "secondary" : "default"}
+                style={[
+                  {
+                    borderWidth: 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+                    borderRadius: 22,
+                    overflow: "hidden",
+                  },
+                  isDark ? undefined : Shadows.md,
+                ]}
+              >
+                <View style={{ height: 3, backgroundColor: colors.accent, opacity: 0.6 }} />
 
-              <View style={{ padding: 18, flexDirection: "row", alignItems: "center" }}>
-                {/* Order badge */}
-                <View style={{
-                  width: 44, height: 44, borderRadius: 14,
-                  backgroundColor: isDark ? "rgba(52,199,89,0.12)" : "rgba(22,163,74,0.08)",
-                  alignItems: "center", justifyContent: "center", marginRight: 14,
-                }}>
-                  <Text style={{
-                    fontSize: 18, fontFamily: "ClashDisplay-Bold", color: colors.accent,
-                  }}>
-                    {mod.order}
-                  </Text>
-                </View>
+                <View style={{ padding: 18, flexDirection: "row", alignItems: "center" }}>
+                  <Card.Header style={{ padding: 0, marginRight: 14 }}>
+                    <View
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
+                        backgroundColor: isDark ? "rgba(138,255,0,0.16)" : "rgba(106,204,0,0.10)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: colors.accent }}>
+                        {mod.order}
+                      </Text>
+                    </View>
+                  </Card.Header>
 
-                {/* Content */}
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={{
-                    fontSize: 17, fontFamily: "Outfit-SemiBold", color: colors.textPrimary,
-                    letterSpacing: -0.2,
-                  }}>
-                    {mod.title}
-                  </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Ionicons name="layers-outline" size={13} color={colors.textSecondary} />
-                    <Text style={{
-                      fontSize: 13, fontFamily: "Outfit-Regular", color: colors.textSecondary,
-                    }}>
-                      {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
-                    </Text>
-                  </View>
-                </View>
+                  <Card.Body style={{ flex: 1, padding: 0 }}>
+                    <Card.Title
+                      style={{
+                        fontSize: 17,
+                        fontFamily: "Outfit-SemiBold",
+                        color: colors.textPrimary,
+                        letterSpacing: -0.2,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {mod.title}
+                    </Card.Title>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                      <Ionicons name="layers-outline" size={13} color={colors.textSecondary} />
+                      <Card.Description
+                        style={{
+                          fontSize: 13,
+                          fontFamily: "Outfit-Regular",
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
+                      </Card.Description>
+                    </View>
+                  </Card.Body>
 
-                {/* Arrow */}
-                <View style={{
-                  width: 32, height: 32, borderRadius: 10,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)",
-                  alignItems: "center", justifyContent: "center",
-                }}>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                  <Card.Footer style={{ padding: 0, marginLeft: 12 }}>
+                    <View
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 10,
+                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                    </View>
+                  </Card.Footer>
                 </View>
-              </View>
+              </Card>
             </Pressable>
           </Animated.View>
         );
@@ -292,23 +313,22 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     load: loadTeam,
   } = useTeamWorkspace(token, activeAthlete?.age ?? null);
 
-  const { programs, isLoading: programsLoading, loadPrograms } = useMyPrograms(token, !isTeamMode);
+  const {
+    programs,
+    isLoading: programsLoading,
+    error: programsError,
+    loadPrograms,
+  } = useMyPrograms(token, !isTeamMode);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null);
-  const tabScrollRef = useRef<ScrollView>(null);
+  const effectiveProgramId = selectedProgramId ?? programs[0]?.id ?? null;
 
   useEffect(() => {
     if (isTeamMode) {
       loadTeam();
     }
   }, [isTeamMode]);
-
-  useEffect(() => {
-    if (programs.length > 0 && !selectedProgramId) {
-      setSelectedProgramId(programs[0].id);
-    }
-  }, [programs, selectedProgramId]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -388,11 +408,12 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* ── Header ── */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 4 }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12, marginBottom: 10 }}>
         <Text style={{ fontSize: 24, fontFamily: "ClashDisplay-Bold", color: colors.textPrimary }}>
           My Programs
         </Text>
       </View>
+      <View style={{ height: 14 }} />
 
       {/* ── Continue Watching ── */}
       {watchHistory.length > 0 ? (
@@ -419,6 +440,16 @@ const ProgramsScreen = memo(function ProgramsScreen() {
             <SkeletonBox key={`skeleton-${i}`} width="100%" height={90} borderRadius={24} />
           ))}
         </View>
+      ) : programsError ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <Ionicons name="alert-circle-outline" size={40} color={colors.textSecondary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 16, fontFamily: "Outfit-Medium", color: colors.textPrimary, marginBottom: 4 }}>
+            Failed to load programs
+          </Text>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, textAlign: "center" }}>
+            {programsError}
+          </Text>
+        </View>
       ) : programs.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
           <Ionicons name="barbell-outline" size={40} color={colors.textSecondary} style={{ marginBottom: 12 }} />
@@ -434,16 +465,22 @@ const ProgramsScreen = memo(function ProgramsScreen() {
           {/* ── Program Tabs ── */}
           <View style={{ borderBottomWidth: 1, borderBottomColor: borderSoft, flexDirection: "row" }}>
             <ScrollView
-              ref={tabScrollRef}
               horizontal
               nestedScrollEnabled
               showsHorizontalScrollIndicator={false}
               bounces={false}
-              contentContainerStyle={{ paddingHorizontal: 20, flexDirection: "row" }}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingTop: 8,
+                paddingBottom: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+              }}
               style={{ flexGrow: 0 }}
             >
               {programs.map((p) => {
-                const active = selectedProgramId === p.id;
+                const active = effectiveProgramId === p.id;
                 return (
                   <Pressable
                     key={p.id}
@@ -452,16 +489,25 @@ const ProgramsScreen = memo(function ProgramsScreen() {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }}
                     style={{
-                      paddingHorizontal: 16,
-                      paddingTop: 10,
-                      paddingBottom: 12,
-                      borderBottomWidth: 2.5,
-                      borderBottomColor: active ? colors.accent : "transparent",
+                      paddingHorizontal: 14,
+                      height: 36,
+                      borderRadius: 999,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderWidth: 1,
+                      borderColor: active ? colors.accent : borderSoft,
+                      backgroundColor: active
+                        ? isDark
+                          ? "rgba(138,255,0,0.14)"
+                          : "rgba(106,204,0,0.12)"
+                        : isDark
+                          ? "rgba(255,255,255,0.03)"
+                          : "rgba(15,23,42,0.02)",
                     }}
                   >
                     <Text
                       style={{
-                        fontSize: 15,
+                        fontSize: 14,
                         fontFamily: active ? "Outfit-SemiBold" : "Outfit-Medium",
                         color: active ? colors.textPrimary : colors.textSecondary,
                       }}
@@ -475,11 +521,10 @@ const ProgramsScreen = memo(function ProgramsScreen() {
             </ScrollView>
           </View>
 
-          {/* ── Selected Program Content ── */}
-          {selectedProgramId ? (
+          {effectiveProgramId ? (
             <ProgramContent
-              key={selectedProgramId}
-              programId={selectedProgramId}
+              key={effectiveProgramId}
+              programId={effectiveProgramId}
               token={token}
             />
           ) : null}

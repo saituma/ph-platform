@@ -14,12 +14,12 @@ import { getAuthBaseUrl } from "../../lib/authBaseUrl";
 import { signInWithWorkerAndExchange } from "../../lib/workerAuth";
 import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
 import { useAppDispatch } from "../../store/hooks";
-import { Text, TextInput } from "@/components/ScaledText";
+import { Text, TextInput } from "../../components/ScaledText";
 import {
   AuthFieldRow,
   AuthFormGroup,
   AuthPrimaryButton,
-} from "@/components/auth/AuthPrimitives";
+} from "../../components/auth/AuthPrimitives";
 import {
   setCredentials,
   setApiUserRole,
@@ -32,9 +32,9 @@ import {
   setProgramTier,
   type AppCapabilities,
 } from "../../store/slices/userSlice";
-import { enrichTeamFieldsIfOnboardingHasThem } from "@/lib/auth/enrichTeamFromOnboarding";
-import { resolveAppRole } from "@/lib/appRole";
-import { markLoginFresh } from "@/store/AuthPersist";
+import { enrichTeamFieldsIfOnboardingHasThem } from "../../lib/auth/enrichTeamFromOnboarding";
+import { resolveAppRole } from "../../lib/appRole";
+import { markLoginFresh } from "../../store/AuthPersist";
 
 // ─── Background video ─────────────────────────────────────────────────────────
 // Drop your video file at:  apps/mobile/assets/videos/login-bg.mp4
@@ -87,6 +87,7 @@ export default function LoginScreen() {
   // otherwise use the current theme tokens.
   const headingColor  = HAS_VIDEO ? "rgba(255,255,255,0.95)" : colors.text;
   const subtitleColor = HAS_VIDEO ? "rgba(255,255,255,0.62)" : colors.textSecondary;
+  const inputColor    = HAS_VIDEO ? "#FFFFFF" : colors.text;
 
   const {
     control,
@@ -268,7 +269,7 @@ export default function LoginScreen() {
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
                       className="text-app font-outfit"
-                      style={styles.input}
+                      style={[styles.input, { color: inputColor }]}
                       placeholder="name@example.com"
                       placeholderTextColor={colors.placeholder}
                       onBlur={onBlur}
@@ -310,7 +311,7 @@ export default function LoginScreen() {
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
                       className="text-app font-outfit"
-                      style={styles.input}
+                      style={[styles.input, { color: inputColor }]}
                       placeholder="Enter your password"
                       placeholderTextColor={colors.placeholder}
                       onBlur={onBlur}

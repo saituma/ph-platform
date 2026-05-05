@@ -34,6 +34,7 @@ const createSchema = z.object({
 const reviewSchema = z.object({
   uploadId: z.number().int().min(1),
   feedback: z.string().min(1),
+  coachVideoUrl: z.string().url().optional(),
 });
 
 async function resolveTeamPlanTierForAthlete(athlete: {
@@ -165,7 +166,12 @@ export async function listVideos(req: Request, res: Response) {
 
 export async function reviewVideo(req: Request, res: Response) {
   const input = reviewSchema.parse(req.body);
-  const item = await reviewVideoUpload({ uploadId: input.uploadId, coachId: req.user!.id, feedback: input.feedback });
+  const item = await reviewVideoUpload({ 
+    uploadId: input.uploadId, 
+    coachId: req.user!.id, 
+    feedback: input.feedback,
+    coachVideoUrl: input.coachVideoUrl 
+  });
   if (!item) {
     return res.status(404).json({ error: "Not found" });
   }

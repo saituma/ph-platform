@@ -13,6 +13,7 @@ import {
 	Wrench,
 	DotsThreeCircle,
 	Phone,
+	Calendar,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
@@ -40,9 +41,19 @@ const EQUIPMENT_OPTIONS = [
 	{ id: "none", label: "No Equipment", icon: Target },
 	{ id: "other", label: "Other", icon: DotsThreeCircle },
 ] as const;
+const TRAINING_DAYS = [
+	{ id: "mon", label: "Mon" },
+	{ id: "tue", label: "Tue" },
+	{ id: "wed", label: "Wed" },
+	{ id: "thu", label: "Thu" },
+	{ id: "fri", label: "Fri" },
+	{ id: "sat", label: "Sat" },
+	{ id: "sun", label: "Sun" },
+] as const;
 
 function OnboardingStep3() {
 	const [trainingPerWeek, setTrainingPerWeek] = useState<number>(3);
+	const [preferredTrainingDays, setPreferredTrainingDays] = useState<string[]>(["mon", "wed", "fri"]);
 	const [performanceGoals, setPerformanceGoals] = useState("");
 	const [growthNotes, setGrowthNotes] = useState("");
 	const [equipmentAccess, setEquipmentAccess] = useState<string>("full");
@@ -78,6 +89,68 @@ function OnboardingStep3() {
 		return () => { cancelled = true; };
 	}, [navigate]);
 
+	useEffect(() => {
+		let cancelled = false;
+		async function hydrateExistingGoals() {
+			if (isValidating) return;
+			try {
+				const status = await getTokenStatus();
+				if (!status.authenticated) return;
+				const baseUrl = config.api.baseUrl;
+				const response = await fetch(`${baseUrl}/api/auth/me`, {
+					credentials: "include",
+					headers: getAuthHeaders(),
+				});
+				if (!response.ok) return;
+				const data = await response.json().catch(() => ({}));
+				const user = (data as any)?.user ?? null;
+				if (!user || cancelled) return;
+
+				const training = Number(user.trainingPerWeek ?? 0);
+				if (Number.isFinite(training) && training > 0 && training <= 7) {
+					setTrainingPerWeek(training);
+				}
+				if (Array.isArray(user.preferredTrainingDays) && user.preferredTrainingDays.length > 0) {
+					setPreferredTrainingDays(user.preferredTrainingDays.slice(0, 7));
+				}
+				if (typeof user.performanceGoals === "string" && user.performanceGoals.trim()) {
+					setPerformanceGoals(user.performanceGoals);
+				}
+				if (typeof user.growthNotes === "string" && user.growthNotes.trim()) {
+					setGrowthNotes(user.growthNotes);
+				}
+				if (typeof user.phoneNumber === "string" && user.phoneNumber.trim()) {
+					setPhone(user.phoneNumber);
+				}
+				if (typeof user.equipmentAccess === "string" && user.equipmentAccess.trim()) {
+					const normalized = user.equipmentAccess.trim().toLowerCase();
+					const known = ["full", "home", "minimal", "none"];
+					if (known.includes(normalized)) {
+						setEquipmentAccess(normalized);
+					} else {
+						setEquipmentAccess("other");
+						setOtherEquipment(user.equipmentAccess);
+					}
+				}
+				const injuryNotes =
+					typeof user.injuries?.notes === "string"
+						? user.injuries.notes
+						: typeof user.injuries === "string"
+							? user.injuries
+							: "";
+				if (injuryNotes.trim()) {
+					setInjuries(injuryNotes);
+				}
+			} catch {
+				// Best effort hydration only.
+			}
+		}
+		void hydrateExistingGoals();
+		return () => {
+			cancelled = true;
+		};
+	}, [isValidating]);
+
 	const mutation = useMutation({
 		mutationFn: async () => {
 			const status = await getTokenStatus();
@@ -93,6 +166,7 @@ function OnboardingStep3() {
 				},
 				body: JSON.stringify({
 					trainingPerWeek,
+					preferredTrainingDays,
 					performanceGoals,
 					growthNotes,
 					phone,
@@ -134,6 +208,10 @@ function OnboardingStep3() {
 			toast.error("Please enter your phone number");
 			return;
 		}
+		if (preferredTrainingDays.length === 0) {
+			toast.error("Please select at least one training day");
+			return;
+		}
 
 		mutation.mutate();
 	};
@@ -169,7 +247,10 @@ function OnboardingStep3() {
 										<button
 											key={num}
 											type="button"
-											onClick={() => setTrainingPerWeek(num)}
+											onClick={() => {
+												setTrainingPerWeek(num);
+												setPreferredTrainingDays((prev) => (prev.length > num ? prev.slice(0, num) : prev));
+											}}
 											className={cn(
 												"h-10 sm:h-12 rounded-none border transition-all font-bold text-xs sm:text-sm",
 												trainingPerWeek === num
@@ -180,6 +261,42 @@ function OnboardingStep3() {
 											{num}
 										</button>
 									))}
+								</div>
+							</div>
+
+							<div className="space-y-4">
+								<label className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5">
+									<Calendar size={18} className="text-foreground/40" />
+									Preferred Training Days
+								</label>
+								<div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+									{TRAINING_DAYS.map((day) => {
+										const selected = preferredTrainingDays.includes(day.id);
+										const limitReached = preferredTrainingDays.length >= trainingPerWeek;
+										const isDisabled = !selected && limitReached;
+
+										return (
+											<button
+												key={day.id}
+												type="button"
+												disabled={isDisabled}
+												onClick={() =>
+													setPreferredTrainingDays((prev) =>
+														prev.includes(day.id) ? prev.filter((d) => d !== day.id) : [...prev, day.id],
+													)
+												}
+												className={cn(
+													"h-10 rounded-none border transition-all font-bold text-xs",
+													selected
+														? "border-foreground bg-primary text-primary-foreground"
+														: "border-foreground/[0.06] text-foreground/60 hover:border-foreground/20",
+													isDisabled && "opacity-20 cursor-not-allowed grayscale",
+												)}
+											>
+												{day.label}
+											</button>
+										);
+									})}
 								</div>
 							</div>
 

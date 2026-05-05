@@ -15,6 +15,22 @@ const TURNSTILE_SCRIPT_ID = "cf-turnstile-script";
 const TURNSTILE_SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
+function readCookieValue(name: string): string {
+  if (typeof document === "undefined") return "";
+  const values = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part.startsWith(`${name}=`))
+    .map((part) => part.slice(name.length + 1));
+  const raw = values.length ? values[values.length - 1] : "";
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 declare global {
   interface Window {
     turnstile?: {
@@ -153,11 +169,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const csrfToken = document.cookie
-        .split(";")
-        .map((part) => part.trim())
-        .find((part) => part.startsWith("csrfToken="))
-        ?.split("=")[1];
+      const csrfToken = readCookieValue("csrfToken");
       console.info(`${turnstileLogPrefix} csrf state`, {
         hasCookie: !!csrfToken,
         cookieLength: csrfToken?.length,

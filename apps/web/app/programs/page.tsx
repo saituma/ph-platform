@@ -9,6 +9,7 @@ import { Button } from "../../components/ui/button";
 import { ProgramsDialogs, type ProgramsDialog } from "../../components/admin/programs/programs-dialogs";
 import { ProgramsGrid } from "../../components/admin/programs/programs-grid";
 import { useCreateProgramMutation, useGetProgramsQuery, useGetUsersQuery, useAssignProgramMutation, useUpdateProgramMutation, useDeleteProgramMutation } from "../../lib/apiSlice";
+import { toast } from "@/lib/toast";
 
 type ProgramRecord = {
   id: number;
@@ -123,26 +124,46 @@ function ProgramsPageInner() {
         isSaving={isSaving}
         isDeleting={isDeleting}
         onCreate={async (input) => {
-          await createProgram(input).unwrap();
+          try {
+            await createProgram(input).unwrap();
+            toast.success("Program created");
+          } catch {
+            toast.error("Failed to create program");
+          }
         }}
         onUpdate={async (input) => {
-          await updateProgram({
-            programId: input.programId,
-            data: {
-              name: input.name,
-              type: input.type,
-              description: input.description ?? null,
-              minAge: input.minAge ?? null,
-              maxAge: input.maxAge ?? null,
-            },
-          }).unwrap();
+          try {
+            await updateProgram({
+              programId: input.programId,
+              data: {
+                name: input.name,
+                type: input.type,
+                description: input.description ?? null,
+                minAge: input.minAge ?? null,
+                maxAge: input.maxAge ?? null,
+              },
+            }).unwrap();
+            toast.success("Program updated");
+          } catch {
+            toast.error("Failed to update program");
+          }
         }}
         onDelete={async (programId) => {
-          await deleteProgram(programId).unwrap();
-          setSelectedProgram(null);
+          try {
+            await deleteProgram(programId).unwrap();
+            setSelectedProgram(null);
+            toast.success("Program deleted");
+          } catch {
+            toast.error("Failed to delete program");
+          }
         }}
         onAssign={async (input) => {
-          await assignProgram(input).unwrap();
+          try {
+            await assignProgram(input).unwrap();
+            toast.success("Program assigned");
+          } catch {
+            toast.error("Failed to assign program");
+          }
         }}
       />
     </AdminShell>

@@ -38,11 +38,11 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
           <div className="h-4 w-px bg-border" />
           <div className="flex min-w-0 flex-1 flex-col">
             {subtitle && (
-              <p className="truncate text-[10px] font-bold uppercase tracking-widest text-primary leading-none mb-0.5">
+              <div className="mb-0.5 truncate text-[10px] font-bold uppercase leading-none tracking-widest text-primary">
                 {subtitle}
-              </p>
+              </div>
             )}
-            <h1 className="truncate text-base font-black tracking-tight text-foreground leading-none">
+            <h1 className="truncate text-base font-black leading-none tracking-tight text-foreground">
               {title}
             </h1>
           </div>

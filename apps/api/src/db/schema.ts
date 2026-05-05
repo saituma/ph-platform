@@ -59,6 +59,19 @@ export const subscriptionStatus = pgEnum("subscription_status", [
   "approved",
   "rejected",
 ]);
+
+export const teamPaymentMode = pgEnum("team_payment_mode", [
+  "coach_pays_all",
+  "per_player_all",
+  "per_player_selected",
+]);
+
+export const teamPlayerInviteStatus = pgEnum("team_player_invite_status", [
+  "pending",
+  "paid",
+  "expired",
+  "cancelled",
+]);
 export const sessionType = pgEnum("session_type", [
   "program",
   "warmup",
@@ -220,6 +233,7 @@ export const teamTable = pgTable(
     emailSlug: varchar("email_slug", { length: 80 }),
     sponsoredPlayerCount: integer("sponsored_player_count").notNull().default(0),
     sponsoredPlanId: integer("sponsored_plan_id").references(() => subscriptionPlanTable.id),
+    paymentMode: teamPaymentMode("payment_mode").notNull().default("coach_pays_all"),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
@@ -242,6 +256,7 @@ export const athleteTable = pgTable("athletes", {
   teamId: integer().references(() => teamTable.id),
   team: varchar({ length: 255 }).notNull(),
   trainingPerWeek: integer().notNull(),
+  preferredTrainingDays: jsonb("preferred_training_days").$type<string[]>().notNull().default([]),
   injuries: jsonb(),
   growthNotes: varchar({ length: 255 }),
   performanceGoals: varchar({ length: 255 }),
@@ -1132,9 +1147,52 @@ export const teamSubscriptionRequestTable = pgTable("team_subscription_requests"
   /** UUID — public receipt id for payer/support lookup. */
   receiptPublicId: varchar({ length: 36 }).notNull(),
   status: subscriptionStatus().notNull().default("pending_payment"),
+  /** How the team subscription is paid: coach pays all, all players pay, or selected players pay. */
+  paymentMode: teamPaymentMode().notNull().default("coach_pays_all"),
+  /** How many athlete seats the coach is paying for directly (used in per_player_selected mode). */
+  coachPaysSeats: integer().notNull().default(0),
+  /** Terms and Conditions acceptance timestamp. */
+  termsAcceptedAt: timestamp(),
+  /** Version of T&C accepted (e.g. "1.0"). */
+  termsVersion: varchar({ length: 50 }),
+  /** True once all required payments (coach + all player invites) are confirmed. */
+  allPaymentsComplete: boolean().notNull().default(false),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
+
+/** Per-player payment invite — created when paymentMode is per_player_all or per_player_selected. */
+export const teamPlayerPaymentInviteTable = pgTable(
+  "team_player_payment_invites",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    requestId: integer()
+      .notNull()
+      .references(() => teamSubscriptionRequestTable.id, { onDelete: "cascade" }),
+    teamId: integer()
+      .notNull()
+      .references(() => teamTable.id, { onDelete: "cascade" }),
+    playerEmail: varchar({ length: 255 }).notNull(),
+    playerName: varchar({ length: 255 }),
+    /** Stripe Payment Link id (plink_...) */
+    stripePaymentLinkId: varchar({ length: 255 }),
+    /** Full Stripe Payment Link URL sent to the player. */
+    stripePaymentLinkUrl: varchar({ length: 1024 }),
+    /** Stripe Checkout Session id created when the player clicks the link. */
+    stripeSessionId: varchar({ length: 255 }),
+    amountCents: integer(),
+    currency: varchar({ length: 10 }).notNull().default("gbp"),
+    status: teamPlayerInviteStatus().notNull().default("pending"),
+    paidAt: timestamp(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    requestIdx: index("team_player_payment_invites_request_idx").on(table.requestId),
+    teamIdx: index("team_player_payment_invites_team_idx").on(table.teamId),
+    stripeSessionUnique: uniqueIndex("team_player_payment_invites_stripe_session_unique").on(table.stripeSessionId),
+  }),
+);
 
 export const videoUploadTable = pgTable("video_uploads", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -1148,6 +1206,7 @@ export const videoUploadTable = pgTable("video_uploads", {
   reviewedByCoach: integer().references(() => userTable.id),
 
   feedback: varchar({ length: 2000 }),
+  coachVideoUrl: varchar("coach_video_url", { length: 500 }),
   reviewedAt: timestamp(),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
@@ -1347,6 +1406,32 @@ export const nutritionTargetsTable = pgTable(
   },
   (table) => ({
     userIdUnique: uniqueIndex("nutrition_targets_user_unique").on(table.userId),
+  }),
+);
+
+export const nutritionOnboardingProfileTable = pgTable(
+  "nutrition_onboarding_profiles",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    dietaryRequirements: text().notNull().default(""),
+    allergies: text().notNull().default(""),
+    generalNutritionHabits: text().notNull().default(""),
+    primaryGoal: varchar({ length: 120 }),
+    mealsPerDay: integer(),
+    hydrationLitersPerDay: integer(),
+    supplements: text(),
+    medicalNotes: text(),
+    additionalContext: text(),
+    completedAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdUnique: uniqueIndex("nutrition_onboarding_profiles_user_unique").on(table.userId),
+    userIdx: index("nutrition_onboarding_profiles_user_idx").on(table.userId),
   }),
 );
 

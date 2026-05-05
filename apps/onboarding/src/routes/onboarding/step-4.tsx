@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { config } from "#/lib/config";
 import { getTokenStatus, getAuthHeaders } from "#/lib/client-storage";
 import { cn } from "#/lib/utils";
+import { differenceInYears, parseISO } from "date-fns";
 
 export const Route = createFileRoute("/onboarding/step-4")({
 	head: () => ({
@@ -37,6 +38,7 @@ function OnboardingStep4() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [teamSummary, setTeamSummary] = useState<{
 		teamName: string;
+		athleteType: "youth" | "adult";
 		minAge: number;
 		maxAge: number;
 		maxAthletes: number;
@@ -51,18 +53,28 @@ function OnboardingStep4() {
 				try {
 					const parsed = JSON.parse(raw) as {
 						teamName?: unknown;
+						teamType?: unknown;
+						athleteType?: unknown;
 						minAge?: unknown;
 						maxAge?: unknown;
 						maxAthletes?: unknown;
 					};
+					const resolvedType =
+						parsed.athleteType === "youth" || parsed.athleteType === "adult"
+							? parsed.athleteType
+							: parsed.teamType === "youth" || parsed.teamType === "adult"
+								? parsed.teamType
+								: null;
 					if (
 						typeof parsed.teamName === "string" &&
+						!!resolvedType &&
 						Number.isFinite(Number(parsed.minAge)) &&
 						Number.isFinite(Number(parsed.maxAge)) &&
 						Number.isFinite(Number(parsed.maxAthletes))
 					) {
 						setTeamSummary({
 							teamName: parsed.teamName,
+							athleteType: resolvedType,
 							minAge: Number(parsed.minAge),
 							maxAge: Number(parsed.maxAge),
 							maxAthletes: Number(parsed.maxAthletes),
@@ -112,10 +124,10 @@ function OnboardingStep4() {
 		const type = localStorage.getItem("user_type");
 		if (type === "team") {
 			toast.success("Profile Confirmed!", {
-				description: "Next: choose your plan and complete payment.",
+				description: "Next: Choose how you'll pay and accept terms.",
 			});
 			setIsSubmitting(false);
-			navigate({ to: "/onboarding/step-5" });
+			navigate({ to: "/onboarding/step-4b" });
 			return;
 		}
 
@@ -147,7 +159,7 @@ function OnboardingStep4() {
 			<section className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
 					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
-						Step {isTeam ? "3" : "4"} of {isTeam ? "3" : "4"}
+						Step {isTeam ? "3" : "4"} of {isTeam ? "4" : "4"}
 					</p>
 					<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
 						Review & Confirm
@@ -175,6 +187,17 @@ function OnboardingStep4() {
 											label="Team / Club Name"
 											value={teamSummary?.teamName || "N/A"}
 											icon={User}
+										/>
+										<SummaryItem
+											label="Team Type"
+											value={
+												teamSummary?.athleteType === "adult"
+													? "Adult Team"
+													: teamSummary?.athleteType === "youth"
+														? "Youth Team"
+														: "N/A"
+											}
+											icon={CheckCircle}
 										/>
 										<SummaryItem
 											label="Min Age"
@@ -224,7 +247,11 @@ function OnboardingStep4() {
 										<SummaryItem label="Birth Date" value={athlete.birthDate} icon={Calendar} />
 										<SummaryItem
 											label="Age"
-											value={`${athlete.age} years old`}
+											value={`${
+												athlete.birthDate
+													? differenceInYears(new Date(), parseISO(athlete.birthDate))
+													: athlete.age
+											} years old`}
 											icon={CheckCircle}
 										/>
 									</>
@@ -246,6 +273,11 @@ function OnboardingStep4() {
 									<SummaryItem
 										label="Frequency"
 										value={`${athlete.trainingPerWeek} days / week`}
+										icon={Calendar}
+									/>
+									<SummaryItem
+										label="Preferred Days"
+										value={Array.isArray(athlete.preferredTrainingDays) ? athlete.preferredTrainingDays.join(", ").toUpperCase() : "N/A"}
 										icon={Calendar}
 									/>
 									<SummaryItem

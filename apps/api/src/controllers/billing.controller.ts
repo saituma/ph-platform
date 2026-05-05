@@ -14,12 +14,16 @@ import {
   teamSubscriptionRequestTable,
   teamTable,
   userTable,
+  teamPlayerPaymentInviteTable,
 } from "../db/schema";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { db } from "../db";
 import { getAthleteForUser } from "../services/user.service";
 import {
   createTeamCheckoutSession,
+  ensureStripePriceId,
+  getCancelUrl,
+  getSuccessUrl,
   getStripeClient,
   isStripeCheckoutSessionNotFoundError,
   isStripePriceMissingError,
@@ -48,13 +52,16 @@ import {
   createTeamSubscriptionRequest,
   listTeamSubscriptionRequestsAdmin,
   rejectTeamSubscriptionRequest,
+  syncTeamPlayerInvitePaymentsFromStripe,
   syncTeamSubscriptionRequestPaymentFromStripe,
+  updateTeamPlayerInvitePaymentFromStripeSession,
   updateTeamRequestFromStripeCheckoutSession,
   upsertTeamPendingApprovalFromSessionMetadata,
 } from "../services/billing/team-request.service";
 import { updateAthleteProgramTier } from "../services/admin/user.service";
 import { buildClientCheckoutReceipt } from "../services/billing/checkout-confirmation-payload";
 import { enrichReceiptWithStripeSession, getPaymentReceiptForViewer } from "../services/billing/receipt.service";
+import { sendTeamPlayerPaymentInviteEmail } from "../lib/mailer/billing.mailer";
 
 /** Walk Drizzle / node-pg `error.cause` chain for Postgres SQLSTATE (e.g. 42P01). */
 function postgresSqlstate(error: unknown): string | undefined {
@@ -89,6 +96,19 @@ const teamCheckoutSchema = z.object({
   teamId: z.coerce.number().int().min(1),
   planId: z.coerce.number().int().min(1),
   billingCycle: z.enum(["monthly", "six_months", "yearly"]).default("monthly"),
+  paymentMode: z.enum(["coach_pays_all", "per_player_all", "per_player_selected"]).default("coach_pays_all"),
+  coachPaysSeats: z.coerce.number().int().min(0).default(0),
+  termsAcceptedAt: z.string().optional(),
+  termsVersion: z.string().optional(),
+  playerEmails: z.array(z.string().email()).optional(),
+  playerPayers: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1),
+        email: z.string().trim().email(),
+      }),
+    )
+    .optional(),
 });
 
 const planCreateSchema = z.object({
@@ -189,6 +209,28 @@ export async function getBillingStatus(req: Request, res: Response) {
     athleteId: athlete.id,
   });
   const effectiveTier = guardian?.currentProgramTier ?? athlete.currentProgramTier ?? null;
+
+  if (String(req.user?.email ?? "").trim().toLowerCase() === "dawitanother@gmail.com") {
+    logger.info(
+      {
+        marker: "portal-debug",
+        route: "GET /api/billing/status",
+        reqUserId: req.user?.id,
+        reqEmail: req.user?.email,
+        athleteId: athlete.id,
+        athleteOnboardingCompleted: athlete.onboardingCompleted,
+        athletePlanId: (athlete as any).currentPlanId ?? (athlete as any).current_plan_id ?? null,
+        athletePlanExpiresAt: athlete.planExpiresAt,
+        effectiveTier,
+        latestRequestStatus: latestRequest?.status ?? null,
+        latestRequestPaymentStatus: latestRequest?.paymentStatus ?? null,
+        latestRequestPlanId: latestRequest?.planId ?? null,
+        latestRequestCycle: latestRequest?.planBillingCycle ?? null,
+      },
+      "[portal-debug] billing status snapshot",
+    );
+  }
+
   return res.status(200).json({
     athlete,
     currentProgramTier: effectiveTier,
@@ -319,6 +361,7 @@ export async function createTeamCheckout(req: Request, res: Response) {
   const teamRows = await db
     .select({
       id: teamTable.id,
+      name: teamTable.name,
       adminId: teamTable.adminId,
       maxAthletes: teamTable.maxAthletes,
     })
@@ -333,6 +376,31 @@ export async function createTeamCheckout(req: Request, res: Response) {
     return res.status(403).json({ error: "You do not have access to this team" });
   }
 
+  // Prevent duplicate charge attempts when a prior team request is already paid
+  // and waiting on admin approval.
+  const latestRequestRows = await db
+    .select({
+      id: teamSubscriptionRequestTable.id,
+      status: teamSubscriptionRequestTable.status,
+      paymentStatus: teamSubscriptionRequestTable.paymentStatus,
+    })
+    .from(teamSubscriptionRequestTable)
+    .where(eq(teamSubscriptionRequestTable.teamId, team.id))
+    .orderBy(desc(teamSubscriptionRequestTable.createdAt))
+    .limit(1);
+  const latestRequest = latestRequestRows[0] ?? null;
+  if (latestRequest) {
+    const status = String(latestRequest.status ?? "").toLowerCase();
+    const paymentStatus = String(latestRequest.paymentStatus ?? "").toLowerCase();
+    const isPaid = paymentStatus === "paid" || paymentStatus === "no_payment_required";
+    if (status === "pending_approval" || (isPaid && status !== "rejected")) {
+      return res.status(409).json({
+        error: "You've already completed payment. Please wait for an approval message from the admin.",
+        requestId: latestRequest.id,
+      });
+    }
+  }
+
   const planRows = await db
     .select()
     .from(subscriptionPlanTable)
@@ -344,24 +412,79 @@ export async function createTeamCheckout(req: Request, res: Response) {
   }
 
   const billingCycle = parsed.data.billingCycle;
+  const paymentMode = parsed.data.paymentMode;
+  const coachPaysSeats = parsed.data.coachPaysSeats;
   const intervalKey = billingCycle === "monthly" ? "monthly" : billingCycle === "six_months" ? "six_months" : "yearly";
-  const lookupKey = `${String(plan.tier).toLowerCase()}_${intervalKey}`;
-  const quantity = Math.max(1, Number(team.maxAthletes ?? 1));
+  const lookupKey =
+    plan.tier
+      ? `${String(plan.tier).toLowerCase()}_${intervalKey}`
+      : intervalKey === "monthly"
+        ? ensureStripePriceId(
+            {
+              stripePriceId: plan.stripePriceId,
+              stripePriceIdMonthly: plan.stripePriceIdMonthly,
+              stripePriceIdYearly: plan.stripePriceIdYearly,
+              tier: null,
+            },
+            "monthly",
+          )
+        : intervalKey === "yearly"
+          ? ensureStripePriceId(
+              {
+                stripePriceId: plan.stripePriceId,
+                stripePriceIdMonthly: plan.stripePriceIdMonthly,
+                stripePriceIdYearly: plan.stripePriceIdYearly,
+                tier: null,
+              },
+              "yearly",
+            )
+          : String(plan.stripePriceIdOneTime ?? plan.stripePriceId ?? "").trim();
+  
+  let coachQuantity = Math.max(1, Number(team.maxAthletes ?? 1));
+  if (paymentMode === "per_player_all") {
+    coachQuantity = 0;
+  } else if (paymentMode === "per_player_selected") {
+    coachQuantity = coachPaysSeats;
+  }
 
   try {
-    const session = await createTeamCheckoutSession({
-      teamId: team.id,
+    // 1. If coach needs to pay, create their checkout session
+    let session: Stripe.Checkout.Session | null = null;
+    if (coachQuantity > 0) {
+      session = await createTeamCheckoutSession({
+        teamId: team.id,
+        adminId: req.user.id,
+        priceLookupKey: lookupKey,
+        tier: plan.tier as any,
+        interval: intervalKey,
+        quantity: coachQuantity,
+        mode: billingCycle === "monthly" ? "subscription" : "payment",
+        customerEmail: req.user.email,
+        metadata: {
+          planId: String(plan.id),
+          billingCycle,
+          paymentMode,
+          coachPaysSeats: String(coachPaysSeats),
+          termsAcceptedAt: parsed.data.termsAcceptedAt ?? "",
+          termsVersion: parsed.data.termsVersion ?? "",
+        },
+      });
+    }
+
+    // 2. We always need a team request row for player invites.
+    // If coach has a session, upsertTeamPendingApprovalFromSessionMetadata handles it later,
+    // BUT we need it NOW to create player invites. Let's create it upfront.
+    const termsAcceptedAt = parsed.data.termsAcceptedAt ? new Date(parsed.data.termsAcceptedAt) : null;
+    const request = await createTeamSubscriptionRequest({
       adminId: req.user.id,
-      priceLookupKey: lookupKey,
-      tier: plan.tier as any,
-      interval: intervalKey,
-      quantity,
-      mode: billingCycle === "monthly" ? "subscription" : "payment",
-      customerEmail: req.user.email,
-      metadata: {
-        planId: String(plan.id),
-        billingCycle,
-      },
+      teamId: team.id,
+      planId: plan.id,
+      planBillingCycle: billingCycle,
+      stripeSessionId: session?.id ?? `manual_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      paymentMode,
+      coachPaysSeats,
+      termsAcceptedAt,
+      termsVersion: parsed.data.termsVersion,
     });
 
     await db
@@ -372,7 +495,88 @@ export async function createTeamCheckout(req: Request, res: Response) {
       })
       .where(eq(teamTable.id, team.id));
 
-    return res.status(200).json({ checkoutUrl: session.url, sessionId: session.id });
+    // 3. Generate player invites if applicable
+    let invitesSent = 0;
+    if ((paymentMode === "per_player_all" || paymentMode === "per_player_selected") && request) {
+       // We will generate Stripe payment links/sessions for players and send emails here
+       const { getStripeClient, resolveTierFallbackPrice } = await import("../services/billing/stripe.service");
+       const { createPlayerPaymentInvites } = await import("../services/billing/team-request.service");
+       
+       const stripeClient = getStripeClient();
+       let priceId: string | undefined;
+       try {
+         if (lookupKey.startsWith("price_")) {
+           priceId = lookupKey;
+         } else {
+           const prices = await stripeClient.prices.list({ lookup_keys: [lookupKey], active: true });
+           if (prices.data[0]) priceId = prices.data[0].id;
+         }
+       } catch {}
+       if (!priceId && intervalKey === "monthly" && plan.tier) {
+         priceId = resolveTierFallbackPrice(plan.tier as any, "monthly");
+       }
+       if (!priceId) throw new Error("Price not found for player invites");
+       
+       // Calculate amount for per-player. Usually price.unit_amount.
+       const priceObj = await stripeClient.prices.retrieve(priceId);
+       const amountCents = priceObj.unit_amount ?? 0;
+       
+       const payerRows =
+         parsed.data.playerPayers && parsed.data.playerPayers.length > 0
+           ? parsed.data.playerPayers.map((p) => ({ name: p.name.trim(), email: p.email.trim() }))
+           : (parsed.data.playerEmails ?? []).map((email) => ({ email: email.trim() }));
+
+       const invites = await createPlayerPaymentInvites(
+         request.id,
+         team.id,
+         payerRows,
+         amountCents,
+         priceObj.currency
+       );
+       
+       for (const invite of invites) {
+         // Create a checkout session for each player
+         const playerSession = await stripeClient.checkout.sessions.create({
+           mode: billingCycle === "monthly" ? "subscription" : "payment",
+           customer_email: invite.playerEmail,
+           ...(billingCycle !== "monthly" ? { customer_creation: "always" } : {}),
+           payment_method_types: ["card"],
+           line_items: [{ price: priceId, quantity: 1 }],
+           ...(billingCycle !== "monthly"
+             ? { payment_intent_data: { receipt_email: invite.playerEmail } }
+             : {}),
+           metadata: {
+             type: "team_player_invite",
+             inviteId: String(invite.id),
+             requestId: String(request.id),
+             teamId: String(team.id),
+           },
+           success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&player_paid=true`,
+           cancel_url: getCancelUrl(),
+         });
+         
+         await db.update(teamPlayerPaymentInviteTable)
+           .set({ stripeSessionId: playerSession.id, stripePaymentLinkUrl: playerSession.url })
+           .where(eq(teamPlayerPaymentInviteTable.id, invite.id));
+
+         if (playerSession.url) {
+           await sendTeamPlayerPaymentInviteEmail({
+             to: invite.playerEmail,
+             payerName: invite.playerName,
+             teamName: team.name,
+             planName: String(plan.name ?? plan.tier ?? "PH Performance plan"),
+             checkoutUrl: playerSession.url,
+           });
+         }
+       }
+       invitesSent = invites.length;
+    }
+
+    if (session) {
+      return res.status(200).json({ checkoutUrl: session.url, sessionId: session.id, invitesSent });
+    } else {
+      return res.status(200).json({ success: true, invitesSent });
+    }
   } catch (error: any) {
     const statusCode = typeof error?.statusCode === "number" ? error.statusCode : null;
     const code = typeof error?.code === "string" ? error.code : null;
@@ -916,7 +1120,24 @@ export async function syncRequestPaymentAdmin(req: Request, res: Response) {
 }
 
 export async function listTeamRequestsAdmin(_req: Request, res: Response) {
-  const requests = await listTeamSubscriptionRequestsAdmin();
+  let requests = await listTeamSubscriptionRequestsAdmin();
+  // Safety net for missed/delayed webhooks: reconcile unresolved requests from Stripe before rendering admin state.
+  for (const reqItem of requests) {
+    const requestId = Number((reqItem as any)?.requestId ?? 0);
+    const status = String((reqItem as any)?.status ?? "").toLowerCase();
+    const paymentStatus = String((reqItem as any)?.paymentStatus ?? "").toLowerCase();
+    const isFinal = status === "approved" || status === "rejected";
+    const looksUnresolved =
+      !isFinal && (status === "pending_payment" || status === "pending_approval" || paymentStatus === "unpaid");
+    if (!requestId || !looksUnresolved) continue;
+    try {
+      await syncTeamSubscriptionRequestPaymentFromStripe(requestId);
+      await syncTeamPlayerInvitePaymentsFromStripe(requestId);
+    } catch (err) {
+      logger.warn({ err, requestId }, "[Billing] team payment sync failed before admin list");
+    }
+  }
+  requests = await listTeamSubscriptionRequestsAdmin();
   return res.status(200).json({ requests });
 }
 
@@ -980,6 +1201,8 @@ export async function stripeWebhook(req: Request, res: Response) {
         if (metaType === "team_subscription") {
           await upsertTeamPendingApprovalFromSessionMetadata(session);
           await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "paid");
+        } else if (metaType === "team_player_invite") {
+          await updateTeamPlayerInvitePaymentFromStripeSession(session, session.payment_status ?? "paid", event.type);
         } else {
           await updateRequestFromStripeSession(session);
         }
@@ -994,6 +1217,8 @@ export async function stripeWebhook(req: Request, res: Response) {
         if (metaType === "team_subscription") {
           await upsertTeamPendingApprovalFromSessionMetadata(session);
           await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "paid");
+        } else if (metaType === "team_player_invite") {
+          await updateTeamPlayerInvitePaymentFromStripeSession(session, session.payment_status ?? "paid", event.type);
         } else {
           await updateRequestFromStripeSession(session);
         }
@@ -1008,6 +1233,8 @@ export async function stripeWebhook(req: Request, res: Response) {
         if (metaType === "team_subscription") {
           await upsertTeamPendingApprovalFromSessionMetadata(session);
           await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "failed");
+        } else if (metaType === "team_player_invite") {
+          await updateTeamPlayerInvitePaymentFromStripeSession(session, session.payment_status ?? "unpaid", event.type);
         } else {
           await updateRequestFromStripeSession(session);
         }
@@ -1022,6 +1249,8 @@ export async function stripeWebhook(req: Request, res: Response) {
         if (metaType === "team_subscription") {
           await upsertTeamPendingApprovalFromSessionMetadata(session);
           await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "expired");
+        } else if (metaType === "team_player_invite") {
+          await updateTeamPlayerInvitePaymentFromStripeSession(session, session.payment_status ?? "expired", event.type);
         } else {
           await updateRequestFromStripeSession(session);
         }
@@ -1100,4 +1329,19 @@ export async function listInvoices(req: Request, res: Response) {
   }));
 
   return res.status(200).json({ invoices });
+}
+
+export async function listTeamPlayerInvitesAdmin(req: Request, res: Response) {
+  const requestId = parseInt(req.params.requestId as string, 10);
+  if (isNaN(requestId)) {
+    return res.status(400).json({ error: "Invalid request id" });
+  }
+  const { listPlayerPaymentInvites } = await import("../services/billing/team-request.service");
+  try {
+    await syncTeamPlayerInvitePaymentsFromStripe(requestId);
+  } catch (err) {
+    logger.warn({ err, requestId }, "[Billing] invite payment sync failed before admin list");
+  }
+  const invites = await listPlayerPaymentInvites(requestId);
+  return res.status(200).json({ invites });
 }

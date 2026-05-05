@@ -477,6 +477,11 @@ export async function listSubscriptionPlans(options?: { includeInactive?: boolea
       const pricing = stripeMonthly ? mergeStripeMonthlyPricing(plan as PlanRowForPricing, base, stripeMonthly) : base;
       return {
         ...plan,
+        supports: {
+          monthly: Boolean(plan.stripePriceIdMonthly || plan.monthlyPrice),
+          yearly: Boolean(plan.stripePriceIdYearly || plan.yearlyPrice),
+          six_months: Boolean(plan.stripePriceIdOneTime || plan.oneTimePrice),
+        },
         pricing,
       };
     }),
@@ -524,7 +529,7 @@ export async function enrichPlansWithBillingQuotes(
             billingCycle,
             lookupKey: plan.tier ? lookupKeyForAthleteBilling(plan.tier, billingCycle) : null,
             amount,
-            mode: checkoutModeForBillingCycle(billingCycle),
+            mode: price.recurring ? "subscription" : "payment",
           },
         };
       } catch {
@@ -599,6 +604,21 @@ function deriveDurationOneTimeAmount(input: {
 
 function formatPenceAsGbp(cents: number): string {
   return `£${(cents / 100).toFixed(2)}`;
+}
+
+function oneTimeStripeIntervalLabel(input: {
+  durationWeeks?: number | null;
+  durationDaysPerWeek?: number | null;
+}) {
+  const weeks = Number(input.durationWeeks ?? 0);
+  if (Number.isFinite(weeks) && weeks > 0) {
+    return `${weeks} week${weeks === 1 ? "" : "s"}`;
+  }
+  const daysPerWeek = Number(input.durationDaysPerWeek ?? 0);
+  if (Number.isFinite(daysPerWeek) && daysPerWeek > 0) {
+    return `${daysPerWeek} day${daysPerWeek === 1 ? "" : "s"} / week`;
+  }
+  return "One-time";
 }
 
 export async function createSubscriptionPlan(input: {
@@ -695,6 +715,7 @@ export async function createSubscriptionPlan(input: {
         tier: input.tier,
         interval: "one_time",
         unitAmount: discountedOneTime,
+        intervalLabel: oneTimeStripeIntervalLabel(input),
       });
       if (!stripePriceId || stripePriceId === "manual") stripePriceId = stripePriceIdOneTime;
     }
@@ -900,6 +921,10 @@ export async function updateSubscriptionPlan(
         tier: nextTier,
         interval: "one_time",
         unitAmount: discountedOneTime,
+        intervalLabel: oneTimeStripeIntervalLabel({
+          durationWeeks: nextDurationFields.durationWeeks,
+          durationDaysPerWeek: nextDurationFields.durationDaysPerWeek,
+        }),
       });
       if (!stripePriceId || stripePriceId === "manual") stripePriceId = stripePriceIdOneTime;
     }
@@ -955,7 +980,7 @@ export async function inviteUserToPlan(input: {
     plan.monthlyPrice
       ? `${plan.monthlyPrice}/mo`
       : plan.oneTimePrice
-        ? `${plan.oneTimePrice} (6 months)`
+        ? `${plan.oneTimePrice}${plan.durationWeeks ? ` (${plan.durationWeeks} weeks)` : ""}`
         : plan.yearlyPrice
           ? `${plan.yearlyPrice} (1 year)`
           : plan.displayPrice;

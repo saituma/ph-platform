@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { env } from "../../config/env";
+import { emailBreaker } from "../circuit-breaker";
 
 export function getMailer() {
   if (!env.smtpUser || !env.smtpPass) {
@@ -76,36 +77,40 @@ export async function deliverEmail(input: {
     contentType: a.contentType,
   }));
   if (resend) {
-    const { error } = await withTimeout(
-      resend.emails.send({
-        from,
-        to: input.to,
-        subject: input.subject,
-        html: input.html,
-        ...(attachments?.length ? { attachments } : {}),
-      }),
-      25_000,
-      "Resend API",
+    const { error } = await emailBreaker.fire(() =>
+      withTimeout(
+        resend.emails.send({
+          from,
+          to: input.to,
+          subject: input.subject,
+          html: input.html,
+          ...(attachments?.length ? { attachments } : {}),
+        }),
+        25_000,
+        "Resend API",
+      ),
     );
     if (error) throw new Error("message" in error ? error.message : String(error));
     return;
   }
   const transporter = getMailer();
-  await transporter.sendMail({
-    from,
-    to: input.to,
-    subject: input.subject,
-    html: input.html,
-    ...(attachments?.length
-      ? {
-          attachments: attachments.map((a) => ({
-            filename: a.filename,
-            content: a.content,
-            contentType: a.contentType ?? "application/octet-stream",
-          })),
-        }
-      : {}),
-  });
+  await emailBreaker.fire(() =>
+    transporter.sendMail({
+      from,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+      ...(attachments?.length
+        ? {
+            attachments: attachments.map((a) => ({
+              filename: a.filename,
+              content: a.content,
+              contentType: a.contentType ?? "application/octet-stream",
+            })),
+          }
+        : {}),
+    }),
+  );
 }
 
 /** Safe for HTML text nodes and attributes (excluding URLs). */

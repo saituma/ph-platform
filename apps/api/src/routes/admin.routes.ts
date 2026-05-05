@@ -23,6 +23,7 @@ router.use("/admin", requireAuth, requireRole(["coach", "admin", "superAdmin"]))
 
 // User & Provisioning
 router.get("/admin/users", AdminUserController.listAllUsers);
+router.get("/admin/users/:userId", AdminUserController.getUserByIdAdmin);
 router.post("/admin/users/provision", AdminUserController.provisionGuardianWithOnboarding);
 router.post("/admin/users/provision-adult", AdminUserController.provisionAdultAthlete);
 router.post("/admin/users/:userId/reset-password", AdminUserController.resetPassword);
@@ -30,6 +31,7 @@ router.post("/admin/users/:userId/block", AdminUserController.blockUser);
 router.delete("/admin/users/:userId", AdminUserController.deleteUser);
 router.get("/admin/users/:userId/onboarding", AdminUserController.getOnboarding);
 router.post("/admin/users/program-tier", AdminUserController.updateProgramTier);
+router.patch("/admin/athletes/:athleteId", AdminUserController.updateAthleteAdmin);
 
 // Teams
 router.get("/admin/teams", AdminTeamController.listTeamsAdminDetails);
@@ -65,6 +67,8 @@ router.put("/admin/portal-config", AdminPortalConfigController.updatePortalConfi
 // Bookings & Availability
 router.get("/admin/bookings", AdminBookingController.listBookings);
 router.post("/admin/bookings", AdminBookingController.createBookingAdmin);
+router.get("/admin/bookings/non-team-users", AdminBookingController.listNonTeamScheduleUsers);
+router.post("/admin/bookings/custom-sessions", AdminBookingController.createCustomScheduleAdmin);
 router.get("/admin/bookings/:bookingId", AdminBookingController.getBooking);
 router.patch("/admin/bookings/:bookingId", AdminBookingController.updateBookingStatus);
 router.get("/admin/availability", AdminBookingController.listAvailability);

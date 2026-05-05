@@ -23,6 +23,10 @@ export function isPortalTeamFacingCoachRole(role: string | undefined): boolean {
 	return role != null && PORTAL_TEAM_FACING_COACH_ROLES.has(role);
 }
 
+export function isPortalAthleteRole(role: string | undefined): boolean {
+	return role != null && PORTAL_ATHLETE_ROLES.has(role);
+}
+
 /** Athletes (and guardians) use the portal daily nutrition log. */
 export function isPortalAthleteFamilyRole(role: string | undefined): boolean {
 	if (role == null) return false;

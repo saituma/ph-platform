@@ -1,5 +1,6 @@
 import type { Server as HttpServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -13,6 +14,7 @@ import { sendMessage, markMessageDelivered, markThreadRead } from "./services/me
 import { setSocketServer } from "./socket-hub";
 import { db } from "./db";
 import { userTable } from "./db/schema";
+import { getRedisConnection } from "./jobs/connection";
 
 type AuthPayload = {
   sub?: string;
@@ -158,9 +160,35 @@ export function initSocket(server: HttpServer) {
       skipMiddlewares: true,
     },
   });
+
+  const redis = getRedisConnection();
+  if (redis) {
+    const pubClient = redis.duplicate();
+    const subClient = redis.duplicate();
+    const socketLog = createLogger({ component: "socket" });
+    let adapterEnabled = true;
+    const onRedisError = (err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      socketLog.error({ err }, "Socket Redis adapter client error");
+      if (adapterEnabled && msg.includes("max requests limit exceeded")) {
+        adapterEnabled = false;
+        try {
+          pubClient.disconnect();
+          subClient.disconnect();
+        } catch {
+          // noop
+        }
+        socketLog.warn("Socket.IO Redis adapter disabled due to Upstash max requests limit");
+      }
+    };
+    pubClient.on("error", onRedisError);
+    subClient.on("error", onRedisError);
+    io.adapter(createAdapter(pubClient, subClient));
+    socketLog.info("Socket.IO Redis adapter enabled for multi-instance broadcast");
+  }
+
   setSocketServer(io);
 
-  // Track online users for presence snapshot on connect.
   const onlineUsers = new Set<number>();
 
   const log = createLogger({ component: "socket" });

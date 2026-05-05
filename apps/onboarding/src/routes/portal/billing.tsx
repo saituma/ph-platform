@@ -42,7 +42,7 @@ export const Route = createFileRoute("/portal/billing")({
 
 const BILLING_CYCLES: { id: BillingCycle; label: string; hint: string }[] = [
 	{ id: "monthly", label: "Monthly", hint: "Recurring" },
-	{ id: "six_months", label: "6 months", hint: "Upfront" },
+	{ id: "six_months", label: "One-time", hint: "Upfront" },
 	{ id: "yearly", label: "Yearly", hint: "Upfront" },
 ];
 
@@ -84,6 +84,12 @@ function planPrice(plan: BillingPlan) {
 		plan.displayPrice ??
 		"Contact team"
 	);
+}
+
+function oneTimeDurationLabel(plan: BillingPlan) {
+	const weeks = Number(plan.durationWeeks ?? 0);
+	if (Number.isFinite(weeks) && weeks > 0) return `for ${weeks} week${weeks === 1 ? "" : "s"}`;
+	return "one-time payment";
 }
 
 function dedupePlansByTier(plans: BillingPlan[]) {
@@ -387,11 +393,13 @@ function BillingPage() {
 												{planPrice(plan)}
 											</motion.p>
 											<p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-												{billingCycle === "monthly"
-													? "per month"
+												{plan.billingQuote?.mode === "subscription"
+													? "per month · subscription"
 													: billingCycle === "six_months"
-														? "for 6 months"
-														: "per year"}
+														? `${oneTimeDurationLabel(plan)} · one-time payment`
+														: billingCycle === "yearly"
+															? "for 1 year · one-time payment"
+															: "one-time payment"}
 											</p>
 										</div>
 									</CardHeader>

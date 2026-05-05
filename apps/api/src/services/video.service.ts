@@ -216,10 +216,20 @@ export async function listVideoUploadsByAthlete(
     .limit(effectiveLimit);
 }
 
-export async function reviewVideoUpload(input: { uploadId: number; coachId: number; feedback: string }) {
+export async function reviewVideoUpload(input: { 
+  uploadId: number; 
+  coachId: number; 
+  feedback: string;
+  coachVideoUrl?: string | null;
+}) {
   const result = await db
     .update(videoUploadTable)
-    .set({ reviewedByCoach: input.coachId, reviewedAt: new Date(), feedback: input.feedback })
+    .set({ 
+      reviewedByCoach: input.coachId, 
+      reviewedAt: new Date(), 
+      feedback: input.feedback,
+      coachVideoUrl: input.coachVideoUrl ?? null
+    })
     .where(eq(videoUploadTable.id, input.uploadId))
     .returning();
 

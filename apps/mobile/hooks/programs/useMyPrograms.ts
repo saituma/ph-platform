@@ -28,15 +28,24 @@ export type ProgramSession = {
   type: string;
   exerciseCount: number;
 };
-
 export type SessionExercise = {
   id: number;
   sessionId: number;
   exerciseId: number;
+  programSectionContentId?: number | null;
+  trainingSessionItemId?: number | null;
+  sectionContentId?: number | null;
   order: number;
   coachingNotes: string | null;
   progressionNotes: string | null;
   regressionNotes: string | null;
+  videoUpload?: {
+    id: number;
+    videoUrl: string;
+    feedback: string | null;
+    coachVideoUrl: string | null;
+    reviewedAt: string | null;
+  } | null;
   exercise: {
     id: number;
     name: string;

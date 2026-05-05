@@ -42,6 +42,8 @@ export type BillingPlan = {
 	id: number;
 	name: string;
 	tier: string;
+	durationWeeks?: number | null;
+	durationDaysPerWeek?: number | null;
 	displayPrice?: string | null;
 	billingInterval?: string | null;
 	isActive?: boolean | null;
@@ -115,6 +117,23 @@ export const settingsService = {
 		}),
 
 	// Nutrition
+	getNutritionOnboardingProfile: (userId?: string | number) => {
+		const qs = userId != null ? `?userId=${encodeURIComponent(String(userId))}` : "";
+		return apiRequest<{ profile: any | null }>(`/nutrition/onboarding-profile${qs}`);
+	},
+
+	saveNutritionOnboardingProfile: (data: {
+		dietaryRequirements: string;
+		allergies: string;
+		generalNutritionHabits: string;
+		primaryGoal?: string | null;
+		mealsPerDay?: number | null;
+		hydrationLitersPerDay?: number | null;
+		supplements?: string | null;
+		medicalNotes?: string | null;
+		additionalContext?: string | null;
+	}) => apiRequest<{ profile: any }>("/nutrition/onboarding-profile", { method: "PUT", body: data }),
+
 	getNutritionLogs: (params: { userId: string | number; from: string; to: string; limit?: number }) => {
 		const qs = new URLSearchParams({
 			userId: String(params.userId),

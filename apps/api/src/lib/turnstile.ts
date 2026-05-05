@@ -48,7 +48,23 @@ function clientIp(req: Request): string | undefined {
   return req.ip;
 }
 
+function isLocalRequest(req: Request): boolean {
+  const host = (req.hostname || "").toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1") return true;
+  const origin = (req.header("origin") || "").toLowerCase();
+  const referer = (req.header("referer") || "").toLowerCase();
+  return (
+    origin.includes("localhost") ||
+    origin.includes("127.0.0.1") ||
+    referer.includes("localhost") ||
+    referer.includes("127.0.0.1")
+  );
+}
+
 export function requireTurnstile(req: Request, res: Response, next: NextFunction) {
+  if (env.turnstileBypass || process.env.NODE_ENV !== "production" || isLocalRequest(req)) {
+    return next();
+  }
   if (!env.turnstileSecretKey && !env.turnstileSecretKey2) {
     return next();
   }

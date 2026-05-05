@@ -8,7 +8,9 @@ import {
   getUserOnboarding,
   createGuardianWithOnboardingAdmin,
   createAdultAthleteAdmin,
+  getUserSummaryById,
   updateAthleteProgramTier,
+  updateAthlete,
   resetUserPasswordAdmin,
 } from "../../services/admin/user.service";
 import { ProgramType } from "../../db/schema";
@@ -104,6 +106,17 @@ export async function listAllUsers(req: Request, res: Response) {
   return res.status(200).json({ users });
 }
 
+export async function getUserByIdAdmin(req: Request, res: Response) {
+  const userId = z.coerce.number().int().min(1).parse(req.params.userId);
+  const user = await getUserSummaryById(userId, {
+    managedByTeamAdminId: req.user?.role === "team_coach" ? req.user.id : null,
+  });
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  return res.status(200).json({ user });
+}
+
 export async function blockUser(req: Request, res: Response) {
   const userId = z.coerce.number().int().min(1).parse(req.params.userId);
   const body = z.object({ blocked: z.boolean() }).parse(req.body);
@@ -116,11 +129,19 @@ export async function blockUser(req: Request, res: Response) {
 
 export async function deleteUser(req: Request, res: Response) {
   const userId = z.coerce.number().int().min(1).parse(req.params.userId);
-  const user = await softDeleteUser(userId);
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
+  try {
+    const user = await softDeleteUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    return res.status(200).json({ user });
+  } catch (error: any) {
+    logger.error({ err: error, userId }, "[admin] deleteUser failed");
+    return res.status(500).json({
+      error: "Failed to delete user",
+      detail: typeof error?.message === "string" ? error.message : undefined,
+    });
   }
-  return res.status(200).json({ user });
 }
 
 export async function getOnboarding(req: Request, res: Response) {
@@ -230,6 +251,21 @@ export async function provisionTeamWithPlan(req: Request, res: Response) {
 export async function updateProgramTier(req: Request, res: Response) {
   const input = updateTierSchema.parse(req.body);
   const athlete = await updateAthleteProgramTier(input.athleteId, input.programTier);
+  return res.status(200).json({ athlete });
+}
+
+const updateAthleteSchema = z.object({
+  profilePicture: z.string().url().optional().nullable(),
+  currentProgramTier: z.enum(ProgramType.enumValues).optional().nullable(),
+});
+
+export async function updateAthleteAdmin(req: Request, res: Response) {
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const parsed = updateAthleteSchema.parse(req.body);
+  const athlete = await updateAthlete(athleteId, parsed);
+  if (!athlete) {
+    return res.status(404).json({ error: "Athlete not found" });
+  }
   return res.status(200).json({ athlete });
 }
 

@@ -1,6 +1,7 @@
 import admin from "firebase-admin";
 
 import { env } from "../config/env";
+import { firebaseBreaker } from "../lib/circuit-breaker";
 
 type FirebaseServiceAccount = {
   project_id: string;
@@ -93,13 +94,15 @@ export async function sendFcmPush(input: SendFcmPushInput) {
     messageData.channelId = input.android.channelId;
   }
 
-  return admin.messaging().send({
-    token: input.token,
-    data: messageData,
-    android: {
-      priority: input.android?.priority ?? "high",
-    },
-  });
+  return firebaseBreaker.fire(() =>
+    admin.messaging().send({
+      token: input.token,
+      data: messageData,
+      android: {
+        priority: input.android?.priority ?? "high",
+      },
+    }),
+  );
 }
 
 export function isFcmEnabled() {

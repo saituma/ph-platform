@@ -20,7 +20,10 @@ export const unstable_settings = {
   initialRouteName: "index",
 };
 
-export default function TabLayout() {
+/**
+ * Core Tab Layout that delegates rendering to role-specific layouts.
+ */
+function TabLayout() {
   const {
     hydrated, token, profile, appRole, apiUserRole,
     programTier, messagingAccessTiers, planFeatures,
@@ -88,3 +91,5 @@ export default function TabLayout() {
 
   return <View style={containerStyle}>{renderRoleLayout()}</View>;
 }
+
+export default TabLayout;

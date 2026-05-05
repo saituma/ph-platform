@@ -110,6 +110,9 @@ export default function AddTeamPage() {
   const [tier, setTier] = useState<ProgramTier>("PHP");
   const [maxAthletes, setMaxAthletes] = useState(10);
   const [paymentMethod, setPaymentMethod] = useState<"pay_now" | "email_link" | "cash">("pay_now");
+  const [paymentMode, setPaymentMode] = useState<"coach_pays_all" | "per_player_all" | "per_player_selected">("coach_pays_all");
+  const [coachPaysSeats, setCoachPaysSeats] = useState(0);
+  const [playerEmailsText, setPlayerEmailsText] = useState("");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "6months" | "yearly">("monthly");
 
   // Sponsored players
@@ -164,6 +167,14 @@ export default function AddTeamPage() {
     if (!cleanEmail) return setError("Team manager email is required.");
     if (!cleanPassword || !isStrongPassword(cleanPassword)) return setError("Manager password must be 8+ characters with uppercase, lowercase, number, and special character.");
 
+    let parsedEmails: string[] = [];
+    if (paymentMode !== "coach_pays_all" && playerEmailsText.trim()) {
+      parsedEmails = playerEmailsText
+        .split(/[,\n]/)
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e.length > 0 && e.includes("@"));
+    }
+
     setIsSubmitting(true);
     try {
       const csrfToken = getCsrfToken();
@@ -190,6 +201,9 @@ export default function AddTeamPage() {
           hasSponsoredPlayers,
           sponsoredPlayerCount: hasSponsoredPlayers ? sponsoredPlayerCount : 0,
           sponsoredTier: hasSponsoredPlayers ? sponsoredTier : undefined,
+          paymentMode,
+          coachPaysSeats: paymentMode === "per_player_selected" ? coachPaysSeats : 0,
+          playerEmails: parsedEmails,
         }),
       });
       const payload = await res.json().catch(() => ({}));
@@ -449,6 +463,55 @@ export default function AddTeamPage() {
                 </SelectPopup>
               </Select>
             </div>
+            
+            <div className="space-y-2">
+              <Label>Payment Mode</Label>
+              <Select
+                items={[
+                  { label: "Coach Pays All", value: "coach_pays_all" },
+                  { label: "All Players Pay", value: "per_player_all" },
+                  { label: "Selected Players Pay", value: "per_player_selected" },
+                ]}
+                value={paymentMode}
+                onValueChange={(v) => setPaymentMode((v ?? "coach_pays_all") as typeof paymentMode)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="coach_pays_all">Coach Pays All</SelectItem>
+                  <SelectItem value="per_player_all">All Players Pay</SelectItem>
+                  <SelectItem value="per_player_selected">Selected Players Pay</SelectItem>
+                </SelectPopup>
+              </Select>
+            </div>
+
+            {paymentMode === "per_player_selected" && (
+              <div className="space-y-2 col-span-full">
+                <Label htmlFor="coachPaysSeats">Number of slots coach is paying for</Label>
+                <Input
+                  id="coachPaysSeats"
+                  type="number"
+                  min={1}
+                  max={maxAthletes}
+                  value={coachPaysSeats}
+                  onChange={(e) => setCoachPaysSeats(parseInt(e.target.value, 10))}
+                  placeholder="e.g. 5"
+                />
+              </div>
+            )}
+
+            {paymentMode !== "coach_pays_all" && (
+              <div className="space-y-2 col-span-full">
+                <Label htmlFor="playerEmailsText">Player Emails (to send payment invites to)</Label>
+                <textarea
+                  id="playerEmailsText"
+                  rows={3}
+                  className="w-full flex min-h-[80px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Enter emails separated by commas or newlines"
+                  value={playerEmailsText}
+                  onChange={(e) => setPlayerEmailsText(e.target.value)}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 

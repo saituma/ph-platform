@@ -41,7 +41,7 @@ function ruleSpecificity(rule: AgeExperienceRule) {
 }
 
 export async function listAgeExperienceRules() {
-  return db.select().from(ageExperienceTable).orderBy(desc(ageExperienceTable.updatedAt));
+  return db.select().from(ageExperienceTable).orderBy(desc(ageExperienceTable.updatedAt)).limit(200);
 }
 
 export async function createAgeExperienceRule(input: {
@@ -124,7 +124,7 @@ function pickDefaultRule(rules: AgeExperienceRule[]) {
 
 export async function getAgeExperienceForUser(userId: number) {
   const age = await resolveAthleteAge(userId);
-  const rules = await db.select().from(ageExperienceTable);
+  const rules = await db.select().from(ageExperienceTable).limit(200);
   if (!rules.length) return null;
 
   const matches = rules.filter((rule) => matchesAgeRange(rule, age));

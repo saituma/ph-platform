@@ -72,6 +72,7 @@ import {
   useToggleMessageReactionMutation,
   useUpdateContentMutation,
 } from "@/lib/apiSlice";
+import { resolveSocketUrl } from "@/lib/socket-url";
 import { toast } from "../../lib/toast";
 
 type ThreadListItem = {
@@ -390,19 +391,7 @@ function MessagingPageInner() {
   }, []);
 
   useEffect(() => {
-    const socketEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-    const apiEnvUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-    const localDevHost =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1";
-    const fallbackLocalUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
-    const socketUrl = socketEnvUrl
-      ? socketEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
-      : localDevHost
-        ? fallbackLocalUrl
-        : apiEnvUrl
-          ? apiEnvUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "")
-          : fallbackLocalUrl;
+    const socketUrl = resolveSocketUrl();
 
     const accessToken =
       document.cookie

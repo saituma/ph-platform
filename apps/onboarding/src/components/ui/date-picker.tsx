@@ -16,13 +16,22 @@ export function DatePicker({
 	placeholder = "Pick a date",
 	fromYear = 1900,
 	toYear = new Date().getFullYear(),
+	disabled,
+	minDate,
+	maxDate,
 }: {
 	date: Date | undefined;
 	setDate: (date: Date | undefined) => void;
 	placeholder?: string;
 	fromYear?: number;
 	toYear?: number;
+	disabled?: any;
+	minDate?: Date;
+	maxDate?: Date;
 }) {
+	const startMonth = minDate || new Date(fromYear, 0);
+	const endMonth = maxDate || new Date(toYear, 11);
+
 	return (
 		<Popover>
 			<PopoverTrigger asChild>
@@ -43,8 +52,13 @@ export function DatePicker({
 					selected={date}
 					onSelect={setDate}
 					initialFocus
-					startMonth={new Date(fromYear, 0)}
-					endMonth={new Date(toYear, 11)}
+					defaultMonth={date || endMonth}
+					startMonth={startMonth}
+					endMonth={endMonth}
+					fromYear={startMonth.getFullYear()}
+					toYear={endMonth.getFullYear()}
+					disabled={disabled}
+					showOutsideDays={false}
 				/>
 			</PopoverContent>
 		</Popover>

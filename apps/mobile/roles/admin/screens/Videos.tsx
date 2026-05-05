@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   InteractionManager,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -30,6 +31,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { Feather } from "@/components/ui/theme-icons";
 import { AdminHeader } from "@/components/admin/AdminUI";
+import { Activity, ArrowUpRight, X } from "lucide-react-native";
 
 import { ADMIN_TAB_ROUTES } from "../tabs";
 
@@ -401,15 +403,16 @@ export default function AdminVideosScreen() {
 
     try {
       let finalFeedback = trimmedFeedback;
+      let coachVideoUrl: string | undefined;
 
-      // 1. If there's a video, upload it and send as message
       if (responseVideoAttachment && Number.isFinite(userId) && userId > 0) {
         const uploaded = await uploadAttachment(responseVideoAttachment);
         if (uploaded.contentType !== "video") {
           throw new Error("Selected file is not a video.");
         }
+        coachVideoUrl = uploaded.mediaUrl;
 
-        // Send video message
+        // Still send a message for immediate notification
         await apiRequest(`/admin/messages/${userId}`, {
           method: "POST",
           token,
@@ -426,15 +429,17 @@ export default function AdminVideosScreen() {
         }
       }
 
-      // 2. Submit the review (text feedback)
       const res = await apiRequest<{ item?: any }>("/videos/review", {
         method: "POST",
         token,
-        body: { uploadId: idNum, feedback: finalFeedback },
+        body: { 
+          uploadId: idNum, 
+          feedback: finalFeedback,
+          coachVideoUrl
+        },
         skipCache: true,
       });
 
-      // 3. Update local state
       setItems((prev) =>
         prev.map((v) => {
           const vId = v.id == null ? NaN : Number(v.id);
@@ -447,7 +452,15 @@ export default function AdminVideosScreen() {
         }),
       );
 
-      // Success!
+      // Success Confirmation
+      Alert.alert(
+        "Feedback Sent",
+        "Your feedback and video have been linked directly to the athlete's session.",
+        [
+          { text: "OK" }
+        ]
+      );
+
       setVideoDetailOpenId(null);
     } catch (e) {
       setVideoDetailError(
@@ -464,640 +477,349 @@ export default function AdminVideosScreen() {
     return m;
   }, []);
 
-  const headerLine = useMemo(() => {
-    if (loading) return "Loading…";
-    if (error) return "Error";
-    if (items.length === 0) return "No uploads yet";
-    if (selectedAthleteId == null) {
-      return `${athleteRows.length} athlete${athleteRows.length === 1 ? "" : "s"} · ${items.length} upload${items.length === 1 ? "" : "s"}`;
-    }
-    const name = selectedAthleteName ?? "Athlete";
-    const tabLabel =
-      sectionTab === "all"
-        ? "All sections"
-        : sectionLabelByValue.get(sectionTab) ?? sectionTab;
-    return `${name} · ${tabLabel} · ${filteredVideos.length} upload${filteredVideos.length === 1 ? "" : "s"}`;
-  }, [
-    athleteRows.length,
-    error,
-    filteredVideos.length,
-    items.length,
-    loading,
-    sectionLabelByValue,
-    sectionTab,
-    selectedAthleteId,
-    selectedAthleteName,
-  ]);
-
-  const cardStyle = {
-    backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-    borderRadius: 32,
-    ...(isDark ? Shadows.none : Shadows.md),
-  };
-
   return (
     <NavigationRecoveryBoundary message="Finishing video selection…">
-      <View style={{ flex: 1 }}>
-        <ThemedScrollView onRefresh={() => void load(true)}>
-          <View style={{ height: insets.top }} />
-        <View style={{ marginBottom: 18 }}>
-          <AdminHeader
-            eyebrow="Review"
-            title="Videos"
-            subtitle={headerLine}
-            tone="accent"
-          />
-        </View>
-
-        <View className="px-6 pb-32">
-          {loading && items.length === 0 ? (
-            <View className="gap-4">
-              <Skeleton width="100%" height={80} borderRadius={24} />
-              <Skeleton width="100%" height={80} borderRadius={24} />
-              <Skeleton width="100%" height={80} borderRadius={24} />
+      <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
+        <ThemedScrollView 
+          onRefresh={() => void load(true)}
+          contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+        >
+          {/* ━━━ Tactical Header ━━━ */}
+          <View style={{ paddingHorizontal: 28, paddingTop: insets.top + 28, marginBottom: 40 }}>
+            <Text style={{ color: "#8aff00", fontFamily: "Outfit-Black", textTransform: "uppercase", letterSpacing: 5, fontSize: 10, marginBottom: 12 }}>Video Review</Text>
+            <View className="flex-row items-center">
+              <View className="w-1.5 h-14 bg-[#8aff00] rounded-full mr-6" />
+              <Text style={{ color: "white", fontSize: 64, fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", letterSpacing: -3, lineHeight: 60 }}>Analysis</Text>
             </View>
-          ) : error ? (
-            <View className="p-8 rounded-[32px] bg-red-500/10 border border-red-500/20">
-              <Text selectable className="text-sm font-outfit text-red-400 text-center">
-                {error}
-              </Text>
-            </View>
-          ) : items.length === 0 ? (
-            <View className="py-20 items-center justify-center border border-dashed border-app/20 rounded-[32px]">
-              <Feather name="video-off" size={32} color={colors.textSecondary} />
-              <Text className="text-textSecondary font-outfit mt-4 text-base">
-                No videos found.
-              </Text>
-            </View>
-          ) : selectedAthleteId == null ? (
-            <View className="gap-5">
-              <Text className="text-sm font-outfit text-textSecondary leading-relaxed">
-                Upload history and coach responses. Select an athlete to filter by program section and review uploads.
-              </Text>
-              <View
-                className="rounded-[24px] border px-4 py-3"
-                style={{
-                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                  backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-                }}
-              >
-                <TextInput
-                  value={athleteSearch}
-                  onChangeText={setAthleteSearch}
-                  placeholder="Search athletes…"
-                  placeholderTextColor={colors.placeholder}
-                  className="text-base font-outfit text-app"
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                />
+            <View className="mt-8 flex-row items-center justify-between border-t border-white/10 pt-6">
+              <View className="flex-row items-center gap-2">
+                <Activity size={14} color="#8aff00" />
+                <Text style={{ color: "white", opacity: 0.3, fontFamily: "Outfit-Black", textTransform: "uppercase", fontSize: 10, letterSpacing: 2 }}>{athleteRows.length} Athletes Indexed</Text>
               </View>
-              {filteredAthleteRows.length === 0 ? (
-                <View className="py-12 items-center">
-                  <Text className="text-textSecondary font-outfit">No athletes match your search.</Text>
+              {loading && <ActivityIndicator size="small" color="#8aff00" />}
+            </View>
+          </View>
+
+          <View className="px-7">
+            {error ? (
+              <View className="p-8 bg-danger/10 border border-danger/20">
+                <Text style={{ color: colors.danger, fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", textAlign: "center", fontSize: 12 }}>{error}</Text>
+              </View>
+            ) : items.length === 0 && !loading ? (
+              <View className="py-24 items-center justify-center border border-dashed border-white/10">
+                <Feather name="video-off" size={32} color="#8aff00" opacity={0.2} />
+                <Text style={{ color: "white", opacity: 0.2, fontFamily: "Outfit-Black", textTransform: "uppercase", marginTop: 20, letterSpacing: 4 }}>No Videos Found</Text>
+              </View>
+            ) : selectedAthleteId == null ? (
+              <View>
+                <View style={{ backgroundColor: "#111", paddingHorizontal: 20, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)", marginBottom: 24 }}>
+                  <TextInput
+                    value={athleteSearch}
+                    onChangeText={setAthleteSearch}
+                    placeholder="SEARCH ATHLETES..."
+                    placeholderTextColor="rgba(255,255,255,0.2)"
+                    style={{ color: "white", fontFamily: "Outfit-Black", fontSize: 14, letterSpacing: 2 }}
+                    autoCorrect={false}
+                    autoCapitalize="characters"
+                  />
                 </View>
-              ) : (
-                <View className="gap-3">
-                  {filteredAthleteRows.map((row) => (
-                    <TouchableOpacity
+                
+                <View style={{ gap: 10 }}>
+                  {filteredAthleteRows.map((row, idx) => (
+                    <Pressable
                       key={row.athleteId}
-                      activeOpacity={0.9}
                       onPress={() => setSelectedAthleteId(row.athleteId)}
-                      className="rounded-[28px] border p-5 flex-row items-center justify-between"
-                      style={cardStyle}
+                      style={({ pressed }) => ({
+                        backgroundColor: "#111",
+                        padding: 24,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        borderLeftWidth: 4,
+                        borderLeftColor: "#8aff00",
+                        opacity: pressed ? 0.8 : 1,
+                        transform: [{ scale: pressed ? 0.98 : 1 }]
+                      })}
                     >
-                      <View className="flex-1 min-w-0 mr-4">
-                        <Text className="text-lg font-clash font-bold text-app" numberOfLines={1}>
-                          {row.name}
-                        </Text>
-                        <Text className="text-xs font-outfit text-textSecondary mt-1">
-                          {row.count} upload{row.count === 1 ? "" : "s"}
-                        </Text>
+                      <Text style={{ color: "#8aff00", fontFamily: "Outfit-Black", fontStyle: "italic", fontSize: 24, width: 44 }}>0{idx + 1}</Text>
+                      <View className="flex-1 mr-4">
+                        <Text style={{ color: "white", fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", fontSize: 18, tracking: -0.5 }}>{row.name}</Text>
+                        <Text style={{ color: "rgba(255,255,255,0.3)", fontFamily: "Outfit-Black", textTransform: "uppercase", fontSize: 9, letterSpacing: 2, marginTop: 4 }}>{row.count} Uploads</Text>
                       </View>
-                      <Feather name="chevron-right" size={22} color={colors.textSecondary} />
-                    </TouchableOpacity>
+                      <ArrowUpRight size={20} color="#8aff00" opacity={0.3} />
+                    </Pressable>
                   ))}
                 </View>
-              )}
-            </View>
-          ) : (
-            <View className="gap-4">
-              <TouchableOpacity
-                onPress={() => setSelectedAthleteId(null)}
-                activeOpacity={0.85}
-                className="flex-row items-center gap-2 self-start"
-              >
-                <Feather name="arrow-left" size={20} color={colors.accent} />
-                <Text className="text-sm font-outfit-bold text-accent uppercase tracking-wider">
-                  All athletes
-                </Text>
-              </TouchableOpacity>
-              <Text className="text-sm font-outfit text-textSecondary leading-relaxed">
-                Click a video to review, respond, and mark as reviewed.
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-              >
-                {VIDEO_SECTION_TABS.map((tab) => {
-                  const active = sectionTab === tab.value;
-                  return (
-                    <TouchableOpacity
-                      key={tab.value}
-                      onPress={() => setSectionTab(tab.value)}
-                      activeOpacity={0.85}
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                        borderRadius: 999,
-                        borderWidth: StyleSheet.hairlineWidth,
-                        borderColor: active
-                          ? colors.accent
-                          : isDark
-                            ? "rgba(255,255,255,0.12)"
-                            : "rgba(15,23,42,0.10)",
-                        backgroundColor: active
-                          ? isDark
-                            ? "rgba(34,197,94,0.18)"
-                            : "rgba(34,197,94,0.12)"
-                          : isDark
-                            ? "rgba(255,255,255,0.04)"
-                            : "rgba(15,23,42,0.03)",
-                      }}
-                    >
-                      <Text
-                        className="text-[12px] font-outfit-bold uppercase tracking-wider"
-                        style={{ color: active ? colors.accent : colors.textSecondary }}
-                        numberOfLines={1}
-                      >
-                        {tab.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-              {filteredVideos.length === 0 ? (
-                <View className="py-16 items-center justify-center border border-dashed border-app/20 rounded-[32px]">
-                  <Feather name="filter" size={28} color={colors.textSecondary} />
-                  <Text className="text-textSecondary font-outfit mt-3 text-center px-6">
-                    No uploads in this section for {selectedAthleteName ?? "this athlete"}.
-                  </Text>
-                </View>
-              ) : (
-                filteredVideos.map((v, idx) => {
-                  const topic =
-                    typeof v.programSectionTitle === "string" && v.programSectionTitle.trim()
-                      ? v.programSectionTitle.trim()
-                      : "Video upload";
-                  const sectionType = v.programSectionType ?? "program";
-                  const sectionPretty =
-                    sectionLabelByValue.get(sectionType) ?? sectionType;
-                  const reviewed = Boolean(v.reviewedAt);
-                  const statusLabel = reviewed ? "Reviewed" : "Awaiting";
-                  const feedbackRaw =
-                    typeof v.feedback === "string" && v.feedback.trim() ? v.feedback.trim() : null;
-                  const feedbackLine = feedbackRaw
-                    ? `Feedback: ${feedbackRaw}`
-                    : "No feedback yet.";
-                  const idNum = v.id == null ? NaN : Number(v.id);
-
-                  return (
-                    <TouchableOpacity
-                      key={String(v.id ?? idx)}
-                      activeOpacity={0.9}
-                      onPress={() => {
-                        if (Number.isFinite(idNum) && idNum > 0) {
-                          setVideoDetailOpenId(idNum);
-                        }
-                      }}
-                      className="rounded-[32px] border p-6"
-                      style={cardStyle}
-                    >
-                      <View className="flex-row items-start justify-between gap-3 mb-2">
-                        <View className="flex-1 min-w-0">
-                          <Text
-                            className="text-lg font-clash font-bold text-app"
-                            numberOfLines={2}
-                          >
-                            {topic}
-                          </Text>
-                          <Text
-                            className="text-[11px] font-outfit text-textSecondary mt-1 uppercase tracking-widest"
-                            numberOfLines={1}
-                          >
-                            {sectionPretty}
-                          </Text>
-                        </View>
-                        <View
-                          className={`px-3 py-1 rounded-full shrink-0 ${reviewed ? "bg-success/10" : "bg-amber-500/10"}`}
-                        >
-                          <Text
-                            className={`text-[10px] font-outfit-bold uppercase tracking-wider ${reviewed ? "text-success" : "text-amber-600"}`}
-                          >
-                            {statusLabel}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text
-                        className="text-sm font-outfit text-textSecondary leading-relaxed mb-3"
-                        numberOfLines={4}
-                      >
-                        {feedbackLine}
-                      </Text>
-                      <View className="flex-row items-center justify-between pt-4 border-t border-app/5">
-                        <View className="flex-row items-center gap-2 flex-1 min-w-0">
-                          <Feather name="clock" size={12} color={colors.textSecondary} />
-                          <Text
-                            className="text-xs font-outfit text-textSecondary uppercase tracking-widest flex-1"
-                            numberOfLines={1}
-                          >
-                            {formatIsoShort(v.createdAt)}
-                          </Text>
-                        </View>
-                        <Text className="text-[11px] font-outfit-bold text-accent uppercase tracking-widest">
-                          Review
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-          )}
-        </View>
-      </ThemedScrollView>
-
-      {videoDetailOpenId != null && (
-        <View style={[StyleSheet.absoluteFillObject, { zIndex: 1000 }]} pointerEvents="auto">
-          {/* Dim backdrop */}
-          <Pressable
-            style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(0,0,0,0.38)" }]}
-            onPress={() => setVideoDetailOpenId(null)}
-          />
-
-          <SafeAreaView style={{ flex: 1, justifyContent: "flex-end" }}>
-            {/* Sheet */}
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: colors.background,
-                borderTopLeftRadius: 32,
-                borderTopRightRadius: 32,
-                overflow: "hidden",
-                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
-                borderTopWidth: StyleSheet.hairlineWidth,
-              }}
-            >
-              {/* Header */}
-              <View
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 14,
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                }}
-              >
-                <TouchableOpacity
-                  onPress={() => setVideoDetailOpenId(null)}
-                  activeOpacity={0.8}
-                  style={{
-                    height: 40,
-                    width: 40,
-                    borderRadius: 14,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)",
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                  }}
-                >
-                  <Feather name="x" size={20} color={colors.text} />
-                </TouchableOpacity>
-
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text className="text-xl font-clash font-bold text-app" numberOfLines={1}>
-                    {selectedVideo?.athleteName?.trim() || "Video Detail"}
-                  </Text>
-                  <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-widest mt-1" selectable>
-                    Upload #{String(selectedVideo?.id ?? "—")}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={replyInMessages}
-                  activeOpacity={0.85}
-                  style={{
-                    height: 40,
-                    paddingHorizontal: 12,
-                    borderRadius: 14,
-                    alignItems: "center",
-                    justifyContent: "center",
+              </View>
+            ) : (
+              <View>
+                <Pressable
+                  onPress={() => setSelectedAthleteId(null)}
+                  style={({ pressed }) => ({
                     flexDirection: "row",
-                    gap: 8,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)",
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                  }}
+                    alignItems: "center",
+                    marginBottom: 32,
+                    opacity: pressed ? 0.6 : 1
+                  })}
                 >
-                  <Feather name="message-square" size={16} color={colors.text} />
-                  <Text className="text-[12px] font-outfit-bold text-app uppercase tracking-wider">Messages</Text>
-                </TouchableOpacity>
-              </View>
+                  <Feather name="arrow-left" size={16} color="#8aff00" />
+                  <Text style={{ color: "#8aff00", fontFamily: "Outfit-Black", textTransform: "uppercase", fontSize: 11, letterSpacing: 2, marginLeft: 10 }}>Return to Registry</Text>
+                </Pressable>
 
-              {/* Content */}
-              <ThemedScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{
-                  paddingHorizontal: 16,
-                  paddingTop: 16,
-                  paddingBottom: 104 + insets.bottom,
-                }}
-              >
-                  {videoDetailError ? (
-                    <View className="mb-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
-                      <Text selectable className="text-sm font-outfit text-red-400 text-center">
-                        {videoDetailError}
-                      </Text>
-                    </View>
-                  ) : null}
+                <View className="mb-10">
+                  <Text style={{ color: "white", fontSize: 32, fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", tracking: -1 }}>{selectedAthleteName}</Text>
+                  <Text style={{ color: "rgba(255,255,255,0.3)", fontFamily: "Outfit-Black", textTransform: "uppercase", fontSize: 10, letterSpacing: 3, marginTop: 4 }}>Video Review History</Text>
+                </View>
 
-                  {/* Athlete Submission */}
-                  <View
-                    style={[
-                      {
-                        backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-                        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                        borderWidth: StyleSheet.hairlineWidth,
-                        borderRadius: 24,
-                        overflow: "hidden",
-                      },
-                      isDark ? Shadows.none : Shadows.sm,
-                    ]}
-                  >
-                    <View style={{ padding: 16, gap: 10 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <View style={{ height: 10, width: 10, borderRadius: 999, backgroundColor: colors.accent }} />
-                        <Text className="text-sm font-outfit-bold text-app uppercase tracking-widest">
-                          Athlete submission
-                        </Text>
-                      </View>
-
-                      <View style={{ gap: 4 }}>
-                        <Text className="text-xs font-outfit text-textSecondary">
-                          Created {formatIsoShort(selectedVideo?.createdAt ?? null)}
-                        </Text>
-                        {selectedVideo?.programSectionTitle ? (
-                          <Text className="text-xs font-outfit text-textSecondary">
-                            {selectedVideo.programSectionTitle} ({selectedVideo.programSectionType ?? "—"})
-                          </Text>
-                        ) : null}
-                      </View>
-
-                      {selectedVideo?.notes ? (
-                        <View
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    {VIDEO_SECTION_TABS.map((tab) => {
+                      const active = sectionTab === tab.value;
+                      return (
+                        <Pressable
+                          key={tab.value}
+                          onPress={() => setSectionTab(tab.value)}
                           style={{
-                            padding: 14,
-                            borderRadius: 18,
-                            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                            borderWidth: StyleSheet.hairlineWidth,
-                            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.06)",
+                            paddingHorizontal: 16,
+                            paddingVertical: 10,
+                            backgroundColor: active ? "#8aff00" : "#111",
+                            borderWidth: 1,
+                            borderColor: active ? "#8aff00" : "rgba(255,255,255,0.1)"
                           }}
                         >
-                          <Text className="text-base font-outfit text-app leading-relaxed italic">
-                            “{selectedVideo.notes}”
+                          <Text style={{ 
+                            color: active ? "black" : "white", 
+                            fontFamily: "Outfit-Black", 
+                            fontStyle: "italic", 
+                            textTransform: "uppercase", 
+                            fontSize: 10, 
+                            letterSpacing: 1.5 
+                          }}>
+                            {tab.label}
                           </Text>
-                        </View>
-                      ) : null}
-                    </View>
-
-                    <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
-                      {selectedVideo?.videoUrl ? (
-                        <View
-                          style={{
-                            borderRadius: 20,
-                            overflow: "hidden",
-                            borderWidth: StyleSheet.hairlineWidth,
-                            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                          }}
-                        >
-                          <VideoPlayer
-                            uri={String(selectedVideo.videoUrl)}
-                            height={240}
-                            autoPlay={false}
-                            initialMuted={false}
-                            isLooping={false}
-                          />
-                        </View>
-                      ) : (
-                        <View
-                          style={{
-                            height: 240,
-                            borderRadius: 20,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                            borderWidth: StyleSheet.hairlineWidth,
-                            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
-                            borderStyle: "dashed",
-                          }}
-                        >
-                          <Feather name="video-off" size={26} color={colors.textSecondary} />
-                          <Text className="mt-2 text-sm font-outfit text-textSecondary">
-                            Video not available
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                        </Pressable>
+                      );
+                    })}
                   </View>
+                </ScrollView>
 
-                  {/* Unified Response Block */}
-                  <View style={{ marginTop: 16, gap: 10 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4 }}>
-                      <View style={{ height: 10, width: 10, borderRadius: 999, backgroundColor: colors.accent }} />
-                      <Text className="text-sm font-outfit-bold text-app uppercase tracking-widest">
-                        Coach response
-                      </Text>
-                    </View>
-
-                    <View
-                      style={[
-                        {
-                          backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-                          borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                          borderWidth: StyleSheet.hairlineWidth,
-                          borderRadius: 24,
-                          padding: 16,
-                        },
-                        isDark ? Shadows.none : Shadows.sm,
-                      ]}
-                    >
-                      <Text className="text-xs font-outfit-bold text-textSecondary uppercase tracking-widest mb-3">
-                        Feedback
-                      </Text>
-                      <View
-                        style={{
-                          borderRadius: 18,
-                          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                          borderWidth: StyleSheet.hairlineWidth,
-                          borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                          paddingHorizontal: 14,
-                          paddingVertical: 12,
-                          minHeight: 140,
-                        }}
+                <View style={{ gap: 12 }}>
+                  {filteredVideos.map((v, idx) => {
+                    const reviewed = Boolean(v.reviewedAt);
+                    const topic = v.programSectionTitle || "DATA UPLOAD";
+                    return (
+                      <Pressable
+                        key={v.id || idx}
+                        onPress={() => v.id && setVideoDetailOpenId(Number(v.id))}
+                        style={({ pressed }) => ({
+                          backgroundColor: "#111",
+                          padding: 24,
+                          borderWidth: 1,
+                          borderColor: "rgba(255,255,255,0.06)",
+                          opacity: pressed ? 0.8 : 1
+                        })}
                       >
-                        <TextInput
-                          value={feedbackDraft}
-                          onChangeText={setFeedbackDraft}
-                          placeholder="Provide technical feedback or guidance…"
-                          placeholderTextColor={colors.placeholder}
-                          className="text-base font-outfit text-app flex-1"
-                          textAlignVertical="top"
-                          multiline
-                        />
-                      </View>
-                    </View>
-
-                    <View
-                      style={[
-                        {
-                          backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-                          borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                          borderWidth: StyleSheet.hairlineWidth,
-                          borderRadius: 24,
-                          padding: 16,
-                        },
-                        isDark ? Shadows.none : Shadows.sm,
-                      ]}
-                    >
-                      <Text className="text-xs font-outfit-bold text-textSecondary uppercase tracking-widest mb-3">
-                        Video response (optional)
-                      </Text>
-
-                      {responseVideoAttachment ? (
-                        <View
-                          style={{
-                            borderRadius: 18,
-                            overflow: "hidden",
-                            borderWidth: StyleSheet.hairlineWidth,
-                            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
-                          }}
-                        >
-                          <VideoPlayer
-                            uri={responseVideoAttachment.uri}
-                            height={220}
-                            autoPlay={false}
-                            initialMuted={false}
-                            isLooping={false}
-                          />
-                          <TouchableOpacity
-                            onPress={() => setResponseVideoAttachment(null)}
-                            activeOpacity={0.85}
-                            style={{
-                              position: "absolute",
-                              top: 12,
-                              right: 12,
-                              height: 40,
-                              width: 40,
-                              borderRadius: 999,
-                              alignItems: "center",
-                              justifyContent: "center",
-                              backgroundColor: "rgba(0,0,0,0.62)",
-                            }}
-                          >
-                            <Feather name="trash-2" size={18} color="#FFFFFF" />
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <View style={{ flexDirection: "row", gap: 12 }}>
-                          <TouchableOpacity
-                            onPress={() => void pickResponseVideo("camera")}
-                            activeOpacity={0.8}
-                            style={{
-                              flex: 1,
-                              height: 56,
-                              borderRadius: 18,
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexDirection: "row",
-                              gap: 10,
-                              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                              borderWidth: StyleSheet.hairlineWidth,
-                              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
-                            }}
-                          >
-                            <Feather name="video" size={18} color={colors.text} />
-                            <Text className="text-[12px] font-outfit-bold text-app uppercase tracking-wider">
-                              Record
+                        <View className="flex-row items-start justify-between mb-6">
+                          <View className="flex-1 mr-4">
+                            <Text style={{ color: "white", fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", fontSize: 18, lineHeight: 22 }}>{topic}</Text>
+                            <Text style={{ color: "#8aff00", fontFamily: "Outfit-Black", textTransform: "uppercase", fontSize: 9, letterSpacing: 2, marginTop: 6 }}>{v.programSectionType || "CORE"}</Text>
+                          </View>
+                          <View style={{ 
+                            paddingHorizontal: 10, 
+                            paddingVertical: 4, 
+                            backgroundColor: reviewed ? "rgba(34,197,94,0.1)" : "rgba(255,176,32,0.1)",
+                            borderWidth: 1,
+                            borderColor: reviewed ? "rgba(34,197,94,0.2)" : "rgba(255,176,32,0.2)"
+                          }}>
+                            <Text style={{ 
+                              color: reviewed ? "#22C55E" : "#FFB020", 
+                              fontFamily: "Outfit-Black", 
+                              textTransform: "uppercase", 
+                              fontSize: 9, 
+                              letterSpacing: 1.5 
+                            }}>
+                              {reviewed ? "VERIFIED" : "AWAITING"}
                             </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => void pickResponseVideo("library")}
-                            activeOpacity={0.8}
-                            style={{
-                              flex: 1,
-                              height: 56,
-                              borderRadius: 18,
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexDirection: "row",
-                              gap: 10,
-                              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                              borderWidth: StyleSheet.hairlineWidth,
-                              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
-                            }}
-                          >
-                            <Feather name="upload" size={18} color={colors.text} />
-                            <Text className="text-[12px] font-outfit-bold text-app uppercase tracking-wider">
-                              Upload
-                            </Text>
-                          </TouchableOpacity>
+                          </View>
                         </View>
-                      )}
-                    </View>
-                  </View>
-              </ThemedScrollView>
-
-              {/* Sticky action bar */}
-              <View
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  paddingHorizontal: 16,
-                  paddingTop: 12,
-                  paddingBottom: 12 + insets.bottom,
-                  backgroundColor: isDark ? "rgba(0,0,0,0.88)" : "rgba(255,255,255,0.92)",
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
-                }}
-              >
-                <ActionButton
-                  label="Send response"
-                  onPress={submitUnifiedResponse}
-                  loading={isSubmitting}
-                  tone="accent"
-                  size="lg"
-                  icon="send"
-                  disabled={!feedbackDraft.trim() && !responseVideoAttachment}
-                />
+                        
+                        <View className="flex-row items-center justify-between pt-6 border-t border-white/5">
+                          <Text style={{ color: "rgba(255,255,255,0.2)", fontFamily: "Outfit-Black", textTransform: "uppercase", fontSize: 9, letterSpacing: 1 }}>{formatIsoShort(v.createdAt)}</Text>
+                          <View className="flex-row items-center gap-2">
+                            <Text style={{ color: "#8aff00", fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", fontSize: 10, letterSpacing: 1 }}>Review</Text>
+                            <ArrowUpRight size={14} color="#8aff00" />
+                          </View>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          </SafeAreaView>
-        </View>
-      )}
-      <BuiltinCamera
-        visible={builtinCameraVisible}
-        maxDurationSeconds={ADMIN_RESPONSE_MAX_DURATION_SECONDS}
-        onCancel={() => setBuiltinCameraVisible(false)}
-        onRecorded={(asset) => {
-          void handleBuiltinCameraRecorded(asset);
-        }}
-      />
+            )}
+          </View>
+        </ThemedScrollView>
+
+        <Modal
+          visible={videoDetailOpenId != null}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setVideoDetailOpenId(null)}
+        >
+          <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
+            <View className="w-14 h-1 bg-white/10 rounded-full self-center my-8" />
+            <ThemedScrollView contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 120 + insets.bottom }}>
+              <View className="mb-12">
+                <Text style={{ color: "#8aff00", fontFamily: "Outfit-Black", textTransform: "uppercase", letterSpacing: 4, fontSize: 10, marginBottom: 12 }}>Video Detail</Text>
+                <Text style={{ color: "white", fontSize: 44, fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", letterSpacing: -2, lineHeight: 42 }}>{selectedVideo?.athleteName}</Text>
+                <Text style={{ color: "rgba(255,255,255,0.2)", fontFamily: "Outfit-Black", textTransform: "uppercase", fontSize: 10, letterSpacing: 2, marginTop: 10 }}>Thread ID: #{selectedVideo?.id}</Text>
+              </View>
+
+              {videoDetailError && (
+                <View className="mb-8 p-6 bg-danger/10 border border-danger/20">
+                  <Text style={{ color: colors.danger, fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", fontSize: 11 }}>{videoDetailError}</Text>
+                </View>
+              )}
+
+              <View style={{ backgroundColor: "#111", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", padding: 24, marginBottom: 32 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                  <View className="w-2 h-2 rounded-full bg-[#8aff00]" />
+                  <Text style={{ color: "white", fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", fontSize: 14 }}>Athlete Upload</Text>
+                </View>
+
+                {selectedVideo?.videoUrl ? (
+                  <View style={{ marginBottom: 24, backgroundColor: "black", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+                    <VideoPlayer uri={selectedVideo.videoUrl} height={240} />
+                  </View>
+                ) : (
+                  <View style={{ height: 200, backgroundColor: "black", alignItems: "center", justifyCenter: "center", borderStyle: "dashed", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", marginBottom: 24 }}>
+                    <Feather name="video-off" size={24} color="rgba(255,255,255,0.2)" />
+                  </View>
+                )}
+
+                {selectedVideo?.notes && (
+                  <View style={{ backgroundColor: "rgba(255,255,255,0.03)", padding: 20, borderLeftWidth: 3, borderLeftColor: "#8aff00" }}>
+                    <Text style={{ color: "white", fontFamily: "Outfit-Medium", fontSize: 15, lineHeight: 24, fontStyle: "italic" }}>"{selectedVideo.notes}"</Text>
+                  </View>
+                )}
+              </View>
+
+              <View className="mb-12">
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 24 }}>
+                  <View className="w-2 h-2 rounded-full bg-[#8aff00]" />
+                  <Text style={{ color: "white", fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", fontSize: 14 }}>Coach Feedback</Text>
+                </View>
+
+                <View style={{ backgroundColor: "#111", padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", marginBottom: 12 }}>
+                  <TextInput
+                    value={feedbackDraft}
+                    onChangeText={setFeedbackDraft}
+                    placeholder="ENTER FEEDBACK..."
+                    placeholderTextColor="rgba(255,255,255,0.15)"
+                    style={{ color: "white", fontFamily: "Outfit-Medium", fontSize: 16, minHeight: 120 }}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                </View>
+
+                {responseVideoAttachment && (
+                  <View style={{ marginBottom: 12, position: "relative" }}>
+                    <View style={{ borderRadius: 4, overflow: "hidden", borderWidth: 1, borderColor: "#8aff00" }}>
+                      <VideoPlayer 
+                        uri={responseVideoAttachment.uri} 
+                        height={200} 
+                        autoPlay={false}
+                      />
+                    </View>
+                    <Pressable
+                      onPress={() => setResponseVideoAttachment(null)}
+                      style={({ pressed }) => ({
+                        position: "absolute",
+                        top: 12,
+                        right: 12,
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: "rgba(0,0,0,0.7)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderWidth: 1,
+                        borderColor: "rgba(255,255,255,0.2)",
+                        opacity: pressed ? 0.7 : 1
+                      })}
+                    >
+                      <X size={18} color="white" />
+                    </Pressable>
+                  </View>
+                )}
+
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Pressable
+                    onPress={() => void pickResponseVideo("camera")}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      height: 60,
+                      backgroundColor: "#111",
+                      borderWidth: 1,
+                      borderColor: responseVideoAttachment ? "#8aff00" : "rgba(255,255,255,0.1)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "row",
+                      gap: 12,
+                      opacity: pressed ? 0.7 : 1
+                    })}
+                  >
+                    <Feather name="video" size={18} color={responseVideoAttachment ? "#8aff00" : "white"} />
+                    <Text style={{ color: responseVideoAttachment ? "#8aff00" : "white", fontFamily: "Outfit-Black", textTransform: "uppercase", fontSize: 10, letterSpacing: 1.5 }}>Record</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void pickResponseVideo("library")}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      height: 60,
+                      backgroundColor: "#111",
+                      borderWidth: 1,
+                      borderColor: "rgba(255,255,255,0.1)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "row",
+                      gap: 12,
+                      opacity: pressed ? 0.7 : 1
+                    })}
+                  >
+                    <Feather name="upload" size={18} color="white" />
+                    <Text style={{ color: "white", fontFamily: "Outfit-Black", textTransform: "uppercase", fontSize: 10, letterSpacing: 1.5 }}>Upload</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <Pressable
+                onPress={submitUnifiedResponse}
+                disabled={isSubmitting || (!feedbackDraft.trim() && !responseVideoAttachment)}
+                style={({ pressed }) => ({
+                  height: 72,
+                  backgroundColor: "#8aff00",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: (isSubmitting || pressed) ? 0.8 : 1
+                })}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="black" />
+                ) : (
+                  <Text style={{ color: "black", fontFamily: "Outfit-Black", fontStyle: "italic", textTransform: "uppercase", fontSize: 16, letterSpacing: 2 }}>Send Feedback</Text>
+                )}
+              </Pressable>
+            </ThemedScrollView>
+          </View>
+        </Modal>
+
+        <BuiltinCamera
+          visible={builtinCameraVisible}
+          maxDurationSeconds={60}
+          onCancel={() => setBuiltinCameraVisible(false)}
+          onRecorded={(asset) => {
+            void handleBuiltinCameraRecorded(asset);
+          }}
+        />
       </View>
     </NavigationRecoveryBoundary>
   );

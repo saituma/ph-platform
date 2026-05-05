@@ -1,12 +1,18 @@
-import React from "react";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import React, { useMemo } from "react";
+import { Platform, Pressable, StyleSheet, View, Dimensions } from "react-native";
 import { BlurView } from "expo-blur";
-import Animated from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  withSpring,
+  interpolate,
+  Extrapolation,
+  useDerivedValue,
+} from "react-native-reanimated";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 
-// ── Types ────────────────────────────────────────────────────────────
+// ── Types & Constants ────────────────────────────────────────────────
 
 export interface TabConfig {
   key: string;
@@ -20,8 +26,18 @@ export interface TabConfig {
 interface TabBarProps {
   tabs: TabConfig[];
   activeIndex: number;
+  scrollOffset: Animated.SharedValue<number>;
   onTabPress: (index: number) => void;
 }
+
+const TAB_HEIGHT = 64;
+const DOCK_MARGIN = 16;
+const SCREEN_WIDTH = Dimensions.get("window").width;
+
+const Springs = {
+  snappy: { damping: 15, stiffness: 400, mass: 0.3 },
+  responsive: { damping: 20, stiffness: 300, mass: 0.4 },
+};
 
 // ── Icon resolver ────────────────────────────────────────────────────
 
@@ -48,7 +64,6 @@ function resolveTabIcon(icon: string): AppIconName {
     case "menu":
     case "menu-outline":
       return "menu";
-    // Admin tabs
     case "film":
     case "film-outline":
       return "play";
@@ -71,7 +86,6 @@ function resolveTabIcon(icon: string): AppIconName {
     case "person":
     case "person-outline":
       return "user";
-    // Generic fallbacks
     case "stats-chart":
     case "stats-chart-outline":
     case "analytics":
@@ -82,7 +96,6 @@ function resolveTabIcon(icon: string): AppIconName {
     case "grid":
     case "grid-outline":
       return "more";
-    // Team manager tabs
     case "chatbubbles":
     case "chatbubbles-outline":
       return "chat-detail";
@@ -98,88 +111,130 @@ function resolveTabIcon(icon: string): AppIconName {
 
 // ── Tab Item ─────────────────────────────────────────────────────────
 
-const TAB_HEIGHT = 56;
-
 const TabItem = React.memo(function TabItem({
   tab,
   index,
-  activeIndex,
+  scrollOffset,
   onTabPress,
   colors,
   isDark,
 }: {
   tab: TabConfig;
   index: number;
-  activeIndex: number;
+  scrollOffset: Animated.SharedValue<number>;
   onTabPress: (index: number) => void;
   colors: any;
   isDark: boolean;
 }) {
-  const isActive = activeIndex === index;
-
-  const iconName = isActive ? tab.icon : (tab.iconOutline ?? tab.icon);
-  const resolvedIcon = resolveTabIcon(iconName);
-
   const activeColor = colors.accent ?? colors.tint;
-  const inactiveColor = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.35)";
-  const activeBg = isDark
-    ? "rgba(52,199,89,0.14)"
-    : "rgba(22,163,74,0.10)";
+  const inactiveColor = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)";
 
-  const handlePress = () => {
-    onTabPress(index);
-  };
+  const animatedIconActiveStyle = useAnimatedStyle(() => {
+    if (!scrollOffset) return { opacity: 0 };
+    const opacity = interpolate(
+      scrollOffset.value,
+      [index - 0.5, index, index + 0.5],
+      [0, 1, 0],
+      Extrapolation.CLAMP,
+    );
+    const scale = interpolate(
+      scrollOffset.value,
+      [index - 1, index, index + 1],
+      [1, 1.15, 1],
+      Extrapolation.CLAMP,
+    );
+    const translateY = interpolate(
+      scrollOffset.value,
+      [index - 1, index, index + 1],
+      [0, -4, 0],
+      Extrapolation.CLAMP,
+    );
+
+    return {
+      opacity,
+      transform: [{ scale }, { translateY }],
+    };
+  });
+
+  const animatedIconInactiveStyle = useAnimatedStyle(() => {
+    if (!scrollOffset) return { opacity: 1 };
+    const opacity = interpolate(
+      scrollOffset.value,
+      [index - 0.5, index, index + 0.5],
+      [1, 0, 1],
+      Extrapolation.CLAMP,
+    );
+    const scale = interpolate(
+      scrollOffset.value,
+      [index - 1, index, index + 1],
+      [1, 0.9, 1],
+      Extrapolation.CLAMP,
+    );
+
+    return {
+      opacity,
+      transform: [{ scale }],
+    };
+  });
+
+  const animatedLabelStyle = useAnimatedStyle(() => {
+    if (!scrollOffset) return { opacity: 0 };
+    const opacity = interpolate(
+      scrollOffset.value,
+      [index - 0.5, index, index + 0.5],
+      [0, 1, 0],
+      Extrapolation.CLAMP,
+    );
+    const translateY = interpolate(
+      scrollOffset.value,
+      [index - 0.5, index, index + 0.5],
+      [4, 0, 4],
+      Extrapolation.CLAMP,
+    );
+
+    return {
+      opacity,
+      transform: [{ translateY }],
+    };
+  });
+
+  const resolvedIcon = resolveTabIcon(tab.icon);
+  const resolvedIconOutline = resolveTabIcon(tab.iconOutline ?? tab.icon);
 
   return (
     <Pressable
-      onPress={handlePress}
+      onPress={() => onTabPress(index)}
       accessibilityRole="tab"
-      accessibilityLabel={tab.label ?? tab.key}
-      accessibilityHint={`Switch to ${tab.label ?? tab.key}`}
-      accessibilityState={{ selected: isActive }}
       style={styles.tabItemContainer}
     >
-      <View
-        style={[
-          styles.tabItemInner,
-          isActive && {
-            backgroundColor: activeBg,
-            borderColor: isDark
-              ? "rgba(52,199,89,0.24)"
-              : "rgba(22,163,74,0.18)",
-          },
-        ]}
-      >
-        {/* Icon */}
-        <AppIcon
-          name={resolvedIcon}
-          size={22}
-          color={isActive ? activeColor : inactiveColor}
-          filled={isActive && resolvedIcon === "home"}
-          strokeWidth={isActive ? 2.25 : 1.75}
-        />
+      <View style={styles.iconStack}>
+        {/* Inactive Icon */}
+        <Animated.View style={[styles.iconLayer, animatedIconInactiveStyle]}>
+          <AppIcon
+            name={resolvedIconOutline}
+            size={24}
+            color={inactiveColor}
+          />
+        </Animated.View>
 
-        {/* Label */}
-        {tab.label ? (
-          <Animated.Text
-            style={[
-              styles.tabLabel,
-              { color: isActive ? activeColor : inactiveColor },
-            ]}
-            numberOfLines={1}
-          >
-            {tab.label}
-          </Animated.Text>
-        ) : null}
+        {/* Active Icon */}
+        <Animated.View style={[styles.iconLayer, animatedIconActiveStyle]}>
+          <AppIcon
+            name={resolvedIcon}
+            size={24}
+            color={activeColor}
+            filled={true}
+          />
+        </Animated.View>
 
-        {/* Badge */}
+        {/* Badge - Now inside iconStack so it moves with icons */}
         {tab.badgeCount && tab.badgeCount > 0 ? (
           <View
             style={[
               styles.badgeContainer,
               {
                 backgroundColor: colors.danger,
-                borderColor: isDark ? "#111111" : colors.surface,
+                borderColor: isDark ? "#1A1A1A" : colors.surface,
               },
             ]}
           >
@@ -189,83 +244,91 @@ const TabItem = React.memo(function TabItem({
           </View>
         ) : null}
       </View>
+
+      {tab.label && (
+        <Animated.View style={[styles.tabLabelWrapper, animatedLabelStyle]}>
+          <Animated.Text
+            style={[
+              styles.tabLabel,
+              { color: activeColor },
+            ]}
+            numberOfLines={1}
+          >
+            {tab.label}
+          </Animated.Text>
+        </Animated.View>
+      )}
     </Pressable>
   );
 });
 
 // ── TabBar ───────────────────────────────────────────────────────────
 
-export function TabBar({ tabs, activeIndex, onTabPress }: TabBarProps) {
+export function TabBar({ tabs, activeIndex, scrollOffset, onTabPress }: TabBarProps) {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
 
-  const visibleTabs = React.useMemo(
-    () =>
-      tabs
-        .map((tab, index) => ({ tab, index }))
-        .filter(({ tab }) => !tab.hidden),
+  const visibleTabs = useMemo(
+    () => tabs.filter((tab) => !tab.hidden),
     [tabs],
   );
 
-  const safeBottom = Math.max(insets.bottom, 8);
-  const totalHeight = TAB_HEIGHT + safeBottom;
+  const numTabs = visibleTabs.length;
+  const dockWidth = SCREEN_WIDTH - DOCK_MARGIN * 2;
+  const tabWidth = dockWidth / numTabs;
+
+  const safeBottom = Math.max(insets.bottom, 12);
+
+  // Indicator Animation
+  const indicatorStyle = useAnimatedStyle(() => {
+    if (!scrollOffset) return { opacity: 0 };
+    const translateX = interpolate(
+      scrollOffset.value,
+      [0, numTabs - 1],
+      [0, dockWidth - tabWidth],
+      Extrapolation.CLAMP,
+    );
+
+    return {
+      width: tabWidth - 8,
+      transform: [{ translateX: translateX + 4 }],
+    };
+  });
 
   return (
-    <View pointerEvents="box-none" style={styles.wrapper}>
-      <View style={{ width: "100%", height: totalHeight }}>
-        {/* Background: BlurView on iOS, solid surface on Android */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              overflow: "hidden",
-              borderTopWidth: 0.5,
-              borderTopColor: "rgba(255,255,255,0.08)",
-            },
-          ]}
-        >
-          {Platform.OS === "ios" ? (
-            <BlurView
-              intensity={80}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: isDark ? "#111111" : colors.surface },
-              ]}
-            />
-          )}
-        </View>
+    <View pointerEvents="box-none" style={[styles.wrapper, { paddingBottom: safeBottom }]}>
+      <Animated.View 
+        style={[
+          styles.dockContainer,
+          { 
+            backgroundColor: isDark ? "rgba(20, 20, 20, 0.75)" : "rgba(255, 255, 255, 0.85)",
+            borderColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.08)",
+          }
+        ]}
+      >
+        {Platform.OS === "ios" && (
+          <BlurView
+            intensity={65}
+            tint={isDark ? "dark" : "light"}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
 
-        {/* Tab items */}
-        <View
-          accessibilityRole="tablist"
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-around",
-              paddingBottom: safeBottom,
-            },
-          ]}
-        >
-          {visibleTabs.map(({ tab, index }) => (
+        {/* Tab Items */}
+        <View style={styles.tabItemsWrapper}>
+          {visibleTabs.map((tab, index) => (
             <TabItem
               key={tab.key}
               tab={tab}
               index={index}
-              activeIndex={activeIndex}
+              scrollOffset={scrollOffset}
               onTabPress={onTabPress}
               colors={colors}
               isDark={isDark}
             />
           ))}
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -277,48 +340,79 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "flex-end",
-    position: "absolute",
-    bottom: 0,
+  },
+  dockContainer: {
+    width: SCREEN_WIDTH - DOCK_MARGIN * 2,
+    height: TAB_HEIGHT,
+    borderRadius: 32,
+    borderWidth: 1,
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  tabItemsWrapper: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    zIndex: 1,
   },
   tabItemContainer: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
     height: TAB_HEIGHT,
-  },
-  tabItemInner: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
-    minWidth: 46,
-    minHeight: 46,
-    paddingHorizontal: 5,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "transparent",
+  },
+  iconStack: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12, // Space for label
+  },
+  iconLayer: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabLabelWrapper: {
+    position: "absolute",
+    bottom: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   tabLabel: {
     fontSize: 10,
-    fontFamily: "Outfit-Medium",
-    letterSpacing: 0.1,
+    fontFamily: "Outfit-Bold",
   },
   badgeContainer: {
     position: "absolute",
-    top: -6,
-    right: -8,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 5,
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    zIndex: 3,
+    borderWidth: 1.5,
+    zIndex: 10,
   },
   badgeText: {
     fontFamily: "Outfit-Bold",
-    fontSize: 9,
-    lineHeight: 11,
+    fontSize: 8,
+    lineHeight: 10,
     color: "#FFFFFF",
     includeFontPadding: false,
   },

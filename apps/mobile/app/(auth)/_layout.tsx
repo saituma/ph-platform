@@ -1,6 +1,6 @@
-import { Stack, Transition } from "@/components/navigation/TransitionStack";
-import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
-import { useAppSelector } from "@/store/hooks";
+import { Stack, Transition } from "../../components/navigation/TransitionStack";
+import { ReplaceOnce } from "../../components/navigation/ReplaceOnce";
+import { useAppSelector } from "../../store/hooks";
 import "../fonts.css";
 import useLoadFonts from "../hooks/useLoadFonts";
 import { useMemo } from "react";

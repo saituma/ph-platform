@@ -166,15 +166,13 @@ export default function TrackingSocialScreen() {
   // ── Gate check ──
   useEffect(() => {
     if (!capabilitiesLoaded) return;
+    // Avoid bounce-back on transient hydration states; only redirect when
+    // tracking is clearly inaccessible.
     if (canAccessTracking && useTeamFeed) return;
-    router.replace("/(tabs)/tracking");
+    if (!canAccessTracking) {
+      router.replace("/(tabs)/tracking");
+    }
   }, [capabilitiesLoaded, canAccessTracking, router, useTeamFeed]);
-
-  useEffect(() => {
-    if (!token) return;
-    if (useTeamFeed) return;
-    router.replace("/(tabs)/tracking" as any);
-  }, [router, token, useTeamFeed]);
 
   if (!capabilitiesLoaded || !canAccessTracking || !useTeamFeed) {
     return null;

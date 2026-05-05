@@ -4,6 +4,7 @@ import Constants, { ExecutionEnvironment } from "expo-constants";
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+export const isSentryEnabled = Boolean(dsn) && !isExpoGo;
 
 export function initSentry() {
   if (!dsn) {

@@ -13,6 +13,8 @@ import {
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
 import { Badge } from "#/components/ui/badge";
+import { Checkbox } from "#/components/ui/checkbox";
+import { Label } from "#/components/ui/label";
 import { Separator } from "#/components/ui/separator";
 import { Skeleton } from "#/components/ui/skeleton";
 import { toast } from "sonner";
@@ -32,6 +34,12 @@ export const Route = createFileRoute("/onboarding/step-5")({
 });
 
 type BillingCycle = "monthly" | "six_months" | "yearly";
+
+function paymentConfigScopeKey(maxAthletes: number | null | undefined) {
+	const athletes = Number.isFinite(Number(maxAthletes)) ? Number(maxAthletes) : 0;
+	const coachEmail = (localStorage.getItem("pending_email") || "").trim().toLowerCase();
+	return `${coachEmail}::${athletes}`;
+}
 
 function parseMoneyToNumber(value: string): number | null {
 	const cleaned = value.replace(/[^\d.,-]/g, "");
@@ -66,8 +74,8 @@ const BILLING_OPTIONS: {
 	},
 	{
 		id: "six_months",
-		title: "6 months",
-		description: "One payment",
+		title: "One-time",
+		description: "Single payment",
 	},
 	{
 		id: "yearly",
@@ -176,10 +184,50 @@ function dedupePlansByTier(plans: any[]) {
 	return [...best.values()];
 }
 
-function priceSuffix(cycle: BillingCycle) {
+function oneTimeDurationLabel(plan: any) {
+	const weeks = Number(plan?.durationWeeks ?? 0);
+	if (Number.isFinite(weeks) && weeks > 0) return `for ${weeks} week${weeks === 1 ? "" : "s"}`;
+	return "one-time access";
+}
+
+function priceSuffix(cycle: BillingCycle, plan?: any) {
 	if (cycle === "monthly") return "per month";
-	if (cycle === "six_months") return "for 6 months";
+	if (cycle === "six_months") return oneTimeDurationLabel(plan);
 	return "for 1 year";
+}
+
+function planBillingLabel(plan: any, selectedCycle: BillingCycle) {
+	if (plan?.billingQuote?.mode === "subscription") return "per month · subscription";
+	if (plan?.billingQuote?.mode === "payment") {
+		const inferredOneTimeCycle: BillingCycle =
+			selectedCycle === "monthly"
+				? planSupportsBillingCycle(plan, "six_months")
+					? "six_months"
+					: "yearly"
+				: selectedCycle;
+		return `${priceSuffix(inferredOneTimeCycle, plan)} · one-time payment`;
+	}
+	if (!planSupportsBillingCycle(plan, "monthly")) {
+		if (planSupportsBillingCycle(plan, "six_months")) return `${oneTimeDurationLabel(plan)} · one-time payment`;
+		if (planSupportsBillingCycle(plan, "yearly")) return "for 1 year · one-time payment";
+	}
+	return selectedCycle === "monthly"
+		? "per month · subscription"
+		: `${priceSuffix(selectedCycle, plan)} · one-time payment`;
+}
+
+function firstSupportedCycleForPlan(plan: any): BillingCycle | null {
+	const order: BillingCycle[] = ["monthly", "six_months", "yearly"];
+	return order.find((cycle) => planSupportsBillingCycle(plan, cycle)) ?? null;
+}
+
+function planSupportsBillingCycle(plan: any, cycle: BillingCycle): boolean {
+	if (plan?.supports && typeof plan.supports === "object") {
+		return Boolean(plan.supports[cycle]);
+	}
+	if (cycle === "monthly") return Boolean(plan?.stripePriceIdMonthly || plan?.monthlyPrice);
+	if (cycle === "six_months") return Boolean(plan?.stripePriceIdOneTime || plan?.oneTimePrice);
+	return Boolean(plan?.stripePriceIdYearly || plan?.yearlyPrice);
 }
 
 /**
@@ -264,10 +312,16 @@ function OnboardingStep5() {
 	const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [agreedToTerms, setAgreedToTerms] = useState(false);
 	const [teamCheckout, setTeamCheckout] = useState<{
 		teamId: number;
 		maxAthletes: number;
 		teamName?: string;
+	} | null>(null);
+	const [teamPaymentConfig, setTeamPaymentConfig] = useState<{
+		paymentMode: "coach_pays_all" | "per_player_all" | "per_player_selected";
+		coachPaysSeats: number;
+		playerPayersCount: number;
 	} | null>(null);
 
 	const isTeam = typeof window !== "undefined" && localStorage.getItem("user_type") === "team";
@@ -316,6 +370,16 @@ function OnboardingStep5() {
 	useEffect(() => {
 		void loadPlans();
 	}, [loadPlans]);
+
+	useEffect(() => {
+		if (!plans.length) return;
+		if (selectedPlan != null) {
+			const selected = plans.find((p) => p.id === selectedPlan);
+			if (selected && planSupportsBillingCycle(selected, billingCycle)) return;
+		}
+		const firstSupported = plans.find((p) => planSupportsBillingCycle(p, billingCycle));
+		if (firstSupported) setSelectedPlan(firstSupported.id);
+	}, [plans, selectedPlan, billingCycle]);
 
 	useEffect(() => {
 		if (!isTeam) return;
@@ -373,11 +437,46 @@ function OnboardingStep5() {
 		void hydrate();
 	}, [isTeam]);
 
+	useEffect(() => {
+		if (!isTeam) return;
+		try {
+			const raw = localStorage.getItem("team_payment_config");
+			if (!raw) return;
+			const parsed = JSON.parse(raw) as any;
+			const scopedTeamSize = teamCheckout?.maxAthletes ?? null;
+			const expectedScope = paymentConfigScopeKey(scopedTeamSize);
+			if (String(parsed?.scopeKey ?? "") !== expectedScope) return;
+			const paymentMode =
+				parsed?.paymentMode === "per_player_all" || parsed?.paymentMode === "per_player_selected"
+					? parsed.paymentMode
+					: "coach_pays_all";
+			const coachPaysSeats = Number.isFinite(Number(parsed?.coachPaysSeats))
+				? Math.max(0, Number(parsed.coachPaysSeats))
+				: 0;
+			const playerPayers = Array.isArray(parsed?.playerPayers)
+				? parsed.playerPayers
+				: Array.isArray(parsed?.playerEmails)
+					? parsed.playerEmails
+					: [];
+			setTeamPaymentConfig({
+				paymentMode,
+				coachPaysSeats,
+				playerPayersCount: playerPayers.length,
+			});
+		} catch {
+			// ignore
+		}
+	}, [isTeam, teamCheckout?.maxAthletes]);
+
 	const handlePayment = async () => {
 		if (selectedPlan == null) return;
 		const selectedPlanData = plans.find((p) => p.id === selectedPlan);
 		if (!selectedPlanData?.id) {
 			toast.error("Checkout failed", { description: "Selected plan is not available." });
+			return;
+		}
+		if (!planSupportsBillingCycle(selectedPlanData, billingCycle)) {
+			toast.error("Checkout failed", { description: "Selected billing cycle is not available for this plan." });
 			return;
 		}
 		setIsSubmitting(true);
@@ -409,6 +508,41 @@ function OnboardingStep5() {
 				throw new Error("Missing team id. Please go back and re-submit your team details.");
 			}
 
+			let paymentMode = "coach_pays_all";
+			let coachPaysSeats = 0;
+			let termsAcceptedAt = "";
+			let termsVersion = "";
+			let playerEmails: string[] = [];
+			let playerPayers: Array<{ name: string; email: string }> = [];
+
+			if (isTeam) {
+				try {
+					const configStr = localStorage.getItem("team_payment_config");
+					if (configStr) {
+						const config = JSON.parse(configStr);
+						const expectedScope = paymentConfigScopeKey(teamCheckout?.maxAthletes ?? null);
+						if (String(config?.scopeKey ?? "") !== expectedScope) {
+							throw new Error("Payment setup expired. Please re-check payment mode on step 4.");
+						}
+						paymentMode = config.paymentMode || "coach_pays_all";
+						coachPaysSeats = config.coachPaysSeats || 0;
+						termsAcceptedAt = config.termsAcceptedAt || "";
+						termsVersion = config.termsVersion || "";
+						if (config.playerPayers && Array.isArray(config.playerPayers)) {
+							playerPayers = config.playerPayers
+								.map((p: any) => ({
+									name: String(p?.name ?? "").trim(),
+									email: String(p?.email ?? "").trim(),
+								}))
+								.filter((p: { name: string; email: string }) => p.email.length > 0);
+							playerEmails = playerPayers.map((p: { name: string; email: string }) => p.email);
+						} else if (config.playerEmails && Array.isArray(config.playerEmails)) {
+							playerEmails = config.playerEmails.map((p: any) => p.email);
+						}
+					}
+				} catch {}
+			}
+
 			const response = await fetch(`${baseUrl}/api/billing/${isTeam ? "team/checkout" : "checkout"}`, {
 				method: "POST",
 				credentials: "include",
@@ -417,7 +551,15 @@ function OnboardingStep5() {
 					...getAuthHeaders(),
 				},
 				body: JSON.stringify({
-					...(isTeam ? { teamId } : null),
+					...(isTeam ? { 
+						teamId,
+						paymentMode,
+						coachPaysSeats,
+						termsAcceptedAt,
+						termsVersion,
+						playerEmails,
+						playerPayers
+					} : null),
 					planId: selectedPlanData.id,
 					billingCycle,
 				}),
@@ -429,6 +571,9 @@ function OnboardingStep5() {
 			}
 			if (data.checkoutUrl) {
 				window.location.href = data.checkoutUrl;
+			} else if (data.success) {
+				// No checkout needed for coach, player invites were sent
+				navigate({ to: "/onboarding/success" });
 			} else {
 				throw new Error(data.error || "Failed to create checkout session");
 			}
@@ -484,8 +629,18 @@ function OnboardingStep5() {
 	const unitPrice = selectedDisplayPrice ? parseMoneyToNumber(String(selectedDisplayPrice)) : null;
 	const currencySymbol = selectedDisplayPrice ? detectCurrencySymbol(String(selectedDisplayPrice)) : "£";
 	const teamSize = teamCheckout?.maxAthletes ?? null;
+	const coachSeatCount =
+		isTeam && teamSize != null
+			? teamPaymentConfig?.paymentMode === "per_player_all"
+				? 0
+				: teamPaymentConfig?.paymentMode === "per_player_selected"
+					? Math.max(0, Math.min(teamSize, teamPaymentConfig?.coachPaysSeats ?? 0))
+					: teamSize
+			: null;
+	const playerPaysCount =
+		isTeam && teamSize != null && coachSeatCount != null ? Math.max(0, teamSize - coachSeatCount) : null;
 	const estimatedTotal =
-		isTeam && unitPrice != null && teamSize != null ? unitPrice * teamSize : null;
+		isTeam && unitPrice != null && coachSeatCount != null ? unitPrice * coachSeatCount : null;
 
 	return (
 		<main className="mx-auto max-w-7xl px-4 py-8 sm:py-16 sm:px-6 lg:px-8">
@@ -509,11 +664,11 @@ function OnboardingStep5() {
 								Team Pricing
 							</Badge>
 							<p className="text-xs text-muted-foreground">
-								Total = <span className="font-medium text-foreground">plan price x athletes</span>
+								Total = <span className="font-medium text-foreground">plan price x coach-paid seats</span>
 							</p>
 						</div>
 						<Separator className="my-4 bg-foreground/[0.06]" />
-						<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
 							<div className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3">
 								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Team</p>
 								<p className="mt-1 text-sm font-medium truncate">{teamCheckout?.teamName ?? "Your team"}</p>
@@ -521,6 +676,14 @@ function OnboardingStep5() {
 							<div className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3">
 								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Athletes</p>
 								<p className="mt-1 text-sm font-medium">{teamSize ?? "—"}</p>
+							</div>
+							<div className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3">
+								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Players Self-Pay</p>
+								<p className="mt-1 text-sm font-medium">{playerPaysCount ?? "—"}</p>
+							</div>
+							<div className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3">
+								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Coach Pays</p>
+								<p className="mt-1 text-sm font-medium">{coachSeatCount ?? "—"}</p>
 							</div>
 							<div className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3">
 								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Estimated</p>
@@ -548,6 +711,7 @@ function OnboardingStep5() {
 					>
 						{BILLING_OPTIONS.map((opt) => {
 							const active = billingCycle === opt.id;
+							const supported = plans.some((p) => planSupportsBillingCycle(p, opt.id));
 							const savings =
 								opt.id === "yearly" ? "Save up to 20%" : opt.id === "six_months" ? "Save up to 10%" : null;
 							return (
@@ -556,12 +720,14 @@ function OnboardingStep5() {
 									type="button"
 									role="radio"
 									aria-checked={active}
+									disabled={!supported}
 									onClick={() => setBillingCycle(opt.id)}
 									className={cn(
 										"relative border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
 										active
 											? "border-foreground bg-foreground/[0.04]"
 											: "border-foreground/[0.06] hover:border-foreground/20",
+										!supported && "cursor-not-allowed opacity-40",
 									)}
 								>
 									<div className="flex items-center justify-between">
@@ -625,17 +791,24 @@ function OnboardingStep5() {
 								? plan.features
 								: (TIER_METADATA[plan.tier]?.features ?? meta.features);
 
+						const selectPlan = () => {
+							setSelectedPlan(plan.id);
+							if (planSupportsBillingCycle(plan, billingCycle)) return;
+							const next = firstSupportedCycleForPlan(plan);
+							if (next && next !== billingCycle) setBillingCycle(next);
+						};
+
 						return (
 							<Card
 								key={plan.id}
 								role="radio"
 								aria-checked={isSelected}
 								tabIndex={0}
-								onClick={() => setSelectedPlan(plan.id)}
+								onClick={selectPlan}
 								onKeyDown={(e) => {
 									if (e.key === " " || e.key === "Enter") {
 										e.preventDefault();
-										setSelectedPlan(plan.id);
+										selectPlan();
 									}
 								}}
 								className={cn(
@@ -713,8 +886,7 @@ function OnboardingStep5() {
 													) : null}
 												</div>
 												<span className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
-													{priceSuffix(billingCycle)}
-													{billingCycle === "monthly" ? " · subscription" : " · one-time"}
+													{planBillingLabel(plan, billingCycle)}
 												</span>
 											</div>
 										);
@@ -740,11 +912,119 @@ function OnboardingStep5() {
 					})}
 				</div>
 
+				<div className="max-w-2xl mx-auto space-y-6">
+					<Card className="border border-foreground/[0.06] bg-foreground/[0.02] overflow-hidden">
+						<div className="p-4 border-b border-foreground/[0.06] bg-foreground/[0.04]">
+							<h3 className="font-mono text-[10px] uppercase tracking-wider text-foreground font-bold">
+								PH Performance – Terms & Policies
+							</h3>
+						</div>
+						<div className="p-6 max-h-[250px] overflow-y-auto space-y-6 text-[11px] text-muted-foreground leading-relaxed font-mono custom-scrollbar">
+							<section className="space-y-2">
+								<p className="text-foreground font-bold italic">Please read carefully before signing up. By completing registration and payment, you confirm that you have read, understood, and agreed to the following terms.</p>
+							</section>
+
+							<section className="space-y-4">
+								<h4 className="text-foreground font-bold uppercase tracking-tight text-xs">IN-PERSON SESSIONS</h4>
+								<div className="space-y-3">
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Membership & Payments</p>
+										<p>All clients are enrolled on a monthly payment plan. Payments are fixed monthly regardless of whether there are 4 or 5 sessions. Your membership covers 48 sessions per year. Your payment secures your coaching slot, not attendance. All payments are strictly non-refundable.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Coach Availability</p>
+										<p>PH Performance operates across 48 weeks of the year. Monthly payments remain unchanged during this time.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Cancellations & Missed Sessions</p>
+										<p>24 hours notice required for cancellations. Missed sessions: - Not carried over - Not credited - Not refunded. Make-up sessions not guaranteed. Repeated missed sessions may result in loss of place.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Membership Cancellation</p>
+										<p>Minimum 1 month written notice required. Payments continue during notice period. No partial refunds issued.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Health & Responsibility</p>
+										<p>Clients must disclose injuries. PH Performance not liable for undisclosed conditions or misuse.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Code of Conduct</p>
+										<p>Respect, punctuality and effort required. Failure may result in removal.</p>
+									</div>
+								</div>
+							</section>
+
+							<section className="space-y-4 pt-4 border-t border-foreground/[0.06]">
+								<h4 className="text-foreground font-bold uppercase tracking-tight text-xs">APP USERS</h4>
+								<div className="space-y-3">
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Subscription & Payments</p>
+										<p>App memberships are billed monthly. All payments are strictly non-refundable. This includes unused programmes, lack of engagement, and cancellations. Payment provides access, not guaranteed results.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Access & Account Responsibility</p>
+										<p>App is for personal use only. Login sharing prohibited. PH Performance may remove access without refund if misuse occurs.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Programme Use & Responsibility</p>
+										<p>Users must follow programmes as instructed. PH Performance not liable for: - Incorrect execution Failure to follow guidance - Misuse of training programmes</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Results Disclaimer</p>
+										<p>Results are not guaranteed. They depend on effort, consistency, and lifestyle. Lack of results does not qualify for refund.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Health & Medical Responsibility</p>
+										<p>Users must disclose injuries and confirm fitness to train. PH Performance not liable for: Undisclosed conditions - Training against medical advice</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">App Features & Availability</p>
+										<p>Features may change at any time. PH Performance not liable for downtime or technical issues.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Communication & Support</p>
+										<p>Support depends on membership tier. Response times not guaranteed.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Termination of Access</p>
+										<p>Access may be removed for misuse or breach of terms. No refunds issued.</p>
+									</div>
+								</div>
+							</section>
+
+							<section className="pt-4 border-t border-foreground/[0.06]">
+								<p className="text-foreground font-bold">Final Agreement</p>
+								<p>By signing up, you confirm agreement to all terms. This forms a binding agreement.</p>
+							</section>
+						</div>
+					</Card>
+
+					<div className="flex items-start space-x-3 p-2">
+						<Checkbox 
+							id="terms" 
+							checked={agreedToTerms} 
+							onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+							className="mt-1 border-foreground/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+						/>
+						<div className="grid gap-1.5 leading-none">
+							<Label
+								htmlFor="terms"
+								className="text-[11px] font-mono uppercase tracking-wider text-foreground/70 cursor-pointer select-none"
+							>
+								I have read and agree to the PH Performance Terms & Policies
+							</Label>
+							<p className="text-[10px] text-muted-foreground font-mono">
+								You must agree to the terms to continue to payment.
+							</p>
+						</div>
+					</div>
+				</div>
+
 				<div className="flex flex-col items-center gap-6 pt-4 max-w-md mx-auto">
 					<Button
 						onClick={handlePayment}
-						disabled={isSubmitting || selectedPlan == null || isLoading}
-						className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-opacity"
+						disabled={isSubmitting || selectedPlan == null || isLoading || !agreedToTerms}
+						className="w-full h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						{isSubmitting ? (
 							<CircleNotch className="w-5 h-5 animate-spin" />

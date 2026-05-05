@@ -62,6 +62,7 @@ export default function MoreScreen() {
   const dispatch = useAppDispatch();
   const profile = useAppSelector((state) => state.user.profile);
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const appRole = useAppSelector((state) => state.user.appRole);
   const token = useAppSelector((state) => state.user.token);
   const programTier = useAppSelector((state) => state.user.programTier);
   const capabilities = useAppSelector((state) => state.user.capabilities);
@@ -72,8 +73,10 @@ export default function MoreScreen() {
   } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
+  const isAdultUserRole =
+    appRole === "adult_athlete" || appRole === "adult_athlete_team";
   const showParentPlatform =
-    isAuthenticated && Boolean(capabilities?.parentContent);
+    isAuthenticated && Boolean(capabilities?.parentContent) && !isAdultUserRole;
   const canAccessFoodDiary = Boolean(capabilities?.nutrition);
   const showPhysioReferrals = Boolean(capabilities?.physioReferrals);
 

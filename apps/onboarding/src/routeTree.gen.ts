@@ -49,6 +49,7 @@ import { Route as PortalAnnouncementsRouteImport } from './routes/portal/announc
 import { Route as PortalAboutRouteImport } from './routes/portal/about'
 import { Route as OnboardingSuccessRouteImport } from './routes/onboarding/success'
 import { Route as OnboardingStep5RouteImport } from './routes/onboarding/step-5'
+import { Route as OnboardingStep4bRouteImport } from './routes/onboarding/step-4b'
 import { Route as OnboardingStep4RouteImport } from './routes/onboarding/step-4'
 import { Route as OnboardingStep3RouteImport } from './routes/onboarding/step-3'
 import { Route as OnboardingStep2RouteImport } from './routes/onboarding/step-2'
@@ -265,6 +266,11 @@ const OnboardingStep5Route = OnboardingStep5RouteImport.update({
   path: '/onboarding/step-5',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingStep4bRoute = OnboardingStep4bRouteImport.update({
+  id: '/onboarding/step-4b',
+  path: '/onboarding/step-4b',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingStep4Route = OnboardingStep4RouteImport.update({
   id: '/onboarding/step-4',
   path: '/onboarding/step-4',
@@ -371,6 +377,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
   '/onboarding/step-4': typeof OnboardingStep4Route
+  '/onboarding/step-4b': typeof OnboardingStep4bRoute
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/portal/about': typeof PortalAboutRoute
@@ -428,6 +435,7 @@ export interface FileRoutesByTo {
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
   '/onboarding/step-4': typeof OnboardingStep4Route
+  '/onboarding/step-4b': typeof OnboardingStep4bRoute
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/portal/about': typeof PortalAboutRoute
@@ -486,6 +494,7 @@ export interface FileRoutesById {
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
   '/onboarding/step-4': typeof OnboardingStep4Route
+  '/onboarding/step-4b': typeof OnboardingStep4bRoute
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/portal/about': typeof PortalAboutRoute
@@ -545,6 +554,7 @@ export interface FileRouteTypes {
     | '/onboarding/step-2'
     | '/onboarding/step-3'
     | '/onboarding/step-4'
+    | '/onboarding/step-4b'
     | '/onboarding/step-5'
     | '/onboarding/success'
     | '/portal/about'
@@ -602,6 +612,7 @@ export interface FileRouteTypes {
     | '/onboarding/step-2'
     | '/onboarding/step-3'
     | '/onboarding/step-4'
+    | '/onboarding/step-4b'
     | '/onboarding/step-5'
     | '/onboarding/success'
     | '/portal/about'
@@ -659,6 +670,7 @@ export interface FileRouteTypes {
     | '/onboarding/step-2'
     | '/onboarding/step-3'
     | '/onboarding/step-4'
+    | '/onboarding/step-4b'
     | '/onboarding/step-5'
     | '/onboarding/success'
     | '/portal/about'
@@ -714,6 +726,7 @@ export interface RootRouteChildren {
   OnboardingStep2Route: typeof OnboardingStep2Route
   OnboardingStep3Route: typeof OnboardingStep3Route
   OnboardingStep4Route: typeof OnboardingStep4Route
+  OnboardingStep4bRoute: typeof OnboardingStep4bRoute
   OnboardingStep5Route: typeof OnboardingStep5Route
   OnboardingSuccessRoute: typeof OnboardingSuccessRoute
 }
@@ -1000,6 +1013,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingStep5RouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/step-4b': {
+      id: '/onboarding/step-4b'
+      path: '/onboarding/step-4b'
+      fullPath: '/onboarding/step-4b'
+      preLoaderRoute: typeof OnboardingStep4bRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding/step-4': {
       id: '/onboarding/step-4'
       path: '/onboarding/step-4'
@@ -1212,6 +1232,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingStep2Route: OnboardingStep2Route,
   OnboardingStep3Route: OnboardingStep3Route,
   OnboardingStep4Route: OnboardingStep4Route,
+  OnboardingStep4bRoute: OnboardingStep4bRoute,
   OnboardingStep5Route: OnboardingStep5Route,
   OnboardingSuccessRoute: OnboardingSuccessRoute,
 }

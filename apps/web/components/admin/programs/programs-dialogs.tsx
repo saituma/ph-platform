@@ -58,6 +58,9 @@ export function ProgramsDialogs({
 }: ProgramsDialogsProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [programType, setProgramType] = useState("PHP");
+  const [minAge, setMinAge] = useState("");
+  const [maxAge, setMaxAge] = useState("");
   const [athleteId, setAthleteId] = useState("");
   const [templateId, setTemplateId] = useState("");
 
@@ -65,11 +68,17 @@ export function ProgramsDialogs({
     if (active === "create") {
       setName("");
       setDescription("");
+      setProgramType("PHP");
+      setMinAge("");
+      setMaxAge("");
       return;
     }
     if (active === "manage" && selectedProgram) {
       setName(selectedProgram.name ?? "");
       setDescription(selectedProgram.summary ?? "");
+      setProgramType(selectedProgram.type ?? "PHP");
+      setMinAge(selectedProgram.minAge != null ? String(selectedProgram.minAge) : "");
+      setMaxAge(selectedProgram.maxAge != null ? String(selectedProgram.maxAge) : "");
       return;
     }
     if (active === "assign") {
@@ -97,7 +106,20 @@ export function ProgramsDialogs({
           {active === "create" ? (
             <>
               <Input placeholder="Program name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Select value={programType} onValueChange={(v) => setProgramType(v ?? "PHP")}>
+                <SelectTrigger><SelectValue placeholder="Select program type" /></SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="PHP">PHP</SelectItem>
+                  <SelectItem value="PHP_Premium">PHP Premium</SelectItem>
+                  <SelectItem value="PHP_Premium_Plus">PHP Premium Plus</SelectItem>
+                  <SelectItem value="PHP_Pro">PHP Pro</SelectItem>
+                </SelectPopup>
+              </Select>
               <Textarea placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <Input type="number" placeholder="Min age (optional)" value={minAge} onChange={(e) => setMinAge(e.target.value)} />
+                <Input type="number" placeholder="Max age (optional)" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} />
+              </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button
@@ -105,8 +127,10 @@ export function ProgramsDialogs({
                   onClick={async () => {
                     await onCreate({
                       name: name.trim(),
-                      type: "PHP",
+                      type: programType,
                       description: description.trim() || undefined,
+                      minAge: minAge ? Number(minAge) : null,
+                      maxAge: maxAge ? Number(maxAge) : null,
                     });
                     onClose();
                   }}
@@ -119,7 +143,20 @@ export function ProgramsDialogs({
           {active === "manage" && selectedProgram ? (
             <>
               <Input placeholder="Program name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Select value={programType} onValueChange={(v) => setProgramType(v ?? "PHP")}>
+                <SelectTrigger><SelectValue placeholder="Select program type" /></SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="PHP">PHP</SelectItem>
+                  <SelectItem value="PHP_Premium">PHP Premium</SelectItem>
+                  <SelectItem value="PHP_Premium_Plus">PHP Premium Plus</SelectItem>
+                  <SelectItem value="PHP_Pro">PHP Pro</SelectItem>
+                </SelectPopup>
+              </Select>
               <Textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <Input type="number" placeholder="Min age (optional)" value={minAge} onChange={(e) => setMinAge(e.target.value)} />
+                <Input type="number" placeholder="Max age (optional)" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} />
+              </div>
               <div className="flex items-center justify-between gap-2">
                 <Button
                   variant="destructive"
@@ -140,10 +177,10 @@ export function ProgramsDialogs({
                       await onUpdate({
                         programId: selectedProgram.id,
                         name: (name || selectedProgram.name).trim(),
-                        type: selectedProgram.type,
+                        type: programType,
                         description: description.trim() || null,
-                        minAge: null,
-                        maxAge: null,
+                        minAge: minAge ? Number(minAge) : null,
+                        maxAge: maxAge ? Number(maxAge) : null,
                       });
                       onClose();
                     }}

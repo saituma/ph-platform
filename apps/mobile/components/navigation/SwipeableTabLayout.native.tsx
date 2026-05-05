@@ -210,7 +210,12 @@ export function SwipeableTabLayout({
 
         {isTabBarVisible ? (
           <View style={styles.tabBarWrapper} pointerEvents="box-none">
-            <TabBar tabs={tabs} activeIndex={activeIndex} onTabPress={handleTabPress} />
+            <TabBar
+              tabs={tabs}
+              activeIndex={activeIndex}
+              scrollOffset={scrollOffset}
+              onTabPress={handleTabPress}
+            />
           </View>
         ) : null}
       </View>
@@ -240,6 +245,7 @@ export function SwipeableTabLayout({
           <TabBar
             tabs={tabs}
             activeIndex={activeIndex}
+            scrollOffset={scrollOffset}
             onTabPress={handleTabPress}
           />
         </View>

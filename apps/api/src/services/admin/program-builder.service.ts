@@ -4,6 +4,7 @@ import {
   athleteTable,
   athleteTrainingSessionCompletionTable,
   exerciseTable,
+  nutritionOnboardingProfileTable,
   programAssignmentTable,
   programModuleTable,
   programTable,
@@ -429,10 +430,17 @@ export async function getAthleteDetail(athleteId: number) {
     .orderBy(desc(videoUploadTable.createdAt))
     .limit(20);
 
+  const [nutritionOnboarding] = await db
+    .select()
+    .from(nutritionOnboardingProfileTable)
+    .where(eq(nutritionOnboardingProfileTable.userId, athlete.userId))
+    .limit(1);
+
   return {
     ...athlete,
     assignments,
     sessionCompletionCount: Number(completionCount),
     videoUploads,
+    nutritionOnboarding: nutritionOnboarding ?? null,
   };
 }

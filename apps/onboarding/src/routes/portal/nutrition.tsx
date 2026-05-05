@@ -15,6 +15,7 @@ import {
 	Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,8 +29,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { showPortalNutritionNav } from "@/lib/portal-roles";
+import { isPortalAthleteRole, showPortalNutritionNav } from "@/lib/portal-roles";
 import { cn } from "@/lib/utils";
+import { getPublicApiBaseUrl } from "@/lib/public-api";
 import { usePortal } from "@/portal/PortalContext";
 import { settingsService } from "@/services/settingsService";
 
@@ -61,12 +63,26 @@ function WellbeingDot({
 }
 
 function NutritionPage() {
-	const { user } = usePortal();
+	const { user, token } = usePortal();
 	const [date, setDate] = useState(new Date());
 	const [loading, setLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
+	const [isSavingProfile, setIsSavingProfile] = useState(false);
+	const [forceProfileEdit, setForceProfileEdit] = useState(false);
 	const [targets, setTargets] = useState<any>(null);
 	const [weekLogs, setWeekLogs] = useState<any[]>([]);
+	const [hasNutritionProfile, setHasNutritionProfile] = useState<boolean | null>(null);
+	const [profileForm, setProfileForm] = useState({
+		dietaryRequirements: "",
+		allergies: "",
+		generalNutritionHabits: "",
+		primaryGoal: "",
+		mealsPerDay: "",
+		hydrationLitersPerDay: "",
+		supplements: "",
+		medicalNotes: "",
+		additionalContext: "",
+	});
 
 	const [log, setLog] = useState<any>({
 		breakfast: "",
@@ -85,9 +101,42 @@ function NutritionPage() {
 	});
 
 	const dateKey = date.toISOString().slice(0, 10);
+	const requiresNutritionOnboarding = isPortalAthleteRole(user?.role);
+
+	const fetchNutritionOnboardingProfile = useCallback(async () => {
+		if (!user || !requiresNutritionOnboarding) {
+			setHasNutritionProfile(true);
+			return;
+		}
+		try {
+			const data = await settingsService.getNutritionOnboardingProfile();
+			const profile = data.profile;
+			setHasNutritionProfile(Boolean(profile));
+			if (profile) {
+				setProfileForm({
+					dietaryRequirements: profile.dietaryRequirements ?? "",
+					allergies: profile.allergies ?? "",
+					generalNutritionHabits: profile.generalNutritionHabits ?? "",
+					primaryGoal: profile.primaryGoal ?? "",
+					mealsPerDay: profile.mealsPerDay != null ? String(profile.mealsPerDay) : "",
+					hydrationLitersPerDay:
+						profile.hydrationLitersPerDay != null
+							? String(profile.hydrationLitersPerDay)
+							: "",
+					supplements: profile.supplements ?? "",
+					medicalNotes: profile.medicalNotes ?? "",
+					additionalContext: profile.additionalContext ?? "",
+				});
+			}
+		} catch (error) {
+			console.error("Failed to fetch nutrition onboarding profile", error);
+			setHasNutritionProfile(false);
+		}
+	}, [user, requiresNutritionOnboarding]);
 
 	const fetchData = useCallback(async () => {
 		if (!user || !showPortalNutritionNav(user.role)) return;
+		if (requiresNutritionOnboarding && hasNutritionProfile !== true) return;
 		setLoading(true);
 		try {
 			// Fetch today's log + 7-day history + targets in parallel
@@ -138,11 +187,51 @@ function NutritionPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [user, dateKey]);
+	}, [user, dateKey, requiresNutritionOnboarding, hasNutritionProfile]);
+
+	useEffect(() => {
+		fetchNutritionOnboardingProfile();
+	}, [fetchNutritionOnboardingProfile]);
 
 	useEffect(() => {
 		fetchData();
 	}, [fetchData]);
+
+	useEffect(() => {
+		if (!token || !user?.id) return;
+		const rawSocket = String(
+			(import.meta.env as Record<string, string | undefined>)
+				.VITE_PUBLIC_SOCKET_URL ?? "",
+		).trim();
+		const apiBase = getPublicApiBaseUrl();
+		const socketUrl = rawSocket
+			? rawSocket.replace(/\/api\/?$/, "")
+			: apiBase
+				? apiBase.replace(/\/api\/?$/, "")
+				: window.location.origin;
+
+		const socket: Socket = io(socketUrl, {
+			path: "/socket.io",
+			auth: { token },
+			transports: ["polling", "websocket"],
+			reconnection: true,
+			reconnectionDelayMax: 10000,
+		});
+
+		const refreshIfMine = (payload?: { userId?: number | string | null }) => {
+			const target = Number(payload?.userId ?? Number.NaN);
+			if (Number.isFinite(target) && target !== Number(user.id)) return;
+			void fetchData();
+		};
+
+		socket.on("nutrition:log:updated", refreshIfMine);
+		socket.on("nutrition:feedback:updated", refreshIfMine);
+		return () => {
+			socket.off("nutrition:log:updated", refreshIfMine);
+			socket.off("nutrition:feedback:updated", refreshIfMine);
+			socket.disconnect();
+		};
+	}, [token, user?.id, fetchData]);
 
 	const handleSave = async () => {
 		setIsSaving(true);
@@ -173,6 +262,45 @@ function NutritionPage() {
 		}));
 	};
 
+	const handleSaveProfile = async () => {
+		if (
+			!profileForm.dietaryRequirements.trim() ||
+			!profileForm.allergies.trim() ||
+			!profileForm.generalNutritionHabits.trim()
+		) {
+			toast.error(
+				"Please complete dietary requirements, allergies, and general habits.",
+			);
+			return;
+		}
+
+		setIsSavingProfile(true);
+		try {
+			await settingsService.saveNutritionOnboardingProfile({
+				dietaryRequirements: profileForm.dietaryRequirements.trim(),
+				allergies: profileForm.allergies.trim(),
+				generalNutritionHabits: profileForm.generalNutritionHabits.trim(),
+				primaryGoal: profileForm.primaryGoal.trim() || null,
+				mealsPerDay: profileForm.mealsPerDay
+					? Number(profileForm.mealsPerDay)
+					: null,
+				hydrationLitersPerDay: profileForm.hydrationLitersPerDay
+					? Number(profileForm.hydrationLitersPerDay)
+					: null,
+				supplements: profileForm.supplements.trim() || null,
+				medicalNotes: profileForm.medicalNotes.trim() || null,
+				additionalContext: profileForm.additionalContext.trim() || null,
+			});
+			setHasNutritionProfile(true);
+			setForceProfileEdit(false);
+			toast.success("Nutrition profile saved.");
+		} catch (error: any) {
+			toast.error(error.message || "Failed to save nutrition profile");
+		} finally {
+			setIsSavingProfile(false);
+		}
+	};
+
 	if (user && !showPortalNutritionNav(user.role)) {
 		return (
 			<div className="p-6 max-w-2xl mx-auto space-y-6">
@@ -197,6 +325,184 @@ function NutritionPage() {
 					</CardContent>
 				</Card>
 			</div>
+		);
+	}
+
+	if (requiresNutritionOnboarding && hasNutritionProfile == null) {
+		return (
+			<div className="h-64 flex items-center justify-center">
+				<Loader2 className="h-8 w-8 animate-spin text-primary" />
+			</div>
+		);
+	}
+
+	if (requiresNutritionOnboarding && (hasNutritionProfile === false || forceProfileEdit)) {
+		return (
+			<PageTransition className="p-6 max-w-3xl mx-auto space-y-6">
+				<Card className="border-2">
+					<CardHeader>
+						<CardTitle className="text-xl font-black uppercase italic tracking-tight">
+							Complete nutrition profile
+						</CardTitle>
+						<CardDescription className="text-base">
+							Before daily nutrition logging, tell your coach about your allergies,
+							requirements, and habits.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<div className="space-y-2">
+							<Label>Allergies *</Label>
+							<Textarea
+								value={profileForm.allergies}
+								onChange={(e) =>
+									setProfileForm((prev) => ({ ...prev, allergies: e.target.value }))
+								}
+								placeholder="List known allergies and severity"
+								className="min-h-[90px] border-2 rounded-xl resize-none"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label>Dietary requirements *</Label>
+							<Textarea
+								value={profileForm.dietaryRequirements}
+								onChange={(e) =>
+									setProfileForm((prev) => ({
+										...prev,
+										dietaryRequirements: e.target.value,
+									}))
+								}
+								placeholder="Any restrictions or dietary pattern"
+								className="min-h-[90px] border-2 rounded-xl resize-none"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label>General nutrition habits *</Label>
+							<Textarea
+								value={profileForm.generalNutritionHabits}
+								onChange={(e) =>
+									setProfileForm((prev) => ({
+										...prev,
+										generalNutritionHabits: e.target.value,
+									}))
+								}
+								placeholder="Typical meal timing, appetite, and eating pattern"
+								className="min-h-[90px] border-2 rounded-xl resize-none"
+							/>
+						</div>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="space-y-2">
+								<Label>Primary goal</Label>
+								<Input
+									value={profileForm.primaryGoal}
+									onChange={(e) =>
+										setProfileForm((prev) => ({
+											...prev,
+											primaryGoal: e.target.value,
+										}))
+									}
+									placeholder="e.g. gain lean muscle"
+									className="border-2 rounded-xl"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label>Meals per day</Label>
+								<Input
+									type="number"
+									value={profileForm.mealsPerDay}
+									onChange={(e) =>
+										setProfileForm((prev) => ({
+											...prev,
+											mealsPerDay: e.target.value,
+										}))
+									}
+									placeholder="3"
+									className="border-2 rounded-xl"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label>Hydration (L/day)</Label>
+								<Input
+									type="number"
+									value={profileForm.hydrationLitersPerDay}
+									onChange={(e) =>
+										setProfileForm((prev) => ({
+											...prev,
+											hydrationLitersPerDay: e.target.value,
+										}))
+									}
+									placeholder="2"
+									className="border-2 rounded-xl"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label>Supplements</Label>
+								<Input
+									value={profileForm.supplements}
+									onChange={(e) =>
+										setProfileForm((prev) => ({
+											...prev,
+											supplements: e.target.value,
+										}))
+									}
+									placeholder="If any"
+									className="border-2 rounded-xl"
+								/>
+							</div>
+						</div>
+						<div className="space-y-2">
+							<Label>Medical notes</Label>
+							<Textarea
+								value={profileForm.medicalNotes}
+								onChange={(e) =>
+									setProfileForm((prev) => ({
+										...prev,
+										medicalNotes: e.target.value,
+									}))
+								}
+								placeholder="Conditions, medications, or relevant notes"
+								className="min-h-[80px] border-2 rounded-xl resize-none"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label>Additional context</Label>
+							<Textarea
+								value={profileForm.additionalContext}
+								onChange={(e) =>
+									setProfileForm((prev) => ({
+										...prev,
+										additionalContext: e.target.value,
+									}))
+								}
+								placeholder="Anything else your coach should know"
+								className="min-h-[80px] border-2 rounded-xl resize-none"
+							/>
+						</div>
+						<div className="flex flex-wrap gap-3">
+							<Button
+								onClick={handleSaveProfile}
+								disabled={isSavingProfile}
+								className="h-12 rounded-xl font-black uppercase tracking-wider"
+							>
+								{isSavingProfile ? (
+									<Loader2 className="mr-2 h-5 w-5 animate-spin" />
+								) : (
+									<Save className="mr-2 h-5 w-5" />
+								)}
+								{isSavingProfile ? "Saving..." : "Save nutrition profile"}
+							</Button>
+							{forceProfileEdit && (
+								<Button
+									variant="outline"
+									className="h-12 rounded-xl font-bold"
+									onClick={() => setForceProfileEdit(false)}
+								>
+									Back to logging
+								</Button>
+							)}
+						</div>
+					</CardContent>
+				</Card>
+			</PageTransition>
 		);
 	}
 
@@ -244,6 +550,17 @@ function NutritionPage() {
 						times on the same day (for example breakfast now, dinner later) —
 						earlier meals stay on file when you save again.
 					</p>
+					{requiresNutritionOnboarding && hasNutritionProfile && (
+						<div className="mt-3">
+							<Button
+								variant="outline"
+								className="rounded-xl font-bold"
+								onClick={() => setForceProfileEdit(true)}
+							>
+								Edit nutrition profile
+							</Button>
+						</div>
+					)}
 				</div>
 
 				<div className="flex items-center bg-card border-2 rounded-xl p-1 shrink-0">
@@ -563,6 +880,38 @@ function NutritionPage() {
 								<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-400 inline-block" />Energy</span>
 								<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400 inline-block" />Pain</span>
 							</div>
+						</CardContent>
+					</Card>
+				)}
+
+				{weekLogs.length > 0 && (
+					<Card className="border-2">
+						<CardHeader className="pb-3">
+							<CardTitle className="text-lg font-bold uppercase tracking-tight">
+								Your upload history
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<ul className="divide-y rounded-xl border overflow-hidden">
+								{[...weekLogs]
+									.sort((a, b) => String(b.dateKey).localeCompare(String(a.dateKey)))
+									.slice(0, 14)
+									.map((log) => (
+										<li key={String(log.id ?? log.dateKey)} className="px-3 py-2.5 text-sm">
+											<div className="flex items-center justify-between gap-2">
+												<span className="font-semibold">{String(log.dateKey)}</span>
+												{log.updatedAt ? (
+													<span className="text-[11px] text-muted-foreground">
+														{new Date(log.updatedAt).toLocaleString()}
+													</span>
+												) : null}
+											</div>
+											<p className="text-xs text-muted-foreground mt-0.5">
+												{log.foodDiary?.trim() ? "Food diary uploaded" : "Nutrition log updated"}
+											</p>
+										</li>
+									))}
+							</ul>
 						</CardContent>
 					</Card>
 				)}

@@ -29,9 +29,18 @@ type ToneStyle = {
   border: string;
 };
 
-function withAlpha(hex: string, alpha: string) {
-  if (!hex.startsWith("#") || hex.length !== 7) return hex;
+function withAlpha(hex: string | undefined, alpha: string) {
+  if (!hex || !hex.startsWith("#") || hex.length !== 7) return hex || "#000000";
   return `${hex}${alpha}`;
+}
+
+/**
+ * Validates if a string is a proper 6-digit hex color code.
+ * Useful for preventing color conversion errors in libraries like color-kit.
+ */
+export function isValidHex(color: string | null | undefined): boolean {
+  if (!color || typeof color !== "string") return false;
+  return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color);
 }
 
 function getAdminTone(
@@ -42,23 +51,23 @@ function getAdminTone(
   const neutralBg = isDark ? "rgba(255,255,255,0.045)" : "rgba(15,23,42,0.035)";
   const neutralBorder = isDark ? "rgba(255,255,255,0.09)" : "rgba(15,23,42,0.08)";
   const map: Record<AdminTone, string> = {
-    neutral: colors.textSecondary,
-    accent: colors.accent,
-    success: colors.success,
-    info: colors.cyan,
-    warning: colors.warning,
-    danger: colors.danger,
+    neutral: colors.textSecondary || "#64748b",
+    accent: colors.accent || "#30B0C7",
+    success: colors.success || "#22c55e",
+    info: colors.cyan || "#06b6d4",
+    warning: colors.warning || "#f59e0b",
+    danger: colors.danger || "#ef4444",
   };
 
   if (tone === "neutral") {
     return {
-      color: colors.textSecondary,
+      color: colors.textSecondary || "#64748b",
       bg: neutralBg,
       border: neutralBorder,
     };
   }
 
-  const color = map[tone];
+  const color = map[tone] || "#000000";
   return {
     color,
     bg: isDark ? withAlpha(color, "20") : withAlpha(color, "14"),
@@ -187,11 +196,13 @@ export function AdminCard({
   style,
   padding = 16,
   pressed,
+  transparent = false,
 }: {
   children: React.ReactNode;
   style?: ViewStyle | ViewStyle[];
   padding?: number;
   pressed?: boolean;
+  transparent?: boolean;
 }) {
   const { colors, isDark } = useAppTheme();
 
@@ -202,10 +213,13 @@ export function AdminCard({
           borderRadius: radiusPresets.lg,
           borderWidth: 1,
           padding,
-          backgroundColor: isDark ? colors.cardElevated : colors.card,
+          backgroundColor: transparent 
+            ? "transparent" 
+            : isDark ? colors.cardElevated : colors.card,
           borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
-          ...(isDark ? Shadows.none : Shadows.sm),
-          opacity: pressed ? 0.9 : 1,
+          ...(isDark || transparent ? Shadows.none : Shadows.sm),
+          opacity: pressed ? 0.92 : 1,
+          transform: [{ scale: pressed ? 0.995 : 1 }],
         },
         style,
       ]}

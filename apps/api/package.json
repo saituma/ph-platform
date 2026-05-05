@@ -40,6 +40,8 @@
   "dependencies": {
     "@electric-sql/pglite": "^0.3.15",
     "@sentry/node": "^10.51.0",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "@types/opossum": "^8.1.9",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "bullmq": "^5.76.4",
@@ -57,6 +59,7 @@
     "minio": "^8.0.6",
     "nodemailer": "^6.10.1",
     "openai": "^6.23.0",
+    "opossum": "^9.0.0",
     "pg": "^8.18.0",
     "pino": "^9.6.0",
     "resend": "^4.0.0",

@@ -3,9 +3,18 @@ import { z } from "zod";
 import { and, eq, desc, gte, lte } from "drizzle-orm";
 
 import { db } from "../db";
-import { athleteTable, guardianTable, nutritionTargetsTable, nutritionLogsTable, userTable, notificationTable } from "../db/schema";
+import {
+  athleteTable,
+  guardianTable,
+  nutritionTargetsTable,
+  nutritionLogsTable,
+  nutritionOnboardingProfileTable,
+  userTable,
+  notificationTable,
+} from "../db/schema";
 import { sendPushNotification } from "../services/push.service";
-import { isTrainingStaff } from "../lib/user-roles";
+import { isAthleteUserRole, isTrainingStaff } from "../lib/user-roles";
+import { getSocketServer } from "../socket-hub";
 
 const targetSchema = z.object({
   calories: z.number().int().min(0).optional().nullable(),
@@ -93,6 +102,18 @@ const feedbackSchema = z.object({
   feedback: z.string().max(2000),
   mediaUrl: z.string().url().optional().nullable(),
   mediaType: z.enum(["video", "image"]).optional().nullable(),
+});
+
+const nutritionOnboardingProfileSchema = z.object({
+  dietaryRequirements: z.string().trim().min(1).max(3000),
+  allergies: z.string().trim().min(1).max(3000),
+  generalNutritionHabits: z.string().trim().min(1).max(3000),
+  primaryGoal: z.string().trim().max(120).optional().nullable(),
+  mealsPerDay: z.number().int().min(1).max(12).optional().nullable(),
+  hydrationLitersPerDay: z.number().int().min(0).max(20).optional().nullable(),
+  supplements: z.string().trim().max(3000).optional().nullable(),
+  medicalNotes: z.string().trim().max(3000).optional().nullable(),
+  additionalContext: z.string().trim().max(3000).optional().nullable(),
 });
 
 async function canWriteNutritionForUser(input: { actorUserId: number; actorRole: string; targetUserId: number }) {
@@ -186,6 +207,67 @@ export async function getTargets(req: Request, res: Response) {
     .where(eq(nutritionTargetsTable.userId, targetUserId))
     .limit(1);
   return res.status(200).json({ targets: targets || null });
+}
+
+export async function getNutritionOnboardingProfile(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const userIdRaw = typeof req.query.userId === "string" ? req.query.userId : null;
+  const targetUserId = userIdRaw === "me" ? req.user.id : userIdRaw ? Number(userIdRaw) : req.user.id;
+  if (!Number.isFinite(targetUserId)) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  if (targetUserId !== req.user.id && !isTrainingStaff(req.user.role)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const [profile] = await db
+    .select()
+    .from(nutritionOnboardingProfileTable)
+    .where(eq(nutritionOnboardingProfileTable.userId, targetUserId))
+    .limit(1);
+
+  return res.status(200).json({ profile: profile ?? null });
+}
+
+export async function upsertNutritionOnboardingProfile(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  if (!isAthleteUserRole(req.user.role)) {
+    return res.status(403).json({ error: "Only athlete accounts can submit nutrition onboarding." });
+  }
+
+  const input = nutritionOnboardingProfileSchema.parse(req.body);
+
+  const [existing] = await db
+    .select({ id: nutritionOnboardingProfileTable.id })
+    .from(nutritionOnboardingProfileTable)
+    .where(eq(nutritionOnboardingProfileTable.userId, req.user.id))
+    .limit(1);
+
+  if (existing) {
+    const [profile] = await db
+      .update(nutritionOnboardingProfileTable)
+      .set({
+        ...input,
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(nutritionOnboardingProfileTable.id, existing.id))
+      .returning();
+    return res.status(200).json({ profile });
+  }
+
+  const [profile] = await db
+    .insert(nutritionOnboardingProfileTable)
+    .values({
+      userId: req.user.id,
+      ...input,
+      completedAt: new Date(),
+    })
+    .returning();
+
+  return res.status(201).json({ profile });
 }
 
 export async function updateTargets(req: Request, res: Response) {
@@ -330,6 +412,20 @@ export async function upsertLog(req: Request, res: Response) {
       .returning();
   }
 
+  // Realtime update for athlete + staff viewers (portal nutrition + team athlete detail).
+  const io = getSocketServer();
+  if (io && result) {
+    const payload = {
+      userId: targetUserId,
+      logId: result.id,
+      dateKey: result.dateKey,
+      updatedAt: result.updatedAt,
+      actorUserId: req.user.id,
+    };
+    io.to(`user:${targetUserId}`).emit("nutrition:log:updated", payload);
+    io.to("admin:all").emit("nutrition:log:updated", payload);
+  }
+
   return res.status(200).json({ log: result });
 }
 
@@ -373,6 +469,19 @@ export async function provideFeedback(req: Request, res: Response) {
     type: "nutrition_feedback",
     url: "/programs",
   });
+
+  const io = getSocketServer();
+  if (io && updatedLog) {
+    const payload = {
+      userId: existingLog.userId,
+      logId: updatedLog.id,
+      dateKey: updatedLog.dateKey,
+      updatedAt: updatedLog.updatedAt,
+      actorUserId: req.user.id,
+    };
+    io.to(`user:${existingLog.userId}`).emit("nutrition:feedback:updated", payload);
+    io.to("admin:all").emit("nutrition:feedback:updated", payload);
+  }
 
   return res.status(200).json({ log: updatedLog });
 }

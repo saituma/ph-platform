@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import {
   ChevronDown,
@@ -374,7 +375,7 @@ function EnquiryCard({
         <div className="flex gap-3.5">
           <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-400 shrink-0 overflow-hidden">
             {item.photoUrl ? (
-              <img src={item.photoUrl} alt={item.athleteName} className="w-full h-full rounded-full object-cover" />
+              <Image src={item.photoUrl} alt={item.athleteName} width={48} height={48} className="w-full h-full rounded-full object-cover" />
             ) : (
               initials
             )}
@@ -556,7 +557,7 @@ function EnquiryDetailModal({
           <div className="flex gap-4">
             <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center text-lg font-bold text-zinc-400 shrink-0 overflow-hidden">
               {item.photoUrl ? (
-                <img src={item.photoUrl} alt={item.athleteName} className="w-full h-full rounded-full object-cover" />
+                <Image src={item.photoUrl} alt={item.athleteName} width={64} height={64} className="w-full h-full rounded-full object-cover" />
               ) : (
                 item.athleteName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
               )}

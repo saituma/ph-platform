@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Suspense, useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Camera, Loader2, RefreshCw, User } from "lucide-react";
@@ -395,7 +396,7 @@ function AddUserPageInner() {
                 <div className="flex items-center gap-4">
                   <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-input bg-secondary/20">
                     {athleteProfilePicture ? (
-                      <img src={athleteProfilePicture} alt="Athlete preview" className="h-full w-full object-cover" />
+                      <Image src={athleteProfilePicture} alt="Athlete preview" width={80} height={80} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                         <User className="h-8 w-8" />

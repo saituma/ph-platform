@@ -805,7 +805,14 @@ function AthleteDashboard({
 				>
 					<h2 className="font-mono text-xs uppercase tracking-wider text-foreground px-1">What Athletes Say</h2>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{homeContent.testimonials.slice(0, 2).map((t: any) => (
+						{homeContent.testimonials.slice(0, 2).map((t: any) => {
+							const testimonialPhoto =
+								(typeof t?.photoUrl === "string" && t.photoUrl.trim()) ||
+								(typeof t?.photo === "string" && t.photo.trim()) ||
+								(typeof t?.imageUrl === "string" && t.imageUrl.trim()) ||
+								(typeof t?.image === "string" && t.image.trim()) ||
+								null;
+							return (
 							<motion.div
 								key={t.id}
 								whileHover={{ y: -2 }}
@@ -815,14 +822,15 @@ function AthleteDashboard({
 								<span className="text-3xl absolute top-4 left-4 text-foreground/10">"</span>
 								<p className="relative z-10 mb-4 text-sm italic leading-relaxed">{t.quote}</p>
 								<div className="flex items-center gap-3">
-									{t.photoUrl && <img src={t.photoUrl} alt="" className="w-7 h-7 object-cover" />}
+									{testimonialPhoto && <img src={testimonialPhoto} alt="" className="w-7 h-7 object-cover" />}
 									<div>
 										<p className="text-sm font-medium text-foreground not-italic">{t.name}</p>
 										{t.role && <p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 not-italic">{t.role}</p>}
 									</div>
 								</div>
 							</motion.div>
-						))}
+							);
+						})}
 					</div>
 				</motion.div>
 			)}

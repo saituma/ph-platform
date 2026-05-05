@@ -1,15 +1,16 @@
-import React, { memo, useCallback, useMemo } from "react";
+import React, { memo, useCallback, useMemo, useEffect, useRef } from "react";
 import {
   RefreshControl,
   StyleSheet,
   View,
+  Dimensions,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -21,6 +22,10 @@ import Animated, {
   withSpring,
   useReducedMotion,
   runOnJS,
+  withRepeat,
+  withSequence,
+  withDelay,
+  withTiming,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
@@ -39,11 +44,12 @@ import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { useHomeContent } from "@/hooks/home/useHomeContent";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { useRunStore } from "@/store/useRunStore";
+import { useAppToast } from "@/hooks/useAppToast";
+import { apiRequest } from "@/lib/api";
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const HEADER_HEIGHT = 56;
-const BLUR_THRESHOLD = 60;
+const HERO_HEIGHT = 220; 
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -95,6 +101,39 @@ function useWeeklyStats(userId: string | null) {
   });
 }
 
+// ── Components ───────────────────────────────────────────────────────
+
+const Sparkle = memo(({ size, top, left, delay }: { size: number, top: number, left: number, delay: number }) => {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withDelay(delay, withRepeat(withSequence(withTiming(0.8, { duration: 1500 }), withTiming(0, { duration: 1500 })), -1, true));
+    scale.value = withDelay(delay, withRepeat(withSequence(withTiming(1, { duration: 1500 }), withTiming(0.4, { duration: 1500 })), -1, true));
+  }, [delay, opacity, scale]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: "absolute",
+          top,
+          left,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: "#FFF",
+        },
+        style,
+      ]}
+    />
+  );
+});
 
 // ── Main screen ──────────────────────────────────────────────────────
 
@@ -104,6 +143,7 @@ const HomeScreen = memo(function HomeScreen() {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const queryClient = useQueryClient();
+  const toast = useAppToast();
 
   const token = useAppSelector((s) => s.user.token);
   const profile = useAppSelector((s) => s.user.profile);
@@ -118,6 +158,7 @@ const HomeScreen = memo(function HomeScreen() {
   const watchHistory = useWatchHistoryStore((s) => s.history);
   const runStatus = useRunStore((s) => s.status);
   const isRunActive = runStatus === "running" || runStatus === "paused";
+  const seenAttendanceToastRef = useRef<string | null>(null);
 
   const isLoading = statsQuery.isLoading || !bootstrapReady;
   const homeContentLoading = !homeContent;
@@ -131,11 +172,37 @@ const HomeScreen = memo(function HomeScreen() {
     }, [queryClient, userId]),
   );
 
-  const scrollY = useSharedValue(0);
-  const onScroll = useAnimatedScrollHandler((e) => { scrollY.value = e.contentOffset.y; });
-  const headerBgStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, BLUR_THRESHOLD], [0, 1], Extrapolation.CLAMP),
-  }));
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const run = async () => {
+        if (!token) return;
+        try {
+          const data = await apiRequest<{
+            item?: {
+              date: string;
+              requiredToday: boolean;
+              completedToday: boolean;
+              message?: string | null;
+            };
+          }>("/attendance/today", { token, skipCache: true, suppressLog: true });
+          const item = data?.item;
+          if (!active || !item) return;
+          const key = `${item.date}:${item.requiredToday}:${item.completedToday}`;
+          if (item.requiredToday && !item.completedToday && seenAttendanceToastRef.current !== key) {
+            toast.info("Attendance reminder", item.message ?? "Today is your set day. Complete a session to mark attendance.");
+            seenAttendanceToastRef.current = key;
+          }
+        } catch {
+          // Non-blocking: this reminder should never break Home rendering.
+        }
+      };
+      void run();
+      return () => {
+        active = false;
+      };
+    }, [token, toast]),
+  );
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
@@ -180,185 +247,113 @@ const HomeScreen = memo(function HomeScreen() {
   const totalTime = stats?.totalTime ?? 0;
   const numRuns = stats?.numRuns ?? 0;
 
-  // Robis: tinted not pure dark bg for cards
   const cardBg = isDark ? "hsl(220, 8%, 11%)" : colors.card;
-  // Robis: dark mode uses border instead of shadow for elevation
   const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)";
-  // Robis: tinted text colors — no opacity hack
   const primaryText = isDark ? "hsl(220, 5%, 93%)" : "hsl(220, 8%, 10%)";
   const secondaryText = isDark ? "hsl(220, 5%, 56%)" : "hsl(220, 5%, 46%)";
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
 
-      {/* ── Sticky blurred header ────────────────────────────── */}
-      <View style={[styles.header, { paddingTop: insets.top, height: HEADER_HEIGHT + insets.top }]}>
-        <Animated.View style={[StyleSheet.absoluteFill, headerBgStyle]}>
-          <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
-        </Animated.View>
-        <View style={styles.headerContent}>
-          <Text style={[styles.screenTitle, { fontFamily: "Outfit-Bold", color: primaryText }]}>
-            {getGreeting()}, {firstName}
-          </Text>
-        </View>
-      </View>
-
-      {/* ── Scrollable body ──────────────────────────────────── */}
+      {/* ── Scrollable Body ──────────────────────────────────── */}
       <Animated.ScrollView
-        onScroll={onScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{
-          paddingTop: HEADER_HEIGHT + insets.top + 12,
-          paddingBottom: insets.bottom + 100,
-          paddingHorizontal: 20,
-          gap: 12,
-        }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.accent} />
-        }
+        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.accent} />}
       >
-
-        {/* ── Hero card (hidden for non-team youth athletes) ─── */}
-        {showTracking && (
-        <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(200)}>
-          <View
-            style={[
-              styles.heroCard,
-              {
-                backgroundColor: cardBg,
-                borderWidth: 1,
-                borderColor: cardBorder,
-              },
-            ]}
-          >
-            {watchHistory.length > 0 ? (
-              <>
-                <Text style={[styles.microLabel, { color: colors.accent }]}>
-                  CONTINUE WATCHING
-                </Text>
-                <Text
-                  style={[styles.heroNumber, { fontFamily: "Chillax-Semibold", color: primaryText }]}
-                  numberOfLines={2}
-                >
-                  {watchHistory[0].title}
-                </Text>
-                {watchHistory[0].thumbnail ? (
-                  <View style={styles.progressContainer}>
-                    <View style={[styles.progressTrack, { backgroundColor: isDark ? "hsl(220,8%,20%)" : "hsl(220,8%,88%)" }]}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            backgroundColor: colors.accent,
-                            width: `${Math.round(watchHistory[0].progress * 100)}%`,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <Text style={[styles.microLabel, { color: colors.accent }]}>
-                  THIS WEEK
-                </Text>
-                <View style={styles.heroRow}>
-                  <Text style={[styles.heroNumber, { fontFamily: "Chillax-Semibold", color: primaryText }]}>
-                    {formatKm(totalDist)}
-                  </Text>
-                  <Text style={[styles.heroUnit, { fontFamily: "Outfit-Medium", color: secondaryText }]}>
-                    km
-                  </Text>
-                </View>
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: secondaryText, marginTop: 2 }}>
-                  total distance this week
-                </Text>
-              </>
-            )}
-
-            <GestureDetector gesture={ctaTap}>
-              <Animated.View
-                style={[ctaStyle, { marginTop: 20 }]}
-                accessibilityRole="button"
-                accessibilityLabel="Start session"
-              >
-                <View
-                  style={[
-                    styles.ctaBtn,
-                    {
-                      backgroundColor: colors.accent,
-                      borderWidth: isDark ? 1 : 0,
-                      borderColor: isDark ? "rgba(255,255,255,0.10)" : "transparent",
-                    },
-                  ]}
-                >
-                  <Text style={[styles.ctaText, { fontFamily: "Outfit-Bold", color: isDark ? "hsl(220,8%,10%)" : "hsl(0,0%,98%)" }]}>
-                    {isRunActive ? "Running" : watchHistory.length > 0 ? "Resume watching" : "Start session"}
-                  </Text>
-                </View>
-              </Animated.View>
-            </GestureDetector>
-          </View>
-        </Animated.View>
-        )}
-
-        {/* ── Quick stats row ──────────────────────────────────── */}
-        {showTracking && (
-        <Animated.View
-          entering={reduceMotion ? undefined : FadeInDown.delay(80).duration(300).springify()}
-          style={styles.statsRow}
-        >
-          {[
-            { value: formatKm(totalDist), label: "Dist", unit: "km" },
-            { value: formatTime(totalTime), label: "Time", unit: totalTime >= 3600 ? "hr" : "min" },
-            { value: String(numRuns), label: "Sessions", unit: "" },
-          ].map((stat) => (
-            <HomeStatCard
-              key={stat.label}
-              stat={stat}
-              onPress={navigateToTracking}
-              cardBg={cardBg}
-              cardBorder={cardBorder}
-              accentColor={colors.accent}
-              primaryText={primaryText}
-              secondaryText={secondaryText}
-            />
-          ))}
-        </Animated.View>
-        )}
-
-        {/* ── Quick links ──────────────────────────────────────── */}
-        <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(140).duration(300).springify()}>
-          <QuickLinksSection appRole={appRole} />
-        </Animated.View>
-
-        {/* ── Intro video ──────────────────────────────────────── */}
-        <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(220).duration(300).springify()}>
-          <IntroVideoSection
-            introVideoUrl={pickIntroVideoForRole(
-              homeContent?.introVideos,
-              homeContent?.introVideoUrl,
-              audienceFromAppRole(appRole),
-            )}
-            posterUrl={homeContent?.heroImageUrl}
-            isTabActive={true}
-            tabIndex={0}
-            loading={homeContentLoading}
+        {/* ── Hero Section (Normal Scroll) ────────────────────── */}
+        <View style={[styles.heroContainer, { height: HERO_HEIGHT + insets.top, paddingTop: insets.top }]}>
+          <LinearGradient
+            colors={[colors.accent, isDark ? "rgba(138, 255, 0, 0.4)" : "rgba(106, 204, 0, 0.5)", "transparent"]}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1 }}
           />
-        </Animated.View>
+          
+          {/* Sparkles */}
+          <Sparkle size={4} top={60} left={40} delay={0} />
+          <Sparkle size={3} top={120} left={80} delay={500} />
+          <Sparkle size={5} top={40} left={250} delay={1000} />
+          <Sparkle size={3} top={150} left={320} delay={1500} />
+          <Sparkle size={4} top={90} left={180} delay={2000} />
 
-        {/* ── Admin story ──────────────────────────────────────── */}
-        <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(280).duration(300).springify()}>
-          <AdminStorySection story={homeContent?.adminStory} photoUrl={homeContent?.professionalPhoto} loading={homeContentLoading} />
-        </Animated.View>
+          <View style={styles.heroTextContainer}>
+            <Animated.Text entering={FadeInDown.delay(100).duration(600)} style={[styles.heroGreeting, { color: "#FFF" }]}>{getGreeting()},</Animated.Text>
+            <Animated.Text entering={FadeInDown.delay(250).duration(600)} style={[styles.heroName, { color: "#FFF" }]}>{firstName}</Animated.Text>
+          </View>
+        </View>
 
-        {/* ── Testimonials ─────────────────────────────────────── */}
-        <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(340).duration(300).springify()}>
-          <TestimonialsSection items={homeContent?.testimonials} loading={homeContentLoading} />
-        </Animated.View>
+        {/* Content Container */}
+        <View style={styles.content}>
+          
+          {/* Hero card (Overlap) */}
+          {showTracking && (
+          <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(200)} style={{ marginTop: -40 }}>
+            <View style={[styles.heroCard, { backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder, shadowColor: colors.accent, shadowOffset: { width: 0, height: 12 }, shadowOpacity: isDark ? 0.2 : 0.08, shadowRadius: 24, elevation: 8 }]}>
+              {watchHistory.length > 0 ? (
+                <>
+                  <Text style={[styles.microLabel, { color: colors.accent }]}>CONTINUE WATCHING</Text>
+                  <Text style={[styles.heroNumber, { fontFamily: "Chillax-Semibold", color: primaryText }]} numberOfLines={2}>{watchHistory[0].title}</Text>
+                  {watchHistory[0].thumbnail && (
+                    <View style={styles.progressContainer}>
+                      <View style={[styles.progressTrack, { backgroundColor: isDark ? "hsl(220,8%,20%)" : "hsl(220,8%,88%)" }]}>
+                        <View style={[styles.progressFill, { backgroundColor: colors.accent, width: `${Math.round(watchHistory[0].progress * 100)}%` }]} />
+                      </View>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.microLabel, { color: colors.accent }]}>THIS WEEK</Text>
+                  <View style={styles.heroRow}>
+                    <Text style={[styles.heroNumber, { fontFamily: "Chillax-Semibold", color: primaryText }]}>{formatKm(totalDist)}</Text>
+                    <Text style={[styles.heroUnit, { fontFamily: "Outfit-Medium", color: secondaryText }]}>km</Text>
+                  </View>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: secondaryText, marginTop: 2 }}>total distance this week</Text>
+                </>
+              )}
+              <GestureDetector gesture={ctaTap}>
+                <Animated.View style={[ctaStyle, { marginTop: 20 }]} accessibilityRole="button">
+                  <View style={[styles.ctaBtn, { backgroundColor: colors.accent, borderWidth: isDark ? 1 : 0, borderColor: isDark ? "rgba(255,255,255,0.10)" : "transparent" }]}>
+                    <Text style={[styles.ctaText, { fontFamily: "Outfit-Bold", color: isDark ? "hsl(220,8%,10%)" : "hsl(0,0%,98%)" }]}>
+                      {isRunActive ? "Running" : watchHistory.length > 0 ? "Resume watching" : "Start session"}
+                    </Text>
+                  </View>
+                </Animated.View>
+              </GestureDetector>
+            </View>
+          </Animated.View>
+          )}
 
+          {/* Quick stats row */}
+          {showTracking && (
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(80).duration(300).springify()} style={styles.statsRow}>
+            {[
+              { value: formatKm(totalDist), label: "Dist", unit: "km" },
+              { value: formatTime(totalTime), label: "Time", unit: totalTime >= 3600 ? "hr" : "min" },
+              { value: String(numRuns), label: "Sessions", unit: "" },
+            ].map((stat) => (
+              <HomeStatCard key={stat.label} stat={stat} onPress={navigateToTracking} cardBg={cardBg} cardBorder={cardBorder} accentColor={colors.accent} primaryText={primaryText} secondaryText={secondaryText} />
+            ))}
+          </Animated.View>
+          )}
+
+          {/* Rest of the sections */}
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(140).duration(300).springify()}>
+            <QuickLinksSection appRole={appRole} />
+          </Animated.View>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(220).duration(300).springify()}>
+            <IntroVideoSection introVideoUrl={pickIntroVideoForRole(homeContent?.introVideos, homeContent?.introVideoUrl, audienceFromAppRole(appRole))} posterUrl={homeContent?.heroImageUrl} isTabActive={true} tabIndex={0} loading={homeContentLoading} />
+          </Animated.View>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(280).duration(300).springify()}>
+            <AdminStorySection story={homeContent?.adminStory} photoUrl={homeContent?.professionalPhoto} loading={homeContentLoading} />
+          </Animated.View>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(340).duration(300).springify()}>
+            <TestimonialsSection items={homeContent?.testimonials} loading={homeContentLoading} />
+          </Animated.View>
+
+        </View>
       </Animated.ScrollView>
     </View>
   );
@@ -369,68 +364,22 @@ export default HomeScreen;
 // ── HomeStatCard ────────────────────────────────────────────────────
 
 const HomeStatCard = React.memo(function HomeStatCard({
-  stat,
-  onPress,
-  cardBg,
-  cardBorder,
-  accentColor,
-  primaryText,
-  secondaryText,
+  stat, onPress, cardBg, cardBorder, accentColor, primaryText, secondaryText,
 }: {
   stat: { value: string; label: string; unit: string };
-  onPress: () => void;
-  cardBg: string;
-  cardBorder: string;
-  accentColor: string;
-  primaryText: string;
-  secondaryText: string;
+  onPress: () => void; cardBg: string; cardBorder: string; accentColor: string; primaryText: string; secondaryText: string;
 }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  const tap = useMemo(() => Gesture.Tap()
-    .onBegin(() => {
-      "worklet";
-      scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
-      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    })
-    .onFinalize(() => {
-      "worklet";
-      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
-    })
-    .onEnd(() => {
-      "worklet";
-      runOnJS(onPress)();
-    }), [onPress]);
-
+  const tap = useMemo(() => Gesture.Tap().onBegin(() => { "worklet"; scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 }); runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light); }).onFinalize(() => { "worklet"; scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 }); }).onEnd(() => { "worklet"; runOnJS(onPress)(); }), [onPress]);
   return (
     <GestureDetector gesture={tap}>
       <Animated.View style={[animStyle, { flex: 1 }]}>
-        <View
-          style={[
-            styles.statCard,
-            {
-              backgroundColor: cardBg,
-              borderWidth: 1,
-              borderColor: cardBorder,
-            },
-          ]}
-        >
-          <Text style={[styles.statLabel, { color: accentColor }]} numberOfLines={1}>
-            {stat.label}
-          </Text>
+        <View style={[styles.statCard, { backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder }]}>
+          <Text style={[styles.statLabel, { color: accentColor }]} numberOfLines={1}>{stat.label}</Text>
           <View style={styles.statValueRow}>
-            <Text
-              style={[styles.statValue, { fontFamily: "Chillax-Semibold", color: primaryText }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-            >
-              {stat.value}
-            </Text>
-            {stat.unit ? (
-              <Text style={[styles.statUnit, { color: secondaryText }]}>{stat.unit}</Text>
-            ) : null}
+            <Text style={[styles.statValue, { fontFamily: "Chillax-Semibold", color: primaryText }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{stat.value}</Text>
+            {stat.unit && <Text style={[styles.statUnit, { color: secondaryText }]}>{stat.unit}</Text>}
           </View>
         </View>
       </Animated.View>
@@ -441,115 +390,26 @@ const HomeStatCard = React.memo(function HomeStatCard({
 // ── Styles ───────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  header: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  headerContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-  },
-  screenTitle: {
-    fontSize: 22,
-    letterSpacing: -0.3,
-  },
-  // Hero: 24px radius, 24px padding → inner CTA pill radius unconstrained (it's full pill)
-  heroCard: {
-    width: "100%",
-    minHeight: 200,
-    borderRadius: 24,
-    padding: 24,
-    justifyContent: "flex-end",
-  },
-  // Robis: all-caps label — letterSpacing 1.2 (not 0.5)
-  microLabel: {
-    fontFamily: "Outfit-Medium",
-    fontSize: 11,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    marginBottom: 8,
-  },
-  heroRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 6,
-    marginTop: 4,
-  },
-  heroNumber: {
-    fontSize: 48,
-    letterSpacing: -1,
-    lineHeight: 52,
-  },
-  heroUnit: {
-    fontSize: 20,
-    paddingBottom: 8,
-    letterSpacing: -0.3,
-  },
-  progressContainer: {
-    marginTop: 12,
-  },
-  progressTrack: {
-    height: 4,
-    borderRadius: 2,
-    width: "100%",
-  },
-  progressFill: {
-    height: 4,
-    borderRadius: 2,
-  },
-  ctaBtn: {
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ctaText: {
-    fontSize: 16,
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  statCard: {
-    borderRadius: 16,
-    padding: 12,
-    gap: 4,
-  },
-  statLabel: {
-    fontFamily: "Outfit-Bold",
-    fontSize: 9,
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
-  statValueRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 3,
-  },
-  statValue: {
-    fontSize: 22,
-    letterSpacing: -0.5,
-    flexShrink: 1,
-  },
-  statUnit: {
-    fontFamily: "Outfit-Regular",
-    fontSize: 11,
-    paddingBottom: 3,
-  },
-  sectionHeader: {
-    fontFamily: "Outfit-Bold",
-    fontSize: 17,
-    letterSpacing: -0.2,
-    marginBottom: 8,
-    paddingLeft: 4,
-  },
+  screen: { flex: 1 },
+  heroContainer: { width: "100%", overflow: "hidden" },
+  heroTextContainer: { paddingHorizontal: 20, marginTop: 20 },
+  heroGreeting: { fontFamily: "Outfit-Bold", fontSize: 24, letterSpacing: -0.5, opacity: 0.9 },
+  heroName: { fontFamily: "Outfit-Black", fontSize: 42, letterSpacing: -1.5, lineHeight: 46, marginTop: 2 },
+  content: { paddingHorizontal: 20, gap: 12 },
+  heroCard: { width: "100%", minHeight: 200, borderRadius: 24, padding: 24, justifyContent: "flex-end" },
+  microLabel: { fontFamily: "Outfit-Medium", fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 },
+  heroRow: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: 4 },
+  heroNumber: { fontSize: 48, letterSpacing: -1, lineHeight: 52 },
+  heroUnit: { fontSize: 20, paddingBottom: 8, letterSpacing: -0.3 },
+  progressContainer: { marginTop: 12 },
+  progressTrack: { height: 4, borderRadius: 2, width: "100%" },
+  progressFill: { height: 4, borderRadius: 2 },
+  ctaBtn: { height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
+  ctaText: { fontSize: 16 },
+  statsRow: { flexDirection: "row", gap: 8 },
+  statCard: { borderRadius: 16, padding: 12, gap: 4 },
+  statLabel: { fontFamily: "Outfit-Bold", fontSize: 9, letterSpacing: 0.6, textTransform: "uppercase" },
+  statValueRow: { flexDirection: "row", alignItems: "flex-end", gap: 3 },
+  statValue: { fontSize: 22, letterSpacing: -0.5, flexShrink: 1 },
+  statUnit: { fontFamily: "Outfit-Regular", fontSize: 11, paddingBottom: 3 },
 });

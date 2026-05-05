@@ -8,6 +8,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 
 import { Text } from "@/components/ScaledText";
+import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import type { ExerciseItem } from "@/constants/program-details";
 
@@ -195,15 +196,9 @@ export function SessionRunnerModal({
               ) : null}
 
               {current.videoUrl ? (
-                <Pressable
-                  onPress={() => onVideoPress?.(current.videoUrl!)}
-                  className="rounded-2xl py-4 flex-row items-center justify-center gap-2 border border-accent"
-                >
-                  <Feather name="play" size={18} color={colors.accent} />
-                  <Text className="font-outfit font-semibold" style={{ color: colors.accent }}>
-                    Watch demo
-                  </Text>
-                </Pressable>
+                <View className="rounded-2xl overflow-hidden border border-app/10">
+                  <VideoPlayer uri={current.videoUrl} title={current.title} ignoreTabFocus />
+                </View>
               ) : null}
             </View>
           ) : null}

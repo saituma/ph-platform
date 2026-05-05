@@ -55,8 +55,9 @@ export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
     const handleTabPress = useCallback(
         (tab: TabItem) => {
             if (tab.key === active) return;
+            // Use push for reliable segment navigation inside nested tab+stack groups.
             // @ts-ignore - Expo router types can be strict depending on config
-            router.replace(tab.route);
+            router.push(tab.route);
         },
         [active, router],
     );

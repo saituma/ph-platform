@@ -118,26 +118,50 @@ const sessionExerciseSchema = z.object({
 
 export async function assignProgram(req: Request, res: Response) {
   const input = assignSchema.parse(req.body);
-  const enrollment = await assignEnrollment({
-    athleteId: input.athleteId,
-    programType: input.programType,
-    programTemplateId: input.programTemplateId,
-    assignedByCoach: req.user!.id,
-  });
-  return res.status(201).json({ enrollment });
+  try {
+    const enrollment = await assignEnrollment({
+      athleteId: input.athleteId,
+      programType: input.programType,
+      programTemplateId: input.programTemplateId,
+      assignedByCoach: req.user!.id,
+    });
+    return res.status(201).json({ enrollment });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found") || msg.includes("Not found")) {
+      return res.status(404).json({ error: msg });
+    }
+    const code = (err as any)?.code;
+    if (code === "23505" || msg.includes("unique") || msg.includes("duplicate")) {
+      return res.status(409).json({ error: "Already assigned" });
+    }
+    throw err;
+  }
 }
 
 export async function createProgram(req: Request, res: Response) {
   const input = programSchema.parse(req.body);
-  const program = await createProgramTemplate({
-    name: input.name,
-    type: input.type,
-    description: input.description,
-    minAge: input.minAge ?? null,
-    maxAge: input.maxAge ?? null,
-    createdBy: req.user!.id,
-  });
-  return res.status(201).json({ program });
+  try {
+    const program = await createProgramTemplate({
+      name: input.name,
+      type: input.type,
+      description: input.description,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
+      createdBy: req.user!.id,
+    });
+    return res.status(201).json({ program });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found") || msg.includes("Not found")) {
+      return res.status(400).json({ error: msg });
+    }
+    const code = (err as any)?.code;
+    if (code === "23505" || msg.includes("unique") || msg.includes("duplicate")) {
+      return res.status(409).json({ error: "Program already exists" });
+    }
+    throw err;
+  }
 }
 
 export async function listPrograms(_req: Request, res: Response) {
@@ -149,15 +173,26 @@ export async function listPrograms(_req: Request, res: Response) {
 export async function updateProgram(req: Request, res: Response) {
   const programId = z.coerce.number().int().min(1).parse(req.params.programId);
   const input = programUpdateSchema.parse(req.body);
-  const program = await updateProgramTemplate({
-    programId,
-    name: input.name,
-    type: input.type,
-    description: input.description ?? null,
-    minAge: input.minAge ?? null,
-    maxAge: input.maxAge ?? null,
-  });
-  return res.status(200).json({ program });
+  try {
+    const program = await updateProgramTemplate({
+      programId,
+      name: input.name,
+      type: input.type,
+      description: input.description ?? null,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
+    });
+    if (!program) {
+      return res.status(404).json({ error: "Program not found" });
+    }
+    return res.status(200).json({ program });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found") || msg.includes("Not found")) {
+      return res.status(404).json({ error: msg });
+    }
+    throw err;
+  }
 }
 
 export async function deleteProgram(req: Request, res: Response) {

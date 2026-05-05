@@ -20,6 +20,7 @@ import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
 import {
   classifyGroupThread,
+  mapGroupToThread,
   mapCoachToThread,
 } from "@/lib/messages/mappers/threadMapper";
 import {
@@ -27,7 +28,12 @@ import {
   mapApiGroupMessageToChatMessage,
 } from "@/lib/messages/mappers/messageMapper";
 import { schedulePrefetchChatMessageMedia } from "@/lib/messages/prefetchChatMedia";
-import { ApiChatMessage, ChatMessagesResponse, InboxResponse } from "@/types/chat-api";
+import {
+  ApiChatMessage,
+  ChatGroupsResponse,
+  ChatMessagesResponse,
+  InboxResponse,
+} from "@/types/chat-api";
 
 interface ChatActionsParams {
   token: string | null;
@@ -72,7 +78,11 @@ export function useChatActions({
    * so TanStack Query owns the fetch and its dedup/caching; this owns the mapping.
    */
   const applyFetchedData = useCallback(
-    (inboxData: InboxResponse, data: ChatMessagesResponse) => {
+    (
+      inboxData: InboxResponse,
+      data: ChatMessagesResponse,
+      groupsData?: ChatGroupsResponse,
+    ) => {
       const selfId = String(effectiveProfileId ?? "");
       const isPremium = hasPaidProgramTier(programTier);
       const coaches = data.coaches ?? (data.coach ? [data.coach] : []);
@@ -149,6 +159,15 @@ export function useChatActions({
           };
         });
 
+      const hasInboxGroupThreads = inboxThreads.some((thread) =>
+        String(thread.id).startsWith("group:"),
+      );
+      const groupFallbackThreads = hasInboxGroupThreads
+        ? []
+        : (groupsData?.groups ?? [])
+            .filter((group) => classifyGroupThread(group) !== "announcement")
+            .map((group) => mapGroupToThread(group));
+
       const orderedDirectMessages = [...(data.messages ?? [])].sort(
         (a, b) => Number(a.id ?? 0) - Number(b.id ?? 0),
       );
@@ -164,7 +183,77 @@ export function useChatActions({
           mapCoachToThread(coach, orderedDirectMessages, isPremium),
         );
 
-      const sortedThreads = [...inboxThreads, ...coachThreads].sort(
+      // Fallback: if inbox endpoint is empty/incomplete, derive direct threads
+      // from /messages so users still see conversations that badge count reports.
+      const directFallbackByPeer = new Map<
+        string,
+        {
+          id: string;
+          name: string;
+          preview: string;
+          updatedAtMs: number;
+          unread: number;
+          time: string;
+        }
+      >();
+      for (const msg of orderedDirectMessages) {
+        const senderId = String(msg.senderId ?? "");
+        const receiverId = String(msg.receiverId ?? "");
+        const peerId = senderId === selfId ? receiverId : senderId;
+        if (!peerId || peerId === selfId) continue;
+        if (inboxThreadIds.has(peerId)) continue;
+        const ts = new Date(msg.createdAt ?? 0).getTime();
+        const preview = String(msg.content ?? "").trim() || "No messages yet";
+        const existing = directFallbackByPeer.get(peerId);
+        const isIncomingUnread = senderId === peerId && msg.read === false;
+        const unreadDelta = isIncomingUnread ? 1 : 0;
+        if (!existing) {
+          const coach = (coaches ?? []).find((c) => String(c.id) === peerId);
+          directFallbackByPeer.set(peerId, {
+            id: peerId,
+            name: coach?.name?.trim() || `User ${peerId}`,
+            preview,
+            updatedAtMs: Number.isFinite(ts) ? ts : 0,
+            unread: unreadDelta,
+            time: Number.isFinite(ts)
+              ? new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "",
+          });
+          continue;
+        }
+        if (Number.isFinite(ts) && ts >= existing.updatedAtMs) {
+          existing.updatedAtMs = ts;
+          existing.preview = preview;
+          existing.time = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+        existing.unread += unreadDelta;
+      }
+
+      const directFallbackThreads: MessageThread[] = Array.from(directFallbackByPeer.values()).map((t) => ({
+        id: t.id,
+        name: t.name,
+        role: "Coach",
+        channelType: "direct",
+        groupLabel: "Direct message",
+        preview: t.preview,
+        time: t.time,
+        pinned: false,
+        premium: isPremium,
+        unread: t.unread,
+        lastSeen: "Active",
+        responseTime: isPremium ? "Priority response window" : "Standard response window",
+        updatedAtMs: t.updatedAtMs,
+        avatarUrl: null,
+        isAi: false,
+        lastSeenAt: null,
+      }));
+
+      const sortedThreads = [
+        ...inboxThreads,
+        ...groupFallbackThreads,
+        ...coachThreads,
+        ...directFallbackThreads,
+      ].sort(
         (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
       );
       // Preserve real-time "Online" status that presence:update wrote before

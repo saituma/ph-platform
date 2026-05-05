@@ -31,6 +31,7 @@ import {
   syncTeamRequestPaymentAdmin,
   updatePlanAdmin,
   verifyRevenueCatPurchase,
+  listTeamPlayerInvitesAdmin,
 } from "../controllers/billing.controller";
 
 const router = Router();
@@ -121,6 +122,12 @@ router.post(
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
   syncTeamRequestPaymentAdmin,
+);
+router.get(
+  "/admin/team-subscription-requests/:requestId/invites",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  listTeamPlayerInvitesAdmin,
 );
 
 export default router;

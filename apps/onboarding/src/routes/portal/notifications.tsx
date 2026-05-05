@@ -1,42 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import {
-	Bell,
-	BellOff,
-	CheckCheck,
-	Loader2,
-} from "lucide-react";
+import { Bell, BellOff, CheckCheck, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePortalNotifications } from "@/hooks/usePortalNotifications";
 import {
 	motion,
 	PageTransition,
-	StaggerList,
-	StaggerItem,
 	Skeleton,
+	StaggerItem,
+	StaggerList,
 } from "@/lib/motion";
+import { cn } from "@/lib/utils";
+import { usePortal } from "@/portal/PortalContext";
 import { settingsService } from "@/services/settingsService";
 
 export const Route = createFileRoute("/portal/notifications")({
 	component: NotificationsPage,
 });
-
-type Notification = {
-	id: number;
-	type: string | null;
-	content: string | null;
-	read: boolean;
-	link: string | null;
-	createdAt: string;
-};
 
 function relativeDate(dateString: string) {
 	const diff = Date.now() - new Date(dateString).getTime();
@@ -47,36 +30,25 @@ function relativeDate(dateString: string) {
 	if (hours < 24) return `${hours}h ago`;
 	const days = Math.floor(hours / 24);
 	if (days < 7) return `${days}d ago`;
-	return new Date(dateString).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+	return new Date(dateString).toLocaleDateString(undefined, {
+		month: "short",
+		day: "numeric",
+	});
 }
 
 function NotificationsPage() {
-	const [notifications, setNotifications] = useState<Notification[]>([]);
-	const [loading, setLoading] = useState(true);
+	const { token, loading: portalLoading } = usePortal();
+	const { notifications, isLoading, unreadCount, refreshNotifications } =
+		usePortalNotifications({
+			token,
+			enabled: !!token && !portalLoading,
+		});
 	const [markingAll, setMarkingAll] = useState(false);
-
-	const fetchNotifications = async () => {
-		setLoading(true);
-		try {
-			const data = await settingsService.getNotifications();
-			setNotifications(data.items ?? []);
-		} catch {
-			toast.error("Could not load notifications");
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	useEffect(() => {
-		void fetchNotifications();
-	}, []);
 
 	const handleMarkRead = async (id: number) => {
 		try {
 			await settingsService.markNotificationRead(id);
-			setNotifications((prev) =>
-				prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-			);
+			await refreshNotifications(false);
 		} catch {
 			toast.error("Failed to mark as read");
 		}
@@ -87,8 +59,10 @@ function NotificationsPage() {
 		if (!unread.length) return;
 		setMarkingAll(true);
 		try {
-			await Promise.all(unread.map((n) => settingsService.markNotificationRead(n.id)));
-			setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+			await Promise.all(
+				unread.map((n) => settingsService.markNotificationRead(n.id)),
+			);
+			await refreshNotifications(false);
 			toast.success("All notifications marked as read");
 		} catch {
 			toast.error("Failed to mark all as read");
@@ -96,8 +70,6 @@ function NotificationsPage() {
 			setMarkingAll(false);
 		}
 	};
-
-	const unreadCount = notifications.filter((n) => !n.read).length;
 
 	return (
 		<PageTransition className="p-6 max-w-2xl mx-auto space-y-6">
@@ -166,7 +138,7 @@ function NotificationsPage() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="p-0">
-						{loading ? (
+						{isLoading ? (
 							<div className="divide-y">
 								{[1, 2, 3, 4].map((i) => (
 									<div key={i} className="flex items-start gap-4 px-5 py-4">
@@ -209,7 +181,11 @@ function NotificationsPage() {
 										>
 											<motion.div
 												animate={!notif.read ? { scale: [1, 1.3, 1] } : {}}
-												transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+												transition={{
+													repeat: Infinity,
+													duration: 2,
+													ease: "easeInOut",
+												}}
 												className={cn(
 													"mt-0.5 h-2 w-2 shrink-0 rounded-full",
 													!notif.read ? "bg-primary" : "bg-transparent",
@@ -224,7 +200,9 @@ function NotificationsPage() {
 												<p
 													className={cn(
 														"text-sm leading-snug",
-														!notif.read ? "font-bold text-foreground" : "text-muted-foreground",
+														!notif.read
+															? "font-bold text-foreground"
+															: "text-muted-foreground",
 													)}
 												>
 													{notif.content || "—"}

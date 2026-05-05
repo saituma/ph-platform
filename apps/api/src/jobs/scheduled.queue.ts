@@ -65,6 +65,9 @@ export async function startScheduledWorker(): Promise<void> {
       concurrency: 1,
     },
   );
+  _worker.on("error", (err) => {
+    logger.error({ err }, "Scheduled worker error");
+  });
 
   await queue.upsertJobScheduler(
     "nutrition-reminder",

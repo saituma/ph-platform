@@ -1,0 +1,976 @@
+.
+├── AGENTS.md
+├── android
+│   ├── app
+│   │   ├── build.gradle
+│   │   ├── debug.keystore
+│   │   ├── proguard-rules.pro
+│   │   └── src
+│   │       ├── debug
+│   │       ├── debugOptimized
+│   │       └── main
+│   ├── build.gradle
+│   ├── gradle
+│   │   └── wrapper
+│   │       ├── gradle-wrapper.jar
+│   │       └── gradle-wrapper.properties
+│   ├── gradle.properties
+│   ├── gradlew
+│   ├── gradlew.bat
+│   └── settings.gradle
+├── app.json
+├── apps
+│   ├── api
+│   │   ├── app.json
+│   │   ├── biome.json
+│   │   ├── check_tokens.js
+│   │   ├── delete-user-temp.js
+│   │   ├── DEPLOY_RENDER.md
+│   │   ├── Dockerfile
+│   │   ├── Dockerfile.render
+│   │   ├── drizzle
+│   │   │   ├── 0000_yellow_sphinx.sql
+│   │   │   ├── 0001_admin_settings.sql
+│   │   │   ├── 0002_user_block_delete.sql
+│   │   │   ├── 0003_local_auth.sql
+│   │   │   ├── 0004_onboarding_config.sql
+│   │   │   ├── 0005_chat_groups.sql
+│   │   │   ├── 0006_add_athlete_role.sql
+│   │   │   ├── 0007_split_guardian_athlete_messages.sql
+│   │   │   ├── 0008_parent_courses.sql
+│   │   │   ├── 0009_parent_courses_cover_image_text.sql
+│   │   │   ├── 0010_subscription_plans_requests.sql
+│   │   │   ├── 0011_outstanding_legion.sql
+│   │   │   ├── 0012_subscription_plan_pricing.sql
+│   │   │   ├── 0013_add_exercise_category.sql
+│   │   │   ├── 0014_exercise_text_fields.sql
+│   │   │   ├── 0015_age_content_and_birthdate.sql
+│   │   │   ├── 0016_add_legal_content_surface.sql
+│   │   │   ├── 0017_add_user_token_version.sql
+│   │   │   ├── 0018_add_athlete_profile_picture.sql
+│   │   │   ├── 0019_expand_profile_picture_columns.sql
+│   │   │   ├── 0020_add_guardian_active_athlete.sql
+│   │   │   ├── 0021_age_experience_rules.sql
+│   │   │   ├── 0022_add_program_age_range.sql
+│   │   │   ├── 0023_program_section_content.sql
+│   │   │   ├── 0024_sparkling_spitfire.sql
+│   │   │   ├── 0025_program_section_content_age_list.sql
+│   │   │   ├── 0026_add_message_video_upload_id.sql
+│   │   │   ├── 0027_add_subscription_plan_stripe_price_ids.sql
+│   │   │   ├── 0028_add_guardian_program_tier.sql
+│   │   │   ├── 0029_fix_guardian_columns.sql
+│   │   │   ├── 0030_add_section_content_metadata.sql
+│   │   │   ├── 0031_add_physio_metadata.sql
+│   │   │   ├── 0032_loving_sandman.sql
+│   │   │   ├── 0033_chat_group_constraints.sql
+│   │   │   ├── 0034_add_video_upload_toggle.sql
+│   │   │   ├── 0035_add_stories.sql
+│   │   │   ├── 0036_remove_story_schedule.sql
+│   │   │   ├── 0037_add_movement_screening_session_type.sql
+│   │   │   ├── 0038_program_section_completions.sql
+│   │   │   ├── 0039_premium_athlete_plan.sql
+│   │   │   ├── 0040_messaging_enabled_tiers.sql
+│   │   │   ├── 0041_training_progress_achievements.sql
+│   │   │   ├── 0042_athlete_plan_expiry.sql
+│   │   │   ├── 0043_training_content_v2.sql
+│   │   │   ├── 0044_training_content_audience_labels.sql
+│   │   │   ├── 0045_training_audiences.sql
+│   │   │   ├── 0046_training_other_settings.sql
+│   │   │   ├── 0047_training_module_tier_locks.sql
+│   │   │   ├── 0048_training_session_tier_locks.sql
+│   │   │   ├── 0049_scheduling_redesign.sql
+│   │   │   ├── 0050_training_other_type_warmup_cooldown.sql
+│   │   │   ├── 0051_membership_tiers_refresh.sql
+│   │   │   ├── 0052_stripe_prices_monthly_reset.sql
+│   │   │   ├── 0053_adult_athlete.sql
+│   │   │   ├── 0054_plan_commitment_options.sql
+│   │   │   ├── 0055_command_palette_scaling_indexes.sql
+│   │   │   ├── 0056_chat_group_category.sql
+│   │   │   ├── 0057_announcement_schedule.sql
+│   │   │   ├── 0058_announcement_active.sql
+│   │   │   ├── 0059_chat_group_member_last_read_at.sql
+│   │   │   ├── 0060_service_types_eligible_plans.sql
+│   │   │   ├── 0061_chat_group_member_lastReadAt_fix.sql
+│   │   │   ├── 0062_service_types_scheduling_columns.sql
+│   │   │   ├── 0063_run_logs.sql
+│   │   │   ├── 0064_nifty_cerebro.sql
+│   │   │   ├── 0065_create_teams_table.sql
+│   │   │   ├── 0066_freezing_angel.sql
+│   │   │   ├── 0067_furry_makkari.sql
+│   │   │   ├── 0068_training_session_workout_logs.sql
+│   │   │   ├── 0069_nutrition_feedback_media.sql
+│   │   │   ├── 0070_unknown_team_to_empty.sql
+│   │   │   ├── 0071_service_types_description.sql
+│   │   │   ├── 0072_service_types_remove_capacity_and_one_time.sql
+│   │   │   ├── 0073_bookings_notes.sql
+│   │   │   ├── 0074_nutrition_snack_slots.sql
+│   │   │   ├── 0075_video_upload_training_session_item_id.sql
+│   │   │   ├── 0076_nutrition_daily_habits_steps_sleep.sql
+│   │   │   ├── 0077_nutrition_log_reminders.sql
+│   │   │   ├── 0078_perfect_wallop.sql
+│   │   │   ├── 0079_famous_may_parker.sql
+│   │   │   ├── 0080_better_auth_tables.sql
+│   │   │   ├── 0081_subscription_plans_tier_hygiene.sql
+│   │   │   ├── 0082_subscription_requests_plan_billing_cycle.sql
+│   │   │   ├── 0083_social_privacy_settings.sql
+│   │   │   ├── 0084_add_device_push_tokens.sql
+│   │   │   ├── 0085_familiar_sage.sql
+│   │   │   ├── 0086_team_subscription_requests.sql
+│   │   │   ├── 0087_payment_receipt_columns.sql
+│   │   │   ├── 0088_team_email_slug.sql
+│   │   │   ├── 0089_service_types_total_slots.sql
+│   │   │   ├── 0090_expand_user_role_enum.sql
+│   │   │   ├── 0091_apply_user_role_enum_data.sql
+│   │   │   ├── 0092_lethal_radioactive_man.sql
+│   │   │   ├── 0093_nutrition_meal_entries.sql
+│   │   │   ├── 0094_messaging_idempotency_and_indexes.sql
+│   │   │   ├── 0095_group_message_receipts.sql
+│   │   │   ├── 0096_direct_message_receipts.sql
+│   │   │   ├── 0097_thankful_shotgun.sql
+│   │   │   ├── 0098_user_referral_codes.sql
+│   │   │   ├── 0099_live_location_route_points.sql
+│   │   │   ├── 0100_user_device_tokens.sql
+│   │   │   ├── 0101_user_last_seen_at.sql
+│   │   │   ├── 0102_glossy_shockwave.sql
+│   │   │   ├── 0103_add_bookings_timezone_offset.sql
+│   │   │   ├── 0104_backfill_guardian_tiers.sql
+│   │   │   ├── 0105_fix_athlete_41_tier.sql
+│   │   │   ├── 0106_add_service_type_is_bookable.sql
+│   │   │   ├── 0107_plain_the_hunter.sql
+│   │   │   ├── 0108_portal_config.sql
+│   │   │   ├── 0109_fast_george_stacy.sql
+│   │   │   ├── 0110_portal_config_extra_sections.sql
+│   │   │   ├── 0111_gray_la_nuit.sql
+│   │   │   ├── 0112_dusty_risque.sql
+│   │   │   ├── 0113_solid_terrax.sql
+│   │   │   ├── 0114_plan_tier_optional.sql
+│   │   │   ├── 0115_plan_duration.sql
+│   │   │   ├── 0116_plan_duration_prices.sql
+│   │   │   ├── 0117_athlete_current_plan_id.sql
+│   │   │   ├── 0118_add_missing_indexes.sql
+│   │   │   ├── 0119_puzzling_monster_badoon.sql
+│   │   │   ├── 0120_sponsored_players.sql
+│   │   │   ├── 0121_user_search_fts_gin_index.sql
+│   │   │   ├── 0122_mean_nuke.sql
+│   │   │   ├── 0123_session_completion_feedback.sql
+│   │   │   ├── 0124_lyrical_lizard.sql
+│   │   │   ├── 0125_team_payment_mode.sql
+│   │   │   ├── 0126_attendance_preferred_days.sql
+│   │   │   ├── 0127_add_coach_video_to_uploads.sql
+│   │   │   ├── meta
+│   │   │   └── migrations
+│   │   ├── drizzle.config.ts
+│   │   ├── eas.json
+│   │   ├── eslint.config.mjs
+│   │   ├── fly.toml
+│   │   ├── jest.config.js
+│   │   ├── load-tests
+│   │   │   ├── baseline.js
+│   │   │   ├── full-suite.js
+│   │   │   ├── prod-readiness.sh
+│   │   │   └── README.md
+│   │   ├── package.json
+│   │   ├── render.yaml
+│   │   ├── scripts
+│   │   │   ├── migration-smoke.sh
+│   │   │   └── set-heroku-config.js
+│   │   ├── src
+│   │   │   ├── app.ts
+│   │   │   ├── config
+│   │   │   ├── controllers
+│   │   │   ├── db
+│   │   │   ├── index.ts
+│   │   │   ├── jobs
+│   │   │   ├── lib
+│   │   │   ├── middlewares
+│   │   │   ├── routes
+│   │   │   ├── scripts
+│   │   │   ├── server.ts
+│   │   │   ├── services
+│   │   │   ├── socket-hub.ts
+│   │   │   ├── socket.ts
+│   │   │   └── types
+│   │   ├── test
+│   │   │   ├── api.test.ts
+│   │   │   ├── controllers
+│   │   │   ├── integration
+│   │   │   ├── jest.setup.ts
+│   │   │   └── unit
+│   │   ├── test-fcm.mjs
+│   │   └── tsconfig.json
+│   ├── docs
+│   │   ├── app
+│   │   │   ├── api
+│   │   │   ├── blog
+│   │   │   ├── careers
+│   │   │   ├── changelog
+│   │   │   ├── community
+│   │   │   ├── docs
+│   │   │   ├── enterprise
+│   │   │   ├── globals.css
+│   │   │   ├── layout.tsx
+│   │   │   ├── legal
+│   │   │   ├── llms.txt
+│   │   │   ├── not-found.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── products
+│   │   │   └── sitemap.ts
+│   │   ├── assets
+│   │   │   ├── GeistMono.ttf
+│   │   │   └── Geist.ttf
+│   │   ├── components
+│   │   │   ├── ai-chat.tsx
+│   │   │   ├── api-method-tabs.tsx
+│   │   │   ├── api-method.tsx
+│   │   │   ├── blog
+│   │   │   ├── command-menu.tsx
+│   │   │   ├── community-adapters-grid.tsx
+│   │   │   ├── community-plugins-table.tsx
+│   │   │   ├── docs
+│   │   │   ├── endpoint.tsx
+│   │   │   ├── icons
+│   │   │   ├── landing
+│   │   │   ├── markdown.tsx
+│   │   │   ├── mdx
+│   │   │   ├── message-feedback.tsx
+│   │   │   ├── providers.tsx
+│   │   │   ├── resource-card.tsx
+│   │   │   ├── resource-section.tsx
+│   │   │   ├── search-dialog.tsx
+│   │   │   ├── sidebar-content.tsx
+│   │   │   ├── theme-toggle.tsx
+│   │   │   └── ui
+│   │   ├── components.json
+│   │   ├── content
+│   │   │   ├── blogs
+│   │   │   ├── changelogs
+│   │   │   └── docs
+│   │   ├── hooks
+│   │   │   └── use-mobile.ts
+│   │   ├── lib
+│   │   │   ├── ai-chat
+│   │   │   ├── community-plugins-data.ts
+│   │   │   ├── community-stats.ts
+│   │   │   ├── contributors-data.json
+│   │   │   ├── copy-schema
+│   │   │   ├── export-search-indexes.ts
+│   │   │   ├── llm-text.ts
+│   │   │   ├── metadata.ts
+│   │   │   ├── plugins.ts
+│   │   │   ├── rss.ts
+│   │   │   ├── source.ts
+│   │   │   └── utils.ts
+│   │   ├── next.config.js
+│   │   ├── next-env.d.ts
+│   │   ├── package.json
+│   │   ├── postcss.config.mjs
+│   │   ├── public
+│   │   │   ├── avatars
+│   │   │   ├── blogs
+│   │   │   ├── branding
+│   │   │   ├── companies
+│   │   │   ├── dash-light.png
+│   │   │   ├── dash.png
+│   │   │   ├── demo-dark.mp4
+│   │   │   ├── demo-hq.mp4
+│   │   │   ├── demo-light.mp4
+│   │   │   ├── favicon
+│   │   │   ├── images
+│   │   │   ├── left-3d-logo-light.svg
+│   │   │   ├── left-3d-logo.svg
+│   │   │   ├── left-3rd.svg
+│   │   │   ├── og.png
+│   │   │   ├── open-api-reference.png
+│   │   │   ├── people-say
+│   │   │   ├── release-og
+│   │   │   ├── right-3d-logo-light.svg
+│   │   │   ├── right-3d-logo.svg
+│   │   │   └── user-demo.mp4
+│   │   ├── README.md
+│   │   ├── scripts
+│   │   │   ├── fetch-contributors.mjs
+│   │   │   └── sync-typesense.ts
+│   │   ├── source.config.ts
+│   │   ├── tsconfig.json
+│   │   └── types
+│   │       └── js-beautify.d.ts
+│   ├── mobile
+│   │   ├── android
+│   │   │   └── app
+│   │   ├── app
+│   │   │   ├── about.tsx
+│   │   │   ├── active-run.tsx
+│   │   │   ├── admin
+│   │   │   ├── admin-audience-workspace
+│   │   │   ├── admin-teams
+│   │   │   ├── admin-teams.tsx
+│   │   │   ├── adult
+│   │   │   ├── announcements.tsx
+│   │   │   ├── (auth)
+│   │   │   ├── feedback.tsx
+│   │   │   ├── fonts.css
+│   │   │   ├── global.css
+│   │   │   ├── help-center.tsx
+│   │   │   ├── hooks
+│   │   │   ├── _layout.tsx
+│   │   │   ├── liquid-glass-demo.tsx
+│   │   │   ├── messages
+│   │   │   ├── notifications.tsx
+│   │   │   ├── nutrition
+│   │   │   ├── nutrition.tsx
+│   │   │   ├── parent-platform
+│   │   │   ├── permissions.tsx
+│   │   │   ├── physio-referral.tsx
+│   │   │   ├── privacy-policy.tsx
+│   │   │   ├── privacy-security.tsx
+│   │   │   ├── profile-settings.tsx
+│   │   │   ├── programs
+│   │   │   ├── progress.tsx
+│   │   │   ├── schedule
+│   │   │   ├── sentry-test.tsx
+│   │   │   ├── submit-testimonial.tsx
+│   │   │   ├── (tabs)
+│   │   │   ├── team
+│   │   │   ├── team-manager
+│   │   │   ├── terms.tsx
+│   │   │   ├── theme
+│   │   │   ├── video-upload.tsx
+│   │   │   └── youth
+│   │   ├── app.config.js
+│   │   ├── appfail.txt
+│   │   ├── app.json
+│   │   ├── assets
+│   │   │   ├── fonts
+│   │   │   ├── images
+│   │   │   └── videos
+│   │   ├── babel.config.js
+│   │   ├── components
+│   │   │   ├── admin
+│   │   │   ├── AgeGate.tsx
+│   │   │   ├── AppLockGate.tsx
+│   │   │   ├── auth
+│   │   │   ├── dashboard
+│   │   │   ├── external-link.tsx
+│   │   │   ├── haptic-tab.tsx
+│   │   │   ├── hello-wave.tsx
+│   │   │   ├── home
+│   │   │   ├── media
+│   │   │   ├── messages
+│   │   │   ├── more
+│   │   │   ├── native
+│   │   │   ├── navigation
+│   │   │   ├── NavigationRecoveryBoundary.tsx
+│   │   │   ├── parallax-scroll-view.tsx
+│   │   │   ├── PinModal.tsx
+│   │   │   ├── ProgramCard.tsx
+│   │   │   ├── programs
+│   │   │   ├── RootErrorBoundary.tsx
+│   │   │   ├── ScaledText.tsx
+│   │   │   ├── Skeleton.tsx
+│   │   │   ├── ThemedScrollView.tsx
+│   │   │   ├── themed-text.tsx
+│   │   │   ├── themed-view.tsx
+│   │   │   ├── ThemeToggle.tsx
+│   │   │   ├── tracking
+│   │   │   └── ui
+│   │   ├── constants
+│   │   │   ├── mapNightStyle.json
+│   │   │   ├── messages.ts
+│   │   │   ├── navigation.tsx
+│   │   │   ├── program-details.ts
+│   │   │   ├── Programs.ts
+│   │   │   └── theme.ts
+│   │   ├── context
+│   │   │   ├── ActiveTabContext.tsx
+│   │   │   ├── AdminOpsContext.ts
+│   │   │   ├── AgeExperienceContext.tsx
+│   │   │   ├── AppLockContext.tsx
+│   │   │   ├── FontScaleContext.tsx
+│   │   │   ├── InAppNotificationsContext.tsx
+│   │   │   ├── RefreshContext.tsx
+│   │   │   ├── SocketContext.tsx
+│   │   │   └── TabVisibilityContext.tsx
+│   │   ├── crash.txt
+│   │   ├── eas.json
+│   │   ├── eslint.config.js
+│   │   ├── expo-env.d.ts
+│   │   ├── google-services.json
+│   │   ├── hooks
+│   │   │   ├── admin
+│   │   │   ├── home
+│   │   │   ├── media
+│   │   │   ├── messages
+│   │   │   ├── navigation
+│   │   │   ├── programs
+│   │   │   ├── tracking
+│   │   │   ├── useActingUser.ts
+│   │   │   ├── useAppSafeAreaInsets.ts
+│   │   │   ├── useAppToast.ts
+│   │   │   ├── useBottomTabOverflow.ts
+│   │   │   ├── use-color-scheme.ts
+│   │   │   ├── use-color-scheme.web.ts
+│   │   │   ├── useColor.ts
+│   │   │   ├── useErrorHandler.ts
+│   │   │   ├── useKeyboardHeight.ts
+│   │   │   ├── useMessagesController.ts
+│   │   │   ├── useMessagesRealtime.ts
+│   │   │   ├── useModeToggle.ts
+│   │   │   ├── use-theme-color.ts
+│   │   │   └── useVideoCache.ts
+│   │   ├── index.js
+│   │   ├── jest.config.js
+│   │   ├── jest.setup.ts
+│   │   ├── lib
+│   │   │   ├── admin
+│   │   │   ├── admin-messages-utils.ts
+│   │   │   ├── admin-utils.ts
+│   │   │   ├── api
+│   │   │   ├── apiBaseUrl.ts
+│   │   │   ├── apiClient
+│   │   │   ├── api.ts
+│   │   │   ├── appRole.ts
+│   │   │   ├── auth
+│   │   │   ├── authBaseUrl.ts
+│   │   │   ├── auth-error-message.ts
+│   │   │   ├── backgroundTask.ts
+│   │   │   ├── batteryOptimizationConsent.ts
+│   │   │   ├── billing.ts
+│   │   │   ├── compose.tsx
+│   │   │   ├── debug
+│   │   │   ├── errors.ts
+│   │   │   ├── haversine.ts
+│   │   │   ├── isAdminRole.ts
+│   │   │   ├── localNotifications.ts
+│   │   │   ├── location.ts
+│   │   │   ├── media
+│   │   │   ├── messages
+│   │   │   ├── messagingAccess.ts
+│   │   │   ├── mmkv.ts
+│   │   │   ├── navigation
+│   │   │   ├── notificationPresentation.ts
+│   │   │   ├── notificationSetup.ts
+│   │   │   ├── notifications.ts
+│   │   │   ├── nutritionMealReminders.ts
+│   │   │   ├── nutritionReminder.ts
+│   │   │   ├── onboardingFromApi.ts
+│   │   │   ├── osm
+│   │   │   ├── osrmRoutingConsent.ts
+│   │   │   ├── parentContentCache.ts
+│   │   │   ├── parentPlatformConstants.ts
+│   │   │   ├── planAccess.ts
+│   │   │   ├── programs
+│   │   │   ├── progressPreferences.ts
+│   │   │   ├── progressReminders.ts
+│   │   │   ├── pushRegistration.ts
+│   │   │   ├── queryClient.ts
+│   │   │   ├── queryKeys.ts
+│   │   │   ├── runProgressNotifications.ts
+│   │   │   ├── runSync.ts
+│   │   │   ├── runTrackingPreferences.ts
+│   │   │   ├── scheduleBookingAccess.ts
+│   │   │   ├── scheduling
+│   │   │   ├── sentry.ts
+│   │   │   ├── sessionsFromSectionContent.ts
+│   │   │   ├── sqliteProgress.ts
+│   │   │   ├── sqliteRuns.ts
+│   │   │   ├── ssl
+│   │   │   ├── startupDiagnostics.ts
+│   │   │   ├── teamMembership.ts
+│   │   │   ├── tracking
+│   │   │   ├── trainingAchievements.ts
+│   │   │   ├── training-content-session-item.ts
+│   │   │   ├── training-content-utils.ts
+│   │   │   ├── unlockPlans.ts
+│   │   │   ├── video
+│   │   │   └── workerAuth.ts
+│   │   ├── metro.config.js
+│   │   ├── nativewind-env.d.ts
+│   │   ├── new_crash.txt
+│   │   ├── package.json
+│   │   ├── ph_crash.txt
+│   │   ├── plugins
+│   │   │   └── withSSLPinning.js
+│   │   ├── README.md
+│   │   ├── risk
+│   │   │   ├── admin-dm-reaction-local-only.md
+│   │   │   ├── admin-group-thread-duplicate-message-risk.md
+│   │   │   ├── admin-message-send-error-observability-gap.md
+│   │   │   ├── admin-prefetch-unbounded-threads.md
+│   │   │   ├── admin-socket-event-name-divergence.md
+│   │   │   ├── admin-team-chat-created-with-empty-members.md
+│   │   │   ├── admin-team-chat-name-collision.md
+│   │   │   ├── android-osm-cdn-dependency.md
+│   │   │   ├── attachment-content-type-downgrade.md
+│   │   │   ├── auth-layout-bootstrap-blocking-blank-screen.md
+│   │   │   ├── authpersist-noop-interval-wakeup.md
+│   │   │   ├── auth-sync-error-swallowing.md
+│   │   │   ├── background-tracking-running-state-check.md
+│   │   │   ├── booking-modal-default-time-implicit.md
+│   │   │   ├── direct-message-receiverid-optional.md
+│   │   │   ├── fire-and-forget-run-sync-loss-window.md
+│   │   │   ├── generated-availability-cache-not-scoped-by-user.md
+│   │   │   ├── global-run-sync-watermark.md
+│   │   │   ├── group-details-all-or-nothing-fetch.md
+│   │   │   ├── live-location-routepoints-privacy-surface.md
+│   │   │   ├── live-location-throttle-global-state.md
+│   │   │   ├── local-run-path-id-mismatch.md
+│   │   │   ├── media-upload-no-retry-policy.md
+│   │   │   ├── messages-cache-map-not-pruned.md
+│   │   │   ├── messages-debug-logs-in-production.md
+│   │   │   ├── messages-inbox-auth-errors-suppressed.md
+│   │   │   ├── messages-warmup-extra-network-overhead.md
+│   │   │   ├── messages-warmup-silent-failure.md
+│   │   │   ├── no-server-run-pull-invocation.md
+│   │   │   ├── optimistic-upload-pending-items-dropped.md
+│   │   │   ├── optimistic-video-storage-error-suppression.md
+│   │   │   ├── privacy-settings-404-default-fallback.md
+│   │   │   ├── pulled-runs-missing-user-binding.md
+│   │   │   ├── push-device-id-derived-from-os-build-id.md
+│   │   │   ├── push-navigation-dedupe-fragile.md
+│   │   │   ├── push-path-sanitization-allows-fragment-query-abuse.md
+│   │   │   ├── push-registration-expo-go-warning-noise.md
+│   │   │   ├── push-reply-no-user-feedback-on-failure.md
+│   │   │   ├── replaceonce-param-stringify-instability.md
+│   │   │   ├── run-sport-overwritten-in-summary.md
+│   │   │   ├── run-sync-excludes-null-user-runs.md
+│   │   │   ├── schedule-event-mapping-hardcoded-fields.md
+│   │   │   ├── schedule-query-cache-not-scoped-by-user.md
+│   │   │   ├── server-run-upsert-ignore-stale-data.md
+│   │   │   ├── socket-local-notification-flood-risk.md
+│   │   │   ├── summary-save-missing-run-id.md
+│   │   │   ├── synchronous-sqlite-on-ui-thread.md
+│   │   │   ├── tabs-layout-bootstrap-blocking-blank-screen.md
+│   │   │   ├── tracking-access-redirect-race.md
+│   │   │   ├── video-player-multi-engine-complexity-risk.md
+│   │   │   └── video-upload-blob-memory-spike.md
+│   │   ├── roles
+│   │   │   ├── admin
+│   │   │   ├── adult
+│   │   │   ├── shared
+│   │   │   ├── team
+│   │   │   ├── team-manager
+│   │   │   └── youth
+│   │   ├── scripts
+│   │   │   ├── eas-secrets.mjs
+│   │   │   ├── reset-project.js
+│   │   │   ├── sentry-smoke.mjs
+│   │   │   └── watch-errors.sh
+│   │   ├── services
+│   │   │   ├── home
+│   │   │   ├── messages
+│   │   │   ├── programs
+│   │   │   ├── teamManager
+│   │   │   └── tracking
+│   │   ├── src
+│   │   │   ├── components
+│   │   │   └── theme
+│   │   ├── store
+│   │   │   ├── AuthPersist.tsx
+│   │   │   ├── hooks.ts
+│   │   │   ├── index.ts
+│   │   │   ├── Provider.tsx
+│   │   │   ├── slices
+│   │   │   └── useRunStore.ts
+│   │   ├── test
+│   │   │   ├── AgeGate.test.tsx
+│   │   │   ├── api
+│   │   │   ├── api-request.test.ts
+│   │   │   ├── ApiRequest.test.ts
+│   │   │   ├── api.test.ts
+│   │   │   ├── appRole.test.ts
+│   │   │   ├── isAdminRole.test.ts
+│   │   │   ├── messages
+│   │   │   ├── onboardingFromApi.test.ts
+│   │   │   ├── plan-access.test.ts
+│   │   │   ├── programs
+│   │   │   ├── runTrackingPreferences.test.ts
+│   │   │   ├── smoke.test.tsx
+│   │   │   ├── store-slices.test.ts
+│   │   │   ├── StoreSlices.test.ts
+│   │   │   ├── ThemedComponents.test.tsx
+│   │   │   └── useMessagesRealtime.test.tsx
+│   │   ├── theme
+│   │   │   ├── colors.ts
+│   │   │   └── globals.ts
+│   │   ├── tsconfig.json
+│   │   └── types
+│   │       ├── admin-messages.ts
+│   │       ├── admin.ts
+│   │       ├── chat-api.ts
+│   │       ├── expo-widgets.d.ts
+│   │       ├── messages.ts
+│   │       ├── programs.ts
+│   │       ├── socket-api.ts
+│   │       └── video-upload.ts
+│   ├── onboarding
+│   │   ├── biome.json
+│   │   ├── components.json
+│   │   ├── db
+│   │   │   └── init.sql
+│   │   ├── Dockerfile
+│   │   ├── docs
+│   │   │   └── monitoring.md
+│   │   ├── drizzle.config.ts
+│   │   ├── e2e
+│   │   │   ├── accessibility.spec.ts
+│   │   │   ├── auth.spec.ts
+│   │   │   └── homepage.spec.ts
+│   │   ├── index.html
+│   │   ├── instrument.server.mjs
+│   │   ├── landing-reference.html
+│   │   ├── load-tests
+│   │   │   ├── auth-flow.js
+│   │   │   ├── README.md
+│   │   │   ├── smoke.js
+│   │   │   └── stress.js
+│   │   ├── neon-vite-plugin.ts
+│   │   ├── nginx.conf
+│   │   ├── package.json
+│   │   ├── playwright.config.ts
+│   │   ├── public
+│   │   │   ├── apple-app-store.svg
+│   │   │   ├── clientreach-logo.png
+│   │   │   ├── coach-intro.mp4
+│   │   │   ├── demo-neon.svg
+│   │   │   ├── drizzle.svg
+│   │   │   ├── favicon.ico
+│   │   │   ├── google-play.svg
+│   │   │   ├── hero.png
+│   │   │   ├── home.png
+│   │   │   ├── landing
+│   │   │   ├── logo192.png
+│   │   │   ├── logo512.png
+│   │   │   ├── logo.png
+│   │   │   ├── manifest.json
+│   │   │   ├── offline.html
+│   │   │   ├── ph.jpg
+│   │   │   ├── ph-logo.png
+│   │   │   ├── robots.txt
+│   │   │   ├── sitemap.xml
+│   │   │   ├── svgs
+│   │   │   └── sw.js
+│   │   ├── README.md
+│   │   ├── screenshot-v4.png
+│   │   ├── scripts
+│   │   │   ├── check-bundle-size.mjs
+│   │   │   └── health-check.mjs
+│   │   ├── server
+│   │   │   ├── api
+│   │   │   └── middleware
+│   │   ├── src
+│   │   │   ├── app
+│   │   │   ├── components
+│   │   │   ├── db
+│   │   │   ├── db.ts
+│   │   │   ├── env.ts
+│   │   │   ├── hooks
+│   │   │   ├── integrations
+│   │   │   ├── lib
+│   │   │   ├── main.tsx
+│   │   │   ├── portal
+│   │   │   ├── router.tsx
+│   │   │   ├── routes
+│   │   │   ├── routeTree.gen.ts
+│   │   │   ├── services
+│   │   │   ├── styles.css
+│   │   │   └── test
+│   │   ├── tsconfig.json
+│   │   ├── vercel.json
+│   │   ├── vite.config.ts
+│   │   └── vitest.config.ts
+│   ├── showcase
+│   │   ├── app
+│   │   │   ├── fonts
+│   │   │   ├── globals.css
+│   │   │   ├── hero-device-showcase.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.module.css
+│   │   │   ├── page.tsx
+│   │   │   └── showcase-landing.tsx
+│   │   ├── components
+│   │   │   ├── about-section.tsx
+│   │   │   ├── download-section.tsx
+│   │   │   ├── features-section.tsx
+│   │   │   ├── footer.tsx
+│   │   │   ├── header.tsx
+│   │   │   ├── hero-section.tsx
+│   │   │   ├── testimonials-section.tsx
+│   │   │   ├── theme-provider.tsx
+│   │   │   └── ui
+│   │   ├── components.json
+│   │   ├── hooks
+│   │   │   ├── use-mobile.ts
+│   │   │   └── use-toast.ts
+│   │   ├── lib
+│   │   │   └── utils.ts
+│   │   ├── next.config.mjs
+│   │   ├── next-env.d.ts
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── apple-icon.png
+│   │   │   ├── icon-dark-32x32.png
+│   │   │   ├── icon-light-32x32.png
+│   │   │   ├── icon.svg
+│   │   │   ├── placeholder.jpg
+│   │   │   ├── placeholder-logo.png
+│   │   │   ├── placeholder-logo.svg
+│   │   │   ├── placeholder.svg
+│   │   │   └── placeholder-user.jpg
+│   │   ├── styles
+│   │   │   └── globals.css
+│   │   ├── tsconfig.json
+│   │   └── tsconfig.typecheck.json
+│   ├── superadmin
+│   │   ├── biome.json
+│   │   ├── components.json
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── favicon.ico
+│   │   │   ├── logo192.png
+│   │   │   ├── logo512.png
+│   │   │   ├── manifest.json
+│   │   │   └── robots.txt
+│   │   ├── README.md
+│   │   ├── src
+│   │   │   ├── components
+│   │   │   ├── db-collections
+│   │   │   ├── env.ts
+│   │   │   ├── integrations
+│   │   │   ├── lib
+│   │   │   ├── router.tsx
+│   │   │   ├── routes
+│   │   │   ├── routeTree.gen.ts
+│   │   │   └── styles.css
+│   │   ├── tsconfig.json
+│   │   └── vite.config.ts
+│   ├── web
+│   │   ├── app
+│   │   │   ├── api
+│   │   │   ├── athletes
+│   │   │   ├── attendance
+│   │   │   ├── billing
+│   │   │   ├── booking-action
+│   │   │   ├── bookings
+│   │   │   ├── coaching
+│   │   │   ├── content
+│   │   │   ├── enquiries
+│   │   │   ├── error.tsx
+│   │   │   ├── exercise-library
+│   │   │   ├── favicon.ico
+│   │   │   ├── fonts
+│   │   │   ├── fullcalendar.css
+│   │   │   ├── gallery
+│   │   │   ├── global-error.tsx
+│   │   │   ├── globals.css
+│   │   │   ├── invite
+│   │   │   ├── layout.tsx
+│   │   │   ├── login
+│   │   │   ├── messaging
+│   │   │   ├── not-found.tsx
+│   │   │   ├── nutrition
+│   │   │   ├── page.tsx
+│   │   │   ├── parent
+│   │   │   ├── physio-referrals
+│   │   │   ├── portal-config
+│   │   │   ├── preferences
+│   │   │   ├── profile
+│   │   │   ├── programs
+│   │   │   ├── providers.tsx
+│   │   │   ├── search
+│   │   │   ├── settings
+│   │   │   ├── stats
+│   │   │   ├── support
+│   │   │   ├── teams
+│   │   │   ├── top-athletes
+│   │   │   ├── tracking
+│   │   │   ├── training-questionnaires
+│   │   │   ├── training-snapshot
+│   │   │   ├── users
+│   │   │   └── video-review
+│   │   ├── components
+│   │   │   ├── admin
+│   │   │   ├── auth
+│   │   │   ├── parent
+│   │   │   ├── support
+│   │   │   └── ui
+│   │   ├── components.json
+│   │   ├── Dockerfile
+│   │   ├── eslint.config.mjs
+│   │   ├── hooks
+│   │   │   ├── use-mobile.ts
+│   │   │   └── use-sound.ts
+│   │   ├── instrumentation.ts
+│   │   ├── jest.config.js
+│   │   ├── jest.setup.ts
+│   │   ├── lib
+│   │   │   ├── api
+│   │   │   ├── apiSlice.ts
+│   │   │   ├── billing-features.ts
+│   │   │   ├── core.ts
+│   │   │   ├── desktop-notifications.ts
+│   │   │   ├── env.ts
+│   │   │   ├── notification-pop.ts
+│   │   │   ├── password-rules.ts
+│   │   │   ├── socket-url.ts
+│   │   │   ├── sound-engine.ts
+│   │   │   ├── sound-types.ts
+│   │   │   ├── store.ts
+│   │   │   ├── toast.ts
+│   │   │   └── utils.ts
+│   │   ├── middleware.ts
+│   │   ├── next.config.ts
+│   │   ├── next-env.d.ts
+│   │   ├── package.json
+│   │   ├── pnpm-workspace.yaml
+│   │   ├── postcss.config.mjs
+│   │   ├── public
+│   │   │   ├── file.svg
+│   │   │   ├── globe.svg
+│   │   │   ├── next.svg
+│   │   │   ├── ph.jpg
+│   │   │   ├── vercel.svg
+│   │   │   └── window.svg
+│   │   ├── README.md
+│   │   ├── sentry.client.config.ts
+│   │   ├── sentry.edge.config.ts
+│   │   ├── sentry.server.config.ts
+│   │   ├── test
+│   │   │   ├── auth-login-route.test.ts
+│   │   │   ├── backend-proxy.test.ts
+│   │   │   ├── bookings-page.test.tsx
+│   │   │   ├── login-page.test.tsx
+│   │   │   ├── messaging-page.test.tsx
+│   │   │   ├── middleware.guard.test.ts
+│   │   │   ├── middleware.test.ts
+│   │   │   ├── __mocks__
+│   │   │   ├── refresh-route.test.ts
+│   │   │   ├── smoke.test.tsx
+│   │   │   ├── thread-message-list-alignment.test.tsx
+│   │   │   ├── training-content-audience-labels.test.ts
+│   │   │   └── WebUI.test.tsx
+│   │   ├── tsconfig.json
+│   │   └── tsconfig.tsbuildinfo
+│   └── worker
+│       ├── package.json
+│       ├── src
+│       │   ├── db
+│       │   ├── index.ts
+│       │   └── lib
+│       ├── tsconfig.json
+│       └── wrangler.toml
+├── assets
+│   ├── adaptive-icon.png
+│   ├── favicon.png
+│   ├── fonts -> ../apps/mobile/assets/fonts
+│   ├── icon.png
+│   ├── images -> ../apps/mobile/assets/images
+│   ├── logo.png
+│   ├── notification-icon.png
+│   ├── splash.png
+│   └── videos -> ../apps/mobile/assets/videos
+├── check-user-data.ts
+├── CLAUDE.md
+├── design-system
+│   └── ph-performance-web
+│       ├── MASTER.md
+│       └── pages
+├── Dockerfile
+├── docs
+│   └── superpowers
+│       ├── 2026-04-12-metrics-ui-design.md
+│       ├── plans
+│       │   ├── 2026-04-01-scheduling-redesign.md
+│       │   ├── 2026-04-08-announcement-timing-toggle.md
+│       │   ├── 2026-04-08-messaging-replies-announcements.md
+│       │   ├── 2026-04-08-running-goal-destination.md
+│       │   ├── 2026-04-08-running-page-glass-ui.md
+│       │   ├── 2026-04-08-running-page-map-overlay.md
+│       │   ├── 2026-04-08-training-content-v2-seed.md
+│       │   ├── 2026-04-09-mobile-admin-mode.md
+│       │   ├── 2026-04-10-mobile-admin-teams.md
+│       │   ├── 2026-04-10-role-based-messages-implementation.md
+│       │   ├── 2026-04-11-booking-approval-token-review-implementation.md
+│       │   ├── 2026-04-11-mobile-admin-response-video.md
+│       │   ├── 2026-04-11-nutrition-youth-meal-details-implementation.md
+│       │   ├── 2026-04-11-session-video-upload.md
+│       │   ├── 2026-04-12-metrics-ui-plan.md
+│       │   ├── 2026-04-18-play-store-submission-hardening.md
+│       │   ├── 2026-04-18-tracking-social-tabs.md
+│       │   ├── 2026-04-24-mobile-app-ui-system-refactor.md
+│       │   └── 2026-04-24-mobile-home-team-ui-redesign.md
+│       └── specs
+│           ├── 2026-03-30-booking-slots-design.md
+│           ├── 2026-04-01-scheduling-redesign-design.md
+│           ├── 2026-04-08-announcement-timing-toggle-design.md
+│           ├── 2026-04-08-messaging-replies-announcements-design.md
+│           ├── 2026-04-08-running-goal-destination-design.md
+│           ├── 2026-04-08-running-page-glass-ui-design.md
+│           ├── 2026-04-08-running-page-map-overlay-design.md
+│           ├── 2026-04-08-training-content-v2-seed-design.md
+│           ├── 2026-04-09-mobile-admin-mode-design.md
+│           ├── 2026-04-10-mobile-admin-teams-design.md
+│           ├── 2026-04-10-role-based-messages-routing-design.md
+│           ├── 2026-04-11-adult-session-workout-logging-design.md
+│           ├── 2026-04-11-booking-approval-token-review-design.md
+│           ├── 2026-04-11-mobile-admin-response-video-design.md
+│           ├── 2026-04-11-nutrition-youth-meal-details-design.md
+│           ├── 2026-04-11-session-detail-inline-video-review-design.md
+│           ├── 2026-04-11-session-video-upload-design.md
+│           ├── 2026-04-18-play-store-submission-hardening-design.md
+│           ├── 2026-04-18-tracking-social-tabs-design.md
+│           ├── 2026-04-22-active-run-ui-refactor-design.md
+│           ├── 2026-04-24-mobile-app-ui-system-refactor-design.md
+│           └── 2026-04-24-mobile-home-team-ui-redesign-design.md
+├── e2e
+│   ├── login.spec.ts
+│   └── subscription-flow.spec.ts
+├── eas.json
+├── google-services.json
+├── infra
+│   └── terraform
+│       ├── DEPLOYMENT.md
+│       ├── envs
+│       │   └── cheap-ec2.tfvars.example
+│       ├── main.tf
+│       ├── outputs.tf
+│       ├── README.md
+│       ├── variables.tf
+│       └── versions.tf
+├── package.json
+├── patches
+│   ├── @react-native-community__progress-bar-android@1.0.5.patch
+│   ├── react-native.patch
+│   ├── react-native-youtube-iframe@2.4.1.patch
+│   └── uniwind@1.6.2.patch
+├── playwright.config.ts
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── Procfile
+├── qa-audit-results
+│   ├── audit-data.json
+│   ├── qa-audit-2026-04-21-094251.html
+│   ├── qa-audit-2026-04-21-094323.html
+│   ├── qa-audit-2026-04-21-095239.html
+│   └── screenshots
+│       └── landing_polished.png
+├── README.md
+├── render.yaml
+├── scan_report.json
+├── scripts
+│   ├── find-any-type.js
+│   ├── scan_codebase.cjs
+│   └── validate_notifications.cjs
+├── skills
+│   └── play-store-submission-auditor -> ../.agents/skills/play-store-submission-auditor
+├── skills-lock.json
+├── structure.txt
+├── test-age-matching.ts
+├── test-db-admin.ts
+├── test-section-type.ts
+├── test-socket-latency.mjs
+├── tools
+│   └── check-max-lines.mjs
+├── tsconfig.json
+└── turbo.json
+
+272 directories, 702 files

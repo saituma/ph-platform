@@ -1,41 +1,43 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { apiRequest } from "@/lib/api";
 import { SelectedVideo, UploadPhase } from "@/types/video-upload";
+import * as FileSystem from "expo-file-system/legacy";
 
 function formatMb(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// XHR upload runs in the foreground (unlike legacy FileSystem background tasks
-// which iOS can throttle). Uses fetch() to get a blob from the local file URI,
-// then sends raw binary via XHR so R2 presigned PUT validation passes.
 async function uploadFileToUrl(
   url: string,
   fileUri: string,
   contentType: string,
-  totalBytes: number,
   onProgress: (ratio: number) => void,
 ): Promise<void> {
-  const fileRes = await fetch(fileUri);
-  const blob = await fileRes.blob();
-
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", contentType);
-    xhr.timeout = 15 * 60 * 1000;
-    xhr.upload.onprogress = (e) => {
-      const total = e.total > 0 ? e.total : totalBytes;
-      if (total > 0) onProgress(e.loaded / total);
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`Upload failed (${xhr.status}).`));
-    };
-    xhr.onerror = () => reject(new Error("Network error during upload."));
-    xhr.ontimeout = () => reject(new Error("Upload timed out."));
-    xhr.send(blob);
-  });
+  const uploadTask = FileSystem.createUploadTask(
+    url,
+    fileUri,
+    {
+      httpMethod: "PUT",
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        "Content-Type": contentType,
+      },
+    },
+    (progressEvent) => {
+      const sent = progressEvent.totalBytesSent ?? 0;
+      const expected = progressEvent.totalBytesExpectedToSend ?? 0;
+      if (expected > 0) {
+        onProgress(Math.max(0, Math.min(1, sent / expected)));
+      }
+    },
+  );
+  const uploadResult = await uploadTask.uploadAsync();
+  if (!uploadResult) {
+    throw new Error("Upload canceled.");
+  }
+  if (uploadResult.status < 200 || uploadResult.status >= 300) {
+    throw new Error(`Upload failed (${uploadResult.status}).`);
+  }
 }
 
 export function useVideoUploadLogic(token: string | null, athleteUserId: string | number | null) {
@@ -43,8 +45,6 @@ export function useVideoUploadLogic(token: string | null, athleteUserId: string 
   const [uploadPhase, setUploadPhase] = useState<UploadPhase | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [byteProgressUnknown, setUploadByteProgressUnknown] = useState(false);
-
-  const progressTsRef = useRef(0);
 
   const uploadVideo = useCallback(async (params: {
     video: SelectedVideo;
@@ -59,7 +59,7 @@ export function useVideoUploadLogic(token: string | null, athleteUserId: string 
     setUploadPhase("presign");
     setStatus(`Preparing upload (${formatMb(video.sizeBytes)})...`);
     setUploadByteProgressUnknown(false);
-    progressTsRef.current = 0;
+    let stage: UploadPhase = "presign";
 
     try {
       const headers = athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
@@ -77,24 +77,20 @@ export function useVideoUploadLogic(token: string | null, athleteUserId: string 
       });
 
       setUploadPhase("uploading");
+      stage = "uploading";
       setStatus("Uploading video...");
 
+      onProgress(0.02);
       await uploadFileToUrl(
         presign.uploadUrl,
         video.uri,
         video.contentType,
-        video.sizeBytes,
-        (ratio) => {
-          const now = Date.now();
-          if (now - progressTsRef.current > 250) {
-            setStatus(`Uploading ${formatMb(ratio * video.sizeBytes)} / ${formatMb(video.sizeBytes)}...`);
-            progressTsRef.current = now;
-          }
-          onProgress(ratio);
-        },
+        (ratio) => onProgress(Math.max(0.03, Math.min(0.95, ratio * 0.92))),
       );
+      onProgress(0.95);
 
       setUploadPhase("finalizing");
+      stage = "finalizing";
       setStatus("Finalizing upload...");
 
       await apiRequest("/videos", {
@@ -107,9 +103,19 @@ export function useVideoUploadLogic(token: string | null, athleteUserId: string 
           programSectionContentId: sectionContentId ?? undefined,
         },
       });
+      onProgress(1);
 
       setStatus("Uploaded successfully.");
       return presign.publicUrl;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed";
+      if (stage === "presign") {
+        throw new Error(`Could not prepare upload: ${message}`);
+      }
+      if (stage === "finalizing") {
+        throw new Error(`Upload succeeded but save failed: ${message}`);
+      }
+      throw new Error(`Could not upload file: ${message}`);
     } finally {
       setIsUploading(false);
       setUploadPhase(null);

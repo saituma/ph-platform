@@ -173,3 +173,71 @@ export async function createBooking(_token: string, body: any) {
 
   return response.json();
 }
+
+export type AdminScheduleCandidate = {
+  userId: number;
+  athleteId: number;
+  name: string;
+  email: string;
+  role: string;
+  athleteType: string | null;
+};
+
+export async function fetchAdminNonTeamUsers(params?: { q?: string; limit?: number }) {
+  const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
+  const qs = new URLSearchParams();
+  if (params?.q) qs.set("q", params.q);
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const response = await fetch(
+    `${baseUrl}/api/admin/bookings/non-team-users${qs.toString() ? `?${qs.toString()}` : ""}`,
+    {
+      credentials: "include",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch non-team users: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return (data.items ?? []) as AdminScheduleCandidate[];
+}
+
+export async function createAdminCustomSession(body: {
+  mode: "one_to_one" | "small_group";
+  userIds: number[];
+  startsAt: string;
+  endsAt: string;
+  isBookable: boolean;
+  location?: string | null;
+  meetingLink?: string | null;
+  notes?: string | null;
+  groupName?: string | null;
+}) {
+  const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
+  const response = await fetch(`${baseUrl}/api/admin/bookings/custom-sessions`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((data as { error?: string }).error || "Failed to create custom session");
+  }
+  return data as {
+    createdCount: number;
+    failedCount: number;
+    created: any[];
+    failures: Array<{ userId: number; reason: string }>;
+  };
+}

@@ -58,7 +58,7 @@ export function startEmailWorker(): void {
   const connection = getRedisConnection();
   if (!connection) return;
 
-  new Worker<EmailJob>(
+  const worker = new Worker<EmailJob>(
     QUEUE_NAME,
     async (job) => {
       await deliverEmail(job.data);
@@ -68,5 +68,8 @@ export function startEmailWorker(): void {
       concurrency: 3,
     },
   );
+  worker.on("error", (err) => {
+    logger.error({ err }, "Email worker error");
+  });
   logger.info("Email worker started");
 }

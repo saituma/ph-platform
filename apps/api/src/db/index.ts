@@ -84,7 +84,7 @@ const poolConfig: ConstructorParameters<typeof Pool>[0] = {
   idleTimeoutMillis: 10_000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 0,
-  max: 8,
+  max: 30,
   ...(isNeonHost
     ? {
         maxUses: 750,

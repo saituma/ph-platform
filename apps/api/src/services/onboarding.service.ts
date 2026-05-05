@@ -103,11 +103,12 @@ export async function startYouthOnboarding(input: {
   athleteName: string;
   birthDate: string;
 }) {
-  // Update guardian (user) name
+  // Update guardian (user) name and role
   await db
     .update(userTable)
     .set({
       name: input.guardianName,
+      role: "guardian",
       updatedAt: new Date(),
     })
     .where(eq(userTable.id, input.userId));
@@ -173,11 +174,12 @@ export async function startYouthOnboarding(input: {
 }
 
 export async function startAdultOnboarding(input: { userId: number; name: string; birthDate: string }) {
-  // Update user name
+  // Update user name and role
   await db
     .update(userTable)
     .set({
       name: input.name,
+      role: "athlete",
       updatedAt: new Date(),
     })
     .where(eq(userTable.id, input.userId));
@@ -227,32 +229,82 @@ export async function startTeamOnboarding(input: {
   maxAthletes: number;
 }) {
   const athleteType = input.athleteType ?? "youth";
+  const slugForName = (id: number) => `${slugifySegment(input.name)}-${id}`;
+  const isKnownTeamsColumnMissing = (err: unknown) => {
+    const e = err as { code?: string; message?: string; cause?: { code?: string; message?: string } };
+    const code = e?.cause?.code ?? e?.code;
+    const msg = `${e?.cause?.message ?? ""} ${e?.message ?? ""}`.toLowerCase();
+    return (
+      code === "42703" &&
+      (msg.includes("email_slug") ||
+        msg.includes("emailslug") ||
+        msg.includes("payment_mode") ||
+        msg.includes("paymentmode"))
+    );
+  };
 
-  // Get or create team record.
-  //
-  // Select only what we need (id) to avoid failing when the database is behind on
-  // newer optional columns added to `teams` via migrations.
-  const teams = await db
-    .select({ id: teamTable.id, emailSlug: teamTable.emailSlug })
-    .from(teamTable)
-    .where(eq(teamTable.adminId, input.userId))
-    .limit(1);
+  async function legacyStartTeamOnboarding() {
+    const teams = await db
+      .select({ id: teamTable.id })
+      .from(teamTable)
+      .where(eq(teamTable.adminId, input.userId))
+      .limit(1);
 
-  if (teams[0]) {
-    const slugDefault = `${slugifySegment(input.name)}-${teams[0].id}`;
-    await db
-      .update(teamTable)
-      .set({
-        name: input.name,
-        athleteType,
-        minAge: input.minAge ?? null,
-        maxAge: input.maxAge ?? null,
-        maxAthletes: input.maxAthletes,
-        emailSlug: teams[0].emailSlug ?? slugDefault,
-        updatedAt: new Date(),
-      })
-      .where(eq(teamTable.id, teams[0].id));
-  } else {
+    if (teams[0]) {
+      await db
+        .update(teamTable)
+        .set({
+          name: input.name,
+          athleteType,
+          minAge: input.minAge ?? null,
+          maxAge: input.maxAge ?? null,
+          maxAthletes: input.maxAthletes,
+          updatedAt: new Date(),
+        })
+        .where(eq(teamTable.id, teams[0].id));
+      return { ok: true, teamId: teams[0].id };
+    }
+
+    const inserted = await db
+      .execute(sql`
+        insert into "teams" ("name", "athleteType", "adminId", "minAge", "maxAge", "maxAthletes")
+        values (
+          ${input.name},
+          ${athleteType},
+          ${input.userId},
+          ${input.minAge ?? null},
+          ${input.maxAge ?? null},
+          ${input.maxAthletes}
+        )
+        returning "id"
+      `);
+    const teamId = Number((inserted as any).rows?.[0]?.id ?? 0) || null;
+    return { ok: true, teamId };
+  }
+
+  try {
+    const teams = await db
+      .select({ id: teamTable.id, emailSlug: teamTable.emailSlug })
+      .from(teamTable)
+      .where(eq(teamTable.adminId, input.userId))
+      .limit(1);
+
+    if (teams[0]) {
+      await db
+        .update(teamTable)
+        .set({
+          name: input.name,
+          athleteType,
+          minAge: input.minAge ?? null,
+          maxAge: input.maxAge ?? null,
+          maxAthletes: input.maxAthletes,
+          emailSlug: teams[0].emailSlug ?? slugForName(teams[0].id),
+          updatedAt: new Date(),
+        })
+        .where(eq(teamTable.id, teams[0].id));
+      return { ok: true, teamId: teams[0].id };
+    }
+
     const inserted = await db
       .insert(teamTable)
       .values({
@@ -266,16 +318,17 @@ export async function startTeamOnboarding(input: {
       .returning({ id: teamTable.id });
     const newId = inserted[0]?.id;
     if (newId) {
-      const slugDefault = `${slugifySegment(input.name)}-${newId}`;
       await db
         .update(teamTable)
-        .set({ emailSlug: slugDefault, updatedAt: new Date() })
+        .set({ emailSlug: slugForName(newId), updatedAt: new Date() })
         .where(eq(teamTable.id, newId));
     }
     return { ok: true, teamId: newId ?? null };
+  } catch (err) {
+    if (!isKnownTeamsColumnMissing(err)) throw err;
+    logger.warn({ err }, "[onboarding] teams schema mismatch (email_slug/payment_mode); using legacy onboarding write path");
+    return legacyStartTeamOnboarding();
   }
-
-  return { ok: true, teamId: teams[0].id };
 }
 
 export async function startPerformanceOnboarding(input: {
@@ -325,6 +378,7 @@ export async function startPerformanceOnboarding(input: {
 export async function saveOnboardingGoals(input: {
   userId: number;
   trainingPerWeek: number;
+  preferredTrainingDays: string[];
   performanceGoals: string;
   injuries?: any;
   equipmentAccess?: string;
@@ -371,6 +425,7 @@ export async function saveOnboardingGoals(input: {
     .update(athleteTable)
     .set({
       trainingPerWeek: input.trainingPerWeek,
+      preferredTrainingDays: input.preferredTrainingDays,
       performanceGoals: input.performanceGoals,
       injuries: input.injuries ?? null,
       equipmentAccess: input.equipmentAccess ?? null,
@@ -554,6 +609,7 @@ export async function submitOnboarding(input: {
   athleteType?: (typeof AthleteType.enumValues)[number];
   team?: string | null;
   trainingPerWeek: number;
+  preferredTrainingDays: string[];
   injuries?: unknown;
   growthNotes?: string | null;
   performanceGoals?: string | null;
@@ -636,6 +692,7 @@ export async function submitOnboarding(input: {
         birthDate: birthDateValue,
         team: resolvedTeam,
         trainingPerWeek: input.trainingPerWeek,
+        preferredTrainingDays: input.preferredTrainingDays,
         injuries: input.injuries ?? null,
         growthNotes: input.growthNotes ?? null,
         performanceGoals: input.performanceGoals ?? null,
@@ -686,6 +743,7 @@ export async function submitOnboarding(input: {
         birthDate: birthDateValue,
         team: resolvedTeam,
         trainingPerWeek: input.trainingPerWeek,
+        preferredTrainingDays: input.preferredTrainingDays,
         injuries: input.injuries ?? null,
         growthNotes: input.growthNotes ?? null,
         performanceGoals: input.performanceGoals ?? null,
@@ -883,6 +941,7 @@ export async function getGuardianAthleteOnboardingData(input: { userId: number; 
       teamId: athleteTable.teamId,
       team: teamTable.name,
       trainingPerWeek: athleteTable.trainingPerWeek,
+      preferredTrainingDays: athleteTable.preferredTrainingDays,
       injuries: athleteTable.injuries,
       growthNotes: athleteTable.growthNotes,
       performanceGoals: athleteTable.performanceGoals,
@@ -920,6 +979,7 @@ export async function getGuardianAthleteOnboardingData(input: { userId: number; 
     birthDate,
     team: athlete.team,
     trainingPerWeek: athlete.trainingPerWeek,
+    preferredTrainingDays: athlete.preferredTrainingDays ?? [],
     injuries: athlete.injuries ?? null,
     growthNotes: athlete.growthNotes ?? null,
     performanceGoals: athlete.performanceGoals ?? null,
@@ -935,6 +995,7 @@ export async function updateGuardianAthleteOnboardingData(input: {
   birthDate?: string;
   team?: string | null;
   trainingPerWeek?: number;
+  preferredTrainingDays?: string[];
   injuries?: unknown;
   growthNotes?: string | null;
   performanceGoals?: string | null;
@@ -978,6 +1039,7 @@ export async function updateGuardianAthleteOnboardingData(input: {
     ...(input.name !== undefined ? { name: input.name } : {}),
     ...(input.team !== undefined ? { team: (input.team ?? "").trim() } : {}),
     ...(input.trainingPerWeek !== undefined ? { trainingPerWeek: input.trainingPerWeek } : {}),
+    ...(input.preferredTrainingDays !== undefined ? { preferredTrainingDays: input.preferredTrainingDays } : {}),
     ...(input.injuries !== undefined ? { injuries: input.injuries ?? null } : {}),
     ...(input.growthNotes !== undefined ? { growthNotes: input.growthNotes } : {}),
     ...(input.performanceGoals !== undefined ? { performanceGoals: input.performanceGoals } : {}),

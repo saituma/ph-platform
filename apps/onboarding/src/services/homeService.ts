@@ -91,11 +91,32 @@ export async function fetchHomeContent(_token?: string): Promise<HomeContentPayl
 
   const parseTestimonials = (body: any): HomeTestimonial[] | null => {
     const raw = body?.testimonials;
-    if (Array.isArray(raw)) return raw as HomeTestimonial[];
+    const toPhoto = (item: any): string | null => {
+      const candidates = [item?.photoUrl, item?.photo, item?.imageUrl, item?.image];
+      for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
+          return candidate.trim();
+        }
+      }
+      return null;
+    };
+    const normalize = (items: any[]): HomeTestimonial[] =>
+      items.map((item, index) => ({
+        id: String(item?.id ?? `testimonial-${index + 1}`),
+        name: String(item?.name ?? item?.adminName ?? item?.coachName ?? "Anonymous"),
+        role: typeof item?.role === "string" ? item.role : null,
+        quote: String(item?.quote ?? ""),
+        rating: typeof item?.rating === "number" ? item.rating : null,
+        photoUrl: toPhoto(item),
+        photo: typeof item?.photo === "string" ? item.photo : null,
+        imageUrl: typeof item?.imageUrl === "string" ? item.imageUrl : null,
+        image: typeof item?.image === "string" ? item.image : null,
+      }));
+    if (Array.isArray(raw)) return normalize(raw);
     if (typeof raw === "string" && raw.trim().length) {
       try {
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? (parsed as HomeTestimonial[]) : null;
+        return Array.isArray(parsed) ? normalize(parsed) : null;
       } catch {
         return null;
       }
@@ -104,23 +125,29 @@ export async function fetchHomeContent(_token?: string): Promise<HomeContentPayl
   };
 
   const resolveProfessionalPhoto = (body: HomeContentPayload): string | null => {
+    const isLikelyImageUrl = (value: string): boolean =>
+      /^(https?:\/\/|\/|data:image\/|blob:)/i.test(value) ||
+      /\.(png|jpe?g|webp|gif|avif|svg)(\?|#|$)/i.test(value);
+
     const direct =
       typeof body.professionalPhoto === "string" && body.professionalPhoto.trim()
         ? body.professionalPhoto.trim()
         : null;
-    if (direct) return direct;
+    if (direct && isLikelyImageUrl(direct)) return direct;
+
+    const selectCandidate = (entries: string[]): string | null => {
+      const normalized = entries.map((entry) => entry.trim()).filter(Boolean);
+      if (!normalized.length) return null;
+      return normalized.find((entry) => isLikelyImageUrl(entry)) ?? normalized[0] ?? null;
+    };
+
     if (Array.isArray(body.professionalPhotos)) {
-      return (body.professionalPhotos[0] as any) ?? null;
+      return selectCandidate(body.professionalPhotos.map((entry) => String(entry)));
     }
     if (typeof body.professionalPhotos === "string") {
-      return (
-        body.professionalPhotos
-          .split(/\r?\n|,/)
-          .map((entry) => entry.trim())
-          .filter(Boolean)[0] ?? null
-      );
+      return selectCandidate(body.professionalPhotos.split(/\r?\n|,/));
     }
-    return null;
+    return direct;
   };
 
   const merged: HomeContentPayload = {};

@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../theme/AppThemeProvider";
 import { apiRequest } from "../../lib/api";
 import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
-import { Text, TextInput } from "@/components/ScaledText";
+import { Text, TextInput } from "../../components/ScaledText";
 
 export default function ForgotScreen() {
   const [email, setEmail] = useState("");

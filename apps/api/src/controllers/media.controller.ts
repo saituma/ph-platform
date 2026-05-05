@@ -107,14 +107,14 @@ export async function uploadMediaByToken(req: Request, res: Response) {
     }
 
     const body = req.body as unknown;
-    if (!Buffer.isBuffer(body)) {
-      return res.status(400).json({ error: "Upload body must be raw bytes" });
+    if (Buffer.isBuffer(body)) {
+      if (body.length !== claims.sizeBytes) {
+        return res.status(400).json({ error: "Upload size does not match upload token" });
+      }
+      await putObject({ key: claims.key, body, contentType: claims.contentType });
+    } else {
+      await putObject({ key: claims.key, body: req, contentType: claims.contentType, size: claims.sizeBytes });
     }
-    if (body.length !== claims.sizeBytes) {
-      return res.status(400).json({ error: "Upload size does not match upload token" });
-    }
-
-    await putObject({ key: claims.key, body, contentType: claims.contentType });
     return res.sendStatus(204);
   } catch (error: any) {
     const message = error?.message ? String(error.message) : "Upload failed";

@@ -1,20 +1,5 @@
 import React, { useMemo } from "react";
-import {
-  HeroUINativeProvider,
-  type HeroUINativeConfig,
-  Button,
-  Card,
-  Chip,
-  Surface,
-  Skeleton,
-  SkeletonGroup,
-  TextArea,
-  TextField,
-  Input,
-  Label,
-  cn,
-  PressableFeedback,
-} from "heroui-native";
+import { HeroUINativeProvider, type HeroUINativeConfig, Button, Card, Chip, Surface, Skeleton, SkeletonGroup, Avatar, Separator, TextArea, TextField, Input, Label, cn, PressableFeedback } from "heroui-native";
 import {
   View,
   type PressableProps,
@@ -54,20 +39,7 @@ export function HeroAppProvider({ children }: { children: React.ReactNode }) {
 
 // ─── Re-exports from heroui-native ──────────────────────────────────────────
 
-export {
-  Button,
-  Card,
-  Chip,
-  Surface,
-  Skeleton,
-  SkeletonGroup,
-  TextArea,
-  TextField,
-  Input,
-  Label,
-  cn,
-  PressableFeedback,
-};
+export { Button, Card, Chip, Surface, Skeleton, SkeletonGroup, Avatar, Separator, TextArea, TextField, Input, Label, cn, PressableFeedback };
 
 // ─── UIButton (HeroUI Button wrapper) ───────────────────────────────────────
 
@@ -83,8 +55,8 @@ type UIButtonProps = PressableProps & {
 const VARIANT_MAP: Record<string, "primary" | "secondary" | "tertiary" | "outline" | "ghost" | "danger"> = {
   primary: "primary",
   secondary: "secondary",
-  ghost: "ghost",
-  outline: "outline",
+  ghost: "secondary",
+  outline: "secondary",
   danger: "danger",
   "danger-soft": "danger",
   tertiary: "tertiary",
@@ -107,6 +79,7 @@ export function UIButton({
   return (
     <Button
       variant={heroVariant}
+      feedbackVariant="none"
       disabled={finalDisabled}
       className={cn("min-h-12 rounded-[18px] px-4 py-3", className)}
       style={style as any}
@@ -373,6 +346,7 @@ export function UISkeleton({
 
   return (
     <Skeleton
+      variant="pulse"
       className={cn("rounded-2xl", className)}
       style={style as any}
     />

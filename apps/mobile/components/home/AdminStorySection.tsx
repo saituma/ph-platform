@@ -1,5 +1,6 @@
-import React from "react";
-import { Image, View, useWindowDimensions } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, useWindowDimensions, Image as RNImage } from "react-native";
+import { Image } from "expo-image";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows, radius, spacing } from "@/constants/theme";
@@ -17,6 +18,21 @@ export const AdminStorySection = React.memo(function AdminStorySection({ story, 
   const { width } = useWindowDimensions();
   const photo = photoUrl?.trim() || "";
   const storyText = story?.trim() || "";
+  
+  const [aspectRatio, setAspectRatio] = useState<number>(1);
+
+  useEffect(() => {
+    if (photo) {
+      RNImage.getSize(photo, (w, h) => {
+        if (w && h) {
+          setAspectRatio(w / h);
+        }
+      }, () => {
+        // Fallback to square on error
+        setAspectRatio(1);
+      });
+    }
+  }, [photo]);
 
   if (!storyText && !photo && !loading) {
     return null;
@@ -50,11 +66,19 @@ export const AdminStorySection = React.memo(function AdminStorySection({ story, 
           }}
         >
           {photo ? (
-            <View className="relative">
+            <View 
+              className="relative" 
+              style={{ 
+                backgroundColor: isDark ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.03)",
+                width: "100%",
+                aspectRatio: aspectRatio,
+              }}
+            >
               <Image
                 source={{ uri: photo }}
-                resizeMode="cover"
-                style={{ width: "100%", aspectRatio: 16 / 9 }}
+                contentFit="cover" // Cover is safe now because aspectRatio matches the image exactly
+                transition={300}
+                style={{ width: "100%", height: "100%" }}
               />
             </View>
           ) : null}

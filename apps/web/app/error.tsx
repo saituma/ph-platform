@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
 export default function RouteError({
@@ -10,6 +11,7 @@ export default function RouteError({
   reset: () => void;
 }) {
   useEffect(() => {
+    Sentry.captureException(error);
     console.error("Route error:", error);
   }, [error]);
 

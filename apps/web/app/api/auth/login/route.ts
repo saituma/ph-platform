@@ -12,18 +12,30 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
+function decodeToken(value: string): string {
+  if (!value) return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export async function POST(req: Request) {
   const cookieStore = await cookies();
   const csrfCookie = cookieStore.get("csrfToken")?.value ?? "";
   const csrfHeader = req.headers.get("x-csrf-token") ?? "";
 
-  if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+  const normalizedCookie = decodeToken(csrfCookie);
+  const normalizedHeader = decodeToken(csrfHeader);
+
+  if (!normalizedCookie || !normalizedHeader || normalizedCookie !== normalizedHeader) {
     console.error("[login] CSRF failed", {
-      hasCsrfCookie: !!csrfCookie,
-      hasCsrfHeader: !!csrfHeader,
-      match: csrfCookie === csrfHeader,
-      cookiePrefix: csrfCookie.slice(0, 8),
-      headerPrefix: csrfHeader.slice(0, 8),
+      hasCsrfCookie: !!normalizedCookie,
+      hasCsrfHeader: !!normalizedHeader,
+      match: normalizedCookie === normalizedHeader,
+      cookiePrefix: normalizedCookie.slice(0, 8),
+      headerPrefix: normalizedHeader.slice(0, 8),
     });
     return jsonError(
       !csrfCookie

@@ -49,6 +49,8 @@ import {
 import { fetchTeamLocations, type UserLocation } from "@/services/tracking/locationService";
 import { relativeTime } from "@/lib/tracking/relativeTime";
 import { apiRequest } from "@/lib/api";
+import { useSafePathname } from "@/hooks/navigation/useSafeExpoRouter";
+import TrackingSocialScreen from "./social";
 
 const SPORT_CATEGORIES: { label: string; icon: string; sports: string[] }[] = [
   { label: "Foot Sports", icon: "shoe-sneaker", sports: ["run", "trail_run", "walk", "hike", "virtual_run", "treadmill"] },
@@ -99,6 +101,7 @@ function AnimatedStat({
 
 export default function TrackingHomeScreen() {
   const router = useRouter();
+  const pathname = useSafePathname("");
   const insets = useAppSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
@@ -189,11 +192,13 @@ export default function TrackingHomeScreen() {
     firstManagedAthlete: managedAthletes[0] ?? null,
   });
   const isTeamManager = appRole === "team_manager";
-  const showTeamTab = shouldUseTeamTrackingFeatures({
-    appRole,
-    authTeamMembership,
-    firstManagedAthlete: managedAthletes[0] ?? null,
-  });
+  const showTeamTab =
+    canAccessTracking &&
+    shouldUseTeamTrackingFeatures({
+      appRole,
+      authTeamMembership,
+      firstManagedAthlete: managedAthletes[0] ?? null,
+    });
 
   const categorizedRuns = useMemo(() => {
     const sections: { label: string; icon: string; data: RunRecord[] }[] = [];
@@ -279,6 +284,13 @@ export default function TrackingHomeScreen() {
     if (!capabilitiesLoaded || canAccessTracking) return;
     router.replace("/(tabs)");
   }, [capabilitiesLoaded, canAccessTracking, router]);
+
+  // Team/social is a nested route under tracking, but this role shell renders
+  // fixed tab components. Mirror that nested route here so header tab navigation
+  // can actually switch views instead of snapping back to running.
+  if (pathname.includes("/tracking/social")) {
+    return <TrackingSocialScreen />;
+  }
 
   if (!capabilitiesLoaded || !canAccessTracking) return null;
 

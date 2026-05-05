@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, CreditCard, ShieldCheck } from "lucide-react";
+import { ArrowRight, CreditCard, ShieldCheck, Users } from "lucide-react";
 
 import { AdminShell } from "../../components/admin/shell";
 import {
@@ -89,6 +89,15 @@ export default function BillingOverviewPage() {
       icon: ShieldCheck,
       badge: isLoading ? null : `${summary.pendingApprovalCount}`,
       badgeDetail: "awaiting review",
+    },
+    {
+      title: "Team Payments",
+      description:
+        "View and manage team payment modes, track invite statuses, and monitor missing payments.",
+      href: "/billing/team-payments",
+      icon: Users,
+      badge: null,
+      badgeDetail: null,
     },
   ];
 

@@ -52,6 +52,10 @@ const TEAM_TYPES: { id: TeamType; label: string; description: string; icon: type
 ];
 
 function OnboardingStep2() {
+	const now = new Date();
+	const minAthleteDate = new Date(now.getFullYear() - 18, now.getMonth(), now.getDate());
+	const maxAthleteDate = new Date(now.getFullYear() - 7, now.getMonth(), now.getDate());
+
 	const [userType, setUserType] = useState<string | null>(null);
 	const [teamType, setTeamType] = useState<TeamType>("youth");
 	const [formData, setFormData] = useState({
@@ -332,9 +336,18 @@ function OnboardingStep2() {
 											date={birthDate}
 											setDate={setBirthDate}
 											placeholder="Select athlete's birth date"
-											fromYear={new Date().getFullYear() - 100}
-											toYear={new Date().getFullYear()}
+											minDate={minAthleteDate}
+											maxDate={maxAthleteDate}
+											disabled={[
+												{ before: minAthleteDate },
+												{ after: maxAthleteDate }
+											]}
 										/>
+										{!ageError && (
+											<p className="text-[10px] font-mono uppercase tracking-tight text-foreground/40 mt-1">
+												Note: Youth athletes must be between 7 and 18 years old.
+											</p>
+										)}
 										{ageError && (
 											<p className="text-xs font-semibold text-destructive animate-in fade-in slide-in-from-top-1">
 												{ageError}

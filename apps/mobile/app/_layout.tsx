@@ -1,5 +1,3 @@
-import { initSentry } from "@/lib/sentry";
-initSentry();
 import "@/lib/debug/updateDepthProbe";
 import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 import { FontScaleProvider } from "@/context/FontScaleContext";
@@ -9,7 +7,6 @@ import { TabVisibilityProvider } from "@/context/TabVisibilityContext";
 import { InAppNotificationsProvider } from "@/context/InAppNotificationsContext";
 import { Stack, slideFromRight, Transition } from "@/components/navigation/TransitionStack";
 import { useRouter } from "expo-router";
-import { Platform } from "react-native";
 import { HeroAppProvider } from "@/components/ui/hero";
 import { AuthPersist } from "@/store/AuthPersist";
 import { ReduxProvider } from "@/store/Provider";
@@ -22,7 +19,7 @@ import React, {
 } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SystemBars } from "react-native-edge-to-edge";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -41,7 +38,7 @@ import { runStartupSelfTest } from "@/lib/startupDiagnostics";
 import { useAppSelector } from "@/store/hooks";
 import * as SplashScreen from "expo-splash-screen";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
-import { Sentry } from "@/lib/sentry";
+import { isSentryEnabled, Sentry } from "@/lib/sentry";
 
 // Ensure cold start lands in the main tab shell (Home), not a deep stack route.
 export const unstable_settings = {
@@ -286,4 +283,4 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+export default isSentryEnabled ? Sentry.wrap(RootLayout) : RootLayout;

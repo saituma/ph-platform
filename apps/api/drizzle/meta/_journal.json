@@ -869,6 +869,34 @@
       "when": 1777852800000,
       "tag": "0123_session_completion_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1777911594042,
+      "tag": "0124_lyrical_lizard",
+      "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1777923975503,
+      "tag": "0125_team_payment_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1777978300000,
+      "tag": "0126_attendance_preferred_days",
+      "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1777981145906,
+      "tag": "0127_add_coach_video_to_uploads",
+      "breakpoints": true
     }
   ]
 }

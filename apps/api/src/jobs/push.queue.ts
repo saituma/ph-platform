@@ -58,7 +58,7 @@ export function startPushWorker(): void {
   const connection = getRedisConnection();
   if (!connection) return;
 
-  new Worker<PushJob>(
+  const worker = new Worker<PushJob>(
     QUEUE_NAME,
     async (job) => {
       const { userId, title, body, data } = job.data;
@@ -69,5 +69,8 @@ export function startPushWorker(): void {
       concurrency: 5,
     },
   );
+  worker.on("error", (err) => {
+    logger.error({ err }, "Push worker error");
+  });
   logger.info("Push notification worker started");
 }

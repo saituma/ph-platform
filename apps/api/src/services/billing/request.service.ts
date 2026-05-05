@@ -24,7 +24,7 @@ import {
 } from "./stripe.service";
 import { newReceiptPublicId } from "../../lib/receipt-public-id";
 import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
-import { computePlanPeriodEnd, computeAthleteAccessEnd, quoteAthleteBillingCycleAmount } from "./plan.service";
+import { computePlanPeriodEnd, computeAthleteAccessEnd } from "./plan.service";
 import { pushQueue } from "../../jobs";
 import {
   notifySubscriptionEnteredPendingApproval,
@@ -66,6 +66,12 @@ function paymentStatusFromPaymentIntentStatus(status?: string | null): string {
   if (normalized === "canceled") return "canceled";
   if (normalized === "processing") return "processing";
   return "unpaid";
+}
+
+function computeExpiryFromDurationWeeks(durationWeeks: number, from: Date) {
+  const d = new Date(from.getTime());
+  d.setDate(d.getDate() + durationWeeks * 7);
+  return d;
 }
 
 export async function syncSubscriptionRequestPaymentFromStripe(requestId: number) {
@@ -213,8 +219,9 @@ export async function createCheckoutSession(input: {
   }
 
   const stripeClient = getStripeClient();
+  let resolvedPrice: Stripe.Price;
   try {
-    await stripeClient.prices.retrieve(priceId);
+    resolvedPrice = await stripeClient.prices.retrieve(priceId);
   } catch (error: unknown) {
     if (isStripeNotFoundError(error)) {
       const stripeMode = stripeModeFromSecretKey(process.env.STRIPE_SECRET_KEY);
@@ -229,9 +236,42 @@ export async function createCheckoutSession(input: {
     throw error;
   }
 
+  const isRecurringPrice = Boolean(resolvedPrice.recurring);
+  // Guard against mismatched DB config (for example: one-time Stripe price wired to a
+  // monthly cycle or vice versa). Without this, Stripe throws opaque checkout-mode errors.
+  if (mode === "subscription" && !isRecurringPrice) {
+    mode = "payment";
+  } else if (mode === "payment" && billingCycle === "monthly" && isRecurringPrice) {
+    mode = "subscription";
+  }
+
+  const oneTimeDurationWeeks = Number((plan as { durationWeeks?: number | null }).durationWeeks ?? 0);
+  const oneTimeDurationLabel =
+    Number.isFinite(oneTimeDurationWeeks) && oneTimeDurationWeeks > 0
+      ? `${oneTimeDurationWeeks} week${oneTimeDurationWeeks === 1 ? "" : "s"}`
+      : "One-time";
+  const oneTimeCents = typeof resolvedPrice.unit_amount === "number" ? resolvedPrice.unit_amount : null;
+  const oneTimeCurrency = typeof resolvedPrice.currency === "string" ? resolvedPrice.currency : null;
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
+    mode === "payment" && billingCycle === "six_months" && oneTimeCents != null && oneTimeCurrency
+      ? [
+          {
+            quantity: 1,
+            price_data: {
+              currency: oneTimeCurrency,
+              unit_amount: oneTimeCents,
+              product_data: {
+                name: `${plan.name} - ${oneTimeDurationLabel}`,
+                metadata: { planId: String(plan.id), billingCycle },
+              },
+            },
+          },
+        ]
+      : [{ price: priceId, quantity: 1 }];
+
   const session = await stripeClient.checkout.sessions.create({
     mode,
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: lineItems,
     success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: getCancelUrl(),
     customer_email: input.userEmail,
@@ -526,6 +566,8 @@ export async function listSubscriptionRequests() {
       planBillingInterval: subscriptionPlanTable.billingInterval,
       planMonthlyPrice: subscriptionPlanTable.monthlyPrice,
       planYearlyPrice: subscriptionPlanTable.yearlyPrice,
+      planOneTimePrice: subscriptionPlanTable.oneTimePrice,
+      planDurationWeeks: subscriptionPlanTable.durationWeeks,
       stripePriceId: subscriptionPlanTable.stripePriceId,
       stripePriceIdMonthly: subscriptionPlanTable.stripePriceIdMonthly,
       stripePriceIdYearly: subscriptionPlanTable.stripePriceIdYearly,
@@ -536,60 +578,56 @@ export async function listSubscriptionRequests() {
     .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
     .orderBy(desc(subscriptionRequestTable.createdAt));
 
-  return Promise.all(
-    rows.map(async (row) => {
-      const cycleRaw = String(row.planBillingCycle ?? "")
-        .trim()
-        .toLowerCase();
-      const cycle = ATHLETE_BILLING_CYCLES.includes(cycleRaw as AthleteBillingCycle)
-        ? (cycleRaw as AthleteBillingCycle)
-        : null;
+  return rows.map((row) => {
+    const cycleRaw = String(row.planBillingCycle ?? "")
+      .trim()
+      .toLowerCase();
+    const cycle = ATHLETE_BILLING_CYCLES.includes(cycleRaw as AthleteBillingCycle)
+      ? (cycleRaw as AthleteBillingCycle)
+      : null;
 
-      let displayPrice = row.planDisplayPrice ?? null;
-      let billingInterval = row.planBillingInterval ?? null;
-      let paymentMode: "subscription" | "payment" | null = null;
+    let displayPrice = row.planDisplayPrice ?? null;
+    let billingInterval = row.planBillingInterval ?? null;
+    let paymentMode: "subscription" | "payment" | null = null;
 
-      if (cycle && row.planTier) {
-        billingInterval = cycle;
-        const quote = await quoteAthleteBillingCycleAmount(
-          {
-            tier: row.planTier,
-            stripePriceId: row.stripePriceId,
-            stripePriceIdMonthly: row.stripePriceIdMonthly,
-            stripePriceIdYearly: row.stripePriceIdYearly,
-            displayPrice: row.planDisplayPrice,
-            monthlyPrice: row.planMonthlyPrice,
-            yearlyPrice: row.planYearlyPrice,
-          },
-          cycle,
-        );
-        paymentMode = quote.mode;
-        if (quote.amount) {
-          displayPrice = cycle === "monthly" ? `${quote.amount}/month` : `${quote.amount} upfront`;
-        }
-      }
+    if (cycle === "monthly") {
+      paymentMode = "subscription";
+      billingInterval = cycle;
+      const amount = row.planMonthlyPrice ?? row.planDisplayPrice;
+      if (amount) displayPrice = `${amount}/month`;
+    } else if (cycle === "yearly") {
+      paymentMode = "payment";
+      billingInterval = cycle;
+      const amount = row.planYearlyPrice ?? row.planDisplayPrice;
+      if (amount) displayPrice = `${amount} upfront`;
+    } else if (cycle === "six_months") {
+      paymentMode = "payment";
+      billingInterval = cycle;
+      const amount = row.planOneTimePrice ?? row.planDisplayPrice;
+      if (amount) displayPrice = `${amount} upfront`;
+    }
 
-      return {
-        requestId: row.requestId,
-        status: row.status,
-        paymentStatus: row.paymentStatus,
-        stripeSessionId: row.stripeSessionId,
-        createdAt: row.createdAt,
-        userId: row.userId,
-        userName: row.userName,
-        userEmail: row.userEmail,
-        athleteId: row.athleteId,
-        athleteName: row.athleteName,
-        planId: row.planId,
-        planName: row.planName,
-        planTier: row.planTier,
-        planBillingCycle: row.planBillingCycle,
-        displayPrice,
-        billingInterval,
-        paymentMode,
-      };
-    }),
-  );
+    return {
+      requestId: row.requestId,
+      status: row.status,
+      paymentStatus: row.paymentStatus,
+      stripeSessionId: row.stripeSessionId,
+      createdAt: row.createdAt,
+      userId: row.userId,
+      userName: row.userName,
+      userEmail: row.userEmail,
+      athleteId: row.athleteId,
+      athleteName: row.athleteName,
+      planId: row.planId,
+      planName: row.planName,
+      planTier: row.planTier,
+      planBillingCycle: row.planBillingCycle,
+      planDurationWeeks: row.planDurationWeeks,
+      displayPrice,
+      billingInterval,
+      paymentMode,
+    };
+  });
 }
 
 export async function getLatestSubscriptionRequest(input: { userId: number; athleteId: number }) {
@@ -669,6 +707,7 @@ export async function approveSubscriptionRequest(requestId: number) {
         athleteId: subscriptionRequestTable.athleteId,
         planId: subscriptionPlanTable.id,
         planTier: subscriptionPlanTable.tier,
+        planDurationWeeks: subscriptionPlanTable.durationWeeks,
         billingInterval: subscriptionPlanTable.billingInterval,
         planBillingCycle: subscriptionRequestTable.planBillingCycle,
         guardianId: athleteTable.guardianId,
@@ -685,12 +724,15 @@ export async function approveSubscriptionRequest(requestId: number) {
     }
 
     const cycleRaw = (request.planBillingCycle ?? "").toLowerCase();
+    const durationWeeks = Number(request.planDurationWeeks ?? 0);
     const planExpiresAt =
       cycleRaw === "one_time"
         ? null
-        : cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly"
-          ? computeAthleteAccessEnd(cycleRaw as AthleteBillingCycle, new Date())
-          : computePlanPeriodEnd(request.billingInterval, new Date());
+        : cycleRaw === "six_months" && Number.isFinite(durationWeeks) && durationWeeks > 0
+          ? computeExpiryFromDurationWeeks(durationWeeks, new Date())
+          : cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly"
+            ? computeAthleteAccessEnd(cycleRaw as AthleteBillingCycle, new Date())
+            : computePlanPeriodEnd(request.billingInterval, new Date());
 
     const athletePayload: {
       currentProgramTier?: typeof request.planTier;
@@ -726,7 +768,14 @@ export async function approveSubscriptionRequest(requestId: number) {
       athletePayload.planCommitmentMonths = null;
     } else if (cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly") {
       athletePayload.planPaymentType = cycleRaw === "monthly" ? "monthly" : "upfront";
-      athletePayload.planCommitmentMonths = cycleRaw === "monthly" ? 1 : cycleRaw === "six_months" ? 6 : 12;
+      athletePayload.planCommitmentMonths =
+        cycleRaw === "monthly"
+          ? 1
+          : cycleRaw === "six_months"
+            ? Number.isFinite(durationWeeks) && durationWeeks > 0
+              ? null
+              : 6
+            : 12;
     }
 
     if (request.guardianId) {

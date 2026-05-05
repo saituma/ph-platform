@@ -14,7 +14,7 @@ export async function getPresignedUploadUrl(input: { key: string; contentType: s
   return await client.presignedPutObject(bucket, input.key, 900);
 }
 
-export async function putObject(input: { key: string; body: Buffer; contentType: string }) {
+export async function putObject(input: { key: string; body: Buffer | Readable; contentType: string; size?: number }) {
   const bucket = env.r2Bucket.trim();
   if (!bucket) {
     throw new Error("R2_BUCKET is not configured");
@@ -24,7 +24,8 @@ export async function putObject(input: { key: string; body: Buffer; contentType:
   if (!contentType) {
     throw new Error("contentType is required");
   }
-  await client.putObject(bucket, input.key, input.body, input.body.length, {
+  const size = input.size ?? (Buffer.isBuffer(input.body) ? input.body.length : undefined);
+  await client.putObject(bucket, input.key, input.body, size, {
     "Content-Type": contentType,
   });
 }

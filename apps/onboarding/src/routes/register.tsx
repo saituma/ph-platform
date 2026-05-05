@@ -63,6 +63,10 @@ function Register() {
 	const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 	const navigate = useNavigate();
 	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
+	const isLocalDev =
+		typeof window !== "undefined" &&
+		(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+	const shouldEnforceTurnstile = Boolean(turnstileSiteKey) && !isLocalDev;
 
 	const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -77,7 +81,7 @@ function Register() {
 			return;
 		}
 
-		if (turnstileSiteKey && !turnstileFailed && turnstileReady && !turnstileToken) {
+		if (shouldEnforceTurnstile && !turnstileFailed && turnstileReady && !turnstileToken) {
 			toast.error("Please complete the verification challenge");
 			return;
 		}
@@ -143,7 +147,7 @@ const handleSignIn = () => {
 				onSignUp={handleSignUp}
 				onSignIn={handleSignIn}
 			>
-				{turnstileSiteKey && (
+				{shouldEnforceTurnstile && (
 					<div className="animate-element animate-delay-400">
 						<Turnstile
 							siteKey={turnstileSiteKey}
