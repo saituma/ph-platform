@@ -84,6 +84,7 @@ export const cache = {
 
 /** Scope helpers — keeps key format consistent across the codebase. */
 export const cacheKeys = {
+  authUser: (userId: number) => `user:${userId}:auth`,
   userThreads: (userId: number) => `user:${userId}:threads`,
   userProfile: (userId: number) => `user:${userId}:profile`,
   userBookings: (userId: number) => `user:${userId}:bookings`,

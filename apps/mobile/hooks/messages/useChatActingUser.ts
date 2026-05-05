@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useActingUser } from "@/hooks/useActingUser";
+import { useAppSelector } from "@/store/hooks";
 
 /**
  * Messaging should always resolve threads for the signed-in principal.
@@ -8,12 +9,18 @@ import { useActingUser } from "@/hooks/useActingUser";
  */
 export function useChatActingUser() {
   const base = useActingUser();
+  const profileId = useAppSelector((state) => state.user.profile.id);
+  const profileName = useAppSelector((state) => state.user.profile.name);
   return useMemo(
     () => ({
       ...base,
       actingUserId: null,
       actingHeaders: undefined,
+      effectiveProfileId: Number.isFinite(Number(profileId))
+        ? Number(profileId)
+        : 0,
+      effectiveProfileName: String(profileName ?? "").trim() || "You",
     }),
-    [base],
+    [base, profileId, profileName],
   );
 }

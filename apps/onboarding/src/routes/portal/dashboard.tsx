@@ -7,12 +7,13 @@ import {
 	Clock,
 	CreditCard,
 	Dumbbell,
+	ExternalLink,
 	MessageSquare,
 	Shield,
 	TrendingUp,
-	UserPlus,
 	Users,
 	Utensils,
+	Video,
 } from "lucide-react";
 import { getTokenStatus } from "@/lib/client-storage";
 import {
@@ -36,6 +37,141 @@ import { settingsService } from "@/services/settingsService";
 import { fetchTeamRoster } from "@/services/teamRosterService";
 
 export const homeKeys = homeQueryKeys;
+
+/* ─── Video Utilities ─── */
+
+type VideoSource =
+	| { kind: "youtube"; embedUrl: string }
+	| { kind: "loom"; embedUrl: string }
+	| { kind: "html5"; videoUrl: string }
+	| { kind: "unknown"; url: string };
+
+const EMPTY_VTT_CAPTIONS = "data:text/vtt,WEBVTT%0A%0A";
+
+function toYouTubeEmbedUrl(videoId: string) {
+	const id = videoId.trim();
+	return `https://www.youtube.com/embed/${encodeURIComponent(id)}?rel=0&modestbranding=1`;
+}
+
+function toLoomEmbedUrl(videoId: string) {
+	const id = videoId.trim();
+	return `https://www.loom.com/embed/${encodeURIComponent(id)}`;
+}
+
+function safeParseUrl(raw: string): URL | null {
+	const base =
+		typeof window !== "undefined" ? window.location.origin : "http://localhost";
+	try {
+		return new URL(raw, base);
+	} catch {
+		try {
+			return new URL(`https://${raw}`);
+		} catch {
+			return null;
+		}
+	}
+}
+
+function normalizeVideoSource(rawUrl: string): VideoSource {
+	const url = rawUrl.trim();
+	if (!url) return { kind: "unknown", url: rawUrl };
+
+	if (!url.startsWith("http") && /^[a-zA-Z0-9_-]{11}$/.test(url)) {
+		return { kind: "youtube", embedUrl: toYouTubeEmbedUrl(url) };
+	}
+
+	if (url.startsWith("blob:") || url.startsWith("data:")) {
+		return { kind: "html5", videoUrl: url };
+	}
+
+	if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(url)) {
+		return { kind: "html5", videoUrl: url };
+	}
+
+	const parsed = safeParseUrl(url);
+	if (!parsed) return { kind: "unknown", url };
+
+	const host = parsed.hostname.replace(/^www\./, "");
+	const path = parsed.pathname;
+
+	if (host === "youtu.be") {
+		const id = path.split("/").filter(Boolean)[0] ?? "";
+		if (id) return { kind: "youtube", embedUrl: toYouTubeEmbedUrl(id) };
+	}
+
+	if (host.endsWith("youtube.com")) {
+		const v = parsed.searchParams.get("v");
+		if (v) return { kind: "youtube", embedUrl: toYouTubeEmbedUrl(v) };
+		const embedMatch = path.match(/^\/embed\/([^/]+)/);
+		if (embedMatch?.[1])
+			return { kind: "youtube", embedUrl: toYouTubeEmbedUrl(embedMatch[1]) };
+		const shortsMatch = path.match(/^\/shorts\/([^/]+)/);
+		if (shortsMatch?.[1])
+			return { kind: "youtube", embedUrl: toYouTubeEmbedUrl(shortsMatch[1]) };
+	}
+
+	if (host === "loom.com") {
+		const shareMatch = path.match(/^\/share\/([^/]+)/);
+		const embedMatch = path.match(/^\/embed\/([^/]+)/);
+		const id = shareMatch?.[1] ?? embedMatch?.[1] ?? "";
+		if (id) return { kind: "loom", embedUrl: toLoomEmbedUrl(id) };
+	}
+
+	if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(parsed.pathname)) {
+		return { kind: "html5", videoUrl: parsed.toString() };
+	}
+
+	return { kind: "unknown", url: parsed.toString() };
+}
+
+function VideoPlayer({ videoUrl }: { videoUrl: string }) {
+	const source = normalizeVideoSource(videoUrl);
+
+	if (source.kind === "youtube" || source.kind === "loom") {
+		return (
+			<iframe
+				src={source.embedUrl}
+				className="w-full h-full"
+				allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+				allowFullScreen
+				referrerPolicy="strict-origin-when-cross-origin"
+				title="Intro video"
+			/>
+		);
+	}
+
+	if (source.kind === "html5") {
+		return (
+			<video className="w-full h-full" controls playsInline preload="metadata">
+				<source src={source.videoUrl} />
+				<track
+					kind="captions"
+					src={EMPTY_VTT_CAPTIONS}
+					srcLang="en"
+					label="Captions"
+				/>
+				Your browser does not support the video tag.
+			</video>
+		);
+	}
+
+	return (
+		<div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-3 p-6">
+			<Video className="w-12 h-12 opacity-20" />
+			<p className="text-sm font-medium text-center">
+				Video link can’t be embedded. Open it in a new tab.
+			</p>
+			<a
+				href={source.url}
+				target="_blank"
+				rel="noreferrer"
+				className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary hover:underline"
+			>
+				Open video <ExternalLink className="w-4 h-4" />
+			</a>
+		</div>
+	);
+}
 
 export const Route = createFileRoute("/portal/dashboard")({
 	loader: async ({ context: { queryClient } }) => {
@@ -572,40 +708,97 @@ function AthleteDashboard({
 				className="border border-foreground/[0.06] p-6 md:p-8 hover:border-foreground/[0.1] transition-colors duration-300"
 			>
 				{homeContent ? (
-					<div className="max-w-2xl">
-						<motion.h1
-							initial={{ opacity: 0, x: -10 }}
-							animate={{ opacity: 1, x: 0 }}
-							transition={{ delay: 0.1, duration: 0.5 }}
-							className="text-2xl md:text-3xl font-medium tracking-tight text-foreground mb-2"
-						>
-							{homeContent.headline || `Welcome back, ${displayName}`}
-						</motion.h1>
-						<motion.p
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							transition={{ delay: 0.25, duration: 0.5 }}
-							className="text-sm text-muted-foreground leading-relaxed"
-						>
-							{homeContent.description || "Your daily performance overview."}
-						</motion.p>
-						{user.team?.name?.trim() && (
-							<p className="mt-3 font-mono text-[10px] uppercase tracking-wider text-foreground/40">
-								Club · <span className="text-foreground/60">{user.team.name.trim()}</span>
-							</p>
-						)}
+					<div className="space-y-8">
+						<div className="flex flex-col md:flex-row gap-8 items-start">
+							{homeContent.professionalPhoto && (
+								<motion.div
+									initial={{ opacity: 0, y: 10 }}
+									animate={{ opacity: 1, y: 0 }}
+									transition={{ duration: 0.6 }}
+									className="shrink-0"
+								>
+									<div className="max-w-full overflow-hidden border border-foreground/[0.06] bg-foreground/5">
+										<img
+											src={homeContent.professionalPhoto}
+											alt=""
+											className="h-auto max-h-[400px] md:max-h-[500px] w-auto max-w-full object-contain"
+											onError={(e) => (e.currentTarget.style.display = "none")}
+										/>
+									</div>
+								</motion.div>
+							)}
+
+							<div className="flex-1 space-y-6">
+								<div className="space-y-2">
+									<motion.h1
+										initial={{ opacity: 0, x: -10 }}
+										animate={{ opacity: 1, x: 0 }}
+										transition={{ delay: 0.1, duration: 0.5 }}
+										className="text-2xl md:text-3xl font-medium tracking-tight text-foreground"
+									>
+										{homeContent.headline && 
+										 !homeContent.headline.startsWith("http") && 
+										 !/\.(jpg|jpeg|png|webp|gif|svg)$/i.test(homeContent.headline)
+											? homeContent.headline 
+											: `Welcome back, ${displayName}`}
+									</motion.h1>
+									<motion.p
+										initial={{ opacity: 0 }}
+										animate={{ opacity: 1 }}
+										transition={{ delay: 0.25, duration: 0.5 }}
+										className="text-sm text-muted-foreground leading-relaxed"
+									>
+										{homeContent.description && 
+										 !homeContent.description.startsWith("http") && 
+										 !/\.(jpg|jpeg|png|webp|gif|svg)$/i.test(homeContent.description)
+											? homeContent.description
+											: "Your daily performance overview."}
+									</motion.p>
+								</div>
+
+								<div className="pt-6 border-t border-foreground/[0.06] space-y-4 max-w-sm">
+									<h2 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Profile Info</h2>
+									<div className="space-y-2.5">
+										<div className="flex justify-between text-sm">
+											<span className="text-muted-foreground">Email</span>
+											<span className="font-medium">{user.email}</span>
+										</div>
+										<div className="flex justify-between text-sm">
+											<span className="text-muted-foreground">User ID</span>
+											<span className="font-medium">#{user.id}</span>
+										</div>
+										{user.birthDate && (
+											<div className="flex justify-between text-sm">
+												<span className="text-muted-foreground">Birth Date</span>
+												<span className="font-medium">{formatDate(user.birthDate)}</span>
+											</div>
+										)}
+									</div>
+									<Link
+										to="/portal/profile"
+										className="inline-block mt-2 py-2 px-6 text-sm font-medium border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.12] transition-all duration-200 text-center"
+									>
+										Edit Profile
+									</Link>
+								</div>
+							</div>
+						</div>
+
+						<div className="flex flex-wrap items-center gap-4">
+							{user.team?.name?.trim() && (
+								<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+									Club · <span className="text-foreground/60">{user.team.name.trim()}</span>
+								</p>
+							)}
+						</div>
+
 						{homeContent.introVideoUrl && (
-							<motion.a
-								whileHover={{ scale: 1.02 }}
-								whileTap={{ scale: 0.98 }}
-								href={homeContent.introVideoUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
-							>
-								<TrendingUp className="h-4 w-4" />
-								Watch Intro
-							</motion.a>
+							<div className="pt-8 border-t border-foreground/[0.06]">
+								<h2 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 mb-4">Intro Video</h2>
+								<div className="aspect-video w-full max-w-3xl overflow-hidden border border-foreground/[0.06] bg-black shadow-2xl">
+									<VideoPlayer videoUrl={homeContent.introVideoUrl} />
+								</div>
+							</div>
 						)}
 					</div>
 				) : (
@@ -628,13 +821,13 @@ function AthleteDashboard({
 				)}
 			</motion.div>
 
-			{/* Plan + Profile row */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+			{/* Plan row */}
+			<div className="grid grid-cols-1 gap-6">
 				<motion.div
 					variants={scaleIn}
 					initial="hidden"
 					animate="visible"
-					className="md:col-span-2 border border-foreground/[0.06] p-6 hover:border-foreground/[0.1] transition-colors duration-300"
+					className="border border-foreground/[0.06] p-6 hover:border-foreground/[0.1] transition-colors duration-300"
 				>
 					<div className="flex items-center justify-between mb-4">
 						<div>
@@ -680,46 +873,6 @@ function AthleteDashboard({
 							</p>
 						</div>
 					)}
-				</motion.div>
-
-				<motion.div
-					variants={scaleIn}
-					initial="hidden"
-					animate="visible"
-					transition={{ delay: 0.1 }}
-					className="border border-foreground/[0.06] p-6 flex flex-col justify-between hover:border-foreground/[0.1] transition-colors duration-300"
-				>
-					<div className="space-y-4">
-						<h2 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Profile Info</h2>
-						<div className="space-y-2">
-							{user.team?.id && (
-								<div className="flex justify-between text-sm gap-2">
-									<span className="text-muted-foreground shrink-0">Club</span>
-									<span className="font-medium text-right">{user.team.name?.trim() || `Team #${user.team.id}`}</span>
-								</div>
-							)}
-							<div className="flex justify-between text-sm">
-								<span className="text-muted-foreground">Email</span>
-								<span className="font-medium">{user.email}</span>
-							</div>
-							<div className="flex justify-between text-sm">
-								<span className="text-muted-foreground">User ID</span>
-								<span className="font-medium">#{user.id}</span>
-							</div>
-							{user.birthDate && (
-								<div className="flex justify-between text-sm">
-									<span className="text-muted-foreground">Birth Date</span>
-									<span className="font-medium">{formatDate(user.birthDate)}</span>
-								</div>
-							)}
-						</div>
-					</div>
-					<Link
-						to="/portal/profile"
-						className="block w-full mt-4 py-2 text-sm font-medium border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.12] transition-all duration-200 text-center"
-					>
-						Edit Profile
-					</Link>
 				</motion.div>
 			</div>
 

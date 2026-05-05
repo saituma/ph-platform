@@ -1,15 +1,15 @@
 import React from "react";
 import { View, TouchableOpacity, ActivityIndicator } from "react-native";
 import { 
-  Avatar, 
-  TextField, 
-  Input, 
-  Label,
-  UISurface,
-  cn 
+  Avatar,
 } from "@/components/ui/hero";
-import { Camera, User, Mail } from "lucide-react-native";
+import { 
+  GroupedInput, 
+  GroupedInputItem 
+} from "@/components/ui/input";
+import { Camera, User, Mail, ShieldCheck } from "lucide-react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Text } from "@/components/ScaledText";
 
 interface AdminAvatarSectionProps {
   avatar: string | null;
@@ -31,62 +31,71 @@ export function AdminAvatarSection({
   const { colors } = useAppTheme();
 
   return (
-    <View className="gap-8">
-      <View className="items-center">
+    <View className="gap-10">
+      {/* Avatar Selection Section */}
+      <View className="items-center justify-center">
         <View className="relative">
-          <Avatar size="lg" className="h-32 w-32 rounded-[40px] border-4 border-accent/20">
-            {avatar ? (
-              <Avatar.Image source={{ uri: avatar }} className="rounded-[36px]" />
-            ) : (
-              <Avatar.Fallback className="bg-accent/10">
-                <User size={48} color={colors.accent} />
-              </Avatar.Fallback>
-            )}
-          </Avatar>
+          <View className="p-1.5 rounded-[44px] border border-accent/10 bg-accent/5">
+            <Avatar size="lg" className="h-32 w-32 rounded-[38px] border-2 border-white/10 shadow-2xl">
+              {avatar ? (
+                <Avatar.Image source={{ uri: avatar }} className="rounded-[34px]" />
+              ) : (
+                <Avatar.Fallback className="bg-accent/10">
+                  <User size={48} color={colors.accent} strokeWidth={1.5} />
+                </Avatar.Fallback>
+              )}
+            </Avatar>
+          </View>
           
           <TouchableOpacity
             onPress={onPickAvatar}
             disabled={isUploadingAvatar}
-            className="absolute -bottom-2 -right-2 w-12 h-12 bg-accent rounded-2xl items-center justify-center border-4 border-background shadow-lg"
+            activeOpacity={0.8}
+            className="absolute -bottom-1 -right-1 w-11 h-11 bg-accent rounded-[14px] items-center justify-center border-[4px] border-card-elevated shadow-lg"
           >
             {isUploadingAvatar ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Camera size={20} color="white" />
+              <Camera size={18} color="white" strokeWidth={2.5} />
             )}
           </TouchableOpacity>
         </View>
+
+        <View className="mt-5 items-center">
+          <View className="flex-row items-center gap-2 px-3.5 py-1.5 rounded-full bg-accent/8 border border-accent/15">
+            <ShieldCheck size={12} color={colors.accent} strokeWidth={2.5} />
+            <Text className="text-[10px] font-outfit-black text-accent uppercase tracking-[0.15em]">Administrative Identity</Text>
+          </View>
+        </View>
       </View>
 
-      <View className="gap-6">
-        <TextField>
-          <Label className="ml-1 mb-2 text-xs font-black uppercase tracking-widest text-muted">
-            Admin Identity
-          </Label>
-          <UISurface className="flex-row items-center px-4 h-16 rounded-[22px] border-accent/10">
-            <User size={20} color={colors.accent} strokeWidth={2} className="mr-3" />
-            <Input
-              value={name}
-              onChangeText={setName}
-              placeholder="System Name"
-              className="flex-1 text-base font-outfit-bold text-foreground"
-            />
-          </UISurface>
-        </TextField>
+      {/* Identity Form Section */}
+      <View className="gap-1">
+        <GroupedInput>
+          <GroupedInputItem
+            label="Full Name"
+            value={name}
+            onChangeText={setName}
+            icon={User}
+            placeholder="Enter your system name"
+            placeholderTextColor={colors.textSecondary + '40'}
+            inputStyle={{ fontFamily: "Outfit-Bold" }}
+          />
+          <GroupedInputItem
+            label="Email"
+            value={email}
+            editable={false}
+            icon={Mail}
+            disabled
+            inputStyle={{ opacity: 0.5 }}
+          />
+        </GroupedInput>
 
-        <TextField isDisabled>
-          <Label className="ml-1 mb-2 text-xs font-black uppercase tracking-widest text-muted">
-            Security Email
-          </Label>
-          <UISurface className="flex-row items-center px-4 h-16 rounded-[22px] border-transparent bg-muted/5 opacity-60">
-            <Mail size={20} color={colors.textSecondary} strokeWidth={2} className="mr-3" />
-            <Input
-              value={email}
-              editable={false}
-              className="flex-1 text-base font-outfit text-muted"
-            />
-          </UISurface>
-        </TextField>
+        <View className="px-3 mt-2">
+          <Text className="text-[11px] font-outfit text-secondary opacity-50 leading-5">
+            Identity details are synced with central command. Email changes require security clearance protocols.
+          </Text>
+        </View>
       </View>
     </View>
   );

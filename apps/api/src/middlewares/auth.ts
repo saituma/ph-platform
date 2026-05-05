@@ -53,7 +53,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     const allowBypass = env.allowJwtBypass && env.nodeEnv !== "production";
     let user = userId
-      ? await cache.getOrSet(cacheKeys.userProfile(Number(userId)), 300, () => getUserById(Number(userId)))
+      ? await cache.getOrSet(cacheKeys.authUser(Number(userId)), 300, () => getUserById(Number(userId)))
       : await getUserByCognitoSub(sub!);
     if (!user) {
       if (!email) {

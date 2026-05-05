@@ -505,6 +505,7 @@ export async function updateMe(req: Request, res: Response) {
   if (!updated) {
     return res.status(404).json({ error: "User not found" });
   }
+  void cache.del(cacheKeys.authUser(req.user!.id));
   void cache.del(cacheKeys.userProfile(req.user!.id));
   return res.status(200).json({
     user: {

@@ -897,6 +897,13 @@
       "when": 1777981145906,
       "tag": "0127_add_coach_video_to_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1778004789126,
+      "tag": "0128_booking_type_team",
+      "breakpoints": true
     }
   ]
 }

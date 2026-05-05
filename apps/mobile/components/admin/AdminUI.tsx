@@ -127,9 +127,9 @@ export function AdminHeader({
   return (
     <View
       style={{
-        paddingTop: compact ? 20 : 36,
+        paddingTop: compact ? 24 : 48,
         paddingHorizontal: 20,
-        paddingBottom: compact ? 14 : 22,
+        paddingBottom: compact ? 18 : 32,
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
