@@ -86,3 +86,9 @@ infra/terraform/*.tfstate.backup
 infra/terraform/envs/*.tfvars
 infra/terraform/terraform.tfstate.d/
 !infra/terraform/envs/*.tfvars.example
+
+# archives
+*.tar.gz
+*.zip
+*.7z
+*.rar
