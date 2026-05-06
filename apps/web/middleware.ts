@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/refresh"];
+const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/refresh", "/api/auth/clear-session"];
 const csrfCookieName = "csrfToken";
 const generateCsrfToken = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {

@@ -38,11 +38,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!pathname || !isProtectedPath(pathname)) return;
     if (!hasValidClientToken()) {
-      const expire = "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = `accessToken${expire}`;
-      document.cookie = `accessTokenClient${expire}`;
-      document.cookie = `refreshToken${expire}`;
-      router.replace("/login");
+      fetch("/api/auth/clear-session", { method: "POST" }).finally(() => {
+        router.replace("/login");
+      });
     }
   }, [pathname, router]);
 

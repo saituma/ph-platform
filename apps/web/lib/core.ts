@@ -385,7 +385,9 @@ const baseQueryWithReauth: BaseQueryFn<
     if (typeof window !== "undefined" && !loginRedirectTriggered) {
       loginRedirectTriggered = true;
       clearAuthCookies();
-      window.location.href = "/login";
+      fetch("/api/auth/clear-session", { method: "POST" }).finally(() => {
+        window.location.href = "/login";
+      });
     }
   }
 
