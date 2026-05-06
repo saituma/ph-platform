@@ -178,18 +178,6 @@ function Login() {
 				onResetPassword={handleResetPassword}
 				onCreateAccount={handleCreateAccount}
 			/>
-			<div className="fixed bottom-4 left-4 z-50 rounded-md border border-foreground/20 bg-background/90 px-3 py-2 text-[11px] leading-tight text-foreground shadow-sm">
-				<div>Turnstile key: {turnstileSiteKey ? "present" : "missing"}</div>
-				<div>
-					enforced: {shouldEnforceTurnstile ? "yes" : "no (local bypass)"}
-				</div>
-				<div>ready: {turnstileReady ? "yes" : "no"}</div>
-				<div>failed: {turnstileFailed ? "yes" : "no"}</div>
-				<div>
-					token: {turnstileToken ? `${turnstileToken.length} chars` : "none"}
-				</div>
-				<div>api: {config.api.baseUrl}</div>
-			</div>
 		</div>
 	);
 }

@@ -208,6 +208,7 @@ export async function materializeTemplateSessions(input: {
       touchedSessionIds: [] as number[],
       affectedUserIds: [] as number[],
       templateName: "",
+      reason: "template_inactive" as const,
     };
 
   const startsMinutes = parseTimeToMinutes(template.startsAtTime);
@@ -224,6 +225,7 @@ export async function materializeTemplateSessions(input: {
       touchedSessionIds: [] as number[],
       affectedUserIds: [] as number[],
       templateName: template.name,
+      reason: "no_target_users" as const,
     };
 
   const fromDay = startOfUtcDay(input.from);
@@ -324,6 +326,7 @@ export async function materializeTemplateSessions(input: {
     touchedSessionIds: [...new Set(touchedSessionIds)],
     affectedUserIds: targetUserIds,
     templateName: template.name,
+    reason: createdIds.length > 0 ? ("created" as const) : ("already_exists" as const),
   };
 }
 

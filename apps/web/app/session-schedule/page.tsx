@@ -705,10 +705,16 @@ export default function SessionSchedulePage() {
                     disabled={materializing}
                     onClick={async () => {
                       const result = await materializeTemplate({ templateId: t.id, from: fromIso, to: toIso }).unwrap();
-                      if (!result.created) {
-                        setTemplateNotice("No sessions were created. For team templates, add athletes to the selected team first.");
-                      } else {
+                      if (result.created > 0) {
                         setTemplateNotice(`Generated ${result.created} session${result.created === 1 ? "" : "s"}.`);
+                      } else if (result.reason === "already_exists") {
+                        setTemplateNotice("No new sessions were created because matching sessions already exist in that date range.");
+                      } else if (result.reason === "no_target_users") {
+                        setTemplateNotice("No sessions were created because no target users are assigned to this template.");
+                      } else if (result.reason === "template_inactive") {
+                        setTemplateNotice("This template is inactive. Activate it before generating sessions.");
+                      } else {
+                        setTemplateNotice("No sessions were created.");
                       }
                       await refetchSessions();
                     }}

@@ -99,7 +99,12 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
       invalidatesTags: ["SessionTemplates"],
     }),
     materializeAdminSessionTemplate: builder.mutation<
-      { created: number; sessionIds: number[] },
+      {
+        created: number;
+        sessionIds: number[];
+        touchedSessionIds: number[];
+        reason: "created" | "already_exists" | "no_target_users" | "template_inactive";
+      },
       { templateId: number; from: string; to: string }
     >({
       query: ({ templateId, from, to }) => ({
