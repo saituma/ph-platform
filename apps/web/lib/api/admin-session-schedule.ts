@@ -41,12 +41,29 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
         connected: boolean;
         calendarId?: string | null;
         serviceAccountEmail?: string | null;
+        accountEmail?: string | null;
+        mode?: "oauth" | "service_account" | null;
         connectedAt?: string | null;
       },
       void
     >({
       query: () => "/admin/google-calendar/connection",
-      providesTags: ["SessionSchedule"],
+      providesTags: ["CalendarConnection"],
+    }),
+    getAdminGoogleCalendarOAuthStart: builder.query<{ authUrl: string }, void>({
+      query: () => "/admin/google-calendar/oauth/start",
+    }),
+    getAdminGoogleCalendars: builder.query<{ calendars: Array<{ id: string; summary: string; primary: boolean }> }, void>({
+      query: () => "/admin/google-calendar/calendars",
+      providesTags: ["CalendarConnection"],
+    }),
+    selectAdminGoogleCalendar: builder.mutation<{ ok: true }, { calendarId: string }>({
+      query: (body) => ({
+        url: "/admin/google-calendar/select",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["CalendarConnection"],
     }),
     connectAdminGoogleCalendar: builder.mutation<
       { ok: true },
@@ -57,18 +74,18 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["SessionSchedule"],
+      invalidatesTags: ["CalendarConnection"],
     }),
     disconnectAdminGoogleCalendar: builder.mutation<{ ok: true }, void>({
       query: () => ({
         url: "/admin/google-calendar/connection",
         method: "DELETE",
       }),
-      invalidatesTags: ["SessionSchedule"],
+      invalidatesTags: ["CalendarConnection"],
     }),
     getAdminSessionTemplates: builder.query<{ templates: SessionTemplateRecord[] }, void>({
       query: () => "/admin/session-templates",
-      providesTags: ["SessionSchedule"],
+      providesTags: ["SessionTemplates"],
     }),
     createAdminSessionTemplate: builder.mutation<
       { template: SessionTemplateRecord },
@@ -79,7 +96,7 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["SessionSchedule"],
+      invalidatesTags: ["SessionTemplates"],
     }),
     materializeAdminSessionTemplate: builder.mutation<
       { created: number; sessionIds: number[] },
@@ -90,7 +107,7 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
         method: "POST",
         body: { from, to },
       }),
-      invalidatesTags: ["SessionSchedule"],
+      invalidatesTags: ["ScheduledSessions"],
     }),
     getAdminScheduledSessions: builder.query<
       { sessions: ScheduledSessionAdminRecord[] },
@@ -104,7 +121,7 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
         if (params.userId) query.set("userId", String(params.userId));
         return `/admin/scheduled-sessions?${query.toString()}`;
       },
-      providesTags: ["SessionSchedule"],
+      providesTags: ["ScheduledSessions"],
     }),
     markAdminSessionAttendance: builder.mutation<
       { updated: number },
@@ -118,7 +135,7 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
         method: "POST",
         body: { updates },
       }),
-      invalidatesTags: ["SessionSchedule"],
+      invalidatesTags: ["ScheduledSessions"],
     }),
   }),
   overrideExisting: false,
@@ -126,6 +143,9 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
 
 export const {
   useGetAdminGoogleCalendarConnectionQuery,
+  useGetAdminGoogleCalendarOAuthStartQuery,
+  useGetAdminGoogleCalendarsQuery,
+  useSelectAdminGoogleCalendarMutation,
   useConnectAdminGoogleCalendarMutation,
   useDisconnectAdminGoogleCalendarMutation,
   useGetAdminSessionTemplatesQuery,

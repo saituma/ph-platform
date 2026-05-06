@@ -6,12 +6,16 @@ import {
   connectCalendarAdmin,
   createTemplateAdmin,
   disconnectCalendarAdmin,
+  getGoogleCalendarOAuthStartAdmin,
+  googleCalendarOAuthCallback,
   getCalendarConnectionAdmin,
+  listGoogleCalendarsAdmin,
   listMySessions,
   listSessionsAdmin,
   listTemplatesAdmin,
   markAttendanceAdmin,
   materializeTemplateAdmin,
+  selectGoogleCalendarAdmin,
 } from "../controllers/session-schedule.controller";
 
 const router = Router();
@@ -35,7 +39,11 @@ router.post(
   markAttendanceAdmin,
 );
 router.get("/admin/google-calendar/connection", requireAuth, requireRole(["coach", "admin", "superAdmin"]), getCalendarConnectionAdmin);
+router.get("/admin/google-calendar/oauth/start", requireAuth, requireRole(["coach", "admin", "superAdmin"]), getGoogleCalendarOAuthStartAdmin);
+router.get("/google-calendar/oauth/callback", googleCalendarOAuthCallback);
 router.post("/admin/google-calendar/connection", requireAuth, requireRole(["coach", "admin", "superAdmin"]), connectCalendarAdmin);
+router.get("/admin/google-calendar/calendars", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listGoogleCalendarsAdmin);
+router.post("/admin/google-calendar/select", requireAuth, requireRole(["coach", "admin", "superAdmin"]), selectGoogleCalendarAdmin);
 router.delete("/admin/google-calendar/connection", requireAuth, requireRole(["coach", "admin", "superAdmin"]), disconnectCalendarAdmin);
 
 export default router;

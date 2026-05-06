@@ -217,7 +217,7 @@ export async function materializeTemplateSessions(input: {
   }
 
   const targetUserIds = await resolveTemplateTargetUserIds(template);
-  if (!targetUserIds.length)
+  if (template.scope !== "team" && !targetUserIds.length)
     return {
       created: 0,
       sessionIds: [] as number[],
@@ -230,6 +230,7 @@ export async function materializeTemplateSessions(input: {
   const toDay = startOfUtcDay(input.to);
   const createdIds: number[] = [];
   const touchedSessionIds: number[] = [];
+  const calendarConfig = await getGoogleCalendarConnectionForAdmin(template.createdBy);
 
   for (let d = new Date(fromDay); d.getTime() <= toDay.getTime(); d = new Date(d.getTime() + 24 * 60 * 60 * 1000)) {
     if (template.isRecurring) {
@@ -267,9 +268,8 @@ export async function materializeTemplateSessions(input: {
     }
     touchedSessionIds.push(session.id);
 
-    if (template.googleSyncEnabled) {
+    if (calendarConfig) {
       try {
-        const config = await getGoogleCalendarConnectionForAdmin(template.createdBy);
         const googleEventId = await upsertGoogleCalendarEvent(
           {
             title: session.name,
@@ -279,7 +279,7 @@ export async function materializeTemplateSessions(input: {
             endsAt: new Date(session.endsAt),
             existingEventId: session.googleEventId ?? null,
           },
-          config,
+          calendarConfig,
         );
         if (googleEventId && googleEventId !== session.googleEventId) {
           const [updatedSession] = await db

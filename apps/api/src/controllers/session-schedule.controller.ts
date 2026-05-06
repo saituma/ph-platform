@@ -13,9 +13,13 @@ import {
   notifyMaterializedSessions,
 } from "../services/session-schedule.service";
 import {
+  completeGoogleOAuthConnection,
+  getGoogleOAuthStartUrlForAdmin,
   disconnectGoogleCalendarConnectionForAdmin,
   getGoogleCalendarConnectionForAdmin,
+  listGoogleCalendarsForAdmin,
   saveGoogleCalendarConnectionForAdmin,
+  selectGoogleCalendarForAdmin,
 } from "../services/google-calendar.service";
 
 const hhmmSchema = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/);
@@ -197,9 +201,41 @@ export async function getCalendarConnectionAdmin(req: Request, res: Response) {
   return res.status(200).json({
     connected: Boolean(config),
     calendarId: config?.calendarId ?? null,
-    serviceAccountEmail: config?.clientEmail ?? null,
+    serviceAccountEmail: config?.mode === "service_account" ? config.clientEmail : null,
+    accountEmail: config?.mode === "oauth" ? config.accountEmail : null,
+    mode: config?.mode ?? null,
     connectedAt: config?.connectedAt ?? null,
   });
+}
+
+export async function getGoogleCalendarOAuthStartAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const authUrl = await getGoogleOAuthStartUrlForAdmin(req.user.id);
+  return res.status(200).json({ authUrl });
+}
+
+export async function googleCalendarOAuthCallback(req: Request, res: Response) {
+  const code = z.string().min(1).parse(req.query.code);
+  const state = z.string().min(1).parse(req.query.state);
+  try {
+    await completeGoogleOAuthConnection({ code, state });
+    return res.redirect(`${process.env.ADMIN_WEB_URL || "http://localhost:3000"}/session-schedule?calendar=connected`);
+  } catch {
+    return res.redirect(`${process.env.ADMIN_WEB_URL || "http://localhost:3000"}/session-schedule?calendar=error`);
+  }
+}
+
+export async function listGoogleCalendarsAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const calendars = await listGoogleCalendarsForAdmin(req.user.id);
+  return res.status(200).json({ calendars });
+}
+
+export async function selectGoogleCalendarAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const payload = z.object({ calendarId: z.string().trim().min(1).max(255) }).parse(req.body ?? {});
+  await selectGoogleCalendarForAdmin(req.user.id, payload.calendarId);
+  return res.status(200).json({ ok: true });
 }
 
 export async function connectCalendarAdmin(req: Request, res: Response) {

@@ -8,12 +8,14 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import {
-  useConnectAdminGoogleCalendarMutation,
   useCreateAdminSessionTemplateMutation,
   useDisconnectAdminGoogleCalendarMutation,
+  useGetAdminGoogleCalendarsQuery,
   useGetAdminGoogleCalendarConnectionQuery,
+  useGetAdminGoogleCalendarOAuthStartQuery,
   useGetAdminScheduledSessionsQuery,
   useGetAdminSessionTemplatesQuery,
+  useSelectAdminGoogleCalendarMutation,
   useGetAdminTeamsQuery,
   useGetUsersQuery,
   useMarkAdminSessionAttendanceMutation,
@@ -96,8 +98,12 @@ export default function SessionSchedulePage() {
   const [createTemplate, { isLoading: creating }] = useCreateAdminSessionTemplateMutation();
   const [materializeTemplate, { isLoading: materializing }] = useMaterializeAdminSessionTemplateMutation();
   const [markAttendance, { isLoading: marking }] = useMarkAdminSessionAttendanceMutation();
-  const [connectCalendar, { isLoading: connectingCalendar }] = useConnectAdminGoogleCalendarMutation();
   const [disconnectCalendar, { isLoading: disconnectingCalendar }] = useDisconnectAdminGoogleCalendarMutation();
+  const [selectCalendar, { isLoading: selectingCalendar }] = useSelectAdminGoogleCalendarMutation();
+  const { data: oauthStartData, refetch: refetchOAuthStart, isFetching: startingOAuth } =
+    useGetAdminGoogleCalendarOAuthStartQuery();
+  const { data: calendarListData, refetch: refetchCalendars, isFetching: loadingCalendars } =
+    useGetAdminGoogleCalendarsQuery(undefined, { skip: !googleConnection?.connected || googleConnection?.mode !== "oauth" });
 
   const templates = useMemo(() => (Array.isArray(templatesData?.templates) ? templatesData.templates : []), [templatesData]);
   const sessions = useMemo(() => (Array.isArray(sessionsData?.sessions) ? sessionsData.sessions : []), [sessionsData]);
@@ -108,7 +114,6 @@ export default function SessionSchedulePage() {
   const [type, setType] = useState<"one_to_one" | "semi_private" | "in_person" | "team">("one_to_one");
   const [scope, setScope] = useState<"individual" | "group" | "team">("individual");
   const [weekday, setWeekday] = useState("4");
-  const [googleSyncEnabled, setGoogleSyncEnabled] = useState(false);
   const [startHour, setStartHour] = useState("17");
   const [startMinute, setStartMinute] = useState("00");
   const [endHour, setEndHour] = useState("18");
@@ -117,23 +122,34 @@ export default function SessionSchedulePage() {
   const [teamSearch, setTeamSearch] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-  const [calendarIdInput, setCalendarIdInput] = useState("");
-  const [calendarEmailInput, setCalendarEmailInput] = useState("");
-  const [calendarPrivateKeyInput, setCalendarPrivateKeyInput] = useState("");
+  const [selectedCalendarId, setSelectedCalendarId] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [templateNotice, setTemplateNotice] = useState<string | null>(null);
+
+  const eligibleUsers = useMemo(() => {
+    return users.filter((u) => {
+      const role = String((u as any).role ?? "").toLowerCase();
+      const email = String((u as any).email ?? "").toLowerCase();
+      const athleteTeam = (u as any).athleteTeam;
+      const isAthleteRole = role === "athlete" || role === "adult_athlete";
+      const isLocalSeedAthlete = email.endsWith("@athlete.local");
+      const isTeamAthlete = typeof athleteTeam === "string" && athleteTeam.trim().length > 0;
+      return isAthleteRole && !isLocalSeedAthlete && !isTeamAthlete;
+    });
+  }, [users]);
 
   const filteredUsers = useMemo(() => {
     const q = userSearch.trim().toLowerCase();
-    if (!q) return users.slice(0, 12);
-    return users
+    if (!q) return eligibleUsers.slice(0, 12);
+    return eligibleUsers
       .filter((u) => {
         const hay = `${u.name ?? ""} ${u.email ?? ""}`.toLowerCase();
         return hay.includes(q);
       })
       .slice(0, 12);
-  }, [users, userSearch]);
+  }, [eligibleUsers, userSearch]);
 
   const filteredTeams = useMemo(() => {
     const q = teamSearch.trim().toLowerCase();
@@ -142,14 +158,18 @@ export default function SessionSchedulePage() {
   }, [teams, teamSearch]);
 
   const selectedUsers = useMemo(
-    () => users.filter((u) => selectedUserIds.includes(Number(u.id))),
-    [users, selectedUserIds],
+    () => eligibleUsers.filter((u) => selectedUserIds.includes(Number(u.id))),
+    [eligibleUsers, selectedUserIds],
   );
 
   const selectedTeam = useMemo(
     () => teams.find((t) => Number(t.id) === selectedTeamId) ?? null,
     [teams, selectedTeamId],
   );
+
+  useEffect(() => {
+    setSelectedCalendarId(googleConnection?.calendarId ?? "");
+  }, [googleConnection?.calendarId]);
 
   const athleteDayRows = useMemo(() => {
     return users
@@ -163,6 +183,7 @@ export default function SessionSchedulePage() {
   const startsAtTime = `${startHour}:${startMinute}`;
   const endsAtTime = `${endHour}:${endMinute}`;
   const todayKey = toDateKey(new Date());
+  const effectiveScope: "individual" | "group" | "team" = type === "team" ? "team" : scope;
 
   useEffect(() => {
     const socket = getOrCreateAdminSocket();
@@ -263,19 +284,65 @@ export default function SessionSchedulePage() {
           {googleConnection?.connected ? (
             <div className="space-y-2 rounded-md border p-3 text-sm">
               <p><span className="font-medium">Status:</span> Connected</p>
+              <p><span className="font-medium">Mode:</span> {googleConnection.mode === "oauth" ? "OAuth" : "Service account"}</p>
               <p><span className="font-medium">Calendar ID:</span> {googleConnection.calendarId}</p>
-              <p><span className="font-medium">Service Account:</span> {googleConnection.serviceAccountEmail}</p>
+              <p>
+                <span className="font-medium">Account:</span>{" "}
+                {googleConnection.accountEmail || googleConnection.serviceAccountEmail || "—"}
+              </p>
+              {googleConnection.mode === "oauth" ? (
+                <div className="space-y-2 rounded-md border p-2">
+                  <p className="text-xs text-muted-foreground">Choose which calendar receives synced sessions.</p>
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      className="rounded-md border bg-background px-2 py-2 text-sm"
+                      value={selectedCalendarId}
+                      onChange={(e) => setSelectedCalendarId(e.target.value)}
+                    >
+                      {(calendarListData?.calendars ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.summary}{c.primary ? " (Primary)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={selectingCalendar || !selectedCalendarId}
+                      onClick={async () => {
+                        await selectCalendar({ calendarId: selectedCalendarId }).unwrap();
+                      }}
+                    >
+                      {selectingCalendar ? "Saving..." : "Use this calendar"}
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={loadingCalendars} onClick={() => refetchCalendars()}>
+                      Refresh calendars
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={async () => {
                     await navigator.clipboard.writeText(
-                      `Calendar ID: ${googleConnection.calendarId ?? ""}\nService Account: ${googleConnection.serviceAccountEmail ?? ""}`,
+                      `Calendar ID: ${googleConnection.calendarId ?? ""}\nAccount: ${googleConnection.accountEmail || googleConnection.serviceAccountEmail || ""}`,
                     );
                   }}
                 >
                   Copy Calendar Details
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={startingOAuth}
+                  onClick={async () => {
+                    const data = oauthStartData ?? (await refetchOAuthStart()).data;
+                    if (data?.authUrl) window.location.href = data.authUrl;
+                  }}
+                >
+                  Switch Google Account
                 </Button>
                 <Button
                   size="sm"
@@ -291,36 +358,17 @@ export default function SessionSchedulePage() {
             </div>
           ) : (
             <div className="space-y-2">
-              <Input
-                placeholder="Google Calendar ID"
-                value={calendarIdInput}
-                onChange={(e) => setCalendarIdInput(e.target.value)}
-              />
-              <Input
-                placeholder="Service account email"
-                value={calendarEmailInput}
-                onChange={(e) => setCalendarEmailInput(e.target.value)}
-              />
-              <textarea
-                className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                placeholder="Service account private key"
-                value={calendarPrivateKeyInput}
-                onChange={(e) => setCalendarPrivateKeyInput(e.target.value)}
-              />
+              <p className="text-xs text-muted-foreground">
+                Connect with Google OAuth, then pick which calendar to use. You can disconnect any time.
+              </p>
               <Button
-                disabled={connectingCalendar || !calendarIdInput.trim() || !calendarEmailInput.trim() || !calendarPrivateKeyInput.trim()}
+                disabled={startingOAuth}
                 onClick={async () => {
-                  await connectCalendar({
-                    calendarId: calendarIdInput.trim(),
-                    serviceAccountEmail: calendarEmailInput.trim(),
-                    privateKey: calendarPrivateKeyInput.trim(),
-                  }).unwrap();
-                  setCalendarIdInput("");
-                  setCalendarEmailInput("");
-                  setCalendarPrivateKeyInput("");
+                  const data = oauthStartData ?? (await refetchOAuthStart()).data;
+                  if (data?.authUrl) window.location.href = data.authUrl;
                 }}
               >
-                Connect Calendar
+                {startingOAuth ? "Redirecting..." : "Connect Google Account"}
               </Button>
             </div>
           )}
@@ -446,17 +494,35 @@ export default function SessionSchedulePage() {
           <CardContent className="space-y-3">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Template name" />
             <div className="grid grid-cols-3 gap-2 text-sm">
-              <select className="rounded-md border bg-background px-2 py-2" value={type} onChange={(e) => setType(e.target.value as any)}>
+              <select
+                className="rounded-md border bg-background px-2 py-2"
+                value={type}
+                onChange={(e) => {
+                  const nextType = e.target.value as "one_to_one" | "semi_private" | "in_person" | "team";
+                  setType(nextType);
+                  if (nextType === "team") setScope("team");
+                  if (nextType !== "team" && scope === "team") setScope("individual");
+                }}
+              >
                 <option value="one_to_one">1-1</option>
                 <option value="semi_private">Semi-Private</option>
                 <option value="in_person">In-Person</option>
                 <option value="team">Team</option>
               </select>
-              <select className="rounded-md border bg-background px-2 py-2" value={scope} onChange={(e) => setScope(e.target.value as any)}>
-                <option value="individual">Individual</option>
-                <option value="group">Group</option>
-                <option value="team">Team</option>
-              </select>
+              {type === "team" ? (
+                <div className="flex items-center rounded-md border bg-muted/20 px-3 py-2 text-sm text-foreground">
+                  Team
+                </div>
+              ) : (
+                <select
+                  className="rounded-md border bg-background px-2 py-2"
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value as any)}
+                >
+                  <option value="individual">Individual</option>
+                  <option value="group">Group</option>
+                </select>
+              )}
               <select className="rounded-md border bg-background px-2 py-2" value={weekday} onChange={(e) => setWeekday(e.target.value)}>
                 <option value="0">Sun</option><option value="1">Mon</option><option value="2">Tue</option><option value="3">Wed</option>
                 <option value="4">Thu</option><option value="5">Fri</option><option value="6">Sat</option>
@@ -520,7 +586,7 @@ export default function SessionSchedulePage() {
               </div>
             </div>
 
-            {scope === "team" ? (
+            {effectiveScope === "team" ? (
               <div className="space-y-2">
                 <Label>Team (search by name)</Label>
                 <Input value={teamSearch} onChange={(e) => setTeamSearch(e.target.value)} placeholder="Search team name" />
@@ -592,36 +658,28 @@ export default function SessionSchedulePage() {
               </div>
             )}
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={googleSyncEnabled}
-                onChange={(e) => setGoogleSyncEnabled(e.target.checked)}
-              />
-              Sync generated sessions to Google Calendar
-            </label>
+            <p className="text-xs text-muted-foreground">Generated sessions auto-sync to Google Calendar when your calendar is connected.</p>
 
             <Button
               disabled={creating || !name.trim()}
               onClick={async () => {
-                await createTemplate({
-                  name: name.trim(),
-                  type,
-                  scope,
-                  isRecurring: true,
-                  weekday: Number(weekday),
-                  startsAtTime,
-                  endsAtTime,
-                  targetUserIds: scope === "team" ? [] : selectedUserIds,
-                  teamId: scope === "team" ? selectedTeamId : null,
-                  googleSyncEnabled,
-                  isActive: true,
-                }).unwrap();
+                  await createTemplate({
+                    name: name.trim(),
+                    type,
+                    scope: effectiveScope,
+                    isRecurring: true,
+                    weekday: Number(weekday),
+                    startsAtTime,
+                    endsAtTime,
+                    targetUserIds: effectiveScope === "team" ? [] : selectedUserIds,
+                    teamId: effectiveScope === "team" ? selectedTeamId : null,
+                    googleSyncEnabled: true,
+                    isActive: true,
+                  }).unwrap();
 
                 setName("");
                 setSelectedUserIds([]);
                 setSelectedTeamId(null);
-                setGoogleSyncEnabled(false);
                 await refetchTemplates();
               }}
             >
@@ -639,13 +697,19 @@ export default function SessionSchedulePage() {
               <div key={t.id} className="rounded-lg border p-3 text-sm">
                 <div className="font-medium">{t.name}</div>
                 <div className="text-muted-foreground">{typeLabel(t.type)} • {t.startsAtTime} - {t.endsAtTime}</div>
+                <div className="mt-1 text-xs text-muted-foreground">Calendar sync: Auto (when connected)</div>
                 <div className="mt-2">
                   <Button
                     size="sm"
                     variant="outline"
                     disabled={materializing}
                     onClick={async () => {
-                      await materializeTemplate({ templateId: t.id, from: fromIso, to: toIso }).unwrap();
+                      const result = await materializeTemplate({ templateId: t.id, from: fromIso, to: toIso }).unwrap();
+                      if (!result.created) {
+                        setTemplateNotice("No sessions were created. For team templates, add athletes to the selected team first.");
+                      } else {
+                        setTemplateNotice(`Generated ${result.created} session${result.created === 1 ? "" : "s"}.`);
+                      }
                       await refetchSessions();
                     }}
                   >
@@ -654,6 +718,7 @@ export default function SessionSchedulePage() {
                 </div>
               </div>
             ))}
+            {templateNotice ? <p className="text-xs text-muted-foreground">{templateNotice}</p> : null}
             {templates.length === 0 ? <p className="text-sm text-muted-foreground">No templates yet.</p> : null}
           </CardContent>
         </Card>
