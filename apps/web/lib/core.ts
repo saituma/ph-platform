@@ -366,10 +366,14 @@ const rawBaseQuery = fetchBaseQuery({
 
 let loginRedirectTriggered = false;
 
-/**
- * Wrapper that redirects to /login on 401.
- * Session refresh is intentionally disabled.
- */
+function clearAuthCookies() {
+  if (typeof document === "undefined") return;
+  const expire = "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  document.cookie = `accessToken${expire}`;
+  document.cookie = `accessTokenClient${expire}`;
+  document.cookie = `refreshToken${expire}`;
+}
+
 const baseQueryWithReauth: BaseQueryFn<
   string | FetchArgs,
   unknown,
@@ -380,6 +384,7 @@ const baseQueryWithReauth: BaseQueryFn<
   if (result.error && result.error.status === 401) {
     if (typeof window !== "undefined" && !loginRedirectTriggered) {
       loginRedirectTriggered = true;
+      clearAuthCookies();
       window.location.href = "/login";
     }
   }
