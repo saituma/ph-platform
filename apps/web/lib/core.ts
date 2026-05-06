@@ -364,25 +364,11 @@ const rawBaseQuery = fetchBaseQuery({
   },
 });
 
-let refreshPromise: Promise<Response> | null = null;
 let loginRedirectTriggered = false;
 
-const runRefreshRequest = (csrfToken: string) => {
-  if (!refreshPromise) {
-    refreshPromise = fetch("/api/auth/refresh", {
-      method: "POST",
-      headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
-    }).finally(() => {
-      refreshPromise = null;
-    });
-  }
-  return refreshPromise;
-};
-
 /**
- * Wrapper that silently refreshes the access token on 401,
- * then retries the original request. Redirects to /login if
- * the refresh itself fails.
+ * Wrapper that redirects to /login on 401.
+ * Session refresh is intentionally disabled.
  */
 const baseQueryWithReauth: BaseQueryFn<
   string | FetchArgs,
@@ -392,19 +378,9 @@ const baseQueryWithReauth: BaseQueryFn<
   let result = await rawBaseQuery(args, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
-    // Try to silently refresh the access token
-    const csrfToken = getCsrfToken();
-    const refreshResult = await runRefreshRequest(csrfToken);
-
-    if (refreshResult.ok) {
-      // Retry the original request with the new token
-      result = await rawBaseQuery(args, api, extraOptions);
-    } else {
-      // Refresh failed — session is truly expired
-      if (typeof window !== "undefined" && !loginRedirectTriggered) {
-        loginRedirectTriggered = true;
-        window.location.href = "/login";
-      }
+    if (typeof window !== "undefined" && !loginRedirectTriggered) {
+      loginRedirectTriggered = true;
+      window.location.href = "/login";
     }
   }
 
