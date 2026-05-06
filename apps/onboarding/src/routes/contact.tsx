@@ -19,6 +19,44 @@ export const Route = createFileRoute("/contact")({
 				content:
 					"Reach out to the PH Performance team for coaching enquiries, team programmes, or general questions.",
 			},
+			{ property: "og:url", content: "https://phperformance.uk/contact" },
+			{ property: "og:image", content: "https://phperformance.uk/home.png" },
+			{ property: "og:image:width", content: "1200" },
+			{ property: "og:image:height", content: "630" },
+		],
+		links: [{ rel: "canonical", href: "https://phperformance.uk/contact" }],
+		scripts: [
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "ContactPage",
+					mainEntity: {
+						"@type": "Organization",
+						name: "PH Performance",
+						url: "https://phperformance.uk",
+						email: "info@phperformance.co.uk",
+						contactPoint: {
+							"@type": "ContactPoint",
+							contactType: "customer service",
+							email: "info@phperformance.co.uk",
+							url: "https://phperformance.uk/contact",
+							availableLanguage: "English",
+						},
+					},
+				}),
+			},
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "BreadcrumbList",
+					itemListElement: [
+						{ "@type": "ListItem", position: 1, name: "Home", item: "https://phperformance.uk" },
+						{ "@type": "ListItem", position: 2, name: "Contact", item: "https://phperformance.uk/contact" },
+					],
+				}),
+			},
 		],
 	}),
 	component: ContactPage,

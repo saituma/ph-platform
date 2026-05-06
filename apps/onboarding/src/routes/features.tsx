@@ -26,10 +26,43 @@ export const Route = createFileRoute("/features")({
 			},
 			{
 				property: "og:url",
-				content: "https://ph-platform-onboarding.vercel.app/features",
+				content: "https://phperformance.uk/features",
+			},
+			{ property: "og:image", content: "https://phperformance.uk/home.png" },
+			{ property: "og:image:width", content: "1200" },
+			{ property: "og:image:height", content: "630" },
+		],
+		links: [{ rel: "canonical", href: "https://phperformance.uk/features" }],
+		scripts: [
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "ItemList",
+					name: "PH Performance Platform Features",
+					description: "Professional tools for elite athletes and coaches",
+					itemListElement: [
+						{ "@type": "ListItem", position: 1, name: "Deep Analytics", description: "Track metrics that matter. From HRV to max power output." },
+						{ "@type": "ListItem", position: 2, name: "Video Coaching", description: "Upload and analyze performance video with automated tagging." },
+						{ "@type": "ListItem", position: 3, name: "Team Sync", description: "Coordinate schedules, training loads, and availability across your roster." },
+						{ "@type": "ListItem", position: 4, name: "Nutrition Tracking", description: "Log meals, track macros, and follow coach-managed nutrition plans." },
+						{ "@type": "ListItem", position: 5, name: "Programme Management", description: "Build, assign, and track structured training programmes." },
+						{ "@type": "ListItem", position: 6, name: "Real-Time Messaging", description: "Chat, announcements, and team communication built in." },
+					],
+				}),
+			},
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "BreadcrumbList",
+					itemListElement: [
+						{ "@type": "ListItem", position: 1, name: "Home", item: "https://phperformance.uk" },
+						{ "@type": "ListItem", position: 2, name: "Features", item: "https://phperformance.uk/features" },
+					],
+				}),
 			},
 		],
-		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/features" }],
 	}),
 	component: Features,
 });
@@ -140,7 +173,7 @@ function Features() {
 					</div>
 					<div className="flex-1 border-t md:border-t-0 md:border-l border-foreground/[0.06]">
 						<div className="aspect-square flex items-center justify-center overflow-hidden bg-foreground/[0.02]">
-							<img src="/ph.jpg" alt="Integration" className="w-full h-full object-cover grayscale-[0.3] opacity-80" />
+							<img src="/ph-logo.png" alt="Integration" className="w-full h-full object-cover grayscale-[0.3] opacity-80" />
 						</div>
 					</div>
 				</motion.div>

@@ -18,14 +18,14 @@ import { MagneticText } from "@/components/ui/morphing-cursor";
 import VaporizeTextCycle, { Tag } from "@/components/ui/vapour-text-effect";
 import { CinematicFooter } from "@/components/ui/motion-footer";
 
-const SITE_URL = "https://ph-platform-onboarding.vercel.app";
+const SITE_URL = "https://phperformance.uk";
 
 const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "PH Performance",
     url: SITE_URL,
-    logo: `${SITE_URL}/ph.jpg`,
+    logo: `${SITE_URL}/ph-logo.png`,
     description:
         "Elite training and performance coaching for footballers who want more.",
     sameAs: [],
@@ -48,7 +48,7 @@ const softwareAppSchema = {
     "@type": "SoftwareApplication",
     name: "PH Performance",
     applicationCategory: "SportsApplication",
-    operatingSystem: "iOS, Android",
+    operatingSystem: "iOS, Android, Web",
     offers: {
         "@type": "Offer",
         price: "0",
@@ -56,6 +56,26 @@ const softwareAppSchema = {
     },
     description:
         "Elite performance tracking for athletes and teams — analytics, video coaching, team sync, and scheduling.",
+    featureList: "Training Programmes, Team Management, Nutrition Tracking, Performance Analytics, Real-Time Messaging, Session Scheduling, GPS Tracking, Video Coaching",
+    screenshot: `${SITE_URL}/home.png`,
+    url: SITE_URL,
+};
+
+const siteNavigationSchema = {
+    "@context": "https://schema.org",
+    "@type": "SiteNavigationElement",
+    name: "Main Navigation",
+    hasPart: [
+        { "@type": "WebPage", name: "Home", url: SITE_URL },
+        { "@type": "WebPage", name: "About", url: `${SITE_URL}/about` },
+        { "@type": "WebPage", name: "Services", url: `${SITE_URL}/services` },
+        { "@type": "WebPage", name: "Features", url: `${SITE_URL}/features` },
+        { "@type": "WebPage", name: "App Download", url: `${SITE_URL}/app-download` },
+        { "@type": "WebPage", name: "Gallery", url: `${SITE_URL}/gallery` },
+        { "@type": "WebPage", name: "Blog", url: `${SITE_URL}/blog` },
+        { "@type": "WebPage", name: "Contact", url: `${SITE_URL}/contact` },
+        { "@type": "WebPage", name: "FAQ", url: `${SITE_URL}/education-faq` },
+    ],
 };
 
 export const Route = createFileRoute("/")({
@@ -92,6 +112,10 @@ export const Route = createFileRoute("/")({
             {
                 type: "application/ld+json",
                 children: JSON.stringify(softwareAppSchema),
+            },
+            {
+                type: "application/ld+json",
+                children: JSON.stringify(siteNavigationSchema),
             },
         ],
     }),

@@ -23,7 +23,7 @@ export const Route = createFileRoute("/register")({
 		links: [
 			{
 				rel: "canonical",
-				href: "https://ph-platform-onboarding.vercel.app/register",
+				href: "https://phperformance.uk/register",
 			},
 		],
 	}),

@@ -11,7 +11,7 @@ export const Route = createFileRoute("/terms-privacy")({
 			},
 			{ name: "robots", content: "noindex, follow" },
 		],
-		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/terms-privacy" }],
+		links: [{ rel: "canonical", href: "https://phperformance.uk/terms-privacy" }],
 	}),
 	component: TermsPrivacy,
 });

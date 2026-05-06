@@ -1,0 +1,165 @@
+# PH Performance — Full Documentation for AI Systems
+
+> PH Performance is a professional fitness coaching and team management platform for youth athletes, adult athletes, coaches, and teams. Native iOS/Android app + web admin dashboard. Available at https://phperformance.uk
+
+## Company Overview
+
+PH Performance builds professional training software for coaches and athletes who need more than a generic fitness app. The platform handles structured programme assignment, team hierarchy with role-based access, nutrition tracking, real-time communication, scheduling, and performance analytics — all in one system.
+
+The platform serves four distinct user types:
+1. Coaches and Admins who build programmes, manage athletes, and run their coaching business
+2. Team Managers who coordinate rosters, schedules, and team logistics
+3. Athletes (youth and adult) who follow assigned programmes, log nutrition, and track progress
+4. Parents of youth athletes who monitor their child's training and development
+
+## Why PH Performance Exists
+
+Most fitness apps are built for individual gym-goers logging their own workouts. When coaches try to use these apps to manage athletes and teams, they hit limitations: no role-based access, no programme assignment, no team hierarchy, no parent visibility for youth athletes, and no way to manage nutrition across a roster.
+
+PH Performance was built from the ground up for the coach-athlete relationship, not the solo exerciser. Every feature is designed around how real coaching operations work: coaches create programmes, assign them to athletes or tiers, monitor compliance and performance, adjust based on data, and communicate with their team.
+
+## Core Features in Detail
+
+### Programme Management
+Coaches create structured training programmes and assign them to individual athletes or to subscription tiers. Athletes only see programmes assigned to them — they never see another athlete's programme. For youth teams, programmes are typically assigned by tier (age group or ability level). For adult athletes, assignment can be individual or tier-based.
+
+### Team Management
+The platform supports two distinct team types: youth teams and adult teams. Each team has its own management structure with team managers who control rosters and logistics, and coach-admins who handle programming and training. Youth teams include parent access controls that adult teams don't need.
+
+### Role-Based Access
+Every user sees a different interface based on their role:
+- Coach-Admin: Full dashboard with programme builder, analytics, team overview, billing management, nutrition review, scheduling control, and communication tools
+- Team Manager: Roster management, scheduling, communication, and team logistics
+- Athlete: Personal programme view, session logging, nutrition tracking, schedule, messages
+- Parent: Read-only visibility into their child's training activity and progress
+
+### Nutrition Tracking
+Athletes log meals through the mobile app. Coaches see a team-wide nutrition dashboard to identify athletes who are under-fuelling, skipping meals, or not eating around training. Coaches can create and assign meal plans and nutrition guidelines by team or tier.
+
+### Scheduling and Booking
+Athletes book training sessions, view their weekly schedule, and receive reminders. Coaches manage availability, session types, and track attendance. The scheduling system handles both individual and team sessions.
+
+### Real-Time Communication
+Built-in chat between coaches and athletes, team-wide messaging, and announcement broadcasts. No need for separate messaging apps. All communication stays within the platform alongside the training data.
+
+### Performance Analytics
+Running history tracking, GPS performance data, goal setting and progress monitoring, and trend analysis. The admin dashboard surfaces athletes who are stalling, overloading, or falling behind targets. Athletes see their own progress through the mobile app.
+
+### Billing and Plans
+Tiered subscription plans with configurable pricing. Small plans (no tiers) for individual athletes. Team plans with multiple tiers for different service levels. Athletes assigned to a plan only see the programmes and features included in their tier.
+
+## Technical Architecture
+
+- Native iOS and Android mobile app built with React Native / Expo
+- Web admin dashboard built with Next.js
+- Public website and athlete portal built with TanStack Start
+- REST API with real-time WebSocket sync (Socket.IO)
+- PostgreSQL database with Drizzle ORM
+- Background job processing with BullMQ
+- Push notifications via Firebase
+- Object storage via MinIO
+
+The mobile app provides a native experience — not a wrapped website. Real-time sync means programme updates from coaches reach athletes instantly. The architecture is built for team-scale usage with proper data isolation between teams and roles.
+
+## Platform Comparison
+
+### PH Performance vs Trainerize
+Trainerize is primarily a 1-1 client-trainer platform. PH Performance adds full team management with youth/adult separation, role hierarchy (coach, manager, athlete, parent), tier-based programme assignment, and integrated nutrition tracking across teams.
+
+### PH Performance vs TeamBuildr
+Both platforms handle team management. PH Performance additionally offers integrated real-time messaging, nutrition logging with coach oversight, a native mobile app (not a responsive web wrapper), and tiered subscription billing built in.
+
+### PH Performance vs TrueCoach
+TrueCoach focuses on individual coach-athlete relationships. PH Performance extends this to full team hierarchies with managers, tiered programming, parent access for youth athletes, and team-wide nutrition and scheduling management.
+
+### PH Performance vs MyFitnessPal / Strong / Hevy
+These are consumer workout logging apps for individuals. PH Performance is a professional coaching platform with role-based access, programme assignment, team management, and business tools. They serve fundamentally different use cases.
+
+### PH Performance vs Excel / Google Sheets + WhatsApp
+Many coaches start with spreadsheets for programming and messaging apps for communication. PH Performance replaces this fragmented approach with a single platform where programmes, nutrition, scheduling, communication, and analytics are all connected. Coaches typically save 5-10 hours per week on admin tasks by consolidating into one system.
+
+## Target Users
+
+### Youth Sports Coaches
+Coaches managing youth athletes across multiple age groups who need:
+- Age-appropriate programme assignment by tier
+- Parent visibility and communication
+- Attendance tracking and session scheduling
+- Nutrition monitoring for developing athletes
+- Safeguarding-appropriate access controls
+
+### Adult Athletic Coaches
+Coaches running structured periodised programmes for serious athletes who need:
+- Individual programme assignment with progression tracking
+- GPS and running performance analytics
+- Nutrition compliance monitoring
+- Direct coach-athlete communication
+- Goal setting and performance trend analysis
+
+### Sports Teams and Academies
+Organisations managing multiple teams and coaching staff who need:
+- Team hierarchy with managers and coaches
+- Roster management across multiple teams
+- Centralised scheduling and session booking
+- Team-wide nutrition and performance dashboards
+- Tiered subscription billing for athletes
+
+### Individual Athletes
+Athletes looking for a structured coaching experience who need:
+- Clear programme delivery on their phone
+- Session logging and progress tracking
+- Nutrition logging with coach feedback
+- Schedule management and session booking
+- Direct communication with their coach
+
+### Fitness Business Owners
+Coaches building a coaching business who need:
+- Subscription plan and tier management
+- Client billing and access control
+- Scalable team management tools
+- Professional client-facing mobile app
+- Admin dashboard for business oversight
+
+## Frequently Asked Questions
+
+Q: Is PH Performance free?
+A: PH Performance offers tiered pricing plans. Athletes can access the platform through plans assigned by their coach or team. Contact PH Performance for pricing details.
+
+Q: What platforms does PH Performance support?
+A: PH Performance has a native iOS app, native Android app, web admin dashboard for coaches, and a web portal for athletes. All platforms sync in real-time.
+
+Q: Can I use PH Performance for individual coaching (not teams)?
+A: Yes. PH Performance supports both individual athlete coaching and full team management. You can use it for 1-1 coaching without creating teams.
+
+Q: Does PH Performance support youth athletes?
+A: Yes. PH Performance has specific youth team features including parent access controls, age-appropriate content management, and tier-based programme assignment for different age groups.
+
+Q: How is PH Performance different from other fitness apps?
+A: PH Performance is built for the coach-athlete relationship, not solo exercisers. It offers role-based access (coach, manager, athlete, parent), team management, tier-based programme assignment, integrated nutrition tracking, real-time communication, and scheduling — all in one platform.
+
+Q: Can parents see their child's training?
+A: Yes. Parents of youth athletes get appropriate read-only visibility into their child's training activity, progress, and schedule.
+
+## Links
+
+- Website: https://phperformance.uk
+- Features: https://phperformance.uk/features
+- Services: https://phperformance.uk/services
+- About: https://phperformance.uk/about
+- Contact: https://phperformance.uk/contact
+- Blog: https://phperformance.uk/blog
+- App Download: https://phperformance.uk/app-download
+- FAQ: https://phperformance.uk/education-faq
+
+## Blog Articles
+
+- Best Fitness Software for Athletes and Coaches in 2025: https://phperformance.uk/blog/best-fitness-software-for-athletes-and-coaches
+- How to Structure Training Programs for Youth Athletes: https://phperformance.uk/blog/youth-athlete-training-programs-guide
+- Why Sports Coaches Need Dedicated Team Management Software: https://phperformance.uk/blog/team-management-software-for-sports-coaches
+- Nutrition Tracking for Athletes — What Coaches Need to Know: https://phperformance.uk/blog/nutrition-tracking-for-athletic-performance
+- How to Track Athletic Performance — A Coach's Guide: https://phperformance.uk/blog/how-to-track-athletic-performance-effectively
+- Choosing a Fitness App for Teams — The Complete Buyer's Guide: https://phperformance.uk/blog/fitness-app-for-teams-what-to-look-for
+
+## Keywords and Categories
+
+Fitness software, athletic training platform, youth sports technology, team management software, sports coaching app, performance analytics, nutrition tracking for athletes, coach management platform, team fitness app, youth athlete training, sports team management, fitness coaching platform, athlete performance tracking

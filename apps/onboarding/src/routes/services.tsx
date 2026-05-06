@@ -25,6 +25,46 @@ export const Route = createFileRoute("/services")({
                 content:
                     "From personalised 1-1 coaching to full team performance solutions. See what PH Performance offers.",
             },
+            { property: "og:url", content: "https://phperformance.uk/services" },
+            { property: "og:image", content: "https://phperformance.uk/home.png" },
+            { property: "og:image:width", content: "1200" },
+            { property: "og:image:height", content: "630" },
+        ],
+        links: [{ rel: "canonical", href: "https://phperformance.uk/services" }],
+        scripts: [
+            {
+                type: "application/ld+json",
+                children: JSON.stringify({
+                    "@context": "https://schema.org",
+                    "@type": "Service",
+                    provider: { "@type": "Organization", name: "PH Performance", url: "https://phperformance.uk" },
+                    name: "Athletic Training Services",
+                    description: "Professional coaching services including 1-1 training, small group sessions, team programmes, and the PH Performance app.",
+                    serviceType: "Athletic Training",
+                    areaServed: { "@type": "Country", name: "United Kingdom" },
+                    hasOfferCatalog: {
+                        "@type": "OfferCatalog",
+                        name: "Training Services",
+                        itemListElement: [
+                            { "@type": "Offer", itemOffered: { "@type": "Service", name: "1-1 Coaching", description: "Personalised one-on-one athletic coaching" } },
+                            { "@type": "Offer", itemOffered: { "@type": "Service", name: "Small Group Training", description: "Focused training in small group settings" } },
+                            { "@type": "Offer", itemOffered: { "@type": "Service", name: "Team Programmes", description: "Full team training and management programmes" } },
+                            { "@type": "Offer", itemOffered: { "@type": "Service", name: "PH Performance App", description: "Mobile app for programme delivery and tracking" } },
+                        ],
+                    },
+                }),
+            },
+            {
+                type: "application/ld+json",
+                children: JSON.stringify({
+                    "@context": "https://schema.org",
+                    "@type": "BreadcrumbList",
+                    itemListElement: [
+                        { "@type": "ListItem", position: 1, name: "Home", item: "https://phperformance.uk" },
+                        { "@type": "ListItem", position: 2, name: "Services", item: "https://phperformance.uk/services" },
+                    ],
+                }),
+            },
         ],
     }),
     component: ServicesPage,

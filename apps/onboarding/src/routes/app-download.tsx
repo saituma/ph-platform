@@ -17,6 +17,39 @@ export const Route = createFileRoute("/app-download")({
 				content:
 					"Train smarter with the PH Performance app. Track everything, book sessions, and stay connected to your coach.",
 			},
+			{ property: "og:url", content: "https://phperformance.uk/app-download" },
+			{ property: "og:image", content: "https://phperformance.uk/home.png" },
+			{ property: "og:image:width", content: "1200" },
+			{ property: "og:image:height", content: "630" },
+		],
+		links: [{ rel: "canonical", href: "https://phperformance.uk/app-download" }],
+		scripts: [
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "MobileApplication",
+					name: "PH Performance",
+					operatingSystem: "iOS, Android",
+					applicationCategory: "SportsApplication",
+					offers: { "@type": "Offer", price: "0", priceCurrency: "GBP" },
+					description: "Training programmes, nutrition tracking, GPS performance, session booking, and analytics — all in one place.",
+					downloadUrl: "https://phperformance.uk/app-download",
+					featureList: "Training Programmes, Nutrition Tracking, GPS Performance, Session Booking, Analytics, Real-Time Messaging",
+					screenshot: "https://phperformance.uk/home.png",
+				}),
+			},
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "BreadcrumbList",
+					itemListElement: [
+						{ "@type": "ListItem", position: 1, name: "Home", item: "https://phperformance.uk" },
+						{ "@type": "ListItem", position: 2, name: "App Download", item: "https://phperformance.uk/app-download" },
+					],
+				}),
+			},
 		],
 	}),
 	component: AppDownloadPage,

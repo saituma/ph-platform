@@ -23,6 +23,7 @@ const NAV_LINKS = [
 	{ label: "Services", href: "/services" },
 	{ label: "App", href: "/app-download" },
 	{ label: "Results", href: "/gallery" },
+	{ label: "Blog", href: "/blog" },
 	{ label: "Contact", href: "/contact" },
 ];
 
@@ -134,7 +135,7 @@ export default function Header() {
 					{/* Logo */}
 					<Link to="/" className="flex items-center gap-2 shrink-0">
 						<img
-							src="/ph.jpg"
+							src="/ph-logo.png"
 							alt=""
 							aria-hidden="true"
 							className="w-[34px] h-[34px] rounded object-cover"

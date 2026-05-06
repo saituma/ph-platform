@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "dotenv -e .env.local -- vite dev",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender-seo.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

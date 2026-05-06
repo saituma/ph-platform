@@ -25,7 +25,7 @@ export const Route = createFileRoute("/login")({
 		links: [
 			{
 				rel: "canonical",
-				href: "https://ph-platform-onboarding.vercel.app/login",
+				href: "https://phperformance.uk/login",
 			},
 		],
 	}),

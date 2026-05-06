@@ -23,6 +23,7 @@ import { Route as EnquiryRouteImport } from './routes/enquiry'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
 import { Route as CtaDemoRouteImport } from './routes/cta-demo'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AppDownloadRouteImport } from './routes/app-download'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
@@ -59,6 +60,7 @@ import { Route as OnboardingDashboardRouteImport } from './routes/onboarding/das
 import { Route as EnquiryTeamRouteImport } from './routes/enquiry/team'
 import { Route as EnquirySemiPrivateRouteImport } from './routes/enquiry/semi-private'
 import { Route as Enquiry121RouteImport } from './routes/enquiry/121'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as PortalTeamIndexRouteImport } from './routes/portal/team/index'
 import { Route as PortalProgramsIndexRouteImport } from './routes/portal/programs/index'
 import { Route as PortalParentPlatformIndexRouteImport } from './routes/portal/parent-platform/index'
@@ -137,6 +139,11 @@ const CtaDemoRoute = CtaDemoRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogRoute = BlogRouteImport.update({
+  id: '/blog',
+  path: '/blog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppDownloadRoute = AppDownloadRouteImport.update({
@@ -319,6 +326,11 @@ const Enquiry121Route = Enquiry121RouteImport.update({
   path: '/121',
   getParentRoute: () => EnquiryRoute,
 } as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BlogRoute,
+} as any)
 const PortalTeamIndexRoute = PortalTeamIndexRouteImport.update({
   id: '/team/',
   path: '/team/',
@@ -375,6 +387,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/app-download': typeof AppDownloadRoute
+  '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
@@ -389,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
   '/enquiry/team': typeof EnquiryTeamRoute
@@ -436,6 +450,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/app-download': typeof AppDownloadRoute
+  '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
@@ -450,6 +465,7 @@ export interface FileRoutesByTo {
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
   '/enquiry/team': typeof EnquiryTeamRoute
@@ -497,6 +513,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/app-download': typeof AppDownloadRoute
+  '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cta-demo': typeof CtaDemoRoute
   '/education-faq': typeof EducationFaqRoute
@@ -511,6 +528,7 @@ export interface FileRoutesById {
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
   '/enquiry/team': typeof EnquiryTeamRoute
@@ -560,6 +578,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/app-download'
+    | '/blog'
     | '/contact'
     | '/cta-demo'
     | '/education-faq'
@@ -574,6 +593,7 @@ export interface FileRouteTypes {
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
+    | '/blog/$slug'
     | '/enquiry/121'
     | '/enquiry/semi-private'
     | '/enquiry/team'
@@ -621,6 +641,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/app-download'
+    | '/blog'
     | '/contact'
     | '/cta-demo'
     | '/education-faq'
@@ -635,6 +656,7 @@ export interface FileRouteTypes {
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
+    | '/blog/$slug'
     | '/enquiry/121'
     | '/enquiry/semi-private'
     | '/enquiry/team'
@@ -681,6 +703,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/app-download'
+    | '/blog'
     | '/contact'
     | '/cta-demo'
     | '/education-faq'
@@ -695,6 +718,7 @@ export interface FileRouteTypes {
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
+    | '/blog/$slug'
     | '/enquiry/121'
     | '/enquiry/semi-private'
     | '/enquiry/team'
@@ -743,6 +767,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AppDownloadRoute: typeof AppDownloadRoute
+  BlogRoute: typeof BlogRouteWithChildren
   ContactRoute: typeof ContactRoute
   CtaDemoRoute: typeof CtaDemoRoute
   EducationFaqRoute: typeof EducationFaqRoute
@@ -865,6 +890,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog': {
+      id: '/blog'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof BlogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app-download': {
@@ -1119,6 +1151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Enquiry121RouteImport
       parentRoute: typeof EnquiryRoute
     }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof BlogRoute
+    }
     '/portal/team/': {
       id: '/portal/team/'
       path: '/team'
@@ -1184,6 +1223,16 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface BlogRouteChildren {
+  BlogSlugRoute: typeof BlogSlugRoute
+}
+
+const BlogRouteChildren: BlogRouteChildren = {
+  BlogSlugRoute: BlogSlugRoute,
+}
+
+const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
 
 interface EnquiryRouteChildren {
   Enquiry121Route: typeof Enquiry121Route
@@ -1285,6 +1334,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AppDownloadRoute: AppDownloadRoute,
+  BlogRoute: BlogRouteWithChildren,
   ContactRoute: ContactRoute,
   CtaDemoRoute: CtaDemoRoute,
   EducationFaqRoute: EducationFaqRoute,

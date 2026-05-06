@@ -8,7 +8,38 @@ export const Route = createFileRoute("/gallery")({
 	head: () => ({
 		meta: [
 			{ title: "Gallery — PH Performance" },
-			{ name: "description", content: "Photos and videos from the PH Performance team." },
+			{ name: "description", content: "Photos and videos from the PH Performance team. Training sessions, events, and athlete highlights." },
+			{ property: "og:title", content: "Gallery — PH Performance" },
+			{ property: "og:description", content: "See PH Performance in action — training sessions, events, and athlete highlights." },
+			{ property: "og:url", content: "https://phperformance.uk/gallery" },
+			{ property: "og:image", content: "https://phperformance.uk/home.png" },
+			{ property: "og:image:width", content: "1200" },
+			{ property: "og:image:height", content: "630" },
+		],
+		links: [{ rel: "canonical", href: "https://phperformance.uk/gallery" }],
+		scripts: [
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "ImageGallery",
+					name: "PH Performance Gallery",
+					description: "Photos and videos from PH Performance training sessions, events, and athlete highlights.",
+					url: "https://phperformance.uk/gallery",
+					publisher: { "@type": "Organization", name: "PH Performance" },
+				}),
+			},
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "BreadcrumbList",
+					itemListElement: [
+						{ "@type": "ListItem", position: 1, name: "Home", item: "https://phperformance.uk" },
+						{ "@type": "ListItem", position: 2, name: "Gallery", item: "https://phperformance.uk/gallery" },
+					],
+				}),
+			},
 		],
 	}),
 	component: GalleryPage,

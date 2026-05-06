@@ -7,12 +7,36 @@ Disallow: /payment-success
 Disallow: /api/
 
 User-agent: GPTBot
-Disallow: /
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
 
 User-agent: ChatGPT-User
-Disallow: /
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
 
 User-agent: CCBot
-Disallow: /
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
 
-Sitemap: https://ph-platform-onboarding.vercel.app/sitemap.xml
+Sitemap: https://phperformance.uk/sitemap.xml

@@ -66,10 +66,10 @@ export const Route = createFileRoute("/education-faq")({
 			},
 			{
 				property: "og:url",
-				content: "https://ph-platform-onboarding.vercel.app/education-faq",
+				content: "https://phperformance.uk/education-faq",
 			},
 		],
-		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/education-faq" }],
+		links: [{ rel: "canonical", href: "https://phperformance.uk/education-faq" }],
 		scripts: [
 			{ type: "application/ld+json", children: JSON.stringify(faqSchema) },
 		],

@@ -25,10 +25,43 @@ export const Route = createFileRoute("/about")({
 			},
 			{
 				property: "og:url",
-				content: "https://ph-platform-onboarding.vercel.app/about",
+				content: "https://phperformance.uk/about",
+			},
+			{ property: "og:image", content: "https://phperformance.uk/home.png" },
+			{ property: "og:image:width", content: "1200" },
+			{ property: "og:image:height", content: "630" },
+		],
+		links: [{ rel: "canonical", href: "https://phperformance.uk/about" }],
+		scripts: [
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "AboutPage",
+					mainEntity: {
+						"@type": "Organization",
+						name: "PH Performance",
+						url: "https://phperformance.uk",
+						logo: "https://phperformance.uk/ph-logo.png",
+						description: "Elite training and performance coaching platform for athletes and teams.",
+						foundingDate: "2024",
+						knowsAbout: ["Athletic Training", "Youth Sports", "Team Management", "Performance Analytics", "Sports Nutrition"],
+						sameAs: [],
+					},
+				}),
+			},
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "BreadcrumbList",
+					itemListElement: [
+						{ "@type": "ListItem", position: 1, name: "Home", item: "https://phperformance.uk" },
+						{ "@type": "ListItem", position: 2, name: "About", item: "https://phperformance.uk/about" },
+					],
+				}),
 			},
 		],
-		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/about" }],
 	}),
 	component: About,
 });
@@ -134,7 +167,7 @@ function About() {
 					</div>
 					<div className="aspect-square lg:aspect-auto overflow-hidden bg-foreground/[0.02]">
 						<img
-							src="/ph.jpg"
+							src="/ph-logo.png"
 							alt="Team"
 							className="w-full h-full object-cover grayscale-[0.3] opacity-80 hover:opacity-100 hover:grayscale-0 transition-all duration-700"
 						/>

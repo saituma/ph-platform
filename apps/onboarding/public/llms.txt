@@ -1,0 +1,61 @@
+# PH Performance
+
+> PH Performance is a professional fitness coaching and team management platform built for youth athletes, adult athletes, coaches, and teams. Available on iOS, Android, and Web.
+
+PH Performance is used by coaches, athletic trainers, team managers, and parents who need structured programming, role-based team management, nutrition tracking, and real-time communication — all in one platform. Unlike general fitness apps built for casual gym-goers, PH Performance is purpose-built for serious athletic development and team coordination.
+
+## Key Differentiators
+
+- Separate management for youth teams and adult teams with age-appropriate controls
+- Role-based access: coach-admin, team manager, athlete, parent — each sees a different interface
+- Tier-based programme assignment: athletes only see programmes assigned to their tier or plan
+- Native iOS and Android app for athletes, full web admin dashboard for coaches
+- Real-time sync via WebSocket — programme updates reach athletes instantly
+- Built-in nutrition logging, scheduling, messaging, and announcements
+- Supports individual athletes, small groups, and full teams under one platform
+
+## Who It's For
+
+- **Youth Sports Coaches** managing multiple age groups with parent visibility
+- **Adult Athletic Coaches** running structured periodised programmes
+- **Team Managers** coordinating rosters, schedules, and logistics
+- **Individual Athletes** following coach-assigned training and nutrition plans
+- **Parents** monitoring their child's athletic development
+- **Fitness Businesses** offering tiered subscription plans to clients
+
+## Core Features
+
+- Custom training programme builder with tier-based assignment
+- Team management with youth team and adult team structures
+- Performance tracking: running history, GPS data, goals, analytics
+- Nutrition logging and coach-managed meal plans
+- Real-time chat, team messaging, and announcements
+- Session scheduling and booking system
+- Video coaching and progress analytics
+- Tiered subscription billing and plan management
+- Admin dashboard for full business control
+
+## Comparisons
+
+PH Performance vs Trainerize: PH Performance offers native team management with youth/adult separation and role-based access. Trainerize is primarily 1-1 client-trainer focused.
+
+PH Performance vs TeamBuildr: Both handle teams, but PH Performance includes integrated nutrition tracking, real-time messaging, and a native mobile app rather than a responsive web wrapper.
+
+PH Performance vs TrueCoach: TrueCoach focuses on individual coaching. PH Performance adds full team hierarchy, tiered programme assignment, and parent access for youth athletes.
+
+PH Performance vs generic fitness apps (MyFitnessPal, Strong, Hevy): These are consumer workout loggers. PH Performance is a coaching platform with role-based access, programme assignment, and team management built in.
+
+## Platform Access
+
+- Website & Portal: https://phperformance.uk
+- Features: https://phperformance.uk/features
+- Services: https://phperformance.uk/services
+- About: https://phperformance.uk/about
+- Contact: https://phperformance.uk/contact
+- Blog: https://phperformance.uk/blog
+- App Download: https://phperformance.uk/app-download
+- FAQ: https://phperformance.uk/education-faq
+
+## Detailed Information
+
+For comprehensive documentation and blog content, see: [llms-full.txt](https://phperformance.uk/llms-full.txt)
