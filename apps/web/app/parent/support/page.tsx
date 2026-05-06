@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 
-import { ParentShell } from "../../../components/parent/shell";
+import { AdminShell } from "../../../components/admin/shell";
 import { AppFeedbackPanel } from "../../../components/support/app-feedback-panel";
 import { Button } from "../../../components/ui/button";
 
 export default function ParentSupportPage() {
   return (
-    <ParentShell
+    <AdminShell
       title="Support & feedback"
       subtitle="Tell the team about bugs, billing questions, or scheduling—same channel as the mobile app."
     >
@@ -18,6 +18,6 @@ export default function ParentSupportPage() {
         </Button>
       </div>
       <AppFeedbackPanel variant="parent" className="max-w-2xl" />
-    </ParentShell>
+    </AdminShell>
   );
 }

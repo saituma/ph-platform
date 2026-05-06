@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
+  athleteTable,
   enrollmentTable,
   exerciseTable,
   programAssignmentTable,
@@ -352,6 +353,39 @@ export async function getMySessionCompletion(userId: number, sessionId: number) 
     .limit(1);
 
   return completion ?? null;
+}
+
+export async function setProgramSessionCoachResponse(input: {
+  completionId: number;
+  coachResponse: string;
+}) {
+  const [updated] = await db
+    .update(programSessionCompletionTable)
+    .set({
+      coachResponse: input.coachResponse,
+      coachResponseAt: new Date(),
+    })
+    .where(eq(programSessionCompletionTable.id, input.completionId))
+    .returning({
+      id: programSessionCompletionTable.id,
+      athleteId: programSessionCompletionTable.athleteId,
+      sessionId: programSessionCompletionTable.sessionId,
+      coachResponse: programSessionCompletionTable.coachResponse,
+      coachResponseAt: programSessionCompletionTable.coachResponseAt,
+    });
+
+  if (!updated) return null;
+
+  const [athlete] = await db
+    .select({ userId: athleteTable.userId })
+    .from(athleteTable)
+    .where(eq(athleteTable.id, updated.athleteId))
+    .limit(1);
+
+  return {
+    ...updated,
+    athleteUserId: athlete?.userId ?? null,
+  };
 }
 
 export async function getProgramAiInsight(programId: number) {

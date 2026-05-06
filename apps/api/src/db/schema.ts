@@ -32,7 +32,10 @@ export const EnrollmentStatus = pgEnum("enrollment_status", ["pending", "active"
 export const AthleteType = pgEnum("athlete_type", ["youth", "adult"]);
 export const PlanPaymentType = pgEnum("plan_payment_type", ["monthly", "upfront"]);
 export const bookingStatus = pgEnum("booking_status", ["pending", "confirmed", "declined", "cancelled"]);
-export const bookingType = pgEnum("booking_type", ["one_to_one", "semi_private", "in_person"]);
+export const bookingType = pgEnum("booking_type", ["one_to_one", "semi_private", "in_person", "team"]);
+export const scheduledSessionStatus = pgEnum("scheduled_session_status", ["upcoming", "completed", "cancelled"]);
+export const sessionAssignmentScope = pgEnum("session_assignment_scope", ["individual", "group", "team"]);
+export const sessionAttendanceStatus = pgEnum("session_attendance_status", ["unmarked", "attended", "missed"]);
 export const contentType = pgEnum("content_type", [
   "article",
   "video",
@@ -191,6 +194,10 @@ export const adminSettingsTable = pgTable(
     workEndMinute: integer().notNull().default(0),
     /** Which program tiers may message the coach (coach-editable). Null = all tiers. */
     messagingEnabledTiers: jsonb(),
+    googleCalendarId: varchar("googleCalendarId", { length: 255 }),
+    googleServiceAccountEmail: varchar("googleServiceAccountEmail", { length: 255 }),
+    googleServiceAccountPrivateKey: text("googleServiceAccountPrivateKey"),
+    googleCalendarConnectedAt: timestamp("googleCalendarConnectedAt"),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
@@ -1025,6 +1032,90 @@ export const bookingTable = pgTable("bookings", {
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
+
+export const sessionTemplateTable = pgTable(
+  "session_templates",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    name: varchar({ length: 255 }).notNull(),
+    type: bookingType().notNull(),
+    scope: sessionAssignmentScope().notNull(),
+    isRecurring: boolean("isRecurring").notNull().default(true),
+    weekday: integer(),
+    startsAtTime: varchar({ length: 5 }).notNull(),
+    endsAtTime: varchar({ length: 5 }).notNull(),
+    location: varchar({ length: 500 }),
+    meetingLink: varchar({ length: 500 }),
+    notes: text(),
+    teamId: integer().references(() => teamTable.id, { onDelete: "set null" }),
+    targetUserIds: jsonb().$type<number[]>().notNull().default([]),
+    googleSyncEnabled: boolean("googleSyncEnabled").notNull().default(false),
+    isActive: boolean().notNull().default(true),
+    createdBy: integer()
+      .notNull()
+      .references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    scopeIdx: index("session_templates_scope_idx").on(table.scope),
+    teamIdx: index("session_templates_team_idx").on(table.teamId),
+  }),
+);
+
+export const scheduledSessionTable = pgTable(
+  "scheduled_sessions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    templateId: integer().references(() => sessionTemplateTable.id, { onDelete: "set null" }),
+    name: varchar({ length: 255 }).notNull(),
+    type: bookingType().notNull(),
+    scope: sessionAssignmentScope().notNull(),
+    startsAt: timestamp().notNull(),
+    endsAt: timestamp().notNull(),
+    status: scheduledSessionStatus().notNull().default("upcoming"),
+    location: varchar({ length: 500 }),
+    meetingLink: varchar({ length: 500 }),
+    notes: text(),
+    teamId: integer().references(() => teamTable.id, { onDelete: "set null" }),
+    googleEventId: varchar({ length: 255 }),
+    createdBy: integer()
+      .notNull()
+      .references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    startsAtIdx: index("scheduled_sessions_starts_at_idx").on(table.startsAt),
+    templateIdx: index("scheduled_sessions_template_idx").on(table.templateId),
+    googleEventIdx: index("scheduled_sessions_google_event_id_idx").on(table.googleEventId),
+    templateStartsUnique: uniqueIndex("scheduled_sessions_template_starts_unique").on(table.templateId, table.startsAt),
+  }),
+);
+
+export const sessionAttendanceTable = pgTable(
+  "session_attendance",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    scheduledSessionId: integer()
+      .notNull()
+      .references(() => scheduledSessionTable.id, { onDelete: "cascade" }),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    status: sessionAttendanceStatus().notNull().default("unmarked"),
+    checkInAt: timestamp("checkInAt"),
+    markedBy: integer().references(() => userTable.id, { onDelete: "set null" }),
+    markedAt: timestamp("markedAt"),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdx: index("session_attendance_user_idx").on(table.userId),
+    sessionIdx: index("session_attendance_session_idx").on(table.scheduledSessionId),
+    sessionUserUnique: uniqueIndex("session_attendance_session_user_unique").on(table.scheduledSessionId, table.userId),
+  }),
+);
 
 export const contentTable = pgTable("contents", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),

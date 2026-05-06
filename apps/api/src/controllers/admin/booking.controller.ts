@@ -262,6 +262,8 @@ export async function createCustomScheduleAdmin(req: Request, res: Response) {
           currentProgramTier: athlete.currentProgramTier,
           athleteType: athlete.athleteType,
           teamId: athlete.teamId,
+          userId: athlete.userId,
+          guardianId: athlete.guardianId,
         },
       });
 

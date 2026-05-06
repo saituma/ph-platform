@@ -13,6 +13,7 @@ import * as AdminOnboardingConfigController from "../controllers/admin/onboardin
 import * as AdminPortalConfigController from "../controllers/admin/portal-config.controller";
 import * as AdminSettingsController from "../controllers/admin/settings.controller";
 import * as AdminVideoController from "../controllers/admin/video.controller";
+import * as AdminProgramSessionCompletionController from "../controllers/admin/program-session-completion.controller";
 import * as TrackingGoalsController from "../controllers/tracking-goals.controller";
 
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
@@ -75,6 +76,10 @@ router.get("/admin/availability", AdminBookingController.listAvailability);
 
 // Videos
 router.get("/admin/videos", AdminVideoController.listVideosAdmin);
+router.patch(
+  "/admin/program-session-completions/:completionId/coach-response",
+  AdminProgramSessionCompletionController.setCoachResponseAdmin,
+);
 
 // Messaging
 router.get("/admin/messages/threads", AdminMessageController.listMessageThreads);

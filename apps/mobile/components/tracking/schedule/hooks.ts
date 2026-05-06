@@ -2,14 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { GeneratedAvailabilityOccurrence, ServiceType } from "./types";
-import { endOfLocalDay, mapBookingsToEvents, startOfLocalDay } from "./utils";
+import { endOfLocalDay, mapBookingsToEvents, mapScheduledSessionsToEvents, startOfLocalDay } from "./utils";
 
 export function useScheduleData(token: string | null, profileId: number, isFocused: boolean) {
   const eventsQuery = useQuery({
     queryKey: queryKeys.bookings.all(profileId),
     queryFn: async () => {
-      const data = await apiRequest<{ items: any[] }>("/bookings", { token });
-      return mapBookingsToEvents(data.items ?? []);
+      try {
+        const data = await apiRequest<{ sessions: any[] }>("/sessions/my", { token });
+        return mapScheduledSessionsToEvents(data.sessions ?? []);
+      } catch {
+        const data = await apiRequest<{ items: any[] }>("/bookings", { token });
+        return mapBookingsToEvents(data.items ?? []);
+      }
     },
     enabled: !!token && isFocused,
     staleTime: 2 * 60 * 1000,

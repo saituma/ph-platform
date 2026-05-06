@@ -36,6 +36,7 @@ import { Route as PortalPrivacySecurityRouteImport } from './routes/portal/priva
 import { Route as PortalPrivacyPolicyRouteImport } from './routes/portal/privacy-policy'
 import { Route as PortalPhysioReferralRouteImport } from './routes/portal/physio-referral'
 import { Route as PortalPermissionsRouteImport } from './routes/portal/permissions'
+import { Route as PortalParentPlatformRouteImport } from './routes/portal/parent-platform'
 import { Route as PortalNutritionRouteImport } from './routes/portal/nutrition'
 import { Route as PortalNotificationsRouteImport } from './routes/portal/notifications'
 import { Route as PortalMoreRouteImport } from './routes/portal/more'
@@ -60,7 +61,9 @@ import { Route as EnquirySemiPrivateRouteImport } from './routes/enquiry/semi-pr
 import { Route as Enquiry121RouteImport } from './routes/enquiry/121'
 import { Route as PortalTeamIndexRouteImport } from './routes/portal/team/index'
 import { Route as PortalProgramsIndexRouteImport } from './routes/portal/programs/index'
+import { Route as PortalParentPlatformIndexRouteImport } from './routes/portal/parent-platform/index'
 import { Route as PortalTeamAthleteIdRouteImport } from './routes/portal/team/$athleteId'
+import { Route as PortalParentPlatformCourseIdRouteImport } from './routes/portal/parent-platform/$courseId'
 import { Route as PortalProgramsSessionSessionIdRouteImport } from './routes/portal/programs/session/$sessionId'
 import { Route as PortalProgramsModuleModuleIdRouteImport } from './routes/portal/programs/module/$moduleId'
 import { Route as PortalProgramsAssignedProgramIdRouteImport } from './routes/portal/programs/assigned/$programId'
@@ -201,6 +204,11 @@ const PortalPermissionsRoute = PortalPermissionsRouteImport.update({
   path: '/permissions',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalParentPlatformRoute = PortalParentPlatformRouteImport.update({
+  id: '/parent-platform',
+  path: '/parent-platform',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PortalNutritionRoute = PortalNutritionRouteImport.update({
   id: '/nutrition',
   path: '/nutrition',
@@ -321,11 +329,23 @@ const PortalProgramsIndexRoute = PortalProgramsIndexRouteImport.update({
   path: '/programs/',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalParentPlatformIndexRoute =
+  PortalParentPlatformIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PortalParentPlatformRoute,
+  } as any)
 const PortalTeamAthleteIdRoute = PortalTeamAthleteIdRouteImport.update({
   id: '/team/$athleteId',
   path: '/team/$athleteId',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalParentPlatformCourseIdRoute =
+  PortalParentPlatformCourseIdRouteImport.update({
+    id: '/$courseId',
+    path: '/$courseId',
+    getParentRoute: () => PortalParentPlatformRoute,
+  } as any)
 const PortalProgramsSessionSessionIdRoute =
   PortalProgramsSessionSessionIdRouteImport.update({
     id: '/programs/session/$sessionId',
@@ -391,6 +411,7 @@ export interface FileRoutesByFullPath {
   '/portal/more': typeof PortalMoreRoute
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/nutrition': typeof PortalNutritionRoute
+  '/portal/parent-platform': typeof PortalParentPlatformRouteWithChildren
   '/portal/permissions': typeof PortalPermissionsRoute
   '/portal/physio-referral': typeof PortalPhysioReferralRoute
   '/portal/privacy-policy': typeof PortalPrivacyPolicyRoute
@@ -401,7 +422,9 @@ export interface FileRoutesByFullPath {
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
   '/portal/tracking': typeof PortalTrackingRoute
+  '/portal/parent-platform/$courseId': typeof PortalParentPlatformCourseIdRoute
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
+  '/portal/parent-platform/': typeof PortalParentPlatformIndexRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
   '/portal/team/': typeof PortalTeamIndexRoute
   '/portal/programs/assigned/$programId': typeof PortalProgramsAssignedProgramIdRoute
@@ -459,7 +482,9 @@ export interface FileRoutesByTo {
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
   '/portal/tracking': typeof PortalTrackingRoute
+  '/portal/parent-platform/$courseId': typeof PortalParentPlatformCourseIdRoute
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
+  '/portal/parent-platform': typeof PortalParentPlatformIndexRoute
   '/portal/programs': typeof PortalProgramsIndexRoute
   '/portal/team': typeof PortalTeamIndexRoute
   '/portal/programs/assigned/$programId': typeof PortalProgramsAssignedProgramIdRoute
@@ -508,6 +533,7 @@ export interface FileRoutesById {
   '/portal/more': typeof PortalMoreRoute
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/nutrition': typeof PortalNutritionRoute
+  '/portal/parent-platform': typeof PortalParentPlatformRouteWithChildren
   '/portal/permissions': typeof PortalPermissionsRoute
   '/portal/physio-referral': typeof PortalPhysioReferralRoute
   '/portal/privacy-policy': typeof PortalPrivacyPolicyRoute
@@ -518,7 +544,9 @@ export interface FileRoutesById {
   '/portal/terms': typeof PortalTermsRoute
   '/portal/testimonial': typeof PortalTestimonialRoute
   '/portal/tracking': typeof PortalTrackingRoute
+  '/portal/parent-platform/$courseId': typeof PortalParentPlatformCourseIdRoute
   '/portal/team/$athleteId': typeof PortalTeamAthleteIdRoute
+  '/portal/parent-platform/': typeof PortalParentPlatformIndexRoute
   '/portal/programs/': typeof PortalProgramsIndexRoute
   '/portal/team/': typeof PortalTeamIndexRoute
   '/portal/programs/assigned/$programId': typeof PortalProgramsAssignedProgramIdRoute
@@ -568,6 +596,7 @@ export interface FileRouteTypes {
     | '/portal/more'
     | '/portal/notifications'
     | '/portal/nutrition'
+    | '/portal/parent-platform'
     | '/portal/permissions'
     | '/portal/physio-referral'
     | '/portal/privacy-policy'
@@ -578,7 +607,9 @@ export interface FileRouteTypes {
     | '/portal/terms'
     | '/portal/testimonial'
     | '/portal/tracking'
+    | '/portal/parent-platform/$courseId'
     | '/portal/team/$athleteId'
+    | '/portal/parent-platform/'
     | '/portal/programs/'
     | '/portal/team/'
     | '/portal/programs/assigned/$programId'
@@ -636,7 +667,9 @@ export interface FileRouteTypes {
     | '/portal/terms'
     | '/portal/testimonial'
     | '/portal/tracking'
+    | '/portal/parent-platform/$courseId'
     | '/portal/team/$athleteId'
+    | '/portal/parent-platform'
     | '/portal/programs'
     | '/portal/team'
     | '/portal/programs/assigned/$programId'
@@ -684,6 +717,7 @@ export interface FileRouteTypes {
     | '/portal/more'
     | '/portal/notifications'
     | '/portal/nutrition'
+    | '/portal/parent-platform'
     | '/portal/permissions'
     | '/portal/physio-referral'
     | '/portal/privacy-policy'
@@ -694,7 +728,9 @@ export interface FileRouteTypes {
     | '/portal/terms'
     | '/portal/testimonial'
     | '/portal/tracking'
+    | '/portal/parent-platform/$courseId'
     | '/portal/team/$athleteId'
+    | '/portal/parent-platform/'
     | '/portal/programs/'
     | '/portal/team/'
     | '/portal/programs/assigned/$programId'
@@ -922,6 +958,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalPermissionsRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/parent-platform': {
+      id: '/portal/parent-platform'
+      path: '/parent-platform'
+      fullPath: '/portal/parent-platform'
+      preLoaderRoute: typeof PortalParentPlatformRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/portal/nutrition': {
       id: '/portal/nutrition'
       path: '/nutrition'
@@ -1090,12 +1133,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalProgramsIndexRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/parent-platform/': {
+      id: '/portal/parent-platform/'
+      path: '/'
+      fullPath: '/portal/parent-platform/'
+      preLoaderRoute: typeof PortalParentPlatformIndexRouteImport
+      parentRoute: typeof PortalParentPlatformRoute
+    }
     '/portal/team/$athleteId': {
       id: '/portal/team/$athleteId'
       path: '/team/$athleteId'
       fullPath: '/portal/team/$athleteId'
       preLoaderRoute: typeof PortalTeamAthleteIdRouteImport
       parentRoute: typeof PortalRoute
+    }
+    '/portal/parent-platform/$courseId': {
+      id: '/portal/parent-platform/$courseId'
+      path: '/$courseId'
+      fullPath: '/portal/parent-platform/$courseId'
+      preLoaderRoute: typeof PortalParentPlatformCourseIdRouteImport
+      parentRoute: typeof PortalParentPlatformRoute
     }
     '/portal/programs/session/$sessionId': {
       id: '/portal/programs/session/$sessionId'
@@ -1143,6 +1200,19 @@ const EnquiryRouteChildren: EnquiryRouteChildren = {
 const EnquiryRouteWithChildren =
   EnquiryRoute._addFileChildren(EnquiryRouteChildren)
 
+interface PortalParentPlatformRouteChildren {
+  PortalParentPlatformCourseIdRoute: typeof PortalParentPlatformCourseIdRoute
+  PortalParentPlatformIndexRoute: typeof PortalParentPlatformIndexRoute
+}
+
+const PortalParentPlatformRouteChildren: PortalParentPlatformRouteChildren = {
+  PortalParentPlatformCourseIdRoute: PortalParentPlatformCourseIdRoute,
+  PortalParentPlatformIndexRoute: PortalParentPlatformIndexRoute,
+}
+
+const PortalParentPlatformRouteWithChildren =
+  PortalParentPlatformRoute._addFileChildren(PortalParentPlatformRouteChildren)
+
 interface PortalRouteChildren {
   PortalAboutRoute: typeof PortalAboutRoute
   PortalAnnouncementsRoute: typeof PortalAnnouncementsRoute
@@ -1155,6 +1225,7 @@ interface PortalRouteChildren {
   PortalMoreRoute: typeof PortalMoreRoute
   PortalNotificationsRoute: typeof PortalNotificationsRoute
   PortalNutritionRoute: typeof PortalNutritionRoute
+  PortalParentPlatformRoute: typeof PortalParentPlatformRouteWithChildren
   PortalPermissionsRoute: typeof PortalPermissionsRoute
   PortalPhysioReferralRoute: typeof PortalPhysioReferralRoute
   PortalPrivacyPolicyRoute: typeof PortalPrivacyPolicyRoute
@@ -1186,6 +1257,7 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalMoreRoute: PortalMoreRoute,
   PortalNotificationsRoute: PortalNotificationsRoute,
   PortalNutritionRoute: PortalNutritionRoute,
+  PortalParentPlatformRoute: PortalParentPlatformRouteWithChildren,
   PortalPermissionsRoute: PortalPermissionsRoute,
   PortalPhysioReferralRoute: PortalPhysioReferralRoute,
   PortalPrivacyPolicyRoute: PortalPrivacyPolicyRoute,

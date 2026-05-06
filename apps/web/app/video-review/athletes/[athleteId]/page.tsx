@@ -10,7 +10,12 @@ import { Button } from "../../../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../../../components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "../../../../components/ui/tabs";
 import { VideoDialogs, type VideoReviewDialog } from "../../../../components/admin/video-review/video-dialogs";
-import { useGetVideoUploadsQuery, useReviewVideoUploadMutation, useSendMessageMutation } from "../../../../lib/apiSlice";
+import {
+  useGetVideoUploadsQuery,
+  useReviewVideoUploadMutation,
+  useSendMessageMutation,
+  useSetProgramSessionCoachResponseMutation,
+} from "../../../../lib/apiSlice";
 
 const SECTION_TABS = [
   { value: "all", label: "All" },
@@ -28,6 +33,8 @@ const SECTION_TABS = [
 
 type VideoItem = {
   id: number;
+  source: "video_upload" | "program_completion";
+  programSessionCompletionId: number | null;
   athlete: string;
   athleteUserId: number | null;
   guardianUserId: number | null;
@@ -42,6 +49,8 @@ type VideoItem = {
 
 type RawVideoUpload = {
   id: number;
+  source?: "video_upload" | "program_completion";
+  programSessionCompletionId?: number | null;
   athleteId?: number | null;
   athleteName?: string | null;
   athleteUserId?: number | null;
@@ -50,6 +59,7 @@ type RawVideoUpload = {
   createdAt?: string | null;
   programSectionType?: string | null;
   programSectionTitle?: string | null;
+  trainingSessionTitle?: string | null;
   videoUrl?: string | null;
   notes?: string | null;
   feedback?: string | null;
@@ -73,6 +83,8 @@ function AthleteVideoHistoryPageInner() {
 
   const { data: videosData, isLoading, refetch } = useGetVideoUploadsQuery();
   const [reviewVideo, { isLoading: isSubmitting }] = useReviewVideoUploadMutation();
+  const [setProgramSessionCoachResponse, { isLoading: isSubmittingProgramResponse }] =
+    useSetProgramSessionCoachResponseMutation();
   const [sendMessage, { isLoading: isSendingResponse }] = useSendMessageMutation();
   const [activeDialog, setActiveDialog] = useState<VideoReviewDialog>(null);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
@@ -85,10 +97,12 @@ function AthleteVideoHistoryPageInner() {
         const reviewed = Boolean(item.reviewedAt);
         const status = reviewed ? "Reviewed" : "Awaiting";
         const sectionType = item.programSectionType ?? "program";
-        const sectionTitle = item.programSectionTitle ?? null;
+        const sectionTitle = item.programSectionTitle ?? item.trainingSessionTitle ?? null;
         const topic = sectionTitle ?? "Video upload";
         return {
           id: item.id,
+          source: item.source ?? "video_upload",
+          programSessionCompletionId: item.programSessionCompletionId ?? null,
           athlete: item.athleteName ?? "Athlete",
           athleteUserId: item.athleteUserId ?? null,
           guardianUserId: item.guardianUserId ?? null,
@@ -181,7 +195,17 @@ function AthleteVideoHistoryPageInner() {
         isSubmitting={isSubmitting}
         onSubmitReview={async (feedback) => {
           if (!selectedVideo) return;
-          await reviewVideo({ uploadId: selectedVideo.id, feedback }).unwrap();
+          if (
+            selectedVideo.source === "program_completion" &&
+            selectedVideo.programSessionCompletionId
+          ) {
+            await setProgramSessionCoachResponse({
+              completionId: selectedVideo.programSessionCompletionId,
+              coachResponse: feedback,
+            }).unwrap();
+          } else {
+            await reviewVideo({ uploadId: selectedVideo.id, feedback }).unwrap();
+          }
           setActiveDialog(null);
           refetch();
         }}
@@ -192,7 +216,7 @@ function AthleteVideoHistoryPageInner() {
             ),
           );
         }}
-        isSendingResponse={isSendingResponse}
+        isSendingResponse={isSendingResponse || isSubmittingProgramResponse}
       />
     </AdminShell>
   );

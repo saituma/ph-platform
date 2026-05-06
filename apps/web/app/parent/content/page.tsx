@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, Layers, FileText, Video, HelpCircle } from "lucide-react";
 
-import { ParentShell } from "../../../components/parent/shell";
+import { AdminShell } from "../../../components/admin/shell";
 import { ParentCoursesCard } from "../../../components/parent/config/parent-courses-card";
 import { useGetParentCoursesQuery } from "../../../lib/apiSlice";
 import {
@@ -44,7 +44,7 @@ export default function ParentContentPage() {
   }, [data]);
 
   return (
-    <ParentShell
+    <AdminShell
       title="Parent Education Content"
       subtitle="Build and manage courses for the parent platform."
       actions={
@@ -157,6 +157,6 @@ export default function ParentContentPage() {
         {/* Main courses card (full control) */}
         <ParentCoursesCard />
       </div>
-    </ParentShell>
+    </AdminShell>
   );
 }

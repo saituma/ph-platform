@@ -82,6 +82,12 @@ const mainNavItems = [
 	{ label: "Messages", path: "/portal/messages", icon: MessageCircle },
 ];
 
+const parentPlatformNavItem = {
+	label: "Parent Platform",
+	path: "/portal/parent-platform",
+	icon: Users,
+} as const;
+
 const activityItems = [
 	{ label: "Run Tracker", path: "/portal/tracking", icon: Footprints },
 ];
@@ -118,6 +124,27 @@ export function AppSidebar() {
 	const pathname = useRouterPathname();
 	const { user } = usePortal();
 	const { state, toggleSidebar } = useSidebar();
+	const birthDate = user?.birthDate ? new Date(user.birthDate) : null;
+	const hasValidBirthDate = birthDate != null && !Number.isNaN(birthDate.getTime());
+	const now = new Date();
+	let derivedAge: number | null = null;
+	if (hasValidBirthDate && birthDate) {
+		derivedAge = now.getFullYear() - birthDate.getFullYear();
+		const monthDiff = now.getMonth() - birthDate.getMonth();
+		if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
+			derivedAge -= 1;
+		}
+	}
+	const role = user?.role;
+	const athleteType = user?.athleteType;
+	const isYouthAthleteRole =
+		role === "youth_athlete" || role === "team_athlete" || role === "athlete";
+	const isAdultAthlete =
+		role === "adult_athlete" || role === "adult_athlete_team" || athleteType === "adult";
+	const isYouthByType = athleteType === "youth";
+	const isYouthByAge = derivedAge != null && derivedAge < 18;
+	const showParentPlatformNav =
+		!isAdultAthlete && (isYouthAthleteRole || isYouthByType || isYouthByAge);
 
 	const isActive = (path: string) => portalNavItemIsActive(pathname, path);
 
@@ -225,6 +252,9 @@ export function AppSidebar() {
 					<SidebarGroupContent>
 						<SidebarMenu>
 							{mainNavItems.map((item) => renderNavItem(item, isActive(item.path)))}
+							{showParentPlatformNav
+								? renderNavItem(parentPlatformNavItem, isActive(parentPlatformNavItem.path))
+								: null}
 							{isPortalCoachLikeRole(user?.role)
 								? coachOnlyNavItems.map((item) => renderNavItem(item, isActive(item.path)))
 								: null}

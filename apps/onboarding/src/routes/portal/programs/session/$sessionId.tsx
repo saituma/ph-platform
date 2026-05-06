@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { config } from "@/lib/config";
-import { getTokenStatus } from "@/lib/client-storage";
+import { getClientAuthToken, getTokenStatus } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
 import { fetchTeamWorkspace } from "@/services/programsService";
 import { programKeys } from "../index";
@@ -235,6 +235,7 @@ function SessionDetailPage() {
 	const finishMutation = useMutation({
 		mutationFn: async () => {
 			const baseUrl = config.api.baseUrl;
+			const authToken = getClientAuthToken();
 			const response = await fetch(
 				`${baseUrl}/api/training-content-v2/mobile/sessions/${sessionId}/finish`,
 				{
@@ -242,6 +243,7 @@ function SessionDetailPage() {
 					credentials: "include",
 					headers: {
 						"Content-Type": "application/json",
+						...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
 					},
 				},
 			);

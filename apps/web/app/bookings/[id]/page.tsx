@@ -18,6 +18,7 @@ const BOOKING_TYPE_LABELS: Record<string, string> = {
   lift_lab_1on1: "Lift Lab 1:1",
   role_model: "Premium",
   call: "Call",
+  team: "Team session",
 };
 
 const STATUS_LABELS: Record<string, string> = {

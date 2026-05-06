@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { MessageCircle } from "lucide-react";
 
-import { ParentShell } from "../../../components/parent/shell";
+import { AdminShell } from "../../../components/admin/shell";
 import { Card, CardContent } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -20,7 +20,7 @@ export default function ParentMessagesPage() {
   }, [threadsData]);
 
   return (
-    <ParentShell title="Messages" subtitle="Parent and athlete conversations.">
+    <AdminShell title="Messages" subtitle="Parent and athlete conversations.">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
@@ -81,6 +81,6 @@ export default function ParentMessagesPage() {
           </div>
         )}
       </div>
-    </ParentShell>
+    </AdminShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { ParentShell } from "../../../components/parent/shell";
+import { AdminShell } from "../../../components/admin/shell";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Skeleton } from "../../../components/ui/skeleton";
@@ -14,7 +14,7 @@ export default function ParentSettingsPage() {
   const user = data?.user;
 
   return (
-    <ParentShell title="Settings" subtitle="Portal preferences and account settings.">
+    <AdminShell title="Settings" subtitle="Portal preferences and account settings.">
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -73,6 +73,6 @@ export default function ParentSettingsPage() {
           </CardContent>
         </Card>
       </div>
-    </ParentShell>
+    </AdminShell>
   );
 }

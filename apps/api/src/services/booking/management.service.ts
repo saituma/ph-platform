@@ -400,7 +400,7 @@ export async function createBooking(input: {
   occurrenceKey?: string | null;
   slotKey?: string | null;
   createdBy: number;
-  viewerAthlete?: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null } | null;
+  viewerAthlete?: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null; userId?: number | null; guardianId?: number | null } | null;
   location?: string | null;
   meetingLink?: string | null;
   notes?: string | null;

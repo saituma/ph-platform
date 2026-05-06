@@ -3,7 +3,7 @@ import { db } from "../../db";
 import { availabilityBlockTable, bookingTable, serviceTypeTable } from "../../db/schema";
 
 export type ProgramTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
-export type ServiceTypeKind = "one_to_one" | "semi_private" | "in_person" | null;
+export type ServiceTypeKind = "one_to_one" | "semi_private" | "in_person" | "team" | null;
 export type WeeklyEntry = { weekday: number; time: string };
 export type SlotDefinition = { time: string; capacity?: number | null };
 export type ServiceTypeRecord = typeof serviceTypeTable.$inferSelect;
@@ -109,6 +109,8 @@ export function serviceAllowsAthlete(
     teamId?: number | null;
     /** Team display name; used to match legacy `team:<name>` targets saved before id-based tokens. */
     team?: string | null;
+    userId?: number | null;
+    guardianId?: number | null;
   } | null,
 ) {
   // Check tier
@@ -133,6 +135,14 @@ export function serviceAllowsAthlete(
   }
 
   if (athlete.team && eligibleTargets.includes(`team:${athlete.team}`)) {
+    return true;
+  }
+
+  if (athlete.userId && eligibleTargets.includes(`user:${athlete.userId}`)) {
+    return true;
+  }
+
+  if (athlete.guardianId && eligibleTargets.includes(`user:${athlete.guardianId}`)) {
     return true;
   }
 

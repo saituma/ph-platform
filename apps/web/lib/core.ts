@@ -323,6 +323,23 @@ export type BookingAvailabilityItem = {
   slots?: BookingAvailabilitySlot[] | null;
 };
 
+export type ScheduledSessionStatus = "Upcoming" | "Completed" | "Missed";
+
+export type MyScheduledSessionRecord = {
+  sessionId: number;
+  name: string;
+  type: "one_to_one" | "semi_private" | "in_person" | "team";
+  startsAt: string;
+  endsAt: string;
+  location?: string | null;
+  meetingLink?: string | null;
+  sessionStatus?: "upcoming" | "completed" | "cancelled" | null;
+  attendanceStatus?: "unmarked" | "attended" | "missed" | null;
+  checkInAt?: string | null;
+  status: ScheduledSessionStatus;
+  dateKey: string;
+};
+
 // ── Base query with reauth ───────────────────────────────────
 const getCsrfToken = () => {
   if (typeof document === "undefined") return "";
@@ -419,6 +436,7 @@ export const apiSlice = createApi({
     "UserLocations",
     "TrackingGoals",
     "Enquiries",
+    "SessionSchedule",
   ],
   endpoints: () => ({}),
 });

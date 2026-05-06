@@ -357,9 +357,23 @@ export async function listLogs(req: Request, res: Response) {
 export async function upsertLog(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  const targetUserId = req.body.athleteId ? Number(req.body.athleteId) : req.user.id;
+  let targetUserId = req.body.athleteId ? Number(req.body.athleteId) : req.user.id;
   if (!Number.isFinite(targetUserId)) {
     return res.status(400).json({ error: "Invalid athlete ID" });
+  }
+
+  // Guardian clients may submit nutrition logs without athleteId in payload.
+  // In that case, route the log to guardian.activeAthleteId -> athlete.userId.
+  if (!req.body.athleteId && req.user.role === "guardian") {
+    const [activeAthlete] = await db
+      .select({ athleteUserId: athleteTable.userId })
+      .from(guardianTable)
+      .innerJoin(athleteTable, eq(guardianTable.activeAthleteId, athleteTable.id))
+      .where(eq(guardianTable.userId, req.user.id))
+      .limit(1);
+    if (activeAthlete?.athleteUserId) {
+      targetUserId = activeAthlete.athleteUserId;
+    }
   }
 
   const input = logSchema.parse(req.body);

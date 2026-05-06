@@ -904,6 +904,34 @@
       "when": 1778004789126,
       "tag": "0128_booking_type_team",
       "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1778014474583,
+      "tag": "0129_public_marten_broadcloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1778026000000,
+      "tag": "0130_session_schedule_attendance",
+      "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1778080000000,
+      "tag": "0131_session_schedule_google_calendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1778082000000,
+      "tag": "0132_admin_google_calendar_connection",
+      "breakpoints": true
     }
   ]
 }

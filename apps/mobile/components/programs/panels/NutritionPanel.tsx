@@ -10,6 +10,7 @@ import {
 import { useAppSelector } from "@/store/hooks";
 import { Text, TextInput } from "@/components/ScaledText";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
+import { useSocket } from "@/context/SocketContext";
 import { useProgramPanel } from "./shared/useProgramPanel";
 import { AppRole } from "@/lib/appRole";
 import { useRouter } from "expo-router";
@@ -30,6 +31,7 @@ function logHasCoachResponse(log: any): boolean {
 
 export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const router = useRouter();
+  const { socket } = useSocket();
   const { token, athleteUserId, apiUserRole, managedAthletes } = useAppSelector(
     (state) => state.user,
   );
@@ -577,6 +579,38 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     if (activeTab !== "history" && activeTab !== "coach") return;
     void fetchCoachLogs();
   }, [activeTab, fetchCoachLogs]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const currentAthleteUserId =
+      typeof athleteUserId === "number" && Number.isFinite(athleteUserId)
+        ? athleteUserId
+        : null;
+
+    const refreshIfMine = (payload?: { userId?: number | string | null }) => {
+      const target = Number(payload?.userId ?? Number.NaN);
+      if (
+        currentAthleteUserId != null &&
+        Number.isFinite(target) &&
+        target !== currentAthleteUserId
+      ) {
+        return;
+      }
+      void fetchData();
+      if (activeTab === "history" || activeTab === "coach") {
+        void fetchCoachLogs();
+      }
+    };
+
+    socket.on("nutrition:log:updated", refreshIfMine);
+    socket.on("nutrition:feedback:updated", refreshIfMine);
+
+    return () => {
+      socket.off("nutrition:log:updated", refreshIfMine);
+      socket.off("nutrition:feedback:updated", refreshIfMine);
+    };
+  }, [socket, athleteUserId, fetchData, fetchCoachLogs, activeTab]);
 
   const handleSave = async () => {
     if (!token) return;

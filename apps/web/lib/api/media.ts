@@ -27,6 +27,17 @@ const mediaApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Content"],
     }),
+    setProgramSessionCoachResponse: builder.mutation<
+      { item: any },
+      { completionId: number; coachResponse: string }
+    >({
+      query: ({ completionId, coachResponse }) => ({
+        url: `/admin/program-session-completions/${completionId}/coach-response`,
+        method: "PATCH",
+        body: { coachResponse },
+      }),
+      invalidatesTags: ["Content"],
+    }),
     createMediaUploadUrl: builder.mutation<
       { uploadUrl: string; publicUrl: string; key: string },
       {
@@ -66,6 +77,7 @@ const mediaApi = apiSlice.injectEndpoints({
 export const {
   useGetVideoUploadsQuery,
   useReviewVideoUploadMutation,
+  useSetProgramSessionCoachResponseMutation,
   useCreateMediaUploadUrlMutation,
   usePresignMediaUploadMutation,
 } = mediaApi;

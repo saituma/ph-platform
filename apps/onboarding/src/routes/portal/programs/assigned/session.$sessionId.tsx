@@ -10,7 +10,10 @@ import {
 	X,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
+import { useEffect } from "react";
+import { io, type Socket } from "socket.io-client";
 import { getTokenStatus } from "@/lib/client-storage";
+import { getPublicApiBaseUrl } from "@/lib/public-api";
 import { usePortal } from "@/portal/PortalContext";
 import {
 	completeSession,
@@ -401,6 +404,47 @@ function AssignedSessionDetailPage() {
 			queryClient.invalidateQueries({ queryKey: programKeys.all });
 		},
 	});
+
+	useEffect(() => {
+		if (!token || portalLoading || Number.isNaN(sessionIdNumber)) return;
+
+		const rawSocket = String(
+			(import.meta.env as Record<string, string | undefined>).VITE_PUBLIC_SOCKET_URL ?? "",
+		).trim();
+		const apiBase = getPublicApiBaseUrl();
+		const socketUrl = rawSocket
+			? rawSocket.replace(/\/api\/?$/, "")
+			: apiBase
+				? apiBase.replace(/\/api\/?$/, "")
+				: window.location.origin;
+
+		const socket: Socket = io(socketUrl, {
+			path: "/socket.io",
+			auth: { token },
+			transports: ["polling", "websocket"],
+			reconnection: true,
+			reconnectionDelayMax: 10000,
+		});
+
+		const refreshIfMatchesSession = (payload: { sessionId?: number | string }) => {
+			const payloadSessionId = Number(payload?.sessionId);
+			if (!Number.isFinite(payloadSessionId)) return;
+			if (payloadSessionId !== sessionIdNumber) return;
+			void refetchCompletion();
+		};
+
+		socket.on("program:session:coach-response", refreshIfMatchesSession);
+		// Legacy compatibility path used elsewhere for reviewed uploads.
+		socket.on("video:reviewed", () => {
+			void refetchCompletion();
+		});
+
+		return () => {
+			socket.off("program:session:coach-response", refreshIfMatchesSession);
+			socket.off("video:reviewed");
+			socket.disconnect();
+		};
+	}, [token, portalLoading, sessionIdNumber, refetchCompletion]);
 
 	const handleComplete = useCallback(
 		(data: { weightsUsed: string; repsCompleted: string; rpe: number | null; videoUrl: string | null }) => {

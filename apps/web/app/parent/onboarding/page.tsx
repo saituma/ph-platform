@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { ParentShell } from "../../../components/parent/shell";
+import { AdminShell } from "../../../components/admin/shell";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
@@ -15,7 +15,7 @@ export default function ParentOnboardingPage() {
   const config = data?.config ?? data;
 
   return (
-    <ParentShell
+    <AdminShell
       title="Onboarding"
       subtitle="Manage athlete onboarding configuration and review."
     >
@@ -68,6 +68,6 @@ export default function ParentOnboardingPage() {
           </CardContent>
         </Card>
       </div>
-    </ParentShell>
+    </AdminShell>
   );
 }

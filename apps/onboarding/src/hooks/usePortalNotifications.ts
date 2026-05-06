@@ -19,6 +19,7 @@ const REALTIME_NOTIFICATION_EVENTS = [
 	"group:message",
 	"schedule:changed",
 	"video:reviewed",
+	"program:session:coach-response",
 	"physio:referral:updated",
 	"physio:referral:deleted",
 ] as const;

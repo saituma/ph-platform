@@ -33,6 +33,7 @@ import referralRoutes from "./referral.routes";
 import portalRoutes from "./portal.routes";
 import enquiryRoutes from "./enquiry.routes";
 import attendanceRoutes from "./attendance.routes";
+import sessionScheduleRoutes from "./session-schedule.routes";
 
 const router = Router();
 
@@ -69,5 +70,6 @@ router.use(referralRoutes);
 router.use(portalRoutes);
 router.use(enquiryRoutes);
 router.use(attendanceRoutes);
+router.use(sessionScheduleRoutes);
 
 export default router;

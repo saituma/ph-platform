@@ -13,3 +13,5 @@ export * from "./api/tracking";
 export * from "./api/enquiries";
 export * from "./api/physio";
 export * from "./api/media";
+export * from "./api/session-schedule";
+export * from "./api/admin-session-schedule";

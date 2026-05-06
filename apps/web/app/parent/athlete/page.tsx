@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 
-import { ParentShell } from "../../../components/parent/shell";
+import { AdminShell } from "../../../components/admin/shell";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -21,7 +21,7 @@ export default function ParentAthletePage() {
   }, [usersData]);
 
   return (
-    <ParentShell
+    <AdminShell
       title="Athlete Profiles"
       subtitle="Overview of athletes linked to parent/guardian accounts."
     >
@@ -65,6 +65,6 @@ export default function ParentAthletePage() {
           ))}
         </div>
       )}
-    </ParentShell>
+    </AdminShell>
   );
 }

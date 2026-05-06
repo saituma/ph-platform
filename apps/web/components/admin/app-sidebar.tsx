@@ -140,6 +140,7 @@ const NAV: Array<{ label: string; separator?: boolean; items: Array<{ label: str
     label: "Health & Schedule",
     items: [
       { label: "Schedule", href: "/bookings", icon: CalendarDays },
+      { label: "Session Attendance", href: "/session-schedule", icon: ClipboardCheck },
       { label: "Nutrition & Wellness", href: "/nutrition", icon: ClipboardCheck },
       { label: "Referrals", href: "/physio-referrals", icon: Stethoscope },
     ],

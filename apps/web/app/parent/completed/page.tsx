@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Users, UserCheck } from "lucide-react";
 
-import { ParentShell } from "../../../components/parent/shell";
+import { AdminShell } from "../../../components/admin/shell";
 import { CompletedOnboardingCard } from "../../../components/parent/config/completed-onboarding-card";
 import { useGetUsersQuery, useGetUserOnboardingQuery } from "../../../lib/apiSlice";
 import { cn } from "../../../lib/utils";
@@ -41,7 +41,7 @@ export default function ParentCompletedPage() {
       : [];
 
   return (
-    <ParentShell
+    <AdminShell
       title="Completed Onboarding"
       subtitle="View guardians who completed onboarding and their submitted details."
       actions={
@@ -98,6 +98,6 @@ export default function ParentCompletedPage() {
           onSelectUser={setSelectedUserId}
         />
       </div>
-    </ParentShell>
+    </AdminShell>
   );
 }

@@ -34,7 +34,6 @@ import { BookingModal } from "@/components/tracking/schedule/BookingModal";
 import { useScheduleData } from "@/components/tracking/schedule/hooks";
 import { useActingUser } from "@/hooks/useActingUser";
 import { useAppToast } from "@/hooks/useAppToast";
-import { canSelfBookSchedule } from "@/lib/scheduleBookingAccess";
 import type { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
 
@@ -559,12 +558,11 @@ export default memo(function ScheduleScreen() {
   const toast = useAppToast();
   const token = useAppSelector((s) => s.user.token);
   const capabilities = useAppSelector((s) => s.user.capabilities);
-  const apiUserRole = useAppSelector((s) => s.user.apiUserRole);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const { effectiveProfileId } = useActingUser();
-  const canBook = canSelfBookSchedule(apiUserRole);
+  const canBook = false;
   const userTeamId = authTeamMembership?.teamId ?? null;
   const userAthleteType = useMemo(() => {
     const active =

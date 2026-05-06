@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { BarChart3, TrendingUp } from "lucide-react";
 
-import { ParentShell } from "../../../components/parent/shell";
+import { AdminShell } from "../../../components/admin/shell";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Skeleton } from "../../../components/ui/skeleton";
@@ -18,7 +18,7 @@ export default function ParentProgressPage() {
   }, [data]);
 
   return (
-    <ParentShell title="Progress" subtitle="Athlete training progress overview.">
+    <AdminShell title="Progress" subtitle="Athlete training progress overview.">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
@@ -71,6 +71,6 @@ export default function ParentProgressPage() {
           </div>
         )}
       </div>
-    </ParentShell>
+    </AdminShell>
   );
 }

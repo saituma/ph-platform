@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { BookOpen, Users, ChevronRight } from "lucide-react";
 
-import { ParentShell } from "../../components/parent/shell";
+import { AdminShell } from "../../components/admin/shell";
 import { useGetParentCoursesQuery } from "../../lib/apiSlice";
 import { useGetUsersQuery } from "../../lib/apiSlice";
 import { cn } from "../../lib/utils";
@@ -59,7 +59,7 @@ export default function ParentDashboardPage() {
   };
 
   return (
-    <ParentShell
+    <AdminShell
       title="Parent Portal"
       subtitle="Admin control for parent-facing content and settings."
     >
@@ -99,6 +99,6 @@ export default function ParentDashboardPage() {
           );
         })}
       </div>
-    </ParentShell>
+    </AdminShell>
   );
 }

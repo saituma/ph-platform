@@ -56,3 +56,34 @@ export function mapBookingsToEvents(items: any[]): ScheduleEvent[] {
     })
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 }
+
+export function mapScheduledSessionsToEvents(items: any[]): ScheduleEvent[] {
+  return (items ?? [])
+    .map((item) => {
+      const startsAt = new Date(item.startsAt);
+      const endsAt = item.endsAt ? new Date(item.endsAt) : new Date(startsAt.getTime() + 60 * 60000);
+      const dayIndex = startsAt.getDay();
+      const dayId = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dayIndex] ?? "mon";
+      const dateKey = formatDateKey(startsAt);
+      const status = String(item.status ?? "Upcoming").toLowerCase();
+      const normalizedStatus = status === "upcoming" ? "confirmed" : status === "completed" ? "confirmed" : "declined";
+      return {
+        id: String(item.sessionId),
+        dayId,
+        dateKey,
+        startsAt: startsAt.toISOString(),
+        title: item.name ?? "Session",
+        timeStart: startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+        timeEnd: endsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+        location: item.location || "TBD",
+        meetingLink: item.meetingLink ?? null,
+        type: item.type === "one_to_one" ? "call" : "training",
+        status: normalizedStatus,
+        tag: "Scheduled",
+        athlete: "Athlete",
+        coach: "Coach",
+        notes: item.attendanceStatus === "missed" ? "Missed" : item.attendanceStatus === "attended" ? "Completed" : "",
+      } as ScheduleEvent;
+    })
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+}

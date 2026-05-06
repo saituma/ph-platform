@@ -139,6 +139,7 @@ export const BOOKING_TYPE_LABELS: Record<string, string> = {
   one_to_one: "1-to-1 session",
   semi_private: "Semi-private session",
   in_person: "In-person session",
+  team: "Team session",
 };
 
 const PROGRAM_TIERS = [
@@ -157,6 +158,7 @@ const SERVICE_TYPE_ITEMS = [
   { label: "1-to-1 session", value: "one_to_one" },
   { label: "Semi-private session", value: "semi_private" },
   { label: "In-person session", value: "in_person" },
+  { label: "Team session", value: "team" },
 ];
 
 const BOOKING_STATUS_ITEMS = [
@@ -199,7 +201,13 @@ function getNextSevenDays(): { label: string; value: string }[] {
   return days;
 }
 
-type ServiceAudienceMode = "all_clients" | "non_team" | "team_all" | "team_specific";
+type ServiceAudienceMode = "all_clients" | "non_team" | "team_all" | "team_specific" | "specific_users";
+
+function allowedAudienceModesForServiceType(type: string): ServiceAudienceMode[] {
+  if (type === "team") return ["team_all", "team_specific"];
+  if (type === "one_to_one") return ["all_clients", "non_team", "specific_users"];
+  return ["all_clients", "non_team", "team_all", "team_specific", "specific_users"];
+}
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: "Confirmed",
@@ -243,6 +251,7 @@ const DEFAULT_SERVICE_DURATION_MINUTES: Record<string, number> = {
   one_to_one: 60,
   semi_private: 75,
   in_person: 60,
+  team: 60,
 };
 
 export function BookingsDialogs({
@@ -275,6 +284,9 @@ export function BookingsDialogs({
   const [eligibleTargets, setEligibleTargets] = useState<string[]>([]);
   const [audienceMode, setAudienceMode] = useState<ServiceAudienceMode>("non_team");
   const [selectedTeamIds, setSelectedTeamIds] = useState<number[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [serviceUserSearch, setServiceUserSearch] = useState("");
+  const [showServiceUserSuggestions, setShowServiceUserSuggestions] = useState(false);
 
   const { data: teamsData } = useGetAdminTeamsQuery();
   const [bookingUserId, setBookingUserId] = useState("");
@@ -334,6 +346,9 @@ export function BookingsDialogs({
       setEligibleTargets([]);
       setAudienceMode("non_team");
       setSelectedTeamIds([]);
+      setSelectedUserIds([]);
+      setServiceUserSearch("");
+      setShowServiceUserSuggestions(false);
       setNewServiceSchedule("one_time");
       setNewServiceWeekday("1");
       setNewServiceWeekHour("09");
@@ -373,7 +388,10 @@ export function BookingsDialogs({
       const teamTokenValues = targets
         .filter((t) => t.startsWith("team:"))
         .map((t) => t.slice(5));
-      const nonTeamVals = targets.filter((t) => !t.startsWith("team:"));
+      const userTokenValues = targets
+        .filter((t) => t.startsWith("user:"))
+        .map((t) => t.slice(5));
+      const nonTeamVals = targets.filter((t) => !t.startsWith("team:") && !t.startsWith("user:"));
 
       const teams = teamsData?.teams ?? [];
       const allTeamIds = teams
@@ -398,24 +416,33 @@ export function BookingsDialogs({
         uniqSorted.length === allTeamIds.length &&
         uniqSorted.every((id, i) => id === allTeamIds[i]);
 
-      if (teamTokenValues.length > 0) {
+      if (userTokenValues.length > 0) {
+        setAudienceMode("specific_users");
+        setEligibleTargets([]);
+        setSelectedTeamIds([]);
+        setSelectedUserIds(userTokenValues.map(Number).filter((n) => Number.isFinite(n)));
+      } else if (teamTokenValues.length > 0) {
         if (isAllTeams) {
           setAudienceMode("team_all");
           setEligibleTargets([]);
           setSelectedTeamIds([]);
+          setSelectedUserIds([]);
         } else {
           setAudienceMode("team_specific");
           setEligibleTargets([]);
           setSelectedTeamIds(uniqSorted);
+          setSelectedUserIds([]);
         }
       } else if (nonTeamVals.includes("all")) {
         setAudienceMode("all_clients");
         setEligibleTargets([]);
         setSelectedTeamIds([]);
+        setSelectedUserIds([]);
       } else {
         setAudienceMode("non_team");
         setEligibleTargets(nonTeamVals);
         setSelectedTeamIds([]);
+        setSelectedUserIds([]);
       }
 
       setError(null);
@@ -459,7 +486,16 @@ export function BookingsDialogs({
   const teamAudience =
     audienceMode === "all_clients" ||
     audienceMode === "team_all" ||
-    audienceMode === "team_specific";
+    audienceMode === "team_specific" ||
+    audienceMode === "specific_users";
+
+  const isTeamService = serviceType === "team";
+  const isOneToOneService = serviceType === "one_to_one";
+  const allowedAudienceModes = allowedAudienceModesForServiceType(serviceType);
+  const canUseAllClientsAudience = allowedAudienceModes.includes("all_clients");
+  const canUseNonTeamAudience = allowedAudienceModes.includes("non_team");
+  const canUseTeamAudiences = allowedAudienceModes.includes("team_all");
+  const canUseSpecificUsersAudience = allowedAudienceModes.includes("specific_users");
 
   const calendarDays = useMemo(() => {
     const start = new Date();
@@ -499,6 +535,17 @@ export function BookingsDialogs({
   );
 
   const isServiceForm = active === "new-service" || active === "edit-service";
+
+  useEffect(() => {
+    if (!allowedAudienceModes.includes(audienceMode)) {
+      const fallbackAudience = allowedAudienceModes[0] ?? "non_team";
+      setAudienceMode(fallbackAudience);
+      setEligibleTargets([]);
+      setEligiblePlans([]);
+      setSelectedTeamIds([]);
+      setSelectedUserIds([]);
+    }
+  }, [allowedAudienceModes, audienceMode]);
 
   // Build the guardian select items from filtered list
   const guardianSelectItems = useMemo(
@@ -612,7 +659,6 @@ export function BookingsDialogs({
                 </div>
               </div>
 
-              {isBookable ? (
               <div className="space-y-1">
                 <Label htmlFor="service-type">Type</Label>
                 <Select
@@ -621,6 +667,18 @@ export function BookingsDialogs({
                   onValueChange={(nextType) => {
                     const type = nextType ?? "one_to_one";
                     setServiceType(type);
+                    const nextAllowedAudiences = allowedAudienceModesForServiceType(type);
+                    if (!nextAllowedAudiences.includes(audienceMode)) {
+                      const fallbackAudience = nextAllowedAudiences[0] ?? "non_team";
+                      setAudienceMode(fallbackAudience);
+                      setEligibleTargets([]);
+                      setEligiblePlans([]);
+                      setSelectedTeamIds([]);
+                      setSelectedUserIds([]);
+                    }
+                    if (type === "one_to_one") {
+                      setSlotsAvailable("1");
+                    }
                     if (active === "new-service") {
                       setDurationMinutes(
                         String(
@@ -644,7 +702,6 @@ export function BookingsDialogs({
                   </SelectPopup>
                 </Select>
               </div>
-              ) : null}
 
               {/* Schedule type */}
               <div className="space-y-3 rounded-lg border border-border p-3">
@@ -805,6 +862,7 @@ export function BookingsDialogs({
                   Choose who can see this service.
                 </p>
                 <div className="space-y-2 pt-1">
+                  {canUseAllClientsAudience ? (
                   <label className="flex cursor-pointer items-start gap-2 text-sm">
                     <input
                       type="radio"
@@ -825,6 +883,8 @@ export function BookingsDialogs({
                       </span>
                     </span>
                   </label>
+                  ) : null}
+                  {canUseNonTeamAudience ? (
                   <label className="flex cursor-pointer items-start gap-2 text-sm">
                     <input
                       type="radio"
@@ -844,45 +904,73 @@ export function BookingsDialogs({
                       </span>
                     </span>
                   </label>
-                  <label className="flex cursor-pointer items-start gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="service-audience"
-                      className="mt-1"
-                      checked={audienceMode === "team_all"}
-                      onChange={() => {
-                        setAudienceMode("team_all");
-                        setEligibleTargets([]);
-                        setSelectedTeamIds([]);
-                        setEligiblePlans([]);
-                      }}
-                    />
-                    <span>
-                      <span className="font-medium text-foreground">All teams</span>
-                      <span className="block text-muted-foreground">
-                        Any athlete currently on any team roster can book.
-                      </span>
-                    </span>
-                  </label>
-                  <label className="flex cursor-pointer items-start gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="service-audience"
-                      className="mt-1"
-                      checked={audienceMode === "team_specific"}
-                      onChange={() => {
-                        setAudienceMode("team_specific");
-                        setEligibleTargets([]);
-                        setEligiblePlans([]);
-                      }}
-                    />
-                    <span>
-                      <span className="font-medium text-foreground">Specific teams</span>
-                      <span className="block text-muted-foreground">
-                        Only athletes on the teams you select below.
-                      </span>
-                    </span>
-                  </label>
+                  ) : null}
+                  {canUseTeamAudiences ? (
+                    <>
+                      <label className="flex cursor-pointer items-start gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name="service-audience"
+                          className="mt-1"
+                          checked={audienceMode === "team_all"}
+                          onChange={() => {
+                            setAudienceMode("team_all");
+                            setEligibleTargets([]);
+                            setSelectedTeamIds([]);
+                            setEligiblePlans([]);
+                          }}
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">All teams</span>
+                          <span className="block text-muted-foreground">
+                            Any athlete currently on any team roster can see this service.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex cursor-pointer items-start gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name="service-audience"
+                          className="mt-1"
+                          checked={audienceMode === "team_specific"}
+                          onChange={() => {
+                            setAudienceMode("team_specific");
+                            setEligibleTargets([]);
+                            setEligiblePlans([]);
+                          }}
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">Specific teams</span>
+                          <span className="block text-muted-foreground">
+                            Only athletes on the teams you select below.
+                          </span>
+                        </span>
+                      </label>
+                    </>
+                  ) : null}
+                  {canUseSpecificUsersAudience ? (
+                    <>
+                      <label className="flex cursor-pointer items-start gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name="service-audience"
+                          className="mt-1"
+                          checked={audienceMode === "specific_users"}
+                          onChange={() => {
+                            setAudienceMode("specific_users");
+                            setEligibleTargets([]);
+                            setEligiblePlans([]);
+                          }}
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">Specific users</span>
+                          <span className="block text-muted-foreground">
+                            Only selected users can see this service.
+                          </span>
+                        </span>
+                      </label>
+                    </>
+                  ) : null}
                 </div>
               </div>
 
@@ -943,6 +1031,83 @@ export function BookingsDialogs({
                 </div>
               ) : null}
 
+              {audienceMode === "specific_users" ? (
+                <div className="space-y-2">
+                  <Label>Specific Users</Label>
+                  <p className="text-xs text-muted-foreground">Search and select users to form this specific group.</p>
+                  
+                  <Input
+                    placeholder="Search users..."
+                    value={serviceUserSearch}
+                    onChange={(e) => {
+                      setServiceUserSearch(e.target.value);
+                      setShowServiceUserSuggestions(true);
+                    }}
+                    onFocus={() => {
+                      if (serviceUserSearch.trim()) setShowServiceUserSuggestions(true);
+                    }}
+                  />
+                  {showServiceUserSuggestions && serviceUserSearch.trim() && (
+                    <div className="rounded-xl border border-border bg-background shadow-sm">
+                      {users
+                        .filter(u => {
+                          const query = serviceUserSearch.toLowerCase();
+                          const name = u.name?.toLowerCase() ?? "";
+                          const email = u.email?.toLowerCase() ?? "";
+                          const athlete = u.athleteName?.toLowerCase() ?? "";
+                          return name.includes(query) || email.includes(query) || athlete.includes(query);
+                        })
+                        .slice(0, 6)
+                        .map((user) => (
+                          <button
+                            key={user.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedUserIds((prev) => 
+                                prev.includes(user.id) ? prev : [...prev, user.id]
+                              );
+                              setServiceUserSearch("");
+                              setShowServiceUserSuggestions(false);
+                            }}
+                            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-foreground hover:bg-secondary/50"
+                          >
+                            <span>
+                              {user.name ?? user.email ?? `User #${user.id}`}
+                              {user.athleteName ? ` • ${user.athleteName}` : ""}
+                            </span>
+                            <span className="text-xs text-muted-foreground">Add</span>
+                          </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-border p-3">
+                    {selectedUserIds.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No users selected yet. Use the search above.
+                      </p>
+                    ) : (
+                      selectedUserIds.map((id) => {
+                        const user = users.find(u => u.id === id);
+                        return (
+                          <label key={id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={true}
+                              onChange={() => {
+                                setSelectedUserIds((prev) => prev.filter((x) => x !== id));
+                              }}
+                            />
+                            {user?.name ?? user?.email ?? `User #${id}`}
+                            {user?.athleteName ? ` • ${user.athleteName}` : ""}
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
               {!teamAudience ? (
                 <div className="space-y-2">
                   <Label>Eligible tiers</Label>
@@ -967,7 +1132,6 @@ export function BookingsDialogs({
                 </div>
               ) : null}
 
-              {isBookable ? (
               <div className="space-y-1">
                 <Label htmlFor="slots-available">Slots available</Label>
                 <Input
@@ -975,11 +1139,11 @@ export function BookingsDialogs({
                   type="number"
                   min={1}
                   placeholder="Unlimited (leave empty)"
-                  value={slotsAvailable}
+                  value={isOneToOneService ? "1" : slotsAvailable}
+                  disabled={isOneToOneService}
                   onChange={(e) => setSlotsAvailable(e.target.value)}
                 />
               </div>
-              ) : null}
 
               {error ? <p className="text-sm text-destructive">{error}</p> : null}
             </DialogPanel>
@@ -999,10 +1163,18 @@ export function BookingsDialogs({
                     setError("Select at least one team.");
                     return;
                   }
+                  if (audienceMode === "specific_users" && selectedUserIds.length === 0) {
+                    setError("Select at least one user.");
+                    return;
+                  }
                   if (audienceMode === "team_all" && teamsWithIds.length === 0) {
                     setError(
                       "No teams exist yet. Use All Clients or create teams first.",
                     );
+                    return;
+                  }
+                  if (isTeamService && !["team_all", "team_specific"].includes(audienceMode)) {
+                    setError("Team service must target teams (All teams or Specific teams).");
                     return;
                   }
                   try {
@@ -1010,6 +1182,12 @@ export function BookingsDialogs({
                     const fallbackDuration =
                       DEFAULT_SERVICE_DURATION_MINUTES[serviceType] ??
                       DEFAULT_SERVICE_DURATION_MINUTES.one_to_one;
+                    const oneToOneSlots = 1;
+                    const normalizedSlots = isOneToOneService
+                      ? oneToOneSlots
+                      : slotsAvailable.trim()
+                        ? Number(slotsAvailable)
+                        : null;
                     const schedulePayload =
                       active === "edit-service" && selectedService
                         ? {
@@ -1051,18 +1229,20 @@ export function BookingsDialogs({
                           ? teamsWithIds.map((t) => `team:${t.id}`)
                           : audienceMode === "team_specific"
                             ? selectedTeamIds.map((id) => `team:${id}`)
-                            : eligibleTargets;
+                            : audienceMode === "specific_users"
+                              ? selectedUserIds.map((id) => `user:${id}`)
+                              : eligibleTargets;
                     const eligiblePlansPayload = teamAudience ? [] : eligiblePlans;
                     const payload = {
                       name: serviceName.trim(),
                       description: serviceDescription.trim() || null,
-                      type: isBookable ? serviceType : null,
+                      type: serviceType,
                       durationMinutes:
                         Number.isFinite(duration) && duration > 0
                           ? duration
                           : fallbackDuration,
-                      capacity: isBookable && slotsAvailable.trim() ? Number(slotsAvailable) : null,
-                      totalSlots: isBookable && slotsAvailable.trim() ? Number(slotsAvailable) : null,
+                      capacity: typeof normalizedSlots === "number" && Number.isFinite(normalizedSlots) ? normalizedSlots : null,
+                      totalSlots: typeof normalizedSlots === "number" && Number.isFinite(normalizedSlots) ? normalizedSlots : null,
                       eligiblePlans: eligiblePlansPayload,
                       eligibleTargets: eligibleTargetsPayload,
                       ...schedulePayload,

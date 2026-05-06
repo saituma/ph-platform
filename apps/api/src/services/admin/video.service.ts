@@ -3,7 +3,9 @@ import { db } from "../../db";
 import {
   athleteTable,
   guardianTable,
+  programSessionCompletionTable,
   programSectionContentTable,
+  sessionTable,
   trainingModuleSessionTable,
   trainingSessionItemTable,
   videoUploadTable,
@@ -29,9 +31,11 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
     );
   }
 
-  return db
+  const uploads = await db
     .select({
       id: videoUploadTable.id,
+      source: sql<string>`'video_upload'`,
+      programSessionCompletionId: sql<number | null>`NULL`,
       athleteId: videoUploadTable.athleteId,
       athleteUserId: athleteTable.userId,
       guardianUserId: guardianTable.userId,
@@ -59,4 +63,54 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
     .where(filters.length ? and(...filters) : undefined)
     .orderBy(desc(videoUploadTable.createdAt))
     .limit(limit);
+
+  const completionFilters = [sql`${programSessionCompletionTable.videoUrl} IS NOT NULL`];
+  if (q) {
+    const pattern = `%${q}%`;
+    completionFilters.push(
+      or(
+        ilike(athleteTable.name, pattern),
+        ilike(programSessionCompletionTable.coachResponse, pattern),
+        ilike(sessionTable.title, pattern),
+        sql`${programSessionCompletionTable.id}::text ILIKE ${pattern}`,
+      )!,
+    );
+  }
+
+  const completions = await db
+    .select({
+      id: programSessionCompletionTable.id,
+      source: sql<string>`'program_completion'`,
+      programSessionCompletionId: programSessionCompletionTable.id,
+      athleteId: programSessionCompletionTable.athleteId,
+      athleteUserId: athleteTable.userId,
+      guardianUserId: guardianTable.userId,
+      athleteName: athleteTable.name,
+      videoUrl: programSessionCompletionTable.videoUrl,
+      notes: sql<string | null>`NULL`,
+      feedback: programSessionCompletionTable.coachResponse,
+      reviewedAt: programSessionCompletionTable.coachResponseAt,
+      createdAt: programSessionCompletionTable.completedAt,
+      programSectionContentId: sql<number | null>`NULL`,
+      trainingSessionItemId: sql<number | null>`NULL`,
+      programSectionTitle: sql<string | null>`NULL`,
+      programSectionType: sql<string | null>`'program'`,
+      trainingSessionTitle: sessionTable.title,
+      sectionTitle: sessionTable.title,
+    })
+    .from(programSessionCompletionTable)
+    .leftJoin(athleteTable, eq(programSessionCompletionTable.athleteId, athleteTable.id))
+    .leftJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+    .leftJoin(sessionTable, eq(programSessionCompletionTable.sessionId, sessionTable.id))
+    .where(and(...completionFilters))
+    .orderBy(desc(programSessionCompletionTable.completedAt))
+    .limit(limit);
+
+  return [...uploads, ...completions]
+    .sort((a, b) => {
+      const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bt - at;
+    })
+    .slice(0, limit);
 }

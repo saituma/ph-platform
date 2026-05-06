@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, GraduationCap, Info } from "lucide-react";
 
-import { ParentShell } from "../../../components/parent/shell";
+import { AdminShell } from "../../../components/admin/shell";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import {
@@ -61,7 +61,7 @@ export default function ParentPhpPlusPage() {
   const totalCount = PREMIUM_PROGRAM_TABS.length;
 
   return (
-    <ParentShell
+    <AdminShell
       title="PHP Premium Plus Programs"
       subtitle="Choose which programs are included for PHP Premium Plus subscribers."
       actions={
@@ -154,6 +154,6 @@ export default function ParentPhpPlusPage() {
           </CardContent>
         </Card>
       </div>
-    </ParentShell>
+    </AdminShell>
   );
 }
