@@ -13,6 +13,7 @@ import {
   getProgramCards,
   getProgramSessions,
 } from "../services/program.service";
+import { getSocketServer } from "../socket-hub";
 
 const programIdSchema = z.coerce.number().int().min(1);
 
@@ -103,6 +104,16 @@ export async function completeMySessionController(req: Request, res: Response) {
     });
     if (!result) {
       return res.status(404).json({ error: "Session not found or not assigned" });
+    }
+    if (feedback.videoUrl) {
+      const io = getSocketServer();
+      if (io) {
+        io.to("admin:all").emit("program:session:submitted", {
+          sessionId,
+          athleteUserId: req.user!.id,
+          videoUrl: feedback.videoUrl,
+        });
+      }
     }
     return res.status(200).json(result);
   } catch (err: any) {

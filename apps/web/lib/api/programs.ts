@@ -235,7 +235,11 @@ const programsApi = apiSlice.injectEndpoints({
       { exercise: any },
       {
         name: string;
+        category?: string;
         cues?: string;
+        howTo?: string;
+        progression?: string;
+        regression?: string;
         sets?: number;
         reps?: number;
         duration?: number;

@@ -41,6 +41,22 @@ const EQUIPMENT_OPTIONS = [
 	{ id: "none", label: "No Equipment", icon: Target },
 	{ id: "other", label: "Other", icon: DotsThreeCircle },
 ] as const;
+const COUNTRY_CODES = [
+	{ code: "+44", country: "UK", flag: "🇬🇧", length: 10 },
+	{ code: "+1", country: "US", flag: "🇺🇸", length: 10 },
+	{ code: "+353", country: "IE", flag: "🇮🇪", length: 9 },
+	{ code: "+61", country: "AU", flag: "🇦🇺", length: 9 },
+	{ code: "+64", country: "NZ", flag: "🇳🇿", length: 9 },
+	{ code: "+91", country: "IN", flag: "🇮🇳", length: 10 },
+	{ code: "+49", country: "DE", flag: "🇩🇪", length: 11 },
+	{ code: "+33", country: "FR", flag: "🇫🇷", length: 9 },
+	{ code: "+34", country: "ES", flag: "🇪🇸", length: 9 },
+	{ code: "+39", country: "IT", flag: "🇮🇹", length: 10 },
+	{ code: "+31", country: "NL", flag: "🇳🇱", length: 9 },
+	{ code: "+971", country: "AE", flag: "🇦🇪", length: 9 },
+	{ code: "+966", country: "SA", flag: "🇸🇦", length: 9 },
+	{ code: "+27", country: "ZA", flag: "🇿🇦", length: 9 },
+] as const;
 const TRAINING_DAYS = [
 	{ id: "mon", label: "Mon" },
 	{ id: "tue", label: "Tue" },
@@ -58,10 +74,15 @@ function OnboardingStep3() {
 	const [growthNotes, setGrowthNotes] = useState("");
 	const [equipmentAccess, setEquipmentAccess] = useState<string>("full");
 	const [otherEquipment, setOtherEquipment] = useState("");
+	const [countryCode, setCountryCode] = useState("+44");
 	const [phone, setPhone] = useState("");
+	const [isCountryMenuOpen, setIsCountryMenuOpen] = useState(false);
 	const [injuries, setInjuries] = useState("");
 	const [isValidating, setIsValidating] = useState(true);
 	const navigate = useNavigate();
+
+	const selectedCountry =
+		COUNTRY_CODES.find((c) => c.code === countryCode) || COUNTRY_CODES[0];
 
 	useEffect(() => {
 		let cancelled = false;
@@ -120,7 +141,15 @@ function OnboardingStep3() {
 					setGrowthNotes(user.growthNotes);
 				}
 				if (typeof user.phoneNumber === "string" && user.phoneNumber.trim()) {
-					setPhone(user.phoneNumber);
+					const fullPhone = user.phoneNumber.trim();
+					// Try to match country code
+					const matched = COUNTRY_CODES.find((c) => fullPhone.startsWith(c.code));
+					if (matched) {
+						setCountryCode(matched.code);
+						setPhone(fullPhone.slice(matched.code.length).trim());
+					} else {
+						setPhone(fullPhone);
+					}
 				}
 				if (typeof user.equipmentAccess === "string" && user.equipmentAccess.trim()) {
 					const normalized = user.equipmentAccess.trim().toLowerCase();
@@ -169,8 +198,9 @@ function OnboardingStep3() {
 					preferredTrainingDays,
 					performanceGoals,
 					growthNotes,
-					phone,
-					equipmentAccess: equipmentAccess === "other" ? otherEquipment : equipmentAccess,
+					phone: `${countryCode}${phone.replace(/\s+/g, "").replace(/^0/, "")}`,
+					equipmentAccess:
+						equipmentAccess === "other" ? otherEquipment : equipmentAccess,
 					injuries: injuries ? { notes: injuries } : null,
 				}),
 			});
@@ -204,10 +234,20 @@ function OnboardingStep3() {
 			toast.error("Please specify your equipment access");
 			return;
 		}
-		if (!phone.trim()) {
+
+		const cleanPhone = phone.replace(/\s+/g, "").replace(/^0/, "");
+		if (!cleanPhone) {
 			toast.error("Please enter your phone number");
 			return;
 		}
+
+		if (cleanPhone.length !== selectedCountry.length) {
+			toast.error(
+				`Phone number must be ${selectedCountry.length} digits for ${selectedCountry.country}`,
+			);
+			return;
+		}
+
 		if (preferredTrainingDays.length === 0) {
 			toast.error("Please select at least one training day");
 			return;
@@ -321,24 +361,94 @@ function OnboardingStep3() {
 
 							{/* Phone Number */}
 							<div className="space-y-2">
-								<label
-									htmlFor="phone"
-									className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
-								>
-									<Phone size={18} className="text-foreground/40" />
-									{localStorage.getItem("user_type") === "youth"
-										? "Guardian Phone Number"
-										: "Your Phone Number"}
-								</label>
-								<Input
-									id="phone"
-									type="tel"
-									placeholder="e.g. +1 234 567 8900"
-									value={phone}
-									onChange={(e) => setPhone(e.target.value)}
-									required
-									className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20 px-6 transition-all"
-								/>
+								<div className="flex items-center justify-between">
+									<label
+										htmlFor="phone"
+										className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-1.5"
+									>
+										<Phone size={18} className="text-foreground/40" />
+										{localStorage.getItem("user_type") === "youth"
+											? "Guardian Phone Number"
+											: "Your Phone Number"}
+									</label>
+									{phone && (
+										<span
+											className={cn(
+												"font-mono text-[10px] uppercase tracking-wider transition-colors",
+												phone.replace(/\s+/g, "").replace(/^0/, "").length ===
+													selectedCountry.length
+													? "text-foreground/40"
+													: "text-red-500",
+											)}
+										>
+											{phone.replace(/\s+/g, "").replace(/^0/, "").length} /{" "}
+											{selectedCountry.length}
+										</span>
+									)}
+								</div>
+								<div className="flex relative group">
+									<div className="relative">
+										<button
+											type="button"
+											onClick={() => setIsCountryMenuOpen(!isCountryMenuOpen)}
+											className="h-10 flex items-center gap-2 px-4 border border-foreground/[0.06] border-r-0 bg-transparent hover:bg-foreground/[0.02] transition-all font-mono text-sm outline-none"
+										>
+											<span className="text-lg leading-none">
+												{selectedCountry.flag}
+											</span>
+											<span className="text-foreground/60">
+												{selectedCountry.code}
+											</span>
+										</button>
+										{isCountryMenuOpen && (
+											<>
+												<div
+													className="fixed inset-0 z-40"
+													onClick={() => setIsCountryMenuOpen(false)}
+												/>
+												<div className="absolute top-full left-0 z-50 mt-1 w-48 max-h-60 overflow-y-auto bg-background border border-foreground/[0.06] shadow-xl animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
+													{COUNTRY_CODES.map((c) => (
+														<button
+															key={c.code}
+															type="button"
+															onClick={() => {
+																setCountryCode(c.code);
+																setIsCountryMenuOpen(false);
+															}}
+															className={cn(
+																"flex items-center gap-3 w-full px-4 py-2.5 text-sm text-left hover:bg-foreground/[0.04] transition-colors font-mono",
+																c.code === countryCode
+																	? "bg-foreground/[0.02] text-foreground"
+																	: "text-foreground/60",
+															)}
+														>
+															<span className="text-lg leading-none">
+																{c.flag}
+															</span>
+															<span className="flex-1">{c.country}</span>
+															<span className="text-foreground/30 text-[10px]">
+																{c.code}
+															</span>
+														</button>
+													))}
+												</div>
+											</>
+										)}
+									</div>
+									<Input
+										id="phone"
+										type="tel"
+										placeholder={`e.g. ${
+											selectedCountry.code === "+44"
+												? "7911 123456"
+												: "234 567 8900"
+										}`}
+										value={phone}
+										onChange={(e) => setPhone(e.target.value)}
+										required
+										className="h-10 rounded-none border-foreground/[0.06] bg-transparent font-mono text-sm focus-visible:ring-0 focus-visible:border-foreground/20 px-6 transition-all flex-1"
+									/>
+								</div>
 							</div>
 
 							{/* Equipment Access */}

@@ -22,7 +22,12 @@ export const Route = createFileRoute("/login")({
 			},
 			{ name: "robots", content: "noindex, follow" },
 		],
-		links: [{ rel: "canonical", href: "https://ph-platform-onboarding.vercel.app/login" }],
+		links: [
+			{
+				rel: "canonical",
+				href: "https://ph-platform-onboarding.vercel.app/login",
+			},
+		],
 	}),
 	component: Login,
 });
@@ -63,7 +68,8 @@ function Login() {
 	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 	const isLocalDev =
 		typeof window !== "undefined" &&
-		(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+		(window.location.hostname === "localhost" ||
+			window.location.hostname === "127.0.0.1");
 	const shouldEnforceTurnstile = Boolean(turnstileSiteKey) && !isLocalDev;
 
 	const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -82,7 +88,12 @@ function Login() {
 			return;
 		}
 
-		if (shouldEnforceTurnstile && !turnstileFailed && turnstileReady && !turnstileToken) {
+		if (
+			shouldEnforceTurnstile &&
+			!turnstileFailed &&
+			turnstileReady &&
+			!turnstileToken
+		) {
 			toast.error("Please complete the verification challenge");
 			return;
 		}
@@ -103,7 +114,9 @@ function Login() {
 				throw new Error("Login succeeded but no access token was returned");
 			}
 			if (isTokenExpired(data.accessToken)) {
-				throw new Error("Login token is already expired. Please check server JWT settings.");
+				throw new Error(
+					"Login token is already expired. Please check server JWT settings.",
+				);
 			}
 
 			trackEvent("login_success", { email });
@@ -122,7 +135,7 @@ function Login() {
 		}
 	};
 
-const handleResetPassword = () => {
+	const handleResetPassword = () => {
 		navigate({ to: "/register" });
 	};
 
@@ -133,40 +146,48 @@ const handleResetPassword = () => {
 	return (
 		<div className="relative">
 			<SignInPage
-				title={<span className="font-light text-foreground tracking-tighter">Welcome Back</span>}
+				title={
+					<span className="font-light text-foreground tracking-tighter">
+						Welcome Back
+					</span>
+				}
 				description="Sign in to access your PH Performance dashboard, training programs, and coaching tools."
 				heroImageSrc="/landing/piers.png"
 				testimonials={testimonials}
+				verificationSlot={
+					shouldEnforceTurnstile ? (
+							<Turnstile
+								siteKey={turnstileSiteKey ?? ""}
+							action="login"
+							resetKey={turnstileResetKey}
+							onVerify={(token) => {
+								setTurnstileToken(token);
+								setTurnstileFailed(false);
+							}}
+							onReady={() => setTurnstileReady(true)}
+							onExpire={() => setTurnstileToken(null)}
+							onError={() => {
+								setTurnstileToken(null);
+								setTurnstileFailed(true);
+							}}
+							className="flex justify-center"
+						/>
+					) : null
+				}
 				onSignIn={handleSignIn}
 				onResetPassword={handleResetPassword}
 				onCreateAccount={handleCreateAccount}
 			/>
-			{shouldEnforceTurnstile && (
-				<div className="fixed bottom-4 right-4 z-50">
-					<Turnstile
-						siteKey={turnstileSiteKey}
-						action="login"
-						resetKey={turnstileResetKey}
-						onVerify={(token) => {
-							setTurnstileToken(token);
-							setTurnstileFailed(false);
-						}}
-						onReady={() => setTurnstileReady(true)}
-						onExpire={() => setTurnstileToken(null)}
-						onError={() => {
-							setTurnstileToken(null);
-							setTurnstileFailed(true);
-						}}
-						className="flex justify-center"
-					/>
-				</div>
-			)}
 			<div className="fixed bottom-4 left-4 z-50 rounded-md border border-foreground/20 bg-background/90 px-3 py-2 text-[11px] leading-tight text-foreground shadow-sm">
 				<div>Turnstile key: {turnstileSiteKey ? "present" : "missing"}</div>
-				<div>enforced: {shouldEnforceTurnstile ? "yes" : "no (local bypass)"}</div>
+				<div>
+					enforced: {shouldEnforceTurnstile ? "yes" : "no (local bypass)"}
+				</div>
 				<div>ready: {turnstileReady ? "yes" : "no"}</div>
 				<div>failed: {turnstileFailed ? "yes" : "no"}</div>
-				<div>token: {turnstileToken ? `${turnstileToken.length} chars` : "none"}</div>
+				<div>
+					token: {turnstileToken ? `${turnstileToken.length} chars` : "none"}
+				</div>
 				<div>api: {config.api.baseUrl}</div>
 			</div>
 		</div>

@@ -4,7 +4,7 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import { BarChart3, MessageCircle, Megaphone, Users2 } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { io, type Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
 
 import { ChatComposer } from "../../components/admin/messaging/chat-composer";
 import { InboxThreadPanel } from "../../components/admin/messaging/inbox-thread-panel";
@@ -72,7 +72,7 @@ import {
   useToggleMessageReactionMutation,
   useUpdateContentMutation,
 } from "@/lib/apiSlice";
-import { resolveSocketUrl } from "@/lib/socket-url";
+import { getOrCreateAdminSocket } from "@/lib/admin-socket";
 import { toast } from "../../lib/toast";
 
 type ThreadListItem = {
@@ -311,6 +311,18 @@ function MessagingPageInner() {
   const [groupReactionOverrides, setGroupReactionOverrides] = useState<
     Record<number, ChatReaction[]>
   >({});
+  const [pendingDirectMessages, setPendingDirectMessages] = useState<
+    ChatMessage[]
+  >([]);
+  const [pendingGroupMessages, setPendingGroupMessages] = useState<
+    ChatMessage[]
+  >([]);
+  const [liveDirectMessages, setLiveDirectMessages] = useState<ChatMessage[]>(
+    [],
+  );
+  const [liveGroupMessages, setLiveGroupMessages] = useState<ChatMessage[]>(
+    [],
+  );
   const [highlightedTeamName, setHighlightedTeamName] = useState<string | null>(
     null,
   );
@@ -338,10 +350,9 @@ function MessagingPageInner() {
   );
 
   const socketRef = useRef<Socket | null>(null);
-  const refetchThreadsRef = useRef(refetchInbox);
-  const refetchGroupsRef = useRef(refetchInbox);
-  const refetchDirectMessagesRef = useRef(refetchDirectMessages);
-  const refetchGroupMessagesRef = useRef(refetchGroupMessages);
+  const inboxRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const directRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const groupRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeThreadUserIdRef = useRef<number | null>(threadUserId);
   const activeGroupIdRef = useRef<number | null>(groupId);
   const currentUserIdRef = useRef<number | null>(null);
@@ -352,27 +363,21 @@ function MessagingPageInner() {
   } | null>(null);
 
   useEffect(() => {
-    refetchThreadsRef.current = refetchInbox;
-  }, [refetchInbox]);
-
-  useEffect(() => {
-    refetchGroupsRef.current = refetchInbox;
-  }, [refetchInbox]);
-
-  useEffect(() => {
-    refetchDirectMessagesRef.current = refetchDirectMessages;
-  }, [refetchDirectMessages]);
-
-  useEffect(() => {
-    refetchGroupMessagesRef.current = refetchGroupMessages;
-  }, [refetchGroupMessages]);
-
-  useEffect(() => {
     activeThreadUserIdRef.current = threadUserId;
   }, [threadUserId]);
 
   useEffect(() => {
+    setLiveDirectMessages([]);
+    setPendingDirectMessages([]);
+  }, [threadUserId]);
+
+  useEffect(() => {
     activeGroupIdRef.current = groupId;
+  }, [groupId]);
+
+  useEffect(() => {
+    setLiveGroupMessages([]);
+    setPendingGroupMessages([]);
   }, [groupId]);
 
   useEffect(() => {
@@ -390,25 +395,52 @@ function MessagingPageInner() {
     };
   }, []);
 
+  const scheduleInboxRefetch = useMemo(
+    () => (delayMs = 120) => {
+      if (inboxRefetchTimerRef.current) return;
+      inboxRefetchTimerRef.current = setTimeout(() => {
+        inboxRefetchTimerRef.current = null;
+        refetchInbox();
+      }, delayMs);
+    },
+    [refetchInbox],
+  );
+
+  const scheduleDirectRefetch = useMemo(
+    () => (delayMs = 120) => {
+      if (directRefetchTimerRef.current) return;
+      directRefetchTimerRef.current = setTimeout(() => {
+        directRefetchTimerRef.current = null;
+        refetchDirectMessages();
+      }, delayMs);
+    },
+    [refetchDirectMessages],
+  );
+
+  const scheduleGroupRefetch = useMemo(
+    () => (delayMs = 120) => {
+      if (groupRefetchTimerRef.current) return;
+      groupRefetchTimerRef.current = setTimeout(() => {
+        groupRefetchTimerRef.current = null;
+        refetchGroupMessages();
+      }, delayMs);
+    },
+    [refetchGroupMessages],
+  );
+
   useEffect(() => {
-    const socketUrl = resolveSocketUrl();
-
-    const accessToken =
-      document.cookie
-        .split(";")
-        .map((part) => part.trim())
-        .find((part) => part.startsWith("accessTokenClient="))
-        ?.split("=")[1] ?? "";
-
-    if (socketUrl) void fetch(`${socketUrl}/health`, { cache: "no-store" }).catch(() => {});
-    const socket: Socket = io(socketUrl, {
-      auth: accessToken ? { token: accessToken } : undefined,
-      transports: ["polling", "websocket"],
-      reconnection: true,
-    });
+    const socket = getOrCreateAdminSocket();
+    const subscriptions: Array<{
+      event: string;
+      listener: (...args: any[]) => void;
+    }> = [];
+    const on = (event: string, listener: (...args: any[]) => void) => {
+      socket.on(event, listener);
+      subscriptions.push({ event, listener });
+    };
     socketRef.current = socket;
 
-    socket.on("connect", () => console.log("[Messaging Socket] Connected"));
+    on("connect", () => console.log("[Messaging Socket] Connected"));
 
     const canShowBrowserNotification = () => {
       if (typeof window === "undefined") return false;
@@ -459,8 +491,8 @@ function MessagingPageInner() {
       }
     };
 
-    socket.on("message:new", (payload: any) => {
-      refetchThreadsRef.current();
+    on("message:new", (payload: any) => {
+      scheduleInboxRefetch(120);
       const senderId = Number(payload?.senderId ?? NaN);
       const receiverId = Number(payload?.receiverId ?? NaN);
       const me = currentUserIdRef.current;
@@ -471,6 +503,36 @@ function MessagingPageInner() {
           ? receiverId
           : null;
       if (!threadUserId) return;
+      const activeThreadUserId = activeThreadUserIdRef.current;
+      if (
+        activeThreadUserId &&
+        Number.isFinite(activeThreadUserId) &&
+        threadUserId === activeThreadUserId &&
+        Number.isFinite(Number(payload?.id))
+      ) {
+        const liveMessage: ChatMessage = {
+          id: Number(payload.id),
+          senderId: Number(payload?.senderId ?? 0),
+          receiverId: Number(payload?.receiverId ?? 0),
+          content: String(payload?.content ?? ""),
+          contentType: String(payload?.contentType ?? "text") as
+            | "text"
+            | "image"
+            | "video",
+          mediaUrl: payload?.mediaUrl ?? null,
+          createdAt:
+            String(payload?.createdAt ?? "").trim() ||
+            new Date().toISOString(),
+          senderName: String(payload?.senderName ?? "").trim() || null,
+          senderProfilePicture: payload?.senderProfilePicture ?? null,
+          reactions: Array.isArray(payload?.reactions) ? payload.reactions : [],
+        };
+        setLiveDirectMessages((current) =>
+          current.some((msg) => Number(msg.id) === liveMessage.id)
+            ? current
+            : [...current, liveMessage],
+        );
+      }
       const title = payload?.senderName
         ? `New message from ${String(payload.senderName)}`
         : `New message from ${resolveUserName ? resolveUserName(threadUserId) : `User ${threadUserId}`}`;
@@ -489,11 +551,40 @@ function MessagingPageInner() {
       });
     });
 
-    socket.on("group:message", (payload: any) => {
-      refetchGroupsRef.current();
-      refetchGroupMessagesRef.current();
+    on("group:message", (payload: any) => {
+      scheduleInboxRefetch(120);
+      scheduleGroupRefetch(120);
       const groupId = Number(payload?.groupId ?? NaN);
       if (!Number.isFinite(groupId) || groupId <= 0) return;
+      const activeGroupId = activeGroupIdRef.current;
+      if (
+        activeGroupId &&
+        groupId === activeGroupId &&
+        Number.isFinite(Number(payload?.id))
+      ) {
+        const liveMessage: ChatMessage = {
+          id: Number(payload.id),
+          senderId: Number(payload?.senderId ?? 0),
+          receiverId: null,
+          content: String(payload?.content ?? ""),
+          contentType: String(payload?.contentType ?? "text") as
+            | "text"
+            | "image"
+            | "video",
+          mediaUrl: payload?.mediaUrl ?? null,
+          createdAt:
+            String(payload?.createdAt ?? "").trim() ||
+            new Date().toISOString(),
+          senderName: String(payload?.senderName ?? "").trim() || null,
+          senderProfilePicture: payload?.senderProfilePicture ?? null,
+          reactions: Array.isArray(payload?.reactions) ? payload.reactions : [],
+        };
+        setLiveGroupMessages((current) =>
+          current.some((msg) => Number(msg.id) === liveMessage.id)
+            ? current
+            : [...current, liveMessage],
+        );
+      }
       const senderId = Number(payload?.senderId ?? NaN);
       const me = currentUserIdRef.current;
       if (me != null && Number.isFinite(senderId) && senderId === me) return;
@@ -517,8 +608,8 @@ function MessagingPageInner() {
       });
     });
 
-    socket.on("message:read", (payload: any) => {
-      refetchThreadsRef.current();
+    on("message:read", (payload: any) => {
+      scheduleInboxRefetch(120);
 
       const activeThreadUserId = activeThreadUserIdRef.current;
       const currentUserId = currentUserIdRef.current;
@@ -538,12 +629,12 @@ function MessagingPageInner() {
         currentUserId === readerUserId || peerUserIds.includes(currentUserId);
 
       if (involvesActiveThread && involvesCurrentUser) {
-        refetchDirectMessagesRef.current();
+        scheduleDirectRefetch(120);
       }
     });
 
-    socket.on("group:read", (payload: any) => {
-      refetchGroupsRef.current();
+    on("group:read", (payload: any) => {
+      scheduleInboxRefetch(120);
       const activeGroupId = activeGroupIdRef.current;
       const payloadGroupId = Number(payload?.groupId ?? NaN);
       if (
@@ -551,11 +642,11 @@ function MessagingPageInner() {
         Number.isFinite(payloadGroupId) &&
         payloadGroupId === activeGroupId
       ) {
-        refetchGroupMessagesRef.current();
+        scheduleGroupRefetch(120);
       }
     });
 
-    socket.on("message:reaction", (payload: any) => {
+    on("message:reaction", (payload: any) => {
       const messageId = Number(payload?.messageId ?? NaN);
       if (!Number.isFinite(messageId)) return;
       if (Array.isArray(payload?.reactions)) {
@@ -564,10 +655,10 @@ function MessagingPageInner() {
           [messageId]: payload.reactions as ChatReaction[],
         }));
       }
-      refetchDirectMessagesRef.current();
+      scheduleDirectRefetch(120);
     });
 
-    socket.on("group:reaction", (payload: any) => {
+    on("group:reaction", (payload: any) => {
       const payloadGroupId = Number(payload?.groupId ?? NaN);
       const messageId = Number(payload?.messageId ?? NaN);
       if (!Number.isFinite(payloadGroupId) || !Number.isFinite(messageId)) return;
@@ -579,13 +670,15 @@ function MessagingPageInner() {
       }
       const activeGroupId = activeGroupIdRef.current;
       if (activeGroupId && payloadGroupId === activeGroupId) {
-        refetchGroupMessagesRef.current();
+        scheduleGroupRefetch(120);
       }
-      refetchGroupsRef.current();
+      scheduleInboxRefetch(120);
     });
 
     return () => {
-      socket.disconnect();
+      for (const { event, listener } of subscriptions) {
+        socket.off(event, listener);
+      }
       socketRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -642,13 +735,21 @@ function MessagingPageInner() {
   }, [groupId]);
 
   useEffect(() => {
+    return () => {
+      if (inboxRefetchTimerRef.current) clearTimeout(inboxRefetchTimerRef.current);
+      if (directRefetchTimerRef.current) clearTimeout(directRefetchTimerRef.current);
+      if (groupRefetchTimerRef.current) clearTimeout(groupRefetchTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (groupId == null) return;
     let active = true;
     (async () => {
       try {
         await markChatGroupRead({ groupId }).unwrap();
         if (!active) return;
-        refetchInbox();
+        scheduleInboxRefetch(60);
       } catch {
         // keep opening modal even if mark-read fails
       }
@@ -656,7 +757,7 @@ function MessagingPageInner() {
     return () => {
       active = false;
     };
-  }, [groupId, markChatGroupRead, refetchInbox]);
+  }, [groupId, markChatGroupRead, scheduleInboxRefetch]);
 
   const userNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -902,24 +1003,60 @@ function MessagingPageInner() {
   const directMessages = useMemo<ChatMessage[]>(() => {
     const base =
       (directMessagesData?.messages as ChatMessage[] | undefined) ?? [];
-    return base.map((message) => {
+    const merged = [...base, ...liveDirectMessages, ...pendingDirectMessages];
+    const uniqueById = new Map<number, ChatMessage>();
+    for (const message of merged) {
       const id = Number(message.id);
-      if (!Number.isFinite(id)) return message;
-      const reactions = directReactionOverrides[id];
-      return reactions ? { ...message, reactions } : message;
-    });
-  }, [directMessagesData, directReactionOverrides]);
+      if (!Number.isFinite(id)) continue;
+      uniqueById.set(id, message);
+    }
+    return [...uniqueById.values()]
+      .sort(
+        (a, b) =>
+          new Date(String(a.createdAt ?? "")).getTime() -
+          new Date(String(b.createdAt ?? "")).getTime(),
+      )
+      .map((message) => {
+        const id = Number(message.id);
+        if (!Number.isFinite(id)) return message;
+        const reactions = directReactionOverrides[id];
+        return reactions ? { ...message, reactions } : message;
+      });
+  }, [
+    directMessagesData,
+    directReactionOverrides,
+    liveDirectMessages,
+    pendingDirectMessages,
+  ]);
 
   const groupMessages = useMemo<ChatMessage[]>(() => {
     const base =
       (groupMessagesData?.messages as ChatMessage[] | undefined) ?? [];
-    return base.map((message) => {
+    const merged = [...base, ...liveGroupMessages, ...pendingGroupMessages];
+    const uniqueById = new Map<number, ChatMessage>();
+    for (const message of merged) {
       const id = Number(message.id);
-      if (!Number.isFinite(id)) return message;
-      const reactions = groupReactionOverrides[id];
-      return reactions ? { ...message, reactions } : message;
-    });
-  }, [groupMessagesData, groupReactionOverrides]);
+      if (!Number.isFinite(id)) continue;
+      uniqueById.set(id, message);
+    }
+    return [...uniqueById.values()]
+      .sort(
+        (a, b) =>
+          new Date(String(a.createdAt ?? "")).getTime() -
+          new Date(String(b.createdAt ?? "")).getTime(),
+      )
+      .map((message) => {
+        const id = Number(message.id);
+        if (!Number.isFinite(id)) return message;
+        const reactions = groupReactionOverrides[id];
+        return reactions ? { ...message, reactions } : message;
+      });
+  }, [
+    groupMessagesData,
+    groupReactionOverrides,
+    liveGroupMessages,
+    pendingGroupMessages,
+  ]);
 
   const stats = useMemo(() => {
     const unread = threads.reduce((sum, thread) => sum + thread.unread, 0);
@@ -1219,8 +1356,8 @@ function MessagingPageInner() {
     setDirectReplyTo(null);
     try {
       await markThreadRead({ userId }).unwrap();
-      refetchInbox();
-      refetchDirectMessages();
+      scheduleInboxRefetch(60);
+      scheduleDirectRefetch(60);
     } catch {
       // keep opening modal even if mark-read fails
     }
@@ -1228,38 +1365,92 @@ function MessagingPageInner() {
 
   const handleSendDirect = async () => {
     if (!threadUserId || !directMessage.trim()) return;
+    const pendingId = -Date.now();
+    const pendingMessage: ChatMessage = {
+      id: pendingId,
+      senderId: currentUserId ?? 0,
+      receiverId: threadUserId,
+      content: directMessage.trim(),
+      contentType: "text",
+      createdAt: new Date().toISOString(),
+      reactions: [],
+      localStatus: "sending",
+    };
+    setPendingDirectMessages((current) => [...current, pendingMessage]);
+    const draft = directMessage.trim();
+    setDirectMessage("");
     try {
-      await sendDirect({
+      const result = (await sendDirect({
         userId: threadUserId,
-        content: directMessage.trim(),
+        content: draft,
         contentType: "text",
         replyToMessageId: directReplyTo?.messageId,
         replyPreview: directReplyTo?.preview,
-      }).unwrap();
-      setDirectMessage("");
+      }).unwrap()) as any;
+      setPendingDirectMessages((current) =>
+        current.filter((message) => Number(message.id) !== pendingId),
+      );
+      if (result?.message?.id) {
+        setLiveDirectMessages((current) =>
+          current.some((m) => Number(m.id) === Number(result.message.id))
+            ? current
+            : [...current, { ...(result.message as ChatMessage), localStatus: null }],
+        );
+      }
       setDirectReplyTo(null);
-      refetchDirectMessages();
-      refetchInbox();
+      scheduleDirectRefetch(60);
+      scheduleInboxRefetch(60);
     } catch {
+      setPendingDirectMessages((current) =>
+        current.filter((message) => Number(message.id) !== pendingId),
+      );
+      setDirectMessage(draft);
       toast.error("Failed", "Could not send message.");
     }
   };
 
   const handleSendGroup = async () => {
     if (!groupId || !groupMessage.trim()) return;
+    const pendingId = -Date.now();
+    const pendingMessage: ChatMessage = {
+      id: pendingId,
+      senderId: currentUserId ?? 0,
+      receiverId: null,
+      content: groupMessage.trim(),
+      contentType: "text",
+      createdAt: new Date().toISOString(),
+      reactions: [],
+      localStatus: "sending",
+    };
+    setPendingGroupMessages((current) => [...current, pendingMessage]);
+    const draft = groupMessage.trim();
+    setGroupMessage("");
     try {
-      await sendGroup({
+      const result = (await sendGroup({
         groupId,
-        content: groupMessage.trim(),
+        content: draft,
         contentType: "text",
         replyToMessageId: groupReplyTo?.messageId,
         replyPreview: groupReplyTo?.preview,
-      }).unwrap();
-      setGroupMessage("");
+      }).unwrap()) as any;
+      setPendingGroupMessages((current) =>
+        current.filter((message) => Number(message.id) !== pendingId),
+      );
+      if (result?.message?.id) {
+        setLiveGroupMessages((current) =>
+          current.some((m) => Number(m.id) === Number(result.message.id))
+            ? current
+            : [...current, { ...(result.message as ChatMessage), localStatus: null }],
+        );
+      }
       setGroupReplyTo(null);
-      refetchGroupMessages();
-      refetchInbox();
+      scheduleGroupRefetch(60);
+      scheduleInboxRefetch(60);
     } catch {
+      setPendingGroupMessages((current) =>
+        current.filter((message) => Number(message.id) !== pendingId),
+      );
+      setGroupMessage(draft);
       toast.error("Failed", "Could not send group message.");
     }
   };
@@ -1306,8 +1497,8 @@ function MessagingPageInner() {
         }).unwrap();
         setDirectMessage("");
         setDirectReplyTo(null);
-        refetchDirectMessages();
-        refetchInbox();
+        scheduleDirectRefetch(60);
+        scheduleInboxRefetch(60);
       }
 
       if (target === "group" && groupId) {
@@ -1321,8 +1512,8 @@ function MessagingPageInner() {
         }).unwrap();
         setGroupMessage("");
         setGroupReplyTo(null);
-        refetchGroupMessages();
-        refetchInbox();
+        scheduleGroupRefetch(60);
+        scheduleInboxRefetch(60);
       }
     } catch {
       toast.error("Failed", "Could not upload media.");
@@ -1417,55 +1608,138 @@ function MessagingPageInner() {
   };
 
   const handleDirectReaction = async (messageId: number, emoji: string) => {
+    if (currentUserId != null) {
+      const source =
+        directReactionOverrides[messageId] ??
+        directMessages.find((message) => Number(message.id) === messageId)
+          ?.reactions ??
+        [];
+      const next = Array.isArray(source)
+        ? source.map((reaction) => ({
+            ...reaction,
+            userIds: [...(reaction.userIds ?? [])],
+          }))
+        : [];
+      const existingIdx = next.findIndex((reaction) =>
+        Array.isArray(reaction.userIds)
+          ? reaction.userIds.includes(currentUserId)
+          : false,
+      );
+      if (existingIdx >= 0) {
+        const existing = next[existingIdx];
+        if (existing.emoji === emoji) {
+          existing.userIds = existing.userIds.filter((id) => id !== currentUserId);
+          existing.count = existing.userIds.length;
+        } else {
+          existing.userIds = existing.userIds.filter((id) => id !== currentUserId);
+          existing.count = existing.userIds.length;
+          const targetIdx = next.findIndex((reaction) => reaction.emoji === emoji);
+          if (targetIdx >= 0) {
+            const target = next[targetIdx];
+            if (!target.userIds?.includes(currentUserId)) {
+              target.userIds = [...(target.userIds ?? []), currentUserId];
+            }
+            target.count = target.userIds.length;
+          } else {
+            next.push({ emoji, count: 1, userIds: [currentUserId] });
+          }
+        }
+      } else {
+        const targetIdx = next.findIndex((reaction) => reaction.emoji === emoji);
+        if (targetIdx >= 0) {
+          const target = next[targetIdx];
+          target.userIds = [...(target.userIds ?? []), currentUserId];
+          target.count = target.userIds.length;
+        } else {
+          next.push({ emoji, count: 1, userIds: [currentUserId] });
+        }
+      }
+      setDirectReactionOverrides((current) => ({
+        ...current,
+        [messageId]: next.filter((reaction) => Number(reaction.count ?? 0) > 0),
+      }));
+    }
     try {
-      console.log("[Messaging][DirectReaction] request", { messageId, emoji });
       const result = await toggleDirectReaction({ messageId, emoji }).unwrap();
-      console.log("[Messaging][DirectReaction] response", result);
       if (Array.isArray(result?.reactions)) {
         setDirectReactionOverrides((current) => ({
           ...current,
           [messageId]: result.reactions as ChatReaction[],
         }));
       }
-      refetchDirectMessages();
-    } catch (error) {
-      console.error("[Messaging][DirectReaction] error", {
-        messageId,
-        emoji,
-        error,
-      });
+    } catch {
+      scheduleDirectRefetch(60);
       toast.error("Failed", "Could not update reaction.");
     }
   };
 
   const handleGroupReaction = async (messageId: number, emoji: string) => {
     if (!groupId) return;
+    if (currentUserId != null) {
+      const source =
+        groupReactionOverrides[messageId] ??
+        groupMessages.find((message) => Number(message.id) === messageId)
+          ?.reactions ??
+        [];
+      const next = Array.isArray(source)
+        ? source.map((reaction) => ({
+            ...reaction,
+            userIds: [...(reaction.userIds ?? [])],
+          }))
+        : [];
+      const existingIdx = next.findIndex((reaction) =>
+        Array.isArray(reaction.userIds)
+          ? reaction.userIds.includes(currentUserId)
+          : false,
+      );
+      if (existingIdx >= 0) {
+        const existing = next[existingIdx];
+        if (existing.emoji === emoji) {
+          existing.userIds = existing.userIds.filter((id) => id !== currentUserId);
+          existing.count = existing.userIds.length;
+        } else {
+          existing.userIds = existing.userIds.filter((id) => id !== currentUserId);
+          existing.count = existing.userIds.length;
+          const targetIdx = next.findIndex((reaction) => reaction.emoji === emoji);
+          if (targetIdx >= 0) {
+            const target = next[targetIdx];
+            if (!target.userIds?.includes(currentUserId)) {
+              target.userIds = [...(target.userIds ?? []), currentUserId];
+            }
+            target.count = target.userIds.length;
+          } else {
+            next.push({ emoji, count: 1, userIds: [currentUserId] });
+          }
+        }
+      } else {
+        const targetIdx = next.findIndex((reaction) => reaction.emoji === emoji);
+        if (targetIdx >= 0) {
+          const target = next[targetIdx];
+          target.userIds = [...(target.userIds ?? []), currentUserId];
+          target.count = target.userIds.length;
+        } else {
+          next.push({ emoji, count: 1, userIds: [currentUserId] });
+        }
+      }
+      setGroupReactionOverrides((current) => ({
+        ...current,
+        [messageId]: next.filter((reaction) => Number(reaction.count ?? 0) > 0),
+      }));
+    }
     try {
-      console.log("[Messaging][GroupReaction] request", {
-        groupId,
-        messageId,
-        emoji,
-      });
       const result = await toggleGroupReaction({
         groupId,
         messageId,
         emoji,
       }).unwrap();
-      console.log("[Messaging][GroupReaction] response", result);
       if (Array.isArray(result?.reactions)) {
         setGroupReactionOverrides((current) => ({
           ...current,
           [messageId]: result.reactions as ChatReaction[],
         }));
       }
-      refetchGroupMessages();
-    } catch (error) {
-      console.error("[Messaging][GroupReaction] error", {
-        groupId,
-        messageId,
-        emoji,
-        error,
-      });
+    } catch {
+      scheduleGroupRefetch(60);
       toast.error("Failed", "Could not update reaction.");
     }
   };
@@ -2255,6 +2529,8 @@ function MessagingPageInner() {
           </DialogHeader>
           <div className="space-y-3">
             <ThreadMessageList
+              key={`direct-thread-${threadUserId ?? "none"}`}
+              openScrollKey={`direct-open-${threadUserId ?? "none"}`}
               messages={directMessages}
               onReact={handleDirectReaction}
               onReply={(payload) => setDirectReplyTo(payload)}
@@ -2311,6 +2587,8 @@ function MessagingPageInner() {
           </DialogHeader>
           <div className="space-y-3">
             <ThreadMessageList
+              key={`group-thread-${groupId ?? "none"}`}
+              openScrollKey={`group-open-${groupId ?? "none"}`}
               messages={groupMessages}
               onReact={handleGroupReaction}
               onReply={(payload) => setGroupReplyTo(payload)}

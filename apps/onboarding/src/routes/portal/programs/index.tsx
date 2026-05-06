@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CheckCircle, ChevronRight, Lock, Play } from "lucide-react";
 import { getTokenStatus } from "@/lib/client-storage";
@@ -10,6 +10,7 @@ import {
 	Skeleton,
 } from "@/lib/motion";
 import { usePortal } from "@/portal/PortalContext";
+import { usePortalSocketEvent } from "@/portal/PortalSocketContext";
 import {
 	fetchMyAssignedPrograms,
 	fetchTeamWorkspace,
@@ -87,10 +88,12 @@ function ProgramsPage() {
 	const {
 		token,
 		age,
+		user,
 		loading: portalLoading,
 		error: portalError,
 	} = usePortal();
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
 	const isAdult = age != null && age >= 18;
 
@@ -114,6 +117,20 @@ function ProgramsPage() {
 		enabled: !!token && !portalLoading && !isAdult,
 		staleTime: 1000 * 60 * 15,
 	});
+
+	const socketReady = !!token && !portalLoading;
+	usePortalSocketEvent(
+		"program:assigned",
+		(payload: any) => {
+			const targetUserId = Number(payload?.athleteUserId ?? 0);
+			const myUserId = Number((user as any)?.id ?? 0);
+			if (Number.isFinite(targetUserId) && Number.isFinite(myUserId) && targetUserId > 0 && myUserId > 0 && targetUserId !== myUserId) {
+				return;
+			}
+			void queryClient.invalidateQueries({ queryKey: programKeys.assigned(token) });
+		},
+		socketReady && isAdult,
+	);
 
 	if (portalLoading || (token && (assignedLoading || programsLoading))) {
 		return <ProgramsSkeleton />;

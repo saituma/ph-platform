@@ -64,4 +64,5 @@ export type ChatMessage = {
   mediaUrl?: string | null;
   createdAt?: string | null;
   reactions?: ChatReaction[] | null;
+  localStatus?: "sending" | "failed" | null;
 };

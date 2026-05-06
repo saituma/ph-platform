@@ -1,7 +1,16 @@
 import { and, asc, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../db";
-import { athleteTable, scheduledSessionTable, sessionAttendanceTable, sessionTemplateTable, userTable } from "../db/schema";
+import {
+  athleteTable,
+  notificationTable,
+  scheduledSessionTable,
+  sessionAttendanceTable,
+  sessionTemplateTable,
+  userTable,
+} from "../db/schema";
+import { pushQueue } from "../jobs";
 import { logger } from "../lib/logger";
+import { getSocketServer } from "../socket-hub";
 import { getGoogleCalendarConnectionForAdmin, upsertGoogleCalendarEvent } from "./google-calendar.service";
 
 type SessionType = "one_to_one" | "semi_private" | "in_person" | "team";
@@ -40,9 +49,19 @@ function toDateKey(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+function toLocalDateKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function isSameSessionDay(a: Date, b: Date) {
+  return toDateKey(a) === toDateKey(b) || toLocalDateKey(a) === toLocalDateKey(b);
+}
+
 function buildUtcFromDateAndTime(date: Date, hhmm: string) {
   const parts = hhmm.split(":").map(Number);
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), parts[0] ?? 0, parts[1] ?? 0, 0, 0));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), parts[0] ?? 0, parts[1] ?? 0, 0, 0),
+  );
 }
 
 async function resolveTemplateTargetUserIds(template: typeof sessionTemplateTable.$inferSelect) {
@@ -58,6 +77,88 @@ async function resolveTemplateTargetUserIds(template: typeof sessionTemplateTabl
     ? template.targetUserIds.map((x) => Number(x)).filter((x) => Number.isFinite(x))
     : [];
   return [...new Set(ids)];
+}
+
+function emitScheduleChanged(userIds: number[], payload: Record<string, unknown>) {
+  const io = getSocketServer();
+  if (!io) return;
+  const uniqueUserIds = [...new Set(userIds.filter((id) => Number.isFinite(id)))];
+  for (const userId of uniqueUserIds) {
+    io.to(`user:${userId}`).emit("schedule:changed", payload);
+  }
+  io.to("admin:all").emit("schedule:changed", payload);
+}
+
+function emitAttendanceChanged(userIds: number[], payload: Record<string, unknown>) {
+  const io = getSocketServer();
+  if (!io) return;
+  const uniqueUserIds = [...new Set(userIds.filter((id) => Number.isFinite(id)))];
+  for (const userId of uniqueUserIds) {
+    io.to(`user:${userId}`).emit("schedule:attendance:changed", payload);
+  }
+  io.to("admin:all").emit("schedule:attendance:changed", payload);
+}
+
+export async function notifyMaterializedSessions(input: {
+  userIds: number[];
+  sessionIds: number[];
+  templateName: string;
+}) {
+  const uniqueUserIds = [...new Set(input.userIds.filter((id) => Number.isFinite(id)))];
+  if (!uniqueUserIds.length || !input.sessionIds.length) return;
+
+  await db.insert(notificationTable).values(
+    uniqueUserIds.map((userId) => ({
+      userId,
+      type: "schedule_session_created",
+      content: `${input.templateName} was added to your schedule.`,
+      link: "/schedule",
+    })),
+  );
+
+  for (const userId of uniqueUserIds) {
+    void pushQueue.enqueue({
+      userId,
+      title: "New session scheduled",
+      body: `${input.templateName} was added to your schedule.`,
+      data: { type: "schedule", screen: "schedule", url: "/schedule" },
+    });
+  }
+
+  emitScheduleChanged(uniqueUserIds, {
+    message: "Scheduled sessions updated",
+    sessionIds: input.sessionIds,
+  });
+}
+
+export async function notifyAttendanceUpdated(input: {
+  scheduledSessionId: number;
+  userIds: number[];
+  message: string;
+  createNotification?: boolean;
+}) {
+  const uniqueUserIds = [...new Set(input.userIds.filter((id) => Number.isFinite(id)))];
+  if (!uniqueUserIds.length) return;
+
+  if (input.createNotification) {
+    await db.insert(notificationTable).values(
+      uniqueUserIds.map((userId) => ({
+        userId,
+        type: "schedule_attendance_updated",
+        content: input.message,
+        link: "/schedule",
+      })),
+    );
+  }
+
+  emitAttendanceChanged(uniqueUserIds, {
+    message: input.message,
+    sessionId: input.scheduledSessionId,
+  });
+  emitScheduleChanged(uniqueUserIds, {
+    message: input.message,
+    sessionId: input.scheduledSessionId,
+  });
 }
 
 export async function createSessionTemplate(input: CreateTemplateInput) {
@@ -88,14 +189,26 @@ export async function listSessionTemplates() {
   return db.select().from(sessionTemplateTable).orderBy(desc(sessionTemplateTable.id));
 }
 
-export async function materializeTemplateSessions(input: { templateId: number; from: Date; to: Date; actorUserId: number }) {
+export async function materializeTemplateSessions(input: {
+  templateId: number;
+  from: Date;
+  to: Date;
+  actorUserId: number;
+}) {
   const [template] = await db
     .select()
     .from(sessionTemplateTable)
     .where(eq(sessionTemplateTable.id, input.templateId))
     .limit(1);
   if (!template) throw new Error("TEMPLATE_NOT_FOUND");
-  if (!template.isActive) return { created: 0, sessionIds: [] as number[] };
+  if (!template.isActive)
+    return {
+      created: 0,
+      sessionIds: [] as number[],
+      touchedSessionIds: [] as number[],
+      affectedUserIds: [] as number[],
+      templateName: "",
+    };
 
   const startsMinutes = parseTimeToMinutes(template.startsAtTime);
   const endsMinutes = parseTimeToMinutes(template.endsAtTime);
@@ -104,11 +217,19 @@ export async function materializeTemplateSessions(input: { templateId: number; f
   }
 
   const targetUserIds = await resolveTemplateTargetUserIds(template);
-  if (!targetUserIds.length) return { created: 0, sessionIds: [] as number[] };
+  if (!targetUserIds.length)
+    return {
+      created: 0,
+      sessionIds: [] as number[],
+      touchedSessionIds: [] as number[],
+      affectedUserIds: [] as number[],
+      templateName: template.name,
+    };
 
   const fromDay = startOfUtcDay(input.from);
   const toDay = startOfUtcDay(input.to);
   const createdIds: number[] = [];
+  const touchedSessionIds: number[] = [];
 
   for (let d = new Date(fromDay); d.getTime() <= toDay.getTime(); d = new Date(d.getTime() + 24 * 60 * 60 * 1000)) {
     if (template.isRecurring) {
@@ -144,18 +265,22 @@ export async function materializeTemplateSessions(input: { templateId: number; f
         .returning();
       createdIds.push(session.id);
     }
+    touchedSessionIds.push(session.id);
 
     if (template.googleSyncEnabled) {
       try {
         const config = await getGoogleCalendarConnectionForAdmin(template.createdBy);
-        const googleEventId = await upsertGoogleCalendarEvent({
-          title: session.name,
-          description: session.notes ?? null,
-          location: session.location ?? null,
-          startsAt: new Date(session.startsAt),
-          endsAt: new Date(session.endsAt),
-          existingEventId: session.googleEventId ?? null,
-        }, config);
+        const googleEventId = await upsertGoogleCalendarEvent(
+          {
+            title: session.name,
+            description: session.notes ?? null,
+            location: session.location ?? null,
+            startsAt: new Date(session.startsAt),
+            endsAt: new Date(session.endsAt),
+            existingEventId: session.googleEventId ?? null,
+          },
+          config,
+        );
         if (googleEventId && googleEventId !== session.googleEventId) {
           const [updatedSession] = await db
             .update(scheduledSessionTable)
@@ -193,7 +318,13 @@ export async function materializeTemplateSessions(input: { templateId: number; f
     }
   }
 
-  return { created: createdIds.length, sessionIds: createdIds };
+  return {
+    created: createdIds.length,
+    sessionIds: createdIds,
+    touchedSessionIds: [...new Set(touchedSessionIds)],
+    affectedUserIds: targetUserIds,
+    templateName: template.name,
+  };
 }
 
 export async function listMyScheduledSessions(input: { userId: number; from?: Date; to?: Date }) {
@@ -260,7 +391,12 @@ export async function listAdminScheduledSessions(input: { from?: Date; to?: Date
     })
     .from(sessionAttendanceTable)
     .innerJoin(userTable, eq(sessionAttendanceTable.userId, userTable.id))
-    .where(and(inArray(sessionAttendanceTable.scheduledSessionId, sessionIds), input.userId ? eq(sessionAttendanceTable.userId, input.userId) : undefined));
+    .where(
+      and(
+        inArray(sessionAttendanceTable.scheduledSessionId, sessionIds),
+        input.userId ? eq(sessionAttendanceTable.userId, input.userId) : undefined,
+      ),
+    );
 
   const bySession = new Map<number, typeof attendanceRows>();
   for (const row of attendanceRows) {
@@ -291,7 +427,12 @@ export async function markSessionAttendance(input: {
         markedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(and(eq(sessionAttendanceTable.scheduledSessionId, input.scheduledSessionId), eq(sessionAttendanceTable.userId, update.userId)))
+      .where(
+        and(
+          eq(sessionAttendanceTable.scheduledSessionId, input.scheduledSessionId),
+          eq(sessionAttendanceTable.userId, update.userId),
+        ),
+      )
       .returning({ id: sessionAttendanceTable.id });
     if (row?.id) count += 1;
   }
@@ -299,14 +440,46 @@ export async function markSessionAttendance(input: {
 }
 
 export async function checkInMySession(input: { scheduledSessionId: number; userId: number }) {
+  const [assignment] = await db
+    .select({
+      attendanceId: sessionAttendanceTable.id,
+      status: sessionAttendanceTable.status,
+      startsAt: scheduledSessionTable.startsAt,
+    })
+    .from(sessionAttendanceTable)
+    .innerJoin(scheduledSessionTable, eq(sessionAttendanceTable.scheduledSessionId, scheduledSessionTable.id))
+    .where(
+      and(
+        eq(sessionAttendanceTable.scheduledSessionId, input.scheduledSessionId),
+        eq(sessionAttendanceTable.userId, input.userId),
+      ),
+    )
+    .limit(1);
+
+  if (!assignment) throw new Error("SESSION_ASSIGNMENT_NOT_FOUND");
+  if (!isSameSessionDay(new Date(assignment.startsAt), new Date())) {
+    throw new Error("SESSION_NOT_ATTENDABLE_TODAY");
+  }
+
+  const now = new Date();
   const [row] = await db
     .update(sessionAttendanceTable)
     .set({
-      checkInAt: new Date(),
-      updatedAt: new Date(),
+      status: "attended",
+      checkInAt: now,
+      updatedAt: now,
     })
-    .where(and(eq(sessionAttendanceTable.scheduledSessionId, input.scheduledSessionId), eq(sessionAttendanceTable.userId, input.userId)))
-    .returning({ id: sessionAttendanceTable.id });
+    .where(
+      and(
+        eq(sessionAttendanceTable.scheduledSessionId, input.scheduledSessionId),
+        eq(sessionAttendanceTable.userId, input.userId),
+      ),
+    )
+    .returning({
+      id: sessionAttendanceTable.id,
+      checkInAt: sessionAttendanceTable.checkInAt,
+      status: sessionAttendanceTable.status,
+    });
   if (!row) throw new Error("SESSION_ASSIGNMENT_NOT_FOUND");
-  return { ok: true };
+  return { ok: true, attendanceStatus: row.status, checkInAt: row.checkInAt };
 }

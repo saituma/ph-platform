@@ -5,6 +5,7 @@ import { Textarea } from "../../ui/textarea";
 import { EmptyState } from "../empty-state";
 import { Badge } from "../../ui/badge";
 import { Check, CheckCheck, Image as ImageIcon, Paperclip, Play, Send, Smile, Star, Video } from "lucide-react";
+import { COMMON_REACTION_EMOJIS } from "./reaction-options";
 
 type Message = {
   id: string;
@@ -370,7 +371,7 @@ export function ConversationPanel({
                   </div>
                 ) : null}
                 <div className="mt-3 flex flex-wrap gap-2 opacity-0 transition group-hover:opacity-100">
-                  {["👍", "🔥", "💪", "👏"].map((emoji) => (
+                  {COMMON_REACTION_EMOJIS.map((emoji) => (
                     <button
                       key={emoji}
                       type="button"

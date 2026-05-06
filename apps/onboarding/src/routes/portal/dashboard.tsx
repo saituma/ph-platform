@@ -10,7 +10,7 @@ import {
 	ExternalLink,
 	MessageSquare,
 	Shield,
-	TrendingUp,
+	UserPlus,
 	Users,
 	Utensils,
 	Video,

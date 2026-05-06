@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -23,7 +23,29 @@ type TeamSummary = {
   planExpiresAt: string | Date | null;
   createdAt: string | Date | null;
   updatedAt: string | Date | null;
+  paymentQueue?: {
+    requestId: number;
+    status: string;
+    paymentMode: string;
+    allPaymentsComplete: boolean;
+    paidCount: number;
+    totalCount: number;
+    sponsoredCount: number;
+  } | null;
 };
+
+function getCsrfToken() {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split(";")
+      .map((p) => p.trim())
+      .find((p) => p.startsWith("csrfToken="))
+      ?.split("=")
+      .slice(1)
+      .join("=") ?? ""
+  );
+}
 
 function billingLabel(team: TeamSummary): { text: string; color: string } {
   const status = team.subscriptionStatus ?? "pending_payment";
@@ -50,6 +72,8 @@ function TeamsPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<number | null>(null);
+  const [sponsoringId, setSponsoringId] = useState<number | null>(null);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const successType = searchParams.get("success");
 
@@ -75,10 +99,11 @@ function TeamsPageContent() {
   const approveTeam = async (teamId: number) => {
     setApprovingId(teamId);
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(`/api/backend/admin/teams/${teamId}/approve`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}) },
         body: JSON.stringify({ billingCycle: "monthly" }),
       });
       if (!res.ok) {
@@ -90,6 +115,28 @@ function TeamsPageContent() {
       setError(err instanceof Error ? err.message : "Failed to approve team.");
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const approveAndSponsor = async (teamId: number) => {
+    setSponsoringId(teamId);
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch(`/api/backend/admin/teams/${teamId}/approve-sponsor-rest`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}) },
+        body: JSON.stringify({ billingCycle: "monthly" }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to approve team and sponsor remaining players.");
+      }
+      await loadTeams();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve and sponsor team.");
+    } finally {
+      setSponsoringId(null);
     }
   };
 
@@ -137,13 +184,21 @@ function TeamsPageContent() {
                 {teams.map((team) => (
                   <div
                     key={team.team}
-                    className="group relative block rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5"
+                    role="link"
+                    tabIndex={0}
+                    onClick={(event) => {
+                      const target = event.target as HTMLElement;
+                      if (target.closest("a,button")) return;
+                      router.push(`/teams/${encodeURIComponent(team.team)}`);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      router.push(`/teams/${encodeURIComponent(team.team)}`);
+                    }}
+                    className="group block cursor-pointer rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                   >
-                    <Link
-                      href={`/teams/${encodeURIComponent(team.team)}`}
-                      className="absolute inset-0 z-0"
-                    />
-                    <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-base font-semibold text-foreground">
                           {team.team}
@@ -164,6 +219,12 @@ function TeamsPageContent() {
                           <span className={`rounded-full border px-2 py-1 ${billingLabel(team).color}`}>
                             {billingLabel(team).text}
                           </span>
+                          {team.paymentQueue ? (
+                            <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-sky-200">
+                              Queue: {team.paymentQueue.paidCount}/{team.paymentQueue.totalCount} paid
+                              {team.paymentQueue.sponsoredCount > 0 ? ` · ${team.paymentQueue.sponsoredCount} sponsored` : ""}
+                            </span>
+                          ) : null}
                           {team.planExpiresAt ? (
                             <span className="rounded-full border border-border px-2 py-1">
                               Expires {formatDate(team.planExpiresAt)}
@@ -173,15 +234,28 @@ function TeamsPageContent() {
                       </div>
                       <div className="flex gap-2">
                         {(team.subscriptionStatus ?? "pending_payment") !== "active" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); approveTeam(team.id); }}
-                            disabled={approvingId === team.id}
-                          >
-                            {approvingId === team.id ? "Approving…" : "Approve"}
-                          </Button>
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); approveTeam(team.id); }}
+                              disabled={approvingId === team.id}
+                            >
+                              {approvingId === team.id ? "Approving…" : "Approve"}
+                            </Button>
+                            {team.paymentQueue && team.paymentQueue.totalCount > team.paymentQueue.paidCount ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 border-violet-500/30 text-violet-200 hover:bg-violet-500/10"
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); approveAndSponsor(team.id); }}
+                                disabled={sponsoringId === team.id}
+                              >
+                                {sponsoringId === team.id ? "Sponsoring…" : "Approve — sponsor the rest"}
+                              </Button>
+                            ) : null}
+                          </>
                         )}
                         <Button
                           variant="outline"
@@ -193,7 +267,7 @@ function TeamsPageContent() {
                         </Button>
                       </div>
                     </div>
-                    <p className="relative z-10 mt-2 text-xs text-muted-foreground">
+                    <p className="mt-2 text-xs text-muted-foreground">
                       Created: {formatDate(team.createdAt)} · Last updated:{" "}
                       {formatDate(team.updatedAt)}
                     </p>

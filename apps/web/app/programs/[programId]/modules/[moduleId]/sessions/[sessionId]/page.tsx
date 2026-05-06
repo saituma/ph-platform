@@ -17,7 +17,9 @@ import {
 } from "../../../../../../../components/ui/dialog";
 import { ChevronRight, Dumbbell, Pencil, Plus, Trash2 } from "lucide-react";
 import {
-  useGetProgramFullQuery,
+  useGetProgramsQuery,
+  useGetProgramModulesQuery,
+  useGetModuleSessionsQuery,
   useGetSessionExercisesQuery,
   useAddSessionExerciseMutation,
   useDeleteSessionExerciseMutation,
@@ -43,9 +45,48 @@ const emptyForm: Exercise = {
   regression: "",
 };
 
-function exerciseToForm(ex: any): Exercise {
+type ProgramSummary = {
+  id: number;
+  name?: string | null;
+};
+
+type ProgramModule = {
+  id: number;
+  title?: string | null;
+};
+
+type ProgramSession = {
+  id: number;
+  title?: string | null;
+  sessionNumber?: number | null;
+};
+
+type SessionExercise = {
+  id: number;
+  order?: number | null;
+  coachingNotes?: string | null;
+  exercise?: {
+    id?: number | null;
+    name?: string | null;
+    category?: string | null;
+    sets?: number | null;
+    reps?: number | null;
+    duration?: number | null;
+    restSeconds?: number | null;
+    videoUrl?: string | null;
+    notes?: string | null;
+    cues?: string | null;
+    howTo?: string | null;
+    progression?: string | null;
+    regression?: string | null;
+  } | null;
+};
+
+type ExerciseRecord = NonNullable<SessionExercise["exercise"]>;
+
+function exerciseToForm(ex: ExerciseRecord): Exercise {
   return {
-    id: ex.id,
+    id: ex.id ?? undefined,
     name: ex.name ?? "",
     category: ex.category ?? "",
     sets: ex.sets != null ? String(ex.sets) : "",
@@ -67,9 +108,14 @@ export default function SessionDetailPage() {
   const moduleId = Number(params?.moduleId);
   const sessionId = Number(params?.sessionId);
 
-  const { data: fullData } = useGetProgramFullQuery(
+  const { data: programsData } = useGetProgramsQuery();
+  const { data: modulesData } = useGetProgramModulesQuery(
     { programId },
     { skip: !Number.isFinite(programId) || programId <= 0 },
+  );
+  const { data: sessionsData } = useGetModuleSessionsQuery(
+    { moduleId },
+    { skip: !Number.isFinite(moduleId) || moduleId <= 0 },
   );
   const { data: exercisesInSession, isLoading } = useGetSessionExercisesQuery(
     { sessionId },
@@ -84,20 +130,23 @@ export default function SessionDetailPage() {
   const [exerciseForm, setExerciseForm] = useState<Exercise>(emptyForm);
   const [editingExerciseId, setEditingExerciseId] = useState<number | null>(null);
 
-  const program = fullData?.program ?? null;
+  const program = useMemo(
+    () => ((programsData?.programs ?? []) as ProgramSummary[]).find((item) => item.id === programId) ?? null,
+    [programsData, programId],
+  );
   const currentModule = useMemo(
-    () => (program?.modules ?? []).find((m: any) => m.id === moduleId),
-    [program, moduleId],
+    () => ((modulesData?.modules ?? []) as ProgramModule[]).find((m) => m.id === moduleId),
+    [modulesData, moduleId],
   );
   const currentSession = useMemo(
-    () => (currentModule?.sessions ?? []).find((s: any) => s.id === sessionId),
-    [currentModule, sessionId],
+    () => ((sessionsData?.sessions ?? []) as ProgramSession[]).find((s) => s.id === sessionId),
+    [sessionsData, sessionId],
   );
 
-  const sessionExercises = exercisesInSession?.exercises ?? [];
+  const sessionExercises: SessionExercise[] = exercisesInSession?.exercises ?? [];
 
   const nextOrder = sessionExercises.length
-    ? Math.max(...sessionExercises.map((e: any) => e.order ?? 0)) + 1
+    ? Math.max(...sessionExercises.map((e) => e.order ?? 0)) + 1
     : 1;
 
   const openCreate = () => {
@@ -106,9 +155,10 @@ export default function SessionDetailPage() {
     setDialogMode("create");
   };
 
-  const openEdit = (se: any) => {
+  const openEdit = (se: SessionExercise) => {
+    if (!se.exercise) return;
     setExerciseForm(exerciseToForm(se.exercise));
-    setEditingExerciseId(se.exercise?.id);
+    setEditingExerciseId(se.exercise.id ?? null);
     setDialogMode("edit");
   };
 
@@ -128,7 +178,7 @@ export default function SessionDetailPage() {
         restSeconds: exerciseForm.rest ? Number(exerciseForm.rest) : undefined,
         notes: exerciseForm.notes || undefined,
         videoUrl: exerciseForm.videoUrl || undefined,
-      } as any).unwrap();
+      }).unwrap();
       const newId = created?.exercise?.id;
       if (newId) {
         await addExercise({ sessionId, exerciseId: newId, order: nextOrder }).unwrap();
@@ -223,7 +273,7 @@ export default function SessionDetailPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {sessionExercises.map((se: any, index: number) => (
+          {sessionExercises.map((se, index) => (
             <div
               key={se.id}
               className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4"

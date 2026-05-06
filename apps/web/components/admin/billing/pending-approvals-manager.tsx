@@ -46,6 +46,11 @@ type TeamApprovalRequest = {
   planBillingInterval?: string | null;
   paymentAmountCents?: number | null;
   paymentCurrency?: string | null;
+  paymentMode?: "coach_pays_all" | "per_player_all" | "per_player_selected" | null;
+  inviteEmailsReady?: boolean | null;
+  inviteEmailsError?: string | null;
+  inviteEmailsTotal?: number | null;
+  inviteEmailsSent?: number | null;
 };
 
 type ApiErrorLike = {
@@ -97,6 +102,11 @@ function canApproveGuardianRequest(request: ApprovalRequest) {
   return payment === "paid" || payment === "no_payment_required";
 }
 
+function teamRequestNeedsInviteEmails(request: TeamApprovalRequest) {
+  const mode = String(request.paymentMode ?? "").toLowerCase();
+  return mode === "per_player_all" || mode === "per_player_selected";
+}
+
 export function PendingApprovalsManager() {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [teamRequests, setTeamRequests] = useState<TeamApprovalRequest[]>([]);
@@ -128,6 +138,19 @@ export function PendingApprovalsManager() {
   useEffect(() => {
     void loadRequests();
   }, [loadRequests]);
+
+  useEffect(() => {
+    const hasPendingInviteEmails = teamRequests.some((request) => {
+      const status = String(request.status ?? "").toLowerCase();
+      if (status === "approved" || status === "rejected") return false;
+      return teamRequestNeedsInviteEmails(request) && !request.inviteEmailsReady;
+    });
+    if (!hasPendingInviteEmails) return;
+    const id = window.setInterval(() => {
+      void loadRequests();
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [teamRequests, loadRequests]);
 
   const handleApprove = async (requestId: number) => {
     setActionError(null);
@@ -482,6 +505,8 @@ export function PendingApprovalsManager() {
                             .replace(/_/g, " ")
                             .trim() || null;
                         const status = request.status ?? request.paymentStatus ?? null;
+                        const awaitingInviteEmails =
+                          teamRequestNeedsInviteEmails(request) && !request.inviteEmailsReady;
                         return (
                           <TableRow key={`team-${request.requestId}`}>
                             <TableCell>
@@ -515,6 +540,24 @@ export function PendingApprovalsManager() {
                               </Badge>
                             </TableCell>
                             <TableCell>
+                              <div className="mb-2">
+                                {awaitingInviteEmails ? (
+                                  <Badge
+                                    variant="warning"
+                                    title={
+                                      request.inviteEmailsError
+                                        ? `Last email error: ${request.inviteEmailsError}`
+                                        : undefined
+                                    }
+                                  >
+                                    Sending emails… {request.inviteEmailsSent ?? 0}/{request.inviteEmailsTotal ?? 0}
+                                  </Badge>
+                                ) : teamRequestNeedsInviteEmails(request) ? (
+                                  <Badge variant="success">Invite emails sent</Badge>
+                                ) : (
+                                  <Badge variant="secondary">No invite emails required</Badge>
+                                )}
+                              </div>
                               <div className="flex gap-2">
                                 {status === "approved" ? (
                                   <Button
@@ -528,9 +571,10 @@ export function PendingApprovalsManager() {
                                 ) : (
                                   <Button
                                     size="sm"
+                                    disabled={awaitingInviteEmails}
                                     onClick={() => handleApproveTeam(request.requestId)}
                                   >
-                                    Approve
+                                    {awaitingInviteEmails ? "Waiting for email…" : "Approve"}
                                   </Button>
                                 )}
                                 <Button

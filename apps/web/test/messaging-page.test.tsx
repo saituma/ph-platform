@@ -33,6 +33,7 @@ jest.mock("@/lib/apiSlice", () => ({
   useGetAnnouncementsQuery: jest.fn(),
   useGetAdminProfileQuery: jest.fn(),
   useGetAdminTeamsQuery: jest.fn(),
+  useGetMessagingInboxQuery: jest.fn(),
   useGetThreadsQuery: jest.fn(),
   useGetUsersQuery: jest.fn(),
   useGetChatGroupsQuery: jest.fn(),
@@ -62,6 +63,7 @@ describe("messaging page", () => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams());
     io.mockReturnValue({
       on: jest.fn(),
+      off: jest.fn(),
       emit: jest.fn(),
       disconnect: jest.fn(),
     });
@@ -74,6 +76,10 @@ describe("messaging page", () => {
       data: { user: { id: 999 } },
     });
     apiSlice.useGetThreadsQuery.mockReturnValue({
+      data: { threads: [] },
+      refetch: jest.fn(),
+    });
+    apiSlice.useGetMessagingInboxQuery.mockReturnValue({
       data: { threads: [] },
       refetch: jest.fn(),
     });

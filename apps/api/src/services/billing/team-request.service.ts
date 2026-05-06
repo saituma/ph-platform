@@ -7,6 +7,7 @@ import { subscriptionPlanTable, teamSubscriptionRequestTable, teamPlayerPaymentI
 import { newReceiptPublicId } from "../../lib/receipt-public-id";
 import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
 import { getStripeClient } from "./stripe.service";
+import { parsePriceToCents } from "./plan.service";
 import {
   notifyTeamSubscriptionEnteredPendingApproval,
   notifyTeamSubscriptionApproved,
@@ -210,6 +211,8 @@ export async function listTeamSubscriptionRequestsAdmin() {
       status: teamSubscriptionRequestTable.status,
       paymentStatus: teamSubscriptionRequestTable.paymentStatus,
       allPaymentsComplete: teamSubscriptionRequestTable.allPaymentsComplete,
+      inviteEmailsReady: teamSubscriptionRequestTable.inviteEmailsReady,
+      inviteEmailsError: teamSubscriptionRequestTable.inviteEmailsError,
       paymentMode: teamSubscriptionRequestTable.paymentMode,
       coachPaysSeats: teamSubscriptionRequestTable.coachPaysSeats,
       planBillingCycle: teamSubscriptionRequestTable.planBillingCycle,
@@ -224,6 +227,8 @@ export async function listTeamSubscriptionRequestsAdmin() {
       planName: subscriptionPlanTable.name,
       planTier: subscriptionPlanTable.tier,
       planDisplayPrice: subscriptionPlanTable.displayPrice,
+      planMonthlyPrice: subscriptionPlanTable.monthlyPrice,
+      planYearlyPrice: subscriptionPlanTable.yearlyPrice,
       planBillingInterval: subscriptionPlanTable.billingInterval,
       paymentAmountCents: teamSubscriptionRequestTable.paymentAmountCents,
       paymentCurrency: teamSubscriptionRequestTable.paymentCurrency,
@@ -234,7 +239,52 @@ export async function listTeamSubscriptionRequestsAdmin() {
     .leftJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
     .orderBy(desc(teamSubscriptionRequestTable.createdAt));
 
-  return rows;
+  return await Promise.all(
+    rows.map(async (row) => {
+      const seatAmountCents = planSeatAmountCents(row.planBillingCycle, {
+        displayPrice: row.planDisplayPrice,
+        monthlyPrice: row.planMonthlyPrice,
+        yearlyPrice: row.planYearlyPrice,
+      });
+      const invites = await listPlayerPaymentInvites(row.requestId);
+      const effectiveInvites = invites.map((invite) => ({
+        ...invite,
+        amountCents: invite.amountCents ?? seatAmountCents,
+      }));
+      const managerAmountCents =
+        row.paymentAmountCents ??
+        (seatAmountCents != null ? Math.max(0, row.coachPaysSeats ?? 0) * seatAmountCents : null);
+      const playerAmountCents = effectiveInvites.reduce((sum, invite) => sum + (invite.amountCents ?? 0), 0);
+      const paidPlayerAmountCents = effectiveInvites
+        .filter((invite) => invite.status === "paid")
+        .reduce((sum, invite) => sum + (invite.amountCents ?? 0), 0);
+      const managerPaidAmountCents = isPaidRequestPaymentStatus(row.paymentStatus) ? (managerAmountCents ?? 0) : 0;
+      const totalAmountCents = (managerAmountCents ?? 0) + playerAmountCents;
+      const paidAmountCents = managerPaidAmountCents + paidPlayerAmountCents;
+
+      return {
+        ...row,
+        paymentAmountCents: managerAmountCents,
+        paymentCurrency: row.paymentCurrency ?? effectiveInvites.find((invite) => invite.currency)?.currency ?? "gbp",
+        managerAmountCents,
+        playerAmountCents,
+        totalAmountCents,
+        paidAmountCents,
+        remainingAmountCents: Math.max(0, totalAmountCents - paidAmountCents),
+      };
+    }),
+  );
+}
+
+function planSeatAmountCents(
+  billingCycle: string | null | undefined,
+  plan: { displayPrice?: string | null; monthlyPrice?: string | null; yearlyPrice?: string | null },
+) {
+  const cycle = String(billingCycle ?? "monthly").toLowerCase();
+  const monthly = parsePriceToCents(plan.monthlyPrice ?? plan.displayPrice);
+  if (cycle === "yearly") return parsePriceToCents(plan.yearlyPrice) ?? monthly;
+  if (cycle === "6months" || cycle === "six_months") return monthly != null ? monthly * 6 : parsePriceToCents(plan.displayPrice);
+  return monthly;
 }
 
 function commitmentMonthsForCycle(cycle: string | null | undefined): number {
@@ -283,6 +333,11 @@ export async function approveTeamSubscriptionRequest(requestId: number) {
   const request = rows[0]?.request ?? null;
   const planDurationWeeks = rows[0]?.planDurationWeeks ?? null;
   if (!request) return null;
+  const requiresInviteEmails =
+    request.paymentMode === "per_player_all" || request.paymentMode === "per_player_selected";
+  if (requiresInviteEmails && !request.inviteEmailsReady) {
+    throw new Error("Invite emails are still sending. Approve will unlock automatically once delivery is confirmed.");
+  }
 
   const previousStatus = request.status;
   const [updatedRequest] = await db
@@ -326,6 +381,57 @@ export async function rejectTeamSubscriptionRequest(requestId: number) {
     .where(eq(teamSubscriptionRequestTable.id, requestId))
     .returning();
   return updated ?? null;
+}
+
+export async function sponsorTeamPlayerPaymentInvite(requestId: number, inviteId: number) {
+  const [invite] = await db
+    .select({
+      id: teamPlayerPaymentInviteTable.id,
+      requestId: teamPlayerPaymentInviteTable.requestId,
+      status: teamPlayerPaymentInviteTable.status,
+    })
+    .from(teamPlayerPaymentInviteTable)
+    .where(and(eq(teamPlayerPaymentInviteTable.id, inviteId), eq(teamPlayerPaymentInviteTable.requestId, requestId)))
+    .limit(1);
+
+  if (!invite) return null;
+  if (invite.status === "paid") {
+    return reconcileTeamRequestPayments(requestId);
+  }
+
+  await db
+    .update(teamPlayerPaymentInviteTable)
+    .set({
+      status: "paid",
+      paidAt: new Date(),
+      emailLastError: "sponsored_by_manager",
+      updatedAt: new Date(),
+    })
+    .where(eq(teamPlayerPaymentInviteTable.id, inviteId));
+
+  const invites = await db
+    .select({
+      status: teamPlayerPaymentInviteTable.status,
+      emailSentAt: teamPlayerPaymentInviteTable.emailSentAt,
+      emailLastError: teamPlayerPaymentInviteTable.emailLastError,
+    })
+    .from(teamPlayerPaymentInviteTable)
+    .where(eq(teamPlayerPaymentInviteTable.requestId, requestId));
+  const inviteEmailsReady =
+    invites.length === 0 ||
+    invites.every((row) => row.status === "paid" || row.emailSentAt != null || row.emailLastError === "sponsored_by_manager");
+
+  await db
+    .update(teamSubscriptionRequestTable)
+    .set({
+      inviteEmailsReady,
+      inviteEmailsLastAttemptAt: new Date(),
+      inviteEmailsError: inviteEmailsReady ? null : "Some invite emails have not been sent yet.",
+      updatedAt: new Date(),
+    })
+    .where(eq(teamSubscriptionRequestTable.id, requestId));
+
+  return reconcileTeamRequestPayments(requestId);
 }
 
 export async function upsertTeamPendingApprovalFromSessionMetadata(session: Stripe.Checkout.Session) {
@@ -395,11 +501,47 @@ export async function createPlayerPaymentInvites(
 }
 
 export async function listPlayerPaymentInvites(requestId: number) {
-  return await db
-    .select()
+  const rows = await db
+    .select({
+      id: teamPlayerPaymentInviteTable.id,
+      requestId: teamPlayerPaymentInviteTable.requestId,
+      teamId: teamPlayerPaymentInviteTable.teamId,
+      playerEmail: teamPlayerPaymentInviteTable.playerEmail,
+      playerName: teamPlayerPaymentInviteTable.playerName,
+      stripePaymentLinkId: teamPlayerPaymentInviteTable.stripePaymentLinkId,
+      stripePaymentLinkUrl: teamPlayerPaymentInviteTable.stripePaymentLinkUrl,
+      stripeSessionId: teamPlayerPaymentInviteTable.stripeSessionId,
+      amountCents: teamPlayerPaymentInviteTable.amountCents,
+      currency: teamPlayerPaymentInviteTable.currency,
+      status: teamPlayerPaymentInviteTable.status,
+      paidAt: teamPlayerPaymentInviteTable.paidAt,
+      emailSentAt: teamPlayerPaymentInviteTable.emailSentAt,
+      emailLastError: teamPlayerPaymentInviteTable.emailLastError,
+      createdAt: teamPlayerPaymentInviteTable.createdAt,
+      updatedAt: teamPlayerPaymentInviteTable.updatedAt,
+      planBillingCycle: teamSubscriptionRequestTable.planBillingCycle,
+      planDisplayPrice: subscriptionPlanTable.displayPrice,
+      planMonthlyPrice: subscriptionPlanTable.monthlyPrice,
+      planYearlyPrice: subscriptionPlanTable.yearlyPrice,
+    })
     .from(teamPlayerPaymentInviteTable)
+    .innerJoin(teamSubscriptionRequestTable, eq(teamPlayerPaymentInviteTable.requestId, teamSubscriptionRequestTable.id))
+    .leftJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
     .where(eq(teamPlayerPaymentInviteTable.requestId, requestId))
     .orderBy(desc(teamPlayerPaymentInviteTable.createdAt));
+
+  return rows.map((row) => {
+    const fallbackAmountCents = planSeatAmountCents(row.planBillingCycle, {
+      displayPrice: row.planDisplayPrice,
+      monthlyPrice: row.planMonthlyPrice,
+      yearlyPrice: row.planYearlyPrice,
+    });
+    const { planBillingCycle: _planBillingCycle, planDisplayPrice: _planDisplayPrice, planMonthlyPrice: _planMonthlyPrice, planYearlyPrice: _planYearlyPrice, ...invite } = row;
+    return {
+      ...invite,
+      amountCents: invite.amountCents ?? fallbackAmountCents,
+    };
+  });
 }
 
 export async function updateTeamPlayerInvitePaymentFromStripeSession(

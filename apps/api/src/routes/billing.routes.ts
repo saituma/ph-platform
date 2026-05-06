@@ -18,6 +18,7 @@ import {
   consumePlanInvitePublic,
   downgradePlan,
   getBillingStatus,
+  getTeamPaymentConfigDraft,
   getPaymentReceipt,
   listInvoices,
   listTeamRequestsAdmin,
@@ -27,9 +28,12 @@ import {
   listRequestsAdmin,
   rejectRequestAdmin,
   rejectTeamRequestAdmin,
+  resendTeamPlayerInviteAdmin,
+  sponsorTeamPlayerInviteAdmin,
   syncRequestPaymentAdmin,
   syncTeamRequestPaymentAdmin,
   updatePlanAdmin,
+  upsertTeamPaymentConfigDraft,
   verifyRevenueCatPurchase,
   listTeamPlayerInvitesAdmin,
 } from "../controllers/billing.controller";
@@ -42,6 +46,8 @@ router.get("/public/plan-invites/:token", getPlanInviteSummaryPublic);
 router.post("/public/plan-invites/:token/checkout", consumePlanInvitePublic);
 router.get("/billing/public-plans", listPlans);
 router.get("/billing/status", requireAuth, getBillingStatus);
+router.get("/billing/team/payment-config-draft/:teamId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), getTeamPaymentConfigDraft);
+router.put("/billing/team/payment-config-draft/:teamId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), upsertTeamPaymentConfigDraft);
 router.post("/billing/checkout", requireAuth, createCheckout);
 router.post("/billing/team/checkout", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createTeamCheckout);
 router.post("/billing/payment-sheet", requireAuth, createPaymentSheet);
@@ -128,6 +134,18 @@ router.get(
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
   listTeamPlayerInvitesAdmin,
+);
+router.post(
+  "/admin/team-subscription-requests/:requestId/invites/:inviteId/resend",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  resendTeamPlayerInviteAdmin,
+);
+router.post(
+  "/admin/team-subscription-requests/:requestId/invites/:inviteId/sponsor",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  sponsorTeamPlayerInviteAdmin,
 );
 
 export default router;

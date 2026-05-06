@@ -44,6 +44,7 @@ router.post("/admin/teams/:teamName/athletes/:athleteId/attach", AdminTeamContro
 router.post("/admin/teams/provision", AdminUserController.provisionTeamWithPlan); // Provisioning uses createGuardianWithOnboardingAdmin
 router.post("/admin/teams/defaults", AdminTeamController.saveTeamDefaultsAdmin);
 router.post("/admin/teams/:teamId/approve", AdminTeamController.approveTeamAdminDetails);
+router.post("/admin/teams/:teamId/approve-sponsor-rest", AdminTeamController.approveTeamSponsorRestAdminDetails);
 router.delete("/admin/teams/:teamId", AdminTeamController.deleteTeamAdminDetails);
 
 // Dashboard & Settings

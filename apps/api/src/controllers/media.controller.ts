@@ -96,13 +96,13 @@ export async function uploadMediaByToken(req: Request, res: Response) {
     const { token } = uploadTokenSchema.parse(req.query);
     const claims = await verifyUploadToken(token);
 
-    const contentTypeHeader = String(req.headers["content-type"] ?? "")
-      .split(";")[0]
-      ?.trim();
-    if (!contentTypeHeader) {
+    const contentTypeHeaderRaw = String(req.headers["content-type"] ?? "").trim();
+    const contentTypeHeaderBase = contentTypeHeaderRaw.split(";")[0]?.trim().toLowerCase();
+    const tokenContentTypeBase = String(claims.contentType ?? "").split(";")[0]?.trim().toLowerCase();
+    if (!contentTypeHeaderBase) {
       return res.status(400).json({ error: "Content-Type header is required" });
     }
-    if (contentTypeHeader.toLowerCase() !== claims.contentType.toLowerCase()) {
+    if (!tokenContentTypeBase || contentTypeHeaderBase !== tokenContentTypeBase) {
       return res.status(400).json({ error: "Content-Type does not match upload token" });
     }
 

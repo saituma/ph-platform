@@ -40,7 +40,6 @@ export default function ProgramsPage() {
 function ProgramsPageInner() {
   const searchParams = useSearchParams();
   const { data: programsData, isLoading: programsLoading } = useGetProgramsQuery();
-  const { data: usersData } = useGetUsersQuery();
   const [createProgram, { isLoading: isCreating }] = useCreateProgramMutation();
   const [updateProgram, { isLoading: isUpdating }] = useUpdateProgramMutation();
   const [assignProgram, { isLoading: isAssigning }] = useAssignProgramMutation();
@@ -48,6 +47,9 @@ function ProgramsPageInner() {
   const [activeDialog, setActiveDialog] = useState<ProgramsDialog>(null);
   const [selectedProgram, setSelectedProgram] = useState<GridProgram | null>(null);
   const [highlightedProgramId, setHighlightedProgramId] = useState<number | null>(null);
+  const { data: usersData, isFetching: usersLoading } = useGetUsersQuery(undefined, {
+    skip: activeDialog !== "assign",
+  });
 
   const programs = useMemo<GridProgram[]>(
     () =>
@@ -74,6 +76,8 @@ function ProgramsPageInner() {
   );
   const isSaving = isCreating || isUpdating || isAssigning;
 
+  // Query params intentionally hydrate the dialog state after programs load.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const programIdParam = Number(searchParams.get("programId"));
     if (!Number.isFinite(programIdParam) || programIdParam <= 0) {
@@ -94,6 +98,7 @@ function ProgramsPageInner() {
     }
     setActiveDialog("manage");
   }, [searchParams, programs]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <AdminShell
@@ -123,6 +128,7 @@ function ProgramsPageInner() {
         users={users}
         isSaving={isSaving}
         isDeleting={isDeleting}
+        isLoadingUsers={usersLoading}
         onCreate={async (input) => {
           try {
             await createProgram(input).unwrap();

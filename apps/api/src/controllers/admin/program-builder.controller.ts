@@ -1,6 +1,11 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import * as ProgramBuilderService from "../../services/admin/program-builder.service";
+import { db } from "../../db";
+import { athleteTable, guardianTable, notificationTable, programTable } from "../../db/schema";
+import { eq } from "drizzle-orm";
+import { pushQueue } from "../../jobs";
+import { getSocketServer } from "../../socket-hub";
 
 const moduleSchema = z.object({
   title: z.string().min(1).max(255),
@@ -142,6 +147,79 @@ export async function assignProgram(req: Request, res: Response) {
       programId,
       assignedBy: req.user!.id,
     });
+
+    const [athlete] = await db
+      .select({
+        athleteUserId: athleteTable.userId,
+        athleteName: athleteTable.name,
+        guardianUserId: guardianTable.userId,
+      })
+      .from(athleteTable)
+      .leftJoin(guardianTable, eq(guardianTable.id, athleteTable.guardianId))
+      .where(eq(athleteTable.id, athleteId))
+      .limit(1);
+
+    const [program] = await db
+      .select({ name: programTable.name })
+      .from(programTable)
+      .where(eq(programTable.id, programId))
+      .limit(1);
+
+    const recipients = new Set<number>();
+    if (athlete?.athleteUserId) recipients.add(athlete.athleteUserId);
+    if (athlete?.guardianUserId) recipients.add(athlete.guardianUserId);
+    const programName = program?.name ?? "a training program";
+    const content = `You were assigned ${programName}`;
+    const link = "/portal/programs";
+
+    if (recipients.size > 0) {
+      await db.insert(notificationTable).values(
+        Array.from(recipients).map((userId) => ({
+          userId,
+          type: "program-assigned",
+          content,
+          link,
+        })),
+      );
+
+      for (const userId of recipients) {
+        void pushQueue.enqueue({
+          userId,
+          title: "New program assigned",
+          body: content,
+          data: {
+            type: "program_assigned",
+            athleteId,
+            athleteName: athlete?.athleteName ?? null,
+            programId,
+            programName,
+            assignmentId: assignment.id,
+            url: link,
+          },
+        });
+      }
+
+      const io = getSocketServer();
+      if (io) {
+        for (const userId of recipients) {
+          io.to(`user:${userId}`).emit("program:assigned", {
+            assignmentId: assignment.id,
+            athleteId,
+            athleteUserId: athlete?.athleteUserId ?? null,
+            athleteName: athlete?.athleteName ?? null,
+            programId,
+            programName,
+            link,
+            createdAt: assignment.createdAt ?? new Date().toISOString(),
+          });
+          io.to(`user:${userId}`).emit("notification:new", {
+            type: "program-assigned",
+            content,
+            link,
+          });
+        }
+      }
+    }
     return res.status(201).json({ assignment });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "";

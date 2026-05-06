@@ -201,14 +201,14 @@ function TrackingPage() {
 	if (status === "finished") {
 		return (
 			<PageTransition className="p-6 max-w-2xl mx-auto space-y-6">
-				<RunSummary
-					distance={distance}
-					elapsed={elapsed}
-					pace={pace}
-					speed={speed}
-					calories={calories}
-					coordinates={coordinates}
-					effortLevel={effortLevel}
+					<RunSummary
+						distance={distance}
+						elapsed={elapsed}
+						pace={pace}
+						calories={calories}
+						coordinates={coordinates}
+						mapStyle={mapStyle}
+						effortLevel={effortLevel}
 					setEffortLevel={setEffortLevel}
 					notes={notes}
 					setNotes={setNotes}
@@ -356,9 +356,9 @@ function RunSummary({
 	distance,
 	elapsed,
 	pace,
-	speed,
 	calories,
 	coordinates,
+	mapStyle,
 	effortLevel,
 	setEffortLevel,
 	notes,
@@ -370,9 +370,9 @@ function RunSummary({
 	distance: number;
 	elapsed: number;
 	pace: number;
-	speed: number;
 	calories: number;
 	coordinates: RunCoordinate[];
+	mapStyle: "street" | "satellite";
 	effortLevel: number | null;
 	setEffortLevel: (v: number | null) => void;
 	notes: string;
@@ -394,7 +394,7 @@ function RunSummary({
 			{coordinates.length > 1 && (
 				<Card className="overflow-hidden border-2">
 					<CardContent className="p-0 h-[200px]">
-						<RunMap coordinates={coordinates} center={{ lat: coordinates[coordinates.length - 1].latitude, lng: coordinates[coordinates.length - 1].longitude }} isRunning={false} />
+							<RunMap coordinates={coordinates} center={{ lat: coordinates[coordinates.length - 1].latitude, lng: coordinates[coordinates.length - 1].longitude }} isRunning={false} mapStyle={mapStyle} />
 					</CardContent>
 				</Card>
 			)}

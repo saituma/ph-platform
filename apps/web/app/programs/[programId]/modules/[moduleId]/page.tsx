@@ -26,7 +26,8 @@ import {
 } from "../../../../../components/ui/select";
 import { ChevronRight, ClipboardList, Plus, Settings, Trash2 } from "lucide-react";
 import {
-  useGetProgramFullQuery,
+  useGetProgramsQuery,
+  useGetProgramModulesQuery,
   useGetModuleSessionsQuery,
   useCreateModuleSessionMutation,
   useUpdateBuilderSessionMutation,
@@ -35,6 +36,26 @@ import {
 import { toast } from "@/lib/toast";
 
 type SessionDialog = null | "create" | "edit";
+
+type BuilderModule = {
+  id: number;
+  title?: string | null;
+};
+
+type BuilderProgram = {
+  id: number;
+  name?: string | null;
+};
+
+type BuilderSession = {
+  id: number;
+  title?: string | null;
+  description?: string | null;
+  weekNumber?: number | null;
+  sessionNumber?: number | null;
+  type?: string | null;
+  exerciseCount?: number | null;
+};
 
 const SESSION_TYPES = [
   { label: "Program", value: "program" },
@@ -55,11 +76,12 @@ export default function ModuleDetailPage() {
   const programId = Number(params?.programId);
   const moduleId = Number(params?.moduleId);
 
-  const { data: fullData } = useGetProgramFullQuery(
+  const { data: programsData } = useGetProgramsQuery();
+  const { data: modulesData } = useGetProgramModulesQuery(
     { programId },
     { skip: !Number.isFinite(programId) || programId <= 0 },
   );
-  const { data: sessionsData, isLoading } = useGetModuleSessionsQuery(
+  const { data: sessionsData, isLoading, refetch: refetchSessions } = useGetModuleSessionsQuery(
     { moduleId },
     { skip: !Number.isFinite(moduleId) || moduleId <= 0 },
   );
@@ -76,25 +98,28 @@ export default function ModuleDetailPage() {
   const [sessionNumber, setSessionNumber] = useState("1");
   const [sessionType, setSessionType] = useState("program");
 
-  const program = fullData?.program ?? null;
-  const currentModule = useMemo(
-    () => (program?.modules ?? []).find((m: any) => m.id === moduleId),
-    [program, moduleId],
+  const program = useMemo(
+    () => ((programsData?.programs ?? []) as BuilderProgram[]).find((item) => item.id === programId) ?? null,
+    [programsData, programId],
   );
-  const sessions = sessionsData?.sessions ?? [];
+  const currentModule = useMemo(
+    () => ((modulesData?.modules ?? []) as BuilderModule[]).find((m) => m.id === moduleId),
+    [modulesData, moduleId],
+  );
+  const sessions: BuilderSession[] = sessionsData?.sessions ?? [];
   const isSaving = isCreating || isUpdating || isDeletingSession;
 
   const openCreate = () => {
     setTitle("");
     setDescription("");
-    setWeekNumber(String((sessions.length > 0 ? Math.max(...sessions.map((s: any) => s.weekNumber ?? 1)) : 1)));
+    setWeekNumber(String(sessions.length > 0 ? Math.max(...sessions.map((s) => s.weekNumber ?? 1)) : 1));
     setSessionNumber(String(sessions.length + 1));
     setSessionType("program");
     setEditSessionId(null);
     setDialog("create");
   };
 
-  const openEdit = (session: any) => {
+  const openEdit = (session: BuilderSession) => {
     setTitle(session.title ?? "");
     setDescription(session.description ?? "");
     setWeekNumber(String(session.weekNumber ?? 1));
@@ -117,6 +142,7 @@ export default function ModuleDetailPage() {
             type: sessionType,
           },
         }).unwrap();
+        await refetchSessions();
         toast.success("Session updated");
       } else {
         await createSession({
@@ -128,6 +154,7 @@ export default function ModuleDetailPage() {
           sessionNumber: Number(sessionNumber),
           type: sessionType,
         }).unwrap();
+        await refetchSessions();
         toast.success("Session created");
       }
       setDialog(null);
@@ -140,6 +167,7 @@ export default function ModuleDetailPage() {
     if (!window.confirm("Delete this session and all its exercises?")) return;
     try {
       await deleteSession({ sessionId }).unwrap();
+      await refetchSessions();
       toast.success("Session deleted");
     } catch {
       toast.error("Failed to delete session");
@@ -183,11 +211,11 @@ export default function ModuleDetailPage() {
         <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
           <ClipboardList className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
           <p className="font-semibold text-foreground">No sessions yet</p>
-          <p className="mt-1">Click "Add Session" to create your first session.</p>
+          <p className="mt-1">Click &quot;Add Session&quot; to create your first session.</p>
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-          {sessions.map((session: any) => (
+          {sessions.map((session) => (
             <Link
               key={session.id}
               href={`/programs/${programId}/modules/${moduleId}/sessions/${session.id}`}

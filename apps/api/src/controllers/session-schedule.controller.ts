@@ -9,6 +9,8 @@ import {
   listSessionTemplates,
   markSessionAttendance,
   materializeTemplateSessions,
+  notifyAttendanceUpdated,
+  notifyMaterializedSessions,
 } from "../services/session-schedule.service";
 import {
   disconnectGoogleCalendarConnectionForAdmin,
@@ -47,7 +49,11 @@ const createTemplateSchema = z
       });
     }
     if (value.isRecurring && value.weekday == null) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["weekday"], message: "weekday is required for recurring templates" });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["weekday"],
+        message: "weekday is required for recurring templates",
+      });
     }
   });
 
@@ -111,6 +117,13 @@ export async function materializeTemplateAdmin(req: Request, res: Response) {
     to: new Date(input.to),
     actorUserId: req.user.id,
   });
+  if (result.sessionIds.length > 0) {
+    void notifyMaterializedSessions({
+      userIds: result.affectedUserIds,
+      sessionIds: result.sessionIds,
+      templateName: result.templateName,
+    });
+  }
   return res.status(200).json(result);
 }
 
@@ -134,6 +147,14 @@ export async function markAttendanceAdmin(req: Request, res: Response) {
     markedBy: req.user.id,
     updates: input.updates,
   });
+  if (result.updated > 0) {
+    void notifyAttendanceUpdated({
+      scheduledSessionId,
+      userIds: input.updates.map((update) => update.userId),
+      message: "Your session attendance was updated.",
+      createNotification: true,
+    });
+  }
   return res.status(200).json(result);
 }
 
@@ -151,8 +172,23 @@ export async function listMySessions(req: Request, res: Response) {
 export async function checkInSession(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   const scheduledSessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
-  const result = await checkInMySession({ scheduledSessionId, userId: req.user.id });
-  return res.status(200).json(result);
+  try {
+    const result = await checkInMySession({ scheduledSessionId, userId: req.user.id });
+    void notifyAttendanceUpdated({
+      scheduledSessionId,
+      userIds: [req.user.id],
+      message: "Session attendance marked.",
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "SESSION_ASSIGNMENT_NOT_FOUND") {
+      return res.status(404).json({ error: "Session assignment not found" });
+    }
+    if (error instanceof Error && error.message === "SESSION_NOT_ATTENDABLE_TODAY") {
+      return res.status(403).json({ error: "Session can only be attended on its scheduled day" });
+    }
+    throw error;
+  }
 }
 
 export async function getCalendarConnectionAdmin(req: Request, res: Response) {

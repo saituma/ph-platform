@@ -207,6 +207,7 @@ export type UserListRow = {
   athleteAge?: number | null;
   athleteTeam?: string | null;
   athleteType?: "youth" | "adult" | null;
+  preferredTrainingDays?: string[] | null;
   profilePicture?: string | null;
   programTier?: string | null;
   guardianProgramTier?: string | null;

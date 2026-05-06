@@ -149,8 +149,8 @@ const handleSignIn = () => {
 			>
 				{shouldEnforceTurnstile && (
 					<div className="animate-element animate-delay-400">
-						<Turnstile
-							siteKey={turnstileSiteKey}
+							<Turnstile
+								siteKey={turnstileSiteKey ?? ""}
 							action="register"
 							resetKey={turnstileResetKey}
 							onVerify={(token) => {

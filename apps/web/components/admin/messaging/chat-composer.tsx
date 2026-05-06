@@ -47,8 +47,15 @@ export function ChatComposer({
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (emojiContainerRef.current && !emojiContainerRef.current.contains(target)) {
+      const path =
+        typeof event.composedPath === "function" ? event.composedPath() : [];
+      const clickedInsideEmoji = path.some((node) => {
+        if (!(node instanceof HTMLElement)) return false;
+        if (emojiContainerRef.current?.contains(node)) return true;
+        const tag = node.tagName?.toLowerCase?.() ?? "";
+        return tag.startsWith("em-");
+      });
+      if (!clickedInsideEmoji) {
         setShowEmojiPicker(false);
       }
     };
@@ -89,7 +96,7 @@ export function ChatComposer({
             <Smile className="h-4 w-4" />
           </Button>
           {showEmojiPicker ? (
-            <div className="absolute bottom-11 left-0 z-40 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+            <div className="absolute bottom-11 left-0 z-[1300] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
               <Picker
                 data={emojiData}
                 onEmojiSelect={handleEmojiSelect}

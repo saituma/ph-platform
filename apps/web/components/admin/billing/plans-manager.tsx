@@ -36,8 +36,6 @@ import {
 } from "../../ui/table";
 import { Badge } from "../../ui/badge";
 import {
-  FEATURE_CATALOG,
-  FLAT_FEATURE_CATALOG,
   TIER_ITEMS,
   defaultFormState,
   deriveMultipliedPrice,
@@ -373,14 +371,6 @@ export function PlansManager() {
         onCancel={() => setForm(null)}
         isSaving={isSaving}
         actionError={actionError}
-        allFeatures={Array.from(
-          new Set<string>([
-            ...FLAT_FEATURE_CATALOG.map((entry) => entry.key),
-            ...plans.flatMap((p) =>
-              Array.isArray(p.features) ? (p.features.filter((s) => typeof s === "string") as string[]) : [],
-            ),
-          ]),
-        )}
       />
 
       <Dialog open={importTarget !== null} onOpenChange={(open) => { if (!open) setImportTarget(null); }}>
@@ -624,7 +614,6 @@ function PlanEditorDialog({
   onCancel,
   isSaving,
   actionError,
-  allFeatures,
 }: {
   form: PlanFormState | null;
   onChange: (f: PlanFormState | null) => void;
@@ -632,7 +621,6 @@ function PlanEditorDialog({
   onCancel: () => void;
   isSaving: boolean;
   actionError: string | null;
-  allFeatures: string[];
 }) {
   const isEditing = form?.id != null;
   const update = (patch: Partial<PlanFormState>) => onChange(form ? { ...form, ...patch } : form);
@@ -870,12 +858,6 @@ function PlanEditorDialog({
               onChange={(discounts) => update({ discounts })}
             />
 
-            <FeaturesEditor
-              features={form.features}
-              allFeatures={allFeatures}
-              onChange={(features) => update({ features })}
-            />
-
             {form.id != null ? (
               <InviteUsersSection planId={form.id} />
             ) : (
@@ -1034,94 +1016,6 @@ function DiscountsEditor({
       <Button variant="outline" size="sm" onClick={add}>
         + Add discount
       </Button>
-    </div>
-  );
-}
-
-function FeaturesEditor({
-  features,
-  allFeatures,
-  onChange,
-}: {
-  features: string[]; // stable feature keys
-  allFeatures: string[]; // pool of keys seen across all plans (for legacy / custom)
-  onChange: (next: string[]) => void;
-}) {
-  const selected = useMemo(() => new Set(features), [features]);
-
-  // Anything in `allFeatures` that isn't in the curated catalog → render under "Custom".
-  const catalogKeySet = useMemo(
-    () => new Set(FEATURE_CATALOG.flatMap((g) => g.features.map((f) => f.key))),
-    [],
-  );
-  const customOptions = useMemo(() => {
-    const out = new Set<string>();
-    for (const k of allFeatures) {
-      if (k && !catalogKeySet.has(k)) out.add(k);
-    }
-    for (const k of features) {
-      if (k && !catalogKeySet.has(k)) out.add(k);
-    }
-    return Array.from(out).sort((a, b) => a.localeCompare(b));
-  }, [allFeatures, features, catalogKeySet]);
-
-  const toggle = (key: string, checked: boolean) => {
-    if (checked) {
-      if (!selected.has(key)) onChange([...features, key]);
-    } else {
-      onChange(features.filter((f) => f !== key));
-    }
-  };
-
-  const renderGroup = (label: string, feats: Array<{ key: string; label: string }>) => (
-    <div key={label} className="space-y-2">
-      <div className="text-[10px] font-bold uppercase tracking-[1.3px] text-muted-foreground">
-        {label}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {feats.map((feature) => {
-          const id = `feat-${label}-${feature.key}`;
-          const checked = selected.has(feature.key);
-          return (
-            <div key={feature.key} className="flex items-center gap-2">
-              <Checkbox
-                id={id}
-                checked={checked}
-                onCheckedChange={(v) => toggle(feature.key, Boolean(v))}
-              />
-              <Label htmlFor={id} className="text-sm font-normal">
-                {feature.label}
-              </Label>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const selectedCount = features.length;
-
-  return (
-    <div className="space-y-4 rounded-xl border border-border p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm font-medium">What's included</div>
-          <p className="text-xs text-muted-foreground">
-            Tick the features this plan includes. They appear as the bullet list during onboarding.
-          </p>
-        </div>
-        <div className="text-xs text-muted-foreground">{selectedCount} selected</div>
-      </div>
-
-      <div className="space-y-4">
-        {FEATURE_CATALOG.map((group) => renderGroup(group.group, group.features))}
-        {customOptions.length > 0
-          ? renderGroup(
-              "Custom",
-              customOptions.map((key) => ({ key, label: key })),
-            )
-          : null}
-      </div>
     </div>
   );
 }

@@ -227,7 +227,7 @@ export async function sendTeamPlayerPaymentInviteEmail(input: {
   teamName: string;
   planName: string;
   checkoutUrl: string;
-}) {
+}): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const subject = `Payment link for ${input.teamName}`;
     const safeUrl = escapeHtml(input.checkoutUrl);
@@ -256,7 +256,9 @@ ${textP(`<span style="color:${E.muted};font-size:13px;">If the button does not o
       bodyHtml,
     });
     await deliverEmail({ to: input.to, subject, html });
+    return { ok: true };
   } catch (err) {
     logger.warn({ err, to: input.to }, "sendTeamPlayerPaymentInviteEmail skipped");
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to send invite email" };
   }
 }

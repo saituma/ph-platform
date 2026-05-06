@@ -41,6 +41,7 @@ type ProgramsDialogsProps = {
   onAssign: (input: { athleteId: number; programType: string; programTemplateId: number }) => Promise<void>;
   isSaving?: boolean;
   isDeleting?: boolean;
+  isLoadingUsers?: boolean;
 };
 
 export function ProgramsDialogs({
@@ -55,6 +56,7 @@ export function ProgramsDialogs({
   onAssign,
   isSaving = false,
   isDeleting = false,
+  isLoadingUsers = false,
 }: ProgramsDialogsProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -64,6 +66,8 @@ export function ProgramsDialogs({
   const [athleteId, setAthleteId] = useState("");
   const [templateId, setTemplateId] = useState("");
 
+  // Dialog switches intentionally hydrate local form state from the selected record.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (active === "create") {
       setName("");
@@ -86,6 +90,7 @@ export function ProgramsDialogs({
       setTemplateId(selectedProgram?.id ? String(selectedProgram.id) : "");
     }
   }, [active, selectedProgram]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <Dialog open={active !== null} onOpenChange={onClose}>
@@ -105,21 +110,7 @@ export function ProgramsDialogs({
         <div className="mt-6 space-y-4">
           {active === "create" ? (
             <>
-              <Input placeholder="Program name" value={name} onChange={(e) => setName(e.target.value)} />
-              <Select value={programType} onValueChange={(v) => setProgramType(v ?? "PHP")}>
-                <SelectTrigger><SelectValue placeholder="Select program type" /></SelectTrigger>
-                <SelectPopup>
-                  <SelectItem value="PHP">PHP</SelectItem>
-                  <SelectItem value="PHP_Premium">PHP Premium</SelectItem>
-                  <SelectItem value="PHP_Premium_Plus">PHP Premium Plus</SelectItem>
-                  <SelectItem value="PHP_Pro">PHP Pro</SelectItem>
-                </SelectPopup>
-              </Select>
-              <Textarea placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
-              <div className="grid grid-cols-2 gap-3">
-                <Input type="number" placeholder="Min age (optional)" value={minAge} onChange={(e) => setMinAge(e.target.value)} />
-                <Input type="number" placeholder="Max age (optional)" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} />
-              </div>
+              <Input placeholder="Program title" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button
@@ -127,10 +118,7 @@ export function ProgramsDialogs({
                   onClick={async () => {
                     await onCreate({
                       name: name.trim(),
-                      type: programType,
-                      description: description.trim() || undefined,
-                      minAge: minAge ? Number(minAge) : null,
-                      maxAge: maxAge ? Number(maxAge) : null,
+                      type: "PHP",
                     });
                     onClose();
                   }}
@@ -196,13 +184,19 @@ export function ProgramsDialogs({
               <Select value={athleteId} onValueChange={(v) => setAthleteId(v ?? "")}>
                 <SelectTrigger><SelectValue placeholder="Select athlete" /></SelectTrigger>
                 <SelectPopup>
-                  {users
-                    .filter((user) => user.athleteId)
-                    .map((user) => (
-                      <SelectItem key={user.id} value={String(user.athleteId)}>
-                        {user.name || user.email}
-                      </SelectItem>
-                    ))}
+                  {isLoadingUsers ? (
+                    <SelectItem value="loading" disabled>
+                      Loading athletes...
+                    </SelectItem>
+                  ) : (
+                    users
+                      .filter((user) => user.athleteId)
+                      .map((user) => (
+                        <SelectItem key={user.id} value={String(user.athleteId)}>
+                          {user.name || user.email}
+                        </SelectItem>
+                      ))
+                  )}
                 </SelectPopup>
               </Select>
               <Select value={templateId} onValueChange={(v) => setTemplateId(v ?? "")}>
@@ -218,7 +212,7 @@ export function ProgramsDialogs({
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button
-                  disabled={isSaving || !athleteId || !templateId}
+                  disabled={isSaving || isLoadingUsers || !athleteId || !templateId || athleteId === "loading"}
                   onClick={async () => {
                     await onAssign({
                       athleteId: Number(athleteId),

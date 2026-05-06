@@ -113,6 +113,7 @@ export async function listUsers(options?: { q?: string; limit?: number; managedB
       athleteTeam: teamTable.name,
       athleteAge: athleteTable.age,
       athleteType: athleteTable.athleteType,
+      preferredTrainingDays: athleteTable.preferredTrainingDays,
       programTier: athleteTable.currentProgramTier,
       onboardingCompleted: sql<boolean>`
         coalesce(

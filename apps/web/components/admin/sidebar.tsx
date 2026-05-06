@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { io, Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
 import {
   Activity,
   BadgeCheck,
@@ -31,7 +31,7 @@ import { AdminNavGrouped, type NavGroup } from "./nav";
 import { cn } from "../../lib/utils";
 import { ScrollArea } from "../ui/scroll-area";
 import { useGetThreadsQuery, useGetUsersQuery, useGetVideoUploadsQuery } from "../../lib/apiSlice";
-import { resolveSocketUrl } from "../../lib/socket-url";
+import { getOrCreateAdminSocket } from "../../lib/admin-socket";
 
 type SidebarContentProps = {
   currentPath: string;
@@ -78,22 +78,7 @@ export function AdminSidebarContent({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const socketUrl = resolveSocketUrl();
-
-    const accessToken = typeof document !== "undefined"
-      ? document.cookie
-          .split(";")
-          .map((part) => part.trim())
-          .find((part) => part.startsWith("accessTokenClient="))
-          ?.split("=")[1] ?? ""
-      : "";
-
-    if (socketUrl) void fetch(`${socketUrl}/health`, { cache: "no-store" }).catch(() => {});
-    const socket: Socket = io(socketUrl, {
-      auth: accessToken ? { token: accessToken } : undefined,
-      transports: ["polling", "websocket"],
-      reconnection: true,
-    });
+    const socket = getOrCreateAdminSocket();
     socketRef.current = socket;
 
     socket.on("connect", () => console.log("[Sidebar Socket] Connected"));
@@ -108,7 +93,9 @@ export function AdminSidebarContent({
     socket.on("message:new", () => refetchThreads());
 
     return () => {
-      socket.disconnect();
+      socket.off("video:new", handleRefresh);
+      socket.off("video:reviewed", handleRefresh);
+      socket.off("message:new");
       socketRef.current = null;
     };
   }, []);

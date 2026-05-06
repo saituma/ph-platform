@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminShell } from "../../components/admin/shell";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -19,6 +19,7 @@ import {
   useMarkAdminSessionAttendanceMutation,
   useMaterializeAdminSessionTemplateMutation,
 } from "../../lib/apiSlice";
+import { getOrCreateAdminSocket } from "../../lib/admin-socket";
 
 function toIsoDateInput(d: Date) {
   const y = d.getFullYear();
@@ -52,6 +53,26 @@ function formatHourLabel(hour24: string) {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12} ${suffix}`;
 }
+
+const WEEK_DAY_COLUMNS = [
+  { id: "mon", label: "Mon" },
+  { id: "tue", label: "Tue" },
+  { id: "wed", label: "Wed" },
+  { id: "thu", label: "Thu" },
+  { id: "fri", label: "Fri" },
+  { id: "sat", label: "Sat" },
+  { id: "sun", label: "Sun" },
+] as const;
+
+type AthleteDayRow = {
+  id: number | string;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  athleteId?: number | null;
+  athleteType?: "youth" | "adult" | null;
+  preferredTrainingDays?: string[] | null;
+};
 
 export default function SessionSchedulePage() {
   const now = new Date();
@@ -130,9 +151,31 @@ export default function SessionSchedulePage() {
     [teams, selectedTeamId],
   );
 
+  const athleteDayRows = useMemo(() => {
+    return users
+      .map((u) => u as unknown as AthleteDayRow)
+      .filter((u) => {
+        const role = String(u.role ?? "").toLowerCase();
+        return role === "athlete" || role === "youth" || role === "adult" || !!u.athleteId || !!u.athleteType;
+      });
+  }, [users]);
+
   const startsAtTime = `${startHour}:${startMinute}`;
   const endsAtTime = `${endHour}:${endMinute}`;
   const todayKey = toDateKey(new Date());
+
+  useEffect(() => {
+    const socket = getOrCreateAdminSocket();
+    const refresh = () => {
+      void refetchSessions();
+    };
+    socket.on("schedule:changed", refresh);
+    socket.on("schedule:attendance:changed", refresh);
+    return () => {
+      socket.off("schedule:changed", refresh);
+      socket.off("schedule:attendance:changed", refresh);
+    };
+  }, [refetchSessions]);
 
   async function markAttendanceWithRetry(input: {
     sessionId: number;
@@ -621,56 +664,50 @@ export default function SessionSchedulePage() {
           <CardTitle>Scheduled Sessions & Attendance</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {isLoading ? <p className="text-sm text-muted-foreground">Loading sessions...</p> : null}
-          {sessions.map((s) => {
-            const when = new Date(s.startsAt).toLocaleString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-            return (
-              <div key={s.id} className="rounded-xl border p-3">
-                <div className="font-medium">{s.name}</div>
-                <div className="text-xs text-muted-foreground">{typeLabel(s.type)} • {when}</div>
-                <div className="mt-2 space-y-1">
-                  {s.attendees?.map((a) => (
-                    <div key={`${s.id}-${a.userId}`} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span>{a.userName || a.userEmail || `User ${a.userId}`}</span>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant={a.status === "attended" ? "default" : "outline"}
-                          disabled={marking}
-                          onClick={async () => {
-                            await markAttendance({ sessionId: s.id, updates: [{ userId: a.userId, status: "attended" }] }).unwrap();
-                            await refetchSessions();
-                          }}
-                        >
-                          Attended
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={a.status === "missed" ? "destructive" : "outline"}
-                          disabled={marking}
-                          onClick={async () => {
-                            await markAttendance({ sessionId: s.id, updates: [{ userId: a.userId, status: "missed" }] }).unwrap();
-                            await refetchSessions();
-                          }}
-                        >
-                          Missed
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          {!isLoading && sessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No sessions found for this range.</p>
-          ) : null}
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Athlete Requested Days</p>
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full min-w-[820px] border-collapse text-sm">
+                <thead>
+                  <tr className="bg-muted/40 text-left">
+                    <th className="border-b px-3 py-2 font-medium">Athlete</th>
+                    {WEEK_DAY_COLUMNS.map((day) => (
+                      <th key={`pref-head-${day.id}`} className="border-b px-3 py-2 text-center font-medium">
+                        {day.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {athleteDayRows.map((u) => {
+                    const preferred = new Set((u.preferredTrainingDays ?? []).map((d) => String(d).toLowerCase()));
+                    return (
+                      <tr key={`pref-row-${u.id}`}>
+                        <td className="border-b px-3 py-2">
+                          <div className="font-medium">{u.name || u.email || `User ${u.id}`}</div>
+                          <div className="text-xs text-muted-foreground">{u.role || "athlete"}</div>
+                        </td>
+                        {WEEK_DAY_COLUMNS.map((day) => (
+                          <td key={`pref-cell-${u.id}-${day.id}`} className="border-b px-3 py-2 text-center">
+                            {preferred.has(day.id) ? "Yes" : "-"}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                  {athleteDayRows.length === 0 ? (
+                    <tr>
+                      <td className="border-b px-3 py-4 text-muted-foreground" colSpan={8}>
+                        No athlete preferred days found in the current user list.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {isLoading ? <p className="text-sm text-muted-foreground">Loading requested days...</p> : null}
         </CardContent>
       </Card>
 

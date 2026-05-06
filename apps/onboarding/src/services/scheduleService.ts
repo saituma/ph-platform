@@ -15,6 +15,11 @@ export interface ScheduleEvent {
   status?: string;
   athlete: string;
   notes: string;
+  source?: "booking" | "scheduled-session";
+  scheduledSessionId?: number;
+  attendanceStatus?: "unmarked" | "attended" | "missed";
+  checkInAt?: string | null;
+  canCheckIn?: boolean;
 }
 
 export const formatDateKey = (date: Date) =>
@@ -52,6 +57,63 @@ export function mapBookingsToEvents(items: any[]): ScheduleEvent[] {
         status: item.status ?? undefined,
         athlete: item.athleteName ?? "Athlete",
         notes: item.notes ?? "",
+        source: "booking",
+      } as ScheduleEvent;
+    })
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+}
+
+function defaultSessionRange() {
+  const from = new Date();
+  from.setDate(from.getDate() - 14);
+  from.setHours(0, 0, 0, 0);
+
+  const to = new Date();
+  to.setDate(to.getDate() + 120);
+  to.setHours(23, 59, 59, 999);
+
+  return { from, to };
+}
+
+function isToday(date: Date) {
+  return formatDateKey(date) === formatDateKey(new Date());
+}
+
+function normalizeSessionStatus(status: unknown) {
+  const value = String(status ?? "").toLowerCase();
+  if (value === "completed" || value === "attended") return "completed";
+  if (value === "missed") return "missed";
+  return "upcoming";
+}
+
+export function mapScheduledSessionsToEvents(items: any[]): ScheduleEvent[] {
+  return (items ?? [])
+    .map((item) => {
+      const startsAt = new Date(item.startsAt);
+      const endsAt = item.endsAt ? new Date(item.endsAt) : new Date(startsAt.getTime() + 60 * 60000);
+      const dayIndex = startsAt.getDay();
+      const dayId = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dayIndex] ?? "mon";
+      const attendanceStatus = item.attendanceStatus ?? "unmarked";
+      const type = String(item.type ?? "training");
+      return {
+        id: `scheduled-${item.sessionId}`,
+        dayId,
+        dateKey: formatDateKey(startsAt),
+        startsAt: startsAt.toISOString(),
+        title: item.name || EVENT_TITLE_BY_TYPE[type] || "Training Session",
+        timeStart: startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
+        timeEnd: endsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
+        location: item.location || "TBD",
+        meetingLink: item.meetingLink ?? null,
+        type: type.includes("call") ? "call" : type === "recovery" ? "recovery" : "training",
+        status: normalizeSessionStatus(item.status),
+        athlete: "Athlete",
+        notes: item.notes ?? "",
+        source: "scheduled-session",
+        scheduledSessionId: Number(item.sessionId),
+        attendanceStatus,
+        checkInAt: item.checkInAt ?? null,
+        canCheckIn: isToday(startsAt) && attendanceStatus !== "attended" && attendanceStatus !== "missed",
       } as ScheduleEvent;
     })
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
@@ -60,20 +122,68 @@ export function mapBookingsToEvents(items: any[]): ScheduleEvent[] {
 export async function fetchBookings(_token?: string): Promise<ScheduleEvent[]> {
   const baseUrl = config.api.baseUrl;
   const token = getClientAuthToken();
+  const { from, to } = defaultSessionRange();
+  const sessionParams = new URLSearchParams({
+    from: from.toISOString(),
+    to: to.toISOString(),
+  });
 
-  const response = await fetch(`${baseUrl}/api/bookings`, {
+  const authHeaders = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  const [bookingsResult, sessionsResult] = await Promise.allSettled([
+    fetch(`${baseUrl}/api/bookings`, {
+      credentials: "include",
+      headers: authHeaders,
+    }),
+    fetch(`${baseUrl}/api/sessions/my?${sessionParams.toString()}`, {
+      credentials: "include",
+      headers: authHeaders,
+    }),
+  ]);
+
+  const events: ScheduleEvent[] = [];
+  const errors: string[] = [];
+
+  if (bookingsResult.status === "fulfilled" && bookingsResult.value.ok) {
+    const data = await bookingsResult.value.json();
+    events.push(...mapBookingsToEvents(data.items ?? []));
+  } else {
+    errors.push("bookings");
+  }
+
+  if (sessionsResult.status === "fulfilled" && sessionsResult.value.ok) {
+    const data = await sessionsResult.value.json();
+    events.push(...mapScheduledSessionsToEvents(data.sessions ?? []));
+  } else {
+    errors.push("scheduled sessions");
+  }
+
+  if (errors.length === 2) {
+    throw new Error("Failed to fetch schedule");
+  }
+
+  return events.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+}
+
+export async function checkInScheduledSession(sessionId: number) {
+  const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
+  const response = await fetch(`${baseUrl}/api/sessions/${sessionId}/check-in`, {
+    method: "POST",
     credentials: "include",
     headers: {
+      "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(`Failed to fetch bookings: ${response.status}`);
+    throw new Error((data as { error?: string }).error || "Failed to mark attendance");
   }
-
-  const data = await response.json();
-  return mapBookingsToEvents(data.items ?? []);
+  return data;
 }
 
 export async function fetchBookingServices(_token?: string) {

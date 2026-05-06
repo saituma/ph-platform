@@ -47,6 +47,19 @@ function generatePassword() {
   return pwd;
 }
 
+function getCsrfToken() {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("csrfToken="))
+      ?.split("=")
+      .slice(1)
+      .join("=") ?? ""
+  );
+}
+
 type TeamMember = {
   athleteId: number;
   athleteName: string;
@@ -73,9 +86,47 @@ type TeamDetails = {
   maxAge: number | null;
   planTier: string | null;
   planName: string | null;
+  planDisplayPrice: string | null;
+  planBillingInterval: string | null;
+  planMonthlyPrice: string | null;
+  planYearlyPrice: string | null;
+  planMonthlyAmountCents: number | null;
   sponsoredPlayerCount: number;
   sponsoredPlanId: number | null;
   subscriptionStatus: string;
+  paymentQueue?: {
+    requestId: number;
+    status: string;
+    paymentMode: string;
+    paymentStatus: string;
+    paymentAmountCents: number | null;
+    paymentCurrency: string | null;
+    allPaymentsComplete: boolean;
+    coachPaysSeats: number;
+    inviteEmailsReady: boolean;
+    inviteEmailsLastAttemptAt: string | null;
+    inviteEmailsError: string | null;
+    paidCount: number;
+    totalCount: number;
+    totalAmountCents: number;
+    managerAmountCents: number;
+    playerAmountCents: number;
+    paidAmountCents: number;
+    remainingAmountCents: number;
+    currency: string;
+    invites: Array<{
+      id: number;
+      playerName: string | null;
+      playerEmail: string;
+      amountCents: number | null;
+      currency: string;
+      status: string;
+      paidAt: string | null;
+      emailSentAt: string | null;
+      emailLastError: string | null;
+      sponsoredByManager: boolean;
+    }>;
+  } | null;
   manager: { id: number; name: string | null; email: string; role: string | null } | null;
   summary: {
     memberCount: number;
@@ -122,6 +173,29 @@ function formatDate(value: string | Date | null) {
   const date = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString();
+}
+
+function formatMoney(cents: number, currency: string) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: (currency || "gbp").toUpperCase(),
+    maximumFractionDigits: 2,
+  }).format((cents || 0) / 100);
+}
+
+function paymentModeLabel(mode: string) {
+  if (mode === "coach_pays_all") return "Manager pays all";
+  if (mode === "per_player_all") return "All players pay";
+  if (mode === "per_player_selected") return "Selected players pay";
+  return mode.replace(/_/g, " ");
+}
+
+function paymentStatusLabel(status: string) {
+  if (status === "paid") return "Paid";
+  if (status === "pending") return "Payment pending";
+  if (status === "expired") return "Expired";
+  if (status === "cancelled") return "Cancelled";
+  return status.replace(/_/g, " ");
 }
 
 
@@ -220,6 +294,9 @@ export default function TeamDetailPage() {
   const [pageNotice, setPageNotice] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isSponsoring, setIsSponsoring] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   // Quick Add state (uses team's plan automatically)
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -295,8 +372,10 @@ export default function TeamDetailPage() {
     if (!details?.teamId) return;
     setIsDeleting(true);
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(`/api/backend/admin/teams/${details.teamId}`, {
         method: "DELETE",
+        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
         credentials: "include",
       });
       if (!res.ok) {
@@ -311,6 +390,52 @@ export default function TeamDetailPage() {
     }
   };
 
+  const approveTeam = async () => {
+    if (!details?.teamId) return;
+    setIsApproving(true);
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch(`/api/backend/admin/teams/${details.teamId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}) },
+        credentials: "include",
+        body: JSON.stringify({ billingCycle: "monthly" }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to approve team.");
+      }
+      await loadDetails();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve team.");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const approveSponsorRest = async () => {
+    if (!details?.teamId) return;
+    setIsSponsoring(true);
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch(`/api/backend/admin/teams/${details.teamId}/approve-sponsor-rest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}) },
+        credentials: "include",
+        body: JSON.stringify({ billingCycle: "monthly" }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to approve and sponsor remaining players.");
+      }
+      await loadDetails();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sponsor remaining players.");
+    } finally {
+      setIsSponsoring(false);
+    }
+  };
+
   const resetForm = () => {
     setNewAthleteName("");
     setNewAge("");
@@ -318,6 +443,10 @@ export default function TeamDetailPage() {
   };
 
   const athleteType = details?.athleteType ?? "youth";
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const handleProvision = async () => {
     setPageNotice(null);
@@ -356,7 +485,10 @@ export default function TeamDetailPage() {
         `/api/backend/admin/teams/${encodeURIComponent(cleanTeamName)}/athletes/${athleteId}/attach`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(getCsrfToken() ? { "x-csrf-token": getCsrfToken() } : {}),
+          },
           credentials: "include",
           body: JSON.stringify({ allowMoveFromOtherTeam: false, isSponsored: newIsSponsored }),
         },
@@ -419,7 +551,15 @@ export default function TeamDetailPage() {
       }
       const attachRes = await fetch(
         `/api/backend/admin/teams/${encodeURIComponent(cleanTeamName)}/athletes/${athleteId}/attach`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ allowMoveFromOtherTeam: false }) },
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(getCsrfToken() ? { "x-csrf-token": getCsrfToken() } : {}),
+          },
+          credentials: "include",
+          body: JSON.stringify({ allowMoveFromOtherTeam: false }),
+        },
       );
       if (!attachRes.ok) {
         const attachErr = await attachRes.json().catch(() => ({}));
@@ -444,6 +584,20 @@ export default function TeamDetailPage() {
     if (!details?.members) return {};
     return groupByAgeBand(details.members);
   }, [details?.members]);
+
+  if (!hasMounted) {
+    return (
+      <AdminShell title="Team details" subtitle="Loading team workspace.">
+        <div className="grid gap-6">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">Loading team details...</p>
+            </CardContent>
+          </Card>
+        </div>
+      </AdminShell>
+    );
+  }
 
   return (
     <AdminShell
@@ -485,7 +639,7 @@ export default function TeamDetailPage() {
               onClick={() => setConfirmDelete(true)}
               disabled={isDeleting}
             >
-              {isDeleting ? "Deleting…" : "Delete Team"}
+              {isDeleting ? "Deleting..." : "Delete Team"}
             </Button>
           </CardContent>
         </Card>
@@ -547,6 +701,17 @@ export default function TeamDetailPage() {
                     {athleteType}
                   </p>
                 </div>
+                <div className="rounded-xl border border-border p-3">
+                  <p className="text-xs text-muted-foreground">Membership price</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {details?.planMonthlyAmountCents
+                      ? formatMoney(details.planMonthlyAmountCents, "gbp")
+                      : details?.planMonthlyPrice ?? details?.planDisplayPrice ?? "Not set"}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {details?.planName ?? "Team plan"}
+                  </p>
+                </div>
                 {(details?.sponsoredPlayerCount ?? 0) > 0 ? (
                   <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3">
                     <p className="text-xs text-violet-400">Sponsored players</p>
@@ -571,6 +736,145 @@ export default function TeamDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        <Card>
+            <CardHeader>
+              <SectionHeader title="Team Payments" description="Amount due, player invite emails, and payment status." />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {details?.paymentQueue ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full border border-border px-2 py-1">Mode: {paymentModeLabel(details.paymentQueue.paymentMode)}</span>
+                    <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-sky-200">
+                      Paid {details.paymentQueue.paidCount}/{details.paymentQueue.totalCount}
+                    </span>
+                    <span className="rounded-full border border-border px-2 py-1">Status: {details.paymentQueue.status.replace(/_/g, " ")}</span>
+                    {details.paymentQueue.inviteEmailsReady ? (
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-emerald-200">Invite emails sent</span>
+                    ) : details.paymentQueue.inviteEmailsError ? (
+                      <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-1 text-red-200">Invite email error</span>
+                    ) : null}
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+                      <p className="text-xs text-primary">Total team amount</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">
+                        {formatMoney(details.paymentQueue.totalAmountCents, details.paymentQueue.currency)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-border p-3">
+                      <p className="text-xs text-muted-foreground">Manager pays</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">
+                        {formatMoney(details.paymentQueue.managerAmountCents, details.paymentQueue.currency)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {paymentStatusLabel(details.paymentQueue.paymentStatus ?? "pending")}
+                      </p>
+                      {details.paymentQueue.coachPaysSeats > 0 ? (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {details.paymentQueue.coachPaysSeats} seat{details.paymentQueue.coachPaysSeats === 1 ? "" : "s"}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="rounded-xl border border-border p-3">
+                      <p className="text-xs text-muted-foreground">Players pay</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">
+                        {formatMoney(details.paymentQueue.playerAmountCents, details.paymentQueue.currency)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {details.paymentQueue.totalCount} invited payer{details.paymentQueue.totalCount === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-border p-3">
+                      <p className="text-xs text-muted-foreground">Amount paid</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">
+                        {formatMoney(details.paymentQueue.paidAmountCents, details.paymentQueue.currency)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+                      <p className="text-xs text-amber-300">Still to pay</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">
+                        {formatMoney(details.paymentQueue.remainingAmountCents, details.paymentQueue.currency)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {details.paymentQueue.invites.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Player payment invite emails</p>
+                      {details.paymentQueue.invites.map((invite) => (
+                        <div key={invite.id} className="rounded-xl border border-border p-3 text-sm">
+                          <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-foreground">{invite.playerName || invite.playerEmail}</p>
+                            <p className="text-xs text-muted-foreground">{invite.playerEmail}</p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              Email: {invite.emailSentAt ? `sent ${formatDate(invite.emailSentAt)}` : invite.emailLastError ? "failed" : "not sent yet"}
+                            </p>
+                            {invite.emailLastError && invite.emailLastError !== "sponsored_by_manager" ? (
+                              <p className="mt-1 text-[11px] text-red-300">{invite.emailLastError}</p>
+                            ) : null}
+                          </div>
+                          <div className="text-right text-xs">
+                            <p className="mb-1 text-muted-foreground">{formatMoney(invite.amountCents ?? 0, invite.currency)}</p>
+                            {invite.sponsoredByManager ? (
+                              <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-violet-200">Sponsored</span>
+                            ) : invite.status === "paid" ? (
+                              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-emerald-200">Paid</span>
+                            ) : (
+                              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-amber-200">{paymentStatusLabel(invite.status)}</span>
+                            )}
+                            {invite.paidAt ? (
+                              <p className="mt-2 text-[11px] text-muted-foreground">Paid {formatDate(invite.paidAt)}</p>
+                            ) : null}
+                          </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No player invites for this team.</p>
+                  )}
+
+                  {(details.subscriptionStatus ?? "pending_payment") !== "active" ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={approveTeam} disabled={isApproving}>
+                        {isApproving ? "Approving..." : "Approve"}
+                      </Button>
+                      {details.paymentQueue.totalCount > details.paymentQueue.paidCount ? (
+                        <Button variant="outline" onClick={approveSponsorRest} disabled={isSponsoring}>
+                          {isSponsoring ? "Sponsoring..." : "Approve - sponsor the rest"}
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+                    <p className="text-xs text-primary">Membership price</p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">
+                      {details?.planMonthlyAmountCents
+                        ? formatMoney(details.planMonthlyAmountCents, "gbp")
+                        : details?.planMonthlyPrice ?? details?.planDisplayPrice ?? "Not set"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {details?.planName ?? "Team plan"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Payment setup</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">No payment queue</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Create the team with coach/player payment mode to track invoices and player payment emails here.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
         <Card>
           <CardHeader>

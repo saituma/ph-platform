@@ -3,8 +3,6 @@ import { isPlatformAdmin, isTrainingStaff } from "../lib/user-roles";
 import type { ProgramTierValue } from "./messaging-policy.service";
 import type { FeatureKey } from "../lib/billing-features";
 
-const TIER_ORDER = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const;
-
 export type AppCapabilities = {
   training: boolean;
   schedule: boolean;
@@ -34,18 +32,12 @@ export type AppCapabilities = {
   referralRewards: boolean;
 };
 
-function tierRank(tier: string | null): number {
-  if (!tier) return -1;
-  const idx = TIER_ORDER.indexOf(tier as (typeof TIER_ORDER)[number]);
-  return idx >= 0 ? idx : -1;
-}
-
 /** Mirrors mobile `canUseCoachMessaging` policy toggles. */
 function messagingAllowed(
-  programTier: string | null,
-  messagingAccessTiers: readonly string[],
+  _programTier: string | null,
+  _messagingAccessTiers: readonly string[],
   planFeatures: ReadonlySet<FeatureKey> | null | undefined,
-  hasActivePlan: boolean,
+  _hasActivePlan: boolean,
 ): boolean {
   // Plan-driven toggle: if a plan has explicit features, messaging is controlled
   // only by feature keys. This allows custom plans to turn messaging off.
@@ -111,29 +103,25 @@ export function buildAppCapabilities(input: {
   }
 
   const has = (key: FeatureKey) => planFeatures != null && planFeatures.has(key);
-  const hasPlanFeatures = planFeatures != null && planFeatures.size > 0;
+  const hasPlanFeatures = false;
 
-  const effectiveTier = programTier ?? "PHP";
-  const r = tierRank(effectiveTier);
   const isAdult = role === "adult_athlete" || (role === "athlete" && athleteType === "adult");
   const isTeamAthlete = role === "team_athlete" || hasTeam;
   const isYouth = role === "guardian" || role === "youth_athlete" || athleteType === "youth";
-  const hasAssignedPlan = r >= 0;
-  const hasPlanAccess = hasAssignedPlan || hasActivePlan;
   const canTrackProgress = isAdult || isTeamAthlete;
 
   return {
-    training: hasPlanFeatures ? has("programs_full") || has("mobile_app") : true,
-    schedule: hasPlanFeatures ? has("schedule") : hasPlanAccess,
-    coachBooking: hasPlanFeatures ? has("bookings") : (hasPlanAccess && !isTeamAthlete),
+    training: true,
+    schedule: true,
+    coachBooking: !isTeamAthlete,
     messaging: messagingAllowed(programTier, messagingAccessTiers, planFeatures, hasActivePlan),
     groupChat: isTeamAthlete,
-    nutrition: hasPlanFeatures ? has("nutrition_logging") || has("food_diaries") : (r >= 2 || isTeamAthlete),
+    nutrition: true,
     nutritionReview: false,
-    parentContent: hasPlanFeatures ? has("parent_platform") || isYouth : isYouth,
-    progressTracking: hasPlanFeatures ? has("progress_tracking") && canTrackProgress : canTrackProgress,
+    parentContent: isYouth,
+    progressTracking: canTrackProgress,
     teamTracking: isTeamAthlete,
-    socialTracking: hasPlanFeatures ? has("social_feed") : (isAdult && !isTeamAthlete),
+    socialTracking: isAdult && !isTeamAthlete,
     trainingQuestionnaire: isAdult || isTeamAthlete,
     teamManagement: false,
     athleteManagement: false,
@@ -143,13 +131,11 @@ export function buildAppCapabilities(input: {
     adminMobile: false,
     billingPortal: true,
     mobilePayments: false,
-    semiPrivateBooking: hasPlanFeatures ? has("semi_private") : r >= 2,
-    coachVideoUpload: hasPlanFeatures
-      ? hasActivePlan || has("video_upload") || has("programs_full") || has("mobile_app")
-      : r >= 2 || hasActivePlan,
-    physioReferrals: hasPlanFeatures ? has("physio_referrals") : r >= 3,
-    runTracking: hasPlanFeatures ? has("run_tracking") : (isAdult || isTeamAthlete),
-    achievements: hasPlanFeatures ? has("achievements") : true,
-    referralRewards: hasPlanFeatures ? has("referrals") : true,
+    semiPrivateBooking: true,
+    coachVideoUpload: true,
+    physioReferrals: true,
+    runTracking: isAdult || isTeamAthlete,
+    achievements: true,
+    referralRewards: true,
   };
 }

@@ -33,6 +33,11 @@ type TeamRequest = {
   planName?: string | null;
   paymentAmountCents?: number | null;
   paymentCurrency?: string | null;
+  managerAmountCents?: number | null;
+  playerAmountCents?: number | null;
+  totalAmountCents?: number | null;
+  paidAmountCents?: number | null;
+  remainingAmountCents?: number | null;
   createdAt?: string | null;
 };
 
@@ -41,7 +46,11 @@ type InviteItem = {
   playerName?: string | null;
   playerEmail: string;
   status?: string | null;
+  amountCents?: number | null;
+  currency?: string | null;
   stripePaymentLinkUrl?: string | null;
+  emailSentAt?: string | null;
+  emailLastError?: string | null;
   updatedAt?: string | null;
 };
 
@@ -76,6 +85,8 @@ export default function TeamPaymentStatusPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [approveLoading, setApproveLoading] = useState(false);
+  const [resendingInviteId, setResendingInviteId] = useState<number | null>(null);
+  const [sponsoringInviteId, setSponsoringInviteId] = useState<number | null>(null);
   const [requests, setRequests] = useState<TeamRequest[]>([]);
   const [invites, setInvites] = useState<InviteItem[]>([]);
 
@@ -170,6 +181,64 @@ export default function TeamPaymentStatusPage() {
     }
   }
 
+  async function handleResendInvite(inviteId: number) {
+    if (!latest?.requestId) return;
+    setResendingInviteId(inviteId);
+    setActionError(null);
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch(
+        `/api/backend/admin/team-subscription-requests/${latest.requestId}/invites/${inviteId}/resend`,
+        {
+          method: "POST",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+        },
+      );
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "Failed to resend invite email.");
+      }
+      if (Array.isArray(payload?.invites)) {
+        setInvites(payload.invites as InviteItem[]);
+      }
+      await load();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to resend invite email.";
+      setActionError(message);
+    } finally {
+      setResendingInviteId(null);
+    }
+  }
+
+  async function handleSponsorInvite(inviteId: number) {
+    if (!latest?.requestId) return;
+    setSponsoringInviteId(inviteId);
+    setActionError(null);
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch(
+        `/api/backend/admin/team-subscription-requests/${latest.requestId}/invites/${inviteId}/sponsor`,
+        {
+          method: "POST",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+        },
+      );
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "Failed to sponsor player invite.");
+      }
+      if (Array.isArray(payload?.invites)) {
+        setInvites(payload.invites as InviteItem[]);
+      }
+      await load();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to sponsor player invite.";
+      setActionError(message);
+    } finally {
+      setSponsoringInviteId(null);
+    }
+  }
+
   return (
     <AdminShell
       title="Team Payment Status"
@@ -206,17 +275,33 @@ export default function TeamPaymentStatusPage() {
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-xs text-muted-foreground">Amount</p>
+              <p className="text-xs text-muted-foreground">Team Total</p>
               <p className="mt-1 font-medium">
-                {money(latest.paymentAmountCents, latest.paymentCurrency)}
+                {money(latest.totalAmountCents ?? latest.paymentAmountCents, latest.paymentCurrency)}
               </p>
             </Card>
           </div>
 
           <Card className="p-4">
-            <p className="text-xs text-muted-foreground">Manager Payment</p>
-            <div className="mt-2">
-              <Badge variant={managerPayment.variant}>{managerPayment.label}</Badge>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Manager Payment</p>
+                <div className="mt-2">
+                  <Badge variant={managerPayment.variant}>{managerPayment.label}</Badge>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Manager Amount</p>
+                <p className="mt-1 font-medium">{money(latest.managerAmountCents ?? latest.paymentAmountCents, latest.paymentCurrency)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Players Amount</p>
+                <p className="mt-1 font-medium">{money(latest.playerAmountCents, latest.paymentCurrency)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Still To Pay</p>
+                <p className="mt-1 font-medium">{money(latest.remainingAmountCents, latest.paymentCurrency)}</p>
+              </div>
             </div>
           </Card>
 
@@ -238,15 +323,17 @@ export default function TeamPaymentStatusPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Updated</TableHead>
-                  <TableHead className="text-right">Link</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {invites.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-20 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="h-20 text-center text-muted-foreground">
                       No player invites for this request.
                     </TableCell>
                   </TableRow>
@@ -255,6 +342,7 @@ export default function TeamPaymentStatusPage() {
                     <TableRow key={invite.id}>
                       <TableCell>{invite.playerName || "—"}</TableCell>
                       <TableCell>{invite.playerEmail}</TableCell>
+                      <TableCell>{money(invite.amountCents, invite.currency || latest.paymentCurrency)}</TableCell>
                       <TableCell>
                         {String(invite.status || "").toLowerCase() === "paid" ? (
                           <span className="inline-flex items-center gap-1 text-emerald-600 text-xs">
@@ -266,22 +354,53 @@ export default function TeamPaymentStatusPage() {
                           </span>
                         )}
                       </TableCell>
+                      <TableCell className="text-xs">
+                        {invite.emailSentAt ? (
+                          <span className="text-emerald-600">Sent</span>
+                        ) : invite.emailLastError ? (
+                          <span className="text-rose-600">Failed</span>
+                        ) : (
+                          <span className="text-muted-foreground">Not sent</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {invite.updatedAt ? format(new Date(invite.updatedAt), "MMM d, yyyy HH:mm") : "—"}
                       </TableCell>
                       <TableCell className="text-right">
-                        {invite.stripePaymentLinkUrl ? (
-                          <a
-                            className="text-xs underline text-foreground"
-                            href={invite.stripePaymentLinkUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Open
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        <div className="inline-flex items-center justify-end gap-2">
+                          {invite.stripePaymentLinkUrl ? (
+                            <a
+                              className="text-xs underline text-foreground"
+                              href={invite.stripePaymentLinkUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                          {String(invite.status || "").toLowerCase() !== "paid" ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleResendInvite(invite.id)}
+                                disabled={resendingInviteId === invite.id || sponsoringInviteId === invite.id}
+                              >
+                                {resendingInviteId === invite.id ? "Sending..." : "Send again"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSponsorInvite(invite.id)}
+                                disabled={resendingInviteId === invite.id || sponsoringInviteId === invite.id}
+                              >
+                                {sponsoringInviteId === invite.id ? "Sponsoring..." : "Sponsor"}
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

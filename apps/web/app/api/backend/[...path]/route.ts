@@ -66,7 +66,12 @@ async function forward(req: NextRequest) {
   if (req.method === "GET" && res.ok) {
     const p = url.pathname;
     const isRealtime =
-      p.includes("/messages") || p.includes("/threads") || p.includes("/videos");
+      p.includes("/messages") ||
+      p.includes("/threads") ||
+      p.includes("/videos") ||
+      p.includes("/adult-athletes") ||
+      p.includes("/program-assignments") ||
+      p.includes("/programs/");
     responseHeaders["Cache-Control"] = isRealtime
       ? "private, no-store"
       : "private, max-age=15, stale-while-revalidate=45";

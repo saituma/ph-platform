@@ -64,13 +64,27 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
     .orderBy(desc(videoUploadTable.createdAt))
     .limit(limit);
 
-  const completionFilters = [sql`${programSessionCompletionTable.videoUrl} IS NOT NULL`];
+  // Support mixed/live DB schemas without hard-referencing missing columns.
+  // `to_jsonb(table)->>'key'` returns NULL when key doesn't exist (no SQL error).
+  const completionVideoUrlExpr = sql<string | null>`COALESCE(
+    to_jsonb("program_session_completions")->>'videoUrl',
+    to_jsonb("program_session_completions")->>'video_url'
+  )`;
+  const completionCoachResponseExpr = sql<string | null>`COALESCE(
+    to_jsonb("program_session_completions")->>'coachResponse',
+    to_jsonb("program_session_completions")->>'coach_response'
+  )`;
+  const completionCoachResponseAtExpr = sql<Date | null>`COALESCE(
+    (to_jsonb("program_session_completions")->>'coachResponseAt')::timestamp,
+    (to_jsonb("program_session_completions")->>'coach_response_at')::timestamp
+  )`;
+  const completionFilters = [sql`${completionVideoUrlExpr} IS NOT NULL`];
   if (q) {
     const pattern = `%${q}%`;
     completionFilters.push(
       or(
         ilike(athleteTable.name, pattern),
-        ilike(programSessionCompletionTable.coachResponse, pattern),
+        ilike(completionCoachResponseExpr, pattern),
         ilike(sessionTable.title, pattern),
         sql`${programSessionCompletionTable.id}::text ILIKE ${pattern}`,
       )!,
@@ -86,10 +100,10 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
       athleteUserId: athleteTable.userId,
       guardianUserId: guardianTable.userId,
       athleteName: athleteTable.name,
-      videoUrl: programSessionCompletionTable.videoUrl,
+      videoUrl: completionVideoUrlExpr,
       notes: sql<string | null>`NULL`,
-      feedback: programSessionCompletionTable.coachResponse,
-      reviewedAt: programSessionCompletionTable.coachResponseAt,
+      feedback: completionCoachResponseExpr,
+      reviewedAt: completionCoachResponseAtExpr,
       createdAt: programSessionCompletionTable.completedAt,
       programSectionContentId: sql<number | null>`NULL`,
       trainingSessionItemId: sql<number | null>`NULL`,

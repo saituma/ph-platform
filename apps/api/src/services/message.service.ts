@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   athleteTable,
+  programSessionCompletionTable,
   messageReactionTable,
   messageReceiptTable,
   messageTable,
@@ -21,8 +22,8 @@ const log = createLogger({ component: "message-service" });
 
 const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
 
-/** Cap DM history per request — unbounded scans caused multi-second GET /api/messages. */
-const DIRECT_THREAD_MESSAGE_LIMIT = 500;
+/** Cap DM history per request — keep thread opens snappy. */
+const DIRECT_THREAD_MESSAGE_LIMIT = 120;
 
 export async function getCoachUser() {
   return withTransientDbRetryConfigured(
@@ -209,26 +210,25 @@ export async function listThread(
     return { messages: [], hasMore: false, nextCursor: null, teamManager: manager };
   }
 
+  const peerFilter =
+    targetPeerId != null
+      ? or(
+          and(eq(messageTable.senderId, userId), eq(messageTable.receiverId, targetPeerId)),
+          and(eq(messageTable.senderId, targetPeerId), eq(messageTable.receiverId, userId)),
+        )
+      : senderIsStaff
+        ? or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId))
+        : or(
+            and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, [...(allowedPeerIds ?? []), -1])),
+            and(inArray(messageTable.senderId, [...(allowedPeerIds ?? []), -1]), eq(messageTable.receiverId, userId)),
+          );
+
   const rows = await db
     .select()
     .from(messageTable)
     .where(
       and(
-        senderIsStaff
-          ? or(
-              eq(messageTable.senderId, userId),
-              eq(messageTable.receiverId, userId),
-            )
-          : or(
-              and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, [...(allowedPeerIds ?? []), -1])),
-              and(inArray(messageTable.senderId, [...(allowedPeerIds ?? []), -1]), eq(messageTable.receiverId, userId)),
-            ),
-        senderIsStaff && Array.isArray(allowedPeerIds)
-          ? or(
-              and(eq(messageTable.senderId, userId), inArray(messageTable.receiverId, allowedPeerIds)),
-              and(inArray(messageTable.senderId, allowedPeerIds), eq(messageTable.receiverId, userId)),
-            )
-          : undefined,
+        peerFilter,
         includeVideoResponses
           ? undefined
           : or(ne(messageTable.contentType, "video"), isNull(messageTable.videoUploadId)),
@@ -578,6 +578,24 @@ export async function sendMessage(input: {
       io.to(`user:${input.senderId}`).emit("message:new", enriched);
       io.to(`user:${resolvedReceiverId}`).emit("message:new", enriched);
       io.to("admin:all").emit("message:new", enriched);
+      if (input.contentType === "video" && input.videoUploadId) {
+        const [completion] = await db
+          .select({
+            id: programSessionCompletionTable.id,
+            sessionId: programSessionCompletionTable.sessionId,
+            athleteId: programSessionCompletionTable.athleteId,
+          })
+          .from(programSessionCompletionTable)
+          .where(eq(programSessionCompletionTable.id, input.videoUploadId))
+          .limit(1);
+        io.to(`user:${resolvedReceiverId}`).emit("program:session:coach-video-response", {
+          sessionId: completion?.sessionId ?? null,
+          completionId: completion?.id ?? null,
+          athleteId: completion?.athleteId ?? null,
+          mediaUrl: input.mediaUrl ?? null,
+          createdAt: message.createdAt,
+        });
+      }
       return message;
     }
   }

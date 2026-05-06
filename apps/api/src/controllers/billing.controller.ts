@@ -15,6 +15,7 @@ import {
   teamTable,
   userTable,
   teamPlayerPaymentInviteTable,
+  teamPaymentConfigDraftTable,
 } from "../db/schema";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { db } from "../db";
@@ -52,6 +53,7 @@ import {
   createTeamSubscriptionRequest,
   listTeamSubscriptionRequestsAdmin,
   rejectTeamSubscriptionRequest,
+  sponsorTeamPlayerPaymentInvite,
   syncTeamPlayerInvitePaymentsFromStripe,
   syncTeamSubscriptionRequestPaymentFromStripe,
   updateTeamPlayerInvitePaymentFromStripeSession,
@@ -60,6 +62,7 @@ import {
 } from "../services/billing/team-request.service";
 import { updateAthleteProgramTier } from "../services/admin/user.service";
 import { buildClientCheckoutReceipt } from "../services/billing/checkout-confirmation-payload";
+import { parsePriceToCents } from "../services/billing/plan.service";
 import { enrichReceiptWithStripeSession, getPaymentReceiptForViewer } from "../services/billing/receipt.service";
 import { sendTeamPlayerPaymentInviteEmail } from "../lib/mailer/billing.mailer";
 
@@ -109,6 +112,24 @@ const teamCheckoutSchema = z.object({
       }),
     )
     .optional(),
+});
+
+const teamPaymentDraftSchema = z.object({
+  scopeKey: z.string().trim().min(1),
+  paymentMode: z.enum(["coach_pays_all", "per_player_all", "per_player_selected"]).default("coach_pays_all"),
+  coachPaysSeats: z.coerce.number().int().min(0).default(0),
+  termsAcceptedAt: z.string().optional(),
+  termsVersion: z.string().optional(),
+  playerPayers: z
+    .array(
+      z.object({
+        id: z.coerce.number().int().optional(),
+        name: z.string().trim().min(1),
+        email: z.string().trim().email(),
+        selected: z.boolean().optional(),
+      }),
+    )
+    .default([]),
 });
 
 const planCreateSchema = z.object({
@@ -282,6 +303,79 @@ export async function downgradePlan(req: Request, res: Response) {
   return res.status(200).json({
     currentProgramTier: updated?.currentProgramTier ?? targetTier,
   });
+}
+
+export async function getTeamPaymentConfigDraft(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  const teamId = z.coerce.number().int().min(1).safeParse(req.params.teamId);
+  if (!teamId.success) return res.status(400).json({ error: "Invalid team id" });
+
+  const teamRows = await db
+    .select({ id: teamTable.id, adminId: teamTable.adminId })
+    .from(teamTable)
+    .where(eq(teamTable.id, teamId.data))
+    .limit(1);
+  const team = teamRows[0];
+  if (!team) return res.status(404).json({ error: "Team not found" });
+  if (team.adminId !== req.user.id) return res.status(403).json({ error: "You do not have access to this team" });
+
+  const rows = await db
+    .select()
+    .from(teamPaymentConfigDraftTable)
+    .where(eq(teamPaymentConfigDraftTable.teamId, team.id))
+    .limit(1);
+  const draft = rows[0] ?? null;
+  return res.status(200).json({ draft });
+}
+
+export async function upsertTeamPaymentConfigDraft(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  const teamId = z.coerce.number().int().min(1).safeParse(req.params.teamId);
+  if (!teamId.success) return res.status(400).json({ error: "Invalid team id" });
+  const parsed = teamPaymentDraftSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+  }
+
+  const teamRows = await db
+    .select({ id: teamTable.id, adminId: teamTable.adminId })
+    .from(teamTable)
+    .where(eq(teamTable.id, teamId.data))
+    .limit(1);
+  const team = teamRows[0];
+  if (!team) return res.status(404).json({ error: "Team not found" });
+  if (team.adminId !== req.user.id) return res.status(403).json({ error: "You do not have access to this team" });
+
+  const termsAcceptedAt = parsed.data.termsAcceptedAt ? new Date(parsed.data.termsAcceptedAt) : null;
+
+  const [draft] = await db
+    .insert(teamPaymentConfigDraftTable)
+    .values({
+      adminId: req.user.id,
+      teamId: team.id,
+      scopeKey: parsed.data.scopeKey,
+      paymentMode: parsed.data.paymentMode,
+      coachPaysSeats: parsed.data.coachPaysSeats,
+      termsAcceptedAt,
+      termsVersion: parsed.data.termsVersion,
+      playerPayers: parsed.data.playerPayers,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [teamPaymentConfigDraftTable.adminId, teamPaymentConfigDraftTable.teamId],
+      set: {
+        scopeKey: parsed.data.scopeKey,
+        paymentMode: parsed.data.paymentMode,
+        coachPaysSeats: parsed.data.coachPaysSeats,
+        termsAcceptedAt,
+        termsVersion: parsed.data.termsVersion,
+        playerPayers: parsed.data.playerPayers,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+
+  return res.status(200).json({ draft });
 }
 
 export async function createCheckout(req: Request, res: Response) {
@@ -497,6 +591,8 @@ export async function createTeamCheckout(req: Request, res: Response) {
 
     // 3. Generate player invites if applicable
     let invitesSent = 0;
+    let inviteEmailsSent = 0;
+    let inviteEmailsError: string | null = null;
     if ((paymentMode === "per_player_all" || paymentMode === "per_player_selected") && request) {
        // We will generate Stripe payment links/sessions for players and send emails here
        const { getStripeClient, resolveTierFallbackPrice } = await import("../services/billing/stripe.service");
@@ -560,16 +656,49 @@ export async function createTeamCheckout(req: Request, res: Response) {
            .where(eq(teamPlayerPaymentInviteTable.id, invite.id));
 
          if (playerSession.url) {
-           await sendTeamPlayerPaymentInviteEmail({
+           const emailResult = await sendTeamPlayerPaymentInviteEmail({
              to: invite.playerEmail,
              payerName: invite.playerName,
              teamName: team.name,
              planName: String(plan.name ?? plan.tier ?? "PH Performance plan"),
              checkoutUrl: playerSession.url,
            });
+           if (emailResult.ok) {
+             inviteEmailsSent += 1;
+             await db
+               .update(teamPlayerPaymentInviteTable)
+               .set({ emailSentAt: new Date(), emailLastError: null, updatedAt: new Date() })
+               .where(eq(teamPlayerPaymentInviteTable.id, invite.id));
+           } else {
+             inviteEmailsError = emailResult.error;
+             await db
+               .update(teamPlayerPaymentInviteTable)
+               .set({ emailLastError: emailResult.error, updatedAt: new Date() })
+               .where(eq(teamPlayerPaymentInviteTable.id, invite.id));
+           }
          }
        }
        invitesSent = invites.length;
+       const allEmailsSent = invitesSent > 0 && inviteEmailsSent === invitesSent;
+       await db
+         .update(teamSubscriptionRequestTable)
+         .set({
+           inviteEmailsReady: allEmailsSent,
+           inviteEmailsLastAttemptAt: new Date(),
+           inviteEmailsError,
+           updatedAt: new Date(),
+         })
+         .where(eq(teamSubscriptionRequestTable.id, request.id));
+    } else if (request) {
+      await db
+        .update(teamSubscriptionRequestTable)
+        .set({
+          inviteEmailsReady: true,
+          inviteEmailsLastAttemptAt: new Date(),
+          inviteEmailsError: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(teamSubscriptionRequestTable.id, request.id));
     }
 
     if (session) {
@@ -1138,16 +1267,33 @@ export async function listTeamRequestsAdmin(_req: Request, res: Response) {
     }
   }
   requests = await listTeamSubscriptionRequestsAdmin();
-  return res.status(200).json({ requests });
+  const { listPlayerPaymentInvites } = await import("../services/billing/team-request.service");
+  const enriched = await Promise.all(
+    requests.map(async (r) => {
+      const requestId = Number((r as any)?.requestId ?? 0);
+      if (!requestId) return { ...r, inviteEmailsTotal: 0, inviteEmailsSent: 0 };
+      const invites = await listPlayerPaymentInvites(requestId);
+      return {
+        ...r,
+        inviteEmailsTotal: invites.length,
+        inviteEmailsSent: invites.filter((i: any) => i?.emailSentAt != null).length,
+      };
+    }),
+  );
+  return res.status(200).json({ requests: enriched });
 }
 
 export async function approveTeamRequestAdmin(req: Request, res: Response) {
   const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
-  const updated = await approveTeamSubscriptionRequest(requestId);
-  if (!updated) {
-    return res.status(404).json({ error: "Request not found" });
+  try {
+    const updated = await approveTeamSubscriptionRequest(requestId);
+    if (!updated) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+    return res.status(200).json({ request: updated });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || "Failed to approve team request" });
   }
-  return res.status(200).json({ request: updated });
 }
 
 export async function rejectTeamRequestAdmin(req: Request, res: Response) {
@@ -1344,4 +1490,201 @@ export async function listTeamPlayerInvitesAdmin(req: Request, res: Response) {
   }
   const invites = await listPlayerPaymentInvites(requestId);
   return res.status(200).json({ invites });
+}
+
+export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
+  const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
+  const inviteId = z.coerce.number().int().min(1).parse(req.params.inviteId);
+
+  try {
+    const [row] = await db
+      .select({
+        requestId: teamSubscriptionRequestTable.id,
+        teamId: teamSubscriptionRequestTable.teamId,
+        billingCycle: teamSubscriptionRequestTable.planBillingCycle,
+        teamName: teamTable.name,
+        planName: subscriptionPlanTable.name,
+        planTier: subscriptionPlanTable.tier,
+        stripePriceId: subscriptionPlanTable.stripePriceId,
+        stripePriceIdMonthly: subscriptionPlanTable.stripePriceIdMonthly,
+        stripePriceIdYearly: subscriptionPlanTable.stripePriceIdYearly,
+        planDisplayPrice: subscriptionPlanTable.displayPrice,
+        planMonthlyPrice: subscriptionPlanTable.monthlyPrice,
+        planYearlyPrice: subscriptionPlanTable.yearlyPrice,
+        inviteId: teamPlayerPaymentInviteTable.id,
+        playerEmail: teamPlayerPaymentInviteTable.playerEmail,
+        playerName: teamPlayerPaymentInviteTable.playerName,
+        amountCents: teamPlayerPaymentInviteTable.amountCents,
+        currency: teamPlayerPaymentInviteTable.currency,
+        status: teamPlayerPaymentInviteTable.status,
+      })
+      .from(teamPlayerPaymentInviteTable)
+      .innerJoin(teamSubscriptionRequestTable, eq(teamPlayerPaymentInviteTable.requestId, teamSubscriptionRequestTable.id))
+      .innerJoin(teamTable, eq(teamSubscriptionRequestTable.teamId, teamTable.id))
+      .leftJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
+      .where(eq(teamPlayerPaymentInviteTable.id, inviteId))
+      .limit(1);
+
+    if (!row || row.requestId !== requestId) {
+      return res.status(404).json({ error: "Invite not found for this request." });
+    }
+    if (row.status === "paid") {
+      return res.status(400).json({ error: "This player has already paid." });
+    }
+
+    const interval =
+      row.billingCycle === "yearly" ? "yearly" : row.billingCycle === "six_months" || row.billingCycle === "6months" ? "six_months" : "monthly";
+    let priceId = "";
+    if (interval === "six_months") {
+      const lookupKey = row.planTier ? `${String(row.planTier).toLowerCase()}_six_months` : "";
+      if (lookupKey) {
+        const prices = await getStripeClient().prices.list({ lookup_keys: [lookupKey], active: true });
+        priceId = prices.data[0]?.id ?? "";
+      }
+    } else {
+      priceId = ensureStripePriceId(
+        {
+          stripePriceId: row.stripePriceId,
+          stripePriceIdMonthly: row.stripePriceIdMonthly,
+          stripePriceIdYearly: row.stripePriceIdYearly,
+          tier: row.planTier,
+        },
+        interval,
+      );
+    }
+    if (!priceId) {
+      return res.status(400).json({ error: "Plan is not configured for Stripe payment links." });
+    }
+
+    const amountCents =
+      row.amountCents ??
+      (interval === "yearly"
+        ? parsePriceToCents(row.planYearlyPrice) ?? parsePriceToCents(row.planMonthlyPrice ?? row.planDisplayPrice)
+        : interval === "six_months"
+          ? (() => {
+              const monthly = parsePriceToCents(row.planMonthlyPrice ?? row.planDisplayPrice);
+              return monthly == null ? parsePriceToCents(row.planDisplayPrice) : monthly * 6;
+            })()
+          : parsePriceToCents(row.planMonthlyPrice ?? row.planDisplayPrice));
+    const currency = (row.currency ?? "gbp").toLowerCase();
+    const productName = `${row.teamName} - ${String(row.planName ?? row.planTier ?? "PH Performance plan")}`;
+    const fallbackLineItem = () => {
+      if (!amountCents) {
+        throw new Error("Plan amount is missing, so a fallback Stripe checkout price cannot be created.");
+      }
+      return {
+        price_data: {
+          currency,
+          product_data: { name: productName },
+          unit_amount: amountCents,
+          ...(interval === "monthly" ? { recurring: { interval: "month" as const } } : {}),
+        },
+        quantity: 1,
+      };
+    };
+    const primaryLineItem =
+      priceId && !priceId.startsWith("seed_") ? { price: priceId, quantity: 1 } : fallbackLineItem();
+    const createCheckoutSession = (lineItem: Stripe.Checkout.SessionCreateParams.LineItem) =>
+      getStripeClient().checkout.sessions.create({
+      mode: interval === "monthly" ? "subscription" : "payment",
+      customer_email: row.playerEmail,
+      ...(interval !== "monthly" ? { customer_creation: "always" as const } : {}),
+      payment_method_types: ["card"],
+      line_items: [lineItem],
+      ...(interval !== "monthly" ? { payment_intent_data: { receipt_email: row.playerEmail } } : {}),
+      metadata: {
+        type: "team_player_invite",
+        inviteId: String(row.inviteId),
+        requestId: String(row.requestId),
+        teamId: String(row.teamId),
+      },
+      success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&player_paid=true`,
+      cancel_url: getCancelUrl(),
+      });
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await createCheckoutSession(primaryLineItem);
+    } catch (err) {
+      if (!("price" in primaryLineItem) || !isStripePriceMissingError(err)) {
+        throw err;
+      }
+      session = await createCheckoutSession(fallbackLineItem());
+    }
+
+    await db
+      .update(teamPlayerPaymentInviteTable)
+      .set({
+        stripeSessionId: session.id,
+        stripePaymentLinkUrl: session.url,
+        emailLastError: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(teamPlayerPaymentInviteTable.id, inviteId));
+
+    if (!session.url) {
+      throw new Error("Stripe did not return a checkout URL.");
+    }
+
+    const emailResult = await sendTeamPlayerPaymentInviteEmail({
+      to: row.playerEmail,
+      payerName: row.playerName,
+      teamName: row.teamName,
+      planName: String(row.planName ?? row.planTier ?? "PH Performance plan"),
+      checkoutUrl: session.url,
+    });
+
+    if (!emailResult.ok) {
+      await db
+        .update(teamPlayerPaymentInviteTable)
+        .set({ emailLastError: emailResult.error, updatedAt: new Date() })
+        .where(eq(teamPlayerPaymentInviteTable.id, inviteId));
+      await db
+        .update(teamSubscriptionRequestTable)
+        .set({ inviteEmailsReady: false, inviteEmailsLastAttemptAt: new Date(), inviteEmailsError: emailResult.error, updatedAt: new Date() })
+        .where(eq(teamSubscriptionRequestTable.id, requestId));
+      return res.status(502).json({ error: emailResult.error });
+    }
+
+    await db
+      .update(teamPlayerPaymentInviteTable)
+      .set({ emailSentAt: new Date(), emailLastError: null, updatedAt: new Date() })
+      .where(eq(teamPlayerPaymentInviteTable.id, inviteId));
+
+    const { listPlayerPaymentInvites } = await import("../services/billing/team-request.service");
+    const invites = await listPlayerPaymentInvites(requestId);
+    const allEmailsSent = invites.length > 0 && invites.every((invite) => invite.emailSentAt != null);
+    await db
+      .update(teamSubscriptionRequestTable)
+      .set({
+        inviteEmailsReady: allEmailsSent,
+        inviteEmailsLastAttemptAt: new Date(),
+        inviteEmailsError: allEmailsSent ? null : "Some invite emails have not been sent yet.",
+        updatedAt: new Date(),
+      })
+      .where(eq(teamSubscriptionRequestTable.id, requestId));
+
+    const refreshed = await listPlayerPaymentInvites(requestId);
+    return res.status(200).json({ ok: true, invites: refreshed });
+  } catch (error: any) {
+    logger.warn({ err: error, requestId, inviteId }, "[Billing] resend team player invite failed");
+    return res.status(500).json({ error: error?.message || "Failed to resend invite email." });
+  }
+}
+
+export async function sponsorTeamPlayerInviteAdmin(req: Request, res: Response) {
+  const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
+  const inviteId = z.coerce.number().int().min(1).parse(req.params.inviteId);
+
+  try {
+    const request = await sponsorTeamPlayerPaymentInvite(requestId, inviteId);
+    if (!request) {
+      return res.status(404).json({ error: "Invite not found for this request." });
+    }
+    const { listPlayerPaymentInvites } = await import("../services/billing/team-request.service");
+    const invites = await listPlayerPaymentInvites(requestId);
+    return res.status(200).json({ ok: true, request, invites });
+  } catch (error: any) {
+    logger.warn({ err: error, requestId, inviteId }, "[Billing] sponsor team player invite failed");
+    return res.status(500).json({ error: error?.message || "Failed to sponsor player invite." });
+  }
 }

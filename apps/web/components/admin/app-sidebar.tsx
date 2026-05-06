@@ -3,8 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
-import { io, type Socket } from "socket.io-client";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import {
   Activity,
   BadgeCheck,
@@ -12,7 +11,6 @@ import {
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
-  ClipboardX,
   CreditCard,
   Images,
   LayoutDashboard,
@@ -48,33 +46,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useGetThreadsQuery, useGetUsersQuery, useGetVideoUploadsQuery, useGetAdminProfileQuery } from "../../lib/apiSlice";
-import { resolveSocketUrl } from "../../lib/socket-url";
+import { getOrCreateAdminSocket } from "../../lib/admin-socket";
 import { ThemeToggle } from "./theme-toggle";
-
-// Module-level singleton — persists across page navigations so we never
-// disconnect/reconnect the WebSocket just because a page remounted.
-let _socket: Socket | null = null;
-function getOrCreateSocket(): Socket {
-  if (_socket?.connected) return _socket;
-  const socketUrl = resolveSocketUrl();
-  const token =
-    typeof document !== "undefined"
-      ? (document.cookie
-          .split(";")
-          .map((p) => p.trim())
-          .find((p) => p.startsWith("accessTokenClient="))
-          ?.slice("accessTokenClient=".length) ?? "")
-      : "";
-  // Wake the Render free-tier dyno over HTTP first; the WS handshake
-  // fails fast against a cold-starting instance.
-  if (socketUrl) void fetch(`${socketUrl}/health`, { cache: "no-store" }).catch(() => {});
-  _socket = io(socketUrl, {
-    auth: token ? { token } : undefined,
-    transports: ["polling", "websocket"],
-    reconnection: true,
-  });
-  return _socket;
-}
 
 type SidebarUser = { id: number; role?: string | null };
 type SidebarThread = { userId: number; unread?: number | null };
@@ -203,6 +176,11 @@ function UserFooter() {
 export function AppSidebar() {
   const pathname = usePathname();
   const pathOnly = pathname.split("?")[0] ?? pathname;
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   const { data: threadsData, refetch: refetchThreads } = useGetThreadsQuery();
   const { data: usersData } = useGetUsersQuery();
@@ -215,7 +193,7 @@ export function AppSidebar() {
 
   useEffect(() => {
     // Use module-level socket singleton so navigations don't disconnect/reconnect
-    const socket = getOrCreateSocket();
+    const socket = getOrCreateAdminSocket();
     const handleRefresh = () => { refetchVideosRef.current(); refetchThreadsRef.current(); };
     socket.on("video:new", handleRefresh);
     socket.on("video:reviewed", handleRefresh);
@@ -281,7 +259,11 @@ export function AppSidebar() {
                     const badgeCount = item.badgeKey ? badges[item.badgeKey] : 0;
                     return (
                       <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={isMounted ? item.label : undefined}
+                        >
                           <Link href={item.href}>
                             <item.icon />
                             <span>{item.label}</span>

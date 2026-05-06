@@ -16,6 +16,8 @@ import {
 } from "#/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "#/lib/utils";
+import { config } from "#/lib/config";
+import { getAuthHeaders, getTokenStatus } from "#/lib/client-storage";
 
 export const Route = createFileRoute("/onboarding/step-4b")({
 	head: () => ({
@@ -47,6 +49,7 @@ function OnboardingStep4b() {
 	const [paymentModeConfirmed, setPaymentModeConfirmed] = useState(false);
 	const [paymentMode, setPaymentMode] = useState<PaymentMode>("coach_pays_all");
 	const [maxAthletes, setMaxAthletes] = useState(1);
+	const [teamId, setTeamId] = useState<number | null>(null);
 	
 	const [playerPayers, setPlayerPayers] = useState<PlayerPayer[]>([]);
 
@@ -59,55 +62,100 @@ function OnboardingStep4b() {
 
 		const raw = localStorage.getItem("team_onboarding_basic");
 		let athletesCount = 1;
+		let resolvedTeamId: number | null = null;
 		if (raw) {
 			try {
 				const parsed = JSON.parse(raw);
 				if (Number.isFinite(Number(parsed.maxAthletes))) {
 					athletesCount = Number(parsed.maxAthletes);
 				}
+				if (Number.isFinite(Number(parsed.teamId))) {
+					resolvedTeamId = Number(parsed.teamId);
+				}
 			} catch {}
 		}
 		setMaxAthletes(athletesCount);
+		setTeamId(resolvedTeamId);
 
 		const scopeKey = paymentConfigScopeKey(athletesCount);
 		// Load existing config if available for the same onboarding scope.
-		const savedConfigStr = localStorage.getItem("team_payment_config");
-		if (savedConfigStr) {
-			try {
-				const savedConfig = JSON.parse(savedConfigStr);
-				if (String(savedConfig?.scopeKey ?? "") !== scopeKey) {
-					localStorage.removeItem("team_payment_config");
-					initPlayerPayers(athletesCount);
-					setIsLoading(false);
-					return;
+		(async () => {
+			let loaded = false;
+			if (resolvedTeamId) {
+				try {
+					const status = await getTokenStatus();
+					if (status.authenticated) {
+						const res = await fetch(`${config.api.baseUrl}/api/billing/team/payment-config-draft/${resolvedTeamId}`, {
+							credentials: "include",
+							headers: getAuthHeaders(),
+						});
+						const data = await res.json().catch(() => ({}));
+						const draft = (data as any)?.draft;
+						if (res.ok && draft && String(draft?.scopeKey ?? "") === scopeKey) {
+							if (draft.termsAcceptedAt) setTermsAccepted(true);
+							if (draft.paymentMode) {
+								setPaymentMode(draft.paymentMode);
+								setPaymentModeConfirmed(true);
+							}
+							if (Array.isArray(draft.playerPayers) && draft.playerPayers.length > 0) {
+								setPlayerPayers(
+									draft.playerPayers.map((p: any, idx: number) => ({
+										id: Number.isFinite(Number(p?.id)) ? Number(p.id) : idx,
+										name: typeof p?.name === "string" ? p.name : "",
+										email: typeof p?.email === "string" ? p.email : "",
+										selected: p?.selected !== false,
+									})),
+								);
+							} else {
+								initPlayerPayers(athletesCount);
+							}
+							loaded = true;
+						}
+					}
+				} catch {
+					// fall back to local storage
 				}
-				if (savedConfig.termsAcceptedAt) setTermsAccepted(true);
-				if (savedConfig.paymentMode) {
-					setPaymentMode(savedConfig.paymentMode);
-					setPaymentModeConfirmed(true);
-				}
-				if (savedConfig.playerPayers && Array.isArray(savedConfig.playerPayers)) {
-					setPlayerPayers(savedConfig.playerPayers);
-				} else if (savedConfig.playerEmails && Array.isArray(savedConfig.playerEmails)) {
-					setPlayerPayers(
-						savedConfig.playerEmails.map((p: any, idx: number) => ({
-							id: Number.isFinite(Number(p?.id)) ? Number(p.id) : idx,
-							name: typeof p?.name === "string" ? p.name : "",
-							email: typeof p?.email === "string" ? p.email : "",
-							selected: p?.selected !== false,
-						})),
-					);
+			}
+
+			if (!loaded) {
+				const savedConfigStr = localStorage.getItem("team_payment_config");
+				if (savedConfigStr) {
+					try {
+						const savedConfig = JSON.parse(savedConfigStr);
+						if (String(savedConfig?.scopeKey ?? "") !== scopeKey) {
+							localStorage.removeItem("team_payment_config");
+							initPlayerPayers(athletesCount);
+							setIsLoading(false);
+							return;
+						}
+						if (savedConfig.termsAcceptedAt) setTermsAccepted(true);
+						if (savedConfig.paymentMode) {
+							setPaymentMode(savedConfig.paymentMode);
+							setPaymentModeConfirmed(true);
+						}
+						if (savedConfig.playerPayers && Array.isArray(savedConfig.playerPayers)) {
+							setPlayerPayers(savedConfig.playerPayers);
+						} else if (savedConfig.playerEmails && Array.isArray(savedConfig.playerEmails)) {
+							setPlayerPayers(
+								savedConfig.playerEmails.map((p: any, idx: number) => ({
+									id: Number.isFinite(Number(p?.id)) ? Number(p.id) : idx,
+									name: typeof p?.name === "string" ? p.name : "",
+									email: typeof p?.email === "string" ? p.email : "",
+									selected: p?.selected !== false,
+								})),
+							);
+						} else {
+							initPlayerPayers(athletesCount);
+						}
+					} catch {
+						initPlayerPayers(athletesCount);
+					}
 				} else {
 					initPlayerPayers(athletesCount);
 				}
-			} catch {
-				initPlayerPayers(athletesCount);
 			}
-		} else {
-			initPlayerPayers(athletesCount);
-		}
-
-		setIsLoading(false);
+			setIsLoading(false);
+		})();
 	}, [navigate]);
 
 	const initPlayerPayers = (count: number) => {
@@ -147,7 +195,7 @@ function OnboardingStep4b() {
 				? "All Players Pay"
 				: "Selected Players Pay";
 
-	const handleContinue = () => {
+	const handleContinue = async () => {
 		if (!termsAccepted) {
 			toast.error("Terms & Conditions Required", {
 				description: "You must accept the terms before continuing.",
@@ -213,7 +261,7 @@ function OnboardingStep4b() {
 			coachPaysSeats = Math.max(0, maxAthletes - activePlayers.length);
 		}
 
-		const config = {
+		const paymentConfigDraft = {
 			scopeKey: paymentConfigScopeKey(maxAthletes),
 			termsAcceptedAt: new Date().toISOString(),
 			termsVersion: "1.0",
@@ -226,7 +274,22 @@ function OnboardingStep4b() {
 			}).map((p) => ({ id: p.id, name: p.name.trim(), email: p.email.trim(), selected: p.selected })),
 		};
 
-		localStorage.setItem("team_payment_config", JSON.stringify(config));
+		localStorage.setItem("team_payment_config", JSON.stringify(paymentConfigDraft));
+		if (teamId) {
+			try {
+				await fetch(`${config.api.baseUrl}/api/billing/team/payment-config-draft/${teamId}`, {
+					method: "PUT",
+					credentials: "include",
+					headers: {
+						"Content-Type": "application/json",
+						...getAuthHeaders(),
+					},
+					body: JSON.stringify(paymentConfigDraft),
+				});
+			} catch {
+				// local fallback already stored
+			}
+		}
 		navigate({ to: "/onboarding/step-5" });
 	};
 

@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import { AdminShell } from "../../../components/admin/shell";
 import { SectionHeader } from "../../../components/admin/section-header";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardHeader } from "../../../components/ui/card";
+import { Card, CardContent } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
 import { Badge } from "../../../components/ui/badge";
@@ -20,7 +20,7 @@ import {
 } from "../../../components/ui/dialog";
 import { ChevronRight, Layers, Plus, Settings, Trash2 } from "lucide-react";
 import {
-  useGetProgramFullQuery,
+  useGetProgramsQuery,
   useGetProgramModulesQuery,
   useCreateProgramModuleMutation,
   useUpdateProgramModuleMutation,
@@ -30,15 +30,28 @@ import { toast } from "@/lib/toast";
 
 type ModuleDialog = null | "create" | "edit";
 
+type ProgramSummary = {
+  id: number;
+  name?: string | null;
+  type?: string | null;
+  description?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+};
+
+type ProgramModule = {
+  id: number;
+  title?: string | null;
+  description?: string | null;
+  sessionCount?: number | null;
+};
+
 export default function ProgramDetailPage() {
   const params = useParams();
   const programId = Number(params?.programId);
 
-  const { data: fullData, isLoading } = useGetProgramFullQuery(
-    { programId },
-    { skip: !Number.isFinite(programId) || programId <= 0 },
-  );
-  const { data: modulesData } = useGetProgramModulesQuery(
+  const { data: programsData } = useGetProgramsQuery();
+  const { data: modulesData, isLoading, refetch: refetchModules } = useGetProgramModulesQuery(
     { programId },
     { skip: !Number.isFinite(programId) || programId <= 0 },
   );
@@ -52,11 +65,11 @@ export default function ProgramDetailPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
 
-  const program = fullData?.program ?? null;
-  const modules = useMemo(
-    () => modulesData?.modules ?? fullData?.program?.modules ?? [],
-    [modulesData, fullData],
+  const program = useMemo(
+    () => ((programsData?.programs ?? []) as ProgramSummary[]).find((item) => item.id === programId) ?? null,
+    [programsData, programId],
   );
+  const modules: ProgramModule[] = modulesData?.modules ?? [];
 
   const isSaving = isCreating || isUpdating || isDeleting;
 
@@ -74,7 +87,7 @@ export default function ProgramDetailPage() {
     setDialog("create");
   };
 
-  const openEdit = (mod: any) => {
+  const openEdit = (mod: ProgramModule) => {
     setTitle(mod.title ?? "");
     setDescription(mod.description ?? "");
     setEditModuleId(mod.id);
@@ -90,6 +103,7 @@ export default function ProgramDetailPage() {
           moduleId: editModuleId,
           patch: { title: title.trim(), description: description.trim() || null },
         }).unwrap();
+        await refetchModules();
         toast.success("Module updated");
       } else {
         await createModule({
@@ -97,6 +111,7 @@ export default function ProgramDetailPage() {
           title: title.trim(),
           description: description.trim() || null,
         }).unwrap();
+        await refetchModules();
         toast.success("Module created");
       }
       setDialog(null);
@@ -109,6 +124,7 @@ export default function ProgramDetailPage() {
     if (!window.confirm("Delete this module and all its sessions?")) return;
     try {
       await deleteModule({ programId, moduleId }).unwrap();
+      await refetchModules();
       toast.success("Module deleted");
     } catch {
       toast.error("Failed to delete module");
@@ -154,7 +170,7 @@ export default function ProgramDetailPage() {
                 <div className="mt-1 text-xs text-muted-foreground">{program.description}</div>
               )}
             </div>
-            <Badge variant="outline">{accessLabel(program.type)}</Badge>
+            <Badge variant="outline">{accessLabel(program.type ?? undefined)}</Badge>
             {(program.minAge || program.maxAge) && (
               <Badge variant="secondary">
                 Ages {program.minAge ?? "?"} – {program.maxAge ?? "?"}
@@ -173,11 +189,11 @@ export default function ProgramDetailPage() {
         <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
           <Layers className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
           <p className="font-semibold text-foreground">No modules yet</p>
-          <p className="mt-1">Click "Add Module" to create your first module.</p>
+          <p className="mt-1">Click &quot;Add Module&quot; to create your first module.</p>
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-          {modules.map((mod: any) => (
+          {modules.map((mod) => (
             <Link
               key={mod.id}
               href={`/programs/${programId}/modules/${mod.id}`}

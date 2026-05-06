@@ -1,8 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
-import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
-import { getPublicApiBaseUrl } from "@/lib/public-api";
+import { usePortalSocket } from "@/portal/PortalSocketContext";
 import { settingsService } from "@/services/settingsService";
 
 export type PortalNotification = {
@@ -18,8 +17,11 @@ const REALTIME_NOTIFICATION_EVENTS = [
 	"message:new",
 	"group:message",
 	"schedule:changed",
+	"schedule:attendance:changed",
 	"video:reviewed",
 	"program:session:coach-response",
+	"program:assigned",
+	"notification:new",
 	"physio:referral:updated",
 	"physio:referral:deleted",
 ] as const;
@@ -43,6 +45,7 @@ function toNotificationList(data: unknown): PortalNotification[] {
 export function usePortalNotifications(options: UsePortalNotificationsOptions) {
 	const { token, enabled } = options;
 	const queryClient = useQueryClient();
+	const { socket } = usePortalSocket();
 	const queryKey = portalNotificationKeys.list(token);
 	const knownNotificationIdsRef = useRef<Set<number> | null>(null);
 
@@ -90,26 +93,7 @@ export function usePortalNotifications(options: UsePortalNotificationsOptions) {
 	);
 
 	useEffect(() => {
-		if (!enabled || !token || typeof window === "undefined") return;
-
-		const rawSocket = String(
-			(import.meta.env as Record<string, string | undefined>)
-				.VITE_PUBLIC_SOCKET_URL ?? "",
-		).trim();
-		const apiBase = getPublicApiBaseUrl();
-		const socketUrl = rawSocket
-			? rawSocket.replace(/\/api\/?$/, "")
-			: apiBase
-				? apiBase.replace(/\/api\/?$/, "")
-				: window.location.origin;
-
-		const socket: Socket = io(socketUrl, {
-			path: "/socket.io",
-			auth: { token },
-			transports: ["polling", "websocket"],
-			reconnection: true,
-			reconnectionDelayMax: 10000,
-		});
+		if (!enabled || !token || !socket) return;
 
 		const handlePossibleNotification = () => {
 			void refreshNotifications(true);
@@ -127,9 +111,8 @@ export function usePortalNotifications(options: UsePortalNotificationsOptions) {
 			for (const event of REALTIME_NOTIFICATION_EVENTS) {
 				socket.off(event, handlePossibleNotification);
 			}
-			socket.disconnect();
 		};
-	}, [enabled, token, refreshNotifications]);
+	}, [enabled, token, socket, refreshNotifications]);
 
 	return {
 		notifications,

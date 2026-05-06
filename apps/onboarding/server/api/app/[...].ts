@@ -18,7 +18,8 @@ export default async function (request: Request): Promise<Response> {
   }
 
   const url = new URL(request.url);
-  const target = `${base}${url.pathname}${url.search}`;
+  const upstreamPath = url.pathname.replace(/^\/api\/app(?=\/|$)/, "/api");
+  const target = `${base}${upstreamPath}${url.search}`;
 
   const headers = new Headers(request.headers);
   headers.delete("accept-encoding");

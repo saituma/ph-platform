@@ -5,6 +5,7 @@ import {
   listTeamsAdmin,
   createTeamAdmin,
   approveTeamAdmin,
+  approveTeamSponsorRestAdmin,
   deleteTeamAdmin,
   getTeamDetailsAdmin,
   getTeamMemberAdmin,
@@ -99,6 +100,15 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       paymentMode: z.enum(["coach_pays_all", "per_player_all", "per_player_selected"]).optional().default("coach_pays_all"),
       coachPaysSeats: z.coerce.number().int().min(0).optional(),
       playerEmails: z.array(z.string().email()).optional(),
+      playerPayers: z
+        .array(
+          z.object({
+            name: z.string().min(1),
+            email: z.string().email(),
+            selected: z.coerce.boolean().optional(),
+          }),
+        )
+        .optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) {
@@ -130,6 +140,7 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       paymentMode: parsed.data.paymentMode,
       coachPaysSeats: parsed.data.coachPaysSeats,
       playerEmails: parsed.data.playerEmails,
+      playerPayers: parsed.data.playerPayers,
     });
     return res.status(201).json(result);
   } catch (error: any) {
@@ -233,6 +244,20 @@ export async function approveTeamAdminDetails(req: Request, res: Response) {
     const status = typeof error?.status === "number" ? error.status : 500;
     const message = typeof error?.message === "string" ? error.message : "Failed to approve team.";
     if (status >= 500) logger.error({ err: error }, "[admin] approveTeamAdminDetails");
+    return res.status(status).json({ error: message });
+  }
+}
+
+export async function approveTeamSponsorRestAdminDetails(req: Request, res: Response) {
+  const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
+  const billingCycle = z.enum(["monthly", "6months", "yearly"]).optional().parse(req.body?.billingCycle) ?? "monthly";
+  try {
+    const result = await approveTeamSponsorRestAdmin(teamId, billingCycle);
+    return res.status(200).json(result);
+  } catch (error: any) {
+    const status = typeof error?.status === "number" ? error.status : 500;
+    const message = typeof error?.message === "string" ? error.message : "Failed to approve and sponsor remaining players.";
+    if (status >= 500) logger.error({ err: error }, "[admin] approveTeamSponsorRestAdminDetails");
     return res.status(status).json({ error: message });
   }
 }

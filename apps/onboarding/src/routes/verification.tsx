@@ -35,6 +35,7 @@ function VerificationComponent() {
     const [isResending, setIsResending] = useState(false);
     const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
     const navigate = useNavigate();
+    const pendingEmail = localStorage.getItem("pending_email");
 
     useEffect(() => {
         inputsRef.current[0]?.focus();
@@ -180,6 +181,12 @@ function VerificationComponent() {
                         <CardTitle className="text-3xl font-bold tracking-tight">
                             Check your inbox
                         </CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                            Verification code sent to{" "}
+                            <span className="font-semibold text-foreground">
+                                {pendingEmail || "your email"}
+                            </span>
+                        </p>
                     </CardHeader>
 
                     <CardContent className="pt-4 pb-10 space-y-10">
@@ -219,6 +226,9 @@ function VerificationComponent() {
                     </CardContent>
 
                     <CardFooter className="bg-muted/30 py-6 flex flex-col items-center space-y-3 border-t">
+                        <p className="text-xs text-muted-foreground text-center">
+                            Check your spam folder.
+                        </p>
                         <div className="flex items-center text-sm text-muted-foreground">
                             <ClockIcon className="w-4 h-4 mr-2" />
                             <span>Didn't receive the code?</span>

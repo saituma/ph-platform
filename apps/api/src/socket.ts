@@ -200,23 +200,29 @@ export function initSocket(server: HttpServer) {
       const cookieToken = cookieHeader
         .split(";")
         .map((part) => part.trim())
-        .find((part) => part.startsWith("accessToken="))
+        .find((part) => part.startsWith("accessToken=") || part.startsWith("auth_token="))
         ?.split("=")[1];
       const token = socket.handshake.auth?.token || headerAuth || cookieToken;
       if (!token) {
-        log.warn({
-          ip: socket.handshake.address,
-          origin: socket.handshake.headers?.origin,
-        }, "Unauthorized: missing token");
+        log.warn(
+          {
+            ip: socket.handshake.address,
+            origin: socket.handshake.headers?.origin,
+          },
+          "Unauthorized: missing token",
+        );
         return next(new Error("Unauthorized"));
       }
       const payload = (await verifyAccessToken(token)) as AuthPayload;
       const userId = await resolveUserId(payload);
       if (!userId) {
-        log.warn({
-          ip: socket.handshake.address,
-          origin: socket.handshake.headers?.origin,
-        }, "Unauthorized: user not resolved");
+        log.warn(
+          {
+            ip: socket.handshake.address,
+            origin: socket.handshake.headers?.origin,
+          },
+          "Unauthorized: user not resolved",
+        );
         return next(new Error("Unauthorized"));
       }
       socket.data.userId = userId;
@@ -232,35 +238,44 @@ export function initSocket(server: HttpServer) {
         } catch (error) {
           if (!isLikelyDatabaseConnectivityFailure(error)) throw error;
           const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
-          log.warn({
-            ip: socket.handshake.address,
-            origin: socket.handshake.headers?.origin,
-            userId,
-            retryAfterSeconds,
-          }, "DB unavailable during optional profile lookup");
+          log.warn(
+            {
+              ip: socket.handshake.address,
+              origin: socket.handshake.headers?.origin,
+              userId,
+              retryAfterSeconds,
+            },
+            "DB unavailable during optional profile lookup",
+          );
         }
       }
       return next();
     } catch (error) {
       if (isLikelyDatabaseConnectivityFailure(error)) {
         const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
-        log.warn({
-          ip: socket.handshake.address,
-          origin: socket.handshake.headers?.origin,
-          retryAfterSeconds,
-          err: error,
-        }, "Service unavailable during auth");
+        log.warn(
+          {
+            ip: socket.handshake.address,
+            origin: socket.handshake.headers?.origin,
+            retryAfterSeconds,
+            err: error,
+          },
+          "Service unavailable during auth",
+        );
         const serviceUnavailableError = new Error("ServiceUnavailable") as Error & {
           data?: { code: "DB_UNAVAILABLE"; retryAfterSeconds: number };
         };
         serviceUnavailableError.data = { code: "DB_UNAVAILABLE", retryAfterSeconds };
         return next(serviceUnavailableError);
       }
-      log.warn({
-        ip: socket.handshake.address,
-        origin: socket.handshake.headers?.origin,
-        err: error,
-      }, "Unauthorized: token verification failed");
+      log.warn(
+        {
+          ip: socket.handshake.address,
+          origin: socket.handshake.headers?.origin,
+          err: error,
+        },
+        "Unauthorized: token verification failed",
+      );
       return next(new Error("Unauthorized"));
     }
   });
@@ -291,11 +306,7 @@ export function initSocket(server: HttpServer) {
 
     // ── Helper: safe async handler with rate limiting, validation, error ACK ──
 
-    function guarded<T extends z.ZodTypeAny>(
-      event: string,
-      schema: T,
-      handler: (data: z.infer<T>) => Promise<void>,
-    ) {
+    function guarded<T extends z.ZodTypeAny>(event: string, schema: T, handler: (data: z.infer<T>) => Promise<void>) {
       socket.on(event, async (rawPayload: unknown) => {
         if (isRateLimited(userId, event)) {
           socket.emit("error:rate_limited", { event, message: "Too many requests, slow down" });
@@ -360,9 +371,7 @@ export function initSocket(server: HttpServer) {
       const content = data.content?.trim() ?? "";
       if (!content && !data.mediaUrl) return;
       const senderId =
-        (data.actingUserId ? Number(data.actingUserId) : null) ||
-        (socket.data.actingUserId as number | null) ||
-        userId;
+        (data.actingUserId ? Number(data.actingUserId) : null) || (socket.data.actingUserId as number | null) || userId;
 
       if (senderId !== userId) {
         const { athlete } = await getGuardianAndAthlete(userId);
@@ -394,9 +403,10 @@ export function initSocket(server: HttpServer) {
             event: "message:send",
             clientId: data.clientId,
             code: msg,
-            message: msg === "AI_COACH_REQUIRES_PREMIUM"
-              ? "AI Coach requires a premium plan"
-              : "Messaging is not available for your current plan",
+            message:
+              msg === "AI_COACH_REQUIRES_PREMIUM"
+                ? "AI Coach requires a premium plan"
+                : "Messaging is not available for your current plan",
           });
           return;
         }
@@ -410,9 +420,7 @@ export function initSocket(server: HttpServer) {
       const allowed = await isGroupMember(data.groupId, userId);
       if (!allowed) return;
       const senderId =
-        (data.actingUserId ? Number(data.actingUserId) : null) ||
-        (socket.data.actingUserId as number | null) ||
-        userId;
+        (data.actingUserId ? Number(data.actingUserId) : null) || (socket.data.actingUserId as number | null) || userId;
 
       if (senderId !== userId) {
         const { athlete } = await getGuardianAndAthlete(userId);

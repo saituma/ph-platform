@@ -35,7 +35,7 @@ export default function AthleteDetailPage() {
   const params = useParams();
   const athleteId = Number(params?.athleteId);
 
-  const { data, isLoading } = useGetAthleteDetailQuery(
+  const { data, isLoading, refetch } = useGetAthleteDetailQuery(
     { athleteId },
     { skip: !Number.isFinite(athleteId) || athleteId <= 0 },
   );
@@ -57,9 +57,45 @@ export default function AthleteDetailPage() {
     [programs],
   );
 
+  const athleteSessionVideoGroups = (() => {
+    const items = Array.isArray(athlete?.videoUploads) ? athlete.videoUploads : [];
+    const groups = new Map<string, { key: string; label: string; uploads: number; awaiting: number; latestAt?: string | null }>();
+    for (const item of items) {
+      const label = item?.sessionTitle ?? "Session Uploads";
+      const type = "program";
+      const key = `${type}::${label}`;
+      const existing = groups.get(key);
+      const reviewed = Boolean(item?.reviewedAt);
+      const createdAt = item?.createdAt ?? null;
+      if (!existing) {
+        groups.set(key, {
+          key,
+          label,
+          uploads: 1,
+          awaiting: reviewed ? 0 : 1,
+          latestAt: createdAt,
+        });
+      } else {
+        existing.uploads += 1;
+        existing.awaiting += reviewed ? 0 : 1;
+        if (createdAt && (!existing.latestAt || createdAt > existing.latestAt)) {
+          existing.latestAt = createdAt;
+        }
+      }
+    }
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.awaiting !== b.awaiting) return b.awaiting - a.awaiting;
+      return (
+        (b.latestAt ? new Date(b.latestAt).getTime() : 0) -
+        (a.latestAt ? new Date(a.latestAt).getTime() : 0)
+      );
+    });
+  })();
+
   const handleAssign = async () => {
     if (!selectedProgramId || !athlete) return;
     await assignProgram({ programId: Number(selectedProgramId), athleteId: athlete.id }).unwrap();
+    await refetch();
     setAssignOpen(false);
     setSelectedProgramId("");
   };
@@ -67,6 +103,7 @@ export default function AthleteDetailPage() {
   const handleUnassign = async (assignmentId: number) => {
     if (!window.confirm("Remove this program from the athlete?")) return;
     await unassign({ assignmentId }).unwrap();
+    await refetch();
   };
 
   if (isLoading) {
@@ -274,6 +311,47 @@ export default function AthleteDetailPage() {
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Uploaded Video Sessions */}
+        <div className="space-y-3">
+          <SectionHeader
+            title="Uploaded Video Sessions"
+            description={`${athleteSessionVideoGroups.length} session${athleteSessionVideoGroups.length !== 1 ? "s" : ""} with uploads.`}
+          />
+          {athleteSessionVideoGroups.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+              <Video className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+              <p className="font-semibold text-foreground">No uploaded sessions yet</p>
+              <p className="mt-1">When this athlete uploads session videos, they will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {athleteSessionVideoGroups.map((session) => (
+                <Link
+                  key={session.key}
+                  href={`/athletes/${athlete.id}/videos/${encodeURIComponent(session.key)}`}
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{session.label}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {session.uploads} upload{session.uploads !== 1 ? "s" : ""} ·{" "}
+                      {session.latestAt ? new Date(session.latestAt).toLocaleString() : "Unknown"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {session.awaiting > 0 ? (
+                      <Badge variant="secondary">{session.awaiting} awaiting</Badge>
+                    ) : (
+                      <Badge>Reviewed</Badge>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </Link>
               ))}
             </div>
           )}

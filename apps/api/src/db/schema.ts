@@ -250,6 +250,36 @@ export const teamTable = pgTable(
   }),
 );
 
+export const teamPaymentConfigDraftTable = pgTable(
+  "team_payment_config_drafts",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    adminId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    teamId: integer()
+      .notNull()
+      .references(() => teamTable.id, { onDelete: "cascade" }),
+    scopeKey: varchar("scope_key", { length: 255 }).notNull(),
+    paymentMode: teamPaymentMode("payment_mode").notNull().default("coach_pays_all"),
+    coachPaysSeats: integer("coach_pays_seats").notNull().default(0),
+    termsAcceptedAt: timestamp("terms_accepted_at"),
+    termsVersion: varchar("terms_version", { length: 50 }),
+    playerPayers: jsonb("player_payers")
+      .$type<Array<{ id?: number; name: string; email: string; selected?: boolean }>>()
+      .notNull()
+      .default([]),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    adminTeamUnique: uniqueIndex("team_payment_config_drafts_admin_team_unique").on(
+      table.adminId,
+      table.teamId,
+    ),
+  }),
+);
+
 export const athleteTable = pgTable("athletes", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   userId: integer()
@@ -1248,6 +1278,10 @@ export const teamSubscriptionRequestTable = pgTable("team_subscription_requests"
   termsVersion: varchar({ length: 50 }),
   /** True once all required payments (coach + all player invites) are confirmed. */
   allPaymentsComplete: boolean().notNull().default(false),
+  /** True once required player invite emails are successfully sent (if paymentMode needs invites). */
+  inviteEmailsReady: boolean().notNull().default(false),
+  inviteEmailsLastAttemptAt: timestamp(),
+  inviteEmailsError: varchar({ length: 500 }),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
@@ -1275,6 +1309,8 @@ export const teamPlayerPaymentInviteTable = pgTable(
     currency: varchar({ length: 10 }).notNull().default("gbp"),
     status: teamPlayerInviteStatus().notNull().default("pending"),
     paidAt: timestamp(),
+    emailSentAt: timestamp(),
+    emailLastError: varchar({ length: 500 }),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },

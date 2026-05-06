@@ -106,17 +106,23 @@ async function migrateEachJournalEntryInOwnTransaction(
     )
   `);
 
-  // Load every hash already recorded as applied. Hash-based tracking is the durable
-  // way to decide what's pending — earlier versions of this runner used the highest
-  // `created_at` as a cursor, which broke when journal `when` values weren't monotonic
-  // (newer migrations with smaller `when` than older ones got silently skipped).
+  // Load applied migrations.
+  //
+  // Primary key is hash, but we also keep a created_at fallback for environments
+  // where legacy migration files were regenerated/edited and hashes no longer
+  // match rows that already ran. Using both prevents re-running old DDL.
   const appliedRows = await db.execute(
-    sql`select hash from ${sql.identifier(migrationsSchema)}.${sql.identifier(migrationsTable)}`,
+    sql`select hash, created_at from ${sql.identifier(migrationsSchema)}.${sql.identifier(migrationsTable)}`,
   );
   const appliedHashes = new Set(appliedRows.rows.map((r: any) => String(r.hash)));
+  const appliedCreatedAt = new Set(
+    appliedRows.rows
+      .map((r: any) => (r.created_at == null ? null : Number(r.created_at)))
+      .filter((value): value is number => Number.isFinite(value)),
+  );
 
   for (const migration of migrations) {
-    if (appliedHashes.has(migration.hash)) continue;
+    if (appliedHashes.has(migration.hash) || appliedCreatedAt.has(migration.folderMillis)) continue;
 
     await db.transaction(async (tx) => {
       for (const stmt of migration.sql) {
@@ -404,6 +410,28 @@ async function assertTeamsSchema(db: any) {
   }
 }
 
+async function assertSessionScheduleSchema(db: any) {
+  const [hasTemplates, hasSessions, hasAttendance] = await Promise.all([
+    tableExists(db, "session_templates"),
+    tableExists(db, "scheduled_sessions"),
+    tableExists(db, "session_attendance"),
+  ]);
+
+  const missing = [
+    !hasTemplates ? "session_templates" : null,
+    !hasSessions ? "scheduled_sessions" : null,
+    !hasAttendance ? "session_attendance" : null,
+  ].filter(Boolean);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Session schedule schema is still missing after migrations: ${missing.join(
+        ", ",
+      )}. If this database existed before these migrations, replay the session schedule migration files or repair public.__drizzle_migrations before re-running migrations.`,
+    );
+  }
+}
+
 async function executeMigrationsOnce(options: {
   databaseUrl: string;
   migrationsFolder?: string;
@@ -507,6 +535,7 @@ async function executeMigrationsOnce(options: {
     });
 
     await assertTeamsSchema(db);
+    await assertSessionScheduleSchema(db);
 
     if (!options?.skipTrainingV2Assertion) {
       await assertTrainingContentV2Schema(db);

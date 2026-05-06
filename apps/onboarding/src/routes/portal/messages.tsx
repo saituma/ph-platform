@@ -15,12 +15,13 @@ import {
 	X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { io, type Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
 import { getTokenStatus } from "@/lib/client-storage";
-import { getPublicApiBaseUrl } from "@/lib/public-api";
 import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
 import { cn } from "@/lib/utils";
 import { usePortal } from "@/portal/PortalContext";
+import { usePortalSocket } from "@/portal/PortalSocketContext";
+import { COMMON_REACTION_EMOJIS } from "@/lib/messaging-reactions";
 import {
 	type ApiChatMessage,
 	fetchInbox,
@@ -121,7 +122,8 @@ function MessagesPage() {
 	const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const socketRef = useRef<Socket | null>(null);
 	const queryClient = useQueryClient();
-	const reactionOptions = ["👍", "🔥", "💪", "👏", "❤️"];
+	const { socket } = usePortalSocket();
+	const reactionOptions = COMMON_REACTION_EMOJIS;
 	const MESSAGE_MAX_LENGTH = 2000;
 
 	useEffect(() => {
@@ -209,6 +211,23 @@ function MessagesPage() {
 			setAttachedFile(null);
 			return { threadKey, previousMessages, draft: payload.content };
 		},
+		onSuccess: (result, _payload, ctx) => {
+			if (!ctx?.threadKey) return;
+			const created = (result as any)?.message as ApiChatMessage | undefined;
+			if (!created || !Number.isFinite(Number(created.id))) return;
+			queryClient.setQueryData<ApiChatMessage[]>(ctx.threadKey, (current) => {
+				const base = Array.isArray(current) ? current : [];
+				const withoutOptimistic = base.filter((item) => Number(item.id) > 0);
+				if (withoutOptimistic.some((item) => Number(item.id) === Number(created.id))) {
+					return withoutOptimistic;
+				}
+				return [...withoutOptimistic, created].sort(
+					(a, b) =>
+						new Date(a.createdAt).getTime() -
+						new Date(b.createdAt).getTime(),
+				);
+			});
+		},
 		onError: (_error, _text, ctx) => {
 			if (!ctx) return;
 			queryClient.setQueryData<ApiChatMessage[]>(
@@ -218,8 +237,12 @@ function MessagesPage() {
 			setNewMessage(ctx.draft);
 		},
 		onSettled: (_data, _error, _text, ctx) => {
+			// Keep optimistic thread UX stable; socket events and onSuccess reconcile.
+			// Fallback refresh ensures delivery if socket events are delayed.
 			if (ctx?.threadKey) {
-				queryClient.invalidateQueries({ queryKey: ctx.threadKey });
+				window.setTimeout(() => {
+					queryClient.invalidateQueries({ queryKey: ctx.threadKey });
+				}, 900);
 			}
 			queryClient.invalidateQueries({
 				queryKey: messageKeys.inbox(token, isManager),
@@ -410,27 +433,17 @@ function MessagesPage() {
 	const activeThread = threads.find((t) => t.id === activeThreadId);
 
 	useEffect(() => {
-		if (!token || portalLoading || typeof window === "undefined") return;
-
-		const rawSocket = String(
-			(import.meta.env as Record<string, string | undefined>)
-				.VITE_PUBLIC_SOCKET_URL ?? "",
-		).trim();
-		const apiBase = getPublicApiBaseUrl();
-		const socketUrl = rawSocket
-			? rawSocket.replace(/\/api\/?$/, "")
-			: apiBase
-				? apiBase.replace(/\/api\/?$/, "")
-				: window.location.origin;
+		if (!token || portalLoading || !socket) return;
 
 		let loggedConnectError = false;
-		const socket: Socket = io(socketUrl, {
-			path: "/socket.io",
-			auth: { token },
-			transports: ["polling", "websocket"],
-			reconnection: true,
-			reconnectionDelayMax: 10000,
-		});
+		const subscriptions: Array<{
+			event: string;
+			listener: (...args: any[]) => void;
+		}> = [];
+		const on = (event: string, listener: (...args: any[]) => void) => {
+			socket.on(event, listener);
+			subscriptions.push({ event, listener });
+		};
 
 		const refetchInbox = () => {
 			queryClient.invalidateQueries({
@@ -473,11 +486,11 @@ function MessagesPage() {
 			refetchActiveThread();
 		};
 
-		socket.on("connect", () => {
+		on("connect", () => {
 			catchUp();
 		});
 
-		socket.on("connect_error", (err) => {
+		on("connect_error", (err) => {
 			if (!import.meta.env.DEV || loggedConnectError) return;
 			loggedConnectError = true;
 			const code =
@@ -485,21 +498,21 @@ function MessagesPage() {
 			const retryAfter =
 				(err as { data?: { retryAfterSeconds?: number } } | undefined)?.data
 					?.retryAfterSeconds;
-			if (code === "DB_UNAVAILABLE") {
-				console.warn(
-					"[portal/messages] socket connect_error: DB unavailable",
-					`url=${socketUrl} retryAfterSeconds=${retryAfter ?? "unknown"} — API is up but database is temporarily unavailable.`,
-				);
-				return;
-			}
+				if (code === "DB_UNAVAILABLE") {
+					console.warn(
+						"[portal/messages] socket connect_error: DB unavailable",
+						`retryAfterSeconds=${retryAfter ?? "unknown"} — API is up but database is temporarily unavailable.`,
+					);
+					return;
+				}
 			console.warn(
-				"[portal/messages] socket connect_error:",
-				err?.message ?? err,
-				`url=${socketUrl} — ensure the API (Socket.IO) is running; if this is a browser-network failure, verify backend availability and CORS for ${typeof window !== "undefined" ? window.location.origin : ""}.`,
-			);
-		});
+					"[portal/messages] socket connect_error:",
+					err?.message ?? err,
+					`Ensure the API Socket.IO server is reachable and CORS allows ${typeof window !== "undefined" ? window.location.origin : ""}.`,
+				);
+			});
 
-		socket.on(
+		on(
 			"message:new",
 			(payload: {
 				id?: number;
@@ -537,7 +550,7 @@ function MessagesPage() {
 			},
 		);
 
-		socket.on(
+		on(
 			"message:read",
 			(payload: {
 				readerUserId?: number | string;
@@ -562,7 +575,7 @@ function MessagesPage() {
 			},
 		);
 
-		socket.on("group:message", (payload: {
+		on("group:message", (payload: {
 			groupId?: number | string;
 			message?: {
 				groupId?: number;
@@ -602,7 +615,7 @@ function MessagesPage() {
 			if (isActiveGroup) refetchActiveThread();
 		});
 
-		socket.on("group:read", (payload: { groupId?: number | string }) => {
+		on("group:read", (payload: { groupId?: number | string }) => {
 			refetchInbox();
 			const currentThreadId = activeThreadIdRef.current;
 			const groupId = Number(payload?.groupId ?? Number.NaN);
@@ -615,21 +628,21 @@ function MessagesPage() {
 			}
 		});
 
-		socket.on("message:deleted", () => {
+		on("message:deleted", () => {
 			refetchInbox();
 			refetchActiveThread();
 		});
 
-		socket.on("group:message:deleted", () => {
+		on("group:message:deleted", () => {
 			refetchInbox();
 			refetchActiveThread();
 		});
 
-		socket.on("message:reaction", () => {
+		on("message:reaction", () => {
 			refetchActiveThread();
 		});
 
-		socket.on("group:reaction", (payload: { groupId?: number | string }) => {
+		on("group:reaction", (payload: { groupId?: number | string }) => {
 			const currentThreadId = activeThreadIdRef.current;
 			const groupId = Number(payload?.groupId ?? Number.NaN);
 			if (
@@ -641,7 +654,7 @@ function MessagesPage() {
 			}
 		});
 
-		socket.on("typing:update", (payload: { fromUserId?: number; name?: string; isTyping?: boolean; scope?: string; groupId?: number }) => {
+		on("typing:update", (payload: { fromUserId?: number; name?: string; isTyping?: boolean; scope?: string; groupId?: number }) => {
 			const key = payload.scope === "group" && payload.groupId
 				? `group:${payload.groupId}`
 				: payload.fromUserId ? String(payload.fromUserId) : null;
@@ -664,21 +677,23 @@ function MessagesPage() {
 			});
 		});
 
-		socket.on("error:blocked", (payload: { message?: string }) => {
+		on("error:blocked", (payload: { message?: string }) => {
 			setSendError(payload?.message ?? "Message blocked by your current plan");
 		});
 
-		socket.on("error:rate_limited", () => {
+		on("error:rate_limited", () => {
 			setSendError("You're sending messages too quickly. Please wait a moment.");
 		});
 
-		socketRef.current = socket;
+			socketRef.current = socket;
 
-		return () => {
-			socket.disconnect();
-			socketRef.current = null;
-		};
-	}, [isManager, portalLoading, queryClient, token]);
+			return () => {
+				for (const { event, listener } of subscriptions) {
+					socket.off(event, listener);
+				}
+				socketRef.current = null;
+			};
+		}, [isManager, portalLoading, queryClient, socket, token]);
 
 	if (threadsLoading && !threads.length) {
 		return (

@@ -10,11 +10,9 @@ import {
 	X,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { useEffect } from "react";
-import { io, type Socket } from "socket.io-client";
 import { getTokenStatus } from "@/lib/client-storage";
-import { getPublicApiBaseUrl } from "@/lib/public-api";
 import { usePortal } from "@/portal/PortalContext";
+import { usePortalSocketEvent } from "@/portal/PortalSocketContext";
 import {
 	completeSession,
 	fetchMySessionExercises,
@@ -31,7 +29,12 @@ export const Route = createFileRoute(
 		const sessionId = Number(params.sessionId);
 		if (status.authenticated && !Number.isNaN(sessionId)) {
 			await queryClient.ensureQueryData({
-				queryKey: [...programKeys.all, "session-exercises", "cookie", sessionId],
+				queryKey: [
+					...programKeys.all,
+					"session-exercises",
+					"cookie",
+					sessionId,
+				],
 				queryFn: () => fetchMySessionExercises("cookie", sessionId),
 			});
 		}
@@ -213,9 +216,13 @@ function CompletionSheet({
 				await new Promise<void>((resolve, reject) => {
 					const xhr = new XMLHttpRequest();
 					xhr.upload.onprogress = (ev) => {
-						if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+						if (ev.lengthComputable)
+							setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
 					};
-					xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error("Upload failed")));
+					xhr.onload = () =>
+						xhr.status >= 200 && xhr.status < 300
+							? resolve()
+							: reject(new Error("Upload failed"));
 					xhr.onerror = () => reject(new Error("Upload failed"));
 					xhr.open("PUT", presign.uploadUrl);
 					xhr.setRequestHeader("Content-Type", videoFile.type || "video/mp4");
@@ -241,11 +248,21 @@ function CompletionSheet({
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-			<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} onKeyDown={() => {}} />
+			<div
+				className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+				onClick={onClose}
+				onKeyDown={() => {}}
+			/>
 			<div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-card border border-border rounded-t-3xl sm:rounded-3xl p-6 animate-in slide-in-from-bottom-8 duration-300 shadow-2xl">
 				<div className="flex items-center justify-between mb-6">
-					<h2 className="text-lg font-black italic uppercase tracking-tight">Complete Session</h2>
-					<button type="button" onClick={onClose} className="p-1 hover:bg-muted rounded-full transition-colors">
+					<h2 className="text-lg font-black italic uppercase tracking-tight">
+						Complete Session
+					</h2>
+					<button
+						type="button"
+						onClick={onClose}
+						className="p-1 hover:bg-muted rounded-full transition-colors"
+					>
 						<X className="w-5 h-5" />
 					</button>
 				</div>
@@ -297,55 +314,66 @@ function CompletionSheet({
 								</button>
 							))}
 						</div>
-						<p className="mt-1 text-[10px] text-muted-foreground">1 = very easy · 10 = maximal effort</p>
+						<p className="mt-1 text-[10px] text-muted-foreground">
+							1 = very easy · 10 = maximal effort
+						</p>
 					</div>
 
-					{allowVideoUpload && (<div>
-						<span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-							Upload Video (optional)
-						</span>
-						{videoPreview ? (
-							<div className="mt-2 relative">
-								<video
-									className="w-full rounded-xl border border-border aspect-video object-cover"
-									src={videoPreview}
-									controls
-									playsInline
-									muted
-								/>
+					{allowVideoUpload && (
+						<div>
+							<span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+								Upload Video (optional)
+							</span>
+							{videoPreview ? (
+								<div className="mt-2 relative">
+									<video
+										className="w-full rounded-xl border border-border aspect-video object-cover"
+										src={videoPreview}
+										controls
+										playsInline
+										muted
+									/>
+									<button
+										type="button"
+										onClick={removeVideo}
+										className="absolute top-2 right-2 p-1 bg-black/60 rounded-full text-white hover:bg-black/80"
+									>
+										<X className="w-4 h-4" />
+									</button>
+								</div>
+							) : (
 								<button
 									type="button"
-									onClick={removeVideo}
-									className="absolute top-2 right-2 p-1 bg-black/60 rounded-full text-white hover:bg-black/80"
+									onClick={() => fileInputRef.current?.click()}
+									className="mt-2 w-full py-6 rounded-xl border-2 border-dashed border-border bg-background hover:bg-muted/50 transition-colors flex flex-col items-center gap-2 text-muted-foreground"
 								>
-									<X className="w-4 h-4" />
+									<Video className="w-8 h-8" />
+									<span className="text-xs font-semibold">
+										Tap to upload or record video
+									</span>
+									<span className="text-[10px]">MP4, MOV up to 200MB</span>
 								</button>
-							</div>
-						) : (
-							<button
-								type="button"
-								onClick={() => fileInputRef.current?.click()}
-								className="mt-2 w-full py-6 rounded-xl border-2 border-dashed border-border bg-background hover:bg-muted/50 transition-colors flex flex-col items-center gap-2 text-muted-foreground"
-							>
-								<Video className="w-8 h-8" />
-								<span className="text-xs font-semibold">Tap to upload or record video</span>
-								<span className="text-[10px]">MP4, MOV up to 200MB</span>
-							</button>
-						)}
-						<input
-							ref={fileInputRef}
-							type="file"
-							accept="video/*"
-							onChange={handleVideoSelect}
-							className="hidden"
-						/>
-						{uploadError && <p className="mt-1 text-xs text-red-500">{uploadError}</p>}
-						{uploading && (
-							<div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-								<div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
-							</div>
-						)}
-					</div>)}
+							)}
+							<input
+								ref={fileInputRef}
+								type="file"
+								accept="video/*"
+								onChange={handleVideoSelect}
+								className="hidden"
+							/>
+							{uploadError && (
+								<p className="mt-1 text-xs text-red-500">{uploadError}</p>
+							)}
+							{uploading && (
+								<div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+									<div
+										className="h-full bg-primary transition-all"
+										style={{ width: `${uploadProgress}%` }}
+									/>
+								</div>
+							)}
+						</div>
+					)}
 				</div>
 
 				<button
@@ -354,7 +382,11 @@ function CompletionSheet({
 					onClick={handleSubmit}
 					className="mt-6 w-full h-12 rounded-full bg-primary text-primary-foreground font-bold text-sm uppercase tracking-wider disabled:opacity-60 transition-opacity"
 				>
-					{uploading ? `Uploading ${uploadProgress}%…` : submitting ? "Submitting…" : "Mark Complete"}
+					{uploading
+						? `Uploading ${uploadProgress}%…`
+						: submitting
+							? "Submitting…"
+							: "Mark Complete"}
 				</button>
 			</div>
 		</div>
@@ -365,11 +397,26 @@ function AssignedSessionDetailPage() {
 	const { sessionId } = Route.useParams();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { token, user, loading: portalLoading, error: portalError } = usePortal();
+	const {
+		token,
+		user,
+		loading: portalLoading,
+		error: portalError,
+	} = usePortal();
 
 	const sessionIdNumber = Number(sessionId);
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const [completed, setCompleted] = useState(false);
+	const [localCompletion, setLocalCompletion] = useState<{
+		videoUrl: string | null;
+		weightsUsed?: string | null;
+		repsCompleted?: string | null;
+		rpe?: number | null;
+		coachResponse?: string | null;
+		coachResponseAt?: string | null;
+		coachResponseVideoUrl?: string | null;
+	} | null>(null);
+	const [liveCoachVideoUrl, setLiveCoachVideoUrl] = useState<string | null>(null);
 
 	const {
 		data: exercisesData,
@@ -383,75 +430,117 @@ function AssignedSessionDetailPage() {
 	});
 
 	const { data: completionData, refetch: refetchCompletion } = useQuery({
-		queryKey: [...programKeys.all, "session-completion", token, sessionIdNumber],
+		queryKey: [
+			...programKeys.all,
+			"session-completion",
+			token,
+			sessionIdNumber,
+		],
 		queryFn: () => fetchSessionCompletion(token!, sessionIdNumber),
 		enabled: !!token && !portalLoading && !Number.isNaN(sessionIdNumber),
 		staleTime: 1000 * 60 * 5,
 	});
 
 	const completeMutation = useMutation({
-		mutationFn: (data: { weightsUsed: string; repsCompleted: string; rpe: number | null; videoUrl: string | null }) =>
+		mutationFn: (data: {
+			weightsUsed: string;
+			repsCompleted: string;
+			rpe: number | null;
+			videoUrl: string | null;
+		}) =>
 			completeSession(token!, sessionIdNumber, {
 				weightsUsed: data.weightsUsed || undefined,
 				repsCompleted: data.repsCompleted || undefined,
 				rpe: data.rpe ?? undefined,
 				videoUrl: data.videoUrl || undefined,
 			}),
-		onSuccess: () => {
+		onSuccess: (_result, variables) => {
 			setSheetOpen(false);
 			setCompleted(true);
-			refetchCompletion();
+			setLocalCompletion({
+				videoUrl: variables.videoUrl ?? null,
+				weightsUsed: variables.weightsUsed || null,
+				repsCompleted: variables.repsCompleted || null,
+				rpe: variables.rpe ?? null,
+			});
+			queryClient.setQueryData(
+				[...programKeys.all, "session-completion", token, sessionIdNumber],
+				(prev: any) => ({
+					...(prev ?? {}),
+					videoUrl: variables.videoUrl ?? prev?.videoUrl ?? null,
+					weightsUsed: variables.weightsUsed || prev?.weightsUsed || null,
+					repsCompleted: variables.repsCompleted || prev?.repsCompleted || null,
+					rpe: variables.rpe ?? prev?.rpe ?? null,
+				}),
+			);
+			void refetchCompletion();
 			queryClient.invalidateQueries({ queryKey: programKeys.all });
 		},
 	});
 
-	useEffect(() => {
-		if (!token || portalLoading || Number.isNaN(sessionIdNumber)) return;
-
-		const rawSocket = String(
-			(import.meta.env as Record<string, string | undefined>).VITE_PUBLIC_SOCKET_URL ?? "",
-		).trim();
-		const apiBase = getPublicApiBaseUrl();
-		const socketUrl = rawSocket
-			? rawSocket.replace(/\/api\/?$/, "")
-			: apiBase
-				? apiBase.replace(/\/api\/?$/, "")
-				: window.location.origin;
-
-		const socket: Socket = io(socketUrl, {
-			path: "/socket.io",
-			auth: { token },
-			transports: ["polling", "websocket"],
-			reconnection: true,
-			reconnectionDelayMax: 10000,
-		});
-
-		const refreshIfMatchesSession = (payload: { sessionId?: number | string }) => {
+	const refreshIfMatchesSession = (payload: {
+		sessionId?: number | string;
+	}) => {
+		const payloadSessionId = Number(payload?.sessionId);
+		if (!Number.isFinite(payloadSessionId)) return;
+		if (payloadSessionId !== sessionIdNumber) return;
+		void refetchCompletion();
+	};
+	const socketReady =
+		!!token && !portalLoading && !Number.isNaN(sessionIdNumber);
+	usePortalSocketEvent(
+		"program:session:coach-response",
+		refreshIfMatchesSession,
+		socketReady,
+	);
+	usePortalSocketEvent(
+		"video:reviewed",
+		() => {
+			void refetchCompletion();
+		},
+		socketReady,
+	);
+	usePortalSocketEvent(
+		"message:new",
+		(payload: any) => {
+			const mediaUrl =
+				typeof payload?.mediaUrl === "string" ? payload.mediaUrl.trim() : "";
+			const contentType = String(payload?.contentType ?? "").toLowerCase();
+			const fromCoach = payload?.senderName || payload?.senderId;
+			if (!fromCoach) return;
+			if (contentType !== "video") return;
+			if (!mediaUrl) return;
+			setLiveCoachVideoUrl(mediaUrl);
+		},
+		socketReady,
+	);
+	usePortalSocketEvent(
+		"program:session:coach-video-response",
+		(payload: any) => {
 			const payloadSessionId = Number(payload?.sessionId);
-			if (!Number.isFinite(payloadSessionId)) return;
-			if (payloadSessionId !== sessionIdNumber) return;
-			void refetchCompletion();
-		};
-
-		socket.on("program:session:coach-response", refreshIfMatchesSession);
-		// Legacy compatibility path used elsewhere for reviewed uploads.
-		socket.on("video:reviewed", () => {
-			void refetchCompletion();
-		});
-
-		return () => {
-			socket.off("program:session:coach-response", refreshIfMatchesSession);
-			socket.off("video:reviewed");
-			socket.disconnect();
-		};
-	}, [token, portalLoading, sessionIdNumber, refetchCompletion]);
+			if (Number.isFinite(payloadSessionId) && payloadSessionId !== sessionIdNumber)
+				return;
+			const mediaUrl =
+				typeof payload?.mediaUrl === "string" ? payload.mediaUrl.trim() : "";
+			if (!mediaUrl) return;
+			setLiveCoachVideoUrl(mediaUrl);
+		},
+		socketReady,
+	);
 
 	const handleComplete = useCallback(
-		(data: { weightsUsed: string; repsCompleted: string; rpe: number | null; videoUrl: string | null }) => {
+		(data: {
+			weightsUsed: string;
+			repsCompleted: string;
+			rpe: number | null;
+			videoUrl: string | null;
+		}) => {
 			completeMutation.mutate(data);
 		},
 		[completeMutation],
 	);
+
+	const displayCompletion = completionData ?? localCompletion;
 
 	if (portalLoading || isLoading) {
 		return (
@@ -643,33 +732,56 @@ function AssignedSessionDetailPage() {
 				</div>
 			)}
 
-			{(completed || completionData) && (
+			{(completed || displayCompletion) && (
 				<div className="flex flex-col items-center gap-4 pt-4 pb-8 animate-in fade-in duration-500">
 					<CheckCircle className="w-12 h-12 text-green-500" />
 					<p className="text-lg font-bold text-green-600">Session Completed!</p>
 
-					{completionData?.videoUrl && (
+					{displayCompletion?.videoUrl && (
 						<div className="w-full max-w-lg rounded-2xl overflow-hidden border bg-card">
 							<div className="p-3 border-b bg-muted/30">
 								<p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
 									<Video className="w-3.5 h-3.5" /> Your Uploaded Video
 								</p>
 							</div>
-							<video src={completionData.videoUrl} controls className="w-full aspect-video bg-black" />
+							<video
+								src={displayCompletion.videoUrl}
+								controls
+								className="w-full aspect-video bg-black"
+							/>
 						</div>
 					)}
 
-					{completionData?.coachResponse && (
+					{displayCompletion?.coachResponse && (
 						<div className="w-full max-w-lg rounded-2xl border bg-primary/5 border-primary/20 p-4">
 							<p className="text-xs font-bold uppercase tracking-wider text-primary mb-2">
 								Coach Response
 							</p>
-							<p className="text-sm text-foreground whitespace-pre-wrap">{completionData.coachResponse}</p>
-							{completionData.coachResponseAt && (
+							<p className="text-sm text-foreground whitespace-pre-wrap">
+								{displayCompletion.coachResponse}
+							</p>
+							{displayCompletion.coachResponseAt && (
 								<p className="text-[10px] text-muted-foreground mt-2">
-									{new Date(completionData.coachResponseAt).toLocaleDateString()}
+									{new Date(
+										displayCompletion.coachResponseAt,
+									).toLocaleDateString()}
 								</p>
 							)}
+						</div>
+					)}
+					{(liveCoachVideoUrl || displayCompletion?.coachResponseVideoUrl) && (
+						<div className="w-full max-w-lg rounded-2xl overflow-hidden border bg-card">
+							<div className="p-3 border-b bg-muted/30">
+								<p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+									<Video className="w-3.5 h-3.5" /> Coach Video Response
+								</p>
+							</div>
+							<video
+								src={liveCoachVideoUrl || displayCompletion?.coachResponseVideoUrl || undefined}
+								controls
+								playsInline
+								className="w-full aspect-video bg-black"
+							/>
 						</div>
 					)}
 

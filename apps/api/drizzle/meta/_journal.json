@@ -932,6 +932,13 @@
       "when": 1778082000000,
       "tag": "0132_admin_google_calendar_connection",
       "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1778087000000,
+      "tag": "0133_team_payment_invite_email_columns",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,21 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../../components/ui/select";
 
+type PlayerPayerRow = {
+  id: string;
+  name: string;
+  email: string;
+  selected: boolean;
+};
+
+type SubscriptionPlan = {
+  tier: ProgramTier | null;
+  monthlyPrice: string | null;
+  yearlyPrice: string | null;
+  displayPrice: string;
+  isActive: boolean;
+};
+
 type ApiErrorLike = { message?: string };
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -49,6 +64,24 @@ function slugify(raw: string, maxLen = 48): string {
   return s.slice(0, maxLen) || "";
 }
 
+function parsePriceToPence(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const cleaned = String(value).replace(/[^0-9.]/g, "").trim();
+  if (!cleaned) return null;
+  const parsed = Number.parseFloat(cleaned);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.round(parsed * 100);
+}
+
+function formatMoneyFromPence(pence: number | null | undefined) {
+  const normalized = Math.max(0, pence ?? 0);
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    maximumFractionDigits: 2,
+  }).format(normalized / 100);
+}
+
 function generatePassword(length = 16): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
   let out = "";
@@ -66,8 +99,7 @@ const ATHLETE_TYPE_ITEMS = [
 ];
 
 const PAYMENT_METHOD_ITEMS = [
-  { label: "Stripe (Pay Immediately)", value: "pay_now" },
-  { label: "Stripe (Email Link to Admin)", value: "email_link" },
+  { label: "Stripe (Send Email)", value: "email_link" },
   { label: "Cash / Manual (Offline Payment)", value: "cash" },
 ];
 
@@ -109,10 +141,9 @@ export default function AddTeamPage() {
   // Billing
   const [tier, setTier] = useState<ProgramTier>("PHP");
   const [maxAthletes, setMaxAthletes] = useState(10);
-  const [paymentMethod, setPaymentMethod] = useState<"pay_now" | "email_link" | "cash">("pay_now");
+  const [paymentMethod, setPaymentMethod] = useState<"email_link" | "cash">("email_link");
   const [paymentMode, setPaymentMode] = useState<"coach_pays_all" | "per_player_all" | "per_player_selected">("coach_pays_all");
-  const [coachPaysSeats, setCoachPaysSeats] = useState(0);
-  const [playerEmailsText, setPlayerEmailsText] = useState("");
+  const [playerPayers, setPlayerPayers] = useState<PlayerPayerRow[]>([{ id: crypto.randomUUID(), name: "", email: "", selected: true }]);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "6months" | "yearly">("monthly");
 
   // Sponsored players
@@ -123,11 +154,51 @@ export default function AddTeamPage() {
   // Misc
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTierSet, setActiveTierSet] = useState<Set<ProgramTier>>(new Set());
+  const [plansByTier, setPlansByTier] = useState<Partial<Record<ProgramTier, SubscriptionPlan>>>({});
+  const [plansLoading, setPlansLoading] = useState(true);
 
   // Auto-derive slug from team name unless admin has manually edited it
   useEffect(() => {
     if (!slugEdited) setEmailSlug(slugify(teamName));
   }, [teamName, slugEdited]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadPlans = async () => {
+      try {
+        const response = await fetch("/api/backend/admin/subscription-plans", {
+          credentials: "include",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error ?? "Failed to load plans.");
+        const plans = Array.isArray(payload?.plans) ? (payload.plans as SubscriptionPlan[]) : [];
+        const active = plans
+          .filter((p) => p?.isActive && typeof p?.tier === "string")
+          .map((p) => p.tier as ProgramTier);
+        const mapped: Partial<Record<ProgramTier, SubscriptionPlan>> = {};
+        for (const plan of plans) {
+          if (!plan?.tier || !plan?.isActive) continue;
+          mapped[plan.tier] = plan;
+        }
+        if (mounted) {
+          setActiveTierSet(new Set(active));
+          setPlansByTier(mapped);
+        }
+      } catch {
+        if (mounted) {
+          setActiveTierSet(new Set());
+          setPlansByTier({});
+        }
+      } finally {
+        if (mounted) setPlansLoading(false);
+      }
+    };
+    void loadPlans();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleSlugChange = (val: string) => {
     setSlugEdited(true);
@@ -166,14 +237,32 @@ export default function AddTeamPage() {
     if (!cleanSlug) return setError("Athlete email slug is required.");
     if (!cleanEmail) return setError("Team manager email is required.");
     if (!cleanPassword || !isStrongPassword(cleanPassword)) return setError("Manager password must be 8+ characters with uppercase, lowercase, number, and special character.");
+    if (!hasActivePlanForTier) return setError(`No active billing plan is configured for ${tier}. Activate one in Billing first.`);
 
-    let parsedEmails: string[] = [];
-    if (paymentMode !== "coach_pays_all" && playerEmailsText.trim()) {
-      parsedEmails = playerEmailsText
-        .split(/[,\n]/)
-        .map((e) => e.trim().toLowerCase())
-        .filter((e) => e.length > 0 && e.includes("@"));
+    const normalizedRows = playerPayers.map((row) => ({
+      name: row.name.trim(),
+      email: row.email.trim().toLowerCase(),
+      selected: row.selected,
+    }));
+
+    const hasAnyPlayerInput = normalizedRows.some((row) => row.name || row.email);
+    const normalizedPayers = normalizedRows.filter((row) => row.name && row.email.includes("@"));
+
+    if (paymentMode !== "coach_pays_all" && !hasAnyPlayerInput) {
+      return setError("Add at least one player name and email.");
     }
+
+    if (paymentMode === "per_player_all") {
+      const missing = normalizedRows.some((row) => !row.name || !row.email.includes("@"));
+      if (missing) return setError("All player rows need name and email.");
+    }
+
+    if (paymentMode === "per_player_selected" && !normalizedPayers.some((row) => row.selected)) {
+      return setError("Select at least one player who will pay.");
+    }
+
+    const selectedCount = normalizedPayers.filter((row) => row.selected).length;
+    const coachPaysSeats = paymentMode === "per_player_selected" ? Math.max(0, maxAthletes - selectedCount) : 0;
 
     setIsSubmitting(true);
     try {
@@ -203,7 +292,8 @@ export default function AddTeamPage() {
           sponsoredTier: hasSponsoredPlayers ? sponsoredTier : undefined,
           paymentMode,
           coachPaysSeats: paymentMode === "per_player_selected" ? coachPaysSeats : 0,
-          playerEmails: parsedEmails,
+          playerEmails: normalizedPayers.map((row) => row.email),
+          playerPayers: normalizedPayers,
         }),
       });
       const payload = await res.json().catch(() => ({}));
@@ -219,7 +309,52 @@ export default function AddTeamPage() {
     }
   };
 
-  const canSubmit = teamName.trim() && emailSlug.trim() && managerEmail.trim() && isStrongPassword(managerPassword.trim()) && tier && !isSubmitting;
+  const hasActivePlanForTier = activeTierSet.has(tier);
+  const normalizedRows = playerPayers.map((row) => ({
+    name: row.name.trim(),
+    email: row.email.trim().toLowerCase(),
+    selected: row.selected,
+  }));
+  const normalizedPayers = normalizedRows.filter((row) => row.name && row.email.includes("@"));
+  const selectedCount = normalizedPayers.filter((row) => row.selected).length;
+  const estimatedPlayerPayerCount =
+    paymentMode === "coach_pays_all"
+      ? maxAthletes
+      : paymentMode === "per_player_all"
+        ? normalizedPayers.length
+        : selectedCount;
+  const selectedPlan = plansByTier[tier];
+  const perSeatPence =
+    billingCycle === "yearly"
+      ? parsePriceToPence(selectedPlan?.yearlyPrice) ?? parsePriceToPence(selectedPlan?.monthlyPrice)
+      : billingCycle === "6months"
+        ? (() => {
+            const monthly = parsePriceToPence(selectedPlan?.monthlyPrice);
+            return monthly != null ? monthly * 6 : parsePriceToPence(selectedPlan?.displayPrice);
+          })()
+        : parsePriceToPence(selectedPlan?.monthlyPrice) ?? parsePriceToPence(selectedPlan?.displayPrice);
+  const estimatedPayerTotalPence = (perSeatPence ?? 0) * Math.max(0, estimatedPlayerPayerCount);
+  const estimatedTeamTotalPence = (perSeatPence ?? 0) * Math.max(0, maxAthletes);
+  const canSubmit =
+    teamName.trim() &&
+    emailSlug.trim() &&
+    managerEmail.trim() &&
+    isStrongPassword(managerPassword.trim()) &&
+    tier &&
+    hasActivePlanForTier &&
+    !isSubmitting;
+
+  const addPlayerRow = () => {
+    setPlayerPayers((rows) => [...rows, { id: crypto.randomUUID(), name: "", email: "", selected: paymentMode !== "per_player_selected" }]);
+  };
+
+  const updatePlayerRow = (id: string, patch: Partial<PlayerPayerRow>) => {
+    setPlayerPayers((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const removePlayerRow = (id: string) => {
+    setPlayerPayers((rows) => (rows.length <= 1 ? rows : rows.filter((row) => row.id !== id)));
+  };
 
   return (
     <AdminShell
@@ -236,6 +371,11 @@ export default function AddTeamPage() {
         {error && (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
             {error}
+          </div>
+        )}
+        {!plansLoading && !hasActivePlanForTier && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+            No active billing plan is configured for <strong>{tier}</strong>. Activate one in Billing before creating this team.
           </div>
         )}
 
@@ -434,11 +574,11 @@ export default function AddTeamPage() {
           <CardContent className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Payment Method</Label>
-              <Select
-                items={PAYMENT_METHOD_ITEMS}
-                value={paymentMethod}
-                onValueChange={(v) => setPaymentMethod((v ?? "pay_now") as typeof paymentMethod)}
-              >
+                <Select
+                  items={PAYMENT_METHOD_ITEMS}
+                  value={paymentMethod}
+                  onValueChange={(v) => setPaymentMethod((v ?? "email_link") as typeof paymentMethod)}
+                >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectPopup>
                   {PAYMENT_METHOD_ITEMS.map((i) => (
@@ -484,32 +624,52 @@ export default function AddTeamPage() {
               </Select>
             </div>
 
-            {paymentMode === "per_player_selected" && (
-              <div className="space-y-2 col-span-full">
-                <Label htmlFor="coachPaysSeats">Number of slots coach is paying for</Label>
-                <Input
-                  id="coachPaysSeats"
-                  type="number"
-                  min={1}
-                  max={maxAthletes}
-                  value={coachPaysSeats}
-                  onChange={(e) => setCoachPaysSeats(parseInt(e.target.value, 10))}
-                  placeholder="e.g. 5"
-                />
-              </div>
-            )}
-
             {paymentMode !== "coach_pays_all" && (
-              <div className="space-y-2 col-span-full">
-                <Label htmlFor="playerEmailsText">Player Emails (to send payment invites to)</Label>
-                <textarea
-                  id="playerEmailsText"
-                  rows={3}
-                  className="w-full flex min-h-[80px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Enter emails separated by commas or newlines"
-                  value={playerEmailsText}
-                  onChange={(e) => setPlayerEmailsText(e.target.value)}
-                />
+              <div className="space-y-3 col-span-full">
+                <Label>Players and payer list</Label>
+                <p className="text-xs text-muted-foreground">
+                  Add each player name and email. {paymentMode === "per_player_selected" ? "Tick who will pay; unchecked players are sponsored by manager after approval." : "All listed players will receive payment invites."}
+                </p>
+                {playerPayers.map((row, index) => (
+                  <div key={row.id} className="grid gap-2 rounded-xl border border-border p-3 sm:grid-cols-12">
+                    <div className="sm:col-span-4">
+                      <Input
+                        placeholder="Player name"
+                        value={row.name}
+                        onChange={(e) => updatePlayerRow(row.id, { name: e.target.value })}
+                      />
+                    </div>
+                    <div className="sm:col-span-5">
+                      <Input
+                        type="email"
+                        placeholder="player@email.com"
+                        value={row.email}
+                        onChange={(e) => updatePlayerRow(row.id, { email: e.target.value })}
+                      />
+                    </div>
+                    <div className="sm:col-span-2 flex items-center justify-center">
+                      {paymentMode === "per_player_selected" ? (
+                        <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={row.selected}
+                            onChange={(e) => updatePlayerRow(row.id, { selected: e.target.checked })}
+                          />
+                          Pays
+                        </label>
+                      ) : (
+                        <span className="text-xs text-emerald-300">Pays</span>
+                      )}
+                    </div>
+                    <div className="sm:col-span-1 flex items-center justify-end">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removePlayerRow(row.id)} disabled={playerPayers.length <= 1}>
+                        Remove
+                      </Button>
+                    </div>
+                    <div className="sm:col-span-12 text-[11px] text-muted-foreground">Player #{index + 1}</div>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" onClick={addPlayerRow}>+ Add another player</Button>
               </div>
             )}
           </CardContent>
@@ -571,10 +731,21 @@ export default function AddTeamPage() {
                 <p className="text-[10px] text-muted-foreground italic pt-1">
                   {paymentMethod === "cash"
                     ? "* Confirm cash received before proceeding. Team activates immediately."
-                    : paymentMethod === "email_link"
-                    ? "* A Stripe payment link will be emailed to the manager."
-                    : "* You will be redirected to Stripe to pay now."}
+                    : "* A Stripe payment link will be emailed to the manager."}
                 </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg border border-border px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">Estimated team total</p>
+                    <p className="text-sm font-semibold text-foreground">{formatMoneyFromPence(estimatedTeamTotalPence)}</p>
+                  </div>
+                  <div className="rounded-lg border border-border px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">Estimated payer total</p>
+                    <p className="text-sm font-semibold text-foreground">{formatMoneyFromPence(estimatedPayerTotalPence)}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {estimatedPlayerPayerCount} payer seat{estimatedPlayerPayerCount === 1 ? "" : "s"} × {formatMoneyFromPence(perSeatPence)}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
@@ -663,9 +834,7 @@ export default function AddTeamPage() {
               ? "Processing…"
               : paymentMethod === "cash"
               ? "Confirm Cash & Activate"
-              : paymentMethod === "email_link"
-              ? "Create Team & Email Link"
-              : "Register Team & Pay"}
+              : "Create Team & Email Link"}
           </Button>
         </div>
       </form>

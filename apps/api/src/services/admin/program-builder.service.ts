@@ -7,6 +7,7 @@ import {
   nutritionOnboardingProfileTable,
   programAssignmentTable,
   programModuleTable,
+  programSessionCompletionTable,
   programTable,
   sessionExerciseTable,
   sessionTable,
@@ -411,10 +412,23 @@ export async function getAthleteDetail(athleteId: number) {
     .where(eq(programAssignmentTable.athleteId, athleteId))
     .orderBy(desc(programAssignmentTable.createdAt));
 
-  const [{ completionCount }] = await db
-    .select({ completionCount: count() })
+  const legacyCompletions = await db
+    .select({ sessionId: athleteTrainingSessionCompletionTable.sessionId })
     .from(athleteTrainingSessionCompletionTable)
     .where(eq(athleteTrainingSessionCompletionTable.athleteId, athleteId));
+
+  const programCompletions = await db
+    .select({ sessionId: programSessionCompletionTable.sessionId })
+    .from(programSessionCompletionTable)
+    .where(eq(programSessionCompletionTable.athleteId, athleteId));
+
+  const completedSessionIds = new Set<number>();
+  for (const row of legacyCompletions) {
+    if (typeof row.sessionId === "number") completedSessionIds.add(row.sessionId);
+  }
+  for (const row of programCompletions) {
+    if (typeof row.sessionId === "number") completedSessionIds.add(row.sessionId);
+  }
 
   const videoUploads = await db
     .select({
@@ -430,17 +444,52 @@ export async function getAthleteDetail(athleteId: number) {
     .orderBy(desc(videoUploadTable.createdAt))
     .limit(20);
 
+  const completionVideos = await db
+    .select({
+      id: programSessionCompletionTable.id,
+      videoUrl: programSessionCompletionTable.videoUrl,
+      notes: sql<string | null>`NULL`,
+      feedback: programSessionCompletionTable.coachResponse,
+      reviewedAt: programSessionCompletionTable.coachResponseAt,
+      createdAt: programSessionCompletionTable.completedAt,
+      sessionTitle: sessionTable.title,
+    })
+    .from(programSessionCompletionTable)
+    .leftJoin(sessionTable, eq(programSessionCompletionTable.sessionId, sessionTable.id))
+    .where(
+      and(
+        eq(programSessionCompletionTable.athleteId, athleteId),
+        sql`${programSessionCompletionTable.videoUrl} IS NOT NULL`,
+      ),
+    )
+    .orderBy(desc(programSessionCompletionTable.completedAt))
+    .limit(20);
+
+  const mergedVideoUploads = [...videoUploads, ...completionVideos]
+    .sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    })
+    .slice(0, 20);
+
   const [nutritionOnboarding] = await db
     .select()
     .from(nutritionOnboardingProfileTable)
     .where(eq(nutritionOnboardingProfileTable.userId, athlete.userId))
     .limit(1);
 
+  const sessionCompletionCount = Math.max(
+    completedSessionIds.size,
+    completionVideos.length > 0 ? 1 : 0,
+    videoUploads.length > 0 ? 1 : 0,
+  );
+
   return {
     ...athlete,
     assignments,
-    sessionCompletionCount: Number(completionCount),
-    videoUploads,
+    sessionCompletionCount,
+    videoUploads: mergedVideoUploads,
     nutritionOnboarding: nutritionOnboarding ?? null,
   };
 }

@@ -121,9 +121,8 @@ export async function createTeamCheckoutSession(input: {
     throw error;
   }
 
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-    { price: priceId, quantity: input.quantity },
-  ];
+  const lineItemQtyByPrice = new Map<string, number>();
+  lineItemQtyByPrice.set(priceId, Math.max(1, input.quantity));
 
   if (input.sponsoredLineItem && input.sponsoredLineItem.quantity > 0) {
     let sponsoredPriceId: string | undefined;
@@ -140,9 +139,17 @@ export async function createTeamCheckoutSession(input: {
       sponsoredPriceId = resolveTierFallbackPrice(input.sponsoredLineItem.tier, "monthly") || undefined;
     }
     if (sponsoredPriceId) {
-      lineItems.push({ price: sponsoredPriceId, quantity: input.sponsoredLineItem.quantity });
+      const existing = lineItemQtyByPrice.get(sponsoredPriceId) ?? 0;
+      lineItemQtyByPrice.set(
+        sponsoredPriceId,
+        existing + Math.max(1, input.sponsoredLineItem.quantity),
+      );
     }
   }
+
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [...lineItemQtyByPrice.entries()].map(
+    ([price, quantity]) => ({ price, quantity }),
+  );
 
   const session = await stripeBreaker.fire(() => stripeClient.checkout.sessions.create({
     mode: input.mode,

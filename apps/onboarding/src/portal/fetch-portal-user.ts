@@ -1,12 +1,16 @@
+import { getAuthHeaders, getClientAuthToken } from "@/lib/client-storage";
 import { config } from "@/lib/config";
-import { getAuthHeaders } from "@/lib/client-storage";
 import {
 	PORTAL_SERVICE_UNAVAILABLE,
 	PORTAL_UNAUTHORIZED_ERROR,
 } from "@/portal/portal-errors";
 import type { PortalUser } from "@/portal/portal-types";
 
-async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Promise<Response> {
+async function fetchWithRetry(
+	url: string,
+	init: RequestInit,
+	retries = 3,
+): Promise<Response> {
 	for (let i = 0; i <= retries; i++) {
 		try {
 			const res = await fetch(url, init);
@@ -25,11 +29,14 @@ async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Prom
 }
 
 export async function fetchPortalUser(_token?: string): Promise<PortalUser> {
-	const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
-	const res = await fetchWithRetry(
-		`${baseUrl}/api/auth/me`,
-		{ credentials: "include", cache: "no-store", headers: getAuthHeaders() },
-	);
+	const localToken = getClientAuthToken();
+	const baseUrl = localToken ? config.api.baseUrl.replace(/\/+$/, "") : "";
+	const path = localToken ? "/api/auth/me" : "/api/app/auth/me";
+	const res = await fetchWithRetry(`${baseUrl}${path}`, {
+		credentials: "include",
+		cache: "no-store",
+		headers: getAuthHeaders(),
+	});
 
 	if (res.status === 401) {
 		throw new Error(PORTAL_UNAUTHORIZED_ERROR);

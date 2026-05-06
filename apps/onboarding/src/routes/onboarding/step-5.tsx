@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
 	Check,
 	CircleNotch,
@@ -34,6 +34,19 @@ export const Route = createFileRoute("/onboarding/step-5")({
 });
 
 type BillingCycle = "monthly" | "six_months" | "yearly";
+type ProgramFilter = "standard" | "weekly";
+
+function isWeeklyPlan(plan: any): boolean {
+	const name = String(plan?.name ?? "").toLowerCase();
+	const tier = String(plan?.tier ?? "").toLowerCase();
+	const interval = String(plan?.billingInterval ?? "").toLowerCase();
+	const durationWeeks = Number(plan?.durationWeeks ?? 0);
+
+	if (name.includes("weekly") || tier.includes("weekly") || interval.includes("week")) return true;
+	// Any explicit duration-in-weeks program belongs in the Weekly bucket.
+	if (Number.isFinite(durationWeeks) && durationWeeks > 0) return true;
+	return false;
+}
 
 function paymentConfigScopeKey(maxAthletes: number | null | undefined) {
 	const athletes = Number.isFinite(Number(maxAthletes)) ? Number(maxAthletes) : 0;
@@ -307,8 +320,10 @@ function resolvePlanPricing(plan: any, cycle: BillingCycle, displayPrice: string
 }
 
 function OnboardingStep5() {
+	const navigate = useNavigate();
 	const [plans, setPlans] = useState<any[]>([]);
 	const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+	const [programFilter, setProgramFilter] = useState<ProgramFilter>("standard");
 	const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -323,6 +338,13 @@ function OnboardingStep5() {
 		coachPaysSeats: number;
 		playerPayersCount: number;
 	} | null>(null);
+	const filteredPlans = useMemo(
+		() =>
+			plans.filter((plan: any) =>
+				programFilter === "weekly" ? isWeeklyPlan(plan) : !isWeeklyPlan(plan),
+			),
+		[plans, programFilter],
+	);
 
 	const isTeam = typeof window !== "undefined" && localStorage.getItem("user_type") === "team";
 
@@ -372,14 +394,20 @@ function OnboardingStep5() {
 	}, [loadPlans]);
 
 	useEffect(() => {
-		if (!plans.length) return;
+		if (programFilter === "weekly" && billingCycle !== "six_months") {
+			setBillingCycle("six_months");
+		}
+	}, [programFilter, billingCycle]);
+
+	useEffect(() => {
+		if (!filteredPlans.length) return;
 		if (selectedPlan != null) {
-			const selected = plans.find((p) => p.id === selectedPlan);
+			const selected = filteredPlans.find((p: any) => p.id === selectedPlan);
 			if (selected && planSupportsBillingCycle(selected, billingCycle)) return;
 		}
-		const firstSupported = plans.find((p) => planSupportsBillingCycle(p, billingCycle));
+		const firstSupported = filteredPlans.find((p: any) => planSupportsBillingCycle(p, billingCycle));
 		if (firstSupported) setSelectedPlan(firstSupported.id);
-	}, [plans, selectedPlan, billingCycle]);
+	}, [filteredPlans, selectedPlan, billingCycle]);
 
 	useEffect(() => {
 		if (!isTeam) return;
@@ -439,33 +467,68 @@ function OnboardingStep5() {
 
 	useEffect(() => {
 		if (!isTeam) return;
-		try {
-			const raw = localStorage.getItem("team_payment_config");
-			if (!raw) return;
-			const parsed = JSON.parse(raw) as any;
+		(async () => {
+			let loaded = false;
 			const scopedTeamSize = teamCheckout?.maxAthletes ?? null;
 			const expectedScope = paymentConfigScopeKey(scopedTeamSize);
-			if (String(parsed?.scopeKey ?? "") !== expectedScope) return;
-			const paymentMode =
-				parsed?.paymentMode === "per_player_all" || parsed?.paymentMode === "per_player_selected"
-					? parsed.paymentMode
-					: "coach_pays_all";
-			const coachPaysSeats = Number.isFinite(Number(parsed?.coachPaysSeats))
-				? Math.max(0, Number(parsed.coachPaysSeats))
-				: 0;
-			const playerPayers = Array.isArray(parsed?.playerPayers)
-				? parsed.playerPayers
-				: Array.isArray(parsed?.playerEmails)
-					? parsed.playerEmails
-					: [];
-			setTeamPaymentConfig({
-				paymentMode,
-				coachPaysSeats,
-				playerPayersCount: playerPayers.length,
-			});
-		} catch {
-			// ignore
-		}
+
+			if (teamCheckout?.teamId) {
+				try {
+					const res = await fetch(`${config.api.baseUrl}/api/billing/team/payment-config-draft/${teamCheckout.teamId}`, {
+						credentials: "include",
+						headers: getAuthHeaders(),
+					});
+					const data = await res.json().catch(() => ({}));
+					const draft = (data as any)?.draft;
+					if (res.ok && draft && String(draft?.scopeKey ?? "") === expectedScope) {
+						const paymentMode =
+							draft?.paymentMode === "per_player_all" || draft?.paymentMode === "per_player_selected"
+								? draft.paymentMode
+								: "coach_pays_all";
+						const coachPaysSeats = Number.isFinite(Number(draft?.coachPaysSeats))
+							? Math.max(0, Number(draft.coachPaysSeats))
+							: 0;
+						const playerPayers = Array.isArray(draft?.playerPayers) ? draft.playerPayers : [];
+						setTeamPaymentConfig({
+							paymentMode,
+							coachPaysSeats,
+							playerPayersCount: playerPayers.length,
+						});
+						loaded = true;
+					}
+				} catch {
+					// fallback to local
+				}
+			}
+
+			if (!loaded) {
+				try {
+					const raw = localStorage.getItem("team_payment_config");
+					if (!raw) return;
+					const parsed = JSON.parse(raw) as any;
+					if (String(parsed?.scopeKey ?? "") !== expectedScope) return;
+					const paymentMode =
+						parsed?.paymentMode === "per_player_all" || parsed?.paymentMode === "per_player_selected"
+							? parsed.paymentMode
+							: "coach_pays_all";
+					const coachPaysSeats = Number.isFinite(Number(parsed?.coachPaysSeats))
+						? Math.max(0, Number(parsed.coachPaysSeats))
+						: 0;
+					const playerPayers = Array.isArray(parsed?.playerPayers)
+						? parsed.playerPayers
+						: Array.isArray(parsed?.playerEmails)
+							? parsed.playerEmails
+							: [];
+					setTeamPaymentConfig({
+						paymentMode,
+						coachPaysSeats,
+						playerPayersCount: playerPayers.length,
+					});
+				} catch {
+					// ignore
+				}
+			}
+		})();
 	}, [isTeam, teamCheckout?.maxAthletes]);
 
 	const handlePayment = async () => {
@@ -515,33 +578,60 @@ function OnboardingStep5() {
 			let playerEmails: string[] = [];
 			let playerPayers: Array<{ name: string; email: string }> = [];
 
-			if (isTeam) {
-				try {
-					const configStr = localStorage.getItem("team_payment_config");
-					if (configStr) {
-						const config = JSON.parse(configStr);
+				if (isTeam) {
+					try {
 						const expectedScope = paymentConfigScopeKey(teamCheckout?.maxAthletes ?? null);
-						if (String(config?.scopeKey ?? "") !== expectedScope) {
-							throw new Error("Payment setup expired. Please re-check payment mode on step 4.");
+						let loadedFromServer = false;
+						if (teamId) {
+							const draftRes = await fetch(`${baseUrl}/api/billing/team/payment-config-draft/${teamId}`, {
+								credentials: "include",
+								headers: getAuthHeaders(),
+							});
+							const draftData = await draftRes.json().catch(() => ({}));
+							const draft = (draftData as any)?.draft;
+							if (draftRes.ok && draft && String(draft?.scopeKey ?? "") === expectedScope) {
+								paymentMode = draft.paymentMode || "coach_pays_all";
+								coachPaysSeats = Number(draft.coachPaysSeats || 0);
+								termsAcceptedAt = draft.termsAcceptedAt || "";
+								termsVersion = draft.termsVersion || "";
+								if (Array.isArray(draft.playerPayers)) {
+									playerPayers = draft.playerPayers
+										.map((p: any) => ({
+											name: String(p?.name ?? "").trim(),
+											email: String(p?.email ?? "").trim(),
+										}))
+										.filter((p: { name: string; email: string }) => p.email.length > 0);
+									playerEmails = playerPayers.map((p: { name: string; email: string }) => p.email);
+								}
+								loadedFromServer = true;
+							}
 						}
-						paymentMode = config.paymentMode || "coach_pays_all";
-						coachPaysSeats = config.coachPaysSeats || 0;
-						termsAcceptedAt = config.termsAcceptedAt || "";
-						termsVersion = config.termsVersion || "";
-						if (config.playerPayers && Array.isArray(config.playerPayers)) {
-							playerPayers = config.playerPayers
-								.map((p: any) => ({
-									name: String(p?.name ?? "").trim(),
-									email: String(p?.email ?? "").trim(),
-								}))
-								.filter((p: { name: string; email: string }) => p.email.length > 0);
-							playerEmails = playerPayers.map((p: { name: string; email: string }) => p.email);
-						} else if (config.playerEmails && Array.isArray(config.playerEmails)) {
-							playerEmails = config.playerEmails.map((p: any) => p.email);
+						if (!loadedFromServer) {
+							const configStr = localStorage.getItem("team_payment_config");
+							if (configStr) {
+								const config = JSON.parse(configStr);
+								if (String(config?.scopeKey ?? "") !== expectedScope) {
+									throw new Error("Payment setup expired. Please re-check payment mode on step 4.");
+								}
+								paymentMode = config.paymentMode || "coach_pays_all";
+								coachPaysSeats = config.coachPaysSeats || 0;
+								termsAcceptedAt = config.termsAcceptedAt || "";
+								termsVersion = config.termsVersion || "";
+								if (config.playerPayers && Array.isArray(config.playerPayers)) {
+									playerPayers = config.playerPayers
+										.map((p: any) => ({
+											name: String(p?.name ?? "").trim(),
+											email: String(p?.email ?? "").trim(),
+										}))
+										.filter((p: { name: string; email: string }) => p.email.length > 0);
+									playerEmails = playerPayers.map((p: { name: string; email: string }) => p.email);
+								} else if (config.playerEmails && Array.isArray(config.playerEmails)) {
+									playerEmails = config.playerEmails.map((p: any) => p.email);
+								}
+							}
 						}
-					}
-				} catch {}
-			}
+					} catch {}
+				}
 
 			const response = await fetch(`${baseUrl}/api/billing/${isTeam ? "team/checkout" : "checkout"}`, {
 				method: "POST",
@@ -619,7 +709,7 @@ function OnboardingStep5() {
 		);
 	}
 
-	const selectedPlanData = plans.find((p) => p.id === selectedPlan);
+	const selectedPlanData = filteredPlans.find((p: any) => p.id === selectedPlan);
 	const selectedDisplayPrice =
 		selectedPlanData?.billingQuote?.amount ??
 		selectedPlanData?.pricing?.monthly?.discounted ??
@@ -655,6 +745,45 @@ function OnboardingStep5() {
 					<p className="text-sm text-muted-foreground leading-relaxed">
 						Pick how you want to pay, then select the tier that fits your goals.
 					</p>
+				</div>
+
+				<div className="max-w-3xl mx-auto space-y-3">
+					<p className="text-center font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+						Program Filter
+					</p>
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<button
+							type="button"
+							onClick={() => setProgramFilter("standard")}
+							className={cn(
+								"border p-3 text-left transition-all",
+								programFilter === "standard"
+									? "border-foreground bg-foreground/[0.04]"
+									: "border-foreground/[0.06] hover:border-foreground/20",
+							)}
+						>
+							<p className="font-mono text-xs uppercase tracking-wider">Standard</p>
+							<p className="text-[11px] text-muted-foreground mt-1">All non-weekly programs</p>
+						</button>
+						<button
+							type="button"
+							onClick={() => setProgramFilter("weekly")}
+							className={cn(
+								"border p-3 text-left transition-all",
+								programFilter === "weekly"
+									? "border-foreground bg-foreground/[0.04]"
+									: "border-foreground/[0.06] hover:border-foreground/20",
+							)}
+						>
+							<p className="font-mono text-xs uppercase tracking-wider">Weekly</p>
+							<p className="text-[11px] text-muted-foreground mt-1">Only weekly programs</p>
+						</button>
+					</div>
+					{filteredPlans.length === 0 ? (
+						<p className="text-center text-xs text-muted-foreground">
+							No {programFilter === "weekly" ? "weekly" : "standard"} plans for this billing cycle.
+						</p>
+					) : null}
 				</div>
 
 				{isTeam && (
@@ -700,63 +829,69 @@ function OnboardingStep5() {
 					</Card>
 				)}
 
-				<div className="max-w-3xl mx-auto space-y-3">
-					<p className="text-center font-mono text-[10px] uppercase tracking-wider text-foreground/40">
-						Billing
-					</p>
-					<div
-						role="radiogroup"
-						aria-label="Billing cycle"
-						className="grid grid-cols-1 sm:grid-cols-3 gap-3"
-					>
-						{BILLING_OPTIONS.map((opt) => {
-							const active = billingCycle === opt.id;
-							const supported = plans.some((p) => planSupportsBillingCycle(p, opt.id));
-							const savings =
-								opt.id === "yearly" ? "Save up to 20%" : opt.id === "six_months" ? "Save up to 10%" : null;
-							return (
-								<button
-									key={opt.id}
-									type="button"
-									role="radio"
-									aria-checked={active}
-									disabled={!supported}
-									onClick={() => setBillingCycle(opt.id)}
-									className={cn(
-										"relative border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
-										active
-											? "border-foreground bg-foreground/[0.04]"
-											: "border-foreground/[0.06] hover:border-foreground/20",
-										!supported && "cursor-not-allowed opacity-40",
-									)}
-								>
-									<div className="flex items-center justify-between">
-										<p className="font-mono text-xs uppercase tracking-wider">{opt.title}</p>
-										{savings && (
-											<Badge variant="default" className="font-mono text-[9px] uppercase tracking-wider">
-												{savings}
-											</Badge>
+				{programFilter !== "weekly" ? (
+					<div className="max-w-3xl mx-auto space-y-3">
+						<p className="text-center font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+							Billing
+						</p>
+						<div
+							role="radiogroup"
+							aria-label="Billing cycle"
+							className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+						>
+							{BILLING_OPTIONS.map((opt) => {
+								const active = billingCycle === opt.id;
+								const supported = plans.some((p) => planSupportsBillingCycle(p, opt.id));
+								const savings =
+									opt.id === "yearly" ? "Save up to 20%" : opt.id === "six_months" ? "Save up to 10%" : null;
+								return (
+									<button
+										key={opt.id}
+										type="button"
+										role="radio"
+										aria-checked={active}
+										disabled={!supported}
+										onClick={() => setBillingCycle(opt.id)}
+										className={cn(
+											"relative border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+											active
+												? "border-foreground bg-foreground/[0.04]"
+												: "border-foreground/[0.06] hover:border-foreground/20",
+											!supported && "cursor-not-allowed opacity-40",
 										)}
-									</div>
-									<p className="text-[11px] text-muted-foreground mt-1">
-										{opt.description}
-									</p>
-								</button>
-							);
-						})}
+									>
+										<div className="flex items-center justify-between">
+											<p className="font-mono text-xs uppercase tracking-wider">{opt.title}</p>
+											{savings && (
+												<Badge variant="default" className="font-mono text-[9px] uppercase tracking-wider">
+													{savings}
+												</Badge>
+											)}
+										</div>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											{opt.description}
+										</p>
+									</button>
+								);
+							})}
+						</div>
 					</div>
-				</div>
+				) : null}
 
 				<div
 					role="radiogroup"
 					aria-label="Subscription plan"
 					className={cn(
 						"grid gap-6 transition-opacity",
-						isLoading ? "opacity-50 pointer-events-none" : "opacity-100",
-						plans.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : plans.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2",
+						isLoading ? "opacity-70" : "opacity-100",
+						filteredPlans.length >= 4
+							? "md:grid-cols-2 lg:grid-cols-4"
+							: filteredPlans.length === 3
+								? "md:grid-cols-3"
+								: "md:grid-cols-2",
 					)}
 				>
-					{plans.map((plan) => {
+					{filteredPlans.map((plan: any) => {
 						const isSelected = selectedPlan === plan.id;
 						const isPopular = plan.tier === "PHP_Premium_Plus";
 						const displayPrice =

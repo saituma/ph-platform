@@ -34,6 +34,7 @@ type ThreadMessageListProps = {
   directPeerName?: string | null;
   showSenderName?: boolean;
   emptyLabel: string;
+  openScrollKey?: string | number | null;
 };
 
 function isMessageFromCurrentUser(params: {
@@ -95,6 +96,7 @@ export function ThreadMessageList({
   directPeerUserId = null,
   showSenderName = false,
   emptyLabel,
+  openScrollKey = null,
 }: ThreadMessageListProps) {
   const [pickerMessageId, setPickerMessageId] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<
@@ -112,7 +114,18 @@ export function ThreadMessageList({
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      if (target.closest('[data-reaction-picker-root="true"]')) return;
+      const path =
+        typeof event.composedPath === "function"
+          ? event.composedPath()
+          : [];
+      const clickedInsideReactionPicker = path.some((node) => {
+        if (!(node instanceof HTMLElement)) return false;
+        if (node.closest('[data-reaction-picker-root="true"]')) return true;
+        // Emoji Mart renders nested custom elements; keep picker open for those.
+        const tag = node.tagName?.toLowerCase?.() ?? "";
+        return tag.startsWith("em-");
+      });
+      if (clickedInsideReactionPicker) return;
       setPickerMessageId(null);
     };
 
@@ -125,9 +138,14 @@ export function ThreadMessageList({
   const getViewport = useCallback(() => {
     const root = scrollContainerRef.current;
     if (!root) return null;
-    return root.querySelector(
-      "[data-radix-scroll-area-viewport]",
-    ) as HTMLDivElement | null;
+    return (
+      (root.querySelector(
+        '[data-slot="scroll-area-viewport"]',
+      ) as HTMLDivElement | null) ??
+      (root.querySelector(
+        "[data-radix-scroll-area-viewport]",
+      ) as HTMLDivElement | null)
+    );
   }, []);
 
   const scrollToBottom = useCallback(
@@ -138,6 +156,33 @@ export function ThreadMessageList({
     },
     [getViewport],
   );
+
+  const scrollToBottomWithRetry = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const run = (delay: number, nextBehavior: ScrollBehavior) => {
+        window.setTimeout(() => {
+          scrollToBottom(nextBehavior);
+        }, delay);
+      };
+      run(0, behavior);
+      run(80, "auto");
+      run(220, "auto");
+    },
+    [scrollToBottom],
+  );
+
+  useEffect(() => {
+    if (!openScrollKey) return;
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      scrollToBottom("auto");
+      if (attempts >= 15) {
+        window.clearInterval(timer);
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [openScrollKey, scrollToBottom]);
 
   useEffect(() => {
     const viewport = getViewport();
@@ -173,7 +218,7 @@ export function ThreadMessageList({
       lastMessageIdRef.current = latestId;
       // initial mount should pin to bottom
       requestAnimationFrame(() => {
-        scrollToBottom("auto");
+        scrollToBottomWithRetry("auto");
         setLastSeenMessageId(latestId);
       });
       return;
@@ -186,17 +231,12 @@ export function ThreadMessageList({
       currentUserId != null && Number.isFinite(senderId)
         ? senderId === currentUserId
         : false;
-    const incoming = !mine;
-
-    if (mine || isNearBottomRef.current) {
-      requestAnimationFrame(() => {
-        scrollToBottom("smooth");
-        setLastSeenMessageId(latestId);
-      });
-      return;
-    }
-    void incoming;
-  }, [currentUserId, messages, scrollToBottom]);
+    void mine;
+    requestAnimationFrame(() => {
+      scrollToBottomWithRetry("smooth");
+      setLastSeenMessageId(latestId);
+    });
+  }, [currentUserId, messages, scrollToBottomWithRetry]);
 
   const newIncomingCount = useMemo(() => {
     if (!messages.length) return 0;
@@ -226,33 +266,6 @@ export function ThreadMessageList({
   const handlePickReaction = async (message: ChatMessage, emoji: EmojiPick) => {
     if (!emoji.native) return;
     const messageId = Number(message.id);
-    console.log("[Messaging][Picker] select", {
-      messageId,
-      emoji: emoji.native,
-      reactions: message.reactions ?? [],
-      currentUserId,
-    });
-    const myReaction =
-      currentUserId == null
-        ? null
-        : ((Array.isArray(message.reactions) ? message.reactions : []).find(
-            (reaction) =>
-              Array.isArray(reaction.userIds)
-                ? reaction.userIds.includes(currentUserId)
-                : false,
-          ) ?? null);
-
-    if (myReaction?.emoji && myReaction.emoji !== emoji.native) {
-      console.log("[Messaging][Picker] remove-old", {
-        messageId,
-        oldEmoji: myReaction.emoji,
-      });
-      await Promise.resolve(onReact(messageId, myReaction.emoji));
-    }
-    console.log("[Messaging][Picker] apply-new", {
-      messageId,
-      newEmoji: emoji.native,
-    });
     await Promise.resolve(onReact(messageId, emoji.native));
     setPickerMessageId(null);
   };
@@ -488,11 +501,14 @@ export function ThreadMessageList({
                       </p>
                     ) : null}
                     {firstUrl ? <OpenGraphPreview url={firstUrl} /> : null}
-                    <p
-                      className={`mt-1 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}
+                    <div
+                      className={`mt-1 flex items-center gap-2 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}
                     >
-                      {formatTime(message.createdAt)}
-                    </p>
+                      <span>{formatTime(message.createdAt)}</span>
+                      {message.localStatus === "sending" ? (
+                        <span className="animate-pulse">Sending...</span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
                 <div
@@ -521,9 +537,6 @@ export function ThreadMessageList({
                     type="button"
                     className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
                     onClick={() => {
-                      console.log("[Messaging][Picker] toggle", {
-                        messageId: Number(message.id),
-                      });
                       setPickerMessageId((current) =>
                         current === String(message.id)
                           ? null
@@ -549,7 +562,7 @@ export function ThreadMessageList({
                   </button>
                   {pickerMessageId === String(message.id) ? (
                     <div
-                      className={`absolute top-full mt-2 z-40 overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}
+                      className={`absolute bottom-full mb-2 z-[1300] overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}
                     >
                       {reactions.length ? (
                         <div className="max-w-72 border-b border-border px-3 py-2 text-xs">
@@ -615,7 +628,7 @@ export function ThreadMessageList({
         <button
           type="button"
           onClick={() => {
-            scrollToBottom("smooth");
+            scrollToBottomWithRetry("smooth");
             isNearBottomRef.current = true;
             setIsNearBottom(true);
             setLastSeenMessageId(lastMessageIdRef.current);

@@ -4,29 +4,37 @@ import {
 	Activity,
 	Calendar,
 	ChevronRight,
+	CheckCircle2,
 	Clock,
+	Lock,
 	Heart,
 	MapPin,
 	Phone,
 	Plus,
+	ShieldCheck,
 	Video,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { io, type Socket } from "socket.io-client";
+import { useMemo, useState } from "react";
 import { BookingModal } from "@/components/portal/BookingModal";
 import { getTokenStatus } from "@/lib/client-storage";
-import { getPublicApiBaseUrl } from "@/lib/public-api";
-import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
 import {
 	motion,
 	PageTransition,
-	StaggerList,
-	StaggerItem,
 	Skeleton,
+	StaggerItem,
+	StaggerList,
 } from "@/lib/motion";
-import { usePortal } from "@/portal/PortalContext";
+import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
 import { portalUserMaySelfBookSchedule } from "@/lib/portal-schedule-access";
-import { createAdminCustomSession, fetchAdminNonTeamUsers, fetchBookings } from "@/services/scheduleService";
+import { usePortal } from "@/portal/PortalContext";
+import { usePortalSocketEvent } from "@/portal/PortalSocketContext";
+import {
+	checkInScheduledSession,
+	createAdminCustomSession,
+	fetchAdminNonTeamUsers,
+	fetchBookings,
+	type ScheduleEvent,
+} from "@/services/scheduleService";
 
 export const scheduleKeys = {
 	all: ["schedule"] as const,
@@ -88,7 +96,9 @@ function ScheduleSkeleton() {
 
 function SchedulePage() {
 	const [isBookingOpen, setIsBookingOpen] = useState(false);
-	const [adminMode, setAdminMode] = useState<null | "one_to_one" | "small_group">(null);
+	const [adminMode, setAdminMode] = useState<
+		null | "one_to_one" | "small_group"
+	>(null);
 	const [candidateQuery, setCandidateQuery] = useState("");
 	const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
 	const [customStartsAt, setCustomStartsAt] = useState("");
@@ -100,7 +110,18 @@ function SchedulePage() {
 	const [customBookable, setCustomBookable] = useState(true);
 	const [customSaving, setCustomSaving] = useState(false);
 	const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
-	const { token, user, loading: portalLoading, error: portalError } = usePortal();
+	const [checkingSessionId, setCheckingSessionId] = useState<number | null>(
+		null,
+	);
+	const [attendanceFeedback, setAttendanceFeedback] = useState<string | null>(
+		null,
+	);
+	const {
+		token,
+		user,
+		loading: portalLoading,
+		error: portalError,
+	} = usePortal();
 	const canSelfBook = portalUserMaySelfBookSchedule(user);
 	const canManageSchedule = isPortalTeamRosterManagerRole(user?.role);
 
@@ -121,41 +142,32 @@ function SchedulePage() {
 		isLoading: scheduleCandidatesLoading,
 		refetch: refetchCandidates,
 	} = useQuery({
-		queryKey: ["schedule", "admin-candidates", candidateQuery.trim().toLowerCase()],
-		queryFn: () => fetchAdminNonTeamUsers({ q: candidateQuery.trim(), limit: 120 }),
-		enabled: canManageSchedule && !!token && !portalLoading && adminMode !== null,
+		queryKey: [
+			"schedule",
+			"admin-candidates",
+			candidateQuery.trim().toLowerCase(),
+		],
+		queryFn: () =>
+			fetchAdminNonTeamUsers({ q: candidateQuery.trim(), limit: 120 }),
+		enabled:
+			canManageSchedule && !!token && !portalLoading && adminMode !== null,
 		staleTime: 1000 * 30,
 	});
 
-	useEffect(() => {
-		if (!token) return;
-		const rawSocket = String(
-			(import.meta.env as Record<string, string | undefined>)
-				.VITE_PUBLIC_SOCKET_URL ?? "",
-		).trim();
-		const apiBase = getPublicApiBaseUrl();
-		const socketUrl = rawSocket
-			? rawSocket.replace(/\/api\/?$/, "")
-			: apiBase
-				? apiBase.replace(/\/api\/?$/, "")
-				: window.location.origin;
-		const socket: Socket = io(socketUrl, {
-			path: "/socket.io",
-			auth: { token },
-			transports: ["polling", "websocket"],
-			reconnection: true,
-			reconnectionDelayMax: 10000,
-		});
-
-		const onScheduleChanged = () => {
+	usePortalSocketEvent(
+		"schedule:changed",
+		() => {
 			void refetch();
-		};
-		socket.on("schedule:changed", onScheduleChanged);
-		return () => {
-			socket.off("schedule:changed", onScheduleChanged);
-			socket.disconnect();
-		};
-	}, [token, refetch]);
+		},
+		!!token,
+	);
+	usePortalSocketEvent(
+		"schedule:attendance:changed",
+		() => {
+			void refetch();
+		},
+		!!token,
+	);
 
 	const candidateList = useMemo(() => {
 		const q = candidateQuery.trim().toLowerCase();
@@ -187,6 +199,21 @@ function SchedulePage() {
 		setCustomGroupName("");
 		setCustomBookable(true);
 		setAdminFeedback(null);
+	};
+
+	const markScheduledSessionAttendance = async (sessionId?: number) => {
+		if (!sessionId) return;
+		setCheckingSessionId(sessionId);
+		setAttendanceFeedback(null);
+		try {
+			await checkInScheduledSession(sessionId);
+			setAttendanceFeedback("Attendance marked.");
+			await refetch();
+		} catch (e: any) {
+			setAttendanceFeedback(e?.message ?? "Failed to mark attendance.");
+		} finally {
+			setCheckingSessionId(null);
+		}
 	};
 
 	const submitCustomSchedule = async () => {
@@ -254,6 +281,24 @@ function SchedulePage() {
 
 	const getStatusBadge = (status?: string) => {
 		switch (status) {
+			case "upcoming":
+				return (
+					<span className="px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full text-[10px] font-black uppercase">
+						Upcoming
+					</span>
+				);
+			case "completed":
+				return (
+					<span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase">
+						Completed
+					</span>
+				);
+			case "missed":
+				return (
+					<span className="px-2 py-0.5 bg-destructive/10 text-destructive rounded-full text-[10px] font-black uppercase">
+						Missed
+					</span>
+				);
 			case "confirmed":
 				return (
 					<span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase">
@@ -283,6 +328,20 @@ function SchedulePage() {
 		}
 	};
 
+	const getAssignedSessionStatus = (event: (typeof events)[number]) => {
+		if (event.attendanceStatus === "attended") return "completed";
+		if (event.attendanceStatus === "missed") return "missed";
+		return event.status ?? "upcoming";
+	};
+
+	const getAssignedSessionType = (event: (typeof events)[number]) => {
+		const title = event.title.toLowerCase();
+		if (title.includes("1-1") || title.includes("one")) return "1-1";
+		if (title.includes("semi")) return "Semi-private";
+		if (title.includes("team")) return "Team";
+		return "Training";
+	};
+
 	const getEventColor = (type: string) => {
 		switch (type) {
 			case "call":
@@ -304,7 +363,10 @@ function SchedulePage() {
 				<div className="flex h-screen items-center justify-center pb-20 px-4">
 					<div className="text-center">
 						<p className="text-muted-foreground mb-4">{portalError}</p>
-						<Link to="/login" className="text-primary font-bold hover:underline">
+						<Link
+							to="/login"
+							className="text-primary font-bold hover:underline"
+						>
 							Go to Login
 						</Link>
 					</div>
@@ -314,12 +376,108 @@ function SchedulePage() {
 	}
 
 	const today = new Date(new Date().setHours(0, 0, 0, 0));
-	const futureEvents = events.filter((e) => new Date(e.startsAt) >= today);
+	const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+	const assignedSessions = events.filter((e) => e.source === "scheduled-session");
+	const todayScheduledSessions = assignedSessions.filter(
+		(e) => e.dateKey === todayKey,
+	);
+	const upcomingAssignedSessions = assignedSessions.filter(
+		(e) => e.dateKey !== todayKey && new Date(e.startsAt) >= today,
+	);
+	const pastAssignedSessions = assignedSessions
+		.filter((e) => new Date(e.startsAt) < today)
+		.sort(
+			(a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime(),
+		);
+	const bookingEvents = events.filter((e) => e.source !== "scheduled-session");
+	const futureEvents = bookingEvents.filter((e) => new Date(e.startsAt) >= today);
 	const requestedEvents = futureEvents.filter((e) => e.status === "pending");
 	const upcomingEvents = futureEvents.filter((e) => e.status !== "pending");
-	const pastEvents = events
+	const pastEvents = bookingEvents
 		.filter((e) => new Date(e.startsAt) < today)
-		.sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+		.sort(
+			(a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime(),
+		);
+
+	const renderAssignedSession = (event: ScheduleEvent, mode: "today" | "list") => {
+		const checkedIn = event.attendanceStatus === "attended";
+		const sessionId = event.scheduledSessionId;
+		const status = getAssignedSessionStatus(event);
+		const isToday = mode === "today";
+
+		return (
+			<div
+				key={`${mode}-${event.id}`}
+				className={`rounded-2xl border p-4 transition-colors ${
+					isToday
+						? "border-primary/25 bg-primary/5"
+						: "border-border bg-card hover:bg-muted/30"
+				}`}
+			>
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+					<div className="min-w-0 space-y-2">
+						<div className="flex flex-wrap items-center gap-2">
+							<span className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2 py-1 text-[10px] font-black uppercase text-muted-foreground">
+								<ShieldCheck className="h-3 w-3 text-primary" />
+								Assigned by coach
+							</span>
+							{getStatusBadge(status)}
+						</div>
+						<div>
+							<h3 className="font-black uppercase italic tracking-tight">
+								{event.title}
+							</h3>
+							<p className="mt-1 text-xs font-medium text-muted-foreground">
+								{getAssignedSessionType(event)} session
+							</p>
+						</div>
+						<div className="flex flex-wrap gap-4 text-sm font-medium text-muted-foreground">
+							<span className="inline-flex items-center gap-1.5">
+								<Calendar className="h-4 w-4 text-primary/60" />
+								{new Date(event.startsAt).toLocaleDateString(undefined, {
+									weekday: "short",
+									month: "short",
+									day: "numeric",
+								})}
+							</span>
+							<span className="inline-flex items-center gap-1.5">
+								<Clock className="h-4 w-4 text-primary/60" />
+								{event.timeStart} - {event.timeEnd}
+							</span>
+							<span className="inline-flex items-center gap-1.5">
+								<MapPin className="h-4 w-4 text-primary/60" />
+								{event.location}
+							</span>
+						</div>
+					</div>
+
+					{isToday ? (
+						<button
+							type="button"
+							disabled={
+								!event.canCheckIn ||
+								checkedIn ||
+								checkingSessionId === sessionId
+							}
+							onClick={() => void markScheduledSessionAttendance(sessionId)}
+							className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-black uppercase italic tracking-wide text-primary-foreground shadow-lg shadow-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							{checkingSessionId === sessionId
+								? "Marking..."
+								: checkedIn
+									? "Marked"
+									: "Check In"}
+						</button>
+					) : (
+						<div className="inline-flex h-10 items-center gap-2 rounded-xl border bg-background px-3 text-xs font-bold uppercase text-muted-foreground">
+							<Lock className="h-3.5 w-3.5" />
+							View only
+						</div>
+					)}
+				</div>
+			</div>
+		);
+	};
 
 	return (
 		<PageTransition className="container mx-auto p-4 pb-20 space-y-8">
@@ -494,9 +652,13 @@ function SchedulePage() {
 								</div>
 								<div className="max-h-56 overflow-auto border rounded-lg divide-y">
 									{scheduleCandidatesLoading ? (
-										<div className="p-3 text-sm text-muted-foreground">Loading users...</div>
+										<div className="p-3 text-sm text-muted-foreground">
+											Loading users...
+										</div>
 									) : candidateList.length === 0 ? (
-										<div className="p-3 text-sm text-muted-foreground">No non-team users found.</div>
+										<div className="p-3 text-sm text-muted-foreground">
+											No non-team users found.
+										</div>
 									) : (
 										candidateList.map((item) => {
 											const checked = selectedUserIds.includes(item.userId);
@@ -512,7 +674,9 @@ function SchedulePage() {
 													/>
 													<div>
 														<div className="font-medium">{item.name}</div>
-														<div className="text-xs text-muted-foreground">{item.email}</div>
+														<div className="text-xs text-muted-foreground">
+															{item.email}
+														</div>
 													</div>
 												</label>
 											);
@@ -534,7 +698,9 @@ function SchedulePage() {
 									{customSaving ? "Creating..." : "Create Schedule"}
 								</button>
 								{adminFeedback ? (
-									<span className="text-xs text-muted-foreground">{adminFeedback}</span>
+									<span className="text-xs text-muted-foreground">
+										{adminFeedback}
+									</span>
 								) : null}
 							</div>
 						</div>
@@ -551,11 +717,92 @@ function SchedulePage() {
 				>
 					<p className="font-medium text-foreground">Coach-managed schedule</p>
 					<p className="mt-1 leading-relaxed">
-						You cannot book sessions from this account. When your coach schedules a session for you, it will
-						show up under Upcoming Bookings.
+						You cannot book sessions from this account. When your coach
+						schedules a session for you, it will show up under Upcoming
+						Bookings.
 					</p>
 				</motion.div>
 			) : null}
+
+			<section className="space-y-5">
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+					<div>
+						<p className="text-xs font-black uppercase tracking-wide text-primary">
+							Membership sessions
+						</p>
+						<h2 className="text-2xl font-black italic uppercase tracking-tight">
+							Assigned by coach
+						</h2>
+					</div>
+					<div className="inline-flex items-center gap-2 rounded-xl border bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+						<Lock className="h-3.5 w-3.5" />
+						View only. No cancellation from the app.
+					</div>
+				</div>
+
+				{attendanceFeedback ? (
+					<div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm font-medium text-foreground">
+						{attendanceFeedback}
+					</div>
+				) : null}
+
+				<div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+					<div className="space-y-3">
+						<div className="flex items-center gap-2">
+							<CheckCircle2 className="h-5 w-5 text-primary" />
+							<h3 className="font-bold uppercase italic tracking-tight">
+								Today
+							</h3>
+						</div>
+						{todayScheduledSessions.length > 0 ? (
+							<div className="grid gap-3">
+								{todayScheduledSessions.map((event) =>
+									renderAssignedSession(event, "today"),
+								)}
+							</div>
+						) : (
+							<div className="rounded-2xl border border-dashed bg-muted/5 p-5 text-sm font-medium text-muted-foreground">
+								No coach-assigned membership sessions today.
+							</div>
+						)}
+					</div>
+
+					<div className="space-y-3">
+						<div className="flex items-center justify-between gap-3">
+							<h3 className="font-bold uppercase italic tracking-tight">
+								Upcoming fixed sessions
+							</h3>
+							<span className="rounded-full bg-muted px-2 py-1 text-[10px] font-black uppercase text-muted-foreground">
+								{upcomingAssignedSessions.length}
+							</span>
+						</div>
+						<div className="max-h-[520px] space-y-3 overflow-auto pr-1">
+							{upcomingAssignedSessions.length > 0 ? (
+								upcomingAssignedSessions.map((event) =>
+									renderAssignedSession(event, "list"),
+								)
+							) : (
+								<div className="rounded-2xl border border-dashed bg-muted/5 p-5 text-sm font-medium text-muted-foreground">
+									No upcoming coach-assigned sessions.
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+
+				{pastAssignedSessions.length > 0 ? (
+					<div className="space-y-3">
+						<h3 className="font-bold uppercase italic tracking-tight text-muted-foreground">
+							Attendance history
+						</h3>
+						<div className="grid gap-3 md:grid-cols-2">
+							{pastAssignedSessions.slice(0, 6).map((event) =>
+								renderAssignedSession(event, "list"),
+							)}
+						</div>
+					</div>
+				) : null}
+			</section>
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 				<div className="lg:col-span-2 space-y-6">
@@ -574,7 +821,10 @@ function SchedulePage() {
 								upcomingEvents.map((event) => (
 									<StaggerItem key={event.id}>
 										<motion.div
-											whileHover={{ y: -2, borderColor: "rgba(138, 255, 0, 0.3)" }}
+											whileHover={{
+												y: -2,
+												borderColor: "rgba(138, 255, 0, 0.3)",
+											}}
 											transition={{ duration: 0.2 }}
 											className="group p-6 rounded-[2rem] border bg-card transition-shadow hover:shadow-lg flex flex-col md:flex-row md:items-center gap-6"
 										>
@@ -707,9 +957,14 @@ function SchedulePage() {
 												<div className="flex flex-wrap gap-4 text-sm text-muted-foreground font-medium">
 													<div className="flex items-center gap-1.5">
 														<Calendar className="w-4 h-4 text-primary/60" />
-														{new Date(event.startsAt).toLocaleDateString(undefined, {
-															weekday: "short", month: "short", day: "numeric",
-														})}
+														{new Date(event.startsAt).toLocaleDateString(
+															undefined,
+															{
+																weekday: "short",
+																month: "short",
+																day: "numeric",
+															},
+														)}
 													</div>
 													<div className="flex items-center gap-1.5">
 														<Clock className="w-4 h-4 text-primary/60" />
@@ -717,7 +972,9 @@ function SchedulePage() {
 													</div>
 												</div>
 												{event.notes && (
-													<p className="text-xs text-muted-foreground mt-1 italic">{event.notes}</p>
+													<p className="text-xs text-muted-foreground mt-1 italic">
+														{event.notes}
+													</p>
 												)}
 											</div>
 										</div>
@@ -756,9 +1013,15 @@ function SchedulePage() {
 												<div className="flex flex-wrap gap-4 text-sm text-muted-foreground font-medium">
 													<div className="flex items-center gap-1.5">
 														<Calendar className="w-4 h-4 text-muted-foreground/40" />
-														{new Date(event.startsAt).toLocaleDateString(undefined, {
-															weekday: "short", month: "short", day: "numeric", year: "numeric",
-														})}
+														{new Date(event.startsAt).toLocaleDateString(
+															undefined,
+															{
+																weekday: "short",
+																month: "short",
+																day: "numeric",
+																year: "numeric",
+															},
+														)}
 													</div>
 													<div className="flex items-center gap-1.5">
 														<Clock className="w-4 h-4 text-muted-foreground/40" />
