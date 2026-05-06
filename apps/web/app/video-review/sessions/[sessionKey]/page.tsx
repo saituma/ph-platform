@@ -4,19 +4,19 @@ import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Send } from "lucide-react";
 
-import { AdminShell } from "../../../../../components/admin/shell";
-import { SectionHeader } from "../../../../../components/admin/section-header";
-import { Badge } from "../../../../../components/ui/badge";
-import { Button } from "../../../../../components/ui/button";
-import { Card, CardContent, CardHeader } from "../../../../../components/ui/card";
-import { Textarea } from "../../../../../components/ui/textarea";
+import { AdminShell } from "../../../../components/admin/shell";
+import { SectionHeader } from "../../../../components/admin/section-header";
+import { Badge } from "../../../../components/ui/badge";
+import { Button } from "../../../../components/ui/button";
+import { Card, CardContent, CardHeader } from "../../../../components/ui/card";
+import { Textarea } from "../../../../components/ui/textarea";
 import {
   useCreateMediaUploadUrlMutation,
   useGetVideoUploadsQuery,
   useReviewVideoUploadMutation,
   useSendMessageMutation,
   useSetProgramSessionCoachResponseMutation,
-} from "../../../../../lib/apiSlice";
+} from "../../../../lib/apiSlice";
 
 type RawVideoUpload = {
   id: number;
@@ -113,14 +113,14 @@ export default function VideoReviewSessionDetailPage() {
         athlete: item.athleteName ?? "Athlete",
         athleteUserId: item.athleteUserId ?? null,
         guardianUserId: item.guardianUserId ?? null,
-        status: item.reviewedAt ? "Reviewed" : "Awaiting",
+        status: item.reviewedAt ? ("Reviewed" as const) : ("Awaiting" as const),
         createdAt: item.createdAt ?? null,
         videoUrl: item.videoUrl ?? null,
         feedback: item.feedback ?? "",
         sectionKey: toSessionKey(item),
       }))
-      .filter((item) => item.sectionKey === decodedSessionKey)
-      .sort((a, b) => {
+      .filter((item: VideoItem) => item.sectionKey === decodedSessionKey)
+      .sort((a: VideoItem, b: VideoItem) => {
         const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bt - at;

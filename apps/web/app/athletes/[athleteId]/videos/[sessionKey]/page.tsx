@@ -152,7 +152,7 @@ export default function AthleteSessionVideosDetailPage() {
         athlete: item.athleteName ?? "Athlete",
         athleteUserId: item.athleteUserId ?? null,
         guardianUserId: item.guardianUserId ?? null,
-        status: item.reviewedAt ? "Reviewed" : "Awaiting",
+        status: item.reviewedAt ? ("Reviewed" as const) : ("Awaiting" as const),
         createdAt: item.createdAt ?? null,
         videoUrl: item.videoUrl ?? null,
         feedback: item.feedback ?? "",
@@ -192,11 +192,11 @@ export default function AthleteSessionVideosDetailPage() {
         } satisfies VideoItem;
       })
       .filter(
-        (item) =>
+        (item: VideoItem) =>
           item.sectionKey === decodedSessionKey ||
           item.sectionKey === normalizedSessionKey,
       )
-      .sort((a, b) => {
+      .sort((a: VideoItem, b: VideoItem) => {
         const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bt - at;
