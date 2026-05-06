@@ -49,7 +49,8 @@
     "sileo": "^0.1.0",
     "socket.io-client": "^4.8.1",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
