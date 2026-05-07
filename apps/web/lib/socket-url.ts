@@ -2,15 +2,6 @@ function normalizeBase(raw: string): string {
   return raw.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
 }
 
-function isDeprecatedHost(url: string): boolean {
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return host === "ph-performance-2cae29f7922d.herokuapp.com";
-  } catch {
-    return false;
-  }
-}
-
 export function resolveSocketUrl(): string {
   if (typeof window === "undefined") return "";
 
@@ -27,7 +18,7 @@ export function resolveSocketUrl(): string {
       ? normalizeBase(apiEnvUrl)
       : "";
 
-  if (preferred && !isDeprecatedHost(preferred)) {
+  if (preferred) {
     return preferred;
   }
 
