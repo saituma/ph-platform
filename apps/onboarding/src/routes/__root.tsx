@@ -53,9 +53,9 @@ function RootErrorComponent({ error }: { error: Error }) {
 	}, [error]);
 
 	return (
-		<div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
+		<div role="alert" className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
 			<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10 mb-6">
-				<span className="text-3xl">!</span>
+				<span className="text-3xl" aria-hidden="true">!</span>
 			</div>
 			<h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
 			<p className="text-muted-foreground mb-8 max-w-md">
@@ -76,7 +76,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	component: RootLayout,
 	errorComponent: RootErrorComponent,
 	notFoundComponent: () => (
-		<div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
+		<div role="alert" className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
 			<h1 className="text-4xl font-bold mb-4">404 - Not Found</h1>
 			<p className="text-muted-foreground mb-8">
 				The page you are looking for does not exist.

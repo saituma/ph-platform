@@ -118,6 +118,7 @@ router.get("/admin/adult-athletes", AdminProgramBuilderController.listAdultAthle
 router.get("/admin/adult-athletes/:athleteId", AdminProgramBuilderController.getAthleteDetail);
 router.post("/admin/programs/:programId/assignments", AdminProgramBuilderController.assignProgram);
 router.delete("/admin/program-assignments/:assignmentId", AdminProgramBuilderController.unassignProgram);
+router.patch("/admin/program-assignments/:assignmentId", AdminProgramBuilderController.updateAssignment);
 
 // Programs & Exercises
 router.post("/admin/enrollments", AdminProgramController.assignProgram);

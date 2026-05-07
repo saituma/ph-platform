@@ -1,9 +1,11 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
+import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import {
   Alert,
+  Pressable,
   RefreshControl,
   ScrollView,
   View,
@@ -647,6 +649,7 @@ const ServicesPanel = memo(function ServicesPanel({ bookable, nonBookable, onBoo
 
 export default memo(function ScheduleScreen() {
   const p = useAdminPastel();
+  const router = useRouter();
   const insets = useAppSafeAreaInsets();
   const toast = useAppToast();
   const token = useAppSelector((s) => s.user.token);
@@ -912,17 +915,29 @@ export default memo(function ScheduleScreen() {
             return (
               <View key={dateKey}>
                 <DateGroup dateKey={dateKey} />
-                {group.map((evt, i) => (
-                  <SessionCard
-                    key={evt.id}
-                    event={evt}
-                    index={i}
-                    isToday={groupIsToday}
-                    onCheckIn={groupIsToday && evt.tag === "Scheduled" && (!evt.attendanceStatus || evt.attendanceStatus === "unmarked")
-                      ? () => checkIn(evt.id)
-                      : undefined}
-                  />
-                ))}
+                {group.map((evt, i) => {
+                  const isProgram = evt.id.startsWith("program-");
+                  const card = (
+                    <SessionCard
+                      key={evt.id}
+                      event={evt}
+                      index={i}
+                      isToday={groupIsToday}
+                      onCheckIn={groupIsToday && evt.tag === "Scheduled" && (!evt.attendanceStatus || evt.attendanceStatus === "unmarked")
+                        ? () => checkIn(evt.id)
+                        : undefined}
+                    />
+                  );
+                  if (isProgram) {
+                    const programId = evt.id.replace("program-", "");
+                    return (
+                      <Pressable key={evt.id} onPress={() => router.push(`/programs/assigned/${programId}` as any)}>
+                        {card}
+                      </Pressable>
+                    );
+                  }
+                  return card;
+                })}
               </View>
             );
           })

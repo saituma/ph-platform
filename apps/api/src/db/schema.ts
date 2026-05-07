@@ -460,6 +460,7 @@ export const programAssignmentTable = pgTable(
       .notNull()
       .references(() => userTable.id),
     status: varchar({ length: 20 }).notNull().default("active"),
+    scheduledDate: timestamp("scheduled_date"),
     startedAt: timestamp(),
     completedAt: timestamp(),
     createdAt: timestamp().notNull().defaultNow(),

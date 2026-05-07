@@ -33,6 +33,7 @@ import {
 	createAdminCustomSession,
 	fetchAdminNonTeamUsers,
 	fetchBookings,
+	fetchScheduledPrograms,
 	type ScheduleEvent,
 } from "@/services/scheduleService";
 
@@ -126,7 +127,7 @@ function SchedulePage() {
 	const canManageSchedule = isPortalTeamRosterManagerRole(user?.role);
 
 	const {
-		data: events = [],
+		data: baseEvents = [],
 		isLoading,
 		error,
 		refetch,
@@ -136,6 +137,18 @@ function SchedulePage() {
 		enabled: !!token && !portalLoading,
 		staleTime: 1000 * 60 * 5,
 	});
+
+	const { data: scheduledPrograms = [] } = useQuery({
+		queryKey: ["schedule", "programs"],
+		queryFn: () => fetchScheduledPrograms(),
+		enabled: !!token && !portalLoading,
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const events = useMemo(
+		() => [...baseEvents, ...scheduledPrograms],
+		[baseEvents, scheduledPrograms],
+	);
 
 	const {
 		data: scheduleCandidates = [],
@@ -404,15 +417,17 @@ function SchedulePage() {
 		const sessionId = event.scheduledSessionId;
 		const status = getAssignedSessionStatus(event);
 		const isToday = mode === "today";
+		const isProgram = event.id.startsWith("program-");
+		const programId = isProgram ? event.id.replace("program-", "") : null;
 
-		return (
+		const content = (
 			<div
 				key={`${mode}-${event.id}`}
-				className={`rounded-2xl border p-4 transition-colors ${
+				className={`block rounded-2xl border p-4 transition-colors ${
 					isToday
 						? "border-primary/25 bg-primary/5"
 						: "border-border bg-card hover:bg-muted/30"
-				}`}
+				} ${isProgram ? "cursor-pointer" : ""}`}
 			>
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 					<div className="min-w-0 space-y-2">
@@ -477,6 +492,20 @@ function SchedulePage() {
 				</div>
 			</div>
 		);
+
+		if (isProgram && programId) {
+			return (
+				<Link
+					key={`${mode}-${event.id}`}
+					to="/portal/programs/assigned/$programId"
+					params={{ programId }}
+					className="block"
+				>
+					{content}
+				</Link>
+			);
+		}
+		return content;
 	};
 
 	return (

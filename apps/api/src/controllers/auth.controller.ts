@@ -150,6 +150,7 @@ const registerSchema = z.object({
 const confirmSchema = z.object({
   email: z.string().email(),
   code: z.string().min(4),
+  referralCode: z.string().optional(),
 });
 
 const resendSchema = z.object({

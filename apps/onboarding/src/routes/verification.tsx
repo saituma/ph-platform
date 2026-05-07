@@ -95,7 +95,7 @@ function VerificationComponent() {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ email, code }),
+                body: JSON.stringify({ email, code, referralCode: localStorage.getItem("pending_referral") || undefined }),
             });
 
             const data = await response.json();
@@ -109,6 +109,7 @@ function VerificationComponent() {
                 await setAuthToken(data.accessToken);
             }
 
+            localStorage.removeItem("pending_referral");
             toast.success("Account verified!", {
                 description: "Welcome to PH Platform. Let's finish your profile.",
             });
@@ -191,6 +192,8 @@ function VerificationComponent() {
 
                     <CardContent className="pt-4 pb-10 space-y-10">
                         <div
+                            role="group"
+                            aria-label="Verification code"
                             className="flex justify-between gap-3 sm:gap-4"
                             onPaste={handlePaste}
                         >
@@ -206,6 +209,7 @@ function VerificationComponent() {
                                     type="text"
                                     inputMode="numeric"
                                     autoComplete="one-time-code"
+                                    aria-label={`Verification digit ${i + 1} of 6`}
                                     className="w-full h-16 sm:h-20 text-center text-4xl sm:text-5xl font-black rounded-xl border border-input bg-background/50 focus-visible:ring-offset-0 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition-all shadow-sm"
                                     placeholder="•"
                                 />

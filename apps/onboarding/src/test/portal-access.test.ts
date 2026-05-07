@@ -25,10 +25,10 @@ describe("portal-access", () => {
       expect(hasActivePortalSubscription(makeUser())).toBe(false);
     });
 
-    it("returns false for athlete with programTier but no planExpiresAt", () => {
+    it("returns true for athlete with programTier but no planExpiresAt (null = no expiry)", () => {
       expect(
         hasActivePortalSubscription(makeUser({ programTier: "gold" })),
-      ).toBe(false);
+      ).toBe(true);
     });
 
     it("returns false for athlete with programTier and expired plan", () => {

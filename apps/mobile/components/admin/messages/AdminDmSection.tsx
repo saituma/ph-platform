@@ -174,6 +174,33 @@ export function AdminDmSection({
     dms.loadMessages(userId, false);
   }, [dms]);
 
+  const upsertInboxThread = useCallback(
+    (userId: number, name: string, message: DirectMessage) => {
+      const preview =
+        stripPreview(message.content) ||
+        (message.mediaUrl ? "Attachment" : "Direct messages");
+      const time = message.createdAt ?? new Date().toISOString();
+
+      dms.setThreads((prev) => {
+        const existing = prev.find((thread) => thread.userId === userId);
+        const nextThread = {
+          ...(existing ?? {}),
+          userId,
+          name: existing?.name ?? name,
+          preview,
+          time,
+          unread: existing?.unread ?? 0,
+        };
+
+        return [
+          nextThread,
+          ...prev.filter((thread) => thread.userId !== userId),
+        ];
+      });
+    },
+    [dms],
+  );
+
   const renderUserSearchItem = useCallback(({ item, index }: { item: { id: number; name: string; role: string }; index: number }) => {
     const avatarBg = p[AVATAR_CARD_COLORS[index % AVATAR_CARD_COLORS.length]];
     return (
@@ -221,6 +248,13 @@ export function AdminDmSection({
       const threadUserId = msg.senderId === myUserId ? msg.receiverId : msg.senderId;
       if (typeof threadUserId === "number") {
         appendCachedAdminDmMessage(threadUserId, msg);
+        upsertInboxThread(
+          threadUserId,
+          threadUserId === dms.activeDmUserId
+            ? dms.activeDmName || `User ${threadUserId}`
+            : `User ${threadUserId}`,
+          msg,
+        );
       }
     };
 
@@ -228,7 +262,7 @@ export function AdminDmSection({
     return () => {
       socket.off("direct_message", handleNewMessage);
     };
-  }, [socket, dms.activeDmUserId, myUserId]);
+  }, [socket, dms.activeDmUserId, dms.activeDmName, myUserId, upsertInboxThread]);
 
   const handleSend = async () => {
     if (!dms.activeDmUserId || (!draft.trim() && !pendingAttachment)) return;
@@ -261,6 +295,12 @@ export function AdminDmSection({
       if (sent) {
         dms.setMessages((prev) => [...prev, sent]);
         appendCachedAdminDmMessage(receiverId, sent);
+        upsertInboxThread(
+          receiverId,
+          dms.activeDmName || currentThread?.name || `User ${receiverId}`,
+          sent,
+        );
+        void dms.loadThreads(query, true);
       }
     } catch (e) {
       console.error(e);

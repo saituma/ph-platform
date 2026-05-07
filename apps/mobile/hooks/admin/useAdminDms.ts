@@ -21,6 +21,37 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
 
+  const mergeThreads = useCallback((incoming: AdminDmThread[], q: string) => {
+    setThreads((prev) => {
+      const byUserId = new Map<number, AdminDmThread>();
+      for (const thread of incoming) {
+        byUserId.set(thread.userId, thread);
+      }
+
+      for (const thread of prev) {
+        if (byUserId.has(thread.userId)) continue;
+        if (q) {
+          const searchable = [
+            thread.name,
+            thread.preview,
+            thread.programTier,
+            thread.userId,
+          ]
+            .map((value) => String(value ?? "").toLowerCase())
+            .join(" ");
+          if (!searchable.includes(q)) continue;
+        }
+        byUserId.set(thread.userId, thread);
+      }
+
+      return Array.from(byUserId.values()).sort((a, b) => {
+        const aTime = a.time ? new Date(a.time).getTime() : 0;
+        const bTime = b.time ? new Date(b.time).getTime() : 0;
+        return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+      });
+    });
+  }, []);
+
   const loadThreads = useCallback(
     async (query: string, forceRefresh: boolean) => {
       if (!enabled) return;
@@ -35,10 +66,9 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
           `/admin/messages/threads?${searchParams.toString()}`,
           { token: token!, skipCache: forceRefresh, forceRefresh, suppressStatusCodes: [403] },
         );
-        setThreads(Array.isArray(res?.threads) ? res.threads : []);
+        mergeThreads(Array.isArray(res?.threads) ? res.threads : [], q.toLowerCase());
       } catch (e) {
         setThreadsError(parseApiError(e).message);
-        setThreads([]);
       } finally {
         setThreadsLoading(false);
       }
@@ -111,6 +141,7 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
     messages,
     messagesLoading,
     messagesError,
+    setThreads,
     setActiveDmUserId,
     setActiveDmName,
     setMessages,

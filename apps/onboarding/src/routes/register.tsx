@@ -63,6 +63,15 @@ function Register() {
 	const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 	const navigate = useNavigate();
 	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
+
+	// Capture referral code from URL (?ref=CODE) and persist for verification step
+	useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		const ref = params.get("ref");
+		if (ref) {
+			localStorage.setItem("pending_referral", ref);
+		}
+	});
 	const isLocalDev =
 		typeof window !== "undefined" &&
 		(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");

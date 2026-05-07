@@ -22,7 +22,10 @@
           "location"
         ]
       },
-      "bundleIdentifier": "com.phperfomance.uk",
+      "bundleIdentifier": "com.clientreachai.phperformance",
+      "entitlements": {
+        "aps-environment": "production"
+      },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {

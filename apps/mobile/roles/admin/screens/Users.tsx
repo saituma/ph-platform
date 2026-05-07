@@ -20,6 +20,12 @@ import {
 
 const CARD_COLORS = ["cardSage", "cardPeach", "cardLavender", "cardMint"] as const;
 
+function isAiCoachUser(user: AdminUser) {
+  const email = String(user.email ?? "").trim().toLowerCase();
+  const name = String(user.name ?? "").trim().toLowerCase();
+  return email === "ai-coach@football-performance.ai" || name === "ai coach";
+}
+
 function getRoleBadgeStyle(role: string, p: ReturnType<typeof useAdminPastel>) {
   switch (role.toLowerCase()) {
     case "admin":
@@ -183,19 +189,21 @@ export default function AdminUsersScreen() {
     load();
   }, [load]);
 
-  const selectedUser = useMemo(() => users.find(u => u.id === selectedUserId) ?? null, [users, selectedUserId]);
+  const visibleUsers = useMemo(() => users.filter((u) => !isAiCoachUser(u)), [users]);
+
+  const selectedUser = useMemo(() => visibleUsers.find(u => u.id === selectedUserId) ?? null, [visibleUsers, selectedUserId]);
 
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return users;
+    if (!searchQuery.trim()) return visibleUsers;
     const q = searchQuery.toLowerCase().trim();
-    return users.filter(u =>
+    return visibleUsers.filter(u =>
       u.name?.toLowerCase().includes(q) ||
       u.email?.toLowerCase().includes(q) ||
       u.role?.toLowerCase().includes(q)
     );
-  }, [users, searchQuery]);
+  }, [visibleUsers, searchQuery]);
 
-  const blockedCount = useMemo(() => users.filter(u => u.isBlocked).length, [users]);
+  const blockedCount = useMemo(() => visibleUsers.filter(u => u.isBlocked).length, [visibleUsers]);
 
   return (
     <AdminScreen>
@@ -211,7 +219,7 @@ export default function AdminUsersScreen() {
             subtitle={
               loading && users.length === 0
                 ? "Loading users"
-                : `${users.length} registered · ${blockedCount > 0 ? `${blockedCount} blocked` : "none blocked"}`
+                : `${visibleUsers.length} registered · ${blockedCount > 0 ? `${blockedCount} blocked` : "none blocked"}`
             }
           />
           <View style={{ paddingHorizontal: 20 }}>

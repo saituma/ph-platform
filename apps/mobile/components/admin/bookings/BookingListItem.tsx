@@ -1,9 +1,7 @@
 import React from "react";
 import { View, TouchableOpacity } from "react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
-import { formatIsoShort } from "@/lib/admin-utils";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Feather } from "@/components/ui/theme-icons";
 
 interface BookingListItemProps {
@@ -21,60 +19,131 @@ export function BookingListItem({
   isMutating,
   isDark,
 }: BookingListItemProps) {
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
   
-  const statusColor = 
-    booking.status === "confirmed" ? "#22C55E" :
-    booking.status === "pending" ? "#F59E0B" :
-    booking.status === "cancelled" ? "#EF4444" :
-    colors.textSecondary;
+  const statusColor =
+    booking.status === "confirmed" ? p.success :
+    booking.status === "pending" ? p.warning :
+    booking.status === "cancelled" ? p.danger :
+    p.textSecondary;
+
+  const cardBg =
+    booking.status === "pending" ? p.cardYellow :
+    booking.status === "confirmed" ? p.cardMint :
+    booking.status === "cancelled" ? p.dangerSoft :
+    p.cardSage;
 
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.9}
-      className="rounded-[32px] border p-6"
       style={{
-        backgroundColor: isDark ? colors.cardElevated : colors.card,
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-        ...(isDark ? Shadows.none : Shadows.md)
+        borderRadius: 28,
+        padding: 18,
+        backgroundColor: cardBg,
+        shadowColor: p.shadow,
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: isDark ? 0 : 3,
       }}
     >
-      <View className="flex-row items-center justify-between mb-4">
-        <View className="px-3 py-1 rounded-full bg-accent/10 border border-accent/20">
-          <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-widest">
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <View
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+            borderRadius: 100,
+            backgroundColor: p.cardWhite,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 10,
+              fontFamily: "Outfit-Bold",
+              color: p.accent,
+              textTransform: "uppercase",
+              letterSpacing: 1.2,
+            }}
+          >
             {booking.serviceType?.replace(/_/g, ' ') || "Session"}
           </Text>
         </View>
-        <View className="flex-row items-center gap-1.5">
-          <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: statusColor }} />
-          <Text className="text-[10px] font-outfit-bold uppercase tracking-widest" style={{ color: statusColor }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ height: 7, width: 7, borderRadius: 4, backgroundColor: statusColor }} />
+          <Text
+            style={{
+              fontSize: 10,
+              fontFamily: "Outfit-Bold",
+              color: statusColor,
+              textTransform: "uppercase",
+              letterSpacing: 1.2,
+            }}
+          >
             {booking.status || "Pending"}
           </Text>
         </View>
       </View>
 
-      <Text className="text-xl font-clash font-bold text-app mb-1" numberOfLines={1}>
+      <Text
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 19,
+          color: p.textPrimary,
+          letterSpacing: -0.3,
+          marginBottom: 6,
+        }}
+        numberOfLines={1}
+      >
         {booking.serviceName}
       </Text>
       
-      <View className="flex-row items-center gap-2 mb-6">
-        <Text className="text-[15px] font-outfit-bold text-app">{booking.athleteName}</Text>
-        <Text className="text-sm font-outfit text-textSecondary">•</Text>
-        <Text className="text-sm font-outfit text-textSecondary">
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 18 }}>
+        <Text
+          style={{
+            fontSize: 15,
+            fontFamily: "Outfit-Bold",
+            color: p.textPrimary,
+          }}
+          numberOfLines={1}
+        >
+          {booking.athleteName}
+        </Text>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>•</Text>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
           {new Date(booking.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
 
-      <View className="flex-row gap-3 pt-5 border-t border-app/5">
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 10,
+          paddingTop: 14,
+          borderTopWidth: 1,
+          borderTopColor: p.divider,
+        }}
+      >
         {booking.status === "pending" && (
           <TouchableOpacity 
             onPress={() => onUpdateStatus(booking.id, "confirmed")}
             disabled={isMutating}
-            className="flex-1 h-11 rounded-xl bg-success/10 items-center justify-center flex-row gap-2 border border-success/20"
+            style={{
+              flex: 1,
+              height: 42,
+              borderRadius: 14,
+              backgroundColor: p.successSoft,
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              gap: 8,
+              opacity: isMutating ? 0.6 : 1,
+            }}
           >
-            <Feather name="check" size={14} color="#22C55E" />
-            <Text className="text-xs font-outfit-bold text-success uppercase">Confirm</Text>
+            <Feather name="check" size={14} color={p.success} />
+            <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.success, textTransform: "uppercase" }}>
+              Confirm
+            </Text>
           </TouchableOpacity>
         )}
         
@@ -82,18 +151,37 @@ export function BookingListItem({
           <TouchableOpacity 
             onPress={() => onUpdateStatus(booking.id, "cancelled")}
             disabled={isMutating}
-            className="flex-1 h-11 rounded-xl bg-red-500/10 items-center justify-center flex-row gap-2 border border-red-500/20"
+            style={{
+              flex: 1,
+              height: 42,
+              borderRadius: 14,
+              backgroundColor: p.dangerSoft,
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              gap: 8,
+              opacity: isMutating ? 0.6 : 1,
+            }}
           >
-            <Feather name="x" size={14} color="#EF4444" />
-            <Text className="text-xs font-outfit-bold text-red-400 uppercase">Cancel</Text>
+            <Feather name="x" size={14} color={p.danger} />
+            <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.danger, textTransform: "uppercase" }}>
+              Cancel
+            </Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity 
           onPress={onPress}
-          className="h-11 w-11 rounded-xl bg-secondary/10 items-center justify-center border border-app/5"
+          style={{
+            height: 42,
+            width: 42,
+            borderRadius: 14,
+            backgroundColor: p.cardWhite,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          <Feather name="eye" size={16} color={colors.text} />
+          <Feather name="eye" size={16} color={p.textPrimary} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>

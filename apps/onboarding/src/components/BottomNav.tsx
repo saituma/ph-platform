@@ -52,7 +52,7 @@ export function BottomNav({ children }: BottomNavProps) {
 				</motion.main>
 
 				<footer className="flex h-14 shrink-0 items-center gap-2 border-t border-foreground/[0.06] px-4 md:hidden bg-background sticky bottom-0 z-50">
-					<SidebarTrigger className="h-10 w-10 flex items-center justify-center text-foreground/50 hover:text-foreground transition-colors" />
+					<SidebarTrigger aria-label="Toggle sidebar navigation" className="h-10 w-10 flex items-center justify-center text-foreground/50 hover:text-foreground transition-colors" />
 
 					<div className="flex flex-1 flex-col items-center justify-center">
 						<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">

@@ -391,6 +391,9 @@ function OnboardingStep3() {
 										<button
 											type="button"
 											onClick={() => setIsCountryMenuOpen(!isCountryMenuOpen)}
+											aria-expanded={isCountryMenuOpen}
+											aria-haspopup="listbox"
+											aria-label={`Country code ${selectedCountry.country} ${selectedCountry.code}`}
 											className="h-10 flex items-center gap-2 px-4 border border-foreground/[0.06] border-r-0 bg-transparent hover:bg-foreground/[0.02] transition-all font-mono text-sm outline-none"
 										>
 											<span className="text-lg leading-none">
@@ -406,11 +409,17 @@ function OnboardingStep3() {
 													className="fixed inset-0 z-40"
 													onClick={() => setIsCountryMenuOpen(false)}
 												/>
-												<div className="absolute top-full left-0 z-50 mt-1 w-48 max-h-60 overflow-y-auto bg-background border border-foreground/[0.06] shadow-xl animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
+												<div
+													role="listbox"
+													aria-label="Country code"
+													className="absolute top-full left-0 z-50 mt-1 w-48 max-h-60 overflow-y-auto bg-background border border-foreground/[0.06] shadow-xl animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md"
+												>
 													{COUNTRY_CODES.map((c) => (
 														<button
 															key={c.code}
 															type="button"
+															role="option"
+															aria-selected={c.code === countryCode}
 															onClick={() => {
 																setCountryCode(c.code);
 																setIsCountryMenuOpen(false);

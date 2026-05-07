@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { View, Modal, Platform, TextInput } from "react-native";
+import { View, Modal, TextInput, Pressable, ScrollView } from "react-native";
 import { Text } from "@/components/ScaledText";
-import { SmallAction } from "../AdminShared";
-import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Skeleton } from "@/components/Skeleton";
-import { Shadows } from "@/constants/theme";
 import { formatIsoShort } from "@/lib/admin-utils";
 
 interface BookingDetailModalProps {
@@ -33,10 +30,12 @@ export function BookingDetailModal({
   insetsTop,
 }: BookingDetailModalProps) {
   const [confirmLocation, setConfirmLocation] = useState("");
-  const cardBg = isDark ? colors.cardElevated : "#FFFFFF";
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const mutedBg = isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)";
-  const mutedBorder = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
+  const status = detail?.status ?? booking?.status ?? "—";
+  const statusColor =
+    status === "confirmed" ? colors.success :
+    status === "pending" ? colors.warning :
+    status === "cancelled" || status === "declined" ? colors.danger :
+    colors.textSecondary;
 
   useEffect(() => {
     if (isVisible) {
@@ -49,56 +48,141 @@ export function BookingDetailModal({
   return (
     <Modal
       visible={isVisible}
-      animationType="slide"
-      presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+      animationType="fade"
+      transparent
       onRequestClose={onClose}
     >
       <View
         style={{
           flex: 1,
-          backgroundColor: colors.background,
-          paddingTop: insetsTop,
+          backgroundColor: colors.overlay,
+          justifyContent: "center",
+          paddingHorizontal: 20,
+          paddingTop: insetsTop + 16,
+          paddingBottom: 24,
         }}
       >
-        <View className="px-4 pb-3 flex-row items-center justify-between gap-3">
-          <View style={{ flex: 1 }}>
-            <Text
-              className="text-[18px] font-clash font-bold text-app"
-              numberOfLines={1}
+        <Pressable style={{ position: "absolute", inset: 0 }} onPress={onClose} />
+        <View
+          style={{
+            maxHeight: "88%",
+            borderRadius: 30,
+            backgroundColor: colors.cardWhite,
+            shadowColor: colors.shadowMd ?? colors.shadow,
+            shadowOpacity: 1,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: isDark ? 0 : 10,
+            overflow: "hidden",
+          }}
+        >
+          <View
+            style={{
+              paddingHorizontal: 20,
+              paddingTop: 20,
+              paddingBottom: 14,
+              borderBottomWidth: 1,
+              borderBottomColor: colors.divider,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 14,
+            }}
+          >
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                style={{
+                  fontFamily: "Outfit-ExtraBold",
+                  fontSize: 22,
+                  color: colors.textPrimary,
+                  letterSpacing: -0.4,
+                }}
+                numberOfLines={1}
+              >
+                Booking #{booking?.id ?? ""}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 13,
+                  color: colors.textSecondary,
+                  marginTop: 2,
+                }}
+              >
+                Details and actions
+              </Text>
+            </View>
+            <Pressable
+              onPress={onClose}
+              hitSlop={8}
+              style={({ pressed }) => ({
+                height: 38,
+                paddingHorizontal: 16,
+                borderRadius: 100,
+                backgroundColor: colors.inputBg,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: pressed ? 0.7 : 1,
+              })}
             >
-              Booking #{booking?.id ?? ""}
-            </Text>
-            <Text className="text-[12px] font-outfit text-secondary">
-              Details and actions
-            </Text>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textSecondary }}>
+                Done
+              </Text>
+            </Pressable>
           </View>
-          <SmallAction label="Done" tone="neutral" onPress={onClose} />
-        </View>
 
-        <ThemedScrollView>
-          <View className="gap-4 p-4">
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ padding: 18, gap: 14 }}
+          >
             <View
-              className="rounded-[20px] border p-4"
               style={{
-                backgroundColor: cardBg,
-                borderColor: cardBorder,
-                ...(isDark ? Shadows.none : Shadows.md),
+                borderRadius: 24,
+                padding: 16,
+                backgroundColor: colors.cardMint,
               }}
             >
-              <View className="gap-1">
-                <View className="flex-row items-center justify-between gap-3">
+              <View style={{ gap: 4 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <Text
-                    className="text-[14px] font-clash font-bold text-app"
+                    style={{
+                      flex: 1,
+                      fontFamily: "Outfit-Bold",
+                      fontSize: 17,
+                      color: colors.textPrimary,
+                    }}
                     numberOfLines={1}
                   >
                     {booking?.serviceName ?? "(service)"}
                   </Text>
-                  <Text className="text-[12px] font-outfit text-secondary">
-                    {detail?.status ?? booking?.status ?? "—"}
-                  </Text>
+                  <View
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 100,
+                      backgroundColor: colors.cardWhite,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: "Outfit-Bold",
+                        fontSize: 10,
+                        color: statusColor,
+                        textTransform: "uppercase",
+                        letterSpacing: 1,
+                      }}
+                    >
+                      {status}
+                    </Text>
+                  </View>
                 </View>
                 <Text
-                  className="text-[12px] font-outfit text-secondary"
+                  style={{
+                    fontFamily: "Outfit-Regular",
+                    fontSize: 13,
+                    color: colors.textSecondary,
+                    lineHeight: 18,
+                  }}
                   numberOfLines={2}
                 >
                   {booking?.athleteName ?? "(athlete)"} •{" "}
@@ -107,155 +191,232 @@ export function BookingDetailModal({
               </View>
 
               {detail?.status === "pending" || booking?.status === "pending" ? (
-                <View className="mt-4 gap-3">
+                <View style={{ marginTop: 16, gap: 12 }}>
                   {needsLocation && (
-                    <View className="gap-1.5">
-                      <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-wider ml-1">
+                    <View style={{ gap: 7 }}>
+                      <Text
+                        style={{
+                          fontFamily: "Outfit-Bold",
+                          fontSize: 10,
+                          color: colors.accent,
+                          textTransform: "uppercase",
+                          letterSpacing: 1.1,
+                          marginLeft: 2,
+                        }}
+                      >
                         Set Location (Required to confirm)
                       </Text>
                       <TextInput
                         value={confirmLocation}
                         onChangeText={setConfirmLocation}
                         placeholder="e.g. Virtual / Studio A"
-                        placeholderTextColor={colors.placeholder}
-                        className="h-11 px-4 rounded-xl border font-outfit text-app text-[14px]"
+                        placeholderTextColor={colors.textMuted}
                         style={{
-                          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.1)",
+                          height: 44,
+                          paddingHorizontal: 14,
+                          borderRadius: 14,
+                          borderWidth: 1,
+                          backgroundColor: colors.cardWhite,
+                          borderColor: colors.inputBorder,
+                          fontFamily: "Outfit-Regular",
+                          fontSize: 14,
+                          color: colors.textPrimary,
                         }}
                       />
                     </View>
                   )}
-                  <View className="flex-row gap-2">
-                    <SmallAction
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <PastelAction
                       label="Confirm"
                       tone="success"
                       onPress={() =>
                         booking && onUpdateStatus(booking.id, "confirmed", needsLocation ? { location: confirmLocation } : undefined)
                       }
                       disabled={isMutating || (needsLocation && !confirmLocation.trim())}
+                      colors={colors}
                     />
-                    <SmallAction
+                    <PastelAction
                       label="Decline"
                       tone="danger"
                       onPress={() =>
                         booking && onUpdateStatus(booking.id, "declined")
                       }
                       disabled={isMutating}
+                      colors={colors}
                     />
                   </View>
                 </View>
               ) : (
-                <View className="flex-row gap-2 mt-3">
-                  <SmallAction
+                <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+                  <PastelAction
                     label="Cancel"
-                    tone="neutral"
+                    tone="danger"
                     onPress={() =>
                       booking && onUpdateStatus(booking.id, "cancelled")
                     }
                     disabled={isMutating}
+                    colors={colors}
                   />
                 </View>
               )}
             </View>
 
             <View
-              className="rounded-[20px] border p-4"
-              style={{ backgroundColor: mutedBg, borderColor: mutedBorder }}
+              style={{
+                borderRadius: 24,
+                padding: 16,
+                backgroundColor: colors.inputBg,
+                borderWidth: 1,
+                borderColor: colors.inputBorder,
+              }}
             >
               {isLoading ? (
-                <View className="gap-2">
+                <View style={{ gap: 8 }}>
                   <Skeleton width="82%" height={12} />
                   <Skeleton width="88%" height={12} />
                   <Skeleton width="76%" height={12} />
                 </View>
               ) : detail ? (
-                <View className="gap-2">
-                  <Text
-                    selectable
-                    className="text-[12px] font-outfit text-secondary"
-                  >
-                    Guardian: {detail.guardianName ?? "—"} •{" "}
-                    {detail.guardianEmail ?? "—"}
-                  </Text>
-                  <Text
-                    selectable
-                    className="text-[12px] font-outfit text-secondary"
-                  >
-                    Window: {formatIsoShort(detail.startsAt)} →{" "}
-                    {formatIsoShort(detail.endTime)}
-                  </Text>
+                <View style={{ gap: 9 }}>
+                  <DetailRow label="Guardian" value={`${detail.guardianName ?? "—"} • ${detail.guardianEmail ?? "—"}`} colors={colors} />
+                  <DetailRow label="Window" value={`${formatIsoShort(detail.startsAt)} → ${formatIsoShort(detail.endTime)}`} colors={colors} />
                   {detail.slotsTotal != null && (
-                    <Text
-                      selectable
-                      className="text-[12px] font-outfit text-secondary"
-                    >
-                      Capacity: {detail.slotsUsed ?? 0}/{detail.slotsTotal}
-                    </Text>
+                    <DetailRow label="Capacity" value={`${detail.slotsUsed ?? 0}/${detail.slotsTotal}`} colors={colors} />
                   )}
                   {detail.location && (
-                    <Text
-                      selectable
-                      className="text-[12px] font-outfit text-secondary"
-                    >
-                      Location: {detail.location}
-                    </Text>
+                    <DetailRow label="Location" value={detail.location} colors={colors} />
                   )}
                   {detail.meetingLink && (
-                    <Text
-                      selectable
-                      className="text-[12px] font-outfit text-secondary"
-                    >
-                      Meeting: {detail.meetingLink}
-                    </Text>
+                    <DetailRow label="Meeting" value={detail.meetingLink} colors={colors} selectable />
                   )}
                   
                   {/* Location input below Meeting link if requested (if not already set in detail and we are in edit mode) */}
                   {!needsLocation && (detail?.status === "pending" || booking?.status === "pending") && (
-                    <View className="mt-2 gap-1.5">
-                      <Text className="text-[10px] font-outfit-bold text-secondary uppercase tracking-wider">
+                    <View style={{ marginTop: 4, gap: 7 }}>
+                      <Text
+                        style={{
+                          fontFamily: "Outfit-Bold",
+                          fontSize: 10,
+                          color: colors.textSecondary,
+                          textTransform: "uppercase",
+                          letterSpacing: 1.1,
+                        }}
+                      >
                         Update Location
                       </Text>
                       <TextInput
                         value={confirmLocation}
                         onChangeText={setConfirmLocation}
                         placeholder="Update location..."
-                        placeholderTextColor={colors.placeholder}
-                        className="h-10 px-3 rounded-lg border font-outfit text-app text-[13px]"
+                        placeholderTextColor={colors.textMuted}
                         style={{
-                          backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)",
-                          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+                          height: 42,
+                          paddingHorizontal: 12,
+                          borderRadius: 14,
+                          borderWidth: 1,
+                          backgroundColor: colors.cardWhite,
+                          borderColor: colors.inputBorder,
+                          fontFamily: "Outfit-Regular",
+                          fontSize: 13,
+                          color: colors.textPrimary,
                         }}
                       />
                     </View>
                   )}
 
                   {detail.notes && (
-                    <Text
-                      selectable
-                      className="text-[12px] font-outfit text-secondary mt-1"
-                    >
-                      Notes: {detail.notes}
-                    </Text>
+                    <DetailRow label="Notes" value={detail.notes} colors={colors} selectable />
                   )}
                   {detail.createdAt && (
-                    <Text
-                      selectable
-                      className="text-[11px] font-outfit text-secondary mt-2"
-                    >
-                      Created {formatIsoShort(detail.createdAt)}
-                    </Text>
+                    <DetailRow label="Created" value={formatIsoShort(detail.createdAt)} colors={colors} />
                   )}
                 </View>
               ) : (
-                <Text className="text-[12px] font-outfit text-secondary">
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary }}>
                   No detail loaded.
                 </Text>
               )}
             </View>
-          </View>
-        </ThemedScrollView>
+          </ScrollView>
+        </View>
       </View>
     </Modal>
+  );
+}
+
+function PastelAction({
+  label,
+  tone,
+  onPress,
+  disabled,
+  colors,
+}: {
+  label: string;
+  tone: "success" | "danger";
+  onPress: () => void;
+  disabled?: boolean;
+  colors: any;
+}) {
+  const tint = tone === "success" ? colors.success : colors.danger;
+  const bg = tone === "success" ? colors.successSoft : colors.dangerSoft;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => ({
+        flex: 1,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: bg,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: disabled ? 0.45 : pressed ? 0.72 : 1,
+      })}
+    >
+      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: tint, textTransform: "uppercase" }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  colors,
+  selectable,
+}: {
+  label: string;
+  value: string;
+  colors: any;
+  selectable?: boolean;
+}) {
+  return (
+    <View>
+      <Text
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 10,
+          color: colors.textMuted,
+          textTransform: "uppercase",
+          letterSpacing: 1,
+          marginBottom: 2,
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        selectable={selectable}
+        style={{
+          fontFamily: "Outfit-Regular",
+          fontSize: 13,
+          lineHeight: 18,
+          color: colors.textSecondary,
+        }}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }

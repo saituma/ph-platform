@@ -213,6 +213,17 @@ const programsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["ProgramBuilder", "Users"],
     }),
+    updateProgramAssignment: builder.mutation<
+      { assignment: any },
+      { assignmentId: number; scheduledDate: string | null }
+    >({
+      query: ({ assignmentId, ...body }) => ({
+        url: `/admin/program-assignments/${assignmentId}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["ProgramBuilder", "Users"],
+    }),
     assignProgram: builder.mutation<
       any,
       { athleteId: number; programType: string; programTemplateId?: number }
@@ -292,6 +303,7 @@ export const {
   useGetAthleteDetailQuery,
   useAssignProgramToAthleteMutation,
   useUnassignProgramMutation,
+  useUpdateProgramAssignmentMutation,
   useAssignProgramMutation,
   useGetExercisesQuery,
   useCreateExerciseMutation,

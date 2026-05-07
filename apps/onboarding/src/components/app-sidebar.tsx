@@ -367,6 +367,7 @@ export function AppSidebar() {
 						<SidebarMenuButton
 							onClick={handleLogout}
 							tooltip="Logout"
+							aria-label="Logout"
 							className="text-foreground/40 hover:text-destructive hover:bg-destructive/5 h-9"
 						>
 							<LogOut className="size-3.5" />

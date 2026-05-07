@@ -7,6 +7,7 @@ import { withTransientDbRetryConfigured } from "../lib/db-connectivity";
 import { createLocalToken } from "../lib/jwt";
 import { sendOtpEmail } from "../lib/mailer";
 import { v4 as uuidv4 } from "uuid";
+import { claimReferralCode } from "./referral.service";
 
 export async function changePasswordLocal(input: {
   userId: number;
@@ -212,7 +213,7 @@ export async function registerLocal(input: { email: string; password: string; na
   return { ok: true };
 }
 
-export async function confirmLocal(input: { email: string; code: string }) {
+export async function confirmLocal(input: { email: string; code: string; referralCode?: string }) {
   const users = await db
     .select()
     .from(userTable)

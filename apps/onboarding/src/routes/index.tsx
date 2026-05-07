@@ -96,8 +96,15 @@ export const Route = createFileRoute("/")({
                 content:
                     "Elite training and performance coaching for footballers who want more.",
             },
+            { property: "og:image", content: `${SITE_URL}/home.png` },
+            { property: "og:image:width", content: "1200" },
+            { property: "og:image:height", content: "630" },
             { property: "og:url", content: SITE_URL },
             { property: "og:type", content: "website" },
+            { name: "twitter:card", content: "summary_large_image" },
+            { name: "twitter:title", content: "PH Performance — Elite Athlete & Team Training Platform" },
+            { name: "twitter:description", content: "Elite training and performance coaching for footballers who want more." },
+            { name: "twitter:image", content: `${SITE_URL}/home.png` },
         ],
         links: [{ rel: "canonical", href: SITE_URL }],
         scripts: [

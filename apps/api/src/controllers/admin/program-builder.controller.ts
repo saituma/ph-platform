@@ -241,6 +241,19 @@ export async function unassignProgram(req: Request, res: Response) {
   return res.status(200).json({ assignment });
 }
 
+export async function updateAssignment(req: Request, res: Response) {
+  const assignmentId = z.coerce.number().int().min(1).parse(req.params.assignmentId);
+  const body = z.object({
+    scheduledDate: z.string().nullable().optional(),
+  }).parse(req.body);
+
+  const assignment = await ProgramBuilderService.updateAssignment(assignmentId, {
+    scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null,
+  });
+  if (!assignment) return res.status(404).json({ error: "Assignment not found." });
+  return res.status(200).json({ assignment });
+}
+
 export async function getAthleteDetail(req: Request, res: Response) {
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
   try {

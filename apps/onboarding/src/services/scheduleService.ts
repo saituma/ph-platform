@@ -351,3 +351,44 @@ export async function createAdminCustomSession(body: {
     failures: Array<{ userId: number; reason: string }>;
   };
 }
+
+export async function fetchScheduledPrograms(): Promise<ScheduleEvent[]> {
+  const baseUrl = config.api.baseUrl;
+  const token = getClientAuthToken();
+
+  const response = await fetch(`${baseUrl}/api/programs/my-assigned`, {
+    credentials: "include",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) return [];
+
+  const data = await response.json();
+  const programs = (data.programs ?? []) as any[];
+
+  return programs
+    .filter((p: any) => p.scheduledDate)
+    .map((p: any) => {
+      const d = new Date(p.scheduledDate);
+      const dateKey = formatDateKey(d);
+      const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+      return {
+        id: `program-${p.id}`,
+        dayId: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][d.getDay()] ?? "mon",
+        dateKey,
+        startsAt: d.toISOString(),
+        title: p.name || "Program Session",
+        timeStart: timeStr === "12:00 AM" ? "All day" : timeStr,
+        timeEnd: "",
+        location: "",
+        meetingLink: null,
+        type: "training" as const,
+        status: "confirmed",
+        athlete: "",
+        notes: p.description ?? "",
+        source: "scheduled-session" as const,
+      } as ScheduleEvent;
+    });
+}

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChevronRight, Dumbbell, Play, Plus, Trophy, User, Utensils, Video, X } from "lucide-react";
+import { Calendar, ChevronRight, Dumbbell, Play, Plus, Trophy, User, Utensils, Video, X } from "lucide-react";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { SectionHeader } from "../../../components/admin/section-header";
@@ -29,6 +29,7 @@ import {
   useGetProgramsQuery,
   useAssignProgramToAthleteMutation,
   useUnassignProgramMutation,
+  useUpdateProgramAssignmentMutation,
 } from "../../../lib/apiSlice";
 
 export default function AthleteDetailPage() {
@@ -42,6 +43,7 @@ export default function AthleteDetailPage() {
   const { data: programsData } = useGetProgramsQuery();
   const [assignProgram, { isLoading: isAssigning }] = useAssignProgramToAthleteMutation();
   const [unassign, { isLoading: isUnassigning }] = useUnassignProgramMutation();
+  const [updateAssignment] = useUpdateProgramAssignmentMutation();
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedProgramId, setSelectedProgramId] = useState("");
@@ -283,33 +285,60 @@ export default function AthleteDetailPage() {
               {(athlete.assignments ?? []).map((a: any) => (
                 <div
                   key={a.id}
-                  className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4"
+                  className="rounded-2xl border border-border bg-card p-4"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                    <Dumbbell className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-foreground">{a.programName}</p>
-                    <div className="mt-1 flex gap-2">
-                      {a.status && (
-                        <Badge variant={a.status === "active" ? "default" : "secondary"} className="text-[10px]">
-                          {a.status}
-                        </Badge>
-                      )}
-                      {a.programType && (
-                        <Badge variant="outline" className="text-[10px]">{a.programType}</Badge>
-                      )}
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                      <Dumbbell className="h-4 w-4 text-primary" />
                     </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-foreground">{a.programName}</p>
+                      <div className="mt-1 flex gap-2">
+                        {a.status && (
+                          <Badge variant={a.status === "active" ? "default" : "secondary"} className="text-[10px]">
+                            {a.status}
+                          </Badge>
+                        )}
+                        {a.programType && (
+                          <Badge variant="outline" className="text-[10px]">{a.programType}</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 shrink-0 p-0 text-destructive"
+                      onClick={() => handleUnassign(a.id)}
+                      disabled={isUnassigning}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 shrink-0 p-0 text-destructive"
-                    onClick={() => handleUnassign(a.id)}
-                    disabled={isUnassigning}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Scheduled:</span>
+                    <input
+                      type="date"
+                      className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+                      value={a.scheduledDate ? new Date(a.scheduledDate).toISOString().split("T")[0] : ""}
+                      onChange={(e) => {
+                        updateAssignment({
+                          assignmentId: a.id,
+                          scheduledDate: e.target.value ? new Date(e.target.value).toISOString() : null,
+                        });
+                      }}
+                    />
+                    {a.scheduledDate && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1.5 text-xs text-muted-foreground"
+                        onClick={() => updateAssignment({ assignmentId: a.id, scheduledDate: null })}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

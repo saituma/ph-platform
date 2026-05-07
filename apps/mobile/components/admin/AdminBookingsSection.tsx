@@ -319,67 +319,12 @@ export function AdminBookingsSection({
       ) : (
         <View style={{ gap: 12 }}>
           {pastBookings.slice(0, 10).map((b) => (
-            <TouchableOpacity
+            <ArchiveBookingCard
               key={b.id}
+              booking={b}
+              tone="past"
               onPress={() => detail.setOpenId(b.id)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: 20,
-                borderRadius: 28,
-                backgroundColor: p.cardSage,
-              }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Bold",
-                    color: p.textPrimary,
-                  }}
-                  numberOfLines={1}
-                >
-                  {b.serviceName}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontFamily: "Outfit-Regular",
-                    color: p.textSecondary,
-                    marginTop: 2,
-                  }}
-                >
-                  {b.athleteName} •{" "}
-                  {b.startsAt
-                    ? new Date(b.startsAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "—"}
-                </Text>
-              </View>
-              <View
-                style={{
-                  height: 32,
-                  paddingHorizontal: 16,
-                  borderRadius: 100,
-                  backgroundColor: p.accentSoft,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontFamily: "Outfit-Bold",
-                    color: p.accent,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  View
-                </Text>
-              </View>
-            </TouchableOpacity>
+            />
           ))}
         </View>
       )}
@@ -432,61 +377,12 @@ export function AdminBookingsSection({
       ) : (
         <View style={{ gap: 12 }}>
           {cancelledBookings.slice(0, 10).map((b) => (
-            <TouchableOpacity
+            <ArchiveBookingCard
               key={b.id}
+              booking={b}
+              tone="cancelled"
               onPress={() => detail.setOpenId(b.id)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: 20,
-                borderRadius: 28,
-                backgroundColor: p.dangerSoft,
-              }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Bold",
-                    color: p.textPrimary,
-                  }}
-                  numberOfLines={1}
-                >
-                  {b.serviceName}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontFamily: "Outfit-Regular",
-                    color: p.textSecondary,
-                    marginTop: 2,
-                  }}
-                >
-                  {b.athleteName} • {b.status}
-                </Text>
-              </View>
-              <View
-                style={{
-                  height: 32,
-                  paddingHorizontal: 16,
-                  borderRadius: 100,
-                  backgroundColor: p.danger,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontFamily: "Outfit-Bold",
-                    color: "#FFFFFF",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  View
-                </Text>
-              </View>
-            </TouchableOpacity>
+            />
           ))}
         </View>
       )}
@@ -524,6 +420,137 @@ export function AdminBookingsSection({
         insetsTop={insets.top}
       />
     </View>
+  );
+}
+
+function ArchiveBookingCard({
+  booking,
+  tone,
+  onPress,
+}: {
+  booking: AdminBooking;
+  tone: "past" | "cancelled";
+  onPress: () => void;
+}) {
+  const p = useAdminPastel();
+  const isCancelled = tone === "cancelled";
+  const accent = isCancelled ? p.danger : p.accent;
+  const bg = isCancelled ? p.dangerSoft : p.cardSage;
+  const meta = isCancelled
+    ? booking.status || "Cancelled"
+    : booking.startsAt
+      ? new Date(booking.startsAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "—";
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.9}
+      style={{
+        borderRadius: 28,
+        padding: 18,
+        backgroundColor: bg,
+        shadowColor: p.shadow,
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <View
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+            borderRadius: 100,
+            backgroundColor: p.cardWhite,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 10,
+              fontFamily: "Outfit-Bold",
+              color: accent,
+              textTransform: "uppercase",
+              letterSpacing: 1.2,
+            }}
+          >
+            {booking.serviceType?.replace(/_/g, " ") || "Session"}
+          </Text>
+        </View>
+        <View
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            borderRadius: 100,
+            backgroundColor: isCancelled ? p.dangerSoft : p.accentSoft,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 10,
+              fontFamily: "Outfit-Bold",
+              color: accent,
+              textTransform: "uppercase",
+              letterSpacing: 1.1,
+            }}
+          >
+            {isCancelled ? booking.status || "Cancelled" : "Past"}
+          </Text>
+        </View>
+      </View>
+
+      <Text
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 17,
+          color: p.textPrimary,
+          letterSpacing: -0.25,
+        }}
+        numberOfLines={1}
+      >
+        {booking.serviceName}
+      </Text>
+
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+        <Text
+          style={{
+            flex: 1,
+            fontSize: 13,
+            fontFamily: "Outfit-Regular",
+            color: p.textSecondary,
+            marginRight: 12,
+          }}
+          numberOfLines={1}
+        >
+          {booking.athleteName} • {meta}
+        </Text>
+        <View
+          style={{
+            height: 34,
+            paddingHorizontal: 16,
+            borderRadius: 100,
+            backgroundColor: p.cardWhite,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 10,
+              fontFamily: "Outfit-Bold",
+              color: accent,
+              textTransform: "uppercase",
+            }}
+          >
+            View
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
 

@@ -39,7 +39,8 @@ function ReferralPage() {
 
 	useEffect(() => {
 		settingsService
-			.getMyReferrals()
+			.getMyReferralCode()
+			.then(() => settingsService.getMyReferrals())
 			.then(setStats)
 			.catch(() => toast.error("Could not load referral data"))
 			.finally(() => setLoading(false));

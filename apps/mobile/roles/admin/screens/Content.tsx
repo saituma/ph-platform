@@ -279,15 +279,6 @@ export default function AdminContentScreen() {
                   {headerDescription}
                 </Text>
               </View>
-              {viewMode !== "team" ? (
-                <AdminButton
-                  label="Group"
-                  onPress={() => { setAudienceInput(""); setModalOpen(true); }}
-                  variant="primary"
-                  icon={Plus}
-                  compact
-                />
-              ) : null}
             </View>
           </Animated.View>
         )}

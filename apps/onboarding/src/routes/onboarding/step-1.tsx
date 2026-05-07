@@ -160,7 +160,8 @@ function OnboardingStep1() {
 										key={type.id}
 										type="button"
 										onClick={() => setSelected(type.id)}
-										className="text-left focus:outline-none"
+										aria-pressed={selected === type.id}
+										className="text-left focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2"
 									>
 										<Card
 											className={cn(
@@ -208,12 +209,13 @@ function OnboardingStep1() {
 							<div className="space-y-6 border border-foreground/[0.06] p-6 sm:p-8">
 								<div className="space-y-4">
 									<div className="space-y-2">
-										<label className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-2">
+										<label htmlFor="password" className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-2">
 											<LockKey weight="bold" className="text-foreground/40" />
 											Create Password
 										</label>
 										<div className="relative">
 											<Input
+												id="password"
 												type={showPassword ? "text" : "password"}
 												placeholder="••••••••"
 												value={password}
@@ -223,6 +225,7 @@ function OnboardingStep1() {
 											<button
 												type="button"
 												onClick={() => setShowPassword(!showPassword)}
+												aria-label={showPassword ? "Hide password" : "Show password"}
 												className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground/60 transition-colors"
 											>
 												{showPassword ? <EyeSlash size={20} weight="bold" /> : <Eye size={20} weight="bold" />}
@@ -231,12 +234,13 @@ function OnboardingStep1() {
 									</div>
 
 									<div className="space-y-2">
-										<label className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-2">
+										<label htmlFor="confirmPassword" className="font-mono text-[10px] uppercase tracking-wider text-foreground/50 flex items-center gap-2">
 											<Check weight="bold" className="text-foreground/40" />
 											Confirm Password
 										</label>
 										<div className="relative">
 											<Input
+												id="confirmPassword"
 												type={showConfirmPassword ? "text" : "password"}
 												placeholder="••••••••"
 												value={confirmPassword}
@@ -249,6 +253,7 @@ function OnboardingStep1() {
 											<button
 												type="button"
 												onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+												aria-label={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"}
 												className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground/60 transition-colors"
 											>
 												{showConfirmPassword ? <EyeSlash size={20} weight="bold" /> : <Eye size={20} weight="bold" />}

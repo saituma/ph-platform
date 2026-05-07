@@ -382,6 +382,16 @@ export async function unassignProgram(assignmentId: number) {
   return result[0] ?? null;
 }
 
+export async function updateAssignment(assignmentId: number, data: { scheduledDate: Date | null }) {
+  const result = await db
+    .update(programAssignmentTable)
+    .set({ scheduledDate: data.scheduledDate, updatedAt: new Date() })
+    .where(eq(programAssignmentTable.id, assignmentId))
+    .returning();
+
+  return result[0] ?? null;
+}
+
 export async function getAthleteDetail(athleteId: number) {
   const [athlete] = await db
     .select({
@@ -405,6 +415,7 @@ export async function getAthleteDetail(athleteId: number) {
       programName: programTable.name,
       programType: programTable.type,
       status: programAssignmentTable.status,
+      scheduledDate: programAssignmentTable.scheduledDate,
       createdAt: programAssignmentTable.createdAt,
     })
     .from(programAssignmentTable)

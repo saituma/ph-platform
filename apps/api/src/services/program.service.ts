@@ -121,6 +121,7 @@ export async function getMyAssignedPrograms(userId: number) {
     .select({
       programId: programAssignmentTable.programId,
       status: programAssignmentTable.status,
+      scheduledDate: programAssignmentTable.scheduledDate,
     })
     .from(programAssignmentTable)
     .where(eq(programAssignmentTable.athleteId, athlete.id));
@@ -140,10 +141,14 @@ export async function getMyAssignedPrograms(userId: number) {
     .where(inArray(programTable.id, programIds))
     .groupBy(programTable.id);
 
-  return programs.map((p) => ({
-    ...p,
-    status: assignments.find((a) => a.programId === p.id)?.status ?? "active",
-  }));
+  return programs.map((p) => {
+    const assignment = assignments.find((a) => a.programId === p.id);
+    return {
+      ...p,
+      status: assignment?.status ?? "active",
+      scheduledDate: assignment?.scheduledDate ?? null,
+    };
+  });
 }
 
 export async function getMyProgramFull(userId: number, programId: number) {

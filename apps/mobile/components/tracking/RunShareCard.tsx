@@ -77,7 +77,7 @@ function projectCoords(coords: Coord[], w: number, h: number, pad = 10): Pt[] {
 
 const ROUTE_W = 220;
 const ROUTE_H = 140;
-const GREEN = "#34C759";
+const GREEN = "#2F9F3D";
 
 /**
  * Pure React Native polyline — renders each segment as a rotated View.

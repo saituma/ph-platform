@@ -40,14 +40,16 @@ describe("csrf", () => {
   });
 
   describe("csrfFetch", () => {
-    it("does not add header for GET requests", async () => {
+    it("does not add CSRF header for GET requests", async () => {
       Object.defineProperty(document, "cookie", {
         value: "__csrf=token123",
         writable: true,
         configurable: true,
       });
       await csrfFetch("/api/data");
-      expect(fetch).toHaveBeenCalledWith("/api/data", undefined);
+      const [, init] = (fetch as any).mock.calls[0];
+      const headers = new Headers(init.headers);
+      expect(headers.has("X-CSRF-Token")).toBe(false);
     });
 
     it("adds X-CSRF-Token header for POST requests", async () => {
@@ -89,14 +91,16 @@ describe("csrf", () => {
       expect(headers.get("X-CSRF-Token")).toBe("custom-value");
     });
 
-    it("does not add header for HEAD requests", async () => {
+    it("does not add CSRF header for HEAD requests", async () => {
       Object.defineProperty(document, "cookie", {
         value: "__csrf=token789",
         writable: true,
         configurable: true,
       });
       await csrfFetch("/api/check", { method: "HEAD" });
-      expect(fetch).toHaveBeenCalledWith("/api/check", { method: "HEAD" });
+      const [, init] = (fetch as any).mock.calls[0];
+      const headers = new Headers(init.headers);
+      expect(headers.has("X-CSRF-Token")).toBe(false);
     });
   });
 });

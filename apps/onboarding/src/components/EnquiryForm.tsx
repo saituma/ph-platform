@@ -561,12 +561,14 @@ function Field({
 	placeholder: string;
 	type?: string;
 }) {
+	const id = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 	return (
 		<div>
-			<label className="block text-[10px] uppercase tracking-[0.12em] text-white/30 mb-2">
+			<label htmlFor={id} className="block text-[10px] uppercase tracking-[0.12em] text-white/30 mb-2">
 				{label}
 			</label>
 			<input
+				id={id}
 				type={type}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
@@ -601,6 +603,8 @@ function PhoneField({
 					<button
 						type="button"
 						onClick={() => setOpen(!open)}
+						aria-expanded={open}
+						aria-label={`Country code ${selected.country} ${selected.code}`}
 						className="flex items-center gap-1.5 h-full px-3 bg-white/[0.05] border border-white/10 border-r-0 text-[13px] text-white hover:bg-white/[0.08] transition-colors"
 					>
 						<span>{selected.flag}</span>
@@ -635,6 +639,7 @@ function PhoneField({
 					type="tel"
 					value={phone}
 					onChange={(e) => onPhoneChange(e.target.value)}
+					aria-label="Phone number"
 					className="flex-1 bg-white/[0.03] border border-white/10 px-4 py-3 text-[13px] text-white placeholder:text-white/20 focus:border-[#8aff00]/50 focus:outline-none transition-colors"
 					placeholder="7911 123456"
 				/>
