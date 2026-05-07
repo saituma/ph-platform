@@ -71,5 +71,9 @@ export function canAccessTrackingTab(input: {
     return Boolean(input.capabilities?.teamTracking);
   }
 
+  if (input.capabilities?.runTracking) {
+    return true;
+  }
+
   return false;
 }

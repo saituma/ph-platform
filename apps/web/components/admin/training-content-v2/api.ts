@@ -130,6 +130,7 @@ const inflightRequests = new Map<string, Promise<unknown>>();
 
 export function clearTrainingContentCache() {
   requestCache.clear();
+  inflightRequests.clear();
 }
 
 export async function trainingContentRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -148,6 +149,7 @@ export async function trainingContentRequest<T>(path: string, init?: RequestInit
   const doFetch = async (): Promise<T> => {
     const response = await fetch(cacheKey, {
       credentials: "include",
+      cache: "no-store",
       headers: {
         "Content-Type": "application/json",
         ...(getCsrfToken() ? { "x-csrf-token": getCsrfToken() } : {}),
@@ -175,6 +177,7 @@ export async function trainingContentRequest<T>(path: string, init?: RequestInit
 
   const result = await doFetch();
   requestCache.clear();
+  inflightRequests.clear();
   return result;
 }
 

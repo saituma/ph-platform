@@ -40,21 +40,46 @@ export function TeamProgramView({
       }
     >
       <View style={{ backgroundColor: p.cardWhite, paddingTop: insets.top }}>
-        <View className="px-6 pt-4 pb-4">
+        <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}>
           <View
-            className="rounded-[30px] border p-5"
             style={{
-              backgroundColor: p.cardWhite,
+              borderRadius: 30,
+              borderWidth: 1,
               borderColor: p.divider,
+              padding: 20,
+              backgroundColor: p.cardWhite,
             }}
           >
-            <Text className="text-sm font-outfit text-accent font-bold uppercase tracking-widest">
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: "Outfit-Bold",
+                color: p.accent,
+                textTransform: "uppercase",
+                letterSpacing: 1.2,
+              }}
+            >
               Team Program
             </Text>
-            <Text className="text-3xl font-clash font-bold text-app mt-1">
+            <Text
+              style={{
+                fontSize: 28,
+                fontFamily: "Outfit-Bold",
+                color: p.textPrimary,
+                marginTop: 4,
+                letterSpacing: -0.4,
+              }}
+            >
               Hi, {focusName}
             </Text>
-            <Text className="text-sm font-outfit text-secondary mt-1">
+            <Text
+              style={{
+                fontSize: 14,
+                fontFamily: "Outfit-Regular",
+                color: p.textSecondary,
+                marginTop: 4,
+              }}
+            >
               {focusInfo.join(" • ")}
             </Text>
           </View>
@@ -67,7 +92,7 @@ export function TeamProgramView({
         onTabChange={onTabChange}
       />
 
-      <View className="px-6 mt-4">
+      <View style={{ paddingHorizontal: 24, marginTop: 16 }}>
         <AgeBasedTrainingPanel
           workspace={workspace}
           activeTab={activeTab}

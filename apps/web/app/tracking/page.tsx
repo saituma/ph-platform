@@ -39,6 +39,14 @@ import {
   SelectItem,
 } from "../../components/ui/select";
 import {
+  Combobox,
+  ComboboxInput,
+  ComboboxPopup,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "../../components/ui/combobox";
+import {
   useGetAdminRunTrackingQuery,
   useGetTrackingGoalsQuery,
   useCreateTrackingGoalMutation,
@@ -494,12 +502,11 @@ export default function TrackingPage() {
             {form.scope === "individual" && (
               <div className="space-y-1.5">
                 <Label className="text-xs">Athlete</Label>
-                <Select items={athleteItems} value={form.athleteId} onValueChange={(v) => field("athleteId", v ?? "")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectPopup>
-                    {athleteItems.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-                  </SelectPopup>
-                </Select>
+                <AthleteCombobox
+                  athletes={athleteItems.filter((a) => a.value !== "")}
+                  value={form.athleteId}
+                  onChange={(v) => field("athleteId", v)}
+                />
               </div>
             )}
 
@@ -536,6 +543,37 @@ export default function TrackingPage() {
         </DialogContent>
       </Dialog>
     </AdminShell>
+  );
+}
+
+function AthleteCombobox({
+  athletes,
+  value,
+  onChange,
+}: {
+  athletes: { label: string; value: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const selected = athletes.find((a) => a.value === value) ?? null;
+
+  return (
+    <Combobox<{ label: string; value: string }>
+      value={selected}
+      onValueChange={(val) => onChange(val?.value ?? "")}
+    >
+      <ComboboxInput placeholder="Search athletes…" size="sm" />
+      <ComboboxPopup>
+        <ComboboxList>
+          {athletes.map((a) => (
+            <ComboboxItem key={a.value} value={a}>
+              {a.label}
+            </ComboboxItem>
+          ))}
+          <ComboboxEmpty>No athletes found</ComboboxEmpty>
+        </ComboboxList>
+      </ComboboxPopup>
+    </Combobox>
   );
 }
 

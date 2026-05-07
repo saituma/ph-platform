@@ -193,11 +193,31 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     };
 
+    const onVideoReviewed = () => {
+      void scheduleLocalNotification({
+        title: "Video Reviewed",
+        body: "Your coach has provided feedback on your training video.",
+        data: { type: "video_reviewed", url: "/(tabs)/programs" },
+        channelId: "progress",
+      });
+    };
+
+    const onCoachResponse = () => {
+      void scheduleLocalNotification({
+        title: "Coach Response",
+        body: "Your coach responded to your training video.",
+        data: { type: "coach_response", url: "/(tabs)/programs" },
+        channelId: "progress",
+      });
+    };
+
     newSocket.on("physio:referral:updated", onReferralUpdated);
     newSocket.on("physio:referral:deleted", onReferralDeleted);
     newSocket.on("program:changed", onProgramChanged);
     newSocket.on("schedule:changed", onScheduleChanged);
     newSocket.on("nutrition:feedback:updated", onNutritionFeedback);
+    newSocket.on("video:reviewed", onVideoReviewed);
+    newSocket.on("program:session:coach-response", onCoachResponse);
     newSocket.io.engine.on("upgrade", (transport) => {
       console.info("[RealtimeLatency] mobile.socket.transport_upgrade", {
         socketId: newSocket.id,
@@ -217,6 +237,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       newSocket.off("program:changed", onProgramChanged);
       newSocket.off("schedule:changed", onScheduleChanged);
       newSocket.off("nutrition:feedback:updated", onNutritionFeedback);
+      newSocket.off("video:reviewed", onVideoReviewed);
+      newSocket.off("program:session:coach-response", onCoachResponse);
       newSocket.disconnect();
       socketRef.current = null;
       setSocket(null);

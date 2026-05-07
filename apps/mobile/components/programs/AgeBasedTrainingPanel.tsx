@@ -1,6 +1,7 @@
 import React from "react";
 import { Alert, Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
+import { ChevronRight } from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -100,10 +101,14 @@ export function AgeBasedTrainingPanel({
     return "Locked. Complete the previous sessions/modules to unlock this module.";
   };
 
+  const MODULE_COLORS = [p.cardSage, p.cardMint, p.cardPeach, p.cardLavender] as const;
+
   if (activeTab === "Modules") {
     return (
-      <View className="gap-4">
-        {modules.map((module) => (
+      <View style={{ gap: 14 }}>
+        {modules.map((module, idx) => {
+          const cardBg = module.locked ? p.inputBg : MODULE_COLORS[idx % MODULE_COLORS.length];
+          return (
           <Pressable
             key={module.id}
             onPress={() => {
@@ -113,84 +118,74 @@ export function AgeBasedTrainingPanel({
               }
               onOpenModule(module.id);
             }}
-            className="rounded-[28px] border px-5 py-5"
             style={{
-              backgroundColor: p.cardWhite,
-              borderColor: p.divider,
+              borderRadius: 22,
+              overflow: "hidden",
+              backgroundColor: cardBg,
               opacity: module.locked ? 0.7 : 1,
             }}
           >
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="flex-1">
-                <Text
-                  className="text-lg font-clash font-bold"
-                  style={{ color: p.textPrimary }}
-                >
-                  Module {module.order}: {module.title}
+            <View style={{ height: 3, backgroundColor: p.accent, opacity: 0.6 }} />
+            <View style={{ padding: 18, flexDirection: "row", alignItems: "center" }}>
+              <View style={{
+                width: 44, height: 44, borderRadius: 14,
+                backgroundColor: p.accentSoft,
+                alignItems: "center", justifyContent: "center",
+                marginRight: 14,
+              }}>
+                <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.accent }}>
+                  {module.order}
                 </Text>
+              </View>
+              <View style={{ flex: 1 }}>
                 <Text
-                  className="mt-1 text-sm font-outfit"
-                  style={{ color: p.textSecondary }}
+                  style={{ fontSize: 17, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.2 }}
+                  numberOfLines={1}
                 >
-                  {module.totalDayLength} planned days
+                  {module.title}
                 </Text>
-                <Text
-                  className="mt-1 text-xs font-outfit"
-                  style={{ color: p.textSecondary }}
-                >
-                  {module.sessions.length} session
-                  {module.sessions.length === 1 ? "" : "s"} in this module
-                </Text>
-
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+                  <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                    {module.totalDayLength} days
+                  </Text>
+                  <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: p.textMuted }} />
+                  <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                    {module.sessions.length} session{module.sessions.length === 1 ? "" : "s"}
+                  </Text>
+                </View>
                 {module.locked ? (
-                  <Text
-                    className="mt-2 text-xs font-outfit"
-                    style={{ color: p.textSecondary }}
-                  >
+                  <Text style={{ marginTop: 6, fontSize: 11, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                     {lockedCopy(module)}
                   </Text>
                 ) : null}
               </View>
-              <View
-                className="rounded-full px-3 py-1.5"
-                style={{
-                  backgroundColor: module.completed
-                    ? p.successSoft
-                    : module.locked
-                      ? p.divider
-                      : p.successSoft,
-                }}
-              >
-                <Text
-                  className="text-[10px] font-outfit font-bold uppercase tracking-[1px]"
-                  style={{
-                    color: module.completed
-                      ? p.success
-                      : module.locked
-                        ? p.textSecondary
-                        : p.accent,
-                  }}
-                >
-                  {module.completed
-                    ? "Completed"
-                    : module.locked
-                      ? "Locked"
-                      : "Active"}
-                </Text>
+              <View style={{ marginLeft: 12, alignItems: "center", gap: 6 }}>
+                <View style={{
+                  borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4,
+                  backgroundColor: module.completed ? p.successSoft : module.locked ? p.divider : p.accentSoft,
+                }}>
+                  <Text style={{
+                    fontSize: 10, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 0.8,
+                    color: module.completed ? p.success : module.locked ? p.textSecondary : p.accent,
+                  }}>
+                    {module.completed ? "Done" : module.locked ? "Locked" : "Active"}
+                  </Text>
+                </View>
+                <View style={{
+                  width: 32, height: 32, borderRadius: 10,
+                  backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center",
+                }}>
+                  <ChevronRight size={16} color={p.textSecondary} />
+                </View>
               </View>
             </View>
           </Pressable>
-        ))}
+          );
+        })}
 
         {!modules.length ? (
-          <View
-            className="rounded-[24px] px-5 py-5"
-            style={{ backgroundColor: p.cardWhite }}
-          >
-            <Text
-              className="text-sm font-outfit"
-              style={{ color: p.textSecondary }}
-            >
+          <View style={{ borderRadius: 24, padding: 20, backgroundColor: p.cardWhite }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
               No modules available for your age yet.
             </Text>
           </View>
@@ -201,79 +196,50 @@ export function AgeBasedTrainingPanel({
 
   const group = others.find((item) => item.label === activeTab);
   return (
-    <View className="gap-4">
-      {(group?.items ?? []).map((item) => (
+    <View style={{ gap: 14 }}>
+      {(group?.items ?? []).map((item, idx) => {
+        const cardBg = MODULE_COLORS[idx % MODULE_COLORS.length];
+        return (
         <Pressable
           key={item.id}
           onPress={() => router.push(`/programs/training-other/${item.id}` as never)}
-          className="rounded-[28px] border px-5 py-5"
           style={{
-            backgroundColor: p.cardWhite,
-            borderColor: p.divider,
+            borderRadius: 22,
+            overflow: "hidden",
+            backgroundColor: cardBg,
           }}
         >
-          {group?.type === "inseason" &&
-          (item.metadata?.kind === "inseason_schedule_entry" ||
-            item.metadata?.kind === "inseason_age_schedule") ? (
-            <>
+          <View style={{ height: 3, backgroundColor: p.accent, opacity: 0.5 }} />
+          <View style={{ padding: 18 }}>
+            <Text
+              style={{ fontSize: 17, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.2 }}
+            >
+              {item.title}
+            </Text>
+            {item.scheduleNote ? (
               <Text
-                className="text-lg font-clash font-bold"
-                style={{ color: p.textPrimary }}
+                style={{ marginTop: 8, fontSize: 13, fontFamily: "Outfit-SemiBold", color: p.accent }}
               >
-                {item.title}
+                {item.scheduleNote}
               </Text>
-              {item.scheduleNote ? (
-                <Text
-                  className="mt-2 text-sm font-outfit font-semibold"
-                  style={{ color: p.accent }}
-                >
-                  {item.scheduleNote}
-                </Text>
-              ) : null}
-              <Text
-                className="mt-3 text-sm font-outfit leading-6"
-                style={{ color: p.textSecondary }}
-              >
-                {item.body === "Weekly in-season schedule."
-                  ? "Your coach sets this recurring weekly training schedule for your age."
-                  : item.body}
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text
-                className="text-lg font-clash font-bold"
-                style={{ color: p.textPrimary }}
-              >
-                {item.title}
-              </Text>
-              {item.scheduleNote ? (
-                <Text
-                  className="mt-2 text-xs font-outfit font-semibold"
-                  style={{ color: p.accent }}
-                >
-                  {item.scheduleNote}
-                </Text>
-              ) : null}
-              <Text
-                className="mt-3 text-sm font-outfit leading-6"
-                style={{ color: p.textSecondary }}
-              >
-                {item.body}
-              </Text>
-            </>
-          )}
+            ) : null}
+            <Text
+              style={{ marginTop: 8, fontSize: 14, fontFamily: "Outfit-Regular", lineHeight: 22, color: p.textSecondary }}
+            >
+              {group?.type === "inseason" &&
+              (item.metadata?.kind === "inseason_schedule_entry" ||
+                item.metadata?.kind === "inseason_age_schedule") &&
+              item.body === "Weekly in-season schedule."
+                ? "Your coach sets this recurring weekly training schedule for your age."
+                : item.body}
+            </Text>
+          </View>
         </Pressable>
-      ))}
+        );
+      })}
       {!group?.items.length ? (
-        <View
-          className="rounded-[24px] px-5 py-5"
-          style={{ backgroundColor: p.cardWhite }}
-        >
-          <Text
-            className="text-sm font-outfit"
-            style={{ color: p.textSecondary }}
-          >
+        <View style={{ borderRadius: 24, padding: 20, backgroundColor: p.cardWhite }}>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
             No content available for this section yet.
           </Text>
         </View>

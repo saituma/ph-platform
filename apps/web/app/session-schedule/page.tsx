@@ -23,6 +23,7 @@ import {
   useGetAdminAttendanceStatsQuery,
 } from "../../lib/apiSlice";
 import { getOrCreateAdminSocket } from "../../lib/admin-socket";
+import type { ScheduledSessionAdminRecord } from "../../lib/api/admin-session-schedule";
 
 function toIsoDateInput(d: Date) {
   const y = d.getFullYear();
@@ -76,6 +77,378 @@ type AthleteDayRow = {
   athleteType?: "youth" | "adult" | null;
   preferredTrainingDays?: string[] | null;
 };
+
+type AttendanceRow = {
+  sessionId: number;
+  sessionName: string;
+  sessionType: string;
+  dateKey: string;
+  startsAt: string;
+  endsAt: string;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  status: "unmarked" | "attended" | "missed";
+  checkInAt: string | null;
+  selfCheckedIn: boolean;
+};
+
+type StatusFilter = "all" | "attended" | "missed" | "unmarked" | "self_checked_in";
+
+function AttendanceCheckInsSection({
+  sessions,
+  marking,
+  markAttendanceWithRetry,
+  refetchSessions,
+}: {
+  sessions: ScheduledSessionAdminRecord[];
+  marking: boolean;
+  markAttendanceWithRetry: (input: { sessionId: number; userId: number; status: "attended" | "unmarked" }) => Promise<void>;
+  refetchSessions: () => void;
+}) {
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [nameSearch, setNameSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "name">("date_desc");
+
+  const allRows = useMemo<AttendanceRow[]>(() => {
+    const rows: AttendanceRow[] = [];
+    for (const s of sessions) {
+      const dateKey = toDateKey(s.startsAt);
+      for (const a of s.attendees ?? []) {
+        rows.push({
+          sessionId: s.id,
+          sessionName: s.name,
+          sessionType: s.type,
+          dateKey,
+          startsAt: s.startsAt,
+          endsAt: s.endsAt,
+          userId: a.userId,
+          userName: a.userName || `User ${a.userId}`,
+          userEmail: a.userEmail || "",
+          status: a.status,
+          checkInAt: a.checkInAt ?? null,
+          selfCheckedIn: !!a.checkInAt,
+        });
+      }
+    }
+    return rows;
+  }, [sessions]);
+
+  const filteredRows = useMemo(() => {
+    let rows = allRows;
+
+    if (statusFilter === "self_checked_in") {
+      rows = rows.filter((r) => r.selfCheckedIn);
+    } else if (statusFilter !== "all") {
+      rows = rows.filter((r) => r.status === statusFilter);
+    }
+
+    const q = nameSearch.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(
+        (r) => r.userName.toLowerCase().includes(q) || r.userEmail.toLowerCase().includes(q),
+      );
+    }
+
+    if (sortBy === "date_desc") rows = [...rows].sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+    else if (sortBy === "date_asc") rows = [...rows].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    else rows = [...rows].sort((a, b) => a.userName.localeCompare(b.userName));
+
+    return rows;
+  }, [allRows, statusFilter, nameSearch, sortBy]);
+
+  const counts = useMemo(() => {
+    let attended = 0, missed = 0, unmarked = 0, selfChecked = 0;
+    for (const r of allRows) {
+      if (r.status === "attended") attended++;
+      else if (r.status === "missed") missed++;
+      else unmarked++;
+      if (r.selfCheckedIn) selfChecked++;
+    }
+    return { attended, missed, unmarked, selfChecked, total: allRows.length };
+  }, [allRows]);
+
+  const attendanceRate = counts.total > 0 ? Math.round((counts.attended / counts.total) * 100) : 0;
+  const selfRate = counts.total > 0 ? Math.round((counts.selfChecked / counts.total) * 100) : 0;
+  const circumference = 2 * Math.PI * 36;
+  const strokeDashoffset = circumference - (attendanceRate / 100) * circumference;
+
+  return (
+    <div className="space-y-4">
+      {/* ── Stats cards row ── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {/* Attendance rate ring */}
+        <Card className="sm:col-span-2 lg:col-span-1">
+          <CardContent className="flex flex-col items-center justify-center py-6">
+            <div className="relative mb-2">
+              <svg width="84" height="84" viewBox="0 0 84 84">
+                <circle cx="42" cy="42" r="36" fill="none" stroke="currentColor" strokeWidth="6" className="text-muted/20" />
+                <circle
+                  cx="42" cy="42" r="36" fill="none"
+                  strokeWidth="6" strokeLinecap="round"
+                  className={attendanceRate >= 80 ? "text-emerald-500" : attendanceRate >= 50 ? "text-amber-500" : "text-red-500"}
+                  stroke="currentColor"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  transform="rotate(-90 42 42)"
+                  style={{ transition: "stroke-dashoffset 0.6s ease" }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-lg font-bold">{attendanceRate}%</span>
+              </div>
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">Attendance Rate</p>
+          </CardContent>
+        </Card>
+
+        {/* Attended */}
+        <Card className="border-l-4 border-l-emerald-500">
+          <CardContent className="py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+                <svg className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-emerald-600">{counts.attended}</p>
+                <p className="text-xs text-muted-foreground">Attended</p>
+              </div>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/30">
+              <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${counts.total ? (counts.attended / counts.total) * 100 : 0}%` }} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Missed */}
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500/10">
+                <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-red-600">{counts.missed}</p>
+                <p className="text-xs text-muted-foreground">Missed</p>
+              </div>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/30">
+              <div className="h-full rounded-full bg-red-500 transition-all duration-500" style={{ width: `${counts.total ? (counts.missed / counts.total) * 100 : 0}%` }} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Unmarked */}
+        <Card className="border-l-4 border-l-amber-500">
+          <CardContent className="py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+                <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-amber-600">{counts.unmarked}</p>
+                <p className="text-xs text-muted-foreground">Unmarked</p>
+              </div>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/30">
+              <div className="h-full rounded-full bg-amber-500 transition-all duration-500" style={{ width: `${counts.total ? (counts.unmarked / counts.total) * 100 : 0}%` }} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Self check-ins */}
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
+                <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-blue-600">{counts.selfChecked}</p>
+                <p className="text-xs text-muted-foreground">Self Check-ins ({selfRate}%)</p>
+              </div>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/30">
+              <div className="h-full rounded-full bg-blue-500 transition-all duration-500" style={{ width: `${selfRate}%` }} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Table card ── */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Check-in Log</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Detailed attendance records — see who checked in from the app
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-lg border bg-muted/20 p-1">
+              {(["all", "attended", "missed", "unmarked", "self_checked_in"] as const).map((f) => {
+                const labels: Record<StatusFilter, string> = { all: "All", attended: "Attended", missed: "Missed", unmarked: "Unmarked", self_checked_in: "Self" };
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setStatusFilter(f)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                      statusFilter === f
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {labels[f]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-0">
+          {/* Search + Sort */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1" style={{ minWidth: 200, maxWidth: 320 }}>
+              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+              <Input
+                className="h-9 pl-9"
+                placeholder="Search athlete name or email..."
+                value={nameSearch}
+                onChange={(e) => setNameSearch(e.target.value)}
+              />
+            </div>
+            <select
+              className="h-9 rounded-md border bg-background px-3 text-xs"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+            >
+              <option value="date_desc">Newest first</option>
+              <option value="date_asc">Oldest first</option>
+              <option value="name">Name A-Z</option>
+            </select>
+            <span className="text-xs text-muted-foreground">{filteredRows.length} record{filteredRows.length !== 1 ? "s" : ""}</span>
+          </div>
+
+          {/* Table */}
+          {filteredRows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-12 text-center">
+              <svg className="mb-3 h-10 w-10 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" /></svg>
+              <p className="text-sm font-medium text-muted-foreground">No records found</p>
+              <p className="mt-1 text-xs text-muted-foreground">Try adjusting your filters or date range</p>
+            </div>
+          ) : (
+            <div className="overflow-auto rounded-lg border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date & Time</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Session</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Athlete</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Check-in</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredRows.slice(0, 100).map((r) => {
+                    const dateObj = new Date(r.startsAt);
+                    const dayLabel = dateObj.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+                    const timeLabel = `${dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – ${new Date(r.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                    return (
+                      <tr key={`${r.sessionId}-${r.userId}`} className="transition-colors hover:bg-muted/10">
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <p className="font-medium">{dayLabel}</p>
+                          <p className="text-xs text-muted-foreground">{timeLabel}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{r.sessionName}</p>
+                          <span className="inline-block mt-0.5 rounded bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{typeLabel(r.sessionType)}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
+                              r.status === "attended" ? "bg-emerald-500" : r.status === "missed" ? "bg-red-400" : "bg-muted-foreground/40"
+                            }`}>
+                              {r.userName.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{r.userName}</p>
+                              {r.userEmail && !r.userEmail.endsWith("@athlete.local") && (
+                                <p className="truncate text-xs text-muted-foreground">{r.userEmail}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            r.status === "attended"
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                              : r.status === "missed"
+                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${
+                              r.status === "attended" ? "bg-emerald-500" : r.status === "missed" ? "bg-red-500" : "bg-amber-500"
+                            }`} />
+                            {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {r.selfCheckedIn ? (
+                            <div className="inline-flex flex-col items-center">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75" /></svg>
+                                Self
+                              </span>
+                              <span className="mt-0.5 text-[10px] text-muted-foreground">
+                                {new Date(r.checkInAt!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                          ) : r.status === "attended" ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted/30 px-2 py-0.5 text-[11px] text-muted-foreground">
+                              Admin
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            size="sm"
+                            variant={r.status === "attended" ? "outline" : "default"}
+                            disabled={marking}
+                            className={`h-8 text-xs ${r.status === "attended" ? "" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
+                            onClick={async () => {
+                              await markAttendanceWithRetry({
+                                sessionId: r.sessionId,
+                                userId: r.userId,
+                                status: r.status === "attended" ? "unmarked" : "attended",
+                              });
+                              refetchSessions();
+                            }}
+                          >
+                            {r.status === "attended" ? "Undo" : "Mark Attended"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {filteredRows.length > 100 && (
+                <div className="flex items-center justify-between border-t bg-muted/10 px-4 py-2.5 text-xs text-muted-foreground">
+                  <span>Showing 100 of {filteredRows.length} records</span>
+                  <span>Narrow your date range or filters to see more</span>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default function SessionSchedulePage() {
   const now = new Date();
@@ -859,6 +1232,13 @@ export default function SessionSchedulePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AttendanceCheckInsSection
+        sessions={sessions}
+        marking={marking}
+        markAttendanceWithRetry={markAttendanceWithRetry}
+        refetchSessions={refetchSessions}
+      />
 
       <Card>
         <CardHeader>

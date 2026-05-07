@@ -27,6 +27,8 @@ import {
   Dumbbell,
   Phone,
   Heart,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react-native";
 import Animated, {
   FadeInDown,
@@ -159,8 +161,6 @@ const DateGroup = memo(function DateGroup({ dateKey }: { dateKey: string }) {
 
 // ── Session card ─────────────────────────────────────────────────────
 
-interface CardProps { event: ScheduleEvent; index: number; onCancel?: () => void; }
-
 const MeetingLinkTap = memo(function MeetingLinkTap({ meetingLink }: { meetingLink: string }) {
   const p = useAdminPastel();
   const linkScale = useSharedValue(1);
@@ -225,7 +225,53 @@ const CancelTap = memo(function CancelTap({ onCancel }: { onCancel: () => void }
   );
 });
 
-const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardProps) {
+const CheckInButton = memo(function CheckInButton({ onCheckIn }: { onCheckIn: () => void }) {
+  const p = useAdminPastel();
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const tap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      'worklet';
+      scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
+    })
+    .onFinalize(() => {
+      'worklet';
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(onCheckIn)();
+    }), [onCheckIn, scale]);
+  return (
+    <GestureDetector gesture={tap}>
+      <Animated.View
+        style={[{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          marginTop: 10,
+          alignSelf: "flex-start",
+          paddingHorizontal: 14,
+          paddingVertical: 7,
+          borderRadius: 20,
+          backgroundColor: p.success,
+        }, animStyle]}
+        accessibilityRole="button"
+        accessibilityLabel="Mark as attended"
+      >
+        <CheckCircle2 size={14} color={p.buttonPrimaryText} />
+        <Text style={{ fontSize: 13, color: p.buttonPrimaryText, fontFamily: "Outfit-Bold" }}>
+          Attended
+        </Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+});
+
+interface CardProps { event: ScheduleEvent; index: number; onCancel?: () => void; onCheckIn?: () => void; isToday?: boolean; }
+
+const SessionCard = memo(function SessionCard({ event, index, onCancel, onCheckIn, isToday }: CardProps) {
   const p = useAdminPastel();
   const reduceMotion = useReducedMotion();
   const accent  = accentFor(event.status, p);
@@ -302,6 +348,23 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardPr
 
           {/* Cancel action (pending only) */}
           {onCancel && <CancelTap onCancel={onCancel} />}
+
+          {/* Attendance check-in for today's scheduled sessions */}
+          {isToday && event.tag === "Scheduled" && event.attendanceStatus === "attended" && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 10, alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, backgroundColor: `${p.success}18` }}>
+              <CheckCircle2 size={13} color={p.success} />
+              <Text style={{ fontSize: 12, color: p.success, fontFamily: "Outfit-Bold" }}>Attended</Text>
+            </View>
+          )}
+          {isToday && event.tag === "Scheduled" && event.attendanceStatus === "missed" && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 10, alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, backgroundColor: `${p.danger}18` }}>
+              <XCircle size={13} color={p.danger} />
+              <Text style={{ fontSize: 12, color: p.danger, fontFamily: "Outfit-Bold" }}>Missed</Text>
+            </View>
+          )}
+          {isToday && event.tag === "Scheduled" && (!event.attendanceStatus || event.attendanceStatus === "unmarked") && onCheckIn && (
+            <CheckInButton onCheckIn={onCheckIn} />
+          )}
         </View>
 
         {/* Type icon */}
@@ -701,6 +764,23 @@ export default memo(function ScheduleScreen() {
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [upcoming]);
 
+  // ── Attendance check-in ──────────────────────────────────────
+  const [checkingIn, setCheckingIn] = useState<string | null>(null);
+  const checkIn = useCallback(async (sessionId: string) => {
+    if (!token || checkingIn) return;
+    setCheckingIn(sessionId);
+    try {
+      const { apiRequest } = await import("@/lib/api");
+      await apiRequest(`/sessions/${sessionId}/check-in`, { method: "POST", token });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      refreshEvents();
+    } catch {
+      toast.error("Check-in failed", "Could not mark attendance. Please try again.");
+    } finally {
+      setCheckingIn(null);
+    }
+  }, [token, checkingIn, refreshEvents, toast]);
+
   // ── Cancel booking ───────────────────────────────────────────
   const cancelBooking = useCallback((bookingId: string) => {
     Alert.alert(
@@ -827,14 +907,25 @@ export default memo(function ScheduleScreen() {
               : "No upcoming sessions yet."}
           />
         ) : (
-          upcomingGroups.map(([dateKey, group]) => (
-            <View key={dateKey}>
-              <DateGroup dateKey={dateKey} />
-              {group.map((evt, i) => (
-                <SessionCard key={evt.id} event={evt} index={i} />
-              ))}
-            </View>
-          ))
+          upcomingGroups.map(([dateKey, group]) => {
+            const groupIsToday = dateKey === todKey;
+            return (
+              <View key={dateKey}>
+                <DateGroup dateKey={dateKey} />
+                {group.map((evt, i) => (
+                  <SessionCard
+                    key={evt.id}
+                    event={evt}
+                    index={i}
+                    isToday={groupIsToday}
+                    onCheckIn={groupIsToday && evt.tag === "Scheduled" && (!evt.attendanceStatus || evt.attendanceStatus === "unmarked")
+                      ? () => checkIn(evt.id)
+                      : undefined}
+                  />
+                ))}
+              </View>
+            );
+          })
         )}
 
         {/* ════ REQUESTS ════ */}

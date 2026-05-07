@@ -244,21 +244,34 @@ export default function ProgramModuleDetailScreen() {
             <View
               style={{
                 overflow: "hidden",
-                borderRadius: 22,
-                paddingHorizontal: 20,
-                paddingVertical: 20,
-                backgroundColor: p.cardWhite,
+                borderRadius: 28,
+                paddingHorizontal: 22,
+                paddingVertical: 22,
+                backgroundColor: p.cardMint,
               }}
             >
               <View
                 style={{
                   position: "absolute",
-                  right: -40,
-                  top: -32,
-                  height: 112,
-                  width: 112,
-                  borderRadius: 56,
+                  right: -30,
+                  top: -24,
+                  height: 120,
+                  width: 120,
+                  borderRadius: 60,
                   backgroundColor: p.accentSoft,
+                  opacity: 0.5,
+                }}
+              />
+              <View
+                style={{
+                  position: "absolute",
+                  left: -20,
+                  bottom: -30,
+                  height: 80,
+                  width: 80,
+                  borderRadius: 40,
+                  backgroundColor: p.accentSoft,
+                  opacity: 0.3,
                 }}
               />
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -266,7 +279,8 @@ export default function ProgramModuleDetailScreen() {
                   onPress={handleBack}
                   style={{
                     height: 44, width: 44, alignItems: "center", justifyContent: "center",
-                    borderRadius: 18, backgroundColor: p.inputBg,
+                    borderRadius: 18, backgroundColor: p.cardWhite,
+                    shadowColor: p.shadow, shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
                   }}
                 >
                   <ArrowLeft size={20} color={p.accent} />
@@ -274,7 +288,7 @@ export default function ProgramModuleDetailScreen() {
                 <View
                   style={{
                     borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6,
-                    backgroundColor: p.inputBg,
+                    backgroundColor: p.cardWhite,
                   }}
                 >
                   <Text
@@ -285,7 +299,7 @@ export default function ProgramModuleDetailScreen() {
                 </View>
               </View>
 
-              <Text style={{ marginTop: 16, fontSize: 26, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
+              <Text style={{ marginTop: 18, fontSize: 26, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.4 }}>
                 {module ? `Module ${module.order}: ${module.title}` : "Module"}
               </Text>
 
@@ -293,8 +307,8 @@ export default function ProgramModuleDetailScreen() {
                 <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   <View
                     style={{
-                      borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8,
-                      backgroundColor: p.inputBg,
+                      borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8,
+                      backgroundColor: p.cardWhite,
                     }}
                   >
                     <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
@@ -303,8 +317,8 @@ export default function ProgramModuleDetailScreen() {
                   </View>
                   <View
                     style={{
-                      borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8,
-                      backgroundColor: p.inputBg,
+                      borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8,
+                      backgroundColor: p.cardWhite,
                     }}
                   >
                     <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
@@ -394,7 +408,10 @@ export default function ProgramModuleDetailScreen() {
                   </View>
                 ) : (
                   <>
-                    {module.sessions.map((session) => (
+                    {module.sessions.map((session, idx) => {
+                      const SESSION_COLORS = [p.cardSage, p.cardMint, p.cardPeach, p.cardLavender] as const;
+                      const cardBg = session.locked ? p.inputBg : SESSION_COLORS[idx % SESSION_COLORS.length];
+                      return (
                       <Pressable
                         key={session.id}
                         onPress={() => {
@@ -410,19 +427,27 @@ export default function ProgramModuleDetailScreen() {
                           );
                         }}
                         style={{
-                          borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16,
-                          backgroundColor: session.locked
-                            ? p.inputBg
-                            : p.cardWhite,
+                          borderRadius: 22, overflow: "hidden",
+                          backgroundColor: cardBg,
                           opacity: session.locked ? 0.7 : 1,
                         }}
                       >
-                        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                        <View style={{ height: 3, backgroundColor: p.accent, opacity: 0.5 }} />
+                        <View style={{ paddingHorizontal: 18, paddingVertical: 16, flexDirection: "row", alignItems: "center", gap: 14 }}>
+                          <View style={{
+                            width: 44, height: 44, borderRadius: 14,
+                            backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center",
+                          }}>
+                            <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.accent }}>
+                              {session.order}
+                            </Text>
+                          </View>
                           <View style={{ flex: 1 }}>
                             <Text
-                              style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary }}
+                              style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.2 }}
+                              numberOfLines={1}
                             >
-                              {session.order}. {session.title}
+                              {session.title}
                             </Text>
                             <Text
                               style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
@@ -431,24 +456,30 @@ export default function ProgramModuleDetailScreen() {
                             </Text>
                             {session.locked ? (
                               <Text
-                                style={{ marginTop: 8, fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
+                                style={{ marginTop: 6, fontSize: 11, fontFamily: "Outfit-Regular", color: p.textSecondary }}
                               >
                                 {sessionLockedCopy(session)}
                               </Text>
                             ) : null}
                           </View>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                             {session.completed ? (
                               <CheckCircle size={18} color={p.success} />
                             ) : null}
                             {session.locked ? (
                               <Lock size={16} color={p.textSecondary} />
                             ) : null}
-                            <ChevronRight size={18} color={p.textSecondary} />
+                            <View style={{
+                              width: 32, height: 32, borderRadius: 10,
+                              backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center",
+                            }}>
+                              <ChevronRight size={16} color={p.textSecondary} />
+                            </View>
                           </View>
                         </View>
                       </Pressable>
-                    ))}
+                      );
+                    })}
 
                     {!module.sessions.length ? (
                       <View

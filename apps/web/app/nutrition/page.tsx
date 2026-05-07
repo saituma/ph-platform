@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Filter, Loader2, MessageSquareText } from "lucide-react";
 
+import { toast } from "../../lib/toast";
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
@@ -305,8 +306,13 @@ function NutritionDetails({
   const handleSubmitFeedback = async (logId: number) => {
     const feedback = feedbackInputs[logId]?.trim();
     if (!feedback) return;
-    await reviewLog({ logId, feedback });
-    setFeedbackInputs((prev) => ({ ...prev, [logId]: "" }));
+    try {
+      await reviewLog({ logId, feedback }).unwrap();
+      toast.success("Feedback sent", "Your response has been sent to the athlete.");
+      setFeedbackInputs((prev) => ({ ...prev, [logId]: "" }));
+    } catch {
+      toast.error("Failed to send", "Could not send your feedback. Please try again.");
+    }
   };
 
   const openDetail = (log: NutritionLog) => {

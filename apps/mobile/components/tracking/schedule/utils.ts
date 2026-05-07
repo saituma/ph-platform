@@ -83,6 +83,7 @@ export function mapScheduledSessionsToEvents(items: any[]): ScheduleEvent[] {
         athlete: "Athlete",
         coach: "Coach",
         notes: item.attendanceStatus === "missed" ? "Missed" : item.attendanceStatus === "attended" ? "Completed" : "",
+        attendanceStatus: item.attendanceStatus ?? null,
       } as ScheduleEvent;
     })
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());

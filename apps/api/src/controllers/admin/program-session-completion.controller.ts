@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { setProgramSessionCoachResponse } from "../../services/program.service";
 import { getSocketServer } from "../../socket-hub";
+import { createPushIntent } from "../../services/outbox.service";
+import { logger } from "../../lib/logger";
 
 const paramsSchema = z.object({
   completionId: z.coerce.number().int().min(1),
@@ -26,15 +28,29 @@ export async function setCoachResponseAdmin(req: Request, res: Response) {
   }
 
   if (updated.athleteUserId) {
+    const payload = {
+      completionId: updated.id,
+      sessionId: updated.sessionId,
+      coachResponse: updated.coachResponse,
+      coachResponseAt: updated.coachResponseAt,
+    };
+
     const io = getSocketServer();
     if (io) {
-      io.to(`user:${updated.athleteUserId}`).emit("program:session:coach-response", {
-        completionId: updated.id,
-        sessionId: updated.sessionId,
-        coachResponse: updated.coachResponse,
-        coachResponseAt: updated.coachResponseAt,
-      });
+      io.to(`user:${updated.athleteUserId}`).emit("program:session:coach-response", payload);
     }
+
+    void createPushIntent({
+      userId: updated.athleteUserId,
+      title: "Coach Response",
+      body: "Your coach responded to your training video.",
+      data: {
+        type: "coach_response",
+        url: "/(tabs)/programs",
+      },
+    }).catch((err) => {
+      logger.error({ err }, "[CoachResponse] Failed to create push intent");
+    });
   }
 
   return res.status(200).json({ item: updated });

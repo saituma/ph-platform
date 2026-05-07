@@ -85,24 +85,40 @@ export function SessionExerciseBlock({
     const headSize = len > 420 ? 15 : 16;
     return (
       <View
-        className="rounded-[22px] border px-4 py-4 gap-3"
         style={{
-          backgroundColor: p.cardSage,
+          borderRadius: 22,
+          borderWidth: 1,
           borderColor: p.divider,
+          paddingHorizontal: 16,
+          paddingVertical: 16,
+          gap: 12,
+          backgroundColor: p.cardSage,
           width: "100%",
           alignSelf: "stretch",
         }}
       >
-        <View className="flex-row items-center gap-3" style={{ flexShrink: 1 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flexShrink: 1 }}>
           <View
-            className="h-9 w-9 rounded-full items-center justify-center"
-            style={{ backgroundColor: p.accentSoft }}
+            style={{
+              height: 36,
+              width: 36,
+              borderRadius: 18,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: p.accentSoft,
+            }}
           >
             <Feather name={icon} size={16} color={p.accent} />
           </View>
           <Text
-            className="text-[11px] font-outfit-bold uppercase tracking-[1.4px] flex-1"
-            style={{ color: p.textSecondary }}
+            style={{
+              fontSize: 11,
+              fontFamily: "Outfit-Bold",
+              textTransform: "uppercase",
+              letterSpacing: 1.4,
+              flex: 1,
+              color: p.textSecondary,
+            }}
           >
             {sectionTitle}
           </Text>
@@ -156,34 +172,48 @@ export function SessionExerciseBlock({
   };
 
   return (
-    <View className="mb-10">
-      <View className="mb-3 flex-row items-center justify-between">
+    <View style={{ marginBottom: 40 }}>
+      <View style={{ marginBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View
-          className="rounded-full px-3 py-1.5"
-          style={{ backgroundColor: p.accentSoft }}
+          style={{
+            borderRadius: 100,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            backgroundColor: p.accentSoft,
+          }}
         >
           <Text
-            className="text-[10px] font-outfit-bold uppercase tracking-[1.3px]"
-            style={{ color: p.accent }}
+            style={{
+              fontSize: 10,
+              fontFamily: "Outfit-Bold",
+              textTransform: "uppercase",
+              letterSpacing: 1.3,
+              color: p.accent,
+            }}
           >
             {title}
           </Text>
         </View>
         <Text
-          className="text-[11px] font-outfit font-semibold"
-          style={{ color: p.textSecondary }}
+          style={{
+            fontSize: 11,
+            fontFamily: "Outfit-SemiBold",
+            color: p.textSecondary,
+          }}
         >
           {items.length} item{items.length === 1 ? "" : "s"}
         </Text>
       </View>
-      <View className="gap-4">
+      <View style={{ gap: 16 }}>
         {items.map((item) => (
           <View
             key={item.id}
-            className="rounded-3xl border p-4"
             style={{
-              backgroundColor: p.cardWhite,
+              borderRadius: 24,
+              borderWidth: 1,
               borderColor: p.divider,
+              padding: 16,
+              backgroundColor: p.cardWhite,
             }}
           >
             {item.videoUrl?.trim()
@@ -197,7 +227,7 @@ export function SessionExerciseBlock({
 
                   if (canInline || !isKnownExternalHost(url)) {
                     return (
-                      <View className="rounded-3xl overflow-hidden bg-black mb-4">
+                      <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000", marginBottom: 16 }}>
                         <VideoPlayer
                           uri={url}
                           autoPlay={false}
@@ -215,23 +245,37 @@ export function SessionExerciseBlock({
                       onPress={() =>
                         Linking.openURL(url).catch(() => undefined)
                       }
-                      className="rounded-2xl px-5 py-4 flex-row items-center gap-3 mb-4 border"
                       style={{
+                        borderRadius: 16,
+                        paddingHorizontal: 20,
+                        paddingVertical: 16,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        marginBottom: 16,
+                        borderWidth: 1,
                         backgroundColor: p.cardSage,
                         borderColor: p.divider,
                       }}
                     >
                       <Feather name="external-link" size={18} color={p.textMuted} />
-                      <View className="flex-1">
+                      <View style={{ flex: 1 }}>
                         <Text
-                          className="text-sm font-outfit font-semibold"
-                          style={{ color: p.textPrimary }}
+                          style={{
+                            fontSize: 14,
+                            fontFamily: "Outfit-SemiBold",
+                            color: p.textPrimary,
+                          }}
                         >
                           {externalLabelFor(url)}
                         </Text>
                         <Text
-                          className="text-[11px] font-outfit mt-0.5"
-                          style={{ color: p.textSecondary }}
+                          style={{
+                            fontSize: 11,
+                            fontFamily: "Outfit-Regular",
+                            color: p.textSecondary,
+                            marginTop: 2,
+                          }}
                           numberOfLines={1}
                         >
                           {url}
@@ -243,32 +287,49 @@ export function SessionExerciseBlock({
                 })()
               : null}
 
-            <View className="flex-row items-start gap-4">
-              <View className="flex-1 min-w-0">
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text
-                  className="text-lg font-clash font-bold text-app"
-                  style={{ width: "100%" }}
+                  style={{
+                    fontSize: 18,
+                    fontFamily: "Outfit-Bold",
+                    color: p.textPrimary,
+                    width: "100%",
+                  }}
                 >
                   {item.title}
                 </Text>
                 {item.body?.trim() ? (
                   <Text
-                    className="text-sm font-outfit text-secondary mt-1"
-                    style={{ width: "100%" }}
+                    style={{
+                      fontSize: 14,
+                      fontFamily: "Outfit-Regular",
+                      color: p.textSecondary,
+                      marginTop: 4,
+                      width: "100%",
+                    }}
                   >
                     {item.body.trim()}
                   </Text>
                 ) : null}
 
                 {(uploadsBySectionId[item.id]?.length ?? 0) > 0 ? (
-                  <View className="mt-4 gap-3">
-                    <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest">
+                  <View style={{ marginTop: 16, gap: 12 }}>
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontFamily: "Outfit-Bold",
+                        color: p.textSecondary,
+                        textTransform: "uppercase",
+                        letterSpacing: 1.2,
+                      }}
+                    >
                       Uploaded Video
                     </Text>
                     {uploadsBySectionId[item.id]!.map((u: any) => (
-                      <View key={String(u.id ?? u.videoUrl)} className="gap-2">
+                      <View key={String(u.id ?? u.videoUrl)} style={{ gap: 8 }}>
                         {u.videoUrl ? (
-                          <View className="rounded-3xl overflow-hidden bg-black">
+                          <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000" }}>
                             <VideoPlayer
                               uri={String(u.videoUrl)}
                               autoPlay={false}
@@ -280,18 +341,34 @@ export function SessionExerciseBlock({
                         ) : null}
                         {typeof u.notes === "string" && u.notes.trim() ? (
                           <View
-                            className="rounded-2xl px-4 py-3 border"
                             style={{
+                              borderRadius: 16,
+                              paddingHorizontal: 16,
+                              paddingVertical: 12,
+                              borderWidth: 1,
                               backgroundColor: p.cardSage,
                               borderColor: p.divider,
                             }}
                           >
-                            <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                fontFamily: "Outfit-Bold",
+                                color: p.textSecondary,
+                                textTransform: "uppercase",
+                                letterSpacing: 1.2,
+                                marginBottom: 4,
+                              }}
+                            >
                               Your notes
                             </Text>
                             <Text
-                              className="text-sm font-outfit text-secondary"
-                              style={{ width: "100%" }}
+                              style={{
+                                fontSize: 14,
+                                fontFamily: "Outfit-Regular",
+                                color: p.textSecondary,
+                                width: "100%",
+                              }}
                             >
                               {u.notes.trim()}
                             </Text>
@@ -299,18 +376,34 @@ export function SessionExerciseBlock({
                         ) : null}
                         {typeof u.feedback === "string" && u.feedback.trim() ? (
                           <View
-                            className="rounded-2xl px-4 py-3 border"
                             style={{
+                              borderRadius: 16,
+                              paddingHorizontal: 16,
+                              paddingVertical: 12,
+                              borderWidth: 1,
                               backgroundColor: p.cardSage,
                               borderColor: p.divider,
                             }}
                           >
-                            <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                fontFamily: "Outfit-Bold",
+                                color: p.textSecondary,
+                                textTransform: "uppercase",
+                                letterSpacing: 1.2,
+                                marginBottom: 4,
+                              }}
+                            >
                               Coach response
                             </Text>
                             <Text
-                              className="text-sm font-outfit text-secondary"
-                              style={{ width: "100%" }}
+                              style={{
+                                fontSize: 14,
+                                fontFamily: "Outfit-Regular",
+                                color: p.textSecondary,
+                                width: "100%",
+                              }}
                             >
                               {u.feedback.trim()}
                             </Text>
@@ -319,28 +412,44 @@ export function SessionExerciseBlock({
 
                         {(coachResponsesByUploadId?.get(String(u.id)) ?? []).map(
                           (res) => (
-                            <View key={res.id} className="gap-2">
+                            <View key={res.id} style={{ gap: 8 }}>
                               <View
-                                className="rounded-2xl px-4 py-3 border"
                                 style={{
+                                  borderRadius: 16,
+                                  paddingHorizontal: 16,
+                                  paddingVertical: 12,
+                                  borderWidth: 1,
                                   backgroundColor: p.cardSage,
                                   borderColor: p.divider,
                                 }}
                               >
-                                <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
+                                <Text
+                                  style={{
+                                    fontSize: 10,
+                                    fontFamily: "Outfit-Bold",
+                                    color: p.textSecondary,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 1.2,
+                                    marginBottom: 4,
+                                  }}
+                                >
                                   Coach response video
                                 </Text>
                                 {res.text ? (
                                   <Text
-                                    className="text-sm font-outfit text-secondary"
-                                    style={{ width: "100%" }}
+                                    style={{
+                                      fontSize: 14,
+                                      fontFamily: "Outfit-Regular",
+                                      color: p.textSecondary,
+                                      width: "100%",
+                                    }}
                                   >
                                     {res.text}
                                   </Text>
                                 ) : null}
                               </View>
                               {res.mediaUrl ? (
-                                <View className="rounded-3xl overflow-hidden bg-black">
+                                <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000" }}>
                                   <VideoPlayer
                                     uri={String(res.mediaUrl)}
                                     autoPlay={false}
@@ -369,11 +478,19 @@ export function SessionExerciseBlock({
                         : null;
 
                     return (
-                      <View className="mt-4 gap-3">
-                        <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest">
+                      <View style={{ marginTop: 16, gap: 12 }}>
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontFamily: "Outfit-Bold",
+                            color: p.textSecondary,
+                            textTransform: "uppercase",
+                            letterSpacing: 1.2,
+                          }}
+                        >
                           Preview (not sent yet)
                         </Text>
-                        <View className="rounded-3xl overflow-hidden bg-black">
+                        <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000" }}>
                           <VideoPlayer
                             uri={pending.video.uri}
                             autoPlay={false}
@@ -382,18 +499,36 @@ export function SessionExerciseBlock({
                             maxHeightRatio={0.55}
                           />
                         </View>
-                        <Text className="text-[11px] font-outfit text-secondary">
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontFamily: "Outfit-Regular",
+                            color: p.textSecondary,
+                          }}
+                        >
                           Selected size: {formatMb(pending.video.sizeBytes)}
                         </Text>
 
                         <View
-                          className="rounded-2xl px-4 py-3 border"
                           style={{
+                            borderRadius: 16,
+                            paddingHorizontal: 16,
+                            paddingVertical: 12,
+                            borderWidth: 1,
                             backgroundColor: p.cardSage,
                             borderColor: p.divider,
                           }}
                         >
-                          <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-2">
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontFamily: "Outfit-Bold",
+                              color: p.textSecondary,
+                              textTransform: "uppercase",
+                              letterSpacing: 1.2,
+                              marginBottom: 8,
+                            }}
+                          >
                             Notes to coach (optional)
                           </Text>
                           <TextInput
@@ -401,9 +536,11 @@ export function SessionExerciseBlock({
                             onChangeText={(t) => onPendingNotesChange?.(item.id, t)}
                             editable={!isSending}
                             placeholder="What should your coach look for?"
-                            placeholderTextColor={p.textSecondary}
+                            placeholderTextColor={p.textMuted}
                             multiline
                             style={{
+                              fontFamily: "Outfit-Regular",
+                              fontSize: 14,
                               color: p.textPrimary,
                               minHeight: 60,
                               textAlignVertical: "top",
@@ -412,32 +549,52 @@ export function SessionExerciseBlock({
                         </View>
 
                         {pending.error ? (
-                          <Text className="text-xs font-outfit text-secondary">
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              fontFamily: "Outfit-Regular",
+                              color: p.danger,
+                            }}
+                          >
                             {pending.error}
                           </Text>
                         ) : null}
 
                         {isSending && uploadStatus ? (
-                          <Text className="text-xs font-outfit text-secondary">
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              fontFamily: "Outfit-Regular",
+                              color: p.textSecondary,
+                            }}
+                          >
                             {progressPct != null
                               ? `${uploadStatus} (${progressPct}%)`
                               : uploadStatus}
                           </Text>
                         ) : null}
 
-                        <View className="flex-row gap-3">
+                        <View style={{ flexDirection: "row", gap: 12 }}>
                           <Pressable
                             disabled={isSending}
                             onPress={() => onPendingRemove?.(item.id)}
-                            className="flex-1 rounded-full py-3 items-center border"
                             style={{
+                              flex: 1,
+                              borderRadius: 100,
+                              paddingVertical: 12,
+                              alignItems: "center",
+                              borderWidth: 1,
                               backgroundColor: p.cardSage,
                               borderColor: p.divider,
                             }}
                           >
                             <Text
-                              className="font-outfit-bold uppercase"
-                              style={{ color: p.textPrimary }}
+                              style={{
+                                fontFamily: "Outfit-Bold",
+                                textTransform: "uppercase",
+                                fontSize: 13,
+                                color: p.textPrimary,
+                              }}
                             >
                               Remove
                             </Text>
@@ -445,13 +602,28 @@ export function SessionExerciseBlock({
                           <Pressable
                             disabled={isSending}
                             onPress={() => void onPendingSend?.(item.id)}
-                            className="flex-1 rounded-full py-3 items-center flex-row justify-center gap-2"
-                            style={{ backgroundColor: p.accent }}
+                            style={{
+                              flex: 1,
+                              borderRadius: 100,
+                              paddingVertical: 12,
+                              alignItems: "center",
+                              flexDirection: "row",
+                              justifyContent: "center",
+                              gap: 8,
+                              backgroundColor: p.accent,
+                            }}
                           >
                             {isSending ? (
-                              <ActivityIndicator color="#fff" />
+                              <ActivityIndicator color={p.buttonPrimaryText} />
                             ) : null}
-                            <Text className="text-white font-outfit-bold uppercase">
+                            <Text
+                              style={{
+                                fontFamily: "Outfit-Bold",
+                                textTransform: "uppercase",
+                                fontSize: 13,
+                                color: p.buttonPrimaryText,
+                              }}
+                            >
                               Send to coach
                             </Text>
                           </Pressable>
@@ -462,7 +634,7 @@ export function SessionExerciseBlock({
                 ) : null}
 
                 {item.metadata ? (
-                  <View className="mt-4 gap-4">
+                  <View style={{ marginTop: 16, gap: 16 }}>
                     <ProgramMetricGrid
                       items={[
                         item.metadata.sets != null
@@ -555,14 +727,27 @@ export function SessionExerciseBlock({
             </View>
 
             {canUpload && item.allowVideoUpload ? (
-              <View className="mt-4 items-end">
-                <Text className="text-[11px] font-outfit text-secondary opacity-80 mb-2">
+              <View style={{ marginTop: 16, alignItems: "flex-end" }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "Outfit-Regular",
+                    color: p.textSecondary,
+                    opacity: 0.8,
+                    marginBottom: 8,
+                  }}
+                >
                   Upload video
                 </Text>
                 <Pressable
                   onPress={() => onUploadPress(item.id, item.title)}
-                  className="h-10 w-10 rounded-full items-center justify-center border"
                   style={{
+                    height: 40,
+                    width: 40,
+                    borderRadius: 20,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
                     backgroundColor: p.accentSoft,
                     borderColor: p.divider,
                   }}
@@ -577,19 +762,59 @@ export function SessionExerciseBlock({
                     }
                   />
                 </Pressable>
-                <Text className="text-[10px] font-outfit text-secondary opacity-70 mt-2">
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontFamily: "Outfit-Regular",
+                    color: p.textSecondary,
+                    opacity: 0.7,
+                    marginTop: 8,
+                  }}
+                >
                   Coach feedback will show below.
                 </Text>
               </View>
             ) : canUpload && !item.allowVideoUpload ? (
-              <View className="mt-4 rounded-2xl border px-3 py-2" style={{ borderColor: p.divider, backgroundColor: p.cardSage }}>
-                <Text className="text-[11px] font-outfit text-secondary">
+              <View
+                style={{
+                  marginTop: 16,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderColor: p.divider,
+                  backgroundColor: p.cardSage,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "Outfit-Regular",
+                    color: p.textSecondary,
+                  }}
+                >
                   Video upload is disabled for this item.
                 </Text>
               </View>
             ) : item.allowVideoUpload ? (
-              <View className="mt-4 rounded-2xl border px-3 py-2" style={{ borderColor: p.divider, backgroundColor: p.cardSage }}>
-                <Text className="text-[11px] font-outfit text-secondary">
+              <View
+                style={{
+                  marginTop: 16,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderColor: p.divider,
+                  backgroundColor: p.cardSage,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "Outfit-Regular",
+                    color: p.textSecondary,
+                  }}
+                >
                   Video upload is available on Premium Plus or Pro.
                 </Text>
               </View>
@@ -598,9 +823,22 @@ export function SessionExerciseBlock({
             {completionAnchorItemId === item.id && onCompleteSession ? (
               <Pressable
                 onPress={onCompleteSession}
-                className="bg-accent py-4 rounded-full items-center mt-3"
+                style={{
+                  backgroundColor: p.accent,
+                  paddingVertical: 16,
+                  borderRadius: 100,
+                  alignItems: "center",
+                  marginTop: 12,
+                }}
               >
-                <Text className="text-white font-outfit-bold uppercase">
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Bold",
+                    textTransform: "uppercase",
+                    fontSize: 14,
+                    color: p.buttonPrimaryText,
+                  }}
+                >
                   {completeSessionLabel}
                 </Text>
               </Pressable>

@@ -14,6 +14,7 @@ export type ScheduleEvent = {
   coach: string;
   notes: string;
   status?: string;
+  attendanceStatus?: "unmarked" | "attended" | "missed" | null;
 };
 
 export type ServiceType = {

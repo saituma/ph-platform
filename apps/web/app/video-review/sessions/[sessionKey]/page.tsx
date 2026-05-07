@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Send } from "lucide-react";
 
+import { toast } from "../../../../lib/toast";
 import { AdminShell } from "../../../../components/admin/shell";
 import { SectionHeader } from "../../../../components/admin/section-header";
 import { Badge } from "../../../../components/ui/badge";
@@ -132,18 +133,23 @@ export default function VideoReviewSessionDetailPage() {
   const saveFeedback = async (item: VideoItem) => {
     const feedback = (feedbackDrafts[item.id] ?? item.feedback ?? "").trim();
     if (!feedback) return;
-    if (item.source === "program_completion" && item.completionId) {
-      await setProgramSessionCoachResponse({
-        completionId: item.completionId,
-        coachResponse: feedback,
-      }).unwrap();
-    } else {
-      await reviewVideo({
-        uploadId: item.id,
-        feedback,
-      }).unwrap();
+    try {
+      if (item.source === "program_completion" && item.completionId) {
+        await setProgramSessionCoachResponse({
+          completionId: item.completionId,
+          coachResponse: feedback,
+        }).unwrap();
+      } else {
+        await reviewVideo({
+          uploadId: item.id,
+          feedback,
+        }).unwrap();
+      }
+      toast.success("Response sent", "Your feedback has been sent to the athlete.");
+      await refetch();
+    } catch {
+      toast.error("Failed to save", "Could not send your response. Please try again.");
     }
-    await refetch();
   };
 
   const sendCoachVideo = async (item: VideoItem, file: File) => {
@@ -163,6 +169,9 @@ export default function VideoReviewSessionDetailPage() {
           }).unwrap(),
         ),
       );
+      toast.success("Video sent", "Coach video response sent to the athlete.");
+    } catch {
+      toast.error("Upload failed", "Could not send the video response. Please try again.");
     } finally {
       setUploadingForId(null);
     }
