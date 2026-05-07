@@ -939,6 +939,27 @@
       "when": 1778087000000,
       "tag": "0133_team_payment_invite_email_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1778300000000,
+      "tag": "0134_deduplicate_athletes",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1778400000000,
+      "tag": "0135_notification_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1778410000000,
+      "tag": "0136_deduplicate_users_unique_email",
+      "breakpoints": true
     }
   ]
 }
