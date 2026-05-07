@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Switch,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router } from "expo-router";
 import {
@@ -17,6 +18,8 @@ import {
   Check,
   Eye,
   EyeOff,
+  Copy,
+  CheckCheck,
 } from "lucide-react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Text } from "@/components/ScaledText";
@@ -24,7 +27,7 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
-import { createAthlete } from "@/services/teamManager/rosterService";
+import { createAthlete, type CreateAthleteResult } from "@/services/teamManager/rosterService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AddAthleteScreen
@@ -45,6 +48,8 @@ export default function AddAthleteScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [addedName, setAddedName] = useState("");
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [copiedField, setCopiedField] = useState<"email" | "password" | "all" | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -103,24 +108,30 @@ export default function AddAthleteScreen() {
     setSubmitting(true);
     setServerError(null);
     try {
-      await createAthlete(token, {
+      const result = await createAthlete(token, {
         name: name.trim(),
         username: username.trim().toLowerCase(),
         age: parseInt(age, 10),
         customPassword: showPasswordField && customPassword ? customPassword : undefined,
       });
       setAddedName(name.trim());
+      setCredentials({
+        email: result.email,
+        password: showPasswordField && customPassword ? customPassword : result.temporaryPassword,
+      });
       setSuccess(true);
-      setTimeout(() => {
-        if (router.canGoBack()) router.back();
-        else router.replace("/team-manager/roster");
-      }, 1800);
     } catch (e) {
       setServerError(e instanceof Error ? e.message : "Failed to add athlete. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
+
+  const copyToClipboard = useCallback(async (text: string, field: "email" | "password" | "all") => {
+    await Clipboard.setStringAsync(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  }, []);
 
   function handleAddAnother() {
     setName("");
@@ -130,6 +141,8 @@ export default function AddAthleteScreen() {
     setShowPasswordField(false);
     setSuccess(false);
     setAddedName("");
+    setCredentials(null);
+    setCopiedField(null);
     setErrors({});
     setServerError(null);
   }
@@ -190,70 +203,239 @@ export default function AddAthleteScreen() {
       >
         {success ? (
           /* ── Success State ── */
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            style={{
-              borderRadius: 22,
-              backgroundColor: p.successSoft,
-              padding: 36,
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
+          <Animated.View entering={FadeIn.duration(300)} style={{ gap: 16 }}>
+            {/* Success header */}
             <View
               style={{
-                width: 68,
-                height: 68,
                 borderRadius: 22,
-                alignItems: "center",
-                justifyContent: "center",
                 backgroundColor: p.successSoft,
-                marginBottom: 6,
-              }}
-            >
-              <Check size={32} color={p.accent} />
-            </View>
-            <Text
-              style={{
-                fontSize: 22,
-                fontFamily: "Outfit-Bold",
-                textAlign: "center",
-                letterSpacing: -0.3,
-                color: p.textPrimary,
-              }}
-            >
-              {addedName} added!
-            </Text>
-            <Text
-              style={{
-                fontSize: 14,
-                fontFamily: "Outfit-Regular",
-                textAlign: "center",
-                lineHeight: 21,
-                color: p.textSecondary,
-              }}
-            >
-              The athlete has been added to your team.
-            </Text>
-            <Pressable
-              onPress={handleAddAnother}
-              style={({ pressed }) => ({
-                flexDirection: "row",
+                padding: 28,
                 alignItems: "center",
-                gap: 7,
-                marginTop: 10,
-                paddingHorizontal: 22,
-                paddingVertical: 12,
-                borderRadius: 100,
-                backgroundColor: p.accentSoft,
-                opacity: pressed ? 0.72 : 1,
-              })}
+                gap: 10,
+              }}
             >
-              <UserPlus size={15} color={p.accent} />
-              <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.accent }}>
-                Add another athlete
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 18,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: p.accent + "18",
+                }}
+              >
+                <Check size={28} color={p.accent} />
+              </View>
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontFamily: "Outfit-Bold",
+                  textAlign: "center",
+                  letterSpacing: -0.3,
+                  color: p.textPrimary,
+                }}
+              >
+                {addedName} added!
               </Text>
-            </Pressable>
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontFamily: "Outfit-Regular",
+                  textAlign: "center",
+                  lineHeight: 21,
+                  color: p.textSecondary,
+                }}
+              >
+                Share these login details with the athlete.
+              </Text>
+            </View>
+
+            {/* Credentials card */}
+            {credentials && (
+              <View
+                style={{
+                  borderRadius: 22,
+                  backgroundColor: p.cardWhite,
+                  overflow: "hidden",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "Outfit-Bold",
+                    letterSpacing: 0.8,
+                    textTransform: "uppercase",
+                    paddingHorizontal: 18,
+                    paddingTop: 16,
+                    paddingBottom: 4,
+                    color: p.textMuted,
+                  }}
+                >
+                  LOGIN CREDENTIALS
+                </Text>
+
+                {/* Email */}
+                <View style={{ paddingHorizontal: 18, paddingVertical: 14, gap: 6 }}>
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", letterSpacing: 0.2, color: p.textMuted }}>
+                    Email
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        borderRadius: 12,
+                        backgroundColor: p.inputBg,
+                        paddingHorizontal: 14,
+                        paddingVertical: 12,
+                      }}
+                    >
+                      <Text
+                        selectable
+                        style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary }}
+                      >
+                        {credentials.email}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => copyToClipboard(credentials.email, "email")}
+                      style={({ pressed }) => ({
+                        width: 42,
+                        height: 42,
+                        borderRadius: 12,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: copiedField === "email" ? p.successSoft : p.accentSoft,
+                        opacity: pressed ? 0.7 : 1,
+                      })}
+                    >
+                      {copiedField === "email" ? (
+                        <CheckCheck size={18} color={p.accent} />
+                      ) : (
+                        <Copy size={18} color={p.accent} />
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View style={{ height: 1, marginHorizontal: 18, backgroundColor: p.divider }} />
+
+                {/* Password */}
+                <View style={{ paddingHorizontal: 18, paddingVertical: 14, gap: 6 }}>
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", letterSpacing: 0.2, color: p.textMuted }}>
+                    Password
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        borderRadius: 12,
+                        backgroundColor: p.inputBg,
+                        paddingHorizontal: 14,
+                        paddingVertical: 12,
+                      }}
+                    >
+                      <Text
+                        selectable
+                        style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary }}
+                      >
+                        {credentials.password}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => copyToClipboard(credentials.password, "password")}
+                      style={({ pressed }) => ({
+                        width: 42,
+                        height: 42,
+                        borderRadius: 12,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: copiedField === "password" ? p.successSoft : p.accentSoft,
+                        opacity: pressed ? 0.7 : 1,
+                      })}
+                    >
+                      {copiedField === "password" ? (
+                        <CheckCheck size={18} color={p.accent} />
+                      ) : (
+                        <Copy size={18} color={p.accent} />
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View style={{ height: 1, marginHorizontal: 18, backgroundColor: p.divider }} />
+
+                {/* Copy all */}
+                <Pressable
+                  onPress={() =>
+                    copyToClipboard(
+                      `Email: ${credentials.email}\nPassword: ${credentials.password}`,
+                      "all",
+                    )
+                  }
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    paddingVertical: 14,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  {copiedField === "all" ? (
+                    <CheckCheck size={16} color={p.accent} />
+                  ) : (
+                    <Copy size={16} color={p.accent} />
+                  )}
+                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.accent }}>
+                    {copiedField === "all" ? "Copied!" : "Copy all credentials"}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Action buttons */}
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <Pressable
+                onPress={handleAddAnother}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 7,
+                  paddingVertical: 15,
+                  borderRadius: 100,
+                  backgroundColor: p.accentSoft,
+                  opacity: pressed ? 0.72 : 1,
+                })}
+              >
+                <UserPlus size={15} color={p.accent} />
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.accent }}>
+                  Add another
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (router.canGoBack()) router.back();
+                  else router.replace("/team-manager/roster");
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 7,
+                  paddingVertical: 15,
+                  borderRadius: 100,
+                  backgroundColor: p.accent,
+                  opacity: pressed ? 0.86 : 1,
+                })}
+              >
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
+                  Done
+                </Text>
+              </Pressable>
+            </View>
           </Animated.View>
         ) : (
           <Animated.View entering={FadeInDown.duration(280)} style={{ gap: 16 }}>

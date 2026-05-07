@@ -16,6 +16,7 @@ import {
   fromTeamStorageAudienceLabel,
   normalizeAudienceLabelInput,
   trainingContentRequest,
+  clearTrainingContentCache,
 } from "../../components/admin/training-content-v2/api";
 
 const BASE_AGE_CARDS = Array.from({ length: 12 }, (_, index) =>
@@ -100,6 +101,21 @@ function ExerciseLibraryAudiencePageInner() {
 
   useEffect(() => {
     void loadAudiences();
+
+    const refetch = () => {
+      clearTrainingContentCache();
+      void loadAudiences();
+      void loadTeams();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {

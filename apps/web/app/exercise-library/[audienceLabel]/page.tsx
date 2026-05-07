@@ -25,6 +25,7 @@ import {
   toStorageAudienceLabel,
   fromStorageAudienceLabel,
   trainingContentRequest,
+  clearTrainingContentCache,
 } from "../../../components/admin/training-content-v2/api";
 
 function formatPlanLabel(storageLabel: string) {
@@ -132,6 +133,20 @@ function AudienceDetailPageInner() {
 
   useEffect(() => {
     void loadWorkspace();
+
+    const refetch = () => {
+      clearTrainingContentCache();
+      void loadWorkspace();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [storageAudienceLabel]);
 
   const saveModule = async () => {

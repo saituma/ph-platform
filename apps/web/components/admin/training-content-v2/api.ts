@@ -128,6 +128,10 @@ const requestCache = new Map<string, { data: unknown; ts: number }>();
 const CACHE_TTL_MS = 10_000;
 const inflightRequests = new Map<string, Promise<unknown>>();
 
+export function clearTrainingContentCache() {
+  requestCache.clear();
+}
+
 export async function trainingContentRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const isGet = !init?.method || init.method === "GET";
   const cacheKey = `${TRAINING_CONTENT_V2_API_BASE}${path}`;

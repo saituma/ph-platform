@@ -1,4 +1,4 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, or, inArray, count } from "drizzle-orm";
 import { db } from "../db";
 import { athleteTable, teamTable, trackingGoalTable, userTable } from "../db/schema";
 
@@ -9,9 +9,9 @@ export type CreateGoalInput = {
   unit: "km" | "sec" | "min" | "reps" | "custom";
   customUnit?: string;
   targetValue: number;
-  scope: "all" | "individual";
+  scope: "all" | "individual" | "team";
   athleteId?: number;
-  audience: "adult" | "premium_team" | "all";
+  audience: "adult" | "premium_team" | "all" | "youth";
   teamId?: number;
   dueDate?: string;
 };
@@ -46,9 +46,6 @@ export async function listGoals(filters?: { status?: string; limit?: number }) {
     .orderBy(desc(trackingGoalTable.createdAt))
     .limit(effectiveLimit);
 
-  const goalIds = goals.map((g) => g.id);
-  if (!goalIds.length) return goals.map((g) => ({ ...g, athleteName: null, teamName: null }));
-
   const athleteNames = new Map<number, string>();
   const teamNames = new Map<number, string>();
 
@@ -58,31 +55,17 @@ export async function listGoals(filters?: { status?: string; limit?: number }) {
     const rows = await db
       .select({ id: athleteTable.id, name: athleteTable.name })
       .from(athleteTable)
-      .where(eq(athleteTable.id, athleteIds[0]));
+      .where(inArray(athleteTable.id, athleteIds));
     for (const r of rows) athleteNames.set(r.id, r.name ?? "");
-    if (athleteIds.length > 1) {
-      for (const id of athleteIds.slice(1)) {
-        const [row] = await db
-          .select({ id: athleteTable.id, name: athleteTable.name })
-          .from(athleteTable)
-          .where(eq(athleteTable.id, id))
-          .limit(1);
-        if (row) athleteNames.set(row.id, row.name ?? "");
-      }
-    }
   }
 
-  const teamGoals = goals.filter((g) => g.teamId != null);
-  if (teamGoals.length) {
-    const teamIds = [...new Set(teamGoals.map((g) => g.teamId!))];
-    for (const id of teamIds) {
-      const [row] = await db
-        .select({ id: teamTable.id, name: teamTable.name })
-        .from(teamTable)
-        .where(eq(teamTable.id, id))
-        .limit(1);
-      if (row) teamNames.set(row.id, row.name);
-    }
+  const teamGoalIds = [...new Set(goals.filter((g) => g.teamId != null).map((g) => g.teamId!))];
+  if (teamGoalIds.length) {
+    const rows = await db
+      .select({ id: teamTable.id, name: teamTable.name })
+      .from(teamTable)
+      .where(inArray(teamTable.id, teamGoalIds));
+    for (const r of rows) teamNames.set(r.id, r.name);
   }
 
   return goals.map((g) => ({
@@ -93,6 +76,22 @@ export async function listGoals(filters?: { status?: string; limit?: number }) {
 }
 
 export async function createGoal(input: CreateGoalInput) {
+  // Enforce max 1 active goal per individual athlete
+  if (input.scope === "individual" && input.athleteId) {
+    const [existing] = await db
+      .select({ cnt: count() })
+      .from(trackingGoalTable)
+      .where(
+        and(
+          eq(trackingGoalTable.athleteId, input.athleteId),
+          eq(trackingGoalTable.status, "active"),
+        ),
+      );
+    if (existing && Number(existing.cnt) > 0) {
+      throw new GoalLimitError("This athlete already has an active goal. Archive or delete it first.");
+    }
+  }
+
   const [goal] = await db
     .insert(trackingGoalTable)
     .values({
@@ -103,14 +102,21 @@ export async function createGoal(input: CreateGoalInput) {
       customUnit: input.customUnit ?? null,
       targetValue: input.targetValue,
       scope: input.scope,
-      athleteId: input.athleteId ?? null,
+      athleteId: input.scope === "individual" ? (input.athleteId ?? null) : null,
       audience: input.audience,
-      teamId: input.teamId ?? null,
+      teamId: input.scope === "team" ? (input.teamId ?? null) : null,
       dueDate: input.dueDate ?? null,
       status: "active",
     })
     .returning();
   return goal;
+}
+
+export class GoalLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GoalLimitError";
+  }
 }
 
 export async function updateGoal(
@@ -139,18 +145,20 @@ export async function listGoalsForAthlete(input: {
 }) {
   const { athleteId, athleteType, teamId } = input;
 
-  // audience matching: "all", or type-specific match
-  const audienceMatch = or(
-    eq(trackingGoalTable.audience, "all"),
-    athleteType === "adult" ? eq(trackingGoalTable.audience, "adult") : undefined,
-    teamId != null ? eq(trackingGoalTable.audience, "premium_team") : undefined,
-  );
+  const audienceConditions = [eq(trackingGoalTable.audience, "all")];
+  if (athleteType === "adult") audienceConditions.push(eq(trackingGoalTable.audience, "adult"));
+  if (athleteType === "youth") audienceConditions.push(eq(trackingGoalTable.audience, "youth"));
+  if (teamId != null) audienceConditions.push(eq(trackingGoalTable.audience, "premium_team"));
+  const audienceMatch = or(...audienceConditions);
 
-  // scope matching: "all" (broadcast) or targeted at this specific athlete
-  const scopeMatch = or(
+  const scopeConditions = [
     eq(trackingGoalTable.scope, "all"),
     and(eq(trackingGoalTable.scope, "individual"), eq(trackingGoalTable.athleteId, athleteId)),
-  );
+  ];
+  if (teamId != null) {
+    scopeConditions.push(and(eq(trackingGoalTable.scope, "team"), eq(trackingGoalTable.teamId, teamId)));
+  }
+  const scopeMatch = or(...scopeConditions);
 
   const goals = await db
     .select({
@@ -170,7 +178,8 @@ export async function listGoalsForAthlete(input: {
     .from(trackingGoalTable)
     .innerJoin(userTable, eq(userTable.id, trackingGoalTable.coachId))
     .where(and(eq(trackingGoalTable.status, "active"), audienceMatch, scopeMatch))
-    .orderBy(desc(trackingGoalTable.createdAt));
+    .orderBy(desc(trackingGoalTable.createdAt))
+    .limit(1);
 
   return goals;
 }

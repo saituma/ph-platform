@@ -1758,8 +1758,8 @@ export const referralClaimsTable = pgTable(
 );
 
 export const trackingGoalUnitEnum = pgEnum("tracking_goal_unit", ["km", "sec", "min", "reps", "custom"]);
-export const trackingGoalScopeEnum = pgEnum("tracking_goal_scope", ["all", "individual"]);
-export const trackingGoalAudienceEnum = pgEnum("tracking_goal_audience", ["adult", "premium_team", "all"]);
+export const trackingGoalScopeEnum = pgEnum("tracking_goal_scope", ["all", "individual", "team"]);
+export const trackingGoalAudienceEnum = pgEnum("tracking_goal_audience", ["adult", "premium_team", "all", "youth"]);
 export const trackingGoalStatusEnum = pgEnum("tracking_goal_status", ["active", "archived"]);
 
 export const trackingGoalTable = pgTable(

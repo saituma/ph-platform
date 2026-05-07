@@ -17,9 +17,7 @@ import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
-import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterService";
-import { TEAM_MANAGER_TAB_ROUTES } from "@/roles/team-manager/tabs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TeamManagerManageScreen
@@ -392,30 +390,21 @@ export default function TeamManagerManageScreen() {
                   subtitle="View and manage training sessions"
                   accent={p.info}
                   isFirst
-                  onPress={() => {
-                    const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "schedule");
-                    if (idx >= 0) requestGlobalTabChange(idx);
-                  }}
+                  onPress={() => router.push("/team-manager/sessions" as any)}
                 />
                 <ManageRow
                   icon={Trophy}
                   label="Leaderboard"
                   subtitle="View rankings and weekly activity"
                   accent={p.warning}
-                  onPress={() => {
-                    const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "tracking");
-                    if (idx >= 0) requestGlobalTabChange(idx);
-                  }}
+                  onPress={() => router.push("/team-manager/leaderboard" as any)}
                 />
                 <ManageRow
                   icon={BarChart3}
                   label="Athlete Activity"
                   subtitle="Monitor runs and performance stats"
                   accent={p.danger}
-                  onPress={() => {
-                    const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "tracking");
-                    if (idx >= 0) requestGlobalTabChange(idx);
-                  }}
+                  onPress={() => router.push("/team-manager/activity" as any)}
                 />
               </View>
             </View>
@@ -436,11 +425,7 @@ export default function TeamManagerManageScreen() {
                   subtitle="Control who can see team activity"
                   accent={p.info}
                   isFirst
-                  onPress={() => {
-                    const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "tracking");
-                    if (idx >= 0) requestGlobalTabChange(idx);
-                    setTimeout(() => router.push("/(tabs)/tracking/team-settings" as any), 300);
-                  }}
+                  onPress={() => router.push("/team-manager/settings" as any)}
                 />
               </View>
             </View>

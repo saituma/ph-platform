@@ -38,6 +38,7 @@ import {
   toStorageAudienceLabel,
   toTeamStorageAudienceLabel,
   trainingContentRequest,
+  clearTrainingContentCache,
 } from "../../../../components/admin/training-content-v2/api";
 import { isInseasonAgeGroup } from "./others/inseason-shared";
 import { OTHER_SECTION_CONFIGS } from "./others/shared";
@@ -216,6 +217,20 @@ function TeamDetailPageInner() {
 
   useEffect(() => {
     void loadWorkspace();
+
+    const refetch = () => {
+      clearTrainingContentCache();
+      void loadWorkspace();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [audienceLabel]);
 
   const loadTeams = async () => {

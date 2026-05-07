@@ -12,9 +12,9 @@ const createSchema = z.object({
   unit: z.enum(["km", "sec", "min", "reps", "custom"]),
   customUnit: z.string().max(50).optional(),
   targetValue: z.coerce.number().positive(),
-  scope: z.enum(["all", "individual"]),
+  scope: z.enum(["all", "individual", "team"]),
   athleteId: z.coerce.number().int().min(1).optional(),
-  audience: z.enum(["adult", "premium_team", "all"]),
+  audience: z.enum(["adult", "premium_team", "all", "youth"]),
   teamId: z.coerce.number().int().min(1).optional(),
   dueDate: z.string().optional(),
 });
@@ -30,11 +30,18 @@ export async function createGoal(req: Request, res: Response) {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
   }
-  const goal = await GoalService.createGoal({
-    ...parsed.data,
-    coachId: req.user!.id,
-  });
-  return res.status(201).json({ goal });
+  try {
+    const goal = await GoalService.createGoal({
+      ...parsed.data,
+      coachId: req.user!.id,
+    });
+    return res.status(201).json({ goal });
+  } catch (err) {
+    if (err instanceof GoalService.GoalLimitError) {
+      return res.status(409).json({ error: err.message });
+    }
+    throw err;
+  }
 }
 
 export async function updateGoal(req: Request, res: Response) {

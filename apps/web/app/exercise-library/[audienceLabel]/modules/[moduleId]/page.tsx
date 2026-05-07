@@ -27,6 +27,7 @@ import {
   normalizeAudienceLabelInput,
   toStorageAudienceLabel,
   trainingContentRequest,
+  clearTrainingContentCache,
 } from "../../../../../components/admin/training-content-v2/api";
 
 function SortableSessionCard({
@@ -170,6 +171,20 @@ function ModuleSessionsPageInner() {
 
   useEffect(() => {
     void loadWorkspace();
+
+    const refetch = () => {
+      clearTrainingContentCache();
+      void loadWorkspace();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [storageAudienceLabel]);
 
   const module = workspace?.modules.find((item) => item.id === moduleId) ?? null;

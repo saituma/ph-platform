@@ -49,6 +49,7 @@ import {
 import {
   useGetAdultAthletesQuery,
 } from "../../lib/apiSlice";
+import { useGetAdminTeamsQuery } from "../../lib/api/users";
 
 function formatKm(meters?: number | null) {
   return `${((Number(meters ?? 0) || 0) / 1000).toFixed(1)} km`;
@@ -81,6 +82,7 @@ const AUDIENCE_LABELS: Record<string, string> = {
   adult: "Adult Athletes",
   premium_team: "Premium Teams",
   all: "Everyone",
+  youth: "Youth Athletes",
 };
 
 const emptyForm = {
@@ -106,19 +108,30 @@ export default function TrackingPage() {
   const { data, isLoading, error, refetch } = useGetAdminRunTrackingQuery({ limit: 200 });
   const { data: goalsData, isLoading: goalsLoading } = useGetTrackingGoalsQuery();
   const { data: athletesData } = useGetAdultAthletesQuery();
+  const { data: youthData } = useGetYouthTrackingAthletesQuery();
+  const { data: teamsData } = useGetAdminTeamsQuery();
   const [createGoal, { isLoading: isCreating }] = useCreateTrackingGoalMutation();
   const [deleteGoal] = useDeleteTrackingGoalMutation();
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const items = data?.items ?? [];
   const summary = data?.summary;
   const goals = goalsData?.goals ?? [];
 
-  const athletes = athletesData?.athletes ?? [];
+  const adultAthletes = athletesData?.athletes ?? [];
+  const youthAthletes = (youthData?.athletes ?? []).filter((a) => a.youthTrackingEnabled);
+  const teams = teamsData?.teams ?? [];
 
   const athleteItems = useMemo(() => [
-    { label: "— All athletes —", value: "" },
-    ...athletes.map((a: any) => ({ label: a.name ?? `Athlete ${a.id}`, value: String(a.id) })),
-  ], [athletes]);
+    { label: "— Select athlete —", value: "" },
+    ...adultAthletes.map((a: any) => ({ label: `${a.name ?? `Athlete ${a.id}`} (Adult)`, value: String(a.id) })),
+    ...youthAthletes.map((a) => ({ label: `${a.name ?? `Athlete ${a.id}`} (Youth)`, value: String(a.id) })),
+  ], [adultAthletes, youthAthletes]);
+
+  const teamItems = useMemo(() => [
+    { label: "— Select team —", value: "" },
+    ...(teams as any[]).map((t: any) => ({ label: t.name ?? `Team ${t.id}`, value: String(t.id) })),
+  ], [teams]);
 
   const unitItems = [
     { label: "km", value: "km" },
@@ -130,28 +143,37 @@ export default function TrackingPage() {
   const scopeItems = [
     { label: "All members", value: "all" },
     { label: "Individual athlete", value: "individual" },
+    { label: "Team", value: "team" },
   ];
   const audienceItems = [
     { label: "Adult Athletes", value: "adult" },
+    { label: "Youth Athletes", value: "youth" },
     { label: "Premium Teams", value: "premium_team" },
     { label: "Everyone", value: "all" },
   ];
 
   const handleCreate = async () => {
     if (!form.title.trim() || !form.targetValue) return;
-    await createGoal({
-      title: form.title.trim(),
-      description: form.description.trim() || undefined,
-      unit: form.unit as any,
-      customUnit: form.unit === "custom" ? form.customUnit.trim() : undefined,
-      targetValue: Number(form.targetValue),
-      scope: form.scope as any,
-      athleteId: form.scope === "individual" && form.athleteId ? Number(form.athleteId) : undefined,
-      audience: form.audience as any,
-      dueDate: form.dueDate || undefined,
-    }).unwrap();
-    setForm(emptyForm);
-    setDialogOpen(false);
+    setCreateError(null);
+    try {
+      await createGoal({
+        title: form.title.trim(),
+        description: form.description.trim() || undefined,
+        unit: form.unit as any,
+        customUnit: form.unit === "custom" ? form.customUnit.trim() : undefined,
+        targetValue: Number(form.targetValue),
+        scope: form.scope as any,
+        athleteId: form.scope === "individual" && form.athleteId ? Number(form.athleteId) : undefined,
+        audience: form.audience as any,
+        teamId: form.scope === "team" && form.teamId ? Number(form.teamId) : undefined,
+        dueDate: form.dueDate || undefined,
+      }).unwrap();
+      setForm(emptyForm);
+      setDialogOpen(false);
+    } catch (err: any) {
+      const msg = err?.data?.error ?? err?.message ?? "Failed to create goal";
+      setCreateError(msg);
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -380,8 +402,8 @@ export default function TrackingPage() {
                         <Users className="h-2.5 w-2.5" />
                         {AUDIENCE_LABELS[goal.audience] ?? goal.audience}
                       </Badge>
-                      <Badge variant={goal.scope === "individual" ? "secondary" : "outline"} className="text-[10px]">
-                        {goal.scope === "individual" ? (goal.athleteName ?? "Individual") : "All members"}
+                      <Badge variant={goal.scope === "all" ? "outline" : "secondary"} className="text-[10px]">
+                        {goal.scope === "individual" ? (goal.athleteName ?? "Individual") : goal.scope === "team" ? (goal.teamName ?? "Team") : "All members"}
                       </Badge>
                       {goal.dueDate && (
                         <Badge variant="outline" className="text-[10px]">
@@ -401,7 +423,7 @@ export default function TrackingPage() {
       {tab === "assign-youth" && <AssignYouthTab />}
 
       {/* Create goal dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm(emptyForm); }}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm(emptyForm); setCreateError(null); } }}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create Goal</DialogTitle>
@@ -481,10 +503,28 @@ export default function TrackingPage() {
               </div>
             )}
 
+            {form.scope === "team" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Team</Label>
+                <Select items={teamItems} value={form.teamId} onValueChange={(v) => field("teamId", v ?? "")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectPopup>
+                    {teamItems.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                  </SelectPopup>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label className="text-xs">Due date (optional)</Label>
               <Input type="date" value={form.dueDate} onChange={(e) => field("dueDate", e.target.value)} />
             </div>
+
+            {createError && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {createError}
+              </p>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

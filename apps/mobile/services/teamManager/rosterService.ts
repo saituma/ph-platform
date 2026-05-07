@@ -77,11 +77,19 @@ export type CreateAthleteInput = {
   customPassword?: string;
 };
 
+export type CreateAthleteResult = {
+  athleteId: number;
+  userId: number;
+  email: string;
+  temporaryPassword: string;
+  teamSlug: string;
+};
+
 export async function createAthlete(
   token: string,
   data: CreateAthleteInput,
-): Promise<{ id: number; name: string }> {
-  return apiRequest<{ id: number; name: string }>("/team/roster/athletes", {
+): Promise<CreateAthleteResult> {
+  return apiRequest<CreateAthleteResult>("/team/roster/athletes", {
     method: "POST",
     token,
     body: data,

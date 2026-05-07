@@ -23,6 +23,7 @@ import {
   normalizeAudienceLabelInput,
   toStorageAudienceLabel,
   trainingContentRequest,
+  clearTrainingContentCache,
 } from "../../../../../components/admin/training-content-v2/api";
 import { InseasonListPage } from "../inseason-list-page";
 import { getOtherSectionConfig } from "../shared";
@@ -81,6 +82,20 @@ function OtherContentDetailPageInner() {
     }
     if (section.type === "inseason") return;
     void loadWorkspace();
+
+    const refetch = () => {
+      clearTrainingContentCache();
+      void loadWorkspace();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [audienceLabel, fromAdultMode, router, section, storageAudienceLabel]);
 
   if (!section) return null;
