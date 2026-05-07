@@ -143,4 +143,8 @@ router.post("/admin/tracking-goals", TrackingGoalsController.createGoal);
 router.patch("/admin/tracking-goals/:id", TrackingGoalsController.updateGoal);
 router.delete("/admin/tracking-goals/:id", TrackingGoalsController.deleteGoal);
 
+// Youth tracking assignment
+router.get("/admin/youth-athletes/tracking", TrackingGoalsController.listYouthTrackingAthletes);
+router.patch("/admin/youth-athletes/:athleteId/tracking", TrackingGoalsController.toggleYouthTracking);
+
 export default router;

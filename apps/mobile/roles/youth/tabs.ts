@@ -1,7 +1,8 @@
-import { BASE_TEAM_TAB_ROUTES, PARENT_PLATFORM_TAB } from "../shared/tabs";
+import { BASE_TEAM_TAB_ROUTES, PARENT_PLATFORM_TAB, TRACKING_TAB } from "../shared/tabs";
 
 export const YOUTH_TAB_ROUTES = [
   ...BASE_TEAM_TAB_ROUTES.slice(0, 4),
+  TRACKING_TAB,
   PARENT_PLATFORM_TAB,
   ...BASE_TEAM_TAB_ROUTES.slice(4),
 ];

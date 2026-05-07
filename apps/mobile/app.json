@@ -22,7 +22,7 @@
           "location"
         ]
       },
-      "bundleIdentifier": "com.clientreachai.phperformance",
+      "bundleIdentifier": "com.phperfomance.uk",
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {
@@ -60,7 +60,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.clientreachai.phperformance",
+      "package": "com.phperfomance.uk",
       "intentFilters": [
         {
           "action": "VIEW",

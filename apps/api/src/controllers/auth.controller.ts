@@ -412,6 +412,7 @@ export async function getMe(req: Request, res: Response) {
       hasTeam: hasAssignedTeamContext(athlete),
       planFeatures,
       hasActivePlan: athlete?.currentPlanId != null,
+      youthTrackingEnabled: athlete?.youthTrackingEnabled ?? false,
     });
 
     return {

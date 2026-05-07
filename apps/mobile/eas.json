@@ -35,12 +35,12 @@
   "submit": {
     "testflight": {
       "ios": {
-        "companyName": "Client Reach AI Ltd"
+        "companyName": "PH Performance"
       }
     },
     "production": {
       "ios": {
-        "companyName": "Client Reach AI Ltd"
+        "companyName": "PH Performance"
       }
     }
   }

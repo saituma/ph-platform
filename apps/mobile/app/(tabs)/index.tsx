@@ -146,8 +146,9 @@ const HomeScreen = memo(function HomeScreen() {
   const isLoading = statsQuery.isLoading || !bootstrapReady;
   const homeContentLoading = !homeContent;
   const stats = statsQuery.data;
+  const capabilities = useAppSelector((s) => s.user.capabilities);
   const hasTeam = appRole === "team" || appRole === "adult_athlete_team" || appRole === "youth_athlete_team_guardian";
-  const showTracking = hasTeam || appRole === "adult_athlete" || appRole === "coach";
+  const showTracking = hasTeam || appRole === "adult_athlete" || appRole === "coach" || capabilities?.runTracking === true;
 
   const greeting = useMemo(() => getGreeting(), []);
   const motivation = useMemo(() => getDailyMotivation(), []);

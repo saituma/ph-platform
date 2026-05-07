@@ -2,6 +2,9 @@ import { type Request, type Response } from "express";
 import { z } from "zod";
 import * as GoalService from "../services/tracking-goals.service";
 import { getAthleteForUser } from "../services/user.service";
+import { db } from "../db";
+import { athleteTable, userTable } from "../db/schema";
+import { eq, and, asc } from "drizzle-orm";
 
 const createSchema = z.object({
   title: z.string().min(1).max(255),
@@ -53,6 +56,38 @@ export async function deleteGoal(req: Request, res: Response) {
   const goal = await GoalService.deleteGoal(id);
   if (!goal) return res.status(404).json({ error: "Goal not found" });
   return res.status(200).json({ goal });
+}
+
+export async function listYouthTrackingAthletes(_req: Request, res: Response) {
+  const athletes = await db
+    .select({
+      id: athleteTable.id,
+      userId: athleteTable.userId,
+      name: athleteTable.name,
+      age: athleteTable.age,
+      team: athleteTable.team,
+      teamId: athleteTable.teamId,
+      youthTrackingEnabled: athleteTable.youthTrackingEnabled,
+      profilePicture: athleteTable.profilePicture,
+    })
+    .from(athleteTable)
+    .innerJoin(userTable, eq(userTable.id, athleteTable.userId))
+    .where(and(eq(athleteTable.athleteType, "youth"), eq(userTable.isDeleted, false)))
+    .orderBy(asc(athleteTable.name))
+    .limit(500);
+  return res.status(200).json({ athletes });
+}
+
+export async function toggleYouthTracking(req: Request, res: Response) {
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
+  const [updated] = await db
+    .update(athleteTable)
+    .set({ youthTrackingEnabled: enabled, updatedAt: new Date() })
+    .where(and(eq(athleteTable.id, athleteId), eq(athleteTable.athleteType, "youth")))
+    .returning({ id: athleteTable.id, youthTrackingEnabled: athleteTable.youthTrackingEnabled });
+  if (!updated) return res.status(404).json({ error: "Youth athlete not found" });
+  return res.status(200).json({ athlete: updated });
 }
 
 export async function listGoalsForAthlete(req: Request, res: Response) {

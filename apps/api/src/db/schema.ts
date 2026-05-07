@@ -310,6 +310,7 @@ export const athleteTable = pgTable("athletes", {
   /** Set when a renewal reminder email/push was sent for the current period. */
   planRenewalReminderSentAt: timestamp(),
   isSponsored: boolean("is_sponsored").notNull().default(false),
+  youthTrackingEnabled: boolean("youth_tracking_enabled").notNull().default(false),
   onboardingCompleted: boolean().notNull().default(false),
   onboardingCompletedAt: timestamp(),
   createdAt: timestamp().notNull().defaultNow(),

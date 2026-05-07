@@ -57,6 +57,7 @@ export function buildAppCapabilities(input: {
   hasTeam?: boolean;
   planFeatures?: ReadonlySet<FeatureKey>;
   hasActivePlan?: boolean;
+  youthTrackingEnabled?: boolean;
 }): AppCapabilities {
   const {
     role,
@@ -66,6 +67,7 @@ export function buildAppCapabilities(input: {
     hasTeam = false,
     planFeatures,
     hasActivePlan = false,
+    youthTrackingEnabled = false,
   } = input;
   const isAdmin = isPlatformAdmin(role);
   const isStaff = isTrainingStaff(role);
@@ -108,7 +110,7 @@ export function buildAppCapabilities(input: {
   const isAdult = role === "adult_athlete" || (role === "athlete" && athleteType === "adult");
   const isTeamAthlete = role === "team_athlete" || hasTeam;
   const isYouth = role === "guardian" || role === "youth_athlete" || athleteType === "youth";
-  const canTrackProgress = isAdult || isTeamAthlete;
+  const canTrackProgress = isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled);
 
   return {
     training: true,
@@ -134,7 +136,7 @@ export function buildAppCapabilities(input: {
     semiPrivateBooking: true,
     coachVideoUpload: true,
     physioReferrals: true,
-    runTracking: isAdult || isTeamAthlete,
+    runTracking: isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled),
     achievements: true,
     referralRewards: true,
   };

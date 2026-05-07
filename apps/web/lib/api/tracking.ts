@@ -70,6 +70,24 @@ const trackingApi = apiSlice.injectEndpoints({
       },
       providesTags: ["Users"],
     }),
+    getYouthTrackingAthletes: builder.query<
+      { athletes: { id: number; userId: number; name: string; age: number; team: string; teamId: number | null; youthTrackingEnabled: boolean; profilePicture: string | null }[] },
+      void
+    >({
+      query: () => "/admin/youth-athletes/tracking",
+      providesTags: ["YouthTracking"],
+    }),
+    toggleYouthTracking: builder.mutation<
+      { athlete: { id: number; youthTrackingEnabled: boolean } },
+      { athleteId: number; enabled: boolean }
+    >({
+      query: ({ athleteId, enabled }) => ({
+        url: `/admin/youth-athletes/${athleteId}/tracking`,
+        method: "PATCH",
+        body: { enabled },
+      }),
+      invalidatesTags: ["YouthTracking"],
+    }),
   }),
   overrideExisting: false,
 });
@@ -82,4 +100,6 @@ export const {
   useUpdateTrackingGoalMutation,
   useDeleteTrackingGoalMutation,
   useGetAdminTrainingQuestionnairesQuery,
+  useGetYouthTrackingAthletesQuery,
+  useToggleYouthTrackingMutation,
 } = trackingApi;

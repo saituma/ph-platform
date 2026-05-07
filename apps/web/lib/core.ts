@@ -420,6 +420,7 @@ export const apiSlice = createApi({
     "AgeExperience",
     "UserLocations",
     "TrackingGoals",
+    "YouthTracking",
     "Enquiries",
     "SessionSchedule",
     "CalendarConnection",

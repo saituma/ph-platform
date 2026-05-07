@@ -11,6 +11,8 @@ import {
   Target,
   Trash2,
   Users,
+  UserCheck,
+  Search,
 } from "lucide-react";
 
 import { AdminShell } from "../../components/admin/shell";
@@ -41,6 +43,10 @@ import {
   useGetTrackingGoalsQuery,
   useCreateTrackingGoalMutation,
   useDeleteTrackingGoalMutation,
+  useGetYouthTrackingAthletesQuery,
+  useToggleYouthTrackingMutation,
+} from "../../lib/api/tracking";
+import {
   useGetAdultAthletesQuery,
 } from "../../lib/apiSlice";
 
@@ -90,8 +96,10 @@ const emptyForm = {
   dueDate: "",
 };
 
+type TabKey = "tracking" | "goals" | "assign-youth";
+
 export default function TrackingPage() {
-  const [tab, setTab] = useState<"tracking" | "goals">("tracking");
+  const [tab, setTab] = useState<TabKey>("tracking");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
@@ -164,12 +172,12 @@ export default function TrackingPage() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-        ) : (
+        ) : tab === "goals" ? (
           <Button size="sm" onClick={() => setDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Create Goal
           </Button>
-        )
+        ) : null
       }
     >
       {/* Tab bar */}
@@ -197,6 +205,18 @@ export default function TrackingPage() {
         >
           <Target className="h-4 w-4" />
           Goals
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("assign-youth")}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
+            tab === "assign-youth"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <UserCheck className="h-4 w-4" />
+          Assign Youth
         </button>
       </div>
 
@@ -377,6 +397,9 @@ export default function TrackingPage() {
         </div>
       )}
 
+      {/* Assign Youth tab */}
+      {tab === "assign-youth" && <AssignYouthTab />}
+
       {/* Create goal dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm(emptyForm); }}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
@@ -473,5 +496,175 @@ export default function TrackingPage() {
         </DialogContent>
       </Dialog>
     </AdminShell>
+  );
+}
+
+function AssignYouthTab() {
+  const { data, isLoading, error } = useGetYouthTrackingAthletesQuery();
+  const [toggle, { isLoading: isToggling }] = useToggleYouthTrackingMutation();
+  const [search, setSearch] = useState("");
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
+  const athletes = data?.athletes ?? [];
+  const filtered = useMemo(() => {
+    if (!search.trim()) return athletes;
+    const q = search.toLowerCase();
+    return athletes.filter(
+      (a) => a.name.toLowerCase().includes(q) || (a.team ?? "").toLowerCase().includes(q),
+    );
+  }, [athletes, search]);
+
+  const enabledCount = athletes.filter((a) => a.youthTrackingEnabled).length;
+
+  const handleToggle = async (athleteId: number, enabled: boolean) => {
+    setTogglingId(athleteId);
+    try {
+      await toggle({ athleteId, enabled }).unwrap();
+    } catch {
+      // handled by RTK
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="Assign Youth Tracking"
+        description="Enable the tracking tab and run/GPS features for individual youth athletes. Assigned youth athletes will see the same tracking experience as adult athletes."
+      />
+
+      {/* Summary cards */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-6">
+            <Users className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="text-2xl font-semibold tabular-nums">{athletes.length}</p>
+              <p className="text-xs text-muted-foreground">Youth athletes</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-6">
+            <UserCheck className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-2xl font-semibold tabular-nums">{enabledCount}</p>
+              <p className="text-xs text-muted-foreground">Tracking enabled</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-6">
+            <Activity className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="text-2xl font-semibold tabular-nums">{athletes.length - enabledCount}</p>
+              <p className="text-xs text-muted-foreground">Not assigned</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search by name or team..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="pt-6">
+          {isLoading && (
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-xl" />
+              ))}
+            </div>
+          )}
+          {error && (
+            <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              Could not load youth athletes.
+            </p>
+          )}
+          {!isLoading && !error && filtered.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+              <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+              <p className="font-semibold text-foreground">
+                {search ? "No matches" : "No youth athletes"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {search ? "Try a different search term." : "Youth athletes will appear here once they're onboarded."}
+              </p>
+            </div>
+          )}
+          {!isLoading && !error && filtered.length > 0 && (
+            <div className="overflow-x-auto rounded-2xl border border-border/90">
+              <table className="w-full min-w-[600px] text-left text-sm">
+                <thead className="bg-secondary/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Athlete</th>
+                    <th className="px-4 py-3 font-medium">Age</th>
+                    <th className="px-4 py-3 font-medium">Team</th>
+                    <th className="px-4 py-3 font-medium text-center">Tracking</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((athlete) => (
+                    <tr key={athlete.id} className="border-t border-border/80">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {athlete.profilePicture ? (
+                            <img
+                              src={athlete.profilePicture}
+                              alt=""
+                              className="h-8 w-8 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-xs font-bold text-muted-foreground">
+                              {(athlete.name ?? "?")[0]?.toUpperCase()}
+                            </div>
+                          )}
+                          <span className="font-medium">{athlete.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{athlete.age ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{athlete.team ?? "—"}</td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          disabled={isToggling && togglingId === athlete.id}
+                          onClick={() => handleToggle(athlete.id, !athlete.youthTrackingEnabled)}
+                          className={`inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
+                            athlete.youthTrackingEnabled
+                              ? "bg-primary/10 text-primary hover:bg-primary/20"
+                              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                          }`}
+                        >
+                          {isToggling && togglingId === athlete.id ? (
+                            <span className="animate-spin">⟳</span>
+                          ) : athlete.youthTrackingEnabled ? (
+                            <>
+                              <UserCheck className="h-3 w-3" />
+                              Enabled
+                            </>
+                          ) : (
+                            "Enable"
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
