@@ -1108,30 +1108,6 @@ export function BookingsDialogs({
                 </div>
               ) : null}
 
-              {!teamAudience ? (
-                <div className="space-y-2">
-                  <Label>Eligible tiers</Label>
-                  <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-3">
-                    {PROGRAM_TIERS.map((tier) => (
-                      <label key={tier.value} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={eligiblePlans.includes(tier.value)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setEligiblePlans([...eligiblePlans, tier.value]);
-                            } else {
-                              setEligiblePlans(eligiblePlans.filter((p) => p !== tier.value));
-                            }
-                          }}
-                        />
-                        {tier.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
               <div className="space-y-1">
                 <Label htmlFor="slots-available">Slots available</Label>
                 <Input
@@ -1243,7 +1219,7 @@ export function BookingsDialogs({
                           : fallbackDuration,
                       capacity: typeof normalizedSlots === "number" && Number.isFinite(normalizedSlots) ? normalizedSlots : null,
                       totalSlots: typeof normalizedSlots === "number" && Number.isFinite(normalizedSlots) ? normalizedSlots : null,
-                      eligiblePlans: eligiblePlansPayload,
+                      eligiblePlans: [],
                       eligibleTargets: eligibleTargetsPayload,
                       ...schedulePayload,
                       isActive: active === "edit-service" ? selectedService?.isActive : true,

@@ -92,13 +92,10 @@ export function endOfUtcDay(date: Date) {
 }
 
 export function serviceAllowsTier(
-  service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "type">,
-  viewerProgramTier?: ProgramTier | null,
+  _service: Pick<ServiceTypeRecord, "eligiblePlans" | "programTier" | "type">,
+  _viewerProgramTier?: ProgramTier | null,
 ) {
-  const eligiblePlans = normalizeEligiblePlans(service);
-  if (!eligiblePlans.length) return true;
-  if (!viewerProgramTier) return false;
-  return eligiblePlans.includes(viewerProgramTier);
+  return true;
 }
 
 export function serviceAllowsAthlete(
@@ -113,11 +110,6 @@ export function serviceAllowsAthlete(
     guardianId?: number | null;
   } | null,
 ) {
-  // Check tier
-  if (!serviceAllowsTier(service, athlete?.currentProgramTier as ProgramTier)) {
-    return false;
-  }
-
   // Check targets
   const eligibleTargets = normalizeEligibleTargets(service);
   if (!eligibleTargets.length || eligibleTargets.includes("all")) {
