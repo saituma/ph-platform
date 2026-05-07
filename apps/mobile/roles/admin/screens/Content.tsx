@@ -279,13 +279,15 @@ export default function AdminContentScreen() {
                   {headerDescription}
                 </Text>
               </View>
-              <AdminButton
-                label={viewMode === "team" ? "Team" : "Group"}
-                onPress={() => { setAudienceInput(""); setModalOpen(true); }}
-                variant="primary"
-                icon={Plus}
-                compact
-              />
+              {viewMode !== "team" ? (
+                <AdminButton
+                  label="Group"
+                  onPress={() => { setAudienceInput(""); setModalOpen(true); }}
+                  variant="primary"
+                  icon={Plus}
+                  compact
+                />
+              ) : null}
             </View>
           </Animated.View>
         )}
@@ -398,7 +400,7 @@ export default function AdminContentScreen() {
               <AdminEmptyState
                 icon={Shield}
                 title="No team training spaces"
-                description="No team training spaces yet. Tap the button above to create one."
+                description="Team training spaces appear here after teams or team content are created."
                 color="mint"
               />
             )}
