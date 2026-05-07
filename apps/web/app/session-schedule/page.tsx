@@ -142,10 +142,7 @@ export default function SessionSchedulePage() {
     const athleteRoles = new Set(["athlete", "adult_athlete", "youth_athlete", "team_athlete", "guardian"]);
     return users.filter((u) => {
       const role = String((u as any).role ?? "").toLowerCase();
-      const email = String((u as any).email ?? "").toLowerCase();
-      const isEligible = athleteRoles.has(role);
-      const isLocalSeedAthlete = email.endsWith("@athlete.local");
-      return isEligible && !isLocalSeedAthlete;
+      return athleteRoles.has(role);
     });
   }, [users]);
 
@@ -154,7 +151,7 @@ export default function SessionSchedulePage() {
     if (!q) return eligibleUsers.slice(0, 12);
     return eligibleUsers
       .filter((u) => {
-        const hay = `${u.name ?? ""} ${u.email ?? ""}`.toLowerCase();
+        const hay = `${u.name ?? ""} ${u.email ?? ""} ${u.guardianEmail ?? ""}`.toLowerCase();
         return hay.includes(q);
       })
       .slice(0, 12);
@@ -662,7 +659,7 @@ export default function SessionSchedulePage() {
                           setSelectedUserIds((prev) => (prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]));
                         }}
                       >
-                        <span>{u.name || "Unnamed"} <span className="text-xs text-muted-foreground">{u.email}</span></span>
+                        <span>{u.name || "Unnamed"} <span className="text-xs text-muted-foreground">{u.guardianEmail || u.email}</span></span>
                         {selected ? <span className="text-xs">Selected</span> : null}
                       </button>
                     );

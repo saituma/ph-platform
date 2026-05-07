@@ -129,6 +129,13 @@ export async function listUsers(options?: { q?: string; limit?: number; managedB
         )
       `.as("onboarding_completed"),
       guardianProgramTier: guardianTable.currentProgramTier,
+      guardianEmail: sql<string | null>`(
+        SELECT gu."email" FROM "users" gu
+        INNER JOIN "guardians" g ON g."userId" = gu."id"
+        WHERE g."id" = ${athleteTable.guardianId}
+        AND gu."isDeleted" = false
+        LIMIT 1
+      )`.as("guardian_email"),
     })
     .from(userTable)
     .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))

@@ -13,7 +13,8 @@ import ThreadSearchModal from "@/components/messages/ThreadSearchModal";
 import { UserProfileSheet, type ProfileTarget } from "@/components/messages/UserProfileSheet";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
-import { Platform, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
+import { Pin, X } from "lucide-react-native";
 import * as Clipboard from "expo-clipboard";
 import { messagesApi } from "@/lib/apiClient/messages";
 import * as Haptics from "expo-haptics";
@@ -140,16 +141,34 @@ export default function ThreadScreen() {
     }
   }, [currentThread, groupMembers]);
 
+  const [pinnedOverrides, setPinnedOverrides] = React.useState<Record<string, string | null>>({});
+
   const handlePinMessage = React.useCallback(async (message: ChatMessage) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const res = await messagesApi.pinMessage(message.id, { token }) as { pinned?: boolean };
+      setPinnedOverrides((prev) => ({
+        ...prev,
+        [message.id]: res?.pinned ? new Date().toISOString() : null,
+      }));
       toast.success(res?.pinned ? "Message pinned" : "Message unpinned");
     } catch (e) {
       console.warn("[pin] failed:", e);
       toast.error("Couldn't pin message");
     }
   }, [token, toast]);
+
+  const pinnedMessage = React.useMemo(() => {
+    for (const msg of localMessages) {
+      const override = pinnedOverrides[msg.id];
+      if (override !== undefined) {
+        if (override !== null) return msg;
+        continue;
+      }
+      if (msg.pinnedAt) return msg;
+    }
+    return null;
+  }, [localMessages, pinnedOverrides]);
 
   const handleRemovePendingAttachment = React.useCallback(() => {
     setPendingAttachment(null);
@@ -174,6 +193,40 @@ export default function ThreadScreen() {
         sharedBoundTag={sharedBoundTag}
         sharedAvatarTag={sharedAvatarTag}
       />
+      {pinnedMessage && (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+            gap: 10,
+          }}
+        >
+          <Pin size={14} color={p.accent} />
+          <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => {/* TODO: scroll to pinned */}}>
+            <Text
+              numberOfLines={1}
+              style={{
+                fontSize: 13,
+                fontFamily: "Outfit-Medium",
+                color: p.textPrimary,
+              }}
+            >
+              {pinnedMessage.text || "Pinned message"}
+            </Text>
+          </Pressable>
+          <Pressable
+            hitSlop={8}
+            onPress={() => handlePinMessage(pinnedMessage)}
+          >
+            <X size={14} color={p.textMuted} />
+          </Pressable>
+        </View>
+      )}
       {isYouthAthleteRole ? (
         <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
           <View

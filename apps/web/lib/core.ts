@@ -211,6 +211,7 @@ export type UserListRow = {
   profilePicture?: string | null;
   programTier?: string | null;
   guardianProgramTier?: string | null;
+  guardianEmail?: string | null;
 };
 
 export type UserOnboardingGuardian = {
