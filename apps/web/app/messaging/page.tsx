@@ -544,6 +544,8 @@ function MessagingPageInner() {
             ? current
             : [...current, liveMessage],
         );
+      } else {
+        scheduleDirectRefetch(150);
       }
       const title = payload?.senderName
         ? `New message from ${String(payload.senderName)}`

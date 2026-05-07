@@ -2,12 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	ActivityIndicator,
+	FlatList,
 	Keyboard,
 	Platform,
 	Pressable,
 	View,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { fonts } from "@/constants/theme";
@@ -274,20 +274,21 @@ const MessageListSection = React.memo(function MessageListSection({
 
 	return (
 		<View style={{ flex: 1 }}>
-			<FlashList
+			<FlatList
 				ref={listRef}
 				data={reversed}
+				inverted
 				keyExtractor={keyExtractor}
 				onScroll={handleScroll}
 				extraData={highlightedId}
-				drawDistance={300}
+				windowSize={11}
+				maxToRenderPerBatch={15}
 				keyboardShouldPersistTaps="handled"
 				keyboardDismissMode="interactive"
-				maintainVisibleContentPosition={{ startRenderingFromBottom: true, autoscrollToBottomThreshold: 80 }}
 				contentContainerStyle={{
 					paddingHorizontal: 12,
-					paddingTop: 56,
-					paddingBottom: listBottomPadding,
+					paddingTop: listBottomPadding,
+					paddingBottom: 56,
 				}}
 				renderItem={renderItem}
 				ListFooterComponent={footerComponent}

@@ -73,10 +73,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     const newSocket: Socket = io(socketUrl, {
       auth: { token },
-      // Prefer polling first on native/mobile networks so chat still connects
-      // when websocket upgrades are blocked by proxies or hosting layers.
       transports: ["polling", "websocket"],
-      tryAllTransports: true,
+      upgrade: true,
       reconnection: true,
       reconnectionAttempts: 8,
       reconnectionDelay: 1500,
