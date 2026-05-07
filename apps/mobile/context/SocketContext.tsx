@@ -180,10 +180,24 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     };
 
+    const onNutritionFeedback = (payload: { userId?: number; logId?: number; dateKey?: string }) => {
+      void scheduleLocalNotification({
+        title: "Nutrition Feedback",
+        body: "Your coach responded to your nutrition log.",
+        data: {
+          type: "nutrition_feedback",
+          url: "/(tabs)/more/nutrition",
+          logId: payload?.logId != null ? String(payload.logId) : undefined,
+        },
+        channelId: "nutrition",
+      });
+    };
+
     newSocket.on("physio:referral:updated", onReferralUpdated);
     newSocket.on("physio:referral:deleted", onReferralDeleted);
     newSocket.on("program:changed", onProgramChanged);
     newSocket.on("schedule:changed", onScheduleChanged);
+    newSocket.on("nutrition:feedback:updated", onNutritionFeedback);
     newSocket.io.engine.on("upgrade", (transport) => {
       console.info("[RealtimeLatency] mobile.socket.transport_upgrade", {
         socketId: newSocket.id,
@@ -202,6 +216,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       newSocket.off("physio:referral:deleted", onReferralDeleted);
       newSocket.off("program:changed", onProgramChanged);
       newSocket.off("schedule:changed", onScheduleChanged);
+      newSocket.off("nutrition:feedback:updated", onNutritionFeedback);
       newSocket.disconnect();
       socketRef.current = null;
       setSocket(null);

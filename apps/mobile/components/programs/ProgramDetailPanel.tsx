@@ -9,7 +9,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
 import { Text } from "@/components/ScaledText";
 import { AchievementsStrip } from "@/components/programs/AchievementsStrip";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import {
   PROGRAM_TABS,
   pickTrainingFlowSteps,
@@ -18,7 +18,6 @@ import {
 } from "@/constants/program-details";
 import { PROGRAM_TIERS } from "@/constants/Programs";
 import { useAppSelector } from "@/store/hooks";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { Image as ExpoImage } from "expo-image";
@@ -63,7 +62,7 @@ function ProgramDetailPanelBase({
   onNavigate,
   isFocused,
 }: ProgramDetailPanelProps & { isFocused: boolean }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { token, athleteUserId, managedAthletes, appRole } = useAppSelector(
     (state) => state.user,
@@ -159,7 +158,6 @@ function ProgramDetailPanelBase({
     ]);
   };
 
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
   const renderLockedPlan = () => {
     const tierCard = PROGRAM_TIERS.find((t) => t.id === programId);
@@ -167,21 +165,20 @@ function ProgramDetailPanelBase({
       <View
         className="rounded-[32px] bg-card px-6 py-8 gap-5 border"
         style={{
-          backgroundColor: colors.card,
-          borderColor: borderSoft,
-          ...(isDark ? Shadows.none : Shadows.md),
+          backgroundColor: p.cardWhite,
+          borderColor: p.divider,
         }}
       >
         <View
           className="h-14 w-14 rounded-2xl items-center justify-center"
           style={{
-            backgroundColor: isDark ? "rgba(34,197,94,0.15)" : "#F0FDF4",
+            backgroundColor: p.successSoft,
           }}
         >
           <Feather
             name={isPendingApproval ? "clock" : "lock"}
             size={28}
-            color={colors.accent}
+            color={p.accent}
           />
         </View>
         <Text className="text-2xl font-clash font-bold text-app">
@@ -221,9 +218,8 @@ function ProgramDetailPanelBase({
             key={`program-training-skeleton-${index}`}
             className="rounded-[28px] border px-5 py-5"
             style={{
-              backgroundColor: colors.card,
-              borderColor: borderSoft,
-              ...(isDark ? Shadows.none : Shadows.sm),
+              backgroundColor: p.cardWhite,
+              borderColor: p.divider,
             }}
           >
             <Skeleton width="70%" height={18} borderRadius={10} />
@@ -241,13 +237,12 @@ function ProgramDetailPanelBase({
     <SafeAreaView
       className="flex-1"
       edges={["left", "right", "bottom"]}
-      style={{ backgroundColor: colors.background }}
+      style={{ backgroundColor: p.pageBg }}
     >
       <View
         style={{
-          backgroundColor: colors.card,
+          backgroundColor: p.cardWhite,
           zIndex: 10,
-          ...(isDark ? Shadows.none : Shadows.sm),
           paddingTop: insets.top,
         }}
       >
@@ -258,7 +253,7 @@ function ProgramDetailPanelBase({
                 onPress={onBack}
                 className="h-10 w-10 items-center justify-center rounded-full bg-secondary/10"
               >
-                <Feather name="chevron-left" size={24} color={colors.text} />
+                <Feather name="chevron-left" size={24} color={p.textPrimary} />
               </TouchableOpacity>
             )}
             <View>
@@ -267,7 +262,7 @@ function ProgramDetailPanelBase({
               </Text>
               <Text
                 className="text-[10px] font-outfit font-bold uppercase tracking-[1px]"
-                style={{ color: colors.accent }}
+                style={{ color: p.accent }}
               >
                 {programTier ?? "Starter"}
               </Text>
@@ -303,13 +298,13 @@ function ProgramDetailPanelBase({
               <View
                 className="rounded-[24px] border px-5 py-5"
                 style={{
-                  backgroundColor: colors.card,
-                  borderColor: borderSoft,
+                  backgroundColor: p.cardWhite,
+                  borderColor: p.divider,
                 }}
               >
                 <Text
                   className="text-sm font-outfit"
-                  style={{ color: colors.textSecondary }}
+                  style={{ color: p.textSecondary }}
                 >
                   {trainingError}
                 </Text>
@@ -335,14 +330,14 @@ function ProgramDetailPanelBase({
         <View className="flex-1 justify-end bg-black/60">
           <View
             className="bg-card rounded-t-[32px] p-5 pb-8"
-            style={{ backgroundColor: colors.card }}
+            style={{ backgroundColor: p.cardWhite }}
           >
             <View className="flex-row justify-between mb-4">
               <Text className="text-xl font-clash font-bold text-app">
                 Exercise Video
               </Text>
               <TouchableOpacity onPress={() => setActiveVideoUrl(null)}>
-                <Feather name="x" size={24} color={colors.text} />
+                <Feather name="x" size={24} color={p.textPrimary} />
               </TouchableOpacity>
             </View>
             {activeVideoUrl && (

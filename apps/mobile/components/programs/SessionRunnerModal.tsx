@@ -9,7 +9,7 @@ import { Feather } from "@expo/vector-icons";
 
 import { Text } from "@/components/ScaledText";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import type { ExerciseItem } from "@/constants/program-details";
 
 function parseRestSeconds(ex: ExerciseItem): number | null {
@@ -39,7 +39,7 @@ export function SessionRunnerModal({
   /** Fired when the athlete finishes the last exercise (before the modal closes). */
   onSessionComplete?: (exerciseIds: string[]) => void;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const [index, setIndex] = useState(0);
   const [restLeft, setRestLeft] = useState<number | null>(null);
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -107,8 +107,8 @@ export function SessionRunnerModal({
     setIndex((i) => Math.max(0, i - 1));
   }, [stopRest]);
 
-  const surface = isDark ? colors.cardElevated : "#F7FFF9";
-  const muted = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const surface = p.cardWhite;
+  const muted = p.divider;
 
   if (!visible || total === 0) return null;
 
@@ -122,7 +122,7 @@ export function SessionRunnerModal({
             style={{ backgroundColor: muted }}
             hitSlop={12}
           >
-            <Feather name="x" size={22} color={colors.accent} />
+            <Feather name="x" size={22} color={p.accent} />
           </Pressable>
           <Text className="text-sm font-outfit text-secondary flex-1 text-center px-2" numberOfLines={1}>
             {sessionLabel}
@@ -227,12 +227,12 @@ export function SessionRunnerModal({
                 onClose();
               }}
               className="flex-1 py-4 rounded-2xl items-center"
-              style={{ backgroundColor: colors.accent }}
+              style={{ backgroundColor: p.accent }}
             >
               <Text className="font-outfit font-semibold text-white">Done</Text>
             </Pressable>
           ) : (
-            <Pressable onPress={goNext} className="flex-1 py-4 rounded-2xl items-center" style={{ backgroundColor: colors.accent }}>
+            <Pressable onPress={goNext} className="flex-1 py-4 rounded-2xl items-center" style={{ backgroundColor: p.accent }}>
               <Text className="font-outfit font-semibold text-white">Next</Text>
             </Pressable>
           )}

@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { Shadows } from "@/constants/theme";
 import { ExerciseMetadata } from "../../../hooks/programs/useContentDetail";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 
 interface CoachingSectionProps {
@@ -12,11 +12,7 @@ interface CoachingSectionProps {
 }
 
 export function CoachingSection({ meta }: CoachingSectionProps) {
-  const { colors, isDark } = useAppTheme();
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const mutedSurface = isDark
-    ? "rgba(255,255,255,0.06)"
-    : "rgba(15,23,42,0.04)";
+  const p = useAdminPastel();
 
   const Card = ({
     icon,
@@ -30,21 +26,21 @@ export function CoachingSection({ meta }: CoachingSectionProps) {
     <View
       className="rounded-[28px] border px-6 py-5 gap-3"
       style={{
-        backgroundColor: colors.card,
-        borderColor: borderSoft,
-        ...(isDark ? Shadows.none : Shadows.sm),
+        backgroundColor: p.cardWhite,
+        borderColor: p.divider,
+        ...Shadows.sm,
       }}
     >
       <View className="flex-row items-center gap-3">
         <View
           className="h-9 w-9 rounded-full items-center justify-center"
-          style={{ backgroundColor: mutedSurface }}
+          style={{ backgroundColor: p.inputBg }}
         >
-          <Feather name={icon} size={16} color={colors.accent} />
+          <Feather name={icon} size={16} color={p.accent} />
         </View>
         <Text
           className="text-[12px] font-outfit uppercase tracking-[1.6px] font-bold"
-          style={{ color: colors.textSecondary }}
+          style={{ color: p.textSecondary }}
         >
           {title}
         </Text>
@@ -55,18 +51,18 @@ export function CoachingSection({ meta }: CoachingSectionProps) {
         baseStyle={{
           fontSize: 15,
           lineHeight: 24,
-          color: colors.text,
+          color: p.textPrimary,
         }}
         headingStyle={{
           fontSize: 16,
           lineHeight: 24,
-          color: colors.text,
+          color: p.textPrimary,
           fontWeight: "700",
         }}
         subheadingStyle={{
           fontSize: 15,
           lineHeight: 22,
-          color: colors.text,
+          color: p.textPrimary,
           fontWeight: "700",
         }}
         listItemStyle={{ paddingLeft: 6 }}

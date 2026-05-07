@@ -35,7 +35,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
   const { token, athleteUserId, apiUserRole, managedAthletes } = useAppSelector(
     (state) => state.user,
   );
-  const { isDark, colors, shadows } = useProgramPanel();
+  const { p, shadows } = useProgramPanel();
   const normalizedApiUserRole = (apiUserRole ?? "").toLowerCase();
 
   const isAdult =
@@ -764,13 +764,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             onPress={() => setter(num)}
             className={`w-12 h-12 rounded-2xl items-center justify-center border`}
             style={({ pressed }) => ({
-              backgroundColor: value === num ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
-              borderColor:
-                value === num
-                  ? colors.accent
-                  : isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(15,23,42,0.06)",
+              backgroundColor: value === num ? p.accent : p.cardWhite,
+              borderColor: value === num ? p.accent : p.divider,
               opacity: pressed ? 0.75 : 1,
             })}
           >
@@ -785,15 +780,9 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     </View>
   );
 
-  const surfaceMuted = isDark
-    ? "rgba(255,255,255,0.04)"
-    : "rgba(15,23,42,0.03)";
-  const borderSubtle = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
-  const borderStrong = isDark
-    ? "rgba(255,255,255,0.14)"
-    : "rgba(15,23,42,0.12)";
+  const surfaceMuted = p.cardSage;
+  const borderSubtle = p.divider;
+  const borderStrong = p.divider;
 
   return (
     <View className="gap-4">
@@ -801,11 +790,9 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       <View
         className="overflow-hidden rounded-3xl border px-6 py-5"
         style={{
-          backgroundColor: isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 15%, 98%)",
-          borderColor: isDark
-            ? "rgba(255,255,255,0.08)"
-            : "rgba(15,23,42,0.06)",
-          ...(isDark ? shadows.none : shadows.md),
+          backgroundColor: p.cardSage,
+          borderColor: p.divider,
+          ...shadows.md,
         }}
       >
         <Text className="text-2xl font-clash text-app font-bold">
@@ -821,12 +808,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           onPress={() => setDatePickerOpen(true)}
           className="mt-5 flex-row items-center justify-between rounded-2xl border px-4 py-3"
           style={({ pressed }) => ({
-            backgroundColor: isDark
-              ? "rgba(255,255,255,0.04)"
-              : "rgba(15,23,42,0.04)",
-            borderColor: isDark
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(15,23,42,0.06)",
+            backgroundColor: p.inputBg,
+            borderColor: p.divider,
             opacity: pressed ? 0.88 : 1,
             transform: [{ scale: pressed ? 0.98 : 1 }],
           })}
@@ -839,7 +822,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               {dateObj.toLocaleDateString()}
             </Text>
           </View>
-          <Feather name="calendar" size={18} color={colors.accent} />
+          <Feather name="calendar" size={18} color={p.accent} />
         </Pressable>
         {datePickerOpen ? (
           <DateTimePicker
@@ -861,8 +844,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             onPress={() => setActiveTab("log")}
             className="flex-1 min-w-0 rounded-3xl border px-3 py-3"
             style={({ pressed }) => ({
-              backgroundColor: activeTab === "log" ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
-              borderColor: activeTab === "log" ? colors.accent : borderSubtle,
+              backgroundColor: activeTab === "log" ? p.accent : p.cardWhite,
+              borderColor: activeTab === "log" ? p.accent : borderSubtle,
               opacity: pressed ? 0.88 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
             })}
@@ -894,8 +877,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             className="flex-1 min-w-0 rounded-3xl border px-3 py-3"
             style={({ pressed }) => ({
               backgroundColor:
-                activeTab === "history" ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
-              borderColor: activeTab === "history" ? colors.accent : borderSubtle,
+                activeTab === "history" ? p.accent : p.cardWhite,
+              borderColor: activeTab === "history" ? p.accent : borderSubtle,
               opacity: pressed ? 0.88 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
             })}
@@ -926,8 +909,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             }}
             className="flex-1 min-w-0 rounded-3xl border px-3 py-3"
             style={({ pressed }) => ({
-              backgroundColor: activeTab === "coach" ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
-              borderColor: activeTab === "coach" ? colors.accent : borderSubtle,
+              backgroundColor: activeTab === "coach" ? p.accent : p.cardWhite,
+              borderColor: activeTab === "coach" ? p.accent : borderSubtle,
               opacity: pressed ? 0.88 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
             })}
@@ -954,12 +937,12 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               onPress={() => setCoachFilterOpen(true)}
               className="h-[58px] w-[52px] shrink-0 items-center justify-center rounded-3xl border"
               style={({ pressed }) => ({
-                backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                backgroundColor: p.cardWhite,
                 borderColor: borderSubtle,
                 opacity: pressed ? 0.75 : 1,
               })}
             >
-              <Feather name="sliders" size={18} color={colors.accent} />
+              <Feather name="sliders" size={18} color={p.accent} />
             </Pressable>
           ) : null}
         </View>
@@ -968,7 +951,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       {activeTab === "log" ? (
         loading ? (
           <View className="items-center py-10">
-            <ActivityIndicator size="large" color={colors.accent} />
+            <ActivityIndicator size="large" color={p.accent} />
           </View>
         ) : (
           <View className="gap-4">
@@ -976,10 +959,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               <View
                 className="rounded-3xl border p-5"
                 style={{
-                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(15,23,42,0.06)",
+                  backgroundColor: p.cardWhite,
+                  borderColor: p.divider,
                 }}
               >
                 <View className="flex-row items-center justify-between">
@@ -1009,15 +990,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     className="rounded-2xl border px-4 py-3 items-center justify-center"
                     style={({ pressed }) => ({
                       backgroundColor: reminderEnabled
-                        ? colors.accent
-                        : isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(15,23,42,0.04)",
+                        ? p.accent
+                        : p.inputBg,
                       borderColor: reminderEnabled
-                        ? colors.accent
-                        : isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(15,23,42,0.06)",
+                        ? p.accent
+                        : p.divider,
                       opacity: pressed ? 0.75 : 1,
                     })}
                   >
@@ -1034,7 +1011,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 <View className="mt-4">
                   {reminderLoading ? (
                     <View className="py-2">
-                      <ActivityIndicator size="small" color={colors.accent} />
+                      <ActivityIndicator size="small" color={p.accent} />
                     </View>
                   ) : (
                     <Pressable
@@ -1045,12 +1022,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       disabled={!reminderEnabled || reminderSaving}
                       className="rounded-2xl border px-4 py-3"
                       style={({ pressed }) => ({
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(15,23,42,0.04)",
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(15,23,42,0.06)",
+                        backgroundColor: p.inputBg,
+                        borderColor: p.divider,
                         opacity: reminderEnabled ? (pressed ? 0.75 : 1) : 0.6,
                       })}
                     >
@@ -1105,8 +1078,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         reminderStatus.tone === "error"
                           ? "hsl(0, 45%, 52%)"
                           : reminderStatus.tone === "success"
-                            ? colors.accent
-                            : colors.textSecondary,
+                            ? p.accent
+                            : p.textSecondary,
                     }}
                   >
                     {reminderStatus.message}
@@ -1119,10 +1092,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               <View
                 className="rounded-3xl border p-5"
                 style={{
-                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(15,23,42,0.06)",
+                  backgroundColor: p.cardWhite,
+                  borderColor: p.divider,
                 }}
               >
                 <Text className="text-xs font-outfit font-bold uppercase tracking-[1.2px] text-secondary">
@@ -1148,14 +1119,12 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         }))
                       }
                       placeholder="e.g. 2600"
-                      placeholderTextColor={colors.placeholder}
+                      placeholderTextColor={p.textMuted}
                       editable={canEditTargets}
                       keyboardType="number-pad"
                       className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
                       style={{
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(15,23,42,0.03)",
+                        backgroundColor: p.inputBg,
                       }}
                     />
                   </View>
@@ -1173,14 +1142,12 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         }))
                       }
                       placeholder="e.g. 180"
-                      placeholderTextColor={colors.placeholder}
+                      placeholderTextColor={p.textMuted}
                       editable={canEditTargets}
                       keyboardType="number-pad"
                       className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
                       style={{
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(15,23,42,0.03)",
+                        backgroundColor: p.inputBg,
                       }}
                     />
                   </View>
@@ -1198,14 +1165,12 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         }))
                       }
                       placeholder="e.g. 280"
-                      placeholderTextColor={colors.placeholder}
+                      placeholderTextColor={p.textMuted}
                       editable={canEditTargets}
                       keyboardType="number-pad"
                       className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
                       style={{
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(15,23,42,0.03)",
+                        backgroundColor: p.inputBg,
                       }}
                     />
                   </View>
@@ -1223,14 +1188,12 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         }))
                       }
                       placeholder="e.g. 80"
-                      placeholderTextColor={colors.placeholder}
+                      placeholderTextColor={p.textMuted}
                       editable={canEditTargets}
                       keyboardType="number-pad"
                       className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
                       style={{
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(15,23,42,0.03)",
+                        backgroundColor: p.inputBg,
                       }}
                     />
                   </View>
@@ -1248,16 +1211,14 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         }))
                       }
                       placeholder="e.g. Prioritize iron + vitamin C, omega-3s, magnesium..."
-                      placeholderTextColor={colors.placeholder}
+                      placeholderTextColor={p.textMuted}
                       editable={canEditTargets}
                       multiline
                       className="rounded-2xl px-4 py-3 text-sm font-outfit text-app"
                       style={{
                         minHeight: 96,
                         textAlignVertical: "top",
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(15,23,42,0.03)",
+                        backgroundColor: p.inputBg,
                       }}
                     />
                   </View>
@@ -1270,7 +1231,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         borderRadius: 24,
                         alignItems: "center",
                         paddingVertical: 16,
-                        backgroundColor: targetsSaving ? colors.accent + "66" : colors.accent,
+                        backgroundColor: targetsSaving ? p.accent + "66" : p.accent,
                         opacity: pressed ? 0.88 : 1,
                         transform: [{ scale: pressed ? 0.98 : 1 }],
                       })}
@@ -1288,7 +1249,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         color:
                           targetsStatus.tone === "error"
                             ? "hsl(0, 45%, 52%)"
-                            : colors.accent,
+                            : p.accent,
                       }}
                     >
                       {targetsStatus.message}
@@ -1301,10 +1262,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             <View
               className="rounded-3xl border p-5"
               style={{
-                backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
+                backgroundColor: p.cardWhite,
+                borderColor: p.divider,
               }}
             >
               <Text className="text-sm font-bold font-outfit text-app mb-3">
@@ -1342,13 +1301,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
                         style={({ pressed }) => ({
                           backgroundColor: meal.checked
-                            ? colors.accent
-                            : isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                            ? p.accent
+                            : p.cardWhite,
                           borderColor: meal.checked
-                            ? colors.accent
-                            : isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)",
+                            ? p.accent
+                            : p.divider,
                           opacity: pressed ? 0.88 : 1,
                           transform: [{ scale: pressed ? 0.98 : 1 }],
                         })}
@@ -1365,12 +1322,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         <View
                           className="rounded-2xl border px-4 py-3"
                           style={{
-                            backgroundColor: isDark
-                              ? "rgba(255,255,255,0.04)"
-                              : "rgba(15,23,42,0.03)",
-                            borderColor: isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)",
+                            backgroundColor: p.inputBg,
+                            borderColor: p.divider,
                           }}
                         >
                           <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
@@ -1380,7 +1333,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                             value={meal.details}
                             onChangeText={meal.setDetails}
                             placeholder="e.g., eggs, bread, fruit"
-                            placeholderTextColor={colors.placeholder}
+                            placeholderTextColor={p.textMuted}
                             multiline
                             className="text-sm font-outfit text-app"
                             style={{
@@ -1429,13 +1382,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         className="rounded-2xl px-4 py-3 flex-row items-center justify-between border"
                         style={({ pressed }) => ({
                           backgroundColor: slot.checked
-                            ? colors.accent
-                            : isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                            ? p.accent
+                            : p.cardWhite,
                           borderColor: slot.checked
-                            ? colors.accent
-                            : isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)",
+                            ? p.accent
+                            : p.divider,
                           opacity: pressed ? 0.88 : 1,
                           transform: [{ scale: pressed ? 0.98 : 1 }],
                         })}
@@ -1452,12 +1403,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         <View
                           className="rounded-2xl border px-4 py-3"
                           style={{
-                            backgroundColor: isDark
-                              ? "rgba(255,255,255,0.04)"
-                              : "rgba(15,23,42,0.03)",
-                            borderColor: isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)",
+                            backgroundColor: p.inputBg,
+                            borderColor: p.divider,
                           }}
                         >
                           <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] mb-2">
@@ -1467,7 +1414,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                             value={slot.details}
                             onChangeText={slot.setDetails}
                             placeholder="e.g., banana, nuts, yogurt"
-                            placeholderTextColor={colors.placeholder}
+                            placeholderTextColor={p.textMuted}
                             multiline
                             className="text-sm font-outfit text-app"
                             style={{
@@ -1491,10 +1438,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               <View
                 className="rounded-3xl border p-5"
                 style={{
-                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(15,23,42,0.06)",
+                  backgroundColor: p.cardWhite,
+                  borderColor: p.divider,
                 }}
               >
                 <Text className="text-sm font-bold font-outfit text-app mb-3">
@@ -1504,9 +1449,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 <View
                   className="rounded-2xl border px-4 py-3 flex-row items-center"
                   style={{
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : "rgba(15,23,42,0.06)",
+                    borderColor: p.divider,
                   }}
                 >
                   <View
@@ -1514,17 +1457,13 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     style={{
                       backgroundColor:
                         waterIntake > 0
-                          ? colors.accent
-                          : isDark
-                            ? "rgba(255,255,255,0.04)"
-                            : "rgba(15,23,42,0.04)",
+                          ? p.accent
+                          : p.inputBg,
                       borderWidth: 1,
                       borderColor:
                         waterIntake > 0
-                          ? colors.accent
-                          : isDark
-                            ? "rgba(255,255,255,0.08)"
-                            : "rgba(15,23,42,0.06)",
+                          ? p.accent
+                          : p.divider,
                     }}
                   >
                     {waterIntake > 0 ? (
@@ -1543,13 +1482,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       }
                       className="w-10 h-10 items-center justify-center rounded-2xl"
                       style={({ pressed }) => ({
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(15,23,42,0.04)",
+                        backgroundColor: p.inputBg,
                         opacity: pressed ? 0.75 : 1,
                       })}
                     >
-                      <Feather name="minus" size={18} color={colors.accent} />
+                      <Feather name="minus" size={18} color={p.accent} />
                     </Pressable>
                     <Text className="text-base font-clash font-bold text-app min-w-[28px] text-center">
                       {waterIntake}
@@ -1558,13 +1495,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       onPress={() => setWaterIntake(waterIntake + 1)}
                       className="w-10 h-10 items-center justify-center rounded-2xl"
                       style={({ pressed }) => ({
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(15,23,42,0.04)",
+                        backgroundColor: p.inputBg,
                         opacity: pressed ? 0.75 : 1,
                       })}
                     >
-                      <Feather name="plus" size={18} color={colors.accent} />
+                      <Feather name="plus" size={18} color={p.accent} />
                     </Pressable>
                   </View>
                 </View>
@@ -1572,9 +1507,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 <View
                   className="mt-3 rounded-2xl border px-4 py-3 flex-row items-center"
                   style={{
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : "rgba(15,23,42,0.06)",
+                    borderColor: p.divider,
                   }}
                 >
                   <View
@@ -1582,17 +1515,13 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     style={{
                       backgroundColor:
                         steps > 0
-                          ? colors.accent
-                          : isDark
-                            ? "rgba(255,255,255,0.04)"
-                            : "rgba(15,23,42,0.04)",
+                          ? p.accent
+                          : p.inputBg,
                       borderWidth: 1,
                       borderColor:
                         steps > 0
-                          ? colors.accent
-                          : isDark
-                            ? "rgba(255,255,255,0.08)"
-                            : "rgba(15,23,42,0.06)",
+                          ? p.accent
+                          : p.divider,
                     }}
                   >
                     {steps > 0 ? (
@@ -1612,13 +1541,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       )
                     }
                     placeholder="0"
-                    placeholderTextColor={colors.placeholder}
+                    placeholderTextColor={p.textMuted}
                     keyboardType="number-pad"
                     className="rounded-2xl px-3 py-2 text-sm font-outfit text-app min-w-[90px] text-right"
                     style={{
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.04)"
-                        : "rgba(15,23,42,0.03)",
+                      backgroundColor: p.inputBg,
                     }}
                   />
                 </View>
@@ -1626,9 +1553,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 <View
                   className="mt-3 rounded-2xl border px-4 py-3 flex-row items-center"
                   style={{
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : "rgba(15,23,42,0.06)",
+                    borderColor: p.divider,
                   }}
                 >
                   <View
@@ -1636,17 +1561,13 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     style={{
                       backgroundColor:
                         sleepHours > 0
-                          ? colors.accent
-                          : isDark
-                            ? "rgba(255,255,255,0.04)"
-                            : "rgba(15,23,42,0.04)",
+                          ? p.accent
+                          : p.inputBg,
                       borderWidth: 1,
                       borderColor:
                         sleepHours > 0
-                          ? colors.accent
-                          : isDark
-                            ? "rgba(255,255,255,0.08)"
-                            : "rgba(15,23,42,0.06)",
+                          ? p.accent
+                          : p.divider,
                     }}
                   >
                     {sleepHours > 0 ? (
@@ -1666,13 +1587,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       )
                     }
                     placeholder="0"
-                    placeholderTextColor={colors.placeholder}
+                    placeholderTextColor={p.textMuted}
                     keyboardType="number-pad"
                     className="rounded-2xl px-3 py-2 text-sm font-outfit text-app min-w-[90px] text-right"
                     style={{
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.04)"
-                        : "rgba(15,23,42,0.03)",
+                      backgroundColor: p.inputBg,
                     }}
                   />
                 </View>
@@ -1683,7 +1602,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               <View
                 className="rounded-3xl border p-5"
                 style={{
-                  backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.08)",
+                  backgroundColor: p.successSoft,
                   borderColor: "rgba(34,197,94,0.22)",
                 }}
               >
@@ -1714,7 +1633,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 borderRadius: 24,
                 alignItems: "center",
                 paddingVertical: 16,
-                backgroundColor: saving ? colors.accent + "66" : colors.accent,
+                backgroundColor: saving ? p.accent + "66" : p.accent,
                 opacity: pressed ? 0.88 : 1,
                 transform: [{ scale: pressed ? 0.98 : 1 }],
               })}
@@ -1730,7 +1649,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   color:
                     status.tone === "error"
                       ? "hsl(0, 45%, 52%)"
-                      : colors.accent,
+                      : p.accent,
                 }}
               >
                 {status.message}
@@ -1743,10 +1662,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           <View
             className="rounded-3xl border px-5 py-4"
             style={{
-              backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
-              borderColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(15,23,42,0.06)",
+              backgroundColor: p.cardWhite,
+              borderColor: p.divider,
             }}
           >
             <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
@@ -1759,17 +1676,15 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
 
           {coachLogsLoading ? (
             <View className="items-center py-10">
-              <ActivityIndicator size="large" color={colors.accent} />
+              <ActivityIndicator size="large" color={p.accent} />
             </View>
           ) : activeTab === "history" ? (
             coachLogs.length === 0 ? (
               <View
                 className="rounded-3xl border px-5 py-5"
                 style={{
-                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(15,23,42,0.06)",
+                  backgroundColor: p.cardWhite,
+                  borderColor: p.divider,
                 }}
               >
                 <Text className="text-sm font-outfit text-secondary">
@@ -1807,7 +1722,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                       disabled={!canOpenDetail}
                       className="rounded-[28px] border p-5 gap-4"
                       style={({ pressed }) => ({
-                        backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                        backgroundColor: p.cardWhite,
                         borderColor: hasCoach ? borderStrong : borderSubtle,
                         opacity: pressed ? 0.88 : canOpenDetail ? 1 : 0.8,
                         transform: [{ scale: pressed ? 0.98 : 1 }],
@@ -1828,7 +1743,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                           >
                             <Text
                               className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px]"
-                              style={{ color: colors.accent }}
+                              style={{ color: p.accent }}
                             >
                               Entry
                             </Text>
@@ -1836,10 +1751,10 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                           <View
                             className="rounded-full px-2.5 py-1"
                             style={{
-                              backgroundColor: hasCoach ? colors.accent : surfaceMuted,
+                              backgroundColor: hasCoach ? p.accent : surfaceMuted,
                               borderWidth: 1,
                               borderColor: hasCoach
-                                ? colors.accent
+                                ? p.accent
                                 : borderSubtle,
                             }}
                           >
@@ -1915,10 +1830,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
             <View
               className="rounded-3xl border px-5 py-5"
               style={{
-                backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
+                backgroundColor: p.cardWhite,
+                borderColor: p.divider,
               }}
             >
               <Text className="text-sm font-outfit text-secondary">
@@ -1957,7 +1870,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                     disabled={!canOpenDetail}
                       className="rounded-[28px] border p-5 gap-4"
                     style={({ pressed }) => ({
-                      backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                      backgroundColor: p.cardWhite,
                         borderColor: borderStrong,
                       opacity: pressed ? 0.88 : canOpenDetail ? 1 : 0.8,
                       transform: [{ scale: pressed ? 0.98 : 1 }],
@@ -1971,9 +1884,9 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         <View
                           className="rounded-full px-2.5 py-1"
                           style={{
-                            backgroundColor: colors.accent,
+                            backgroundColor: p.accent,
                             borderWidth: 1,
-                            borderColor: colors.accent,
+                            borderColor: p.accent,
                           }}
                         >
                           <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.1px] text-white">
@@ -1983,7 +1896,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                         <Feather
                           name="chevron-right"
                           size={16}
-                          color={colors.placeholder}
+                          color={p.textMuted}
                         />
                       </View>
                     </View>
@@ -2056,10 +1969,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
           <View
             className="rounded-[28px] border p-5 gap-4"
             style={{
-              backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
-              borderColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(15,23,42,0.06)",
+              backgroundColor: p.cardWhite,
+              borderColor: p.divider,
             }}
           >
             <View className="flex-row items-center justify-between">
@@ -2070,7 +1981,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 onPress={() => setCoachFilterOpen(false)}
                 style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
               >
-                <Feather name="x" size={22} color={colors.text} />
+                <Feather name="x" size={22} color={p.textPrimary} />
               </Pressable>
             </View>
 
@@ -2079,33 +1990,31 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 { key: "1d" as const, label: "1 day" },
                 { key: "7d" as const, label: "7 days" },
                 { key: "30d" as const, label: "30 days" },
-              ].map((p) => (
+              ].map((preset) => (
                 <Pressable
-                  key={p.key}
+                  key={preset.key}
                   onPress={() => {
-                    setCoachFilterPreset(p.key);
-                    applyPresetToDates(p.key);
+                    setCoachFilterPreset(preset.key);
+                    applyPresetToDates(preset.key);
                   }}
                   className="flex-1 rounded-2xl border px-3 py-3 items-center"
                   style={({ pressed }) => ({
                     backgroundColor:
-                      coachFilterPreset === p.key ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                      coachFilterPreset === preset.key ? p.accent : p.cardWhite,
                     borderColor:
-                      coachFilterPreset === p.key
-                        ? colors.accent
-                        : isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(15,23,42,0.06)",
+                      coachFilterPreset === preset.key
+                        ? p.accent
+                        : p.divider,
                     opacity: pressed ? 0.88 : 1,
                     transform: [{ scale: pressed ? 0.98 : 1 }],
                   })}
                 >
                   <Text
                     className={`text-[11px] font-outfit font-bold uppercase tracking-[1.1px] ${
-                      coachFilterPreset === p.key ? "text-white" : "text-app"
+                      coachFilterPreset === preset.key ? "text-white" : "text-app"
                     }`}
                   >
-                    {p.label}
+                    {preset.label}
                   </Text>
                 </Pressable>
               ))}
@@ -2116,13 +2025,11 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
               className="rounded-2xl border px-4 py-3"
               style={({ pressed }) => ({
                 backgroundColor:
-                  coachFilterPreset === "custom" ? colors.accent : isDark ? "hsl(220, 8%, 12%)" : colors.card,
+                  coachFilterPreset === "custom" ? p.accent : p.cardWhite,
                 borderColor:
                   coachFilterPreset === "custom"
-                    ? colors.accent
-                    : isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : "rgba(15,23,42,0.06)",
+                    ? p.accent
+                    : p.divider,
                 opacity: pressed ? 0.88 : 1,
                 transform: [{ scale: pressed ? 0.98 : 1 }],
               })}
@@ -2142,12 +2049,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   onPress={() => setCoachFromPickerOpen(true)}
                   className="rounded-2xl border px-4 py-3"
                   style={({ pressed }) => ({
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.04)"
-                      : "rgba(15,23,42,0.03)",
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : "rgba(15,23,42,0.06)",
+                    backgroundColor: p.inputBg,
+                    borderColor: p.divider,
                     opacity: pressed ? 0.88 : 1,
                     transform: [{ scale: pressed ? 0.98 : 1 }],
                   })}
@@ -2164,12 +2067,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                   onPress={() => setCoachToPickerOpen(true)}
                   className="rounded-2xl border px-4 py-3"
                   style={({ pressed }) => ({
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.04)"
-                      : "rgba(15,23,42,0.03)",
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : "rgba(15,23,42,0.06)",
+                    backgroundColor: p.inputBg,
+                    borderColor: p.divider,
                     opacity: pressed ? 0.88 : 1,
                     transform: [{ scale: pressed ? 0.98 : 1 }],
                   })}
@@ -2212,10 +2111,8 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 onPress={() => setCoachFilterOpen(false)}
                 className="flex-1 rounded-2xl border px-4 py-4 items-center"
                 style={({ pressed }) => ({
-                  backgroundColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(15,23,42,0.06)",
+                  backgroundColor: p.cardWhite,
+                  borderColor: p.divider,
                   opacity: pressed ? 0.88 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 })}
@@ -2231,7 +2128,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
                 }}
                 className="flex-1 rounded-2xl px-4 py-4 items-center"
                 style={({ pressed }) => ({
-                  backgroundColor: colors.accent,
+                  backgroundColor: p.accent,
                   opacity: pressed ? 0.88 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 })}

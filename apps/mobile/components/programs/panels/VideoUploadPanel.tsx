@@ -71,7 +71,7 @@ export function VideoUploadPanel({
   const { token, profile, athleteUserId } = useAppSelector(
     (state) => state.user,
   );
-  const { colors, isDark, formatDate, scheduleLocalNotification } =
+  const { p, formatDate, scheduleLocalNotification } =
     useProgramPanel();
   const { socket } = useSocket();
 
@@ -414,7 +414,7 @@ export function VideoUploadPanel({
                 {reelPreview?.title || "Preview"}
               </Text>
               <TouchableOpacity onPress={() => setReelPreview(null)}>
-                <Feather name="x" size={24} color={colors.text} />
+                <Feather name="x" size={24} color={p.textPrimary} />
               </TouchableOpacity>
             </View>
             {reelPreview && (

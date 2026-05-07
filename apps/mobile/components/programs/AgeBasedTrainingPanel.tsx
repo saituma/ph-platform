@@ -3,8 +3,7 @@ import { Alert, Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 
 type SessionItem = {
   id: number;
@@ -78,8 +77,7 @@ export function AgeBasedTrainingPanel({
   onOpenModule: (moduleId: number) => void;
 }) {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const p = useAdminPastel();
   const modules = workspace?.modules ?? [];
   const others = workspace?.others ?? [];
 
@@ -117,29 +115,28 @@ export function AgeBasedTrainingPanel({
             }}
             className="rounded-[28px] border px-5 py-5"
             style={{
-              backgroundColor: colors.card,
-              borderColor: borderSoft,
+              backgroundColor: p.cardWhite,
+              borderColor: p.divider,
               opacity: module.locked ? 0.7 : 1,
-              ...(isDark ? Shadows.none : Shadows.sm),
             }}
           >
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1">
                 <Text
                   className="text-lg font-clash font-bold"
-                  style={{ color: colors.text }}
+                  style={{ color: p.textPrimary }}
                 >
                   Module {module.order}: {module.title}
                 </Text>
                 <Text
                   className="mt-1 text-sm font-outfit"
-                  style={{ color: colors.textSecondary }}
+                  style={{ color: p.textSecondary }}
                 >
                   {module.totalDayLength} planned days
                 </Text>
                 <Text
                   className="mt-1 text-xs font-outfit"
-                  style={{ color: colors.textSecondary }}
+                  style={{ color: p.textSecondary }}
                 >
                   {module.sessions.length} session
                   {module.sessions.length === 1 ? "" : "s"} in this module
@@ -148,7 +145,7 @@ export function AgeBasedTrainingPanel({
                 {module.locked ? (
                   <Text
                     className="mt-2 text-xs font-outfit"
-                    style={{ color: colors.textSecondary }}
+                    style={{ color: p.textSecondary }}
                   >
                     {lockedCopy(module)}
                   </Text>
@@ -158,20 +155,20 @@ export function AgeBasedTrainingPanel({
                 className="rounded-full px-3 py-1.5"
                 style={{
                   backgroundColor: module.completed
-                    ? "rgba(34,197,94,0.14)"
+                    ? p.successSoft
                     : module.locked
-                      ? "rgba(148,163,184,0.14)"
-                      : "rgba(34,197,94,0.10)",
+                      ? p.divider
+                      : p.successSoft,
                 }}
               >
                 <Text
                   className="text-[10px] font-outfit font-bold uppercase tracking-[1px]"
                   style={{
                     color: module.completed
-                      ? "#16A34A"
+                      ? p.success
                       : module.locked
-                        ? colors.textSecondary
-                        : colors.accent,
+                        ? p.textSecondary
+                        : p.accent,
                   }}
                 >
                   {module.completed
@@ -188,11 +185,11 @@ export function AgeBasedTrainingPanel({
         {!modules.length ? (
           <View
             className="rounded-[24px] px-5 py-5"
-            style={{ backgroundColor: colors.card }}
+            style={{ backgroundColor: p.cardWhite }}
           >
             <Text
               className="text-sm font-outfit"
-              style={{ color: colors.textSecondary }}
+              style={{ color: p.textSecondary }}
             >
               No modules available for your age yet.
             </Text>
@@ -211,9 +208,8 @@ export function AgeBasedTrainingPanel({
           onPress={() => router.push(`/programs/training-other/${item.id}` as never)}
           className="rounded-[28px] border px-5 py-5"
           style={{
-            backgroundColor: colors.card,
-            borderColor: borderSoft,
-            ...(isDark ? Shadows.none : Shadows.sm),
+            backgroundColor: p.cardWhite,
+            borderColor: p.divider,
           }}
         >
           {group?.type === "inseason" &&
@@ -222,21 +218,21 @@ export function AgeBasedTrainingPanel({
             <>
               <Text
                 className="text-lg font-clash font-bold"
-                style={{ color: colors.text }}
+                style={{ color: p.textPrimary }}
               >
                 {item.title}
               </Text>
               {item.scheduleNote ? (
                 <Text
                   className="mt-2 text-sm font-outfit font-semibold"
-                  style={{ color: colors.accent }}
+                  style={{ color: p.accent }}
                 >
                   {item.scheduleNote}
                 </Text>
               ) : null}
               <Text
                 className="mt-3 text-sm font-outfit leading-6"
-                style={{ color: colors.textSecondary }}
+                style={{ color: p.textSecondary }}
               >
                 {item.body === "Weekly in-season schedule."
                   ? "Your coach sets this recurring weekly training schedule for your age."
@@ -247,21 +243,21 @@ export function AgeBasedTrainingPanel({
             <>
               <Text
                 className="text-lg font-clash font-bold"
-                style={{ color: colors.text }}
+                style={{ color: p.textPrimary }}
               >
                 {item.title}
               </Text>
               {item.scheduleNote ? (
                 <Text
                   className="mt-2 text-xs font-outfit font-semibold"
-                  style={{ color: colors.accent }}
+                  style={{ color: p.accent }}
                 >
                   {item.scheduleNote}
                 </Text>
               ) : null}
               <Text
                 className="mt-3 text-sm font-outfit leading-6"
-                style={{ color: colors.textSecondary }}
+                style={{ color: p.textSecondary }}
               >
                 {item.body}
               </Text>
@@ -272,11 +268,11 @@ export function AgeBasedTrainingPanel({
       {!group?.items.length ? (
         <View
           className="rounded-[24px] px-5 py-5"
-          style={{ backgroundColor: colors.card }}
+          style={{ backgroundColor: p.cardWhite }}
         >
           <Text
             className="text-sm font-outfit"
-            style={{ color: colors.textSecondary }}
+            style={{ color: p.textSecondary }}
           >
             No content available for this section yet.
           </Text>

@@ -2,7 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import { fonts, radius } from "@/constants/theme";
 
@@ -27,13 +27,7 @@ function textValueFontSize(len: number) {
 }
 
 export function ProgramMetricTile({ item }: { item: ProgramMetricItem }) {
-  const { colors: rawColors, isDark } = useAppTheme();
-  const colors = rawColors as any;
-
-  const borderSoft =
-    colors.borderSubtle ??
-    (isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)");
-  const background = colors.surfaceHigh ?? colors.cardElevated ?? colors.card;
+  const p = useAdminPastel();
 
   const isText = item.valueKind === "text";
   const vLen = item.value.trim().length;
@@ -47,8 +41,8 @@ export function ProgramMetricTile({ item }: { item: ProgramMetricItem }) {
         minWidth: isText ? "100%" : "48%",
         borderRadius: radius.xl,
         borderWidth: 1,
-        borderColor: borderSoft,
-        backgroundColor: background,
+        borderColor: p.divider,
+        backgroundColor: p.cardSage,
         padding: 14,
         paddingLeft: item.accent && !isText ? 18 : 14,
         overflow: "hidden",
@@ -62,7 +56,7 @@ export function ProgramMetricTile({ item }: { item: ProgramMetricItem }) {
             top: 14,
             bottom: 14,
             width: 3,
-            backgroundColor: colors.accent,
+            backgroundColor: p.accent,
             borderTopRightRadius: radius.pill,
             borderBottomRightRadius: radius.pill,
           }}
@@ -83,12 +77,12 @@ export function ProgramMetricTile({ item }: { item: ProgramMetricItem }) {
               height: 30,
               width: 30,
               borderRadius: radius.lg,
-              backgroundColor: colors.accentLight,
+              backgroundColor: p.accentSoft,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Feather name={item.icon} size={14} color={colors.accent} />
+            <Feather name={item.icon} size={14} color={p.accent} />
           </View>
         ) : null}
         <Text
@@ -97,7 +91,7 @@ export function ProgramMetricTile({ item }: { item: ProgramMetricItem }) {
             fontSize: 10,
             letterSpacing: 1.6,
             textTransform: "uppercase",
-            color: colors.textSecondary,
+            color: p.textSecondary,
             flex: 1,
             flexShrink: 1,
           }}
@@ -114,7 +108,7 @@ export function ProgramMetricTile({ item }: { item: ProgramMetricItem }) {
             fontFamily: fonts.bodyMedium,
             fontSize: bodySize,
             lineHeight: Math.round(bodySize * 1.45),
-            color: colors.textPrimary ?? colors.text,
+            color: p.textPrimary,
           }}
         >
           {item.value.trim()}
@@ -132,7 +126,7 @@ export function ProgramMetricTile({ item }: { item: ProgramMetricItem }) {
             style={{
               fontFamily: fonts.statNumber,
               fontSize: vLen > 6 ? 22 : 28,
-              color: colors.textPrimary ?? colors.text,
+              color: p.textPrimary,
               fontVariant: ["tabular-nums"],
               flexShrink: 1,
             }}
@@ -148,7 +142,7 @@ export function ProgramMetricTile({ item }: { item: ProgramMetricItem }) {
                 marginLeft: 6,
                 fontFamily: fonts.statLabel,
                 fontSize: 13,
-                color: colors.textSecondary,
+                color: p.textSecondary,
               }}
               numberOfLines={1}
             >

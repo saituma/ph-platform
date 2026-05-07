@@ -26,7 +26,6 @@ import { ExerciseOverview } from "@/components/programs/content-detail/ExerciseO
 import { CoachingSection } from "@/components/programs/content-detail/CoachingSection";
 import { CheckinModal } from "@/components/programs/content-detail/CheckinModal";
 import { NavigationFooter } from "@/components/programs/content-detail/NavigationFooter";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 // Detect external video hosting
 function isExternalVideoUrl(url: string): boolean {
@@ -122,7 +121,6 @@ export default function ProgramContentDetailScreen() {
   const { token, athleteUserId, managedAthletes } = useAppSelector(
     (state) => state.user,
   );
-  const { isDark, colors } = useAppTheme();
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
@@ -165,11 +163,6 @@ export default function ProgramContentDetailScreen() {
       ) ?? managedAthletes[0]
     );
   }, [athleteUserId, managedAthletes]);
-
-  const surfaceColor = p.cardWhite;
-  const mutedSurface = p.inputBg;
-  const accentSurface = p.accentSoft;
-  const borderSoft = p.divider;
 
   const sessionExerciseIds = useMemo(
     () =>
@@ -258,12 +251,6 @@ export default function ProgramContentDetailScreen() {
               category={item?.metadata?.category}
               sharedBoundTag={sharedBoundTag}
               onBack={handleBack}
-              colors={colors}
-              isDark={isDark}
-              surfaceColor={surfaceColor}
-              mutedSurface={mutedSurface}
-              accentSurface={accentSurface}
-              borderSoft={borderSoft}
             />
 
             {isLoading ? (
@@ -324,11 +311,6 @@ export default function ProgramContentDetailScreen() {
                   contentBody={contentBody}
                   canLogCompletion={true}
                   onMarkComplete={() => setShowCompleteModal(true)}
-                  colors={colors}
-                  isDark={isDark}
-                  surfaceColor={surfaceColor}
-                  mutedSurface={mutedSurface}
-                  accentSurface={accentSurface}
                 />
 
                 <CoachingSection meta={item.metadata ?? {}} />
@@ -359,11 +341,6 @@ export default function ProgramContentDetailScreen() {
                 handleBack();
               }
             }}
-            colors={colors}
-            isDark={isDark}
-            surfaceColor={surfaceColor}
-            mutedSurface={mutedSurface}
-            borderSoft={borderSoft}
           />
         )}
 
@@ -372,11 +349,6 @@ export default function ProgramContentDetailScreen() {
           onClose={() => !form.isSubmitting && setShowCompleteModal(false)}
           onSubmit={submitCheckin}
           form={form}
-          colors={colors}
-          isDark={isDark}
-          surfaceColor={surfaceColor}
-          mutedSurface={mutedSurface}
-          borderSoft={borderSoft}
           insetsBottom={insets.bottom}
         />
       </SafeMaskedView>

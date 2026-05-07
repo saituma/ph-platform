@@ -1,10 +1,10 @@
 import { useCallback } from "react";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Shadows } from "@/constants/theme";
 import { scheduleLocalNotification as scheduleLocalNotificationImpl } from "@/lib/localNotifications";
 
 export function useProgramPanel() {
-  const { isDark, colors } = useAppTheme();
+  const p = useAdminPastel();
 
   const scheduleLocalNotification = useCallback(
     async (title: string, body: string, data?: Record<string, unknown>) => {
@@ -38,8 +38,7 @@ export function useProgramPanel() {
   }, []);
 
   return {
-    isDark,
-    colors,
+    p,
     shadows: Shadows,
     scheduleLocalNotification,
     formatDate,

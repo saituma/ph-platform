@@ -3,7 +3,7 @@ import { ScrollView, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Shadows } from "@/constants/theme";
 
 export type TrainingAchievement = {
@@ -27,22 +27,20 @@ export function AchievementsStrip({
   stats: TrainingStats;
   achievements: TrainingAchievement[];
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const unlocked = achievements.filter((a) => a.unlocked);
-  const surface = isDark ? colors.cardElevated : "#F7FFF9";
-  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
 
   return (
     <View
       className="rounded-[24px] border px-4 py-4 gap-3"
       style={{
-        backgroundColor: surface,
-        borderColor: border,
-        ...(isDark ? Shadows.none : Shadows.sm),
+        backgroundColor: p.cardWhite,
+        borderColor: p.divider,
+        ...Shadows.sm,
       }}
     >
       <View className="flex-row items-center gap-2">
-        <Feather name="award" size={18} color={colors.accent} />
+        <Feather name="award" size={18} color={p.accent} />
         <Text className="text-sm font-clash font-bold text-app">Progress & achievements</Text>
       </View>
       <Text className="text-xs font-outfit text-secondary leading-5">
@@ -55,10 +53,10 @@ export function AchievementsStrip({
             <View
               key={a.key}
               className="rounded-full px-3 py-2 flex-row items-center gap-1.5"
-              style={{ backgroundColor: `${colors.accent}22` }}
+              style={{ backgroundColor: p.accentSoft }}
             >
-              <Feather name="check-circle" size={14} color={colors.accent} />
-              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
+              <Feather name="check-circle" size={14} color={p.accent} />
+              <Text className="text-[11px] font-outfit font-semibold" style={{ color: p.accent }}>
                 {a.title}
               </Text>
             </View>

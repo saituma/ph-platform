@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { ProgramSectionContent, ExerciseMetadata } from "@/types/programs";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Shadows } from "@/constants/theme";
 import { Image as ExpoImage } from "expo-image";
 import { Transition } from "@/components/navigation/TransitionStack";
@@ -36,9 +36,7 @@ export function AdminProgramContentList({
   activeTab,
   programTitle,
 }: Props) {
-  const { colors, isDark } = useAppTheme();
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9";
+  const p = useAdminPastel();
 
   if (content.length === 0 && !isLoading) {
     return (
@@ -54,7 +52,7 @@ export function AdminProgramContentList({
     <View className="gap-3">
       {isLoading && content.length === 0 ? (
         <View className="py-5 items-center justify-center">
-          <ActivityIndicator size="small" color={colors.accent} />
+          <ActivityIndicator size="small" color={p.accent} />
         </View>
       ) : null}
       {error ? (
@@ -72,15 +70,15 @@ export function AdminProgramContentList({
             key={`content-${item.id}`}
             className="rounded-[24px] overflow-hidden border"
             style={{
-              backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-              borderColor: borderSoft,
-              ...(isDark ? Shadows.none : Shadows.sm),
+              backgroundColor: p.cardWhite,
+              borderColor: p.divider,
+              ...Shadows.sm,
             }}
           >
             <Pressable onPress={() => onToggle(item.id)} className="px-5 py-4">
               <View className="flex-row items-center justify-between gap-3">
                 <View className="flex-1">
-                  <Text className="text-[17px] font-clash font-bold" style={{ color: colors.text }}>
+                  <Text className="text-[17px] font-clash font-bold" style={{ color: p.textPrimary }}>
                     {item.title}
                   </Text>
                   {meta.category && (
@@ -91,18 +89,18 @@ export function AdminProgramContentList({
                 </View>
                 <View
                   className="h-8 w-8 rounded-full items-center justify-center"
-                  style={{ backgroundColor: mutedSurface }}
+                  style={{ backgroundColor: p.cardSage }}
                 >
                   <Feather
                     name={isExpanded ? "chevron-up" : "chevron-down"}
                     size={16}
-                    color={colors.textSecondary}
+                    color={p.textSecondary}
                   />
                 </View>
               </View>
 
               {hasExercise && (
-                <View className="flex-row flex-wrap gap-1.5 mt-3 pt-3 border-t" style={{ borderColor: borderSoft }}>
+                <View className="flex-row flex-wrap gap-1.5 mt-3 pt-3 border-t" style={{ borderColor: p.divider }}>
                   {[
                     meta.sets != null ? `${meta.sets} sets` : null,
                     meta.reps != null ? `${meta.reps} reps` : null,
@@ -115,10 +113,10 @@ export function AdminProgramContentList({
                         key={i}
                         className="rounded-md px-2 py-1"
                         style={{
-                          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
+                          backgroundColor: p.cardSage,
                         }}
                       >
-                        <Text className="text-[11px] font-outfit font-medium" style={{ color: colors.textSecondary }}>
+                        <Text className="text-[11px] font-outfit font-medium" style={{ color: p.textSecondary }}>
                           {stat}
                         </Text>
                       </View>
@@ -131,15 +129,15 @@ export function AdminProgramContentList({
               <View
                 className="px-5 pb-5 gap-5 border-t"
                 style={{
-                  borderColor: borderSoft,
-                  backgroundColor: isDark ? "rgba(0,0,0,0.1)" : "#F8FAFC",
+                  borderColor: p.divider,
+                  backgroundColor: p.cardSage,
                 }}
               >
                 {item.body ? (
                   <View className="pt-4">
                     <MarkdownText
                       text={item.body}
-                      baseStyle={{ fontSize: 14, lineHeight: 22, color: colors.text }}
+                      baseStyle={{ fontSize: 14, lineHeight: 22, color: p.textPrimary }}
                     />
                   </View>
                 ) : (
@@ -149,15 +147,15 @@ export function AdminProgramContentList({
                 {meta.cues ? (
                   <View
                     className="rounded-2xl p-4 gap-2 border"
-                    style={{ backgroundColor: colors.background, borderColor: borderSoft }}
+                    style={{ backgroundColor: p.pageBg, borderColor: p.divider }}
                   >
                     <View className="flex-row items-center gap-1.5">
-                      <Feather name="info" size={14} color={colors.accent} />
-                      <Text className="text-[11px] font-outfit uppercase tracking-[1px] font-bold" style={{ color: colors.accent }}>
+                      <Feather name="info" size={14} color={p.accent} />
+                      <Text className="text-[11px] font-outfit uppercase tracking-[1px] font-bold" style={{ color: p.accent }}>
                         Coaching Cues
                       </Text>
                     </View>
-                    <Text className="text-[14px] font-outfit" style={{ color: colors.text }}>{meta.cues}</Text>
+                    <Text className="text-[14px] font-outfit" style={{ color: p.textPrimary }}>{meta.cues}</Text>
                   </View>
                 ) : null}
 
@@ -166,7 +164,7 @@ export function AdminProgramContentList({
                     <Pressable
                       onPress={() => onVideoPress(item.videoUrl!)}
                       className="flex-1 rounded-2xl py-3 flex-row items-center justify-center gap-2"
-                      style={{ backgroundColor: colors.accent }}
+                      style={{ backgroundColor: p.accent }}
                     >
                       <Feather name="play-circle" size={16} color="#FFFFFF" />
                       <Text className="text-sm font-outfit font-bold text-white">Watch</Text>
@@ -175,22 +173,22 @@ export function AdminProgramContentList({
                   <Pressable
                     onPress={() => onMessageCoach(`Program: ${programTitle}\nSection: ${activeTab}\nDrill: ${item.title}\n\nHi coach, quick question:\n`)}
                     className="flex-1 rounded-2xl py-3 flex-row items-center justify-center gap-2 border"
-                    style={{ borderColor: borderSoft, backgroundColor: colors.background }}
+                    style={{ borderColor: p.divider, backgroundColor: p.pageBg }}
                   >
-                    <Feather name="message-circle" size={16} color={colors.text} />
-                    <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>Ask coach</Text>
+                    <Feather name="message-circle" size={16} color={p.textPrimary} />
+                    <Text className="text-sm font-outfit font-semibold" style={{ color: p.textPrimary }}>Ask coach</Text>
                   </Pressable>
                   {item.allowVideoUpload ? (
                     <Pressable
                       onPress={() => onUploadPress(item)}
                       className="flex-1 rounded-2xl py-3 flex-row items-center justify-center gap-2 border"
                       style={{
-                        borderColor: colors.accent,
-                        backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#F0FDF4",
+                        borderColor: p.accent,
+                        backgroundColor: p.accentSoft,
                       }}
                     >
-                      <Feather name="video" size={16} color={colors.accent} />
-                      <Text className="text-sm font-outfit font-semibold" style={{ color: colors.accent }}>Send video</Text>
+                      <Feather name="video" size={16} color={p.accent} />
+                      <Text className="text-sm font-outfit font-semibold" style={{ color: p.accent }}>Send video</Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -200,7 +198,7 @@ export function AdminProgramContentList({
                   onPress={() => onNavigate?.(`/programs/content/${item.id}?sharedBoundTag=${encodeURIComponent(`program-content-${item.id}`)}`)}
                   className="py-2 items-center"
                 >
-                  <Text className="text-xs font-outfit font-semibold" style={{ color: colors.accent }}>Open full page</Text>
+                  <Text className="text-xs font-outfit font-semibold" style={{ color: p.accent }}>Open full page</Text>
                 </Transition.Pressable>
               </View>
             )}

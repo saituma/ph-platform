@@ -13,6 +13,7 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 
 interface CheckinModalProps {
   isVisible: boolean;
@@ -31,11 +32,6 @@ interface CheckinModalProps {
     isSubmitting: boolean;
     saved: boolean;
   };
-  colors: any;
-  isDark: boolean;
-  surfaceColor: string;
-  mutedSurface: string;
-  borderSoft: string;
   insetsBottom: number;
 }
 
@@ -44,13 +40,10 @@ export function CheckinModal({
   onClose,
   onSubmit,
   form,
-  colors,
-  isDark,
-  surfaceColor,
-  mutedSurface,
-  borderSoft,
   insetsBottom,
 }: CheckinModalProps) {
+  const p = useAdminPastel();
+
   return (
     <Modal
       visible={isVisible}
@@ -65,9 +58,7 @@ export function CheckinModal({
         <View
           className="flex-1 justify-end"
           style={{
-            backgroundColor: isDark
-              ? "rgba(34,197,94,0.18)"
-              : "rgba(15,23,42,0.18)",
+            backgroundColor: "rgba(15,23,42,0.18)",
           }}
         >
           <Pressable
@@ -77,7 +68,7 @@ export function CheckinModal({
           />
           <View
             className="rounded-t-3xl"
-            style={{ backgroundColor: surfaceColor, maxHeight: "88%" }}
+            style={{ backgroundColor: p.cardWhite, maxHeight: "88%" }}
           >
             <KeyboardAwareScrollView
               enableOnAndroid
@@ -99,9 +90,9 @@ export function CheckinModal({
                   onPress={onClose}
                   disabled={form.isSubmitting}
                   className="h-10 w-10 rounded-full items-center justify-center"
-                  style={{ backgroundColor: mutedSurface }}
+                  style={{ backgroundColor: p.inputBg }}
                 >
-                  <Feather name="x" size={20} color={colors.accent} />
+                  <Feather name="x" size={20} color={p.accent} />
                 </TouchableOpacity>
               </View>
 
@@ -119,7 +110,7 @@ export function CheckinModal({
                   <View
                     key={idx}
                     className="rounded-2xl border px-4 py-3"
-                    style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}
+                    style={{ backgroundColor: p.inputBg, borderColor: p.divider }}
                   >
                     <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
                       {field.label}
@@ -128,7 +119,7 @@ export function CheckinModal({
                       value={field.value}
                       onChangeText={field.setter}
                       placeholder={field.placeholder}
-                      placeholderTextColor={colors.textSecondary}
+                      placeholderTextColor={p.textSecondary}
                       keyboardType="number-pad"
                       className="text-base font-outfit text-app mt-1"
                     />
@@ -137,7 +128,7 @@ export function CheckinModal({
 
                 <View
                   className="rounded-2xl border px-4 py-3"
-                  style={{ backgroundColor: mutedSurface, borderColor: borderSoft }}
+                  style={{ backgroundColor: p.inputBg, borderColor: p.divider }}
                 >
                   <Text className="text-[11px] font-outfit text-secondary uppercase tracking-[1.2px]">
                     Notes (optional)
@@ -146,7 +137,7 @@ export function CheckinModal({
                     value={form.notes}
                     onChangeText={form.setNotes}
                     placeholder="Anything your coach should know…"
-                    placeholderTextColor={colors.textSecondary}
+                    placeholderTextColor={p.textSecondary}
                     multiline
                     textAlignVertical="top"
                     className="text-base font-outfit text-app mt-1"
@@ -157,7 +148,7 @@ export function CheckinModal({
                 {form.error ? (
                   <Text
                     className="text-xs font-outfit"
-                    style={{ color: isDark ? "#FCA5A5" : colors.danger }}
+                    style={{ color: p.danger }}
                   >
                     {form.error}
                   </Text>
@@ -165,7 +156,7 @@ export function CheckinModal({
                 {form.saved ? (
                   <Text
                     className="text-xs font-outfit"
-                    style={{ color: colors.accent }}
+                    style={{ color: p.accent }}
                   >
                     Saved. Nice work.
                   </Text>
@@ -177,7 +168,7 @@ export function CheckinModal({
                   className={`mt-1 rounded-2xl px-4 py-4 flex-row items-center justify-center gap-2 ${
                     form.isSubmitting ? "opacity-70" : ""
                   }`}
-                  style={{ backgroundColor: colors.accent }}
+                  style={{ backgroundColor: p.accent }}
                 >
                   {form.isSubmitting ? (
                     <ActivityIndicator color="#ffffff" />

@@ -5,6 +5,7 @@ import { pool } from "./db";
 import { getRedisConnection } from "./jobs/connection";
 import { logger } from "./lib/logger";
 import { startEventLoopDelayLogging } from "./lib/event-loop-delay";
+import { startOutboxWorker, stopOutboxWorker } from "./jobs";
 import http from "http";
 
 export async function startServer() {
@@ -29,7 +30,8 @@ export async function startServer() {
   const server = http.createServer(app);
   initSocket(server);
 
-  logger.info("API web process started; workers disabled");
+  startOutboxWorker();
+  logger.info("API web process started; outbox worker enabled");
 
   server.listen(env.port, "0.0.0.0", () => {
     logger.info({ port: env.port }, "Server is running");
@@ -65,6 +67,7 @@ export async function startServer() {
       logger.info("Database pool drained");
     } catch { /* best effort */ }
 
+    stopOutboxWorker();
     stopEventLoopDelayLogging();
     logger.info("Clean exit");
     process.exit(0);

@@ -2,7 +2,7 @@ import React from "react";
 import { View, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import {
   VideoItem,
   CoachResponse,
@@ -26,7 +26,7 @@ export function VideoHistoryList({
   onVideoPress,
   formatDate,
 }: Props) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const allItems = [...videoItems].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -97,7 +97,7 @@ export function VideoHistoryList({
                     <Feather
                       name="message-square"
                       size={14}
-                      color={colors.accent}
+                      color={p.accent}
                     />
                     <Text className="font-outfit font-bold text-[11px] uppercase text-accent">
                       Coach Feedback

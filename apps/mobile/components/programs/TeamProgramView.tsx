@@ -5,8 +5,7 @@ import { Text } from "@/components/ScaledText";
 import { ProgramTabBar } from "@/components/programs/ProgramTabBar";
 import { AgeBasedTrainingPanel } from "@/components/programs/AgeBasedTrainingPanel";
 import { TrainingContentV2Workspace } from "@/types/programs";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 
 interface Props {
   workspace: TrainingContentV2Workspace | null;
@@ -29,27 +28,24 @@ export function TeamProgramView({
   focusName,
   focusInfo,
 }: Props) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const headerBackground = isDark ? colors.cardElevated : "#F7FFF9";
 
   return (
     <ScrollView
-      style={{ backgroundColor: colors.background }}
+      style={{ backgroundColor: p.pageBg }}
       contentContainerStyle={{ paddingBottom: 40 }}
       refreshControl={
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
     >
-      <View style={{ backgroundColor: headerBackground, paddingTop: insets.top }}>
+      <View style={{ backgroundColor: p.cardWhite, paddingTop: insets.top }}>
         <View className="px-6 pt-4 pb-4">
           <View
             className="rounded-[30px] border p-5"
             style={{
-              backgroundColor: headerBackground,
-              borderColor: borderSoft,
-              ...(isDark ? Shadows.none : Shadows.md),
+              backgroundColor: p.cardWhite,
+              borderColor: p.divider,
             }}
           >
             <Text className="text-sm font-outfit text-accent font-bold uppercase tracking-widest">

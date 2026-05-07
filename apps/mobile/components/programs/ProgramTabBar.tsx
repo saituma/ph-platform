@@ -1,7 +1,7 @@
 import React from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { useUniwind } from "uniwind";
 import { Text } from "@/components/ScaledText";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 
 export function ProgramTabBar({
   tabs,
@@ -16,8 +16,7 @@ export function ProgramTabBar({
   onTabPress?: (tab: string) => void;
   showSectionHeader?: boolean;
 }) {
-  const { theme } = useUniwind();
-  const isDark = theme === "dark";
+  const p = useAdminPastel();
 
   return (
     <View style={styles.container}>
@@ -38,16 +37,17 @@ export function ProgramTabBar({
               }}
               style={[
                 styles.tab,
-                isActive ? styles.tabActive : styles.tabIdle,
-                isDark && (isActive ? styles.tabActiveDark : styles.tabIdleDark),
+                {
+                  backgroundColor: isActive ? p.accent : p.accentSoft,
+                  borderColor: isActive ? p.accent : p.divider,
+                },
               ]}
               activeOpacity={0.7}
             >
               <Text
                 style={[
                   styles.tabText,
-                  isActive ? styles.tabTextActive : styles.tabTextIdle,
-                  isDark && (isActive ? styles.tabTextActiveDark : styles.tabTextIdleDark),
+                  { color: isActive ? "#FFFFFF" : p.textSecondary },
                 ]}
               >
                 {tab}
@@ -74,38 +74,10 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     borderWidth: 1,
   },
-  tabActive: {
-    backgroundColor: "#22C55E",
-    borderColor: "#16A34A",
-  },
-  tabActiveDark: {
-    backgroundColor: "#22C55E",
-    borderColor: "#16A34A",
-  },
-  tabIdle: {
-    backgroundColor: "rgba(15,23,42,0.04)",
-    borderColor: "rgba(15,23,42,0.08)",
-  },
-  tabIdleDark: {
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderColor: "rgba(255,255,255,0.10)",
-  },
   tabText: {
     fontSize: 14,
     fontFamily: "Outfit-ExtraBold",
     fontWeight: "800",
     letterSpacing: 0.2,
-  },
-  tabTextActive: {
-    color: "#FFFFFF",
-  },
-  tabTextActiveDark: {
-    color: "#FFFFFF",
-  },
-  tabTextIdle: {
-    color: "#64748B",
-  },
-  tabTextIdleDark: {
-    color: "#94A3B8",
   },
 });

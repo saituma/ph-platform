@@ -1,17 +1,13 @@
 import React from "react";
 import { View, Pressable, Text } from "react-native";
 import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 
 interface NavigationFooterProps {
   previousExerciseId: string | null;
   nextExerciseId: string | null;
   onPrevious: () => void;
   onNext: () => void;
-  colors: any;
-  isDark: boolean;
-  surfaceColor: string;
-  mutedSurface: string;
-  borderSoft: string;
 }
 
 export function NavigationFooter({
@@ -19,20 +15,17 @@ export function NavigationFooter({
   nextExerciseId,
   onPrevious,
   onNext,
-  colors,
-  isDark,
-  surfaceColor,
-  mutedSurface,
-  borderSoft,
 }: NavigationFooterProps) {
+  const p = useAdminPastel();
+
   return (
     <View
       className="absolute left-6 right-6 flex-row items-center gap-3 rounded-[28px] border px-4 py-4"
       style={{
         bottom: 20,
-        backgroundColor: surfaceColor,
-        borderColor: borderSoft,
-        ...(isDark ? Shadows.none : Shadows.md),
+        backgroundColor: p.cardWhite,
+        borderColor: p.divider,
+        ...Shadows.md,
       }}
     >
       <Pressable
@@ -41,11 +34,11 @@ export function NavigationFooter({
         className={`flex-1 rounded-2xl px-4 py-4 items-center justify-center ${
           previousExerciseId ? "" : "opacity-50"
         }`}
-        style={{ backgroundColor: mutedSurface }}
+        style={{ backgroundColor: p.inputBg }}
       >
         <Text
           className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px]"
-          style={{ color: colors.text }}
+          style={{ color: p.textPrimary }}
         >
           Previous
         </Text>
@@ -53,7 +46,7 @@ export function NavigationFooter({
       <Pressable
         onPress={onNext}
         className="flex-1 rounded-2xl px-4 py-4 items-center justify-center"
-        style={{ backgroundColor: colors.accent }}
+        style={{ backgroundColor: p.accent }}
       >
         <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px] text-white">
           {nextExerciseId ? "Next" : "Finish Session"}

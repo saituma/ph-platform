@@ -324,13 +324,39 @@ export async function listLogs(req: Request, res: Response) {
 
   try {
     const userIdRaw = typeof req.query.userId === "string" ? req.query.userId : null;
-    const targetUserId = userIdRaw === "me" ? req.user.id : userIdRaw ? Number(userIdRaw) : req.user.id;
+    let targetUserId = userIdRaw === "me" ? req.user.id : userIdRaw ? Number(userIdRaw) : req.user.id;
     if (!Number.isFinite(targetUserId)) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
 
+    // Guardian viewing "me" should see their active athlete's logs, not their own
+    if (targetUserId === req.user.id && req.user.role === "guardian") {
+      const [activeAthlete] = await db
+        .select({ athleteUserId: athleteTable.userId })
+        .from(guardianTable)
+        .innerJoin(athleteTable, eq(guardianTable.activeAthleteId, athleteTable.id))
+        .where(eq(guardianTable.userId, req.user.id))
+        .limit(1);
+      if (activeAthlete?.athleteUserId) {
+        targetUserId = activeAthlete.athleteUserId;
+      }
+    }
+
     if (targetUserId !== req.user.id && !isTrainingStaff(req.user.role)) {
-      return res.status(403).json({ error: "Forbidden" });
+      // Guardians can read their own athlete's logs
+      if (req.user.role === "guardian") {
+        const [ownedAthlete] = await db
+          .select({ id: athleteTable.id })
+          .from(athleteTable)
+          .innerJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
+          .where(and(eq(guardianTable.userId, req.user.id), eq(athleteTable.userId, targetUserId)))
+          .limit(1);
+        if (!ownedAthlete) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+      } else {
+        return res.status(403).json({ error: "Forbidden" });
+      }
     }
 
     const limitRaw = req.query.limit ? Number(req.query.limit) : 50;
@@ -487,58 +513,67 @@ export async function provideFeedback(req: Request, res: Response) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
-  const logId = Number(req.params.logId);
-  if (!Number.isFinite(logId)) return res.status(400).json({ error: "Invalid log ID" });
+  try {
+    const logId = Number(req.params.logId);
+    if (!Number.isFinite(logId)) return res.status(400).json({ error: "Invalid log ID" });
 
-  const input = feedbackSchema.parse(req.body);
+    const parsed = feedbackSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
+    }
+    const input = parsed.data;
 
-  const [existingLog] = await db.select().from(nutritionLogsTable).where(eq(nutritionLogsTable.id, logId)).limit(1);
-  if (!existingLog) return res.status(404).json({ error: "Log not found" });
+    const [existingLog] = await db.select().from(nutritionLogsTable).where(eq(nutritionLogsTable.id, logId)).limit(1);
+    if (!existingLog) return res.status(404).json({ error: "Log not found" });
 
-  const setUpdate: Record<string, any> = {
-    coachFeedback: input.feedback,
-    coachId: req.user.id,
-    updatedAt: new Date(),
-  };
-  if (input.mediaUrl !== undefined) setUpdate.coachFeedbackMediaUrl = input.mediaUrl;
-  if (input.mediaType !== undefined) setUpdate.coachFeedbackMediaType = input.mediaType;
-
-  const [updatedLog] = await db
-    .update(nutritionLogsTable)
-    .set(setUpdate)
-    .where(eq(nutritionLogsTable.id, logId))
-    .returning();
-
-  // Send a Notification to the user
-  await db.insert(notificationTable).values({
-    userId: existingLog.userId,
-    type: "nutrition_feedback",
-    content: "Coach responded to your nutrition tracking log.",
-    link: "/nutrition",
-  });
-
-  void createPushIntent({
-    userId: existingLog.userId,
-    title: "Nutrition response",
-    body: "Coach responded to your nutrition log.",
-    data: {
-      type: "nutrition_feedback",
-      url: "/nutrition",
-    },
-  }).catch(() => undefined);
-
-  const io = getSocketServer();
-  if (io && updatedLog) {
-    const payload = {
-      userId: existingLog.userId,
-      logId: updatedLog.id,
-      dateKey: updatedLog.dateKey,
-      updatedAt: updatedLog.updatedAt,
-      actorUserId: req.user.id,
+    const setUpdate: Record<string, any> = {
+      coachFeedback: input.feedback,
+      coachId: req.user.id,
+      updatedAt: new Date(),
     };
-    io.to(`user:${existingLog.userId}`).emit("nutrition:feedback:updated", payload);
-    io.to("admin:all").emit("nutrition:feedback:updated", payload);
-  }
+    if (input.mediaUrl !== undefined) setUpdate.coachFeedbackMediaUrl = input.mediaUrl;
+    if (input.mediaType !== undefined) setUpdate.coachFeedbackMediaType = input.mediaType;
 
-  return res.status(200).json({ log: updatedLog });
+    const [updatedLog] = await db
+      .update(nutritionLogsTable)
+      .set(setUpdate)
+      .where(eq(nutritionLogsTable.id, logId))
+      .returning();
+
+    await db.insert(notificationTable).values({
+      userId: existingLog.userId,
+      type: "nutrition_feedback",
+      content: "Coach responded to your nutrition tracking log.",
+      link: "/nutrition",
+    });
+
+    void createPushIntent({
+      userId: existingLog.userId,
+      title: "Nutrition Feedback",
+      body: "Your coach responded to your nutrition log.",
+      data: {
+        type: "nutrition_feedback",
+        url: "/nutrition",
+      },
+    }).catch(() => undefined);
+
+    const io = getSocketServer();
+    if (io && updatedLog) {
+      const payload = {
+        userId: existingLog.userId,
+        logId: updatedLog.id,
+        dateKey: updatedLog.dateKey,
+        updatedAt: updatedLog.updatedAt,
+        actorUserId: req.user.id,
+      };
+      io.to(`user:${existingLog.userId}`).emit("nutrition:feedback:updated", payload);
+      io.to("admin:all").emit("nutrition:feedback:updated", payload);
+    }
+
+    return res.status(200).json({ log: updatedLog });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to save feedback";
+    console.error("[nutrition] provideFeedback error:", error);
+    return res.status(500).json({ error: message });
+  }
 }

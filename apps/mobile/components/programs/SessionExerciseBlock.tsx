@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { SessionItem } from "@/hooks/programs/useSessionData";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { MarkdownText } from "@/components/ui/MarkdownText";
@@ -66,10 +66,8 @@ export function SessionExerciseBlock({
   onCompleteSession,
   completeSessionLabel = "Complete Session",
 }: Props) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   if (items.length === 0) return null;
-
-  const borderSoft = colors.borderSubtle ?? (isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)");
 
   const MetaSectionCard = ({
     icon,
@@ -89,8 +87,8 @@ export function SessionExerciseBlock({
       <View
         className="rounded-[22px] border px-4 py-4 gap-3"
         style={{
-          backgroundColor: colors.surfaceHigh,
-          borderColor: borderSoft,
+          backgroundColor: p.cardSage,
+          borderColor: p.divider,
           width: "100%",
           alignSelf: "stretch",
         }}
@@ -98,13 +96,13 @@ export function SessionExerciseBlock({
         <View className="flex-row items-center gap-3" style={{ flexShrink: 1 }}>
           <View
             className="h-9 w-9 rounded-full items-center justify-center"
-            style={{ backgroundColor: colors.accentLight }}
+            style={{ backgroundColor: p.accentSoft }}
           >
-            <Feather name={icon} size={16} color={colors.accent} />
+            <Feather name={icon} size={16} color={p.accent} />
           </View>
           <Text
             className="text-[11px] font-outfit-bold uppercase tracking-[1.4px] flex-1"
-            style={{ color: colors.textSecondary }}
+            style={{ color: p.textSecondary }}
           >
             {sectionTitle}
           </Text>
@@ -114,19 +112,19 @@ export function SessionExerciseBlock({
           baseStyle={{
             fontSize: baseSize,
             lineHeight,
-            color: colors.text,
+            color: p.textPrimary,
             fontWeight: "500",
           }}
           headingStyle={{
             fontSize: headSize,
             lineHeight: headSize + 8,
-            color: colors.text,
+            color: p.textPrimary,
             fontWeight: "700",
           }}
           subheadingStyle={{
             fontSize: baseSize + 1,
             lineHeight: lineHeight + 2,
-            color: colors.text,
+            color: p.textPrimary,
             fontWeight: "700",
           }}
           listItemStyle={{ paddingLeft: 6 }}
@@ -162,18 +160,18 @@ export function SessionExerciseBlock({
       <View className="mb-3 flex-row items-center justify-between">
         <View
           className="rounded-full px-3 py-1.5"
-          style={{ backgroundColor: colors.accentLight }}
+          style={{ backgroundColor: p.accentSoft }}
         >
           <Text
             className="text-[10px] font-outfit-bold uppercase tracking-[1.3px]"
-            style={{ color: colors.accent }}
+            style={{ color: p.accent }}
           >
             {title}
           </Text>
         </View>
         <Text
           className="text-[11px] font-outfit font-semibold"
-          style={{ color: colors.textSecondary }}
+          style={{ color: p.textSecondary }}
         >
           {items.length} item{items.length === 1 ? "" : "s"}
         </Text>
@@ -184,8 +182,8 @@ export function SessionExerciseBlock({
             key={item.id}
             className="rounded-3xl border p-4"
             style={{
-              backgroundColor: colors.surface,
-              borderColor: borderSoft,
+              backgroundColor: p.cardWhite,
+              borderColor: p.divider,
             }}
           >
             {item.videoUrl?.trim()
@@ -219,27 +217,27 @@ export function SessionExerciseBlock({
                       }
                       className="rounded-2xl px-5 py-4 flex-row items-center gap-3 mb-4 border"
                       style={{
-                        backgroundColor: colors.surfaceHigh,
-                        borderColor: borderSoft,
+                        backgroundColor: p.cardSage,
+                        borderColor: p.divider,
                       }}
                     >
-                      <Feather name="external-link" size={18} color={colors.icon} />
+                      <Feather name="external-link" size={18} color={p.textMuted} />
                       <View className="flex-1">
                         <Text
                           className="text-sm font-outfit font-semibold"
-                          style={{ color: colors.textPrimary }}
+                          style={{ color: p.textPrimary }}
                         >
                           {externalLabelFor(url)}
                         </Text>
                         <Text
                           className="text-[11px] font-outfit mt-0.5"
-                          style={{ color: colors.textSecondary }}
+                          style={{ color: p.textSecondary }}
                           numberOfLines={1}
                         >
                           {url}
                         </Text>
                       </View>
-                      <Feather name="chevron-right" size={16} color={colors.icon} />
+                      <Feather name="chevron-right" size={16} color={p.textMuted} />
                     </Pressable>
                   );
                 })()
@@ -284,8 +282,8 @@ export function SessionExerciseBlock({
                           <View
                             className="rounded-2xl px-4 py-3 border"
                             style={{
-                              backgroundColor: colors.surfaceHigh,
-                              borderColor: borderSoft,
+                              backgroundColor: p.cardSage,
+                              borderColor: p.divider,
                             }}
                           >
                             <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
@@ -303,8 +301,8 @@ export function SessionExerciseBlock({
                           <View
                             className="rounded-2xl px-4 py-3 border"
                             style={{
-                              backgroundColor: colors.surfaceHigh,
-                              borderColor: borderSoft,
+                              backgroundColor: p.cardSage,
+                              borderColor: p.divider,
                             }}
                           >
                             <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
@@ -325,8 +323,8 @@ export function SessionExerciseBlock({
                               <View
                                 className="rounded-2xl px-4 py-3 border"
                                 style={{
-                                  backgroundColor: colors.surfaceHigh,
-                                  borderColor: borderSoft,
+                                  backgroundColor: p.cardSage,
+                                  borderColor: p.divider,
                                 }}
                               >
                                 <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-1">
@@ -391,8 +389,8 @@ export function SessionExerciseBlock({
                         <View
                           className="rounded-2xl px-4 py-3 border"
                           style={{
-                            backgroundColor: colors.surfaceHigh,
-                            borderColor: borderSoft,
+                            backgroundColor: p.cardSage,
+                            borderColor: p.divider,
                           }}
                         >
                           <Text className="text-xs font-outfit-bold text-secondary uppercase tracking-widest mb-2">
@@ -403,10 +401,10 @@ export function SessionExerciseBlock({
                             onChangeText={(t) => onPendingNotesChange?.(item.id, t)}
                             editable={!isSending}
                             placeholder="What should your coach look for?"
-                            placeholderTextColor={colors.textSecondary}
+                            placeholderTextColor={p.textSecondary}
                             multiline
                             style={{
-                              color: colors.textPrimary,
+                              color: p.textPrimary,
                               minHeight: 60,
                               textAlignVertical: "top",
                             }}
@@ -433,13 +431,13 @@ export function SessionExerciseBlock({
                             onPress={() => onPendingRemove?.(item.id)}
                             className="flex-1 rounded-full py-3 items-center border"
                             style={{
-                              backgroundColor: colors.surfaceHigh,
-                              borderColor: borderSoft,
+                              backgroundColor: p.cardSage,
+                              borderColor: p.divider,
                             }}
                           >
                             <Text
                               className="font-outfit-bold uppercase"
-                              style={{ color: colors.textPrimary }}
+                              style={{ color: p.textPrimary }}
                             >
                               Remove
                             </Text>
@@ -448,7 +446,7 @@ export function SessionExerciseBlock({
                             disabled={isSending}
                             onPress={() => void onPendingSend?.(item.id)}
                             className="flex-1 rounded-full py-3 items-center flex-row justify-center gap-2"
-                            style={{ backgroundColor: colors.accent }}
+                            style={{ backgroundColor: p.accent }}
                           >
                             {isSending ? (
                               <ActivityIndicator color="#fff" />
@@ -565,8 +563,8 @@ export function SessionExerciseBlock({
                   onPress={() => onUploadPress(item.id, item.title)}
                   className="h-10 w-10 rounded-full items-center justify-center border"
                   style={{
-                    backgroundColor: colors.accentLight,
-                    borderColor: borderSoft,
+                    backgroundColor: p.accentSoft,
+                    borderColor: p.divider,
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="Upload video"
@@ -575,7 +573,7 @@ export function SessionExerciseBlock({
                     name="video"
                     size={18}
                     color={
-                      hasUploaded[item.id] ? colors.success : colors.accent
+                      hasUploaded[item.id] ? p.success : p.accent
                     }
                   />
                 </Pressable>
@@ -584,13 +582,13 @@ export function SessionExerciseBlock({
                 </Text>
               </View>
             ) : canUpload && !item.allowVideoUpload ? (
-              <View className="mt-4 rounded-2xl border px-3 py-2" style={{ borderColor: borderSoft, backgroundColor: colors.surfaceHigh }}>
+              <View className="mt-4 rounded-2xl border px-3 py-2" style={{ borderColor: p.divider, backgroundColor: p.cardSage }}>
                 <Text className="text-[11px] font-outfit text-secondary">
                   Video upload is disabled for this item.
                 </Text>
               </View>
             ) : item.allowVideoUpload ? (
-              <View className="mt-4 rounded-2xl border px-3 py-2" style={{ borderColor: borderSoft, backgroundColor: colors.surfaceHigh }}>
+              <View className="mt-4 rounded-2xl border px-3 py-2" style={{ borderColor: p.divider, backgroundColor: p.cardSage }}>
                 <Text className="text-[11px] font-outfit text-secondary">
                   Video upload is available on Premium Plus or Pro.
                 </Text>

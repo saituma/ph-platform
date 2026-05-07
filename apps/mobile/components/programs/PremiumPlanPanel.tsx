@@ -3,7 +3,7 @@ import { View, Pressable, ActivityIndicator, Modal, Platform, StyleSheet, Keyboa
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { PlanSession } from "@/types/programs";
@@ -23,7 +23,7 @@ export function PremiumPlanPanel({
   onMessageCoach,
   canMessageCoach,
 }: Props) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const [items, setItems] = useState<PlanSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,9 +37,6 @@ export function PremiumPlanPanel({
   const [notes, setNotes] = useState("");
   const [checkinError, setCheckinError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9";
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -148,20 +145,20 @@ export function PremiumPlanPanel({
       <View
         className="rounded-[24px] px-5 py-5 gap-3 border"
         style={{
-          backgroundColor: isDark ? "rgba(34,197,94,0.08)" : "#ECFDF5",
-          borderColor: isDark ? "rgba(34,197,94,0.2)" : "#A7F3D0",
-          ...(isDark ? Shadows.none : Shadows.sm),
+          backgroundColor: p.successSoft,
+          borderColor: p.success,
+          ...Shadows.sm,
         }}
       >
         <View className="flex-row items-center gap-2">
-          <Feather name="star" size={16} color={colors.accent} />
-          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+          <Feather name="star" size={16} color={p.accent} />
+          <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: p.accent }}>
             Your training
           </Text>
         </View>
         <Text className="text-xl font-clash text-app font-bold">This week</Text>
         {weekStats.total > 0 && activeWeek != null && (
-          <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: borderSoft, backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "#F8FAFC" }}>
+          <View className="mt-2 rounded-2xl px-4 py-3 border" style={{ borderColor: p.divider, backgroundColor: p.cardWhite }}>
             <Text className="text-sm font-outfit text-app font-semibold">Week {activeWeek}: {weekStats.done}/{weekStats.total} exercises done</Text>
             {nextSession && <Text className="text-xs font-outfit text-secondary mt-1">Up next: Session {nextSession.sessionNumber}</Text>}
           </View>
@@ -176,11 +173,11 @@ export function PremiumPlanPanel({
               onPress={() => setActiveWeek(week)}
               className="px-4 py-2 rounded-full border"
               style={{
-                backgroundColor: activeWeek === week ? colors.text : "transparent",
-                borderColor: activeWeek === week ? colors.text : borderSoft,
+                backgroundColor: activeWeek === week ? p.textPrimary : "transparent",
+                borderColor: activeWeek === week ? p.textPrimary : p.divider,
               }}
             >
-              <Text className={`text-[11px] font-outfit font-bold uppercase tracking-[1.4px] ${activeWeek === week ? "text-app" : "text-secondary"}`} style={{ color: activeWeek === week ? colors.background : colors.textSecondary }}>
+              <Text className={`text-[11px] font-outfit font-bold uppercase tracking-[1.4px] ${activeWeek === week ? "text-app" : "text-secondary"}`} style={{ color: activeWeek === week ? p.pageBg : p.textSecondary }}>
                 Week {week}
               </Text>
             </Pressable>
@@ -189,27 +186,27 @@ export function PremiumPlanPanel({
       )}
 
       {isLoading ? (
-        <ActivityIndicator color={colors.accent} className="py-10" />
+        <ActivityIndicator color={p.accent} className="py-10" />
       ) : (
         visibleSessions.map((session) => (
-          <View key={session.id} className="rounded-[24px] px-5 py-5 gap-4 border" style={{ backgroundColor: colors.card, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.sm) }}>
+          <View key={session.id} className="rounded-[24px] px-5 py-5 gap-4 border" style={{ backgroundColor: p.cardWhite, borderColor: p.divider, ...Shadows.sm }}>
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1">
                 <Text className="text-lg font-clash text-app font-bold">Session {session.sessionNumber}{session.title ? ` • ${session.title}` : ""}</Text>
                 {session.notes && <Text className="text-sm font-outfit text-secondary mt-1">{session.notes}</Text>}
               </View>
               <View className="flex-row items-center gap-2">
-                <Pressable onPress={() => openSessionExercise(session)} className="px-3 py-1.5 rounded-full" style={{ backgroundColor: colors.accent }}>
+                <Pressable onPress={() => openSessionExercise(session)} className="px-3 py-1.5 rounded-full" style={{ backgroundColor: p.accent }}>
                   <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.5px] text-white">Start</Text>
                 </Pressable>
-                <Pressable onPress={() => { setCheckinSession(session); setCheckinOpen(true); }} className="px-3 py-1.5 rounded-full" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4" }}>
-                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.5px]" style={{ color: colors.accent }}>Log</Text>
+                <Pressable onPress={() => { setCheckinSession(session); setCheckinOpen(true); }} className="px-3 py-1.5 rounded-full" style={{ backgroundColor: p.accentSoft }}>
+                  <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.5px]" style={{ color: p.accent }}>Log</Text>
                 </Pressable>
               </View>
             </View>
             <View className="gap-2.5">
               {(session.exercises ?? []).map((ex) => (
-                <Pressable key={ex.id} onPress={() => openSessionExercise(session, (session.exercises ?? []).findIndex(e => e.id === ex.id))} className="rounded-2xl border px-4 py-3" style={{ backgroundColor: ex.completed ? (isDark ? "rgba(34,197,94,0.1)" : "#F0FDF4") : "transparent", borderColor: ex.completed ? (isDark ? "rgba(34,197,94,0.3)" : "#86EFAC") : borderSoft }}>
+                <Pressable key={ex.id} onPress={() => openSessionExercise(session, (session.exercises ?? []).findIndex(e => e.id === ex.id))} className="rounded-2xl border px-4 py-3" style={{ backgroundColor: ex.completed ? p.successSoft : "transparent", borderColor: ex.completed ? p.success : p.divider }}>
                   <Text className="text-sm font-outfit text-app font-semibold">{ex.exercise?.name ?? "Exercise"}</Text>
                 </Pressable>
               ))}
@@ -222,10 +219,10 @@ export function PremiumPlanPanel({
       <Modal visible={checkinOpen} transparent animationType="slide">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-            <View className="bg-card rounded-t-[32px] p-6" style={{ backgroundColor: colors.card }}>
+            <View className="bg-card rounded-t-[32px] p-6" style={{ backgroundColor: p.cardWhite }}>
               <View className="flex-row justify-between mb-6">
                 <Text className="text-xl font-clash font-bold text-app">Session Check-in</Text>
-                <TouchableOpacity onPress={() => setCheckinOpen(false)}><Feather name="x" size={24} color={colors.text} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => setCheckinOpen(false)}><Feather name="x" size={24} color={p.textPrimary} /></TouchableOpacity>
               </View>
               <View className="gap-4">
                 <TextInput value={rpe} onChangeText={setRpe} placeholder="RPE (1-10)" keyboardType="number-pad" className="bg-background rounded-2xl px-4 py-3 text-app" />

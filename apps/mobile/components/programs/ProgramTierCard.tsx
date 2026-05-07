@@ -2,7 +2,7 @@ import React from "react";
 import { View, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Shadows } from "@/constants/theme";
 
 interface Props {
@@ -20,16 +20,15 @@ export function ProgramTierCard({
   tier,
   onOpen,
 }: Props) {
-  const { colors, isDark } = useAppTheme();
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const p = useAdminPastel();
 
   return (
     <View
       className="mb-6 rounded-[32px] border overflow-hidden"
       style={{
-        backgroundColor: colors.card,
-        borderColor: borderSoft,
-        ...(isDark ? Shadows.none : Shadows.md),
+        backgroundColor: p.cardWhite,
+        borderColor: p.divider,
+        ...Shadows.md,
       }}
     >
       <View className="p-6">
@@ -43,14 +42,14 @@ export function ProgramTierCard({
             )}
           </View>
           <View className="h-12 w-12 rounded-2xl items-center justify-center bg-accent/10">
-            <Feather name={tier.icon as any} size={24} color={colors.accent} />
+            <Feather name={tier.icon as any} size={24} color={p.accent} />
           </View>
         </View>
 
         <View className="gap-3 mb-6">
           {tier.features.slice(0, 4).map((f) => (
             <View key={f} className="flex-row items-center gap-2">
-              <Feather name="check" size={14} color={colors.accent} />
+              <Feather name="check" size={14} color={p.accent} />
               <Text className="text-sm font-outfit text-secondary">{f}</Text>
             </View>
           ))}
