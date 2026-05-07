@@ -305,6 +305,8 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   }, [athleteUserId, managedAthletes]);
 
   const isTeamMode = hasAssignedTeam(activeAthlete?.team);
+  const isYouth = (activeAthlete?.age ?? 0) > 0 && (activeAthlete?.age ?? 99) < 18;
+  const useAgeBasedContent = isTeamMode || isYouth;
 
   const {
     workspace,
@@ -318,27 +320,27 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     isLoading: programsLoading,
     error: programsError,
     loadPrograms,
-  } = useMyPrograms(token, !isTeamMode);
+  } = useMyPrograms(token, !useAgeBasedContent);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null);
   const effectiveProgramId = selectedProgramId ?? programs[0]?.id ?? null;
 
   useEffect(() => {
-    if (isTeamMode) {
+    if (useAgeBasedContent) {
       loadTeam();
     }
-  }, [isTeamMode]);
+  }, [useAgeBasedContent]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    if (isTeamMode) {
+    if (useAgeBasedContent) {
       await loadTeam(true);
     } else {
       await loadPrograms(true);
     }
     setIsRefreshing(false);
-  }, [isTeamMode, loadTeam, loadPrograms]);
+  }, [useAgeBasedContent, loadTeam, loadPrograms]);
 
   const watchHistory = useWatchHistoryStore((s) => s.history);
 
@@ -369,7 +371,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     return <AgeGate title="Programs locked" message="Programs are restricted for this age." />;
   }
 
-  if (isTeamMode) {
+  if (useAgeBasedContent) {
     return (
       <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
         {watchHistory.length > 0 ? (

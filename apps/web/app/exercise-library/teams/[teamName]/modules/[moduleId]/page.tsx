@@ -41,6 +41,7 @@ import {
   normalizeAudienceLabelInput,
   toTeamStorageAudienceLabel,
   trainingContentRequest,
+  clearTrainingContentCache,
 } from "../../../../../../components/admin/training-content-v2/api";
 
 function SortableSessionCard({
@@ -197,6 +198,20 @@ export default function ModuleSessionsPage() {
 
   useEffect(() => {
     void loadWorkspace();
+
+    const refetch = () => {
+      clearTrainingContentCache();
+      void loadWorkspace();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [storageAudienceLabel]);
 
   const module =

@@ -28,6 +28,7 @@ import {
   normalizeAudienceLabelInput,
   toTeamStorageAudienceLabel,
   trainingContentRequest,
+  clearTrainingContentCache,
 } from "../../../../../../../../components/admin/training-content-v2/api";
 import { useCreateMediaUploadUrlMutation } from "../../../../../../../../lib/apiSlice";
 
@@ -119,6 +120,20 @@ export default function SessionDetailPage() {
 
   useEffect(() => {
     void loadWorkspace();
+
+    const refetch = () => {
+      clearTrainingContentCache();
+      void loadWorkspace();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [storageAudienceLabel]);
 
   const uploadLocalVideo = async (file: File) => {

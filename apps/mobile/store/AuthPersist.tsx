@@ -369,9 +369,14 @@ export function AuthPersist() {
       }
     });
 
+    const capabilityPoll = setInterval(() => {
+      void syncProfile();
+    }, 120_000);
+
     return () => {
       active = false;
       appStateSub.remove();
+      clearInterval(capabilityPoll);
     };
   }, [dispatch, hydrated, isAuthenticated, token]);
 

@@ -322,148 +322,163 @@ export async function updateTargets(req: Request, res: Response) {
 export async function listLogs(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  const userIdRaw = typeof req.query.userId === "string" ? req.query.userId : null;
-  const targetUserId = userIdRaw === "me" ? req.user.id : userIdRaw ? Number(userIdRaw) : req.user.id;
-  if (!Number.isFinite(targetUserId)) {
-    return res.status(400).json({ error: "Invalid user ID" });
+  try {
+    const userIdRaw = typeof req.query.userId === "string" ? req.query.userId : null;
+    const targetUserId = userIdRaw === "me" ? req.user.id : userIdRaw ? Number(userIdRaw) : req.user.id;
+    if (!Number.isFinite(targetUserId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    if (targetUserId !== req.user.id && !isTrainingStaff(req.user.role)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const limitRaw = req.query.limit ? Number(req.query.limit) : 50;
+    const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+    const from = typeof req.query.from === "string" ? req.query.from : undefined;
+    const to = typeof req.query.to === "string" ? req.query.to : undefined;
+    const fromKey = from && dateKeySchema.safeParse(from).success ? from : null;
+    const toKey = to && dateKeySchema.safeParse(to).success ? to : null;
+
+    const whereClauses = [eq(nutritionLogsTable.userId, targetUserId)];
+    if (fromKey) whereClauses.push(gte(nutritionLogsTable.dateKey, fromKey));
+    if (toKey) whereClauses.push(lte(nutritionLogsTable.dateKey, toKey));
+
+    const logs = await db
+      .select()
+      .from(nutritionLogsTable)
+      .where(and(...whereClauses))
+      .orderBy(desc(nutritionLogsTable.dateKey), desc(nutritionLogsTable.id))
+      .limit(limitRaw);
+
+    return res.status(200).json({ logs });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to fetch nutrition logs";
+    console.error("[nutrition] listLogs error:", error);
+    return res.status(500).json({ error: message });
   }
-
-  if (targetUserId !== req.user.id && !isTrainingStaff(req.user.role)) {
-    // Only coaches can fetch other users' logs directly
-    return res.status(403).json({ error: "Forbidden" });
-  }
-
-  const limitRaw = req.query.limit ? Number(req.query.limit) : 50;
-  const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-  const from = typeof req.query.from === "string" ? req.query.from : undefined;
-  const to = typeof req.query.to === "string" ? req.query.to : undefined;
-  const fromKey = from ? dateKeySchema.parse(from) : null;
-  const toKey = to ? dateKeySchema.parse(to) : null;
-
-  const whereClauses = [eq(nutritionLogsTable.userId, targetUserId)];
-  if (fromKey) whereClauses.push(gte(nutritionLogsTable.dateKey, fromKey));
-  if (toKey) whereClauses.push(lte(nutritionLogsTable.dateKey, toKey));
-
-  const logs = await db
-    .select()
-    .from(nutritionLogsTable)
-    .where(and(...whereClauses))
-    .orderBy(desc(nutritionLogsTable.dateKey), desc(nutritionLogsTable.loggedAt), desc(nutritionLogsTable.id))
-    .limit(limitRaw);
-
-  return res.status(200).json({ logs });
 }
 
 export async function upsertLog(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  let targetUserId = req.body.athleteId ? Number(req.body.athleteId) : req.user.id;
-  if (!Number.isFinite(targetUserId)) {
-    return res.status(400).json({ error: "Invalid athlete ID" });
-  }
-
-  // Guardian clients may submit nutrition logs without athleteId in payload.
-  // In that case, route the log to guardian.activeAthleteId -> athlete.userId.
-  if (!req.body.athleteId && req.user.role === "guardian") {
-    const [activeAthlete] = await db
-      .select({ athleteUserId: athleteTable.userId })
-      .from(guardianTable)
-      .innerJoin(athleteTable, eq(guardianTable.activeAthleteId, athleteTable.id))
-      .where(eq(guardianTable.userId, req.user.id))
-      .limit(1);
-    if (activeAthlete?.athleteUserId) {
-      targetUserId = activeAthlete.athleteUserId;
-    }
-  }
-
-  const input = logSchema.parse(req.body);
-
-  const canWrite = await canWriteNutritionForUser({
-    actorUserId: req.user.id,
-    actorRole: req.user.role,
-    targetUserId,
-  });
-  if (!canWrite) {
-    return res.status(403).json({ error: "Forbidden" });
-  }
-
-  // Determine athlete type. Is not sent by default, fetch it from DB if needed, or default youth.
-  const [targetAthlete] = await db
-    .select({ athleteType: athleteTable.athleteType })
-    .from(athleteTable)
-    .where(eq(athleteTable.userId, targetUserId))
-    .limit(1);
-
-  const result = await db.transaction(async (tx) => {
-    const [existingLog] = await tx
-      .select()
-      .from(nutritionLogsTable)
-      .where(
-        and(
-          eq(nutritionLogsTable.userId, targetUserId),
-          eq(nutritionLogsTable.dateKey, input.dateKey),
-          eq(nutritionLogsTable.mealType, input.mealType),
-        ),
-      )
-      .limit(1);
-
-    if (existingLog) {
-      const [updated] = await tx
-        .update(nutritionLogsTable)
-        .set(buildNutritionUpdatePayload(existingLog, input))
-        .where(eq(nutritionLogsTable.id, existingLog.id))
-        .returning();
-      return updated;
+  try {
+    let targetUserId = req.body.athleteId ? Number(req.body.athleteId) : req.user.id;
+    if (!Number.isFinite(targetUserId)) {
+      return res.status(400).json({ error: "Invalid athlete ID" });
     }
 
-    const [inserted] = await tx
-      .insert(nutritionLogsTable)
-      .values({
-        userId: targetUserId,
-        athleteType: targetAthlete?.athleteType ?? "youth",
-        ...input,
-        mealType: input.mealType,
-        loggedAt: input.loggedAt ?? new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [nutritionLogsTable.userId, nutritionLogsTable.dateKey, nutritionLogsTable.mealType],
-        set: {
-          breakfast: input.breakfast ?? undefined,
-          lunch: input.lunch ?? undefined,
-          dinner: input.dinner ?? undefined,
-          snacks: input.snacks ?? undefined,
-          snacksMorning: input.snacksMorning ?? undefined,
-          snacksAfternoon: input.snacksAfternoon ?? undefined,
-          snacksEvening: input.snacksEvening ?? undefined,
-          foodDiary: input.foodDiary ?? undefined,
-          waterIntake: input.waterIntake ?? undefined,
-          steps: input.steps ?? undefined,
-          sleepHours: input.sleepHours ?? undefined,
-          mood: input.mood ?? undefined,
-          energy: input.energy ?? undefined,
-          pain: input.pain ?? undefined,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return inserted;
-  });
+    // Guardian clients may submit nutrition logs without athleteId in payload.
+    // In that case, route the log to guardian.activeAthleteId -> athlete.userId.
+    if (!req.body.athleteId && req.user.role === "guardian") {
+      const [activeAthlete] = await db
+        .select({ athleteUserId: athleteTable.userId })
+        .from(guardianTable)
+        .innerJoin(athleteTable, eq(guardianTable.activeAthleteId, athleteTable.id))
+        .where(eq(guardianTable.userId, req.user.id))
+        .limit(1);
+      if (activeAthlete?.athleteUserId) {
+        targetUserId = activeAthlete.athleteUserId;
+      }
+    }
 
-  // Realtime update for athlete + staff viewers (portal nutrition + team athlete detail).
-  const io = getSocketServer();
-  if (io && result) {
-    const payload = {
-      userId: targetUserId,
-      logId: result.id,
-      dateKey: result.dateKey,
-      updatedAt: result.updatedAt,
+    const parsed = logSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
+    }
+    const input = parsed.data;
+
+    const canWrite = await canWriteNutritionForUser({
       actorUserId: req.user.id,
-    };
-    io.to(`user:${targetUserId}`).emit("nutrition:log:updated", payload);
-    io.to("admin:all").emit("nutrition:log:updated", payload);
-  }
+      actorRole: req.user.role,
+      targetUserId,
+    });
+    if (!canWrite) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
 
-  return res.status(200).json({ log: result });
+    // Determine athlete type. Is not sent by default, fetch it from DB if needed, or default youth.
+    const [targetAthlete] = await db
+      .select({ athleteType: athleteTable.athleteType })
+      .from(athleteTable)
+      .where(eq(athleteTable.userId, targetUserId))
+      .limit(1);
+
+    const result = await db.transaction(async (tx) => {
+      const [existingLog] = await tx
+        .select()
+        .from(nutritionLogsTable)
+        .where(
+          and(
+            eq(nutritionLogsTable.userId, targetUserId),
+            eq(nutritionLogsTable.dateKey, input.dateKey),
+            eq(nutritionLogsTable.mealType, input.mealType),
+          ),
+        )
+        .limit(1);
+
+      if (existingLog) {
+        const [updated] = await tx
+          .update(nutritionLogsTable)
+          .set(buildNutritionUpdatePayload(existingLog, input))
+          .where(eq(nutritionLogsTable.id, existingLog.id))
+          .returning();
+        return updated;
+      }
+
+      const [inserted] = await tx
+        .insert(nutritionLogsTable)
+        .values({
+          userId: targetUserId,
+          athleteType: targetAthlete?.athleteType ?? "youth",
+          ...input,
+          mealType: input.mealType,
+          loggedAt: input.loggedAt ?? new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [nutritionLogsTable.userId, nutritionLogsTable.dateKey, nutritionLogsTable.mealType],
+          set: {
+            breakfast: input.breakfast ?? undefined,
+            lunch: input.lunch ?? undefined,
+            dinner: input.dinner ?? undefined,
+            snacks: input.snacks ?? undefined,
+            snacksMorning: input.snacksMorning ?? undefined,
+            snacksAfternoon: input.snacksAfternoon ?? undefined,
+            snacksEvening: input.snacksEvening ?? undefined,
+            foodDiary: input.foodDiary ?? undefined,
+            waterIntake: input.waterIntake ?? undefined,
+            steps: input.steps ?? undefined,
+            sleepHours: input.sleepHours ?? undefined,
+            mood: input.mood ?? undefined,
+            energy: input.energy ?? undefined,
+            pain: input.pain ?? undefined,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      return inserted;
+    });
+
+    // Realtime update for athlete + staff viewers (portal nutrition + team athlete detail).
+    const io = getSocketServer();
+    if (io && result) {
+      const payload = {
+        userId: targetUserId,
+        logId: result.id,
+        dateKey: result.dateKey,
+        updatedAt: result.updatedAt,
+        actorUserId: req.user.id,
+      };
+      io.to(`user:${targetUserId}`).emit("nutrition:log:updated", payload);
+      io.to("admin:all").emit("nutrition:log:updated", payload);
+    }
+
+    return res.status(200).json({ log: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to save nutrition log";
+    console.error("[nutrition] upsertLog error:", error);
+    return res.status(500).json({ error: message });
+  }
 }
 
 export async function provideFeedback(req: Request, res: Response) {
