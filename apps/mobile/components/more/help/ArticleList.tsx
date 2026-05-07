@@ -1,136 +1,223 @@
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Pressable, View } from "react-native";
+import { Key, Calendar, Users, Bell, Video, Search, Check, ArrowRight, MessageSquare } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
-import { ActionButton } from "@/components/dashboard/ActionButton";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { HelpArticle } from "./types";
 import { useRouter } from "expo-router";
 
-interface ArticleListProps {
-  articles: HelpArticle[];
-  selectedCategory: string;
-  onReset: () => void;
-}
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
+  key: Key,
+  calendar: Calendar,
+  users: Users,
+  bell: Bell,
+  video: Video,
+  search: Search,
+};
 
 function ArticleCard({ article }: { article: HelpArticle }) {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
+  const Icon = ICON_MAP[article.icon] || Search;
 
   return (
     <View
-      className="rounded-[28px] border p-5"
       style={{
-        backgroundColor: colors.card,
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-        ...(isDark ? Shadows.none : Shadows.sm),
+        borderRadius: 22,
+        padding: 20,
+        backgroundColor: p.cardSage,
       }}
     >
-      <View className="mb-4 flex-row items-start gap-3">
+      <View style={{ marginBottom: 16, flexDirection: "row", gap: 12 }}>
         <View
-          className="h-12 w-12 items-center justify-center rounded-2xl"
-          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.accentLight }}
+          style={{
+            height: 48,
+            width: 48,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 16,
+            backgroundColor: p.accentSoft,
+          }}
         >
-          <Feather name={article.icon as any} size={20} color={colors.accent} />
+          <Icon size={20} color={p.accent} />
         </View>
 
-        <View className="flex-1">
-          <View className="self-start rounded-full px-3 py-1.5 mb-2" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)" }}>
-            <Text className="font-outfit text-[10px] font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              alignSelf: "flex-start",
+              borderRadius: 100,
+              paddingHorizontal: 12,
+              paddingVertical: 4,
+              marginBottom: 8,
+              backgroundColor: p.cardMint,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: 1.2,
+                color: p.accent,
+              }}
+            >
               {article.categoryLabel}
             </Text>
           </View>
-          <Text className="font-clash text-xl text-app mb-2 leading-6">{article.title}</Text>
-          <Text className="font-outfit text-sm text-secondary leading-6">{article.summary}</Text>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, marginBottom: 8, lineHeight: 24 }}>
+            {article.title}
+          </Text>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, lineHeight: 20 }}>
+            {article.summary}
+          </Text>
         </View>
       </View>
 
-      <View className="gap-3 mb-4">
+      <View style={{ gap: 12, marginBottom: 16 }}>
         {article.highlights.map((highlight) => (
-          <View key={highlight} className="flex-row items-start gap-3">
-            <View className="mt-1 h-5 w-5 items-center justify-center rounded-full" style={{ backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)" }}>
-              <Feather name="check" size={12} color={colors.accent} />
+          <View key={highlight} style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+            <View
+              style={{
+                marginTop: 2,
+                height: 20,
+                width: 20,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 100,
+                backgroundColor: p.successSoft,
+              }}
+            >
+              <Check size={12} color={p.success} />
             </View>
-            <Text className="flex-1 font-outfit text-sm text-app leading-6">{highlight}</Text>
+            <Text style={{ flex: 1, fontFamily: "Outfit-Regular", fontSize: 13, color: p.textPrimary, lineHeight: 20 }}>
+              {highlight}
+            </Text>
           </View>
         ))}
       </View>
 
       {article.actionLabel ? (
-        <TouchableOpacity
+        <Pressable
           onPress={() => article.actionRoute && router.push(article.actionRoute as never)}
-          className="flex-row items-center justify-between rounded-2xl px-4 py-3"
-          style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)" }}
-          activeOpacity={0.9}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderRadius: 22,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            backgroundColor: p.cardMint,
+            opacity: pressed ? 0.85 : 1,
+          })}
         >
-          <Text className="font-outfit text-sm font-bold" style={{ color: colors.accent }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.accent }}>
             {article.actionLabel}
           </Text>
-          <Feather name="arrow-right" size={16} color={colors.accent} />
-        </TouchableOpacity>
+          <ArrowRight size={16} color={p.accent} />
+        </Pressable>
       ) : null}
     </View>
   );
 }
 
-export function ArticleList({ articles, selectedCategory, onReset }: ArticleListProps) {
-  const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+export function ArticleList({ articles, selectedCategory, onReset }: { articles: HelpArticle[]; selectedCategory: string; onReset: () => void }) {
+  const p = useAdminPastel();
 
   return (
     <View>
-      <View className="mb-4 flex-row items-center justify-between gap-3">
-        <View className="flex-1">
-          <Text className="ml-2 font-outfit font-bold uppercase tracking-wider text-secondary text-[11px]">
+      <View style={{ marginBottom: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: 1.4,
+              color: p.textSecondary,
+              marginLeft: 8,
+            }}
+          >
             Recommended guides
           </Text>
-          <Text className="mt-2 font-outfit text-sm text-secondary leading-relaxed">
+          <Text style={{ marginTop: 8, fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary }}>
             {articles.length} result{articles.length === 1 ? "" : "s"}
             {selectedCategory !== "all" ? " in this topic" : " ready to browse"}.
           </Text>
         </View>
         {selectedCategory !== "all" ? (
-          <TouchableOpacity
+          <Pressable
             onPress={onReset}
-            className="rounded-full px-3 py-2"
-            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)" }}
+            style={{
+              borderRadius: 100,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              backgroundColor: p.cardSage,
+            }}
           >
-            <Text className="font-outfit text-xs font-bold uppercase tracking-[1.2px]" style={{ color: colors.accent }}>
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 11,
+                textTransform: "uppercase",
+                letterSpacing: 1.2,
+                color: p.accent,
+              }}
+            >
               Reset
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ) : null}
       </View>
 
-      <View className="mb-8 gap-4">
+      <View style={{ marginBottom: 24, gap: 16 }}>
         {articles.length ? (
-          articles.map((article) => (
-            <ArticleCard key={article.id} article={article} />
-          ))
+          articles.map((article) => <ArticleCard key={article.id} article={article} />)
         ) : (
           <View
-            className="rounded-[28px] border p-5"
             style={{
-              backgroundColor: colors.card,
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-              ...(isDark ? Shadows.none : Shadows.sm),
+              borderRadius: 22,
+              padding: 20,
+              backgroundColor: p.cardSage,
             }}
           >
-            <View className="mb-3 h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.accentLight }}>
-              <Feather name="search" size={20} color={colors.accent} />
+            <View
+              style={{
+                marginBottom: 12,
+                height: 48,
+                width: 48,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 16,
+                backgroundColor: p.accentSoft,
+              }}
+            >
+              <Search size={20} color={p.accent} />
             </View>
-            <Text className="font-clash text-xl text-app mb-2">No direct matches yet</Text>
-            <Text className="font-outfit text-sm text-secondary leading-relaxed mb-4">
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, marginBottom: 8 }}>
+              No direct matches yet
+            </Text>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, lineHeight: 20, marginBottom: 16 }}>
               Try a broader term like password, schedule, or notifications. You can also message support directly.
             </Text>
-            <ActionButton
-              label="Contact Support"
-              onPress={() => router.push("/feedback")}
-              color="bg-accent"
-              icon="message-square"
-              fullWidth={true}
-            />
+            <Pressable
+              onPress={() => {}}
+              style={({ pressed }) => ({
+                height: 48,
+                borderRadius: 100,
+                backgroundColor: p.accent,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <MessageSquare size={18} color={p.buttonPrimaryText} />
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.buttonPrimaryText }}>
+                Contact Support
+              </Text>
+            </Pressable>
           </View>
         )}
       </View>

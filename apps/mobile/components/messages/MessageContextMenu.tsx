@@ -1,20 +1,27 @@
-import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import { Reply, Forward, Copy, Pin, Plus, Smile, Trash } from "lucide-react-native";
 import React from "react";
 import { Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import type { ChatMessage } from "@/constants/messages";
-import { fonts } from "@/constants/theme";
 
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "🔥"];
+
+const ACTION_ICONS: Record<string, React.FC<any>> = {
+	reply: Reply,
+	copy: Copy,
+	forward: Forward,
+	pin: Pin,
+	delete: Trash,
+};
 
 type Action = {
 	key: string;
 	label: string;
-	icon: keyof typeof Ionicons.glyphMap;
 	destructive?: boolean;
 };
 
@@ -43,18 +50,19 @@ export function MessageContextMenu({
 	onDelete,
 	onOpenEmojiPicker,
 }: Props) {
-	const { colors, isDark } = useAppTheme();
+	const p = useAdminPastel();
+	const { isDark } = useAppTheme();
 	if (!message) return null;
 
 	const isOwn = Number(message.senderId) === selfUserId;
 
 	const actions: Action[] = [
-		{ key: "reply", label: "Reply", icon: "arrow-undo" },
-		{ key: "copy", label: "Copy", icon: "copy-outline" },
-		...(onForward ? [{ key: "forward", label: "Forward", icon: "arrow-redo-outline" } as Action] : []),
-		...(onPin ? [{ key: "pin", label: "Pin", icon: "pin-outline" } as Action] : []),
+		{ key: "reply", label: "Reply" },
+		{ key: "copy", label: "Copy" },
+		...(onForward ? [{ key: "forward", label: "Forward" } as Action] : []),
+		...(onPin ? [{ key: "pin", label: message.pinnedAt ? "Unpin" : "Pin" } as Action] : []),
 		...(isOwn && onDelete
-			? [{ key: "delete", label: "Delete", icon: "trash-outline", destructive: true } as Action]
+			? [{ key: "delete", label: "Delete", destructive: true } as Action]
 			: []),
 	];
 
@@ -76,10 +84,10 @@ export function MessageContextMenu({
 		onClose();
 	};
 
-	const cardBg = isDark ? "rgba(30,30,30,0.95)" : "rgba(255,255,255,0.95)";
-	const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
-	const actionHoverBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
-	const separatorColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+	const cardBg = p.cardWhite;
+	const cardBorder = p.divider;
+	const actionHoverBg = p.accentSoft;
+	const separatorColor = p.divider;
 
 	return (
 		<Modal visible transparent animationType="none" onRequestClose={onClose}>
@@ -123,7 +131,7 @@ export function MessageContextMenu({
 									pressed && { backgroundColor: actionHoverBg },
 								]}
 							>
-								<Ionicons name="add-circle-outline" size={24} color={colors.textDim} />
+								<Plus size={24} color={p.textMuted} />
 							</Pressable>
 						)}
 					</Animated.View>
@@ -134,7 +142,7 @@ export function MessageContextMenu({
 						style={[
 							styles.previewBubble,
 							{
-								backgroundColor: isOwn ? colors.accent : (isDark ? "rgba(255,255,255,0.08)" : "hsl(220, 10%, 96%)"),
+								backgroundColor: isOwn ? p.accent : p.accentSoft,
 								alignSelf: isOwn ? "flex-end" : "flex-start",
 								borderRadius: 17,
 							},
@@ -145,8 +153,8 @@ export function MessageContextMenu({
 							style={{
 								fontSize: 15,
 								lineHeight: 21,
-								color: isOwn ? "hsl(220, 5%, 98%)" : colors.textPrimary,
-								fontFamily: Platform.select({ ios: undefined, default: fonts.bodyMedium }),
+								color: isOwn ? p.buttonPrimaryText : p.textPrimary,
+								fontFamily: "Outfit-Regular",
 							}}
 						>
 							{message.text || "[Media]"}
@@ -168,22 +176,26 @@ export function MessageContextMenu({
 										pressed && { backgroundColor: actionHoverBg },
 									]}
 								>
-									<Text
-										style={[
-											styles.actionLabel,
-											{
-												color: action.destructive ? "#FF3B30" : colors.textPrimary,
-												fontFamily: fonts.bodyMedium,
-											},
-										]}
-									>
-										{action.label}
-									</Text>
-									<Ionicons
-										name={action.icon as any}
-										size={20}
-										color={action.destructive ? "#FF3B30" : colors.textDim}
-									/>
+									{(() => {
+										const IconComp = ACTION_ICONS[action.key] ?? Smile;
+										const color = action.destructive ? "#FF3B30" : p.textMuted;
+										return (
+											<>
+												<Text
+													style={[
+														styles.actionLabel,
+														{
+															color: action.destructive ? "#FF3B30" : p.textPrimary,
+															fontFamily: "Outfit-Medium",
+														},
+													]}
+												>
+													{action.label}
+												</Text>
+												<IconComp size={18} color={color} />
+											</>
+										);
+									})()}
 								</Pressable>
 							</React.Fragment>
 						))}

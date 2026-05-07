@@ -36,7 +36,7 @@ import {
 } from "lucide-react-native";
 import { RunShareCard } from "../../../components/tracking/RunShareCard";
 import * as Crypto from "expo-crypto";
-import { fonts, radius, spacing } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import {
@@ -72,6 +72,7 @@ export default function RunSummaryScreen() {
   const MAP_HEIGHT = screenHeight * 0.52;
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
+  const p = useAdminPastel();
   const { colors, isDark } = useAppTheme();
   const {
     distanceMeters,
@@ -279,8 +280,8 @@ export default function RunSummaryScreen() {
         title: `${idx + 1} km`,
         marker: {
           kind: "label",
-          color: colors.textPrimary,
-          backgroundColor: colors.surfaceHigh,
+          color: p.textPrimary,
+          backgroundColor: p.cardWhite,
           borderColor: colors.mapRoute,
           text: `${idx + 1}k`,
           fontSize: 10,
@@ -288,7 +289,7 @@ export default function RunSummaryScreen() {
       });
     });
     return layers;
-  }, [mapCoordinates, splitPoints, colors]);
+  }, [mapCoordinates, splitPoints, colors, p]);
 
   const elevationData = useMemo(() => {
     if (coordinates.length < 2) return null;
@@ -317,17 +318,12 @@ export default function RunSummaryScreen() {
         }
       : undefined;
 
-  // Design tokens
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
-  const glassBg = isDark ? "rgba(18,18,18,0.95)" : "rgba(255,255,255,0.98)";
-  const accentMuted = `${colors.accent}15`;
-
   const snapPoints = useMemo(() => ["52%", "90%"], []);
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false, animation: "fade" }} />
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
@@ -355,7 +351,7 @@ export default function RunSummaryScreen() {
                 />
               </>
             ) : (
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.surfaceHigh }]} />
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: p.inputBg }]} />
             )}
           </View>
 
@@ -363,34 +359,27 @@ export default function RunSummaryScreen() {
           <BottomSheet
             index={0}
             snapPoints={snapPoints}
-            backgroundStyle={{ backgroundColor: glassBg }}
-            handleIndicatorStyle={{ backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)", width: 36 }}
-            style={{
-              shadowColor: "#000",
-              shadowOpacity: isDark ? 0.4 : 0.12,
-              shadowRadius: 20,
-              shadowOffset: { width: 0, height: -8 },
-              elevation: 12,
-            }}
+            backgroundStyle={{ backgroundColor: p.cardWhite }}
+            handleIndicatorStyle={{ backgroundColor: p.divider, width: 36 }}
           >
             <BottomSheetScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{
-                paddingHorizontal: spacing.xl,
+                paddingHorizontal: 20,
                 paddingTop: 8,
                 paddingBottom: insets.bottom + 40,
               }}
             >
               {/* Compact header */}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: accentMuted, alignItems: "center", justifyContent: "center" }}>
-                  <Trophy size={22} color={colors.accent} strokeWidth={2.5} />
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+                  <Trophy size={22} color={p.accent} strokeWidth={2.5} />
                 </View>
                 <View>
-                  <Text style={{ fontFamily: fonts.accentBold, fontSize: 22, color: colors.textPrimary, letterSpacing: -0.3 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary, letterSpacing: -0.3 }}>
                     Run Complete!
                   </Text>
-                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSecondary }}>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary }}>
                     Excellent effort today
                   </Text>
                 </View>
@@ -398,28 +387,26 @@ export default function RunSummaryScreen() {
 
               {/* Hero distance */}
               <View style={{
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                borderColor: cardBorder,
-                borderWidth: 1,
-                borderRadius: radius.xxl,
+                backgroundColor: p.inputBg,
+                borderRadius: 22,
                 padding: 24,
                 alignItems: "center",
                 marginBottom: 16,
               }}>
-                <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 3, marginBottom: 4 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textSecondary, letterSpacing: 3, marginBottom: 4 }}>
                   TOTAL DISTANCE
                 </Text>
                 <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
-                  <Text style={{ fontFamily: fonts.heroNumber, fontSize: 64, color: colors.textPrimary, letterSpacing: -2, fontVariant: ["tabular-nums"], lineHeight: 68 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 64, color: p.textPrimary, letterSpacing: -2, fontVariant: ["tabular-nums"], lineHeight: 68 }}>
                     {finalDistanceMetersDisplay === 0 && elapsedSeconds < 2 ? "0.00" : formatDistanceKm(finalDistanceMetersDisplay, 2)}
                   </Text>
-                  <Text style={{ fontFamily: fonts.labelMedium, fontSize: 16, color: colors.textSecondary, marginBottom: 10, letterSpacing: 1 }}>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: p.textSecondary, marginBottom: 10, letterSpacing: 1 }}>
                     KM
                   </Text>
                 </View>
-                <View style={{ marginTop: 8, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: `${metrics.paceZone.color}15`, borderRadius: radius.pill, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: `${metrics.paceZone.color}30` }}>
+                <View style={{ marginTop: 8, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: `${metrics.paceZone.color}15`, borderRadius: 100, flexDirection: "row", alignItems: "center" }}>
                   <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: metrics.paceZone.color, marginRight: 7 }} />
-                  <Text style={{ color: metrics.paceZone.color, fontFamily: fonts.accentBold, fontSize: 11 }}>
+                  <Text style={{ color: metrics.paceZone.color, fontFamily: "Outfit-Bold", fontSize: 11 }}>
                     ZONE {metrics.paceZone.zone} · {metrics.paceZone.label.toUpperCase()}
                   </Text>
                 </View>
@@ -427,30 +414,30 @@ export default function RunSummaryScreen() {
 
               {/* Primary metrics grid */}
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
-                <SummaryMetricTile icon={Clock} color={colors.textPrimary} value={formatDurationClock(elapsedSeconds)} label="TIME" />
-                <SummaryMetricTile icon={Activity} color={colors.purple} value={metrics.paceMinPerKm} label="MIN/KM" />
-                <SummaryMetricTile icon={Zap} color={colors.cyan} value={metrics.speedKmH} label="KM/H" />
-                <SummaryMetricTile icon={Flame} color={colors.amber} value={String(metrics.calories)} label="KCAL" />
+                <SummaryMetricTile icon={Clock} color={p.textPrimary} value={formatDurationClock(elapsedSeconds)} label="TIME" />
+                <SummaryMetricTile icon={Activity} color={p.accent} value={metrics.paceMinPerKm} label="MIN/KM" />
+                <SummaryMetricTile icon={Zap} color={p.info} value={metrics.speedKmH} label="KM/H" />
+                <SummaryMetricTile icon={Flame} color={p.warning} value={String(metrics.calories)} label="KCAL" />
               </View>
 
               {/* Secondary metrics */}
               <View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
                 {metrics.vo2max && (
-                  <View style={{ flex: 1, backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)", padding: 14, borderRadius: radius.xl, alignItems: "center", borderWidth: 1, borderColor: cardBorder }}>
-                    <Text style={{ fontFamily: fonts.labelMedium, fontSize: 9, color: colors.textDim, letterSpacing: 1 }}>VO₂ MAX</Text>
-                    <Text style={{ fontFamily: fonts.accentBold, fontSize: 18, color: colors.textPrimary, marginTop: 3 }}>{metrics.vo2max}</Text>
+                  <View style={{ flex: 1, backgroundColor: p.inputBg, padding: 14, borderRadius: 22, alignItems: "center" }}>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 9, color: p.textMuted, letterSpacing: 1 }}>VO2 MAX</Text>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, marginTop: 3 }}>{metrics.vo2max}</Text>
                   </View>
                 )}
-                <View style={{ flex: 1, backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)", padding: 14, borderRadius: radius.xl, alignItems: "center", borderWidth: 1, borderColor: cardBorder }}>
-                  <Text style={{ fontFamily: fonts.labelMedium, fontSize: 9, color: colors.textDim, letterSpacing: 1 }}>EFFICIENCY</Text>
-                  <Text style={{ fontFamily: fonts.accentBold, fontSize: 18, color: colors.textPrimary, marginTop: 3 }}>{metrics.efficiencyScore}%</Text>
+                <View style={{ flex: 1, backgroundColor: p.inputBg, padding: 14, borderRadius: 22, alignItems: "center" }}>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 9, color: p.textMuted, letterSpacing: 1 }}>EFFICIENCY</Text>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, marginTop: 3 }}>{metrics.efficiencyScore}%</Text>
                 </View>
                 {elevationData && (
-                  <View style={{ flex: 1, backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)", padding: 14, borderRadius: radius.xl, alignItems: "center", borderWidth: 1, borderColor: cardBorder }}>
-                    <Text style={{ fontFamily: fonts.labelMedium, fontSize: 9, color: colors.textDim, letterSpacing: 1 }}>ELEVATION</Text>
+                  <View style={{ flex: 1, backgroundColor: p.inputBg, padding: 14, borderRadius: 22, alignItems: "center" }}>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 9, color: p.textMuted, letterSpacing: 1 }}>ELEVATION</Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 }}>
-                      <TrendingUp size={11} color={colors.accent} />
-                      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary }}>{elevationData.gain}m</Text>
+                      <TrendingUp size={11} color={p.accent} />
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>{elevationData.gain}m</Text>
                     </View>
                   </View>
                 )}
@@ -459,23 +446,23 @@ export default function RunSummaryScreen() {
               {/* Splits */}
               {metrics.splitPaces.length > 0 && (
                 <View style={{ marginBottom: 24 }}>
-                  <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 2, marginBottom: 12, marginLeft: 2 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textSecondary, letterSpacing: 2, marginBottom: 12, marginLeft: 2 }}>
                     KM SPLITS
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 2 }}>
                     {metrics.splitPaces.map((splitPace, index) => (
-                      <View key={index} style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)", paddingHorizontal: 16, paddingVertical: 12, borderRadius: radius.xl, borderWidth: 1, borderColor: cardBorder, minWidth: 88 }}>
-                        <Text style={{ fontFamily: fonts.labelMedium, fontSize: 9, color: colors.textDim, marginBottom: 3 }}>KM {index + 1}</Text>
-                        <Text style={{ fontFamily: fonts.accentBold, fontSize: 16, color: colors.textPrimary }}>{splitPace}</Text>
+                      <View key={index} style={{ backgroundColor: p.inputBg, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 22, minWidth: 88 }}>
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 9, color: p.textMuted, marginBottom: 3 }}>KM {index + 1}</Text>
+                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary }}>{splitPace}</Text>
                       </View>
                     ))}
                   </ScrollView>
                 </View>
               )}
 
-              {/* ── Optional feedback ── */}
-              <View style={{ borderTopWidth: 1, borderTopColor: cardBorder, paddingTop: 20, marginBottom: 4 }}>
-                <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 2, marginBottom: 16 }}>
+              {/* Optional feedback */}
+              <View style={{ borderTopWidth: 1, borderTopColor: p.divider, paddingTop: 20, marginBottom: 4 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textSecondary, letterSpacing: 2, marginBottom: 16 }}>
                   HOW DID IT GO? (OPTIONAL)
                 </Text>
 
@@ -497,21 +484,21 @@ export default function RunSummaryScreen() {
                   onFocus={() => setNotesFocused(true)}
                   onBlur={() => setNotesFocused(false)}
                   placeholder="Add a note..."
-                  placeholderTextColor={colors.placeholder}
+                  placeholderTextColor={p.textMuted}
                   multiline
                   maxLength={200}
                   textAlignVertical="top"
                   style={{
                     marginTop: 14,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                    borderColor: notesFocused ? colors.accent : cardBorder,
+                    backgroundColor: p.inputBg,
+                    borderColor: notesFocused ? p.accent : p.divider,
                     borderWidth: 1,
-                    borderRadius: radius.xl,
+                    borderRadius: 16,
                     padding: 14,
                     minHeight: 80,
-                    fontFamily: fonts.bodyMedium,
+                    fontFamily: "Outfit-Regular",
                     fontSize: 15,
-                    color: colors.text,
+                    color: p.textPrimary,
                   }}
                 />
               </View>
@@ -540,18 +527,17 @@ export default function RunSummaryScreen() {
                       {
                         width: "100%",
                         height: 64,
-                        backgroundColor: colors.accent,
-                        borderRadius: radius.xxl,
+                        backgroundColor: p.accent,
+                        borderRadius: 100,
                         flexDirection: "row",
                         justifyContent: "center",
                         alignItems: "center",
                         gap: 10,
-                        ...(isDark ? {} : { shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 10 }, elevation: 8 }),
                       },
                     ]}
                   >
-                    <Save size={20} color="#FFF" strokeWidth={2.5} />
-                    <Text style={{ fontFamily: fonts.accentBold, fontSize: 18, color: "#FFF" }}>SAVE RUN</Text>
+                    <Save size={20} color={p.buttonPrimaryText} strokeWidth={2.5} />
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.buttonPrimaryText }}>SAVE RUN</Text>
                   </Animated.View>
                 </GestureDetector>
 
@@ -559,10 +545,8 @@ export default function RunSummaryScreen() {
                   onPress={handleDiscard}
                   style={({ pressed }) => ({
                     height: 52,
-                    backgroundColor: "transparent",
-                    borderRadius: radius.xxl,
-                    borderColor: colors.danger,
-                    borderWidth: 1,
+                    backgroundColor: p.dangerSoft,
+                    borderRadius: 100,
                     flexDirection: "row",
                     justifyContent: "center",
                     alignItems: "center",
@@ -570,8 +554,8 @@ export default function RunSummaryScreen() {
                     opacity: pressed ? 0.7 : 1,
                   })}
                 >
-                  <Trash2 size={16} color={colors.danger} />
-                  <Text style={{ fontFamily: fonts.accentBold, fontSize: 14, color: colors.danger }}>Discard Session</Text>
+                  <Trash2 size={16} color={p.danger} />
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.danger }}>Discard Session</Text>
                 </Pressable>
               </View>
             </BottomSheetScrollView>
@@ -603,23 +587,21 @@ function SummaryMetricTile({
   value: string;
   label: string;
 }) {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   return (
     <View
       style={{
         flex: 1,
         minWidth: "45%",
-        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-        borderRadius: radius.xl,
+        backgroundColor: p.inputBg,
+        borderRadius: 22,
         padding: 14,
-        borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
         alignItems: "center",
       }}
     >
       <Icon size={16} color={color} style={{ marginBottom: 6 }} strokeWidth={2.5} />
-      <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 20, color, fontVariant: ["tabular-nums"] }}>{value}</Text>
-      <Text style={{ fontFamily: fonts.labelCaps, fontSize: 9, color: "rgba(120,120,130,0.8)", letterSpacing: 1, marginTop: 2 }}>{label}</Text>
+      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color, fontVariant: ["tabular-nums"] }}>{value}</Text>
+      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 9, color: p.textMuted, letterSpacing: 1, marginTop: 2 }}>{label}</Text>
     </View>
   );
 }

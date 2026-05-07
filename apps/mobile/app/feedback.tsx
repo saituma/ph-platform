@@ -1,21 +1,28 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { apiRequest } from "@/lib/api";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Alert, Platform, Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAppToast } from "@/hooks/useAppToast";
 import { useAppSelector } from "@/store/hooks";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import { fonts } from "@/constants/theme";
+import {
+  Bug,
+  Lightbulb,
+  MessageCircle,
+  MoreHorizontal,
+  Check,
+  Send,
+} from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 
 export default function FeedbackScreen() {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
   const toast = useAppToast();
@@ -23,27 +30,20 @@ export default function FeedbackScreen() {
   const [category, setCategory] = useState("Bug Report");
   const [isSending, setIsSending] = useState(false);
 
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
-  const cardBorder = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
-
   const categories: Array<{
     id: string;
     label: string;
     description: string;
-    icon: React.ComponentProps<typeof Ionicons>["name"];
+    Icon: LucideIcon;
   }> = [
-    { id: "Bug Report", label: "Bug Report", description: "Something broken", icon: "bug-outline" },
-    { id: "Feature Request", label: "Feature", description: "New idea", icon: "bulb-outline" },
-    { id: "General Feedback", label: "Feedback", description: "General thoughts", icon: "chatbubbles-outline" },
-    { id: "Other", label: "Other", description: "Anything else", icon: "ellipsis-horizontal-circle-outline" },
+    { id: "Bug Report", label: "Bug Report", description: "Something broken", Icon: Bug },
+    { id: "Feature Request", label: "Feature", description: "New idea", Icon: Lightbulb },
+    { id: "General Feedback", label: "Feedback", description: "General thoughts", Icon: MessageCircle },
+    { id: "Other", label: "Other", description: "Anything else", Icon: MoreHorizontal },
   ];
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: p.pageBg }}>
       <MoreStackHeader
         title="Send Feedback"
         subtitle="Tell us what feels great, what feels broken, and what you want next."
@@ -65,10 +65,10 @@ export default function FeedbackScreen() {
           }}
         >
           <View style={{ marginBottom: 32 }}>
-            <Text style={{ fontSize: 28, fontFamily: "TelmaBold", color: textPrimary, marginBottom: 8 }}>
+            <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8 }}>
               We value your input
             </Text>
-            <Text style={{ fontSize: 15, fontFamily: "Outfit", color: labelColor, lineHeight: 22 }}>
+            <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 22 }}>
               Help us improve the coaching experience by sharing your thoughts
               or reporting issues.
             </Text>
@@ -77,8 +77,8 @@ export default function FeedbackScreen() {
           <Text
             style={{
               fontSize: 11,
-              fontFamily: fonts.bodyBold,
-              color: labelColor,
+              fontFamily: "Outfit-Bold",
+              color: p.textSecondary,
               textTransform: "uppercase",
               letterSpacing: 1.2,
               marginBottom: 16,
@@ -99,10 +99,8 @@ export default function FeedbackScreen() {
               const isActive = category === cat.id;
               const iconBg = isActive
                 ? "rgba(255,255,255,0.18)"
-                : isDark
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(15,23,42,0.04)";
-              const iconColor = isActive ? "#fff" : colors.accent;
+                : p.accentSoft;
+              const iconColor = isActive ? p.buttonPrimaryText : p.accent;
               return (
                 <Pressable
                   key={cat.id}
@@ -114,11 +112,9 @@ export default function FeedbackScreen() {
                     flexGrow: 1,
                     minHeight: 96,
                     borderRadius: 20,
-                    borderWidth: 1.5,
                     paddingHorizontal: 14,
                     paddingVertical: 14,
-                    backgroundColor: isActive ? colors.accent : cardBg,
-                    borderColor: isActive ? colors.accent : cardBorder,
+                    backgroundColor: isActive ? p.accent : p.cardWhite,
                     opacity: pressed ? 0.9 : 1,
                     transform: [{ scale: pressed ? 0.98 : 1 }],
                     overflow: "hidden",
@@ -142,7 +138,7 @@ export default function FeedbackScreen() {
                         backgroundColor: iconBg,
                       }}
                     >
-                      <Ionicons name={cat.icon} size={18} color={iconColor} />
+                      <cat.Icon size={18} color={iconColor} />
                     </View>
                     {isActive ? (
                       <View
@@ -155,16 +151,16 @@ export default function FeedbackScreen() {
                           backgroundColor: "rgba(255,255,255,0.22)",
                         }}
                       >
-                        <Ionicons name="checkmark" size={14} color="#fff" />
+                        <Check size={14} color={p.buttonPrimaryText} />
                       </View>
                     ) : null}
                   </View>
                   <Text
                     numberOfLines={1}
                     style={{
-                      fontFamily: fonts.bodyBold,
+                      fontFamily: "Outfit-Bold",
                       fontSize: 14,
-                      color: isActive ? "#fff" : textPrimary,
+                      color: isActive ? p.buttonPrimaryText : p.textPrimary,
                     }}
                   >
                     {cat.label}
@@ -172,10 +168,10 @@ export default function FeedbackScreen() {
                   <Text
                     numberOfLines={1}
                     style={{
-                      fontFamily: "Outfit",
+                      fontFamily: "Outfit-Regular",
                       fontSize: 11,
                       marginTop: 2,
-                      color: isActive ? "rgba(255,255,255,0.8)" : labelColor,
+                      color: isActive ? "rgba(255,255,255,0.8)" : p.textMuted,
                     }}
                   >
                     {cat.description}
@@ -188,8 +184,8 @@ export default function FeedbackScreen() {
           <Text
             style={{
               fontSize: 11,
-              fontFamily: fonts.bodyBold,
-              color: labelColor,
+              fontFamily: "Outfit-Bold",
+              color: p.textSecondary,
               textTransform: "uppercase",
               letterSpacing: 1.2,
               marginBottom: 16,
@@ -200,9 +196,7 @@ export default function FeedbackScreen() {
           </Text>
           <View
             style={{
-              backgroundColor: cardBg,
-              borderWidth: 1,
-              borderColor: cardBorder,
+              backgroundColor: p.inputBg,
               borderRadius: 20,
               padding: 20,
               marginBottom: 32,
@@ -212,12 +206,12 @@ export default function FeedbackScreen() {
             <TextInput
               multiline
               placeholder="What's on your mind?..."
-              placeholderTextColor={labelColor}
+              placeholderTextColor={p.textMuted}
               value={feedback}
               onChangeText={setFeedback}
               style={{
-                fontFamily: "Outfit",
-                color: textPrimary,
+                fontFamily: "Outfit-Regular",
+                color: p.textPrimary,
                 fontSize: 15,
                 textAlignVertical: "top",
               }}
@@ -255,17 +249,17 @@ export default function FeedbackScreen() {
             <View
               style={{
                 height: 56,
-                borderRadius: 20,
-                backgroundColor: colors.accent,
+                borderRadius: 100,
+                backgroundColor: p.accent,
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 10,
               }}
             >
-              <Ionicons name="send-outline" size={20} color="#fff" />
-              <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
-                {isSending ? "Sending…" : "Send Feedback"}
+              <Send size={20} color={p.buttonPrimaryText} />
+              <Text style={{ color: p.buttonPrimaryText, fontFamily: "Outfit-Bold", fontSize: 16 }}>
+                {isSending ? "Sending..." : "Send Feedback"}
               </Text>
             </View>
           </Pressable>

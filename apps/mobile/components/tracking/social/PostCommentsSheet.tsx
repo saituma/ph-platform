@@ -253,6 +253,7 @@ export function PostCommentsSheet({
                 style={{ maxHeight: 430 }}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.md }}
+                keyboardShouldPersistTaps="handled"
               >
                 {thread.roots.length === 0 ? (
                   <View

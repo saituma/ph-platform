@@ -1,15 +1,3 @@
-import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { Text } from "@/components/ScaledText";
-import { AgeGate } from "@/components/AgeGate";
-import { useAgeExperience } from "@/context/AgeExperienceContext";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setManagedAthletes } from "@/store/slices/userSlice";
-import { apiRequest } from "@/lib/api";
-import { tierRank } from "@/lib/planAccess";
-import { formatPlanList, getUnlockingPlanNames } from "@/lib/unlockPlans";
-import { Feather } from "@expo/vector-icons";
-
-import { useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -19,12 +7,25 @@ import React, {
 } from "react";
 import { Image, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { ArrowLeft, Lock, User } from "lucide-react-native";
+
+import { Text } from "@/components/ScaledText";
+import { AgeGate } from "@/components/AgeGate";
+import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useAgeExperience } from "@/context/AgeExperienceContext";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setManagedAthletes } from "@/store/slices/userSlice";
+import { apiRequest } from "@/lib/api";
+import { tierRank } from "@/lib/planAccess";
+import { formatPlanList, getUnlockingPlanNames } from "@/lib/unlockPlans";
 import { runWhenIdle } from "@/lib/scheduling/idle";
 
 export default function AthleteStatsScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isSectionHidden } = useAgeExperience();
+  const p = useAdminPastel();
   const { token, programTier, managedAthletes, profile } =
     useAppSelector((state) => state.user);
   const [isLoading, setIsLoading] = useState(true);
@@ -274,120 +275,127 @@ export default function AthleteStatsScreen() {
   if (!hasPremiumAccess) {
     const unlockingPlans = getUnlockingPlanNames("PHP_Premium_Plus");
     return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <ThemedScrollView
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
+        <ScrollView
           contentContainerStyle={{
             paddingHorizontal: 24,
             paddingTop: 24,
             paddingBottom: 40,
           }}
         >
-          <View className="mb-6">
-            <Text className="text-3xl font-telma-bold text-app mb-2">
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8 }}>
               Athlete Stats
             </Text>
-            <Text className="text-base font-outfit text-secondary leading-relaxed">
-              This dashboard isn’t available for your account yet.
+            <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24 }}>
+              This dashboard isn't available for your account yet.
             </Text>
           </View>
-          <View className="rounded-3xl border border-app/10 bg-secondary/10 p-5">
-            <View className="flex-row items-center gap-2 mb-2">
-              <Feather name="lock" size={16} className="text-secondary" />
-              <Text className="text-sm font-outfit text-secondary uppercase tracking-[1.4px]">
+          <View style={{ borderRadius: 22, backgroundColor: p.cardLavender, padding: 20 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <Lock size={16} color={p.textSecondary} />
+              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textSecondary, textTransform: "uppercase", letterSpacing: 1.4 }}>
                 Expanded access
               </Text>
             </View>
-            <Text className="text-lg font-clash text-app mb-2">
+            <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8 }}>
               Athlete analytics
             </Text>
-            <Text className="text-base font-outfit text-secondary leading-relaxed">
+            <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24 }}>
               {unlockingPlans.length
                 ? `May be available with: ${formatPlanList(unlockingPlans)}.`
                 : "Ask your coach if you need access."}
             </Text>
           </View>
-        </ThemedScrollView>
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <ThemedScrollView
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
+      <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 24,
           paddingBottom: 40,
         }}
       >
-        <View className="flex-row items-center justify-between mb-6">
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <TouchableOpacity
             onPress={() => router.replace("/parent-platform")}
-            className="h-10 w-10 items-center justify-center bg-secondary rounded-2xl"
+            style={{
+              height: 40,
+              width: 40,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: p.cardWhite,
+              borderRadius: 16,
+            }}
           >
-            <Feather name="arrow-left" size={20} className="text-secondary" />
+            <ArrowLeft size={20} color={p.textSecondary} />
           </TouchableOpacity>
-          <Text className="text-2xl font-clash text-app font-bold">
+          <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
             Athlete Stats
           </Text>
-          <View className="w-10" />
+          <View style={{ width: 40 }} />
         </View>
 
         {isLoading ? (
-          <View className="gap-3">
+          <View style={{ gap: 12 }}>
             {[1, 2, 3].map((row) => (
               <View
                 key={row}
-                className="rounded-3xl border border-app/10 bg-input px-4 py-3"
+                style={{ borderRadius: 22, backgroundColor: p.inputBg, paddingHorizontal: 16, paddingVertical: 12 }}
               >
-                <View className="h-4 w-32 rounded-full bg-secondary/20" />
-                <View className="h-3 w-full rounded-full bg-secondary/20 mt-2" />
+                <View style={{ height: 16, width: 128, borderRadius: 100, backgroundColor: p.divider }} />
+                <View style={{ height: 12, width: "100%", borderRadius: 100, backgroundColor: p.divider, marginTop: 8 }} />
               </View>
             ))}
           </View>
         ) : (
           <>
-            <View className="rounded-3xl border border-app/10 bg-input p-5 mb-6">
-              <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.4px]">
+            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20, marginBottom: 24 }}>
+              <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
                 Selected Athlete
               </Text>
-              <View className="flex-row items-center gap-3 mt-3">
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12 }}>
                 {selectedAthlete?.profilePicture ? (
                   <Image
                     source={{ uri: selectedAthlete.profilePicture }}
                     style={{ width: 56, height: 56, borderRadius: 16 }}
                   />
                 ) : (
-                  <View className="h-14 w-14 rounded-2xl bg-secondary/20 items-center justify-center">
-                    <Feather name="user" size={20} className="text-secondary" />
+                  <View style={{ height: 56, width: 56, borderRadius: 16, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+                    <User size={20} color={p.textSecondary} />
                   </View>
                 )}
-                <View className="flex-1">
-                  <Text className="text-xl font-clash text-app">
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                     {selectedAthlete?.name ?? "Athlete"}
                   </Text>
-                  <Text className="text-sm font-outfit text-secondary">
-                    {selectedAthlete?.team ?? "Team not set"} •{" "}
+                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                    {selectedAthlete?.team ?? "Team not set"} -{" "}
                     {selectedAthlete?.age ?? "—"} yrs
                   </Text>
                 </View>
               </View>
             </View>
 
-            <View className="gap-4 mb-6">
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px]">
+            <View style={{ gap: 16, marginBottom: 24 }}>
+              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
                 Overview
               </Text>
-              <View className="flex-row flex-wrap gap-3">
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
                 {summaryStats.map((stat) => (
                   <View
                     key={stat.label}
-                    className="w-[48%] rounded-2xl border border-app/10 bg-input px-4 py-4"
+                    style={{ width: "48%", borderRadius: 16, backgroundColor: p.cardWhite, paddingHorizontal: 16, paddingVertical: 16 }}
                   >
-                    <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                    <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.2 }}>
                       {stat.label}
                     </Text>
-                    <Text className="text-2xl font-clash text-app mt-2">
+                    <Text style={{ fontSize: 24, fontFamily: "Outfit-Bold", color: p.textPrimary, marginTop: 8 }}>
                       {stat.value}
                     </Text>
                   </View>
@@ -396,76 +404,74 @@ export default function AthleteStatsScreen() {
             </View>
 
             {isStatsLoading ? (
-              <View className="gap-3 mb-6">
+              <View style={{ gap: 12, marginBottom: 24 }}>
                 {[1, 2].map((row) => (
                   <View
                     key={`stat-skel-${row}`}
-                    className="rounded-3xl border border-app/10 bg-input px-4 py-3"
+                    style={{ borderRadius: 22, backgroundColor: p.inputBg, paddingHorizontal: 16, paddingVertical: 12 }}
                   >
-                    <View className="h-4 w-32 rounded-full bg-secondary/20" />
-                    <View className="h-3 w-full rounded-full bg-secondary/20 mt-2" />
+                    <View style={{ height: 16, width: 128, borderRadius: 100, backgroundColor: p.divider }} />
+                    <View style={{ height: 12, width: "100%", borderRadius: 100, backgroundColor: p.divider, marginTop: 8 }} />
                   </View>
                 ))}
               </View>
             ) : statsError ? (
-              <View className="rounded-3xl border border-app/10 bg-secondary/10 p-4 mb-6">
-                <Text className="text-sm font-outfit text-secondary">
+              <View style={{ borderRadius: 22, backgroundColor: p.cardPeach, padding: 16, marginBottom: 24 }}>
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                   {statsError}
                 </Text>
               </View>
             ) : null}
 
-            <View className="rounded-3xl border border-app/10 bg-input p-5 mb-6">
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px] mb-3">
+            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20, marginBottom: 24 }}>
+              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 12 }}>
                 Weekly Load
               </Text>
               {(stats.weeklyLoad.length
                 ? stats.weeklyLoad
                 : [0, 0, 0, 0, 0]
               ).map((value, index) => (
-                <View key={`bar-${index}`} className="mb-3">
-                  <View className="flex-row items-center justify-between mb-1">
-                    <Text className="text-xs font-outfit text-secondary">
+                <View key={`bar-${index}`} style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                       Week {index + 1}
                     </Text>
-                    <Text className="text-xs font-outfit text-secondary">
+                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                       {value}%
                     </Text>
                   </View>
-                  <View className="h-2 rounded-full bg-secondary/15 overflow-hidden">
+                  <View style={{ height: 8, borderRadius: 100, backgroundColor: p.divider, overflow: "hidden" }}>
                     <View
-                      style={{ width: `${value}%` }}
-                      className="h-2 rounded-full bg-[#2F8F57]"
+                      style={{ width: `${value}%`, height: 8, borderRadius: 100, backgroundColor: p.accent }}
                     />
                   </View>
                 </View>
               ))}
             </View>
 
-            <View className="rounded-3xl border border-app/10 bg-input p-5 mb-6">
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px] mb-3">
+            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20, marginBottom: 24 }}>
+              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 12 }}>
                 Progress Trend
               </Text>
-              <View className="flex-row items-end justify-between h-24">
+              <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 96 }}>
                 {(stats.progressTrend.length
                   ? stats.progressTrend
                   : [0, 0, 0, 0, 0, 0]
                 ).map((value, index) => (
-                  <View key={`trend-${index}`} className="items-center flex-1">
-                    <View className="h-20 w-2 rounded-full bg-secondary/15 overflow-hidden">
+                  <View key={`trend-${index}`} style={{ alignItems: "center", flex: 1 }}>
+                    <View style={{ height: 80, width: 8, borderRadius: 100, backgroundColor: p.divider, overflow: "hidden", justifyContent: "flex-end" }}>
                       <View
-                        style={{ height: `${value}%` }}
-                        className="w-2 rounded-full bg-[#2F8F57]"
+                        style={{ height: `${value}%`, width: 8, borderRadius: 100, backgroundColor: p.accent }}
                       />
                     </View>
                   </View>
                 ))}
               </View>
-              <View className="flex-row justify-between mt-2">
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
                 {["W1", "W2", "W3", "W4", "W5", "W6"].map((label) => (
                   <Text
                     key={label}
-                    className="text-[10px] font-outfit text-secondary"
+                    style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.textMuted }}
                   >
                     {label}
                   </Text>
@@ -473,11 +479,11 @@ export default function AthleteStatsScreen() {
               </View>
             </View>
 
-            <View className="rounded-3xl border border-app/10 bg-input p-5">
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.4px] mb-3">
+            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20 }}>
+              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 12 }}>
                 Feedback Summary
               </Text>
-              <View className="gap-2">
+              <View style={{ gap: 8 }}>
                 {[
                   {
                     label: "Video Feedback Rate",
@@ -494,19 +500,18 @@ export default function AthleteStatsScreen() {
                 ].map((item) => (
                   <View
                     key={item.label}
-                    className="flex-row items-center justify-between"
+                    style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
                   >
-                    <Text className="text-sm font-outfit text-app">
+                    <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
                       {item.label}
                     </Text>
-                    <View className="flex-row items-center gap-2">
-                      <View className="h-2 w-24 rounded-full bg-secondary/15 overflow-hidden">
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <View style={{ height: 8, width: 96, borderRadius: 100, backgroundColor: p.divider, overflow: "hidden" }}>
                         <View
-                          style={{ width: `${item.value}%` }}
-                          className="h-2 rounded-full bg-[#2F8F57]"
+                          style={{ width: `${item.value}%`, height: 8, borderRadius: 100, backgroundColor: p.accent }}
                         />
                       </View>
-                      <Text className="text-xs font-outfit text-secondary">
+                      <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                         {item.value}%
                       </Text>
                     </View>
@@ -516,7 +521,7 @@ export default function AthleteStatsScreen() {
             </View>
           </>
         )}
-      </ThemedScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 }

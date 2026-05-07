@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import { AlertCircle, ChevronRight, Dumbbell, Layers } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import Animated, {
   FadeInDown,
@@ -20,9 +20,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
-import { Card } from "heroui-native";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -34,8 +33,9 @@ import { useMyPrograms, useMyProgramDetail } from "@/hooks/programs/useMyProgram
 import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
 import { TeamProgramView } from "@/components/programs/TeamProgramView";
 import { hasAssignedTeam } from "@/lib/teamMembership";
-import { Shadows } from "@/constants/theme";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
+
+const MODULE_CARD_COLORS = ["cardSage", "cardMint", "cardPeach", "cardLavender"] as const;
 
 // ── Continue Watching Card ───────────────────────────────────────────
 
@@ -45,7 +45,7 @@ interface WatchCardProps {
 }
 
 const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const reduceMotion = useReducedMotion();
 
   const scale = useSharedValue(1);
@@ -70,7 +70,7 @@ const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
     <Animated.View entering={entering}>
       <GestureDetector gesture={tap}>
         <Animated.View
-          style={[animStyle, styles.watchCard, { backgroundColor: isDark ? "#1A1A1A" : "#FFFFFF" }]}
+          style={[animStyle, styles.watchCard, { backgroundColor: p.cardWhite }]}
           accessibilityLabel={`Continue watching ${entry.title}`}
         >
           <View style={styles.watchThumb}>
@@ -83,19 +83,26 @@ const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
                 placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
               />
             ) : (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#242424" : "#E5E5EA" }]} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: p.inputBg }]} />
             )}
             <View style={styles.watchProgressTrack}>
               <View
                 style={[
                   styles.watchProgressFill,
-                  { backgroundColor: colors.accent, width: `${Math.round(entry.progress * 100)}%` },
+                  { backgroundColor: p.accent, width: `${Math.round(entry.progress * 100)}%` },
                 ]}
               />
             </View>
           </View>
           <Text
-            style={[styles.watchTitle, { fontFamily: "Outfit-Medium", color: colors.textPrimary }]}
+            style={{
+              fontSize: 13,
+              fontFamily: "Outfit-Regular",
+              color: p.textPrimary,
+              paddingHorizontal: 10,
+              paddingVertical: 10,
+              lineHeight: 18,
+            }}
             numberOfLines={2}
           >
             {entry.title}
@@ -118,13 +125,11 @@ const ProgramContent = memo(function ProgramContent({
   programId: number;
   token: string | null;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const router = useRouter();
   const { program, isLoading, error, loadProgram } = useMyProgramDetail(token);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const reduceMotion = useReducedMotion();
-
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
   useEffect(() => {
     loadProgram(programId);
@@ -149,7 +154,7 @@ const ProgramContent = memo(function ProgramContent({
   if (error) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, paddingTop: 40 }}>
-        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, textAlign: "center" }}>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
           {error}
         </Text>
       </View>
@@ -160,11 +165,11 @@ const ProgramContent = memo(function ProgramContent({
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40 }}
-      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.accent} />}
+      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={p.accent} />}
       showsVerticalScrollIndicator={false}
     >
       {program?.description ? (
-        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginBottom: 16 }}>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, marginBottom: 16 }}>
           {program.description}
         </Text>
       ) : null}
@@ -173,6 +178,8 @@ const ProgramContent = memo(function ProgramContent({
         const entering = reduceMotion
           ? undefined
           : FadeInDown.delay(Math.min(modIdx, 8) * 40).springify().damping(15);
+        const cardColorKey = MODULE_CARD_COLORS[modIdx % MODULE_CARD_COLORS.length];
+        const cardBg = p[cardColorKey] as string;
         return (
           <Animated.View key={mod.id} entering={entering}>
             <Pressable
@@ -185,80 +192,75 @@ const ProgramContent = memo(function ProgramContent({
                 transform: [{ scale: pressed ? 0.97 : 1 }],
               })}
             >
-              <Card
-                variant={isDark ? "secondary" : "default"}
-                style={[
-                  {
-                    borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-                    borderRadius: 22,
-                    overflow: "hidden",
-                  },
-                  isDark ? undefined : Shadows.md,
-                ]}
+              <View
+                style={{
+                  borderRadius: 22,
+                  backgroundColor: cardBg,
+                  overflow: "hidden",
+                }}
               >
-                <View style={{ height: 3, backgroundColor: colors.accent, opacity: 0.6 }} />
+                <View style={{ height: 3, backgroundColor: p.accent, opacity: 0.6 }} />
 
                 <View style={{ padding: 18, flexDirection: "row", alignItems: "center" }}>
-                  <Card.Header style={{ padding: 0, marginRight: 14 }}>
+                  <View style={{ marginRight: 14 }}>
                     <View
                       style={{
                         width: 44,
                         height: 44,
                         borderRadius: 14,
-                        backgroundColor: isDark ? "rgba(138,255,0,0.16)" : "rgba(106,204,0,0.10)",
+                        backgroundColor: p.accentSoft,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: colors.accent }}>
+                      <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.accent }}>
                         {mod.order}
                       </Text>
                     </View>
-                  </Card.Header>
+                  </View>
 
-                  <Card.Body style={{ flex: 1, padding: 0 }}>
-                    <Card.Title
+                  <View style={{ flex: 1 }}>
+                    <Text
                       style={{
                         fontSize: 17,
-                        fontFamily: "Outfit-SemiBold",
-                        color: colors.textPrimary,
+                        fontFamily: "Outfit-Bold",
+                        color: p.textPrimary,
                         letterSpacing: -0.2,
                       }}
                       numberOfLines={1}
                     >
                       {mod.title}
-                    </Card.Title>
+                    </Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                      <Ionicons name="layers-outline" size={13} color={colors.textSecondary} />
-                      <Card.Description
+                      <Layers size={13} color={p.textSecondary} />
+                      <Text
                         style={{
                           fontSize: 13,
                           fontFamily: "Outfit-Regular",
-                          color: colors.textSecondary,
+                          color: p.textSecondary,
                         }}
                       >
                         {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
-                      </Card.Description>
+                      </Text>
                     </View>
-                  </Card.Body>
+                  </View>
 
-                  <Card.Footer style={{ padding: 0, marginLeft: 12 }}>
+                  <View style={{ marginLeft: 12 }}>
                     <View
                       style={{
                         width: 32,
                         height: 32,
                         borderRadius: 10,
-                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)",
+                        backgroundColor: p.accentSoft,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                      <ChevronRight size={16} color={p.textSecondary} />
                     </View>
-                  </Card.Footer>
+                  </View>
                 </View>
-              </Card>
+              </View>
             </Pressable>
           </Animated.View>
         );
@@ -267,15 +269,13 @@ const ProgramContent = memo(function ProgramContent({
       {(program?.modules ?? []).length === 0 && !isLoading ? (
         <View
           style={{
-            backgroundColor: colors.card,
-            borderColor: borderSoft,
-            borderWidth: 1,
+            backgroundColor: p.cardWhite,
             borderRadius: 20,
             padding: 32,
             alignItems: "center",
           }}
         >
-          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, textAlign: "center" }}>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
             No modules in this program yet. Your coach will add content soon.
           </Text>
         </View>
@@ -288,7 +288,7 @@ const ProgramContent = memo(function ProgramContent({
 
 const ProgramsScreen = memo(function ProgramsScreen() {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
   const token = useAppSelector((s) => s.user.token);
@@ -371,10 +371,20 @@ const ProgramsScreen = memo(function ProgramsScreen() {
 
   if (isTeamMode) {
     return (
-      <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
         {watchHistory.length > 0 ? (
-          <View style={styles.watchSection}>
-            <Text style={[styles.sectionHeader, { fontFamily: "Outfit-Bold", color: colors.textPrimary }]}>
+          <View style={{ marginBottom: 8 }}>
+            <Text
+              style={{
+                fontSize: 17,
+                fontFamily: "Outfit-Bold",
+                color: p.textPrimary,
+                letterSpacing: -0.2,
+                paddingHorizontal: 20,
+                marginBottom: 12,
+                marginTop: 12,
+              }}
+            >
               Continue watching
             </Text>
             <FlashList
@@ -403,13 +413,11 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     );
   }
 
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
       {/* ── Header ── */}
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12, marginBottom: 10 }}>
-        <Text style={{ fontSize: 24, fontFamily: "ClashDisplay-Bold", color: colors.textPrimary }}>
+        <Text style={{ fontSize: 24, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
           My Programs
         </Text>
       </View>
@@ -417,8 +425,18 @@ const ProgramsScreen = memo(function ProgramsScreen() {
 
       {/* ── Continue Watching ── */}
       {watchHistory.length > 0 ? (
-        <View style={styles.watchSection}>
-          <Text style={[styles.sectionHeader, { fontFamily: "Outfit-Bold", color: colors.textPrimary }]}>
+        <View style={{ marginBottom: 8 }}>
+          <Text
+            style={{
+              fontSize: 17,
+              fontFamily: "Outfit-Bold",
+              color: p.textPrimary,
+              letterSpacing: -0.2,
+              paddingHorizontal: 20,
+              marginBottom: 12,
+              marginTop: 12,
+            }}
+          >
             Continue watching
           </Text>
           <FlashList
@@ -442,28 +460,28 @@ const ProgramsScreen = memo(function ProgramsScreen() {
         </View>
       ) : programsError ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
-          <Ionicons name="alert-circle-outline" size={40} color={colors.textSecondary} style={{ marginBottom: 12 }} />
-          <Text style={{ fontSize: 16, fontFamily: "Outfit-Medium", color: colors.textPrimary, marginBottom: 4 }}>
+          <AlertCircle size={40} color={p.textSecondary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 4 }}>
             Failed to load programs
           </Text>
-          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, textAlign: "center" }}>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
             {programsError}
           </Text>
         </View>
       ) : programs.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
-          <Ionicons name="barbell-outline" size={40} color={colors.textSecondary} style={{ marginBottom: 12 }} />
-          <Text style={{ fontSize: 16, fontFamily: "Outfit-Medium", color: colors.textPrimary, marginBottom: 4 }}>
+          <Dumbbell size={40} color={p.textSecondary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 4 }}>
             No programs assigned
           </Text>
-          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, textAlign: "center" }}>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
             Your coach will assign programs to you. Check back later.
           </Text>
         </View>
       ) : (
         <>
           {/* ── Program Tabs ── */}
-          <View style={{ borderBottomWidth: 1, borderBottomColor: borderSoft, flexDirection: "row" }}>
+          <View style={{ borderBottomWidth: 1, borderBottomColor: p.divider, flexDirection: "row" }}>
             <ScrollView
               horizontal
               nestedScrollEnabled
@@ -479,41 +497,33 @@ const ProgramsScreen = memo(function ProgramsScreen() {
               }}
               style={{ flexGrow: 0 }}
             >
-              {programs.map((p) => {
-                const active = effectiveProgramId === p.id;
+              {programs.map((prog) => {
+                const active = effectiveProgramId === prog.id;
                 return (
                   <Pressable
-                    key={p.id}
+                    key={prog.id}
                     onPress={() => {
-                      setSelectedProgramId(p.id);
+                      setSelectedProgramId(prog.id);
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }}
                     style={{
                       paddingHorizontal: 14,
                       height: 36,
-                      borderRadius: 999,
+                      borderRadius: 100,
                       alignItems: "center",
                       justifyContent: "center",
-                      borderWidth: 1,
-                      borderColor: active ? colors.accent : borderSoft,
-                      backgroundColor: active
-                        ? isDark
-                          ? "rgba(138,255,0,0.14)"
-                          : "rgba(106,204,0,0.12)"
-                        : isDark
-                          ? "rgba(255,255,255,0.03)"
-                          : "rgba(15,23,42,0.02)",
+                      backgroundColor: active ? p.accent : p.cardWhite,
                     }}
                   >
                     <Text
                       style={{
                         fontSize: 14,
-                        fontFamily: active ? "Outfit-SemiBold" : "Outfit-Medium",
-                        color: active ? colors.textPrimary : colors.textSecondary,
+                        fontFamily: active ? "Outfit-Bold" : "Outfit-Regular",
+                        color: active ? p.buttonPrimaryText : p.textSecondary,
                       }}
                       numberOfLines={1}
                     >
-                      {p.name}
+                      {prog.name}
                     </Text>
                   </Pressable>
                 );
@@ -539,19 +549,6 @@ export default ProgramsScreen;
 // ── Styles ───────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  watchSection: {
-    marginBottom: 8,
-  },
-  sectionHeader: {
-    fontSize: 17,
-    letterSpacing: -0.2,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-    marginTop: 12,
-  },
   watchCard: {
     width: 160,
     borderRadius: 16,
@@ -573,11 +570,5 @@ const styles = StyleSheet.create({
   watchProgressFill: {
     height: 3,
     borderRadius: 1.5,
-  },
-  watchTitle: {
-    fontSize: 13,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    lineHeight: 18,
   },
 });

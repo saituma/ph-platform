@@ -12,6 +12,7 @@ import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import {
+  useAdminPastel,
   AdminBadge,
   AdminEmptyState,
   AdminIconButton,
@@ -24,7 +25,6 @@ import {
   safeNumber,
   categoryLabel,
 } from "@/lib/admin-messages-utils";
-import { Card } from "@/components/ui/legacy-card";
 import { SmallAction } from "../AdminShared";
 import { useAdminGroups } from "@/hooks/admin/useAdminGroups";
 import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
@@ -36,14 +36,21 @@ import {
   AdminUserResult,
   GroupMember,
 } from "@/types/admin-messages";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  ChevronLeft,
+  Users,
+  Plus,
+  Send,
+  X,
+  MessageCircle,
+  Search,
+} from "lucide-react-native";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useSocket } from "@/context/SocketContext";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
 import { GifPickerModal } from "@/components/messages/GifPickerModal";
-import { Plus, Search, Users } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Image as ExpoImage } from "expo-image";
 import {
@@ -59,6 +66,15 @@ import Animated, {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
 
+const PASTEL_AVATAR_COLORS = [
+  "cardSage",
+  "cardPink",
+  "cardLavender",
+  "cardPeach",
+  "cardMint",
+  "cardYellow",
+] as const;
+
 interface Props {
   token: string | null;
   canLoad: boolean;
@@ -72,6 +88,7 @@ export function AdminGroupSection({
   myUserId,
   category,
 }: Props) {
+  const p = useAdminPastel();
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const { socket } = useSocket();
@@ -281,16 +298,24 @@ export function AdminGroupSection({
 
   const sendTap = Gesture.Tap()
     .onBegin(() => {
-      'worklet';
-      sendButtonScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      "worklet";
+      sendButtonScale.value = withSpring(0.96, {
+        damping: 15,
+        stiffness: 400,
+        mass: 0.3,
+      });
       runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
     })
     .onFinalize(() => {
-      'worklet';
-      sendButtonScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+      "worklet";
+      sendButtonScale.value = withSpring(1, {
+        damping: 20,
+        stiffness: 300,
+        mass: 0.4,
+      });
     })
     .onEnd(() => {
-      'worklet';
+      "worklet";
       runOnJS(handleSend)();
     });
 
@@ -315,7 +340,9 @@ export function AdminGroupSection({
   };
 
   const canSendGroupMessage =
-    !isSending && !isUploading && (draft.trim().length > 0 || !!pendingAttachment);
+    !isSending &&
+    !isUploading &&
+    (draft.trim().length > 0 || !!pendingAttachment);
 
   const openMembers = async () => {
     if (!groupsHook.activeGroupId) return;
@@ -369,6 +396,7 @@ export function AdminGroupSection({
 
   return (
     <View style={{ flex: 1 }}>
+      {/* SEARCH + ADD */}
       <View
         style={{
           paddingHorizontal: 16,
@@ -394,16 +422,19 @@ export function AdminGroupSection({
         />
       </View>
 
+      {/* GROUP LIST (pastel styled) */}
       {(() => {
-        const accent = category === "team" ? "#34C759" : "#7B61FF";
-        const avatarBg = isDark ? `${accent}33` : `${accent}1F`;
-
         const isLoadingFirstTime =
           category === "team"
             ? teamsHook.loading && teamsHook.teams.length === 0
             : groupsHook.groupsLoading && filteredGroups.length === 0;
 
-        const renderRows: { key: React.Key; name: string; chat: ChatGroup | null; teamId?: number }[] =
+        const renderRows: {
+          key: React.Key;
+          name: string;
+          chat: ChatGroup | null;
+          teamId?: number;
+        }[] =
           category === "team"
             ? teamRows.map(({ team, chat, displayName }) => ({
                 key: team.id,
@@ -423,9 +454,17 @@ export function AdminGroupSection({
               {[0, 1, 2, 3, 4].map((i) => (
                 <View
                   key={i}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
                 >
-                  <Skeleton width={52} height={52} style={{ borderRadius: 26 }} />
+                  <Skeleton
+                    width={52}
+                    height={52}
+                    style={{ borderRadius: 26 }}
+                  />
                   <Skeleton width="60%" height={16} />
                 </View>
               ))}
@@ -436,7 +475,7 @@ export function AdminGroupSection({
         if (renderRows.length === 0) {
           return (
             <AdminEmptyState
-              icon={Users}
+              icon={MessageCircle}
               title={
                 query
                   ? "No matching results"
@@ -458,7 +497,7 @@ export function AdminGroupSection({
 
         return (
           <View style={{ paddingHorizontal: 16, gap: 10 }}>
-            {renderRows.map((row) => {
+            {renderRows.map((row, idx) => {
               const unread = safeNumber(row.chat?.unreadCount);
               const initials =
                 String(row.name ?? "")
@@ -469,6 +508,12 @@ export function AdminGroupSection({
                   .join("") || "T";
               const isOpening =
                 row.teamId != null && openingTeamId === row.teamId;
+
+              // Alternate pastel avatar backgrounds
+              const avatarColorKey =
+                PASTEL_AVATAR_COLORS[idx % PASTEL_AVATAR_COLORS.length];
+              const avatarBg = (p as any)[avatarColorKey] as string;
+
               return (
                 <AdminListRow
                   key={row.key}
@@ -494,15 +539,13 @@ export function AdminGroupSection({
                         backgroundColor: avatarBg,
                         alignItems: "center",
                         justifyContent: "center",
-                        borderWidth: 1,
-                        borderColor: isDark ? `${accent}45` : `${accent}2E`,
                       }}
                     >
                       <Text
                         style={{
                           fontFamily: "Outfit-Bold",
                           fontSize: 14,
-                          color: accent,
+                          color: p.accent,
                         }}
                       >
                         {initials}
@@ -511,9 +554,11 @@ export function AdminGroupSection({
                   }
                   trailing={
                     isOpening ? (
-                      <ActivityIndicator size="small" color={accent} />
+                      <ActivityIndicator size="small" color={p.accent} />
                     ) : row.chat ? undefined : (
-                      <AdminBadge tone={category === "team" ? "success" : "accent"}>
+                      <AdminBadge
+                        tone={category === "team" ? "success" : "accent"}
+                      >
                         New
                       </AdminBadge>
                     )
@@ -527,7 +572,9 @@ export function AdminGroupSection({
                       );
                     } else if (row.chat?.id != null) {
                       groupsHook.setActiveGroupId(row.chat.id);
-                      groupsHook.setActiveGroupName(row.chat.name ?? row.name);
+                      groupsHook.setActiveGroupName(
+                        row.chat.name ?? row.name,
+                      );
                       groupsHook.loadMessages(row.chat.id, true);
                       void groupsHook.markGroupRead(row.chat.id);
                     }
@@ -543,13 +590,15 @@ export function AdminGroupSection({
       <Modal
         visible={groupsHook.activeGroupId != null}
         animationType="slide"
-        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+        presentationStyle={
+          Platform.OS === "ios" ? "pageSheet" : "fullScreen"
+        }
         onRequestClose={() => groupsHook.setActiveGroupId(null)}
       >
         <View
           style={{
             flex: 1,
-            backgroundColor: colors.background,
+            backgroundColor: p.pageBg,
             paddingTop: insets.top,
           }}
         >
@@ -562,9 +611,7 @@ export function AdminGroupSection({
               alignItems: "center",
               gap: 12,
               borderBottomWidth: 1,
-              borderBottomColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
+              borderBottomColor: p.divider,
             }}
           >
             <Pressable
@@ -572,7 +619,7 @@ export function AdminGroupSection({
               hitSlop={10}
               style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
             >
-              <Ionicons name="chevron-back" size={26} color={colors.accent} />
+              <ChevronLeft size={26} color={p.accent} />
             </Pressable>
 
             <View
@@ -580,13 +627,17 @@ export function AdminGroupSection({
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: isDark ? "#34C75933" : "#34C7591F",
+                backgroundColor: p.accentSoft,
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
               <RNText
-                style={{ fontSize: 14, fontWeight: "700", color: "#34C759" }}
+                style={{
+                  fontSize: 14,
+                  fontWeight: "700",
+                  color: p.accent,
+                }}
               >
                 {String(groupsHook.activeGroupName ?? "")
                   .split(/\s+/)
@@ -603,7 +654,7 @@ export function AdminGroupSection({
                 style={{
                   fontSize: 17,
                   fontWeight: "700",
-                  color: isDark ? "#FFFFFF" : "#000000",
+                  color: p.textPrimary,
                   letterSpacing: -0.2,
                 }}
               >
@@ -614,7 +665,7 @@ export function AdminGroupSection({
                   style={{
                     fontFamily: "Outfit-Medium",
                     fontSize: 12,
-                    color: colors.accent,
+                    color: p.accent,
                     marginTop: 1,
                   }}
                 >
@@ -632,24 +683,27 @@ export function AdminGroupSection({
                 borderRadius: 18,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(15,23,42,0.05)",
+                backgroundColor: p.accentSoft,
                 opacity: pressed ? 0.6 : 1,
               })}
             >
-              <Ionicons name="people" size={18} color={colors.textSecondary} />
+              <Users size={18} color={p.textSecondary} />
             </Pressable>
           </View>
 
           {/* MESSAGES */}
           <ThemedScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 8 }}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 24,
+              gap: 8,
+            }}
           >
-            {groupsHook.messagesLoading && groupsHook.messages.length === 0 ? (
+            {groupsHook.messagesLoading &&
+            groupsHook.messages.length === 0 ? (
               <View style={{ paddingVertical: 40, alignItems: "center" }}>
-                <ActivityIndicator color={colors.accent} />
+                <ActivityIndicator color={p.accent} />
               </View>
             ) : groupsHook.messages.length === 0 ? (
               <View
@@ -664,18 +718,18 @@ export function AdminGroupSection({
                     width: 56,
                     height: 56,
                     borderRadius: 28,
-                    backgroundColor: isDark ? "#34C75922" : "#34C75914",
+                    backgroundColor: p.accentSoft,
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Ionicons name="chatbubbles" size={26} color="#34C759" />
+                  <MessageCircle size={26} color={p.accent} />
                 </View>
                 <Text
                   style={{
                     fontFamily: "Outfit-Medium",
                     fontSize: 13,
-                    color: colors.textSecondary,
+                    color: p.textSecondary,
                   }}
                 >
                   No messages yet — say hello
@@ -696,21 +750,21 @@ export function AdminGroupSection({
                       marginTop: groupedWithPrev ? 0 : 6,
                     }}
                   >
-                    <Card
-                      variant="default"
-                      radius="lg"
-                      shadow="sm"
-                      padding={m.mediaUrl ? 6 : 12}
+                    <View
                       style={{
+                        padding: m.mediaUrl ? 6 : 12,
+                        borderRadius: 18,
                         backgroundColor: isMe
-                          ? colors.accent
-                          : isDark
-                            ? "rgba(255,255,255,0.06)"
-                            : "rgba(15,23,42,0.05)",
+                          ? p.accent
+                          : p.cardLavender,
                         borderTopLeftRadius:
                           !isMe && groupedWithPrev ? 6 : 18,
                         borderTopRightRadius:
                           isMe && groupedWithPrev ? 6 : 18,
+                        shadowColor: p.shadow,
+                        shadowOpacity: 1,
+                        shadowRadius: 8,
+                        shadowOffset: { width: 0, height: 2 },
                       }}
                     >
                       {m.mediaUrl ? (
@@ -731,9 +785,7 @@ export function AdminGroupSection({
                             lineHeight: 20,
                             color: isMe
                               ? "#FFFFFF"
-                              : isDark
-                                ? "#FFFFFF"
-                                : "#000000",
+                              : p.textPrimary,
                             marginTop: m.mediaUrl ? 6 : 0,
                             paddingHorizontal: m.mediaUrl ? 6 : 0,
                           }}
@@ -748,13 +800,13 @@ export function AdminGroupSection({
                           paddingHorizontal: m.mediaUrl ? 6 : 0,
                           color: isMe
                             ? "rgba(255,255,255,0.75)"
-                            : colors.textSecondary,
+                            : p.textMuted,
                           textAlign: "right",
                         }}
                       >
                         {formatWhen(m.createdAt)}
                       </RNText>
-                    </Card>
+                    </View>
                   </View>
                 );
               })
@@ -768,22 +820,21 @@ export function AdminGroupSection({
               paddingTop: 8,
               paddingBottom: Math.max(insets.bottom, 12),
               borderTopWidth: 1,
-              borderTopColor: isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(15,23,42,0.06)",
+              borderTopColor: p.divider,
             }}
           >
             {pendingAttachment ? (
-              <Card
-                variant="outline"
-                radius="md"
-                shadow="none"
-                padding={8}
+              <View
                 style={{
                   marginBottom: 8,
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 10,
+                  padding: 8,
+                  borderRadius: 14,
+                  backgroundColor: p.inputBg,
+                  borderWidth: 1,
+                  borderColor: p.inputBorder,
                 }}
               >
                 <ExpoImage
@@ -795,7 +846,7 @@ export function AdminGroupSection({
                     flex: 1,
                     fontFamily: "Outfit-Regular",
                     fontSize: 12,
-                    color: colors.textSecondary,
+                    color: p.textSecondary,
                   }}
                   numberOfLines={1}
                 >
@@ -805,13 +856,9 @@ export function AdminGroupSection({
                   onPress={() => setPendingAttachment(null)}
                   hitSlop={6}
                 >
-                  <Ionicons
-                    name="close-circle"
-                    size={20}
-                    color={colors.danger}
-                  />
+                  <X size={20} color={p.danger} />
                 </Pressable>
-              </Card>
+              </View>
             ) : null}
 
             <View
@@ -831,13 +878,11 @@ export function AdminGroupSection({
                   borderRadius: 20,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(255,255,255,0.9)",
+                  backgroundColor: p.accentSoft,
                   opacity: pressed ? 0.6 : 1,
                 })}
               >
-                <Ionicons name="add" size={22} color={colors.accent} />
+                <Plus size={22} color={p.accent} />
               </Pressable>
 
               <View
@@ -851,13 +896,9 @@ export function AdminGroupSection({
                   paddingHorizontal: 14,
                   paddingVertical: 8,
                   borderRadius: 22,
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.06)"
-                    : "rgba(15,23,42,0.05)",
+                  backgroundColor: p.inputBg,
                   borderWidth: 1,
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(15,23,42,0.08)",
+                  borderColor: p.inputBorder,
                   justifyContent: "center",
                 }}
               >
@@ -865,7 +906,7 @@ export function AdminGroupSection({
                   value={draft}
                   onChangeText={setDraft}
                   placeholder="Message"
-                  placeholderTextColor={colors.placeholder}
+                  placeholderTextColor={p.textMuted}
                   multiline
                   style={{
                     minHeight: 28,
@@ -873,7 +914,7 @@ export function AdminGroupSection({
                     padding: 0,
                     fontFamily: "Outfit-Regular",
                     fontSize: 15,
-                    color: colors.textPrimary,
+                    color: p.textPrimary,
                   }}
                 />
               </View>
@@ -889,7 +930,7 @@ export function AdminGroupSection({
                       borderRadius: 22,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: colors.accent,
+                      backgroundColor: p.accent,
                       opacity: canSendGroupMessage ? 1 : 0.5,
                       elevation: 2,
                       zIndex: 30,
@@ -897,13 +938,12 @@ export function AdminGroupSection({
                   ]}
                 >
                   {isSending || isUploading ? (
-                    <ActivityIndicator size="small" color="hsl(220, 5%, 98%)" />
-                  ) : (
-                    <Ionicons
-                      name="arrow-up"
-                      size={20}
-                      color="hsl(220, 5%, 98%)"
+                    <ActivityIndicator
+                      size="small"
+                      color="#FFFFFF"
                     />
+                  ) : (
+                    <Send size={20} color="#FFFFFF" />
                   )}
                 </Animated.View>
               </GestureDetector>
@@ -925,7 +965,9 @@ export function AdminGroupSection({
         <EmojiPickerModal
           open={emojiPickerOpen}
           onClose={() => setEmojiPickerOpen(false)}
-          onSelectEmoji={(emoji: string) => setDraft((prev) => prev + emoji)}
+          onSelectEmoji={(emoji: string) =>
+            setDraft((prev) => prev + emoji)
+          }
         />
         <GifPickerModal
           open={gifPickerOpen}
@@ -938,31 +980,62 @@ export function AdminGroupSection({
         />
       </Modal>
 
-      {/* CREATE GROUP MODAL (Simplified for brevity) */}
+      {/* CREATE GROUP MODAL */}
       <Modal visible={createOpen} animationType="fade" transparent>
         <View
           style={{
             flex: 1,
-            backgroundColor: "rgba(0,0,0,0.5)",
+            backgroundColor: p.overlay,
             justifyContent: "center",
             padding: 20,
           }}
         >
           <View
-            className="bg-card rounded-3xl p-6"
-            style={{ backgroundColor: colors.cardElevated }}
+            style={{
+              backgroundColor: p.cardWhite,
+              borderRadius: 28,
+              padding: 24,
+              shadowColor: p.shadow,
+              shadowOpacity: 1,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 4 },
+            }}
           >
-            <Text className="text-[18px] font-clash font-bold text-app mb-4">
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 18,
+                color: p.textPrimary,
+                marginBottom: 16,
+              }}
+            >
               New {categoryLabel(category)}
             </Text>
             <TextInput
               value={createName}
               onChangeText={setCreateGroupName}
               placeholder="Name..."
-              placeholderTextColor={colors.placeholder}
-              className="bg-background rounded-2xl px-4 py-3 mb-4 text-app"
+              placeholderTextColor={p.textMuted}
+              style={{
+                backgroundColor: p.inputBg,
+                borderRadius: 16,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                marginBottom: 16,
+                fontFamily: "Outfit-Regular",
+                fontSize: 15,
+                color: p.textPrimary,
+                borderWidth: 1,
+                borderColor: p.inputBorder,
+              }}
             />
-            <View className="flex-row gap-2 justify-end">
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 8,
+                justifyContent: "flex-end",
+              }}
+            >
               <SmallAction
                 label="Cancel"
                 tone="neutral"
@@ -975,6 +1048,165 @@ export function AdminGroupSection({
                 disabled={isCreating}
               />
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MEMBERS MODAL */}
+      <Modal visible={membersOpen} animationType="slide" transparent>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: p.overlay,
+            justifyContent: "flex-end",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: p.cardWhite,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              padding: 24,
+              maxHeight: "70%",
+              shadowColor: p.shadow,
+              shadowOpacity: 1,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 4 },
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: "Outfit-Bold",
+                  fontSize: 18,
+                  color: p.textPrimary,
+                }}
+              >
+                Members
+              </Text>
+              <Pressable
+                onPress={() => setMembersOpen(false)}
+                hitSlop={8}
+                style={({ pressed }) => ({
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: p.dangerSoft,
+                  opacity: pressed ? 0.6 : 1,
+                })}
+              >
+                <X size={16} color={p.danger} />
+              </Pressable>
+            </View>
+
+            {membersLoading ? (
+              <View
+                style={{
+                  paddingVertical: 32,
+                  alignItems: "center",
+                }}
+              >
+                <ActivityIndicator color={p.accent} />
+              </View>
+            ) : members.length === 0 ? (
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 14,
+                  color: p.textMuted,
+                  textAlign: "center",
+                  paddingVertical: 24,
+                }}
+              >
+                No members in this group yet.
+              </Text>
+            ) : (
+              <ThemedScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ gap: 10 }}
+              >
+                {members.map((member, mIdx) => {
+                  const memberAvatarColor =
+                    PASTEL_AVATAR_COLORS[mIdx % PASTEL_AVATAR_COLORS.length];
+                  const memberAvatarBg = (p as any)[memberAvatarColor] as string;
+                  const memberInitials =
+                    String(member.name ?? member.email ?? "")
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((w) => (w[0] ?? "").toUpperCase())
+                      .join("") || "?";
+
+                  return (
+                    <View
+                      key={member.userId ?? mIdx}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingVertical: 8,
+                        borderBottomWidth: 1,
+                        borderBottomColor: p.divider,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: 12,
+                          backgroundColor: memberAvatarBg,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontFamily: "Outfit-Bold",
+                            fontSize: 12,
+                            color: p.accent,
+                          }}
+                        >
+                          {memberInitials}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          style={{
+                            fontFamily: "Outfit-SemiBold",
+                            fontSize: 14,
+                            color: p.textPrimary,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {member.name ?? member.email ?? "Unknown"}
+                        </Text>
+                        {member.role ? (
+                          <Text
+                            style={{
+                              fontFamily: "Outfit-Regular",
+                              fontSize: 12,
+                              color: p.textMuted,
+                              marginTop: 1,
+                            }}
+                          >
+                            {member.role}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                })}
+              </ThemedScrollView>
+            )}
           </View>
         </View>
       </Modal>

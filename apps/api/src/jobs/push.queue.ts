@@ -8,10 +8,17 @@
  * Usage:
  *   await pushQueue.enqueue({ userId, title, body, data });
  *
- * Falls back to synchronous send if Redis is not configured.
+ * Synchronous fallback is disabled by default and can only be enabled
+ * explicitly in development/test with ENABLE_SYNC_QUEUE_FALLBACK=true.
  */
 import { Queue, Worker } from "bullmq";
-import { getRedisConnection, isRedisLimitExceeded } from "./connection";
+import {
+  getQueueUnavailableReason,
+  getRedisConnection,
+  isRedisLimitError,
+  isRedisLimitExceeded,
+  onRedisLimitExceeded,
+} from "./connection";
 import { sendPushNotification } from "../services/push.service";
 import { logger } from "../lib/logger";
 
@@ -25,6 +32,7 @@ type PushJob = {
 };
 
 let _queue: Queue<PushJob> | null = null;
+let _worker: Worker<PushJob> | null = null;
 
 function getQueue(): Queue<PushJob> | null {
   if (_queue !== undefined) return _queue;
@@ -46,19 +54,27 @@ export const pushQueue = {
   async enqueue(job: PushJob): Promise<void> {
     const queue = getQueue();
     if (!queue || isRedisLimitExceeded()) {
+      const reason = getQueueUnavailableReason();
+      logger.warn({ queue: QUEUE_NAME, reason }, "queue.inline_fallback");
       await sendPushNotification(job.userId, job.title, job.body, job.data);
       return;
     }
-    await queue.add("send", job);
+    try {
+      await queue.add("send", job);
+    } catch (error) {
+      logger.error({ err: error, queue: QUEUE_NAME }, "queue.enqueue_failed");
+      throw error;
+    }
   },
 };
 
 /** Start the push notification worker. Call once at app startup. */
 export function startPushWorker(): void {
+  if (_worker) return;
   const connection = getRedisConnection();
   if (!connection) return;
 
-  const worker = new Worker<PushJob>(
+  _worker = new Worker<PushJob>(
     QUEUE_NAME,
     async (job) => {
       const { userId, title, body, data } = job.data;
@@ -69,8 +85,24 @@ export function startPushWorker(): void {
       concurrency: 5,
     },
   );
-  worker.on("error", (err) => {
+  _worker.on("error", (err) => {
+    if (isRedisLimitError(err)) return;
     logger.error({ err }, "Push worker error");
   });
+  onRedisLimitExceeded(() => {
+    logger.warn("Push worker shutting down — Redis limit exceeded");
+    void stopPushWorker();
+  });
   logger.info("Push notification worker started");
+}
+
+export async function stopPushWorker(): Promise<void> {
+  if (_worker) {
+    await _worker.close();
+    _worker = null;
+  }
+  if (_queue) {
+    await _queue.close();
+    _queue = null;
+  }
 }

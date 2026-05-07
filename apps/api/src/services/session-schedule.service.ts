@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, asc, count as drizzleCount, desc, eq, gt, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   athleteTable,
@@ -8,10 +8,28 @@ import {
   sessionTemplateTable,
   userTable,
 } from "../db/schema";
-import { pushQueue } from "../jobs";
+import { createPushIntent } from "./outbox.service";
 import { logger } from "../lib/logger";
 import { getSocketServer } from "../socket-hub";
 import { getGoogleCalendarConnectionForAdmin, upsertGoogleCalendarEvent } from "./google-calendar.service";
+
+const MAX_MATERIALIZE_DAYS = 90;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 500): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs * 2 ** attempt));
+      }
+    }
+  }
+  throw lastError;
+}
 
 type SessionType = "one_to_one" | "semi_private" | "in_person" | "team";
 type SessionScope = "individual" | "group" | "team";
@@ -117,7 +135,7 @@ export async function notifyMaterializedSessions(input: {
   );
 
   for (const userId of uniqueUserIds) {
-    void pushQueue.enqueue({
+    void createPushIntent({
       userId,
       title: "New session scheduled",
       body: `${input.templateName} was added to your schedule.`,
@@ -485,4 +503,50 @@ export async function checkInMySession(input: { scheduledSessionId: number; user
     });
   if (!row) throw new Error("SESSION_ASSIGNMENT_NOT_FOUND");
   return { ok: true, attendanceStatus: row.status, checkInAt: row.checkInAt };
+}
+
+export async function getAttendanceStats(input: {
+  userId?: number;
+  teamId?: number;
+  from?: Date;
+  to?: Date;
+}) {
+  const conditions: any[] = [];
+  if (input.userId) conditions.push(eq(sessionAttendanceTable.userId, input.userId));
+  if (input.teamId) conditions.push(eq(scheduledSessionTable.teamId, input.teamId));
+  if (input.from) conditions.push(gte(scheduledSessionTable.startsAt, input.from));
+  if (input.to) conditions.push(lte(scheduledSessionTable.startsAt, input.to));
+
+  const rows = await db
+    .select({
+      userId: sessionAttendanceTable.userId,
+      userName: userTable.name,
+      userEmail: userTable.email,
+      totalSessions: drizzleCount(sessionAttendanceTable.id),
+      attended: sql<number>`count(*) filter (where ${sessionAttendanceTable.status} = 'attended')`.as("attended"),
+      missed: sql<number>`count(*) filter (where ${sessionAttendanceTable.status} = 'missed')`.as("missed"),
+      unmarked: sql<number>`count(*) filter (where ${sessionAttendanceTable.status} = 'unmarked')`.as("unmarked"),
+    })
+    .from(sessionAttendanceTable)
+    .innerJoin(scheduledSessionTable, eq(sessionAttendanceTable.scheduledSessionId, scheduledSessionTable.id))
+    .innerJoin(userTable, eq(sessionAttendanceTable.userId, userTable.id))
+    .where(conditions.length ? and(...conditions) : undefined)
+    .groupBy(sessionAttendanceTable.userId, userTable.name, userTable.email)
+    .orderBy(
+      asc(
+        sql`case when count(*) = 0 then 0 else round(count(*) filter (where ${sessionAttendanceTable.status} = 'attended') * 100.0 / count(*)) end`,
+      ),
+    );
+
+  return rows.map((r) => ({
+    userId: r.userId,
+    userName: r.userName,
+    userEmail: r.userEmail,
+    totalSessions: Number(r.totalSessions),
+    attended: Number(r.attended),
+    missed: Number(r.missed),
+    unmarked: Number(r.unmarked),
+    attendancePercent:
+      Number(r.totalSessions) === 0 ? 0 : Math.round((Number(r.attended) * 100) / Number(r.totalSessions)),
+  }));
 }

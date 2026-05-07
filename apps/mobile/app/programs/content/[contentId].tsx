@@ -7,15 +7,14 @@ import {
   useRouter,
   type RelativePathString,
 } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { ExternalLink, ChevronRight, ArrowLeft } from "lucide-react-native";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { useAppSelector } from "@/store/hooks";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
 
 import { canAccessTier } from "@/lib/planAccess";
@@ -27,6 +26,7 @@ import { ExerciseOverview } from "@/components/programs/content-detail/ExerciseO
 import { CoachingSection } from "@/components/programs/content-detail/CoachingSection";
 import { CheckinModal } from "@/components/programs/content-detail/CheckinModal";
 import { NavigationFooter } from "@/components/programs/content-detail/NavigationFooter";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 // Detect external video hosting
 function isExternalVideoUrl(url: string): boolean {
@@ -44,30 +44,33 @@ function isExternalVideoUrl(url: string): boolean {
 const ExternalLinkButton = React.memo(function ExternalLinkButton({
   url,
   label,
+  p,
 }: {
   url: string;
   label: string;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
-  const { isDark } = useAppTheme();
   return (
     <Pressable
       onPress={() => Linking.openURL(url).catch(() => undefined)}
-      className="rounded-2xl bg-white/10 px-5 py-4 flex-row items-center gap-3"
-      style={isDark ? Shadows.none : Shadows.sm}
+      style={{
+        borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 20, paddingVertical: 16,
+        flexDirection: "row", alignItems: "center", gap: 12,
+      }}
     >
-      <Feather name="external-link" size={18} color="#FFFFFF" />
-      <View className="flex-1">
-        <Text className="text-sm font-outfit text-white font-semibold">
+      <ExternalLink size={18} color={p.accent} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
           {label}
         </Text>
         <Text
-          className="text-[11px] font-outfit text-white/80 mt-0.5"
+          style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 2 }}
           numberOfLines={1}
         >
           {url}
         </Text>
       </View>
-      <Feather name="chevron-right" size={16} color="#94A3B8" />
+      <ChevronRight size={16} color={p.textMuted} />
     </Pressable>
   );
 });
@@ -75,19 +78,21 @@ const ExternalLinkButton = React.memo(function ExternalLinkButton({
 const MediaSection = React.memo(function MediaSection({
   url,
   title,
+  p,
 }: {
   url: string;
   title?: string;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   if (isYoutubeUrl(url)) {
     return (
-      <View className="rounded-3xl overflow-hidden bg-white/5">
+      <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
         <VideoPlayer uri={url} title={title} ignoreTabFocus />
       </View>
     );
   }
   if (url.toLowerCase().includes("drive.google.com")) {
-    return <ExternalLinkButton url={url} label="Open in Google Drive" />;
+    return <ExternalLinkButton url={url} label="Open in Google Drive" p={p} />;
   }
   if (isExternalVideoUrl(url)) {
     const lower = url.toLowerCase();
@@ -95,10 +100,10 @@ const MediaSection = React.memo(function MediaSection({
     if (lower.includes("vimeo.com")) label = "Open in Vimeo";
     else if (lower.includes("loom.com")) label = "Open in Loom";
     else if (lower.includes("streamable.com")) label = "Open in Streamable";
-    return <ExternalLinkButton url={url} label={label} />;
+    return <ExternalLinkButton url={url} label={label} p={p} />;
   }
   return (
-    <View className="rounded-3xl overflow-hidden bg-white/5">
+    <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
       <VideoPlayer uri={url} title={title} ignoreTabFocus />
     </View>
   );
@@ -118,15 +123,10 @@ export default function ProgramContentDetailScreen() {
     (state) => state.user,
   );
   const { isDark, colors } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
 
-  /**
-   * Cold start protection: if this screen is at the root of the stack (no back history)
-   * and there is no real incoming deep link for it, it is a ghost restore from Expo
-   * Router's persisted navigation state — redirect to the correct entry screen.
-   * Runs on mount without waiting for bootstrapReady so logged-out users are also covered.
-   */
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -166,14 +166,10 @@ export default function ProgramContentDetailScreen() {
     );
   }, [athleteUserId, managedAthletes]);
 
-  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark
-    ? "rgba(255,255,255,0.06)"
-    : "rgba(255,255,255,0.84)";
-  const accentSurface = isDark
-    ? "rgba(34,197,94,0.16)"
-    : "rgba(34,197,94,0.10)";
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+  const surfaceColor = p.cardWhite;
+  const mutedSurface = p.inputBg;
+  const accentSurface = p.accentSoft;
+  const borderSoft = p.divider;
 
   const sessionExerciseIds = useMemo(
     () =>
@@ -217,35 +213,35 @@ export default function ProgramContentDetailScreen() {
     return (
       <MarkdownText
         text={item.body}
-        baseStyle={{ fontSize: 15, lineHeight: 24, color: colors.text }}
+        baseStyle={{ fontSize: 15, lineHeight: 24, color: p.textPrimary }}
         headingStyle={{
           fontSize: 18,
           lineHeight: 26,
-          color: colors.text,
+          color: p.textPrimary,
           fontWeight: "700",
         }}
         subheadingStyle={{
           fontSize: 16,
           lineHeight: 24,
-          color: colors.text,
+          color: p.textPrimary,
           fontWeight: "700",
         }}
         listItemStyle={{ paddingLeft: 6 }}
       />
     );
-  }, [item?.body, colors.text]);
+  }, [item?.body, p.textPrimary]);
 
   const mediaSection = useMemo(() => {
     if (!item?.videoUrl) return null;
     return (
-      <View className="mt-1">
-        <MediaSection url={item.videoUrl} title={item.title} />
+      <View style={{ marginTop: 4 }}>
+        <MediaSection url={item.videoUrl} title={item.title} p={p} />
       </View>
     );
-  }, [item?.title, item?.videoUrl]);
+  }, [item?.title, item?.videoUrl, p]);
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <SafeMaskedView style={{ flex: 1 }}>
         <ThemedScrollView
           onRefresh={() => load(true)}
@@ -253,7 +249,7 @@ export default function ProgramContentDetailScreen() {
             paddingBottom: hasSessionNavigation ? 136 : 40,
           }}
         >
-          <View className="px-6 pt-6">
+          <View style={{ paddingHorizontal: 24, paddingTop: 24 }}>
             <ContentHeader
               title={item?.title ?? "Program Content"}
               isExerciseDetail={isExerciseDetail}
@@ -272,43 +268,48 @@ export default function ProgramContentDetailScreen() {
 
             {isLoading ? (
               <View
-                className="rounded-3xl px-6 py-6 items-center"
-                style={[{ backgroundColor: colors.accent }, isDark ? Shadows.none : Shadows.sm]}
+                style={{
+                  borderRadius: 22, paddingHorizontal: 24, paddingVertical: 24, alignItems: "center",
+                  backgroundColor: p.accent,
+                }}
               >
-                <ActivityIndicator color={colors.textInverse} />
-                <Text className="text-sm font-outfit mt-2" style={{ color: colors.textInverse }}>
+                <ActivityIndicator color={p.buttonPrimaryText} />
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", marginTop: 8, color: p.buttonPrimaryText }}>
                   Loading content...
                 </Text>
               </View>
             ) : error ? (
               <View
-                className="rounded-3xl px-6 py-6"
-                style={[{ backgroundColor: colors.accent }, isDark ? Shadows.none : Shadows.sm]}
+                style={{
+                  borderRadius: 22, paddingHorizontal: 24, paddingVertical: 24,
+                  backgroundColor: p.accent,
+                }}
               >
-                <Text className="text-sm font-outfit text-center" style={{ color: colors.textInverse }}>
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", textAlign: "center", color: p.buttonPrimaryText }}>
                   {error}
                 </Text>
               </View>
             ) : !item ? (
               <View
-                className="rounded-3xl border px-6 py-6 items-center gap-3"
-                style={{ backgroundColor: colors.card, borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)" }}
+                style={{
+                  borderRadius: 22, paddingHorizontal: 24, paddingVertical: 24, alignItems: "center", gap: 12,
+                  backgroundColor: p.cardWhite,
+                }}
               >
-                <Text className="text-sm font-outfit text-secondary text-center">
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
                   Content not found.
                 </Text>
                 <Pressable
                   onPress={() => load(true)}
-                  className="rounded-2xl px-5 py-2.5"
-                  style={{ backgroundColor: colors.accent }}
+                  style={{ borderRadius: 100, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: p.accent }}
                 >
-                  <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textInverse }}>
+                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
                     Retry
                   </Text>
                 </Pressable>
               </View>
             ) : item ? (
-              <View className="gap-4">
+              <View style={{ gap: 16 }}>
                 <ExerciseOverview
                   isExerciseDetail={isExerciseDetail}
                   hasExercise={
@@ -365,8 +366,6 @@ export default function ProgramContentDetailScreen() {
             borderSoft={borderSoft}
           />
         )}
-
-        {/* Video upload is handled in the Session detail exercise cards to keep everything in one place. */}
 
         <CheckinModal
           isVisible={showCompleteModal}

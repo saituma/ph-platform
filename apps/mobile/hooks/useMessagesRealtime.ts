@@ -84,6 +84,18 @@ export function useMessagesRealtime({
 
     const handleMessageNew = async (payload: SocketMessageNewPayload) => {
       if (!payload?.id) return;
+      if (payload.clientTraceId || payload.serverReceivedAt) {
+        console.info("[RealtimeLatency] mobile.direct.socket_receive", {
+          clientTraceId: payload.clientTraceId ?? null,
+          messageId: payload.id,
+          socketConnected: socket.connected,
+          socketTransport: socket.io?.engine?.transport?.name ?? "unknown",
+          serverToClientElapsedMs:
+            typeof payload.serverReceivedAt === "number"
+              ? Date.now() - payload.serverReceivedAt
+              : null,
+        });
+      }
       const senderId = Number(payload.senderId);
       const receiverId = Number(payload.receiverId);
       const currentProfileId = profileIdRef.current;
@@ -170,6 +182,19 @@ export function useMessagesRealtime({
 
     const handleGroupMessage = async (payload: SocketGroupMessagePayload) => {
       if (!payload?.id || !payload?.groupId) return;
+      if (payload.clientTraceId || payload.serverReceivedAt) {
+        console.info("[RealtimeLatency] mobile.group.socket_receive", {
+          clientTraceId: payload.clientTraceId ?? null,
+          messageId: payload.id,
+          groupId: payload.groupId,
+          socketConnected: socket.connected,
+          socketTransport: socket.io?.engine?.transport?.name ?? "unknown",
+          serverToClientElapsedMs:
+            typeof payload.serverReceivedAt === "number"
+              ? Date.now() - payload.serverReceivedAt
+              : null,
+        });
+      }
       const groupId = Number(payload.groupId);
       const currentProfileId = profileIdRef.current;
       const currentGroupMembers = groupMembersRef.current;

@@ -9,16 +9,15 @@ import { Alert, Pressable, View, Linking } from "react-native";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { ArrowLeft, Lock, CheckCircle, ChevronRight } from "lucide-react-native";
 import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
 import { apiRequest } from "@/lib/api";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
-import { Shadows } from "@/constants/theme";
 import { ProgramId } from "@/constants/program-details";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
@@ -58,10 +57,6 @@ export default function ProgramModuleDetailScreen() {
     programId?: ProgramId | string;
   }>();
 
-  // Ghost-restore guard: if the app cold-starts directly onto this screen with no
-  // back stack and no deep-link pointing here, send the user to tabs.
-  // useEffect + setTimeout lets the navigation stack fully commit before we check
-  // canGoBack(), avoiding false-positive redirects on normal push navigation.
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -95,7 +90,7 @@ export default function ProgramModuleDetailScreen() {
   const token = useAppSelector((state) => state.user.token);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const activeAthlete = useMemo(() => {
     if (!managedAthletes.length) return null;
@@ -115,8 +110,6 @@ export default function ProgramModuleDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const hasLoadedOnceRef = useRef(false);
   const wasLockedRef = useRef<boolean | null>(null);
-
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
   const formatUnlockTiers = (
     tiers?: Array<{ tier: string; label: string }>,
@@ -239,92 +232,82 @@ export default function ProgramModuleDetailScreen() {
   }, [module]);
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <SafeMaskedView style={{ flex: 1 }}>
         <ThemedScrollView
           onRefresh={() => loadWorkspace({ force: true })}
-          style={{ backgroundColor: colors.background }}
+          style={{ backgroundColor: p.pageBg }}
           contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}
         >
-          <View className="px-6 pt-4 gap-5">
+          <View style={{ paddingHorizontal: 24, paddingTop: 16, gap: 20 }}>
+            {/* Hero card */}
             <View
-              className="overflow-hidden rounded-[30px] border px-5 py-5"
               style={{
-                backgroundColor: colors.card,
-                borderColor: borderSoft,
-                ...(isDark ? Shadows.none : Shadows.md),
+                overflow: "hidden",
+                borderRadius: 22,
+                paddingHorizontal: 20,
+                paddingVertical: 20,
+                backgroundColor: p.cardWhite,
               }}
             >
               <View
-                className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
                 style={{
-                  backgroundColor: isDark
-                    ? "rgba(34,197,94,0.16)"
-                    : "rgba(34,197,94,0.10)",
+                  position: "absolute",
+                  right: -40,
+                  top: -32,
+                  height: 112,
+                  width: 112,
+                  borderRadius: 56,
+                  backgroundColor: p.accentSoft,
                 }}
               />
-              <View className="flex-row items-center justify-between">
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 <Pressable
                   onPress={handleBack}
-                  className="h-11 w-11 items-center justify-center rounded-[18px]"
                   style={{
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(255,255,255,0.84)",
+                    height: 44, width: 44, alignItems: "center", justifyContent: "center",
+                    borderRadius: 18, backgroundColor: p.inputBg,
                   }}
                 >
-                  <Feather name="arrow-left" size={20} color={colors.accent} />
+                  <ArrowLeft size={20} color={p.accent} />
                 </Pressable>
                 <View
-                  className="rounded-full px-3 py-1.5"
                   style={{
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(255,255,255,0.84)",
+                    borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6,
+                    backgroundColor: p.inputBg,
                   }}
                 >
                   <Text
-                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
-                    style={{ color: colors.accent }}
+                    style={{ fontSize: 10, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.3, color: p.accent }}
                   >
                     Module details
                   </Text>
                 </View>
               </View>
 
-              <Text className="mt-4 text-[26px] font-telma-bold text-app font-bold">
+              <Text style={{ marginTop: 16, fontSize: 26, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                 {module ? `Module ${module.order}: ${module.title}` : "Module"}
               </Text>
 
               {module ? (
-                <View className="mt-4 flex-row flex-wrap gap-2">
+                <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   <View
-                    className="rounded-full px-3 py-2"
                     style={{
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "rgba(255,255,255,0.84)",
+                      borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8,
+                      backgroundColor: p.inputBg,
                     }}
                   >
-                    <Text
-                      className="text-[11px] font-outfit font-semibold"
-                      style={{ color: colors.text }}
-                    >
+                    <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                       {module.totalDayLength} planned days
                     </Text>
                   </View>
                   <View
-                    className="rounded-full px-3 py-2"
                     style={{
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "rgba(255,255,255,0.84)",
+                      borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8,
+                      backgroundColor: p.inputBg,
                     }}
                   >
-                    <Text
-                      className="text-[11px] font-outfit font-semibold"
-                      style={{ color: colors.text }}
-                    >
+                    <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                       {module.sessions.length} session
                       {module.sessions.length === 1 ? "" : "s"}
                     </Text>
@@ -335,10 +318,9 @@ export default function ProgramModuleDetailScreen() {
 
             {isLoading ? (
               <View
-                className="rounded-[24px] border px-5 py-5"
                 style={{
-                  backgroundColor: colors.card,
-                  borderColor: borderSoft,
+                  borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+                  backgroundColor: p.cardWhite,
                   gap: 12,
                 }}
               >
@@ -350,16 +332,12 @@ export default function ProgramModuleDetailScreen() {
 
             {error ? (
               <View
-                className="rounded-[24px] border px-5 py-5"
                 style={{
-                  backgroundColor: colors.card,
-                  borderColor: borderSoft,
+                  borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+                  backgroundColor: p.cardWhite,
                 }}
               >
-                <Text
-                  className="text-sm font-outfit"
-                  style={{ color: colors.textSecondary }}
-                >
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                   {error}
                 </Text>
               </View>
@@ -367,16 +345,12 @@ export default function ProgramModuleDetailScreen() {
 
             {!isLoading && !error && moduleIdValue == null ? (
               <View
-                className="rounded-[24px] border px-5 py-5"
                 style={{
-                  backgroundColor: colors.card,
-                  borderColor: borderSoft,
+                  borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+                  backgroundColor: p.cardWhite,
                 }}
               >
-                <Text
-                  className="text-sm font-outfit"
-                  style={{ color: colors.textSecondary }}
-                >
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                   Invalid module id.
                 </Text>
               </View>
@@ -384,47 +358,36 @@ export default function ProgramModuleDetailScreen() {
 
             {!isLoading && !error && moduleIdValue != null && !module ? (
               <View
-                className="rounded-[24px] border px-5 py-5"
                 style={{
-                  backgroundColor: colors.card,
-                  borderColor: borderSoft,
+                  borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+                  backgroundColor: p.cardWhite,
                 }}
               >
-                <Text
-                  className="text-sm font-outfit"
-                  style={{ color: colors.textSecondary }}
-                >
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                   Module not found.
                 </Text>
               </View>
             ) : null}
 
             {!isLoading && !error && module ? (
-              <View className="gap-4">
+              <View style={{ gap: 16 }}>
                 {module.locked ? (
                   <View
-                    className="rounded-[24px] border px-5 py-5"
                     style={{
-                      backgroundColor: colors.card,
-                      borderColor: borderSoft,
+                      borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+                      backgroundColor: p.cardWhite,
                     }}
                   >
-                    <View className="flex-row items-center gap-2">
-                      <Feather
-                        name="lock"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Lock size={16} color={p.textSecondary} />
                       <Text
-                        className="text-[11px] font-outfit font-bold uppercase tracking-[1.1px]"
-                        style={{ color: colors.textSecondary }}
+                        style={{ fontSize: 11, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.1, color: p.textSecondary }}
                       >
                         Locked
                       </Text>
                     </View>
                     <Text
-                      className="mt-2 text-sm font-outfit"
-                      style={{ color: colors.textSecondary }}
+                      style={{ marginTop: 8, fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}
                     >
                       {moduleLockedCopy(module)}
                     </Text>
@@ -446,62 +409,42 @@ export default function ProgramModuleDetailScreen() {
                             `/programs/session/${encodeURIComponent(String(session.id))}?programId=${encodeURIComponent(safeProgramId)}&moduleId=${encodeURIComponent(String(module.id))}` as any,
                           );
                         }}
-                        className="rounded-[22px] border px-4 py-4"
                         style={{
+                          borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16,
                           backgroundColor: session.locked
-                            ? isDark
-                              ? "rgba(255,255,255,0.03)"
-                              : "#F8FAFC"
-                            : colors.background,
-                          borderColor: session.completed
-                            ? "rgba(34,197,94,0.25)"
-                            : borderSoft,
+                            ? p.inputBg
+                            : p.cardWhite,
                           opacity: session.locked ? 0.7 : 1,
                         }}
                       >
-                        <View className="flex-row items-start justify-between gap-3">
-                          <View className="flex-1">
+                        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                          <View style={{ flex: 1 }}>
                             <Text
-                              className="text-base font-clash font-bold"
-                              style={{ color: colors.text }}
+                              style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary }}
                             >
                               {session.order}. {session.title}
                             </Text>
                             <Text
-                              className="mt-1 text-xs font-outfit"
-                              style={{ color: colors.textSecondary }}
+                              style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
                             >
                               {session.dayLength} day target
                             </Text>
                             {session.locked ? (
                               <Text
-                                className="mt-2 text-xs font-outfit"
-                                style={{ color: colors.textSecondary }}
+                                style={{ marginTop: 8, fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
                               >
                                 {sessionLockedCopy(session)}
                               </Text>
                             ) : null}
                           </View>
-                          <View className="flex-row items-center gap-2">
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                             {session.completed ? (
-                              <Feather
-                                name="check-circle"
-                                size={18}
-                                color="#16A34A"
-                              />
+                              <CheckCircle size={18} color={p.success} />
                             ) : null}
                             {session.locked ? (
-                              <Feather
-                                name="lock"
-                                size={16}
-                                color={colors.textSecondary}
-                              />
+                              <Lock size={16} color={p.textSecondary} />
                             ) : null}
-                            <Feather
-                              name="chevron-right"
-                              size={18}
-                              color={colors.textSecondary}
-                            />
+                            <ChevronRight size={18} color={p.textSecondary} />
                           </View>
                         </View>
                       </Pressable>
@@ -509,16 +452,12 @@ export default function ProgramModuleDetailScreen() {
 
                     {!module.sessions.length ? (
                       <View
-                        className="rounded-[24px] border px-5 py-5"
                         style={{
-                          backgroundColor: colors.card,
-                          borderColor: borderSoft,
+                          borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+                          backgroundColor: p.cardWhite,
                         }}
                       >
-                        <Text
-                          className="text-sm font-outfit"
-                          style={{ color: colors.textSecondary }}
-                        >
+                        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                           No sessions available for this module yet.
                         </Text>
                       </View>

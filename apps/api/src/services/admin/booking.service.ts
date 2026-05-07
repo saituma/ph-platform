@@ -11,9 +11,8 @@ import {
   userTable,
   availabilityBlockTable,
 } from "../../db/schema";
-import { env } from "../../config/env";
 import { sendBookingApprovedEmail, sendBookingDeclinedEmail } from "../../lib/mailer";
-import { pushQueue } from "../../jobs";
+import { createPushIntent } from "../outbox.service";
 
 export async function listBookingsAdmin(options?: { q?: string; limit?: number }) {
   const q = options?.q?.trim() ?? "";
@@ -177,7 +176,7 @@ export async function updateBookingStatusAdmin(input: {
         link: "/schedule",
       });
 
-      void pushQueue.enqueue({
+      void createPushIntent({
         userId: detail.guardianUserId,
         title: "Booking confirmed",
         body: `${detail.serviceName ?? "Session"} confirmed`,
@@ -204,23 +203,6 @@ export async function updateBookingStatusAdmin(input: {
         const payload = { message: `Your booking for ${detail.serviceName ?? "Session"} is confirmed!` };
         io.to(`user:${detail.guardianUserId}`).emit("schedule:changed", payload);
         io.to("admin:all").emit("schedule:changed", payload);
-      }
-
-      if (env.pushWebhookUrl) {
-        try {
-          await fetch(env.pushWebhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: detail.guardianUserId,
-              title: "Booking confirmed",
-              body: `${detail.serviceName ?? "Session"} confirmed`,
-              link: "/schedule",
-            }),
-          });
-        } catch (error) {
-          logger.error({ err: error }, "Failed to send booking confirmation push");
-        }
       }
     }
   }
@@ -251,7 +233,7 @@ export async function updateBookingStatusAdmin(input: {
         link: "/schedule",
       });
 
-      void pushQueue.enqueue({
+      void createPushIntent({
         userId: detail.guardianUserId,
         title: "Booking declined",
         body: `${detail.serviceName ?? "Session"} declined`,
@@ -278,23 +260,6 @@ export async function updateBookingStatusAdmin(input: {
         const payload = { message: `Your booking for ${detail.serviceName ?? "Session"} was declined.` };
         io.to(`user:${detail.guardianUserId}`).emit("schedule:changed", payload);
         io.to("admin:all").emit("schedule:changed", payload);
-      }
-
-      if (env.pushWebhookUrl) {
-        try {
-          await fetch(env.pushWebhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: detail.guardianUserId,
-              title: "Booking declined",
-              body: `${detail.serviceName ?? "Session"} declined`,
-              link: "/schedule",
-            }),
-          });
-        } catch (error) {
-          logger.error({ err: error }, "Failed to send booking declined push");
-        }
       }
     }
   }

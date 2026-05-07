@@ -3,11 +3,11 @@ import { Alert, Pressable, ScrollView, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Feather } from "@expo/vector-icons";
+import { ArrowRight, BookOpen } from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
 import { apiRequest } from "@/lib/api";
 import { setParentContentCache } from "@/lib/parentContentCache";
@@ -37,7 +37,7 @@ export default function ParentCategoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const category = PARENT_CATEGORIES.find((c) => c.id === id);
   const { token, programTier } = useAppSelector((s) => s.user);
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const router = useRouter();
 
   const [items, setItems] = useState<ParentCourseItem[]>([]);
@@ -98,7 +98,7 @@ export default function ParentCategoryScreen() {
       />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        style={{ backgroundColor: colors.background }}
+        style={{ backgroundColor: p.pageBg }}
         contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
       >
         {isLoading ? (
@@ -122,24 +122,18 @@ export default function ParentCategoryScreen() {
                 width: 56,
                 height: 56,
                 borderRadius: 18,
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(34,197,94,0.10)",
+                backgroundColor: p.accentSoft,
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Feather
-                name={(category?.icon as any) ?? "book-open"}
-                size={24}
-                color={colors.accent}
-              />
+              <BookOpen size={24} color={p.accent} />
             </View>
             <Text
               style={{
                 fontFamily: "Outfit-Regular",
                 fontSize: 15,
-                color: colors.textSecondary,
+                color: p.textSecondary,
                 textAlign: "center",
               }}
             >
@@ -160,8 +154,7 @@ export default function ParentCategoryScreen() {
                   item={item}
                   isLocked={isLocked}
                   onPress={() => openCourse(item)}
-                  colors={colors}
-                  isDark={isDark}
+                  p={p}
                   index={i}
                 />
               );
@@ -177,15 +170,13 @@ function CourseCard({
   item,
   isLocked,
   onPress,
-  colors,
-  isDark,
+  p,
   index,
 }: {
   item: ParentCourseItem;
   isLocked: boolean;
   onPress: () => void;
-  colors: ReturnType<typeof useAppTheme>["colors"];
-  isDark: boolean;
+  p: ReturnType<typeof useAdminPastel>;
   index: number;
 }) {
   return (
@@ -193,15 +184,11 @@ function CourseCard({
       <Pressable
         onPress={onPress}
         style={({ pressed }) => ({
-          borderRadius: 24,
-          borderWidth: 1,
+          borderRadius: 22,
           overflow: "hidden",
           opacity: isLocked ? 0.65 : pressed ? 0.92 : 1,
           transform: [{ scale: pressed ? 0.985 : 1 }],
-          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : colors.card,
-          borderColor: isDark
-            ? "rgba(255,255,255,0.08)"
-            : "rgba(15,23,42,0.06)",
+          backgroundColor: p.cardWhite,
         })}
       >
         {item.coverImage ? (
@@ -211,27 +198,21 @@ function CourseCard({
             style={{
               width: "100%",
               aspectRatio: 16 / 9,
-              backgroundColor: isDark
-                ? "rgba(34,197,94,0.10)"
-                : "rgba(34,197,94,0.08)",
+              backgroundColor: p.accentSoft,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Feather
-              name="book-open"
-              size={32}
-              color="rgba(34,197,94,0.45)"
-            />
+            <BookOpen size={32} color={p.accent} strokeWidth={1.5} />
           </View>
         )}
 
         <View style={{ padding: 20 }}>
           <Text
             style={{
-              fontFamily: "Telma-Bold",
+              fontFamily: "Outfit-Bold",
               fontSize: 22,
-              color: colors.textPrimary,
+              color: p.textPrimary,
               lineHeight: 28,
               marginBottom: 8,
             }}
@@ -242,7 +223,7 @@ function CourseCard({
             style={{
               fontFamily: "Outfit-Regular",
               fontSize: 14,
-              color: colors.textSecondary,
+              color: p.textSecondary,
               lineHeight: 21,
               marginBottom: 16,
             }}
@@ -262,7 +243,7 @@ function CourseCard({
               style={{
                 fontFamily: "Outfit-Regular",
                 fontSize: 12,
-                color: colors.textSecondary,
+                color: p.textMuted,
                 textTransform: "uppercase",
                 letterSpacing: 1,
               }}
@@ -275,9 +256,7 @@ function CourseCard({
               {isLocked ? (
                 <View
                   style={{
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(15,23,42,0.05)",
+                    backgroundColor: p.accentSoft,
                     borderRadius: 100,
                     paddingHorizontal: 10,
                     paddingVertical: 4,
@@ -289,7 +268,7 @@ function CourseCard({
                       fontSize: 10,
                       letterSpacing: 1.1,
                       textTransform: "uppercase",
-                      color: colors.textSecondary,
+                      color: p.textSecondary,
                     }}
                   >
                     Locked
@@ -301,14 +280,12 @@ function CourseCard({
                   width: 32,
                   height: 32,
                   borderRadius: 16,
-                  backgroundColor: isDark
-                    ? "rgba(34,197,94,0.16)"
-                    : "rgba(34,197,94,0.12)",
+                  backgroundColor: p.accentSoft,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Feather name="arrow-right" size={15} color={colors.accent} />
+                <ArrowRight size={15} color={p.accent} />
               </View>
             </View>
           </View>

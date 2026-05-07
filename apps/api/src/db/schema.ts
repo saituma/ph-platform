@@ -120,6 +120,7 @@ export const userTable = pgTable("users", {
   cognitoSub: varchar({ length: 255 }).notNull(),
   name: varchar({ length: 255 }).notNull(),
   email: varchar({ length: 255 }).notNull(),
+  // Unique constraint enforced via partial index in migration 0136 (active users only).
   role: Role().default("guardian").notNull(),
   profilePicture: text(),
   passwordHash: varchar({ length: 255 }),
@@ -1821,4 +1822,26 @@ export const enquiryTable = pgTable(
     serviceIdx: index("enquiries_service_idx").on(table.interestedIn),
     createdAtIdx: index("enquiries_created_at_idx").on(table.createdAt),
   }),
+);
+
+// ── Notification outbox ─────────────────────────────────────────────
+export const outboxChannel = pgEnum("outbox_channel", ["push", "email"]);
+export const outboxStatus = pgEnum("outbox_status", ["pending", "processing", "sent", "failed"]);
+
+export const notificationOutboxTable = pgTable(
+  "notification_outbox",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    channel: outboxChannel().notNull(),
+    status: outboxStatus().notNull().default("pending"),
+    payload: jsonb().notNull(),
+    attempts: integer().notNull().default(0),
+    lastError: text("last_error"),
+    nextRunAt: timestamp("next_run_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("notification_outbox_drain_idx").on(t.status, t.nextRunAt),
+  ],
 );

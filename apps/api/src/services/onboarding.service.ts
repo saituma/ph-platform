@@ -20,7 +20,7 @@ import { slugifySegment } from "../lib/slug";
 import { getUserById } from "./user.service";
 import { calculateAge, clampYouthAge, isBirthday, normalizeDate, parseISODate } from "../lib/age";
 import { getGuardianAndAthlete, listGuardianAthletes, setActiveAthleteForGuardian } from "./user.service";
-import { pushQueue } from "../jobs";
+import { createPushIntent } from "../services/outbox.service";
 import { getActiveSubscriptionPlanByTier, isSubscriptionPlanFree } from "./billing.service";
 import { normalizeStoredMediaUrl } from "./s3.service";
 import { isAthleteUserRole, resolveAthleteUserRoleFromAthleteRow } from "../lib/user-roles";
@@ -174,48 +174,48 @@ export async function startYouthOnboarding(input: {
 }
 
 export async function startAdultOnboarding(input: { userId: number; name: string; birthDate: string }) {
-  // Update user name and role
-  await db
-    .update(userTable)
-    .set({
-      name: input.name,
-      role: "athlete",
-      updatedAt: new Date(),
-    })
-    .where(eq(userTable.id, input.userId));
-
-  // Create or update athlete record
-  const athletes = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
-
   const parsedBirthDate = parseISODate(input.birthDate);
   if (!parsedBirthDate) {
     throw new Error("Invalid birth date format.");
   }
   const age = calculateAge(parsedBirthDate, new Date());
 
-  if (athletes[0]) {
-    await db
-      .update(athleteTable)
+  await db.transaction(async (tx) => {
+    await tx
+      .update(userTable)
       .set({
+        name: input.name,
+        role: "athlete",
+        updatedAt: new Date(),
+      })
+      .where(eq(userTable.id, input.userId));
+
+    const athletes = await tx.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
+
+    if (athletes[0]) {
+      await tx
+        .update(athleteTable)
+        .set({
+          name: input.name,
+          birthDate: input.birthDate,
+          age: age,
+          athleteType: "adult",
+          updatedAt: new Date(),
+        })
+        .where(eq(athleteTable.id, athletes[0].id));
+    } else {
+      await tx.insert(athleteTable).values({
+        userId: input.userId,
+        guardianId: null,
         name: input.name,
         birthDate: input.birthDate,
         age: age,
         athleteType: "adult",
-        updatedAt: new Date(),
-      })
-      .where(eq(athleteTable.id, athletes[0].id));
-  } else {
-    await db.insert(athleteTable).values({
-      userId: input.userId,
-      guardianId: null,
-      name: input.name,
-      birthDate: input.birthDate,
-      age: age,
-      athleteType: "adult",
-      team: "",
-      trainingPerWeek: 0,
-    });
-  }
+        team: "",
+        trainingPerWeek: 0,
+      });
+    }
+  });
 
   return { ok: true };
 }
@@ -648,66 +648,35 @@ export async function submitOnboarding(input: {
   const shouldAutoAssignStarterTier =
     desiredTier === "PHP" && Boolean(starterPlan) && isSubscriptionPlanFree(starterPlan);
 
-  let guardianId: number;
-  const guardians = await db.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
-  const guardian = guardians[0] ?? null;
-  const shouldCreateNew = Boolean(input.createNew);
-  const existingAthlete =
-    guardian && !shouldCreateNew
-      ? (input.athleteId
-          ? await db
-              .select()
-              .from(athleteTable)
-              .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
-              .limit(1)
-          : await db
-              .select()
-              .from(athleteTable)
-              .where(eq(athleteTable.guardianId, guardian.id))
-              .orderBy(athleteTable.createdAt)
-              .limit(1))[0]
-      : null;
+  return await db.transaction(async (tx) => {
+    let guardianId: number;
+    const guardians = await tx.select().from(guardianTable).where(eq(guardianTable.userId, input.userId)).limit(1);
+    const guardian = guardians[0] ?? null;
+    const shouldCreateNew = Boolean(input.createNew);
+    const existingAthlete =
+      guardian && !shouldCreateNew
+        ? (input.athleteId
+            ? await tx
+                .select()
+                .from(athleteTable)
+                .where(and(eq(athleteTable.guardianId, guardian.id), eq(athleteTable.id, input.athleteId)))
+                .limit(1)
+            : await tx
+                .select()
+                .from(athleteTable)
+                .where(eq(athleteTable.guardianId, guardian.id))
+                .orderBy(athleteTable.createdAt)
+                .limit(1))[0]
+        : null;
 
-  let athleteRow: typeof athleteTable.$inferSelect | null = null;
+    let athleteRow: typeof athleteTable.$inferSelect | null = null;
 
-  if (existingAthlete) {
-    if (!existingAthlete.guardianId) {
-      throw new Error("Youth onboarding requires a guardian.");
-    }
-    guardianId = existingAthlete.guardianId;
-    await db
-      .update(guardianTable)
-      .set({
-        email: input.parentEmail,
-        phoneNumber: input.parentPhone ?? null,
-        relationToAthlete: input.relationToAthlete ?? null,
-      })
-      .where(eq(guardianTable.id, guardianId));
-    const updated = await db
-      .update(athleteTable)
-      .set({
-        athleteType: inferredAthleteType,
-        name: input.athleteName,
-        age: resolvedAge,
-        birthDate: birthDateValue,
-        team: resolvedTeam,
-        trainingPerWeek: input.trainingPerWeek,
-        preferredTrainingDays: input.preferredTrainingDays,
-        injuries: input.injuries ?? null,
-        growthNotes: input.growthNotes ?? null,
-        performanceGoals: input.performanceGoals ?? null,
-        equipmentAccess: input.equipmentAccess ?? null,
-        extraResponses: input.extraResponses ?? null,
-        onboardingCompleted: true,
-        onboardingCompletedAt: now,
-      })
-      .where(eq(athleteTable.id, existingAthlete.id))
-      .returning();
-    athleteRow = updated[0] ?? existingAthlete;
-  } else {
-    if (guardian) {
-      guardianId = guardian.id;
-      await db
+    if (existingAthlete) {
+      if (!existingAthlete.guardianId) {
+        throw new Error("Youth onboarding requires a guardian.");
+      }
+      guardianId = existingAthlete.guardianId;
+      await tx
         .update(guardianTable)
         .set({
           email: input.parentEmail,
@@ -715,91 +684,124 @@ export async function submitOnboarding(input: {
           relationToAthlete: input.relationToAthlete ?? null,
         })
         .where(eq(guardianTable.id, guardianId));
+      const updated = await tx
+        .update(athleteTable)
+        .set({
+          athleteType: inferredAthleteType,
+          name: input.athleteName,
+          age: resolvedAge,
+          birthDate: birthDateValue,
+          team: resolvedTeam,
+          trainingPerWeek: input.trainingPerWeek,
+          preferredTrainingDays: input.preferredTrainingDays,
+          injuries: input.injuries ?? null,
+          growthNotes: input.growthNotes ?? null,
+          performanceGoals: input.performanceGoals ?? null,
+          equipmentAccess: input.equipmentAccess ?? null,
+          extraResponses: input.extraResponses ?? null,
+          onboardingCompleted: true,
+          onboardingCompletedAt: now,
+        })
+        .where(eq(athleteTable.id, existingAthlete.id))
+        .returning();
+      athleteRow = updated[0] ?? existingAthlete;
     } else {
-      const guardianResult = (await db
-        .insert(guardianTable)
+      if (guardian) {
+        guardianId = guardian.id;
+        await tx
+          .update(guardianTable)
+          .set({
+            email: input.parentEmail,
+            phoneNumber: input.parentPhone ?? null,
+            relationToAthlete: input.relationToAthlete ?? null,
+          })
+          .where(eq(guardianTable.id, guardianId));
+      } else {
+        const guardianResult = (await tx
+          .insert(guardianTable)
+          .values({
+            userId: input.userId,
+            email: input.parentEmail,
+            phoneNumber: input.parentPhone ?? null,
+            relationToAthlete: input.relationToAthlete ?? null,
+          })
+          .returning()) as (typeof guardianTable.$inferSelect)[];
+        const guardianRow = guardianResult[0];
+        if (!guardianRow) {
+          throw new Error("Guardian record not created.");
+        }
+        guardianId = guardianRow.id;
+      }
+
+      const inserted = (await tx
+        .insert(athleteTable)
         .values({
           userId: input.userId,
-          email: input.parentEmail,
-          phoneNumber: input.parentPhone ?? null,
-          relationToAthlete: input.relationToAthlete ?? null,
+          guardianId,
+          athleteType: inferredAthleteType,
+          name: input.athleteName,
+          age: resolvedAge,
+          birthDate: birthDateValue,
+          team: resolvedTeam,
+          trainingPerWeek: input.trainingPerWeek,
+          preferredTrainingDays: input.preferredTrainingDays,
+          injuries: input.injuries ?? null,
+          growthNotes: input.growthNotes ?? null,
+          performanceGoals: input.performanceGoals ?? null,
+          equipmentAccess: input.equipmentAccess ?? null,
+          extraResponses: input.extraResponses ?? null,
+          onboardingCompleted: true,
+          onboardingCompletedAt: now,
+          currentProgramTier: shouldAutoAssignStarterTier ? "PHP" : null,
         })
-        .returning()) as (typeof guardianTable.$inferSelect)[];
-      const guardianRow = guardianResult[0];
-      if (!guardianRow) {
-        throw new Error("Guardian record not created.");
+        .returning()) as (typeof athleteTable.$inferSelect)[];
+      athleteRow = inserted[0] ?? null;
+    }
+
+    if (!athleteRow) {
+      throw new Error("Athlete record not found.");
+    }
+    await tx
+      .update(guardianTable)
+      .set({ activeAthleteId: athleteRow.id, updatedAt: new Date() })
+      .where(eq(guardianTable.id, guardianId));
+
+    const updatedAthlete = await ensureAthleteUserRecord(athleteRow);
+    const athleteId = updatedAthlete.id;
+
+    await tx.insert(legalAcceptanceTable).values({
+      athleteId,
+      termsAcceptedAt: now,
+      termsVersion: input.termsVersion,
+      privacyAcceptedAt: now,
+      privacyVersion: input.privacyVersion,
+      appVersion: input.appVersion,
+    });
+
+    let responseStatus: string = "completed";
+    if (desiredTier) {
+      const enrollmentStatus =
+        desiredTier === "PHP" && shouldAutoAssignStarterTier ? "active" : desiredTier === "PHP" ? "active" : "pending";
+      responseStatus = enrollmentStatus;
+
+      const existingEnrollment = await tx
+        .select()
+        .from(enrollmentTable)
+        .where(and(eq(enrollmentTable.athleteId, athleteId), eq(enrollmentTable.programType, desiredTier)))
+        .limit(1);
+
+      if (!existingEnrollment[0]) {
+        await tx.insert(enrollmentTable).values({
+          athleteId,
+          programType: desiredTier,
+          status: enrollmentStatus,
+          assignedByCoach: desiredTier === "PHP" ? input.userId : null,
+        });
       }
-      guardianId = guardianRow.id;
     }
 
-    const inserted = (await db
-      .insert(athleteTable)
-      .values({
-        userId: input.userId,
-        guardianId,
-        athleteType: inferredAthleteType,
-        name: input.athleteName,
-        age: resolvedAge,
-        birthDate: birthDateValue,
-        team: resolvedTeam,
-        trainingPerWeek: input.trainingPerWeek,
-        preferredTrainingDays: input.preferredTrainingDays,
-        injuries: input.injuries ?? null,
-        growthNotes: input.growthNotes ?? null,
-        performanceGoals: input.performanceGoals ?? null,
-        equipmentAccess: input.equipmentAccess ?? null,
-        extraResponses: input.extraResponses ?? null,
-        onboardingCompleted: true,
-        onboardingCompletedAt: now,
-        currentProgramTier: shouldAutoAssignStarterTier ? "PHP" : null,
-      })
-      .returning()) as (typeof athleteTable.$inferSelect)[];
-    athleteRow = inserted[0] ?? null;
-  }
-
-  if (!athleteRow) {
-    throw new Error("Athlete record not found.");
-  }
-  await db
-    .update(guardianTable)
-    .set({ activeAthleteId: athleteRow.id, updatedAt: new Date() })
-    .where(eq(guardianTable.id, guardianId));
-
-  const updatedAthlete = await ensureAthleteUserRecord(athleteRow);
-  const athleteId = updatedAthlete.id;
-
-  await db.insert(legalAcceptanceTable).values({
-    athleteId,
-    termsAcceptedAt: now,
-    termsVersion: input.termsVersion,
-    privacyAcceptedAt: now,
-    privacyVersion: input.privacyVersion,
-    appVersion: input.appVersion,
+    return { athleteId, athleteUserId: updatedAthlete.userId, status: responseStatus };
   });
-
-  let responseStatus: string = "completed";
-  if (desiredTier) {
-    const enrollmentStatus =
-      desiredTier === "PHP" && shouldAutoAssignStarterTier ? "active" : desiredTier === "PHP" ? "active" : "pending";
-    responseStatus = enrollmentStatus;
-
-    const existingEnrollment = await db
-      .select()
-      .from(enrollmentTable)
-      .where(and(eq(enrollmentTable.athleteId, athleteId), eq(enrollmentTable.programType, desiredTier)))
-      .limit(1);
-
-    if (!existingEnrollment[0]) {
-      await db.insert(enrollmentTable).values({
-        athleteId,
-        programType: desiredTier,
-        status: enrollmentStatus,
-        assignedByCoach: desiredTier === "PHP" ? input.userId : null,
-      });
-    }
-  }
-
-  return { athleteId, athleteUserId: updatedAthlete.userId, status: responseStatus };
 }
 
 export async function updateAthleteProfilePicture(input: { userId: number; profilePicture: string | null }) {
@@ -1142,7 +1144,7 @@ async function maybeSendBirthdayNotifications(
         read: false,
       });
 
-      await pushQueue.enqueue({ userId, title, body: content, data: {
+      await createPushIntent({ userId, title, body: content, data: {
         type: "birthday",
         url: birthdayLink,
         athleteId: athlete.id,

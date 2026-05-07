@@ -36,10 +36,35 @@ export function getOrCreateAdminSocket(): Socket {
     withCredentials: true,
   });
 
+  socketRef.on("connect", () => {
+    console.info("[RealtimeLatency] web.socket.connect", {
+      socketId: socketRef?.id ?? null,
+      transport: socketRef?.io.engine.transport.name ?? "unknown",
+    });
+  });
+
+  socketRef.on("connect_error", (error) => {
+    console.warn("[RealtimeLatency] web.socket.connect_error", {
+      message: error.message,
+      transport: socketRef?.io.engine.transport.name ?? "unknown",
+    });
+  });
+
   socketRef.on("disconnect", (reason) => {
+    console.info("[RealtimeLatency] web.socket.disconnect", {
+      reason,
+      transport: socketRef?.io.engine.transport.name ?? "unknown",
+    });
     if (reason === "io server disconnect") {
       socketRef?.connect();
     }
+  });
+
+  socketRef.io.engine.on("upgrade", (transport) => {
+    console.info("[RealtimeLatency] web.socket.transport_upgrade", {
+      socketId: socketRef?.id ?? null,
+      transport: transport.name,
+    });
   });
 
   return socketRef;

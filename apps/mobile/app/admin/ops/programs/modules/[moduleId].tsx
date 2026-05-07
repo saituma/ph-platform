@@ -1,20 +1,40 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Modal, Pressable, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import { Alert, Modal, Pressable, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
-import { ChevronLeft, Dumbbell, Plus, Trash2 } from "lucide-react-native";
+import { Dumbbell, Plus, Trash2 } from "lucide-react-native";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Text, TextInput } from "@/components/ScaledText";
+import { Text } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { AdminHeader, AdminScreen, AdminCard, AdminBadge, AdminEmptyState, AdminLoadingState, AdminIconButton } from "@/components/admin/AdminUI";
+import {
+  AdminScreen,
+  AdminHeader,
+  AdminBackButton,
+  AdminCard,
+  AdminButton,
+  AdminBadge,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminIconButton,
+  AdminModalContainer,
+  AdminModalTitle,
+  AdminModalSubtitle,
+  AdminFormField,
+  AdminChipSelect,
+  useAdminPastel,
+} from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
 import { useAdminProgramBuilder, type SessionItem } from "@/hooks/admin/useAdminProgramBuilder";
+import type { AdminCardColor } from "@/constants/theme";
 
 const SESSION_TYPES = ["program", "warmup", "cooldown", "mobility", "recovery", "stretching", "screening", "offseason", "inseason", "education", "nutrition"];
 
+const SESSION_TYPE_OPTIONS = SESSION_TYPES.map((t) => ({ key: t, label: t }));
+
+const ALTERNATING_COLORS: AdminCardColor[] = ["sage", "lavender", "peach", "mint", "pink", "yellow"];
+
 export default function AdminModuleDetailScreen() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const params = useLocalSearchParams<{
@@ -69,15 +89,9 @@ export default function AdminModuleDetailScreen() {
           style={{ marginBottom: 18 }}
         >
           <AdminHeader
-            eyebrow={programName}
             title={moduleTitle}
-            subtitle={`${sessions.length} session${sessions.length !== 1 ? "s" : ""}`}
-            tone="accent"
-            right={
-              <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 4 }}>
-                <ChevronLeft size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            }
+            subtitle={`${programName} - ${sessions.length} session${sessions.length !== 1 ? "s" : ""}`}
+            right={<AdminBackButton onPress={() => router.back()} />}
           />
         </Animated.View>
 
@@ -85,24 +99,11 @@ export default function AdminModuleDetailScreen() {
           entering={reduceMotion ? undefined : FadeInDown.delay(120).duration(360).springify()}
           style={{ paddingHorizontal: 24, marginBottom: 16 }}
         >
-          <TouchableOpacity
+          <AdminButton
+            label="Add Session"
+            icon={Plus}
             onPress={() => setModalOpen(true)}
-            activeOpacity={0.8}
-            style={{
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: colors.accent,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-            }}
-          >
-            <Plus size={16} color={colors.textInverse} strokeWidth={2.5} />
-            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase", color: colors.textInverse }}>
-              Add Session
-            </Text>
-          </TouchableOpacity>
+          />
         </Animated.View>
 
         {loading ? (
@@ -116,174 +117,135 @@ export default function AdminModuleDetailScreen() {
         ) : (
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(360).springify()}
-            style={{ paddingHorizontal: 24, gap: 10 }}
+            style={{ paddingHorizontal: 24, gap: 12 }}
           >
-            {sessions.map((session, idx) => (
-              <Pressable
-                key={session.id}
-                accessibilityRole="button"
-                onPress={() =>
-                  router.push({
-                    pathname: "/admin/ops/programs/sessions/[sessionId]",
-                    params: {
-                      sessionId: String(session.id),
-                      programId: String(programId),
-                      programName,
-                      moduleId: String(moduleId),
-                      moduleTitle,
-                      sessionTitle: session.title ?? `Session ${session.sessionNumber ?? idx + 1}`,
-                    },
-                  } as any)
-                }
-                style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-              >
-                {({ pressed }) => (
-                  <AdminCard pressed={pressed}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                      <View
+            {sessions.map((session, idx) => {
+              const cardColor = ALTERNATING_COLORS[idx % ALTERNATING_COLORS.length];
+
+              return (
+                <AdminCard
+                  key={session.id}
+                  color={cardColor}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/admin/ops/programs/sessions/[sessionId]",
+                      params: {
+                        sessionId: String(session.id),
+                        programId: String(programId),
+                        programName,
+                        moduleId: String(moduleId),
+                        moduleTitle,
+                        sessionTitle: session.title ?? `Session ${session.sessionNumber ?? idx + 1}`,
+                      },
+                    } as any)
+                  }
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 12,
+                        backgroundColor: p.accentSoft,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text
                         style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 10,
-                          backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)",
-                          alignItems: "center",
-                          justifyContent: "center",
+                          fontFamily: "Outfit-ExtraBold",
+                          fontSize: 15,
+                          color: p.accent,
                         }}
                       >
-                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: colors.accent }}>
-                          {idx + 1}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: "Satoshi-Bold", fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>
-                          {session.title ?? `Session ${session.sessionNumber ?? idx + 1}`}
-                        </Text>
-                        <View style={{ flexDirection: "row", gap: 6, marginTop: 5 }}>
-                          {session.type ? <AdminBadge tone="info">{session.type}</AdminBadge> : null}
-                          <AdminBadge>{session.exerciseCount ?? 0} exercises</AdminBadge>
-                        </View>
-                      </View>
-                      <AdminIconButton
-                        icon={Trash2}
-                        tone="danger"
-                        accessibilityLabel="Delete session"
-                        onPress={() => handleDelete(session)}
-                        disabled={isBusy}
-                      />
+                        {idx + 1}
+                      </Text>
                     </View>
-                  </AdminCard>
-                )}
-              </Pressable>
-            ))}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontFamily: "Outfit-Bold",
+                          fontSize: 15,
+                          color: p.textPrimary,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {session.title ?? `Session ${session.sessionNumber ?? idx + 1}`}
+                      </Text>
+                      <View style={{ flexDirection: "row", gap: 6, marginTop: 6 }}>
+                        {session.type ? (
+                          <AdminBadge color="mint">{session.type}</AdminBadge>
+                        ) : null}
+                        <AdminBadge color="peach">{session.exerciseCount ?? 0} exercises</AdminBadge>
+                      </View>
+                    </View>
+                    <AdminIconButton
+                      icon={Trash2}
+                      variant="danger"
+                      accessibilityLabel="Delete session"
+                      onPress={() => handleDelete(session)}
+                      disabled={isBusy}
+                    />
+                  </View>
+                </AdminCard>
+              );
+            })}
           </Animated.View>
         )}
       </ThemedScrollView>
 
       <Modal visible={modalOpen} transparent animationType="fade">
-        <Pressable
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", padding: 24 }}
-          onPress={() => setModalOpen(false)}
-        >
-          <View
-            style={{
-              width: "100%",
-              maxWidth: 380,
-              borderRadius: 28,
-              padding: 28,
-              backgroundColor: isDark ? "hsl(220,10%,10%)" : "#FFFFFF",
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <Text style={{ fontFamily: "Clash-Bold", fontSize: 22, color: colors.textPrimary, letterSpacing: -0.4, marginBottom: 6 }}>
-              Add Session
+        <AdminModalContainer onClose={() => setModalOpen(false)}>
+          <AdminModalTitle>Add Session</AdminModalTitle>
+          <AdminModalSubtitle>Create a new session in this module.</AdminModalSubtitle>
+
+          <AdminFormField
+            label="Title"
+            value={title}
+            onChangeText={setTitle}
+            placeholder="e.g. Upper Body Strength"
+            autoFocus
+          />
+
+          <View style={{ marginBottom: 16 }}>
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 12,
+                letterSpacing: 0.5,
+                textTransform: "uppercase",
+                color: p.textMuted,
+                marginBottom: 8,
+              }}
+            >
+              Type
             </Text>
-            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginBottom: 20, lineHeight: 18 }}>
-              Create a new session in this module.
-            </Text>
+            <AdminChipSelect
+              options={SESSION_TYPE_OPTIONS}
+              value={type}
+              onChange={setType}
+            />
+          </View>
 
-            <View style={{ marginBottom: 14 }}>
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: colors.textSecondary, marginBottom: 6 }}>
-                Title
-              </Text>
-              <View style={{
-                borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, height: 48, justifyContent: "center",
-                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
-                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
-              }}>
-                <TextInput
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="e.g. Upper Body Strength"
-                  placeholderTextColor={colors.placeholder}
-                  style={{ fontFamily: "Outfit-Regular", fontSize: 15, color: colors.textPrimary }}
-                  cursorColor={colors.accent}
-                  autoFocus
-                />
-              </View>
-            </View>
-
-            <View style={{ marginBottom: 14 }}>
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: colors.textSecondary, marginBottom: 6 }}>
-                Type
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                {SESSION_TYPES.map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    onPress={() => setType(t)}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 7,
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      backgroundColor: type === t ? colors.accent : isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                      borderColor: type === t ? colors.accent : isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-                    }}
-                  >
-                    <Text style={{
-                      fontFamily: "Outfit-Bold",
-                      fontSize: 12,
-                      color: type === t ? colors.textInverse : colors.textSecondary,
-                    }}>
-                      {t}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
-              <TouchableOpacity
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
+            <View style={{ flex: 1 }}>
+              <AdminButton
+                label="Cancel"
+                variant="ghost"
                 onPress={() => setModalOpen(false)}
-                style={{
-                  flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-                }}
-              >
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textPrimary, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AdminButton
+                label="Save"
+                variant="primary"
                 onPress={handleCreate}
                 disabled={!title.trim() || isBusy}
-                style={{
-                  flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
-                  backgroundColor: colors.accent, opacity: isBusy || !title.trim() ? 0.6 : 1,
-                }}
-              >
-                {isBusy ? (
-                  <ActivityIndicator color={colors.textInverse} size="small" />
-                ) : (
-                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textInverse, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                    Save
-                  </Text>
-                )}
-              </TouchableOpacity>
+                loading={isBusy}
+              />
             </View>
           </View>
-        </Pressable>
+        </AdminModalContainer>
       </Modal>
     </AdminScreen>
   );

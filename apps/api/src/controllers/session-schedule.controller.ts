@@ -1,9 +1,12 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { env } from "../config/env";
+import { logger } from "../lib/logger";
 import { isTrainingStaff } from "../lib/user-roles";
 import {
   checkInMySession,
   createSessionTemplate,
+  getAttendanceStats,
   listAdminScheduledSessions,
   listMyScheduledSessions,
   listSessionTemplates,
@@ -69,12 +72,16 @@ const materializeSchema = z.object({
 const mySessionsQuerySchema = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
 });
 
 const adminSessionsQuerySchema = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
   userId: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  offset: z.coerce.number().int().min(0).default(0),
 });
 
 const markAttendanceSchema = z.object({
@@ -215,13 +222,15 @@ export async function getGoogleCalendarOAuthStartAdmin(req: Request, res: Respon
 }
 
 export async function googleCalendarOAuthCallback(req: Request, res: Response) {
-  const code = z.string().min(1).parse(req.query.code);
-  const state = z.string().min(1).parse(req.query.state);
+  const adminUrl = env.adminWebUrl.replace(/\/+$/, "");
   try {
+    const code = z.string().min(1).parse(req.query.code);
+    const state = z.string().min(1).parse(req.query.state);
     await completeGoogleOAuthConnection({ code, state });
-    return res.redirect(`${process.env.ADMIN_WEB_URL || "http://localhost:3000"}/session-schedule?calendar=connected`);
-  } catch {
-    return res.redirect(`${process.env.ADMIN_WEB_URL || "http://localhost:3000"}/session-schedule?calendar=error`);
+    return res.redirect(`${adminUrl}/session-schedule?calendar=connected`);
+  } catch (error) {
+    logger.error({ err: error, query: req.query }, "Google Calendar OAuth callback failed");
+    return res.redirect(`${adminUrl}/session-schedule?calendar=error`);
   }
 }
 
@@ -249,4 +258,23 @@ export async function disconnectCalendarAdmin(req: Request, res: Response) {
   if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
   await disconnectGoogleCalendarConnectionForAdmin(req.user.id);
   return res.status(200).json({ ok: true });
+}
+
+const attendanceStatsQuerySchema = z.object({
+  userId: z.coerce.number().int().min(1).optional(),
+  teamId: z.coerce.number().int().min(1).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export async function getAttendanceStatsAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const query = attendanceStatsQuerySchema.parse(req.query ?? {});
+  const stats = await getAttendanceStats({
+    userId: query.userId,
+    teamId: query.teamId,
+    from: query.from ? new Date(query.from) : undefined,
+    to: query.to ? new Date(query.to) : undefined,
+  });
+  return res.status(200).json({ stats });
 }

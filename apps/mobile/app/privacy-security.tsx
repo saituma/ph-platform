@@ -1,8 +1,8 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Ionicons } from "@expo/vector-icons";
+import { useAdminPastel } from "@/components/admin/AdminUI";
+import { Lock, Shield, Trash2, Key, Eye, ChevronLeft, AlertTriangle } from "lucide-react-native";
 import { apiRequest } from "@/lib/api";
 import { fonts } from "@/constants/theme";
 import { useRouter } from "expo-router";
@@ -11,8 +11,10 @@ import { useAppToast } from "@/hooks/useAppToast";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   TextInput,
   View,
@@ -28,24 +30,27 @@ const AUTH_REFRESH_KEY = "authRefreshToken";
 export default function PrivacySecurityScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
   const toast = useAppToast();
+
+  const p = useAdminPastel();
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 30%, 97%)";
-  const cardBorder = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
-  const dangerColor = isDark ? "hsl(0, 35%, 60%)" : "hsl(0, 40%, 48%)";
-  const dangerBg = isDark ? "hsla(0, 35%, 60%, 0.12)" : "hsla(0, 40%, 48%, 0.08)";
-  const dangerBorder = isDark ? "hsla(0, 35%, 60%, 0.2)" : "hsla(0, 40%, 48%, 0.15)";
+  const pageBg = p.pageBg;
+  const textPrimary = p.textPrimary;
+  const textSecondary = p.textSecondary;
+  const accent = p.accent;
+  const danger = p.danger;
+  const cardRadius = 28;
+  const cardBg = p.cardMint;
+  const dangerCardBg = p.cardPink;
+  const modalCardBg = p.cardLavender;
+  const dangerBg = p.dangerSoft;
+  const cardBorder = p.inputBorder;
 
   const performDelete = useCallback(async () => {
     if (!token || deleteBusy) return;
@@ -88,86 +93,98 @@ export default function PrivacySecurityScreen() {
   }, [performDelete]);
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: pageBg }}>
       <MoreStackHeader
         title="Privacy & Security"
         subtitle="Password and account deletion."
         badge="Security"
       />
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
       <ThemedScrollView
         onRefresh={async () => {
           await new Promise((r) => setTimeout(r, 800));
         }}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 16,
           paddingBottom: 40,
         }}
       >
+        {/* Section header */}
         <View style={{ marginBottom: 20 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: colors.accent }} />
+            <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: accent }} />
             <Text style={{ fontSize: 24, fontFamily: "TelmaBold", color: textPrimary }}>
               Account safety
             </Text>
           </View>
-          <Text style={{ fontSize: 15, fontFamily: "Outfit", lineHeight: 22, color: labelColor }}>
+          <Text style={{ fontSize: 15, fontFamily: "Outfit", lineHeight: 22, color: textSecondary }}>
             Manage password and account access.
           </Text>
         </View>
 
+        {/* Change Password card */}
         <Pressable onPress={() => router.navigate("/(auth)/change-password")} style={{ marginBottom: 24 }}>
           <View
             style={{
               height: 56,
-              borderRadius: 20,
-              backgroundColor: colors.accent,
+              borderRadius: cardRadius,
+              backgroundColor: cardBg,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
               gap: 10,
             }}
           >
-            <Ionicons name="key-outline" size={20} color="#fff" />
-            <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+            <Key size={20} color={textPrimary} />
+            <Text
+              style={{
+                color: textPrimary,
+                fontFamily: "ClashDisplay-Bold",
+                fontSize: 16,
+              }}
+            >
               Change Password
             </Text>
           </View>
         </Pressable>
 
+        {/* Danger zone card */}
         <View
           style={{
-            borderRadius: 20,
-            borderWidth: 1,
-            overflow: "hidden",
+            borderRadius: cardRadius,
+                        overflow: "hidden",
             marginBottom: 8,
-            backgroundColor: cardBg,
-            borderColor: dangerBorder,
+            backgroundColor: dangerCardBg,
           }}
         >
           <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
-            <Text
-              style={{
-                fontSize: 10,
-                fontFamily: fonts.bodyBold,
-                textTransform: "uppercase",
-                letterSpacing: 1.3,
-                color: dangerColor,
-              }}
-            >
-              Danger zone
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <AlertTriangle size={12} color={danger} />
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: fonts.bodyBold,
+                  textTransform: "uppercase",
+                  letterSpacing: 1.3,
+                  color: danger,
+                }}
+              >
+                Danger zone
+              </Text>
+            </View>
             <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", marginTop: 8, color: textPrimary }}>
               Delete account
             </Text>
-            <Text style={{ fontSize: 14, fontFamily: "Outfit", marginTop: 8, lineHeight: 20, color: labelColor }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit", marginTop: 8, lineHeight: 20, color: textSecondary }}>
               Permanently close your account. You must enter your current password. Staff accounts cannot use this from the app.
               {"\n\n"}
               Alternatively, you can request account deletion on our website at:
             </Text>
             <Pressable onPress={() => Linking.openURL("https://phperformance.uk/delete-account")}>
-              <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: colors.accent, marginTop: 4 }}>
+              <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: accent, marginTop: 4 }}>
                 phperformance.uk/delete-account
               </Text>
             </Pressable>
@@ -176,22 +193,25 @@ export default function PrivacySecurityScreen() {
             <View
               style={{
                 height: 52,
-                borderRadius: 16,
-                borderWidth: 1,
-                alignItems: "center",
+                borderRadius: 100,
+                                alignItems: "center",
                 justifyContent: "center",
-                borderColor: dangerBorder,
+                flexDirection: "row",
+                gap: 8,
                 backgroundColor: dangerBg,
               }}
             >
-              <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: dangerColor }}>
+              <Trash2 size={16} color={danger} />
+              <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: danger }}>
                 Delete my account…
               </Text>
             </View>
           </Pressable>
         </View>
       </ThemedScrollView>
+      </KeyboardAvoidingView>
 
+      {/* Delete confirmation modal */}
       <Modal visible={deleteOpen} transparent animationType="fade" onRequestClose={() => !deleteBusy && setDeleteOpen(false)}>
         <Pressable
           style={{ flex: 1, justifyContent: "center", paddingHorizontal: 20, backgroundColor: "rgba(0,0,0,0.5)" }}
@@ -200,17 +220,18 @@ export default function PrivacySecurityScreen() {
           <Pressable
             onPress={(e) => e.stopPropagation()}
             style={{
-              borderRadius: 24,
-              borderWidth: 1,
-              padding: 20,
-              backgroundColor: isDark ? "hsl(220, 8%, 14%)" : colors.card,
-              borderColor: cardBorder,
+              borderRadius: cardRadius,
+                            padding: 20,
+              backgroundColor: modalCardBg,
             }}
           >
-            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
-              Confirm password
-            </Text>
-            <Text style={{ fontSize: 14, fontFamily: "Outfit", marginTop: 8, lineHeight: 20, color: labelColor }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <Lock size={20} color={textPrimary} />
+              <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
+                Confirm password
+              </Text>
+            </View>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit", marginTop: 8, lineHeight: 20, color: textSecondary }}>
               Enter the password you use to sign in. Then confirm deletion in the next step.
             </Text>
             <TextInput
@@ -220,18 +241,16 @@ export default function PrivacySecurityScreen() {
               autoCapitalize="none"
               editable={!deleteBusy}
               placeholder="Current password"
-              placeholderTextColor={labelColor}
+              placeholderTextColor={textSecondary}
               style={{
                 marginTop: 16,
-                borderRadius: 14,
-                borderWidth: 1,
-                paddingHorizontal: 16,
+                borderRadius: 22,
+                                paddingHorizontal: 16,
                 paddingVertical: 12,
                 fontFamily: "Outfit",
                 fontSize: 15,
-                borderColor: cardBorder,
                 color: textPrimary,
-                backgroundColor: colors.background,
+                backgroundColor: p.pageBg,
               }}
             />
             <View style={{ flexDirection: "row", gap: 12, marginTop: 20 }}>
@@ -240,15 +259,14 @@ export default function PrivacySecurityScreen() {
                 style={({ pressed }) => ({
                   flex: 1,
                   height: 48,
-                  borderRadius: 14,
-                  borderWidth: 1,
+                  borderRadius: 22,
+                  backgroundColor: p.pageBg,
                   alignItems: "center",
                   justifyContent: "center",
-                  borderColor: cardBorder,
                   opacity: pressed ? 0.8 : 1,
                 })}
               >
-                <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: labelColor }}>
+                <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: textSecondary }}>
                   Cancel
                 </Text>
               </Pressable>
@@ -258,12 +276,12 @@ export default function PrivacySecurityScreen() {
                 style={({ pressed }) => ({
                   flex: 1,
                   height: 48,
-                  borderRadius: 14,
+                  borderRadius: 22,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  backgroundColor: dangerColor,
+                  backgroundColor: danger,
                   opacity: pressed || deleteBusy ? 0.75 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 })}

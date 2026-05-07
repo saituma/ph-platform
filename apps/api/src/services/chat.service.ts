@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
-import { pushQueue } from "../jobs";
+import { createPushIntent } from "./outbox.service";
+import { performance } from "node:perf_hooks";
 
 import { db } from "../db";
 import { publicDisplayName } from "../lib/display-name";
@@ -18,6 +19,8 @@ import { attachGroupMessageReactions } from "./reaction.service";
 import { resolveMessageMediaType } from "../lib/media-message-type";
 import { withTransientDbRetryConfigured } from "../lib/db-connectivity";
 import { createLogger } from "../lib/logger";
+import { logRealtimeLatency, type RealtimeTrace } from "../lib/realtime-latency";
+import { runBestEffortBackgroundTask } from "../lib/background-task";
 
 const log = createLogger({ component: "chat-service" });
 
@@ -96,7 +99,7 @@ export async function createDirectMessage(input: {
         ? safeContent
         : `Sent a ${input.contentType ?? "message"}`;
 
-    await pushQueue.enqueue({ userId: input.receiverId, title, body, data: {
+    await createPushIntent({ userId: input.receiverId, title, body, data: {
       type: "message",
       threadId: String(input.senderId),
       url: `/messages/${String(input.senderId)}`,
@@ -615,7 +618,14 @@ export async function createGroupMessage(input: {
   replyToMessageId?: number | null;
   replyPreview?: string | null;
   clientId?: string | null;
+  trace?: RealtimeTrace;
 }) {
+  const trace = input.trace;
+  logRealtimeLatency(trace, "group.service.start", {
+    groupId: input.groupId,
+    senderId: input.senderId,
+    hasMedia: Boolean(input.mediaUrl),
+  });
   const safeBaseContent = input.content.trim() || "Attachment";
   const safeReplyPreview = encodeURIComponent((input.replyPreview ?? "").trim().slice(0, 160));
   const replyPrefix =
@@ -638,6 +648,11 @@ export async function createGroupMessage(input: {
     | undefined;
 
   if (input.clientId) {
+    logRealtimeLatency(trace, "group.db.before_insert", {
+      groupId: input.groupId,
+      senderId: input.senderId,
+      clientId: input.clientId,
+    });
     const result = await db
       .insert(chatGroupMessageTable)
       .values({
@@ -655,6 +670,11 @@ export async function createGroupMessage(input: {
     message = result[0];
     if (!message) {
       insertedNewMessage = false;
+      logRealtimeLatency(trace, "group.db.idempotency_hit", {
+        groupId: input.groupId,
+        senderId: input.senderId,
+        clientId: input.clientId,
+      });
       const existing = await db
         .select()
         .from(chatGroupMessageTable)
@@ -669,6 +689,10 @@ export async function createGroupMessage(input: {
       message = existing[0];
     }
   } else {
+    logRealtimeLatency(trace, "group.db.before_insert", {
+      groupId: input.groupId,
+      senderId: input.senderId,
+    });
     const result = await db
       .insert(chatGroupMessageTable)
       .values({
@@ -686,11 +710,17 @@ export async function createGroupMessage(input: {
   if (!message) {
     throw new Error("Failed to persist group message");
   }
+  logRealtimeLatency(trace, "group.db.after_insert", {
+    messageId: message.id,
+    groupId: input.groupId,
+    insertedNewMessage,
+  });
 
   let senderName: string | null = null;
   let senderProfilePicture: string | null = null;
   let groupName: string | null = null;
   let memberIdsForDelivery: number[] = [];
+  let membersForPush: Array<{ id: number; expoPushToken: string | null }> = [];
 
   if (insertedNewMessage) {
     const memberRows = await db
@@ -715,12 +745,17 @@ export async function createGroupMessage(input: {
           target: [chatGroupMessageReceiptTable.messageId, chatGroupMessageReceiptTable.userId],
         });
     }
+    logRealtimeLatency(trace, "group.db.after_receipts", {
+      messageId: message.id,
+      groupId: input.groupId,
+      memberCount: memberIdsForDelivery.length,
+    });
   }
 
-  // Push notifications (only for new messages; skip idempotent retries)
+  // Load broadcast metadata before emitting. Push notification work happens after socket delivery.
   if (insertedNewMessage) {
     try {
-      const members = await db
+      membersForPush = await db
         .select({
           id: userTable.id,
           expoPushToken: userTable.expoPushToken,
@@ -748,19 +783,8 @@ export async function createGroupMessage(input: {
       });
       senderProfilePicture = sender[0]?.profilePicture ?? null;
       groupName = group[0]?.name ?? "Group";
-      const title = `${senderName} in ${groupName}`;
-      const body = safeContent;
-
-      for (const member of members) {
-        await pushQueue.enqueue({ userId: member.id, title, body, data: {
-          type: "group-message",
-          threadId: `group:${input.groupId}`,
-          url: `/messages/group:${input.groupId}`,
-          mediaUrl: input.mediaUrl ?? null,
-        } });
-      }
     } catch (error) {
-      log.error({ err: error }, "Group push notification error");
+      log.error({ err: error, traceId: trace?.traceId, messageId: message.id, groupId: input.groupId }, "Failed to load group message broadcast metadata");
     }
   }
 
@@ -768,6 +792,7 @@ export async function createGroupMessage(input: {
   if (io && insertedNewMessage) {
     const enriched = {
       ...(input.clientId ? { ...message, clientId: input.clientId } : message),
+      ...(trace ? { clientTraceId: trace.traceId, serverReceivedAt: Date.now() - Math.round(performance.now() - trace.startedAt) } : {}),
       contentType: resolveMessageMediaType({
         contentType: message.contentType,
         mediaUrl: message.mediaUrl,
@@ -799,15 +824,95 @@ export async function createGroupMessage(input: {
                 .filter((id) => Number.isFinite(id) && id > 0),
             ),
           );
+      logRealtimeLatency(trace, "group.socket.before_broadcast", {
+        messageId: message.id,
+        groupId: input.groupId,
+        memberCount: memberIds.length,
+      });
       for (const memberId of memberIds) {
         io.to(`user:${memberId}`).emit("group:message", enriched);
       }
+      logRealtimeLatency(trace, "group.socket.after_user_broadcast", {
+        messageId: message.id,
+        groupId: input.groupId,
+        memberCount: memberIds.length,
+      });
     } catch (error) {
       log.warn({ err: error }, "Failed to emit group:message to user rooms");
     }
 
     // Admin/coach dashboards listen on admin:all.
     io.to("admin:all").emit("group:message", enriched);
+    logRealtimeLatency(trace, "group.socket.after_broadcast", {
+      messageId: message.id,
+      groupId: input.groupId,
+    });
+  }
+
+  // Push notifications (only for new messages; skip idempotent retries).
+  // This must remain after socket broadcast because outbox can synchronously
+  // fall back to Expo push delivery when Redis/BullMQ is unavailable.
+  if (insertedNewMessage && membersForPush.length) {
+    const title = `${senderName ?? "Coach"} in ${groupName ?? "Group"}`;
+    const body = safeContent;
+    logRealtimeLatency(trace, "group.push.background_scheduled", {
+      messageId: message.id,
+      groupId: input.groupId,
+      recipientCount: membersForPush.length,
+    });
+    runBestEffortBackgroundTask(
+      "group-message-push",
+      {
+        traceId: trace?.traceId,
+        messageId: message.id,
+        groupId: input.groupId,
+        recipientCount: membersForPush.length,
+      },
+      async () => {
+        for (const member of membersForPush) {
+          try {
+            logRealtimeLatency(trace, "group.push.before_enqueue", {
+              messageId: message.id,
+              groupId: input.groupId,
+              receiverId: member.id,
+            });
+            await createPushIntent({
+              userId: member.id,
+              title,
+              body,
+              data: {
+                type: "group-message",
+                threadId: `group:${input.groupId}`,
+                url: `/messages/group:${input.groupId}`,
+                mediaUrl: input.mediaUrl ?? null,
+              },
+            });
+            logRealtimeLatency(trace, "group.push.after_enqueue", {
+              messageId: message.id,
+              groupId: input.groupId,
+              receiverId: member.id,
+            });
+          } catch (error) {
+            log.error(
+              {
+                err: error,
+                traceId: trace?.traceId,
+                messageId: message.id,
+                groupId: input.groupId,
+                receiverId: member.id,
+              },
+              "Failed to enqueue group message push notification",
+            );
+            logRealtimeLatency(trace, "group.push.enqueue_error", {
+              messageId: message.id,
+              groupId: input.groupId,
+              receiverId: member.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      },
+    );
   }
   return {
     ...message,

@@ -1,20 +1,19 @@
-import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import React, { useEffect, useMemo, useState } from "react";
+import { Linking, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Image as ExpoImage } from "expo-image";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
+import { ArrowLeft, BookOpen } from "lucide-react-native";
+
+import { Text } from "@/components/ScaledText";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { apiRequest } from "@/lib/api";
 import { getParentContentCache } from "@/lib/parentContentCache";
 import { useAppSelector } from "@/store/hooks";
-import { Feather } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { Linking, TouchableOpacity, View } from "react-native";
-import { Image as ExpoImage } from "expo-image";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { isYoutubeUrl, VideoPlayer } from "@/components/media/VideoPlayer";
-import * as WebBrowser from "expo-web-browser";
-import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
-
 import { MarkdownText } from "@/components/ui/MarkdownText";
 
 function AutoImage({
@@ -66,7 +65,7 @@ export default function ParentCourseDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const idValue = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
   const { token } = useAppSelector((state) => state.user);
   const { isSectionHidden } = useAgeExperience();
 
@@ -155,94 +154,102 @@ export default function ParentCourseDetail() {
   const hasParentProgramAccess = true;
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <ThemedScrollView
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
+      <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 24,
           paddingBottom: 40,
         }}
       >
-        <View className="flex-row items-center justify-between mb-6">
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <TouchableOpacity
             onPress={() => router.replace("/parent-platform")}
-            className="h-10 w-10 items-center justify-center bg-secondary rounded-2xl"
+            style={{
+              height: 40,
+              width: 40,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: p.cardWhite,
+              borderRadius: 16,
+            }}
           >
-            <Feather name="arrow-left" size={20} color={colors.textSecondary} />
+            <ArrowLeft size={20} color={p.textSecondary} />
           </TouchableOpacity>
-          <Text className="text-2xl font-clash text-app font-bold">
+          <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
             Parent Course
           </Text>
-          <View className="w-10" />
+          <View style={{ width: 40 }} />
         </View>
 
         {isLoading ? (
-          <View className="gap-3">
+          <View style={{ gap: 12 }}>
             {[1, 2, 3].map((row) => (
               <View
                 key={row}
-                className="rounded-3xl border border-app/10 bg-input px-4 py-3"
+                style={{
+                  borderRadius: 22,
+                  backgroundColor: p.inputBg,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                }}
               >
-                <View className="h-4 w-40 rounded-full bg-secondary/20" />
-                <View className="h-3 w-full rounded-full bg-secondary/20 mt-3" />
-                <View className="h-3 w-2/3 rounded-full bg-secondary/20 mt-3" />
+                <View style={{ height: 16, width: 160, borderRadius: 100, backgroundColor: p.divider }} />
+                <View style={{ height: 12, width: "100%", borderRadius: 100, backgroundColor: p.divider, marginTop: 12 }} />
+                <View style={{ height: 12, width: "66%", borderRadius: 100, backgroundColor: p.divider, marginTop: 12 }} />
               </View>
             ))}
           </View>
         ) : item ? (
-          <View className="space-y-6">
-            <View className="rounded-[28px] border border-app/10 bg-input px-6 py-5">
+          <View style={{ gap: 24 }}>
+            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 24, paddingVertical: 20 }}>
               {item.coverImage ? (
                 <AutoImage uri={item.coverImage} borderRadius={16} style={{ marginBottom: 16 }} />
               ) : null}
-              <View className="flex-row flex-wrap items-center gap-2 mb-3">
+              <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 {item.category ? (
-                  <View className="px-3 py-1 rounded-full bg-secondary/10 border border-app/10">
-                    <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                  <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 100, backgroundColor: p.accentSoft }}>
+                    <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.accent, textTransform: "uppercase", letterSpacing: 1.2 }}>
                       {item.category}
                     </Text>
                   </View>
                 ) : null}
               </View>
-              <Text className="text-3xl font-telma-bold text-app">
+              <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                 {item.title}
               </Text>
-              <Text className="text-base font-outfit text-secondary leading-relaxed mt-3">
+              <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24, marginTop: 12 }}>
                 {item.summary}
               </Text>
               {item.description ? (
-                <Text className="text-base font-outfit text-secondary leading-relaxed mt-3">
+                <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24, marginTop: 12 }}>
                   {item.description}
                 </Text>
               ) : null}
             </View>
 
-            <View className="space-y-3">
-              <Text className="text-xl font-clash text-app">
+            <View style={{ gap: 12 }}>
+              <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                 Course Modules
               </Text>
               {modules.length ? (
                 modules.map((module) => (
                   <View
                     key={module.id}
-                    className="rounded-[24px] border border-app/10 bg-app px-5 py-4"
+                    style={{ borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 20, paddingVertical: 16 }}
                   >
-                    <View className="flex-row flex-wrap items-center justify-between gap-2">
-                      <View className="flex-row items-center gap-2">
-                        <View className="h-9 w-9 rounded-2xl bg-secondary/10 items-center justify-center">
-                          <Feather
-                            name="book"
-                            size={16}
-                            color={colors.textSecondary}
-                          />
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <View style={{ height: 36, width: 36, borderRadius: 12, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+                          <BookOpen size={16} color={p.textSecondary} />
                         </View>
                         <View>
-                          <Text className="text-base font-outfit text-app font-semibold">
+                          <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                             {module.title}
                           </Text>
-                          <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[1.2px]">
+                          <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.2 }}>
                             {module.type}
-                            {module.preview ? " • Preview" : ""}
+                            {module.preview ? " - Preview" : ""}
                           </Text>
                         </View>
                       </View>
@@ -250,9 +257,9 @@ export default function ParentCourseDetail() {
                       module.mediaUrl ? (
                         <TouchableOpacity
                           onPress={() => openDocument(module.mediaUrl)}
-                          className="rounded-2xl bg-accent px-4 py-2"
+                          style={{ borderRadius: 100, backgroundColor: p.accent, paddingHorizontal: 16, paddingVertical: 8 }}
                         >
-                          <Text className="text-white text-xs font-outfit font-bold">
+                          <Text style={{ color: p.buttonPrimaryText, fontSize: 12, fontFamily: "Outfit-Bold" }}>
                             Open PDF
                           </Text>
                         </TouchableOpacity>
@@ -262,9 +269,9 @@ export default function ParentCourseDetail() {
                         !isYoutubeUrl(module.mediaUrl) ? (
                         <TouchableOpacity
                           onPress={() => openMedia(module.mediaUrl)}
-                          className="rounded-2xl bg-accent px-4 py-2"
+                          style={{ borderRadius: 100, backgroundColor: p.accent, paddingHorizontal: 16, paddingVertical: 8 }}
                         >
-                          <Text className="text-white text-xs font-outfit font-bold">
+                          <Text style={{ color: p.buttonPrimaryText, fontSize: 12, fontFamily: "Outfit-Bold" }}>
                             Open File
                           </Text>
                         </TouchableOpacity>
@@ -274,17 +281,17 @@ export default function ParentCourseDetail() {
                       isYoutubeUrl(module.mediaUrl) ||
                       isVideoUrl(module.mediaUrl)) &&
                     module.mediaUrl ? (
-                      <View className="mt-3">
+                      <View style={{ marginTop: 12 }}>
                         {isYoutubeUrl(module.mediaUrl) ? (
-                          <View className="rounded-3xl overflow-hidden bg-white/5">
+                          <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
                             <VideoPlayer
                               uri={module.mediaUrl}
                               ignoreTabFocus
                             />
                           </View>
                         ) : isImageDataUrl(module.mediaUrl) ? (
-                          <View className="rounded-2xl border border-app/10 bg-input px-4 py-4">
-                            <Text className="text-sm font-outfit text-secondary">
+                          <View style={{ borderRadius: 16, backgroundColor: p.inputBg, paddingHorizontal: 16, paddingVertical: 16 }}>
+                            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                               Video file not detected. Please upload an .mp4
                               or YouTube link.
                             </Text>
@@ -300,20 +307,20 @@ export default function ParentCourseDetail() {
                       </View>
                     ) : null}
                     {isImageUrl(module.mediaUrl) ? (
-                      <View className="mt-3 rounded-2xl overflow-hidden">
+                      <View style={{ marginTop: 12, borderRadius: 16, overflow: "hidden" }}>
                         <AutoImage uri={module.mediaUrl!} borderRadius={16} />
                       </View>
                     ) : null}
                     {module.content ? (
-                      <Text className="text-base font-outfit text-secondary leading-relaxed mt-3">
+                      <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24, marginTop: 12 }}>
                         {module.content}
                       </Text>
                     ) : null}
                   </View>
                 ))
               ) : (
-                <View className="rounded-3xl border border-dashed border-app/20 p-4">
-                  <Text className="text-base font-outfit text-secondary">
+                <View style={{ borderRadius: 22, borderWidth: 1, borderStyle: "dashed", borderColor: p.divider, padding: 16 }}>
+                  <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                     No modules available.
                   </Text>
                 </View>
@@ -321,13 +328,13 @@ export default function ParentCourseDetail() {
             </View>
           </View>
         ) : (
-          <View className="rounded-3xl border border-dashed border-app/20 p-4">
-            <Text className="text-base font-outfit text-secondary">
+          <View style={{ borderRadius: 22, borderWidth: 1, borderStyle: "dashed", borderColor: p.divider, padding: 16 }}>
+            <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
               Course not found.
             </Text>
           </View>
         )}
-      </ThemedScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 }

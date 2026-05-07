@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "../db";
 import { athleteTable, guardianTable, notificationTable, programSessionCompletionTable, userTable } from "../db/schema";
-import { sendPushNotification } from "./push.service";
+import { createPushIntent } from "./outbox.service";
 
 const DAY_IDS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
@@ -122,12 +122,12 @@ export async function getMyAttendanceStatus(userId: number) {
         content,
         link,
       });
-      await sendPushNotification(
-        athlete.athleteUserId,
-        "Training day reminder",
-        "Today is your set day. Complete a session to mark attendance.",
-        { type: "attendance-reminder", url: link },
-      );
+      void createPushIntent({
+        userId: athlete.athleteUserId,
+        title: "Training day reminder",
+        body: "Today is your set day. Complete a session to mark attendance.",
+        data: { type: "attendance-reminder", url: link },
+      }).catch(() => undefined);
     }
   }
 

@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -166,6 +167,7 @@ export default function ForwardMessageSheet({
         </View>
 
         {/* Thread list */}
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
         <FlashList
           data={filtered}
           keyExtractor={(item) => item.id}
@@ -246,6 +248,7 @@ export default function ForwardMessageSheet({
             );
           }}
         />
+        </KeyboardAvoidingView>
       </Animated.View>
     </Backdrop>
     </Modal>

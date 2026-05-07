@@ -1,45 +1,63 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 
 interface MetricProps {
   title: string;
   value: string;
   caption: string;
+  bg: string;
 }
 
-function SupportMetric({ title, value, caption }: MetricProps) {
-  const { colors, isDark } = useAppTheme();
+function SupportMetric({ title, value, caption, bg }: MetricProps) {
+  const p = useAdminPastel();
   return (
     <View
-      className="flex-1 rounded-[26px] border p-4"
       style={{
-        backgroundColor: colors.card,
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-        ...(isDark ? Shadows.none : Shadows.sm),
+        flex: 1,
+        borderRadius: 22,
+        padding: 16,
+        backgroundColor: bg,
       }}
     >
-      <Text className="font-outfit text-[11px] font-bold uppercase tracking-[1.2px] text-secondary mb-2">{title}</Text>
-      <Text className="font-clash text-xl text-app mb-2">{value}</Text>
-      <Text className="font-outfit text-sm text-secondary leading-5">{caption}</Text>
+      <Text
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 11,
+          textTransform: "uppercase",
+          letterSpacing: 1.2,
+          color: p.textSecondary,
+          marginBottom: 8,
+        }}
+      >
+        {title}
+      </Text>
+      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, marginBottom: 8 }}>
+        {value}
+      </Text>
+      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, lineHeight: 18 }}>
+        {caption}
+      </Text>
     </View>
   );
 }
 
 export function SupportMetrics() {
+  const p = useAdminPastel();
   return (
-    <View className="mb-8 flex-row gap-3">
+    <View style={{ marginBottom: 24, flexDirection: "row", gap: 12 }}>
       <SupportMetric
         title="Best first step"
         value="Send a clear message"
         caption="Include athlete name, device, and what changed."
+        bg={p.cardMint}
       />
       <SupportMetric
         title="Typical reply"
         value="Within 1 business day"
         caption="Detailed requests are usually solved faster."
+        bg={p.cardLavender}
       />
     </View>
   );

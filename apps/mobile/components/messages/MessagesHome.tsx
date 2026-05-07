@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { Megaphone } from "lucide-react-native";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { AgeGate } from "@/components/AgeGate";
 import { InboxScreen } from "@/components/messages/InboxScreen";
 import { Text } from "@/components/ScaledText";
@@ -35,14 +35,12 @@ function pickLatestAnnouncement(
 }
 
 export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
-	const { colors, isDark } = useAppTheme();
+	const p = useAdminPastel();
 	const token = useAppSelector((state) => state.user.token);
 	const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
 	const { isSectionHidden } = useAgeExperience();
 
 	const router = useSafeRouter();
-	// MessagesHome is only mounted as the Messages tab screen in non-admin shells.
-	// Keep controller always enabled here to avoid focus/path false negatives.
 	const isMessagesSurface = true;
 	const {
 		sortedThreads,
@@ -63,7 +61,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 		[sortedThreads],
 	);
 
-	// ── Announcements (compact) ──────────────────────────────────────
 	const [announcementsLoading, setAnnouncementsLoading] = React.useState(true);
 	const [announcementsMeta, setAnnouncementsMeta] = React.useState<{
 		count: number;
@@ -75,8 +72,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 
 	const inboxThreads = React.useMemo(() => {
 		if (mode !== "team") {
-			// Non-team shells can still receive team-channel threads (legacy/team DM routing).
-			// Do not drop them, otherwise unread badge can show >0 while list is empty.
 			if (inboxFilter === "direct") {
 				return sortedThreads.filter((t) => (t.unread ?? 0) > 0);
 			}
@@ -88,9 +83,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 		if (inboxFilter === "team") {
 			return sortedThreads.filter((thread) => thread.channelType === "team");
 		}
-		// "all" filter in team mode: show every thread — team chats, coach groups,
-		// direct messages (including admin and coach DMs). The Direct/Team pills
-		// let the user narrow down when they want.
 		return sortedThreads;
 	}, [inboxFilter, mode, sortedThreads]);
 
@@ -175,25 +167,34 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 		);
 	}
 
-	const screenBg = isDark ? colors.background : "#F4F6F8";
+	const filterItems =
+		mode === "team"
+			? ([
+					{ key: "all", label: "All" },
+					{ key: "direct", label: "Direct" },
+					{ key: "team", label: "Team" },
+				] as const)
+			: ([
+					{ key: "all", label: "All" },
+					{
+						key: "direct",
+						label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}`,
+					},
+				] as const);
 
 	return (
 		<SafeAreaView
-			className="flex-1"
 			edges={["top"]}
-			style={{ backgroundColor: screenBg }}
+			style={{ flex: 1, backgroundColor: p.pageBg }}
 		>
-			{/* ── Native-style Header ───────────────────────────── */}
 			<View style={styles.header}>
 				<Text
-					style={[
-						styles.headerTitle,
-						{
-							fontFamily: "Chillax-Semibold",
-							color: colors.textPrimary,
-							fontSize: 36,
-						},
-					]}
+					style={{
+						fontFamily: "Outfit-Bold",
+						fontSize: 28,
+						letterSpacing: -0.5,
+						color: p.textPrimary,
+					}}
 				>
 					Messages
 				</Text>
@@ -201,9 +202,15 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 				<View style={styles.headerRight}>
 					{unreadCount > 0 && (
 						<View
-							style={[styles.unreadPill, { backgroundColor: colors.accent }]}
+							style={[styles.unreadPill, { backgroundColor: p.accent }]}
 						>
-							<Text style={[styles.unreadText, { fontFamily: "Outfit-Bold" }]}>
+							<Text
+								style={{
+									fontFamily: "Outfit-Bold",
+									fontSize: 13,
+									color: p.buttonPrimaryText,
+								}}
+							>
 								{unreadCount}
 							</Text>
 						</View>
@@ -211,159 +218,82 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 				</View>
 			</View>
 
-			{mode === "team" ? (
-				<View
-					style={[
-						styles.switcherWrap,
-						{
-							backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F2F4F7",
-						},
-					]}
-				>
-					{(
-						[
-							{ key: "all", label: "All" },
-							{ key: "direct", label: "Direct" },
-							{ key: "team", label: "Team" },
-						] as const
-					).map((item) => {
-						const isActive = inboxFilter === item.key;
-						return (
-							<Pressable
-								key={item.key}
-								onPress={() => setInboxFilter(item.key)}
-								style={[
-									styles.switcherItem,
-									{
-										backgroundColor: isActive
-											? colors.surface
-											: "transparent",
-										shadowColor: isActive && !isDark ? "#000" : "transparent",
-										shadowOffset: { width: 0, height: 2 },
-										shadowOpacity: 0.06,
-										shadowRadius: 4,
-										elevation: isActive && !isDark ? 2 : 0,
-									},
-								]}
+			<View
+				style={[
+					styles.switcherWrap,
+					{ backgroundColor: p.cardSage },
+				]}
+			>
+				{filterItems.map((item) => {
+					const isActive = inboxFilter === item.key;
+					const hasUnread =
+						item.key === "direct" && mode !== "team" && unreadCount > 0;
+					return (
+						<Pressable
+							key={item.key}
+							onPress={() => setInboxFilter(item.key)}
+							style={[
+								styles.switcherItem,
+								{
+									backgroundColor: isActive ? p.cardWhite : "transparent",
+								},
+							]}
+						>
+							<Text
+								style={{
+									fontFamily: isActive ? "Outfit-Bold" : "Outfit-Regular",
+									fontSize: 14,
+									letterSpacing: -0.1,
+									color: hasUnread
+										? p.accent
+										: isActive
+											? p.textPrimary
+											: p.textSecondary,
+								}}
 							>
-								<Text
-									style={[
-										styles.switcherText,
-										{
-											fontFamily: isActive ? "Outfit-Bold" : "Outfit-Medium",
-											color: isActive
-												? colors.textPrimary
-												: colors.textSecondary,
-										},
-									]}
-								>
-									{item.label}
-								</Text>
-							</Pressable>
-						);
-					})}
-				</View>
-			) : (
-				<View
-					style={[
-						styles.switcherWrap,
-						{
-							backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F2F4F7",
-						},
-					]}
-				>
-					{(
-						[
-							{ key: "all", label: "All" },
-							{ key: "direct", label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}` },
-						] as const
-					).map((item) => {
-						const isActive = inboxFilter === item.key;
-						const hasUnread = item.key === "direct" && unreadCount > 0;
-						return (
-							<Pressable
-								key={item.key}
-								onPress={() => setInboxFilter(item.key)}
-								style={[
-									styles.switcherItem,
-									{
-										backgroundColor: isActive
-											? colors.surface
-											: "transparent",
-										shadowColor: isActive && !isDark ? "#000" : "transparent",
-										shadowOffset: { width: 0, height: 2 },
-										shadowOpacity: 0.06,
-										shadowRadius: 4,
-										elevation: isActive && !isDark ? 2 : 0,
-									},
-								]}
-							>
-								<Text
-									style={[
-										styles.switcherText,
-										{
-											fontFamily: isActive ? "Outfit-Bold" : "Outfit-Medium",
-											color: hasUnread
-												? colors.accent
-												: isActive
-												? colors.textPrimary
-												: colors.textSecondary,
-										},
-									]}
-								>
-									{item.label}
-								</Text>
-							</Pressable>
-						);
-					})}
-				</View>
-			)}
+								{item.label}
+							</Text>
+						</Pressable>
+					);
+				})}
+			</View>
 
-			{/* ── Announcement Button ── */}
 			{!announcementsLoading && announcementsMeta && (
 				<View style={styles.announcementWrapper}>
 					<Pressable
 						onPress={handleOpenAnnouncements}
-						style={({ pressed }) => [
+						style={[
 							styles.announcementBtn,
-							{
-								backgroundColor: isDark
-									? pressed ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.05)"
-									: pressed ? "rgba(0,0,0,0.05)" : "#fff",
-								borderColor: isDark
-									? "rgba(255,255,255,0.10)"
-									: "rgba(0,0,0,0.07)",
-							},
+							{ backgroundColor: p.cardWhite },
 						]}
 					>
 						<View style={styles.announcementLeft}>
 							<View
 								style={[
 									styles.announcementIcon,
-									{
-										backgroundColor: isDark
-											? "rgba(200,241,53,0.12)"
-											: "rgba(34,197,94,0.10)",
-									},
+									{ backgroundColor: p.accentSoft },
 								]}
 							>
-								<Ionicons name="megaphone" size={20} color={colors.accent} />
+								<Megaphone size={22} color={p.accent} strokeWidth={2} />
 							</View>
 							<View style={styles.announcementContent}>
 								<Text
-									style={[
-										styles.announcementTitle,
-										{ fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
-									]}
+									style={{
+										fontFamily: "Outfit-Bold",
+										fontSize: 16,
+										letterSpacing: -0.3,
+										color: p.textPrimary,
+									}}
 									numberOfLines={1}
 								>
 									{announcementsMeta.title}
 								</Text>
 								<Text
-									style={[
-										styles.announcementSnippet,
-										{ fontFamily: "Outfit-Regular", color: colors.textSecondary },
-									]}
+									style={{
+										fontFamily: "Outfit-Regular",
+										fontSize: 13,
+										color: p.textMuted,
+									}}
 									numberOfLines={1}
 								>
 									{announcementsMeta.snippet}
@@ -375,10 +305,16 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 						<View
 							style={[
 								styles.announcementBadge,
-								{ backgroundColor: colors.accent },
+								{ backgroundColor: p.accent },
 							]}
 						>
-							<Text style={[styles.announcementBadgeText, { fontFamily: "Outfit-Bold" }]}>
+							<Text
+								style={{
+									fontFamily: "Outfit-Bold",
+									fontSize: 12,
+									color: p.buttonPrimaryText,
+								}}
+							>
 								{announcementsMeta.count}
 							</Text>
 						</View>
@@ -386,7 +322,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 				</View>
 			)}
 
-			{/* ── Thread List ─────────────────────────────────────── */}
 			<InboxScreen
 				threads={inboxThreads}
 				typingStatus={typingStatus}
@@ -401,8 +336,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 	);
 }
 
-// ── Styles ─────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
 	header: {
 		paddingHorizontal: 20,
@@ -412,20 +345,10 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "space-between",
 	},
-	headerTitle: {
-		letterSpacing: -1,
-	},
 	headerRight: {
 		flexDirection: "row",
 		alignItems: "center",
 		gap: 12,
-	},
-	composeButton: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		alignItems: "center",
-		justifyContent: "center",
 	},
 	unreadPill: {
 		minWidth: 24,
@@ -435,37 +358,24 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingHorizontal: 8,
 	},
-	unreadText: {
-		fontSize: 13,
-		color: "#000",
-	},
 	switcherWrap: {
 		marginHorizontal: 16,
 		marginVertical: 12,
-		padding: 6,
-		borderRadius: 20,
+		padding: 4,
+		borderRadius: 22,
 		flexDirection: "row",
 		alignItems: "center",
-		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.04,
-		shadowRadius: 8,
-		elevation: 2,
 	},
 	switcherItem: {
 		flex: 1,
 		height: 40,
-		borderRadius: 14,
+		borderRadius: 18,
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	switcherText: {
-		fontSize: 14,
-		letterSpacing: -0.1,
-	},
 	announcementWrapper: {
 		marginHorizontal: 16,
-		marginBottom: 24,
+		marginBottom: 16,
 		position: "relative",
 	},
 	announcementBtn: {
@@ -474,12 +384,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 18,
 		paddingVertical: 16,
 		borderRadius: 22,
-		borderWidth: 1,
-		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.08,
-		shadowRadius: 6,
-		elevation: 3,
 	},
 	announcementLeft: {
 		flex: 1,
@@ -489,8 +393,8 @@ const styles = StyleSheet.create({
 		minWidth: 0,
 	},
 	announcementIcon: {
-		width: 52,
-		height: 52,
+		width: 48,
+		height: 48,
 		borderRadius: 16,
 		alignItems: "center",
 		justifyContent: "center",
@@ -501,29 +405,16 @@ const styles = StyleSheet.create({
 		gap: 4,
 		minWidth: 0,
 	},
-	announcementTitle: {
-		fontSize: 16,
-		letterSpacing: -0.3,
-	},
-	announcementSnippet: {
-		fontSize: 13,
-		opacity: 0.75,
-	},
 	announcementBadge: {
 		position: "absolute",
-		top: -10,
-		left: 52,
-		minWidth: 24,
-		height: 24,
-		borderRadius: 12,
+		top: -8,
+		left: 50,
+		minWidth: 22,
+		height: 22,
+		borderRadius: 11,
 		alignItems: "center",
 		justifyContent: "center",
 		paddingHorizontal: 6,
 		zIndex: 10,
-		elevation: 10,
-	},
-	announcementBadgeText: {
-		fontSize: 12,
-		color: "#000",
 	},
 });

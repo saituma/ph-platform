@@ -59,7 +59,7 @@ export type EmailAttachment = {
   contentType?: string;
 };
 
-/** Sends via Resend when `RESEND_API_KEY` is set; otherwise SMTP. */
+/** Worker/provider-only. Request paths must enqueue via emailQueue or template mailers instead of calling this directly. */
 export async function deliverEmail(input: {
   to: string;
   subject: string;

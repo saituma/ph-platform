@@ -1,9 +1,25 @@
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Text, TextInput } from "@/components/ScaledText";
-import { Skeleton } from "@/components/Skeleton";
+import {
+  AdminScreen,
+  AdminHeader,
+  AdminBackButton,
+  AdminCard,
+  AdminButton,
+  AdminBadge,
+  AdminInput,
+  AdminFormField,
+  AdminSegmentedTabs,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminModalContainer,
+  AdminModalTitle,
+  AdminModalSubtitle,
+  AdminIconButton,
+  useAdminPastel,
+} from "@/components/admin/AdminUI";
+import type { AdminCardColor } from "@/constants/theme";
+import { Text } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
-import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION } from "@/lib/media/videoPickerNativeResolution";
 import { useAdminUsers } from "@/hooks/admin/useAdminUsers";
@@ -15,17 +31,25 @@ import type { PendingAttachment } from "@/types/admin-messages";
 import type { AdminUser } from "@/types/admin";
 import * as ImagePicker from "expo-image-picker";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { BackHandler, Modal, Platform, Pressable, View } from "react-native";
+import { useRouter } from "expo-router";
 import {
-  BackHandler,
-  Platform,
-  Pressable,
-  View,
-  TouchableOpacity,
-  ActivityIndicator,
-} from "react-native";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import { Feather } from "@/components/ui/theme-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+  ChevronRight,
+  Coffee,
+  Droplets,
+  Footprints,
+  Moon,
+  MessageCircle,
+  FileText,
+  Users,
+  User,
+  Video,
+  Upload,
+  Target,
+  Save,
+  CheckCircle,
+  X,
+} from "lucide-react-native";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 
 type NutritionLog = {
@@ -60,204 +84,11 @@ type NutritionTargets = {
   micronutrientsGuidance?: string | null;
 };
 
-function ActionButton({
-  label,
-  onPress,
-  tone = "accent",
-  size = "md",
-  disabled,
-  loading,
-  icon,
-}: {
-  label: string;
-  onPress: () => void;
-  tone?: "neutral" | "success" | "danger" | "accent";
-  size?: "sm" | "md" | "lg";
-  disabled?: boolean;
-  loading?: boolean;
-  icon?: any;
-}) {
-  const { isDark } = useAppTheme();
-
-  // Use solid green (#22C55E) for accent/success with white text
-  const bg = tone === "accent" || tone === "success" ? "#22C55E" : 
-             tone === "danger" ? "#EF4444" : 
-             isDark ? "rgba(255,255,255,0.15)" : "#F1F5F9";
-
-  const textColor = (tone === "neutral" && !isDark) ? "#0F172A" : "#FFFFFF";
-
-  const height = size === "sm" ? 44 : size === "md" ? 58 : 66;
-  const px = size === "sm" ? 16 : size === "md" ? 28 : 36;
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      disabled={disabled || loading}
-      onPress={onPress}
-      style={{
-        height,
-        paddingHorizontal: px,
-        borderRadius: 14, // Shadcn standard radius
-        backgroundColor: bg,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: (disabled || loading) ? 0.6 : 1,
-      }}
-    >
-      {loading ? (
-        <ActivityIndicator color="#FFFFFF" size="small" />
-      ) : (
-        <>
-          {icon && <Feather name={icon} size={size === "sm" ? 18 : 22} color={textColor} style={{ marginRight: 10 }} />}
-          <Text
-            className="font-outfit-bold uppercase tracking-[1.5px]"
-            style={{ color: textColor, fontSize: size === "sm" ? 13 : 15 }}
-          >
-            {label}
-          </Text>
-        </>
-      )}
-    </TouchableOpacity>
-  );
-}
-
-function FormInput({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType = "default",
-  multiline = false,
-  prefix,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder?: string;
-  keyboardType?: "default" | "numeric" | "email-address";
-  multiline?: boolean;
-  prefix?: string;
-}) {
-  const { colors, isDark } = useAppTheme();
-  const [isFocused, setIsFocused] = useState(false);
-  
-  return (
-    <View className="mb-6">
-      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
-        {label}
-      </Text>
-      <View 
-        className="rounded-[18px] border flex-row items-center px-5"
-        style={{
-          // Use solid background tokens, no pure black
-          backgroundColor: isDark ? colors.backgroundSecondary : "#FFFFFF",
-          borderColor: isFocused 
-            ? colors.accent 
-            : (isDark ? colors.border : "rgba(15,23,42,0.08)"),
-          minHeight: multiline ? 140 : 62,
-          paddingTop: multiline ? 18 : 0,
-          paddingBottom: multiline ? 18 : 0,
-          borderWidth: isFocused ? 2 : 1,
-        }}
-      >
-        {prefix && (
-          <View 
-            className="px-2.5 py-1.5 rounded-lg mr-3"
-            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.04)" }}
-          >
-            <Text className="text-[14px] font-outfit-bold text-textSecondary">{prefix}</Text>
-          </View>
-        )}
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.placeholder}
-          keyboardType={keyboardType}
-          multiline={multiline}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          textAlignVertical={multiline ? "top" : "center"}
-          className="flex-1 text-[17px] font-outfit text-app"
-          cursorColor={colors.accent}
-          selectionColor={`${colors.accent}40`}
-        />
-      </View>
-    </View>
-  );
-}
-
-function SmallAction({
-  label,
-  onPress,
-  tone,
-  disabled,
-}: {
-  label: string;
-  onPress: () => void;
-  tone: "neutral" | "success" | "danger" | "accent";
-  disabled?: boolean;
-}) {
-  const { colors, isDark } = useAppTheme();
-  const tint =
-    tone === "success"
-      ? colors.accent
-      : tone === "danger"
-        ? colors.danger
-        : tone === "accent"
-          ? colors.accent
-          : colors.text;
-  
-  const bg =
-    tone === "success"
-      ? isDark ? "rgba(34, 197, 94, 0.12)" : "rgba(34, 197, 94, 0.08)"
-      : tone === "danger"
-        ? isDark ? "rgba(239, 68, 68, 0.12)" : "rgba(239, 68, 68, 0.08)"
-        : tone === "accent"
-          ? isDark ? "rgba(59, 130, 246, 0.15)" : "rgba(59, 130, 246, 0.1)"
-          : isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(15, 23, 42, 0.04)";
-
-  const border =
-    tone === "success"
-      ? isDark ? "rgba(34, 197, 94, 0.2)" : "rgba(34, 197, 94, 0.15)"
-      : tone === "danger"
-        ? isDark ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.15)"
-        : tone === "accent"
-          ? isDark ? "rgba(59, 130, 246, 0.3)" : "rgba(59, 130, 246, 0.2)"
-          : isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(15, 23, 42, 0.08)";
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        {
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          borderRadius: 16,
-          borderWidth: 1,
-          backgroundColor: bg,
-          borderColor: border,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
-          transform: [{ scale: pressed ? 0.98 : 1 }],
-        },
-      ]}
-    >
-      <Text
-        className="text-[13px] font-outfit-semibold"
-        style={{ color: tint }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
+const CARD_COLORS: AdminCardColor[] = ["sage", "pink", "lavender", "peach", "mint", "yellow"];
 
 export default function AdminNutritionScreen() {
-  const { colors, isDark } = useAppTheme();
-  const insets = useAppSafeAreaInsets();
+  const p = useAdminPastel();
+  const router = useRouter();
   const reduceMotion = useReducedMotion();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
@@ -310,6 +141,7 @@ export default function AdminNutritionScreen() {
   const [responseVideo, setResponseVideo] = useState<PendingAttachment | null>(null);
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [_feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
 
   useEffect(() => {
     void loadUsers(searchQuery);
@@ -318,6 +150,10 @@ export default function AdminNutritionScreen() {
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (feedbackModalVisible) {
+        setFeedbackModalVisible(false);
+        return true;
+      }
       if (selectedLogId != null) {
         setSelectedLogId(null);
         return true;
@@ -329,7 +165,7 @@ export default function AdminNutritionScreen() {
       return false;
     });
     return () => sub.remove();
-  }, [selectedLogId, selectedUserId]);
+  }, [feedbackModalVisible, selectedLogId, selectedUserId]);
 
   const loadLogsForUser = useCallback(
     async (userId: number, forceRefresh = false) => {
@@ -363,7 +199,7 @@ export default function AdminNutritionScreen() {
       try {
         const res = await apiRequest<{ targets: NutritionTargets }>(
           `/nutrition/targets/${userId}`,
-          { token }
+          { token },
         );
         const t = res?.targets ?? {};
         setTargets(t);
@@ -497,6 +333,7 @@ export default function AdminNutritionScreen() {
       );
       setResponseVideo(null);
       setFeedbackDraft("");
+      setFeedbackModalVisible(false);
       setSelectedLogId(null);
     } catch (e) {
       setFeedbackError(
@@ -515,261 +352,182 @@ export default function AdminNutritionScreen() {
     uploadAttachment,
   ]);
 
-  const adultAthletes = useMemo(() => users.filter(u => (u as any).athleteType === "adult"), [users]);
-  const youthAthletes = useMemo(() => users.filter(u => (u as any).athleteType === "youth" || u.role === "guardian"), [users]);
+  const adultAthletes = useMemo(
+    () => users.filter((u) => (u as any).athleteType === "adult"),
+    [users],
+  );
+  const youthAthletes = useMemo(
+    () => users.filter((u) => (u as any).athleteType === "youth" || u.role === "guardian"),
+    [users],
+  );
 
-  // UI System Defaults
-  const cardStyle = {
-    backgroundColor: isDark ? colors.cardElevated : colors.card,
-    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-    borderRadius: 32, // Concentric radius stacking
-    ...(isDark ? Shadows.none : Shadows.md),
+  // --- Feedback Modal ---
+  const renderFeedbackModal = () => {
+    if (!selectedLog) return null;
+
+    return (
+      <Modal
+        visible={feedbackModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFeedbackModalVisible(false)}
+      >
+        <AdminModalContainer onClose={() => setFeedbackModalVisible(false)} position="bottom">
+          <AdminModalTitle>Coach Feedback</AdminModalTitle>
+          <AdminModalSubtitle>
+            {`Provide guidance for the log on ${selectedLog.dateKey}`}
+          </AdminModalSubtitle>
+
+          {selectedLog.coachFeedback ? (
+            <AdminCard color="sage" style={{ marginBottom: 16 }}>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 15,
+                  lineHeight: 22,
+                  color: p.textPrimary,
+                }}
+              >
+                {selectedLog.coachFeedback}
+              </Text>
+            </AdminCard>
+          ) : (
+            <AdminFormField
+              label="Feedback"
+              value={feedbackDraft}
+              onChangeText={setFeedbackDraft}
+              placeholder="Provide guidance or feedback on this log..."
+              multiline
+            />
+          )}
+
+          {selectedLog.coachFeedbackMediaUrl ? (
+            <View style={{ borderRadius: 20, overflow: "hidden", marginBottom: 16 }}>
+              <VideoPlayer uri={selectedLog.coachFeedbackMediaUrl} height={200} />
+            </View>
+          ) : responseVideo ? (
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ borderRadius: 20, overflow: "hidden" }}>
+                <VideoPlayer uri={responseVideo.uri} height={200} />
+              </View>
+              <Pressable
+                onPress={() => setResponseVideo(null)}
+                style={{ alignSelf: "flex-end", marginTop: 8 }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Outfit-SemiBold",
+                    fontSize: 13,
+                    color: p.danger,
+                  }}
+                >
+                  Remove video
+                </Text>
+              </Pressable>
+            </View>
+          ) : !selectedLog.coachFeedback ? (
+            <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
+              <AdminButton
+                label="Record"
+                variant="secondary"
+                icon={Video}
+                onPress={() => void pickResponseVideo("camera")}
+                compact
+                style={{ flex: 1 }}
+              />
+              <AdminButton
+                label="Upload"
+                variant="secondary"
+                icon={Upload}
+                onPress={() => void pickResponseVideo("library")}
+                compact
+                style={{ flex: 1 }}
+              />
+            </View>
+          ) : null}
+
+          {!selectedLog.coachFeedback && (
+            <AdminButton
+              label={savingFeedback ? "Sending..." : "Send Feedback"}
+              variant="primary"
+              icon={MessageCircle}
+              onPress={() => void submitFeedback()}
+              loading={savingFeedback}
+              disabled={savingFeedback || (!feedbackDraft.trim() && !responseVideo)}
+            />
+          )}
+        </AdminModalContainer>
+      </Modal>
+    );
   };
 
-  const innerCardStyle = {
-    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-    borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-    borderRadius: 20,
-  };
-
+  // --- Athlete List ---
   const renderAthleteList = () => {
     const displayedAthletes = listTab === "adult" ? adultAthletes : youthAthletes;
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      <AdminScreen>
+        <AdminHeader
+          title="Nutrition"
+          subtitle="Review athlete logs and provide coach responses."
+          right={<AdminBackButton onPress={() => router.back()} />}
+        />
+
+        <AdminSegmentedTabs
+          tabs={[
+            { key: "adult" as const, label: "Adult", icon: User },
+            { key: "youth" as const, label: "Youth", icon: Users },
+          ]}
+          value={listTab}
+          onChange={setListTab}
+        />
+
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.delay(100).duration(350).springify()}
+          style={{ paddingHorizontal: 24, marginBottom: 16 }}
+        >
+          <AdminInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={`Search ${listTab} athletes...`}
+            onClear={searchQuery ? () => setSearchQuery("") : undefined}
+          />
+        </Animated.View>
+
         <ThemedScrollView showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(360).springify()}
-            style={{ paddingTop: 40, paddingHorizontal: 24, marginBottom: 28 }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
-              <View
-                style={{
-                  width: 5,
-                  height: 36,
-                  borderRadius: 3,
-                  backgroundColor: colors.accent,
-                }}
-              />
-              <View>
-                <Text
-                  style={{
-                    fontFamily: "Telma-Bold",
-                    fontSize: 44,
-                    color: colors.textPrimary,
-                    letterSpacing: -1,
-                    lineHeight: 48,
-                  }}
-                >
-                  Nutrition
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Regular",
-                    fontSize: 13,
-                    color: colors.textSecondary,
-                    marginTop: 2,
-                  }}
-                >
-                  Review athlete logs and provide coach responses.
-                </Text>
-              </View>
-            </View>
-          </Animated.View>
-
-          {/* Adult / Youth Tab Switcher */}
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(120).duration(360).springify()}
-            style={{ paddingHorizontal: 24, marginBottom: 24 }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                padding: 5,
-                borderRadius: 24,
-                borderWidth: 1,
-                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
-                gap: 4,
-              }}
-            >
-              {(["adult", "youth"] as const).map((t) => {
-                const isActive = listTab === t;
-                const tabIcon = t === "adult" ? "user" : "users";
-                return (
-                  <Pressable
-                    key={t}
-                    onPress={() => setListTab(t)}
-                    style={({ pressed }) => ({
-                      flex: 1,
-                      height: 50,
-                      borderRadius: 18,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexDirection: "row",
-                      gap: 7,
-                      backgroundColor: isActive
-                        ? isDark ? `${colors.accent}20` : `${colors.accent}14`
-                        : "transparent",
-                      borderWidth: isActive ? 1 : 0,
-                      borderColor: isActive
-                        ? isDark ? `${colors.accent}32` : `${colors.accent}26`
-                        : "transparent",
-                      opacity: pressed ? 0.82 : 1,
-                    })}
-                  >
-                    <Feather
-                      name={tabIcon as any}
-                      size={15}
-                      color={isActive ? colors.accent : colors.textSecondary}
-                    />
-                    <Text
-                      style={{
-                        fontFamily: "Outfit-Bold",
-                        fontSize: 13,
-                        letterSpacing: 0.6,
-                        textTransform: "uppercase",
-                        color: isActive ? colors.accent : colors.textSecondary,
-                      }}
-                    >
-                      {t === "adult" ? "Adult" : "Youth"}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </Animated.View>
-
-          {/* Search */}
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(360).springify()}
-            style={{ paddingHorizontal: 24, marginBottom: 24 }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                borderRadius: 16,
-                borderWidth: 1,
-                paddingHorizontal: 16,
-                height: 52,
-                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-              }}
-            >
-              <Feather name="search" size={18} color={colors.textSecondary} />
-              <TextInput
-                placeholder={`Search ${listTab} athletes...`}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                style={{
-                  flex: 1,
-                  marginLeft: 10,
-                  fontFamily: "Outfit-Regular",
-                  fontSize: 16,
-                  color: colors.textPrimary,
-                }}
-                placeholderTextColor={colors.placeholder}
-              />
-            </View>
-          </Animated.View>
-
           {usersLoading && users.length === 0 ? (
-            <View style={{ paddingHorizontal: 24, gap: 12 }}>
-              <Skeleton width="100%" height={88} borderRadius={20} />
-              <Skeleton width="100%" height={88} borderRadius={20} />
-              <Skeleton width="100%" height={88} borderRadius={20} />
-            </View>
+            <AdminLoadingState label="Loading athletes..." />
+          ) : displayedAthletes.length === 0 ? (
+            <AdminEmptyState
+              icon={Users}
+              title={`No ${listTab} athletes found`}
+              description="Try adjusting your search or check back later."
+              color="lavender"
+            />
           ) : (
-            <View style={{ paddingHorizontal: 24, paddingBottom: 60 }}>
-              {/* Section label */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                <View
-                  style={{
-                    width: 3,
-                    height: 14,
-                    borderRadius: 2,
-                    backgroundColor: colors.accent,
-                  }}
-                />
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Bold",
-                    fontSize: 11,
-                    letterSpacing: 1.6,
-                    textTransform: "uppercase",
-                    color: colors.textSecondary,
-                  }}
+            <View style={{ paddingHorizontal: 24, paddingBottom: 60, gap: 12 }}>
+              {displayedAthletes.map((u, idx) => (
+                <Animated.View
+                  key={u.id}
+                  entering={
+                    reduceMotion
+                      ? undefined
+                      : FadeInDown.delay(80 + idx * 40)
+                          .duration(350)
+                          .springify()
+                  }
                 >
-                  {listTab === "adult" ? "Adult Athletes" : "Youth Athletes"}
-                  {" "}
-                  <Text
-                    style={{
-                      fontFamily: "Outfit-Bold",
-                      fontSize: 11,
-                      color: colors.accent,
-                    }}
+                  <AdminCard
+                    color={CARD_COLORS[idx % CARD_COLORS.length]}
+                    onPress={() => u.id && setSelectedUserId(u.id)}
                   >
-                    ({displayedAthletes.length})
-                  </Text>
-                </Text>
-              </View>
-
-              {displayedAthletes.length === 0 ? (
-                <View
-                  style={{
-                    padding: 32,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    borderStyle: "dashed",
-                    borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.12)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Feather name="users" size={28} color={colors.textSecondary} style={{ marginBottom: 12 }} />
-                  <Text
-                    style={{
-                      fontFamily: "Outfit-Regular",
-                      fontSize: 14,
-                      color: colors.textSecondary,
-                      fontStyle: "italic",
-                      textAlign: "center",
-                    }}
-                  >
-                    No {listTab} athletes found.
-                  </Text>
-                </View>
-              ) : (
-                <View style={{ gap: 10 }}>
-                  {displayedAthletes.map((u, idx) => (
-                    <Pressable
-                      key={u.id}
-                      onPress={() => u.id && setSelectedUserId(u.id)}
-                      style={({ pressed }) => ({
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        backgroundColor: isDark ? colors.cardElevated : colors.card,
-                        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
-                        paddingHorizontal: 18,
-                        paddingVertical: 16,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        opacity: pressed ? 0.8 : 1,
-                        transform: [{ scale: pressed ? 0.99 : 1 }],
-                        overflow: "hidden",
-                      })}
-                    >
-                      {/* Left accent bar with index number */}
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
                       <View
                         style={{
                           width: 40,
                           height: 40,
-                          borderRadius: 12,
-                          backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
-                          borderWidth: 1,
-                          borderColor: isDark ? `${colors.accent}28` : `${colors.accent}20`,
+                          borderRadius: 14,
+                          backgroundColor: p.accentSoft,
                           alignItems: "center",
                           justifyContent: "center",
                           marginRight: 14,
@@ -779,8 +537,7 @@ export default function AdminNutritionScreen() {
                           style={{
                             fontFamily: "Outfit-Bold",
                             fontSize: 14,
-                            color: colors.accent,
-                            fontVariant: ["tabular-nums"] as any,
+                            color: p.accent,
                           }}
                         >
                           {idx + 1}
@@ -791,8 +548,8 @@ export default function AdminNutritionScreen() {
                           style={{
                             fontFamily: "Outfit-Bold",
                             fontSize: 16,
-                            color: colors.textPrimary,
-                            marginBottom: 3,
+                            color: p.textPrimary,
+                            marginBottom: 2,
                           }}
                           numberOfLines={1}
                         >
@@ -802,512 +559,438 @@ export default function AdminNutritionScreen() {
                           style={{
                             fontFamily: "Outfit-Regular",
                             fontSize: 13,
-                            color: colors.textSecondary,
+                            color: p.textSecondary,
                           }}
                           numberOfLines={1}
                         >
                           {u.email}
                         </Text>
                       </View>
-                      <View
-                        style={{
-                          width: 34,
-                          height: 34,
-                          borderRadius: 10,
-                          backgroundColor: isDark ? `${colors.accent}14` : `${colors.accent}10`,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Feather name="chevron-right" size={18} color={colors.accent} />
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
+                      <ChevronRight size={18} color={p.accent} strokeWidth={2.2} />
+                    </View>
+                  </AdminCard>
+                </Animated.View>
+              ))}
             </View>
           )}
         </ThemedScrollView>
-      </SafeAreaView>
+      </AdminScreen>
     );
   };
 
+  // --- Athlete Details ---
   const renderAthleteDetails = () => (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Detail Header */}
-      <View
-        style={{
-          paddingTop: insets.top + 16,
-          paddingHorizontal: 20,
-          paddingBottom: 16,
-          flexDirection: "row",
-          alignItems: "center",
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)",
-        }}
-      >
-        <Pressable
-          onPress={() => setSelectedUserId(null)}
-          style={({ pressed }) => ({
-            width: 44,
-            height: 44,
-            borderRadius: 13,
-            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
-            borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pressed ? 0.7 : 1,
-          })}
-        >
-          <Feather name="chevron-left" size={22} color={colors.textPrimary} />
-        </Pressable>
-        <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 14 }}>
-          <Text
-            style={{
-              fontFamily: "Outfit-Bold",
-              fontSize: 20,
-              color: colors.textPrimary,
-              letterSpacing: -0.3,
-            }}
-            numberOfLines={1}
-          >
-            {selectedUser?.name}
-          </Text>
-          <Text
-            style={{
-              fontFamily: "Outfit-Regular",
-              fontSize: 12,
-              color: colors.textSecondary,
-              marginTop: 2,
-            }}
-            numberOfLines={1}
-          >
-            {selectedUser?.email}
-          </Text>
-        </View>
-        <View style={{ width: 44 }} />
-      </View>
+    <AdminScreen>
+      <AdminHeader
+        title={selectedUser?.name ?? "Athlete"}
+        subtitle={selectedUser?.email ?? ""}
+        compact
+        right={<AdminBackButton onPress={() => setSelectedUserId(null)} />}
+      />
+
+      <AdminSegmentedTabs
+        tabs={[
+          { key: "logs" as const, label: "Logs", icon: FileText },
+          { key: "coach" as const, label: "Feedback", icon: MessageCircle },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       <ThemedScrollView showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 20, paddingBottom: 80, paddingTop: 20 }}>
+        <View style={{ paddingHorizontal: 24, paddingBottom: 80, paddingTop: 8 }}>
+          {/* Nutrition Targets for adult athletes */}
           {(selectedUser as any)?.athleteType === "adult" && (
-            <View
-              style={{
-                marginBottom: 24,
-                borderRadius: 22,
-                borderWidth: 1,
-                backgroundColor: isDark ? colors.cardElevated : colors.card,
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
-                overflow: "hidden",
-              }}
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(350).springify()}
             >
-              {/* Accent top bar */}
-              <View style={{ height: 3, backgroundColor: colors.accent, opacity: 0.7 }} />
-              <View style={{ padding: 20 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <AdminCard color="peach" style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 }}>
                   <View
                     style={{
                       width: 38,
                       height: 38,
-                      borderRadius: 11,
-                      backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
-                      borderWidth: 1,
-                      borderColor: isDark ? `${colors.accent}28` : `${colors.accent}20`,
+                      borderRadius: 13,
+                      backgroundColor: p.accentSoft,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <Feather name="target" size={18} color={colors.accent} />
+                    <Target size={18} color={p.accent} strokeWidth={2.2} />
                   </View>
                   <Text
                     style={{
                       fontFamily: "Outfit-Bold",
                       fontSize: 17,
-                      color: colors.textPrimary,
+                      color: p.textPrimary,
                       letterSpacing: -0.2,
                     }}
                   >
                     Nutrition Targets
                   </Text>
                 </View>
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Regular",
-                    fontSize: 13,
-                    color: colors.textSecondary,
-                    marginBottom: 20,
-                    lineHeight: 19,
-                  }}
-                >
-                  Configure daily caloric and macronutrient targets for this athlete.
-                </Text>
 
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 4 }}>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
                   <View style={{ width: "47%" }}>
-                    <FormInput
+                    <AdminFormField
                       label="Calories"
                       value={targetsDraft.calories}
-                      onChangeText={v => setTargetsDraft(prev => ({ ...prev, calories: v }))}
-                      keyboardType="numeric"
+                      onChangeText={(v) => setTargetsDraft((prev) => ({ ...prev, calories: v }))}
+                      keyboardType="number-pad"
                       placeholder="2600"
                     />
                   </View>
                   <View style={{ width: "47%" }}>
-                    <FormInput
-                      label="Protein"
+                    <AdminFormField
+                      label="Protein (g)"
                       value={targetsDraft.protein}
-                      onChangeText={v => setTargetsDraft(prev => ({ ...prev, protein: v }))}
-                      keyboardType="numeric"
+                      onChangeText={(v) => setTargetsDraft((prev) => ({ ...prev, protein: v }))}
+                      keyboardType="number-pad"
                       placeholder="180"
-                      prefix="g"
                     />
                   </View>
                   <View style={{ width: "47%" }}>
-                    <FormInput
-                      label="Carbs"
+                    <AdminFormField
+                      label="Carbs (g)"
                       value={targetsDraft.carbs}
-                      onChangeText={v => setTargetsDraft(prev => ({ ...prev, carbs: v }))}
-                      keyboardType="numeric"
+                      onChangeText={(v) => setTargetsDraft((prev) => ({ ...prev, carbs: v }))}
+                      keyboardType="number-pad"
                       placeholder="280"
-                      prefix="g"
                     />
                   </View>
                   <View style={{ width: "47%" }}>
-                    <FormInput
-                      label="Fats"
+                    <AdminFormField
+                      label="Fats (g)"
                       value={targetsDraft.fats}
-                      onChangeText={v => setTargetsDraft(prev => ({ ...prev, fats: v }))}
-                      keyboardType="numeric"
+                      onChangeText={(v) => setTargetsDraft((prev) => ({ ...prev, fats: v }))}
+                      keyboardType="number-pad"
                       placeholder="80"
-                      prefix="g"
                     />
                   </View>
                 </View>
 
-                <FormInput
+                <AdminFormField
                   label="Micronutrient Guidance"
                   value={targetsDraft.micronutrientsGuidance}
-                  onChangeText={v => setTargetsDraft(prev => ({ ...prev, micronutrientsGuidance: v }))}
+                  onChangeText={(v) =>
+                    setTargetsDraft((prev) => ({ ...prev, micronutrientsGuidance: v }))
+                  }
                   multiline
                   placeholder="e.g. Focus on iron-rich foods like spinach and lean red meat..."
                 />
 
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 4 }}>
-                  <View style={{ flex: 1 }}>
-                    <ActionButton
-                      label={savingTargets ? "Saving..." : "Save Targets"}
-                      onPress={() => void saveTargets()}
-                      loading={savingTargets}
-                      icon="save"
-                    />
-                  </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4 }}>
+                  <AdminButton
+                    label={savingTargets ? "Saving..." : "Save Targets"}
+                    variant="primary"
+                    icon={Save}
+                    onPress={() => void saveTargets()}
+                    loading={savingTargets}
+                    style={{ flex: 1 }}
+                  />
                   {targetsStatus && (
-                    <View
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 20,
-                        backgroundColor: isDark ? `${colors.accent}16` : `${colors.accent}10`,
-                        borderWidth: 1,
-                        borderColor: isDark ? `${colors.accent}28` : `${colors.accent}20`,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: "Outfit-Bold",
-                          fontSize: 11,
-                          color: colors.accent,
-                          textTransform: "uppercase",
-                          letterSpacing: 0.8,
-                        }}
-                      >
-                        {targetsStatus}
-                      </Text>
-                    </View>
+                    <AdminBadge color="sage">
+                      {targetsStatus}
+                    </AdminBadge>
                   )}
                 </View>
-              </View>
-            </View>
+              </AdminCard>
+            </Animated.View>
           )}
 
-          {/* Logs / Feedback Tab Switcher */}
-          <View style={{ marginBottom: 24 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                padding: 5,
-                borderRadius: 22,
-                borderWidth: 1,
-                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
-                gap: 4,
-              }}
-            >
-              {(["logs", "coach"] as const).map((t) => {
-                const isActive = activeTab === t;
-                const tabIcon = t === "logs" ? "file-text" : "message-circle";
-                const tabLabel = t === "logs" ? "Logs" : "Feedback";
-                return (
-                  <Pressable
-                    key={t}
-                    onPress={() => setActiveTab(t)}
-                    style={({ pressed }) => ({
-                      flex: 1,
-                      height: 50,
-                      borderRadius: 16,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexDirection: "row",
-                      gap: 7,
-                      backgroundColor: isActive
-                        ? isDark ? `${colors.accent}20` : `${colors.accent}14`
-                        : "transparent",
-                      borderWidth: isActive ? 1 : 0,
-                      borderColor: isActive
-                        ? isDark ? `${colors.accent}32` : `${colors.accent}26`
-                        : "transparent",
-                      opacity: pressed ? 0.82 : 1,
-                    })}
-                  >
-                    <Feather
-                      name={tabIcon as any}
-                      size={15}
-                      color={isActive ? colors.accent : colors.textSecondary}
-                    />
-                    <Text
-                      style={{
-                        fontFamily: "Outfit-Bold",
-                        fontSize: 13,
-                        letterSpacing: 0.6,
-                        textTransform: "uppercase",
-                        color: isActive ? colors.accent : colors.textSecondary,
-                      }}
-                    >
-                      {tabLabel}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
+          {/* Logs Content */}
           {logsLoading ? (
-            <View className="gap-6">
-              <Skeleton width="100%" height={100} borderRadius={32} />
-              <Skeleton width="100%" height={100} borderRadius={32} />
-            </View>
+            <AdminLoadingState label="Loading logs..." />
           ) : logsError ? (
-            <View className="p-8 rounded-[32px] bg-red-500/10 border border-red-500/20">
-              <Text className="text-red-400 font-outfit text-center">{logsError}</Text>
-            </View>
+            <AdminCard color="pink">
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 14,
+                  color: p.danger,
+                  textAlign: "center",
+                }}
+              >
+                {logsError}
+              </Text>
+            </AdminCard>
           ) : logs.length === 0 ? (
-            <View className="py-24 items-center justify-center border border-dashed border-app/20 rounded-[32px]">
-              <Feather name="coffee" size={32} color={colors.textSecondary} />
-              <Text className="text-textSecondary font-outfit mt-4 text-base">No nutrition logs recorded yet.</Text>
-            </View>
+            <AdminEmptyState
+              icon={Coffee}
+              title="No nutrition logs yet"
+              description="This athlete hasn't recorded any nutrition logs."
+              color="peach"
+            />
           ) : (
-            <View className="gap-6">
-              {activeTab === "logs" ? (
-                logs.map(log => {
-                  const isSelected = log.id === selectedLogId;
-                  return (
-                    <View key={log.id} className="rounded-[32px] border overflow-hidden" style={cardStyle}>
-                      <View className="p-6">
-                        <View className="flex-row items-center justify-between">
-                          <View className="flex-1">
-                            <Text className="text-2xl font-clash font-bold text-app">{log.dateKey}</Text>
-                            <View className="flex-row items-center gap-2 mt-1">
-                              <View className="px-2 py-0.5 rounded-md bg-accent/10">
-                                <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-[0.5px]">
+            <View style={{ gap: 14 }}>
+              {activeTab === "logs"
+                ? logs.map((log, idx) => {
+                    const isSelected = log.id === selectedLogId;
+                    const cardColor = CARD_COLORS[idx % CARD_COLORS.length];
+
+                    return (
+                      <Animated.View
+                        key={log.id}
+                        entering={
+                          reduceMotion
+                            ? undefined
+                            : FadeInDown.delay(80 + idx * 30)
+                                .duration(320)
+                                .springify()
+                        }
+                      >
+                        <AdminCard color={cardColor}>
+                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={{
+                                  fontFamily: "Outfit-Bold",
+                                  fontSize: 18,
+                                  color: p.textPrimary,
+                                  letterSpacing: -0.3,
+                                }}
+                              >
+                                {log.dateKey}
+                              </Text>
+                              <View style={{ flexDirection: "row", gap: 6, marginTop: 6 }}>
+                                <AdminBadge color={log.athleteType === "adult" ? "lavender" : "mint"}>
                                   {log.athleteType === "adult" ? "Adult" : "Youth"}
-                                </Text>
+                                </AdminBadge>
+                                {log.coachFeedback && (
+                                  <AdminBadge color="sage">Reviewed</AdminBadge>
+                                )}
                               </View>
                             </View>
+                            <AdminButton
+                              label={isSelected ? "Close" : "Review"}
+                              variant={isSelected ? "ghost" : "secondary"}
+                              onPress={() => setSelectedLogId(isSelected ? null : log.id)}
+                              compact
+                            />
                           </View>
-                          <Pressable 
-                            onPress={() => setSelectedLogId(isSelected ? null : log.id)}
-                            className="h-10 px-5 rounded-[14px] items-center justify-center border"
-                            style={{ 
-                              backgroundColor: isSelected 
-                                ? (isDark ? `${colors.accent}20` : `${colors.accent}15`) 
-                                : "transparent",
-                              borderColor: isSelected ? colors.accent : isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.1)"
-                            }}
-                          >
-                            <Text 
-                              className="text-xs font-outfit-bold uppercase tracking-wider"
-                              style={{ color: isSelected ? colors.accent : colors.textSecondary }}
-                            >
-                              {isSelected ? "Close" : "Review"}
-                            </Text>
-                          </Pressable>
-                        </View>
 
-                        {isSelected && (
-                          <View className="mt-8 border-t pt-8" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)" }}>
-                            {log.athleteType === "adult" ? (
-                              <View className="gap-6">
-                                <View>
-                                  <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[1.2px] mb-2 ml-1">Food Diary</Text>
-                                  <View className="p-5 rounded-[22px]" style={innerCardStyle}>
-                                    <Text className="text-[16px] font-outfit text-app leading-relaxed">
-                                      {log.foodDiary || "No food entry for this date."}
+                          {isSelected && (
+                            <View style={{ marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: p.divider }}>
+                              {log.athleteType === "adult" ? (
+                                <View style={{ gap: 14 }}>
+                                  {/* Food Diary */}
+                                  <View>
+                                    <Text
+                                      style={{
+                                        fontFamily: "Outfit-Bold",
+                                        fontSize: 11,
+                                        letterSpacing: 1,
+                                        textTransform: "uppercase",
+                                        color: p.textMuted,
+                                        marginBottom: 8,
+                                      }}
+                                    >
+                                      Food Diary
                                     </Text>
+                                    <AdminCard color="white" padding={16}>
+                                      <Text
+                                        style={{
+                                          fontFamily: "Outfit-Regular",
+                                          fontSize: 15,
+                                          lineHeight: 22,
+                                          color: p.textPrimary,
+                                        }}
+                                      >
+                                        {log.foodDiary || "No food entry for this date."}
+                                      </Text>
+                                    </AdminCard>
+                                  </View>
+
+                                  {/* Stat badges */}
+                                  <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+                                    <StatBadge icon={Droplets} label="Water" value={`${log.waterIntake ?? 0}L`} color="mint" />
+                                    <StatBadge icon={Footprints} label="Steps" value={log.steps?.toLocaleString() ?? "0"} color="sage" />
+                                    <StatBadge icon={Moon} label="Sleep" value={`${log.sleepHours ?? 0}h`} color="lavender" />
                                   </View>
                                 </View>
-                                <View className="flex-row flex-wrap gap-4">
-                                  <StatBox icon="droplet" label="Water" value={`${log.waterIntake ?? 0}L`} color="#3B82F6" />
-                                  <StatBox icon="activity" label="Steps" value={log.steps?.toLocaleString() ?? "0"} color="#10B981" />
-                                  <StatBox icon="moon" label="Sleep" value={`${log.sleepHours ?? 0}h`} color="#8B5CF6" />
-                                </View>
-                              </View>
-                            ) : (
-                              <View className="gap-4">
-                                <MealRow label="Breakfast" value={log.breakfast} />
-                                <MealRow label="Lunch" value={log.lunch} />
-                                <MealRow label="Dinner" value={log.dinner} />
-                                <MealRow label="Snacks" value={log.snacks} />
-                                <MealRow label="Water" value={`${log.waterIntake ?? 0} glasses`} />
-                              </View>
-                            )}
-
-                            <View className="mt-8 rounded-[28px] border p-6 bg-accent/5 border-accent/10">
-                              <View className="flex-row items-center gap-3 mb-5">
-                                <Feather name="message-circle" size={20} color={colors.accent} />
-                                <Text className="text-[13px] font-outfit-bold text-accent uppercase tracking-[1.5px]">Coach Feedback</Text>
-                              </View>
-                              
-                              {log.coachFeedback ? (
-                                <Text className="text-[16px] font-outfit text-app mb-6 leading-relaxed">{log.coachFeedback}</Text>
                               ) : (
-                                <TextInput
-                                  value={feedbackDraft}
-                                  onChangeText={setFeedbackDraft}
-                                  placeholder="Provide guidance or feedback on this log..."
-                                  multiline
-                                  className="rounded-[20px] border px-4 py-4 text-[16px] font-outfit text-app mb-6"
-                                  style={{ ...innerCardStyle, minHeight: 120, textAlignVertical: 'top' }}
-                                  placeholderTextColor={colors.placeholder}
-                                />
+                                <View style={{ gap: 8 }}>
+                                  <MealRow label="Breakfast" value={log.breakfast} color="yellow" />
+                                  <MealRow label="Lunch" value={log.lunch} color="peach" />
+                                  <MealRow label="Dinner" value={log.dinner} color="sage" />
+                                  <MealRow label="Snacks" value={log.snacks} color="pink" />
+                                  <MealRow label="Water" value={`${log.waterIntake ?? 0} glasses`} color="mint" />
+                                </View>
                               )}
 
-                              {log.coachFeedbackMediaUrl ? (
-                                <View className="mb-6 rounded-[22px] overflow-hidden">
-                                  <VideoPlayer uri={log.coachFeedbackMediaUrl} height={220} />
-                                </View>
-                              ) : responseVideo ? (
-                                <View className="mb-6">
-                                  <View className="rounded-[22px] overflow-hidden shadow-sm">
-                                    <VideoPlayer uri={responseVideo.uri} height={220} />
-                                  </View>
-                                  <Pressable onPress={() => setResponseVideo(null)} className="mt-3 self-end">
-                                    <Text className="text-sm font-outfit-semibold text-danger">Remove video response</Text>
-                                  </Pressable>
-                                </View>
-                              ) : !log.coachFeedback ? (
-                                <View className="flex-row gap-3 mb-6">
-                                  <Pressable 
-                                    onPress={() => void pickResponseVideo("camera")}
-                                    className="flex-1 h-14 rounded-[18px] flex-row items-center justify-center bg-card border border-app/10"
-                                  >
-                                    <Feather name="video" size={18} color={colors.text} />
-                                    <Text className="ml-2 font-outfit-semibold">Record</Text>
-                                  </Pressable>
-                                  <Pressable 
-                                    onPress={() => void pickResponseVideo("library")}
-                                    className="flex-1 h-14 rounded-[18px] flex-row items-center justify-center bg-card border border-app/10"
-                                  >
-                                    <Feather name="image" size={18} color={colors.text} />
-                                    <Text className="ml-2 font-outfit-semibold">Upload</Text>
-                                  </Pressable>
-                                </View>
-                              ) : null}
-
-                              {!log.coachFeedback && (
-                                <SmallAction
-                                  label={savingFeedback ? "Sending Response..." : "Send Feedback"}
-                                  tone="success"
-                                  onPress={() => void submitFeedback()}
-                                  disabled={savingFeedback || (!feedbackDraft.trim() && !responseVideo)}
+                              {/* Coach feedback action */}
+                              <View style={{ marginTop: 16 }}>
+                                <AdminButton
+                                  label={log.coachFeedback ? "View Feedback" : "Give Feedback"}
+                                  variant="primary"
+                                  icon={MessageCircle}
+                                  onPress={() => {
+                                    setSelectedLogId(log.id);
+                                    setFeedbackModalVisible(true);
+                                  }}
                                 />
-                              )}
+                              </View>
                             </View>
+                          )}
+                        </AdminCard>
+                      </Animated.View>
+                    );
+                  })
+                : logs
+                    .filter((l) => l.coachFeedback || l.coachFeedbackMediaUrl)
+                    .map((log, idx) => (
+                      <Animated.View
+                        key={log.id}
+                        entering={
+                          reduceMotion
+                            ? undefined
+                            : FadeInDown.delay(80 + idx * 30)
+                                .duration(320)
+                                .springify()
+                        }
+                      >
+                        <AdminCard color="sage">
+                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                            <Text
+                              style={{
+                                fontFamily: "Outfit-Bold",
+                                fontSize: 18,
+                                color: p.textPrimary,
+                                letterSpacing: -0.3,
+                              }}
+                            >
+                              {log.dateKey}
+                            </Text>
+                            <CheckCircle size={20} color={p.success} strokeWidth={2.2} />
                           </View>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })
-              ) : (
-                logs.filter(l => l.coachFeedback || l.coachFeedbackMediaUrl).map(log => (
-                  <View key={log.id} className="rounded-[32px] border p-6" style={cardStyle}>
-                    <View className="flex-row items-center justify-between mb-2">
-                      <Text className="text-2xl font-clash font-bold text-app">{log.dateKey}</Text>
-                      <Feather name="check-circle" size={20} color={colors.accent} />
-                    </View>
-                    <Text className="text-xs font-outfit-bold text-textSecondary uppercase tracking-[1px] mb-6">Feedback sent</Text>
-                    
-                    {log.coachFeedback && (
-                      <View className="p-5 rounded-[22px] mb-4" style={innerCardStyle}>
-                        <Text className="text-[16px] font-outfit text-app leading-relaxed">{log.coachFeedback}</Text>
-                      </View>
-                    )}
-                    {log.coachFeedbackMediaUrl && (
-                      <View className="rounded-[22px] overflow-hidden">
-                        <VideoPlayer uri={log.coachFeedbackMediaUrl} height={200} />
-                      </View>
-                    )}
-                  </View>
-                ))
-              )}
+
+                          <AdminBadge color="sage" style={{ alignSelf: "flex-start", marginBottom: 12 }}>
+                            Feedback sent
+                          </AdminBadge>
+
+                          {log.coachFeedback && (
+                            <View
+                              style={{
+                                padding: 14,
+                                borderRadius: 16,
+                                backgroundColor: p.inputBg,
+                                marginBottom: log.coachFeedbackMediaUrl ? 12 : 0,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontFamily: "Outfit-Regular",
+                                  fontSize: 15,
+                                  lineHeight: 22,
+                                  color: p.textPrimary,
+                                }}
+                              >
+                                {log.coachFeedback}
+                              </Text>
+                            </View>
+                          )}
+                          {log.coachFeedbackMediaUrl && (
+                            <View style={{ borderRadius: 16, overflow: "hidden" }}>
+                              <VideoPlayer uri={log.coachFeedbackMediaUrl} height={200} />
+                            </View>
+                          )}
+                        </AdminCard>
+                      </Animated.View>
+                    ))}
             </View>
           )}
         </View>
       </ThemedScrollView>
-    </View>
+
+      {renderFeedbackModal()}
+    </AdminScreen>
   );
 
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {selectedUserId ? renderAthleteDetails() : renderAthleteList()}
-    </View>
-  );
+  return selectedUserId ? renderAthleteDetails() : renderAthleteList();
 }
 
-function StatBox({ icon, label, value, color }: { icon: any, label: string, value: string, color: string }) {
-  const { isDark } = useAppTheme();
-  return (
-    <View 
-      className="flex-1 min-w-[100px] p-5 rounded-[26px] border"
-      style={{
-        backgroundColor: isDark ? `${color}15` : `${color}08`,
-        borderColor: isDark ? `${color}25` : `${color}15`,
-      }}
-    >
-      <Feather name={icon} size={18} color={color} className="mb-3" />
-      <Text className="text-2xl font-clash font-bold text-app" style={{ color: color }}>{value}</Text>
-      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-wider">{label}</Text>
-    </View>
-  );
-}
+// --- Helper Components ---
 
-function MealRow({ label, value }: { label: string, value: string | null | undefined }) {
-  const { isDark } = useAppTheme();
+function StatBadge({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+  color: AdminCardColor;
+}) {
+  const p = useAdminPastel();
+
   return (
-    <View 
-      className="flex-row items-center p-5 rounded-[22px] border"
-      style={{
-        backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-      }}
-    >
-      <View className="w-24">
-        <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-wider">{label}</Text>
-      </View>
-      <Text className="flex-1 text-[15px] font-outfit text-app" numberOfLines={2}>
-        {value || "—"}
+    <AdminCard color={color} padding={14} style={{ flex: 1, minWidth: 90 }}>
+      <Icon size={16} color={p.accent} strokeWidth={2} style={{ marginBottom: 6 }} />
+      <Text
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 18,
+          color: p.textPrimary,
+          marginBottom: 2,
+        }}
+      >
+        {value}
       </Text>
-    </View>
+      <Text
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 10,
+          letterSpacing: 1,
+          textTransform: "uppercase",
+          color: p.textMuted,
+        }}
+      >
+        {label}
+      </Text>
+    </AdminCard>
+  );
+}
+
+function MealRow({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string | null | undefined;
+  color: AdminCardColor;
+}) {
+  const p = useAdminPastel();
+
+  return (
+    <AdminCard color={color} padding={14}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ width: 80 }}>
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 11,
+              letterSpacing: 0.8,
+              textTransform: "uppercase",
+              color: p.textMuted,
+            }}
+          >
+            {label}
+          </Text>
+        </View>
+        <Text
+          style={{
+            flex: 1,
+            fontFamily: "Outfit-Regular",
+            fontSize: 15,
+            color: p.textPrimary,
+          }}
+          numberOfLines={2}
+        >
+          {value || "—"}
+        </Text>
+      </View>
+    </AdminCard>
   );
 }

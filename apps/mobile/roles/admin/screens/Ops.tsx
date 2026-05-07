@@ -1,48 +1,48 @@
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { subscribeToAdminOpsRequests } from "@/context/AdminOpsContext";
 import { useAppSelector } from "@/store/hooks";
 import React, { useCallback, useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
-import { Feather } from "@/components/ui/theme-icons";
 import { AdminHeader, AdminScreen } from "@/components/admin/AdminUI";
+import { BookOpen, Calendar, ClipboardList, Activity, ChevronRight } from "lucide-react-native";
 
 const OPS_ITEMS = [
   {
-    icon: "book-open",
+    icon: BookOpen,
     title: "Programs",
     subtitle: "Build and manage training programs, modules, and sessions.",
-    color: "#7C5CFC",
+    colorKey: "cardSage" as const,
     destination: "programs" as const,
   },
   {
-    icon: "calendar",
+    icon: Calendar,
     title: "Schedule",
     subtitle: "Bookings, service types, availability, pending requests.",
-    color: "#FFB020",
+    colorKey: "cardPeach" as const,
     destination: "schedule" as const,
   },
   {
-    icon: "clipboard",
+    icon: ClipboardList,
     title: "Nutrition",
     subtitle: "Nutrition + wellness logs, coach feedback, video response.",
-    color: "#34C759",
+    colorKey: "cardMint" as const,
     destination: "nutrition" as const,
   },
   {
-    icon: "activity",
+    icon: Activity,
     title: "Referrals",
     subtitle: "Manage referral logs and partner links.",
-    color: "#30B0C7",
+    colorKey: "cardLavender" as const,
     destination: "referrals" as const,
   },
 ] as const;
 
 export default function AdminOpsScreen() {
-  const { colors, isDark } = useAppTheme();
+  const pal = useAdminPastel();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
@@ -102,7 +102,9 @@ export default function AdminOpsScreen() {
 
   return (
     <AdminScreen>
-      <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ThemedScrollView
+        contentContainerStyle={{ paddingBottom: 40, backgroundColor: pal.pageBg }}
+      >
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(380).springify()}
           style={{ marginBottom: 18 }}
@@ -120,10 +122,8 @@ export default function AdminOpsScreen() {
             style={{
               marginHorizontal: 24,
               padding: 24,
-              borderRadius: 22,
-              borderWidth: 1,
-              backgroundColor: isDark ? colors.cardElevated : colors.card,
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+              borderRadius: 28,
+              backgroundColor: pal.cardWhite,
               alignItems: "center",
             }}
           >
@@ -131,7 +131,7 @@ export default function AdminOpsScreen() {
               style={{
                 fontFamily: "Outfit-Regular",
                 fontSize: 14,
-                color: colors.textSecondary,
+                color: pal.textSecondary,
                 textAlign: "center",
               }}
             >
@@ -139,81 +139,98 @@ export default function AdminOpsScreen() {
             </Text>
           </View>
         ) : (
-          <View style={{ paddingHorizontal: 24, gap: 14 }}>
-            {OPS_ITEMS.map((item, idx) => (
-              <Animated.View key={item.destination} entering={reduceMotion ? undefined : FadeInDown.delay(120 + idx * 70).duration(380).springify()}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => handleNav(item.destination)}
-                  style={({ pressed }) => ({
-                    borderRadius: 22,
-                    borderWidth: 1,
-                    backgroundColor: isDark ? colors.cardElevated : colors.card,
-                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
-                    overflow: "hidden",
-                    opacity: pressed ? 0.88 : 1,
-                    transform: [{ scale: pressed ? 0.985 : 1 }],
-                  })}
+          <View style={{ paddingHorizontal: 24, gap: 16 }}>
+            {OPS_ITEMS.map((item, idx) => {
+              const IconComponent = item.icon;
+              const cardBg = pal[item.colorKey];
+
+              return (
+                <Animated.View
+                  key={item.destination}
+                  entering={
+                    reduceMotion
+                      ? undefined
+                      : FadeInDown.delay(120 + idx * 70)
+                          .duration(380)
+                          .springify()
+                  }
                 >
-                  {/* Colored top strip */}
-                  <View
-                    style={{
-                      height: 3,
-                      backgroundColor: item.color,
-                    }}
-                  />
-                  <View style={{ flexDirection: "row", alignItems: "center", padding: 20 }}>
-                    {/* Icon block */}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => handleNav(item.destination)}
+                    style={({ pressed }) => ({
+                      borderRadius: 28,
+                      backgroundColor: cardBg,
+                      overflow: "hidden",
+                      opacity: pressed ? 0.88 : 1,
+                      transform: [{ scale: pressed ? 0.985 : 1 }],
+                    })}
+                  >
                     <View
                       style={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: 16,
-                        backgroundColor: isDark ? `${item.color}20` : `${item.color}14`,
-                        borderWidth: 1,
-                        borderColor: isDark ? `${item.color}30` : `${item.color}22`,
+                        flexDirection: "row",
                         alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: 16,
+                        padding: 22,
                       }}
                     >
-                      <Feather name={item.icon as any} size={24} color={item.color} />
-                    </View>
-                    {/* Text */}
-                    <View style={{ flex: 1 }}>
-                      <Text
+                      {/* Icon block */}
+                      <View
                         style={{
-                          fontFamily: "Outfit-Bold",
-                          fontSize: 17,
-                          color: colors.textPrimary,
-                          letterSpacing: -0.2,
-                          marginBottom: 3,
+                          width: 52,
+                          height: 52,
+                          borderRadius: 18,
+                          backgroundColor: "rgba(255,255,255,0.55)",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: 16,
                         }}
                       >
-                        {item.title}
-                      </Text>
-                      <Text
+                        <IconComponent size={24} color={pal.textPrimary} strokeWidth={2} />
+                      </View>
+                      {/* Text */}
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontFamily: "Outfit-Bold",
+                            fontSize: 17,
+                            color: pal.textPrimary,
+                            letterSpacing: -0.2,
+                            marginBottom: 3,
+                          }}
+                        >
+                          {item.title}
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: "Outfit-Regular",
+                            fontSize: 13,
+                            color: pal.textSecondary,
+                            lineHeight: 18,
+                          }}
+                          numberOfLines={2}
+                        >
+                          {item.subtitle}
+                        </Text>
+                      </View>
+                      {/* Pill chevron indicator */}
+                      <View
                         style={{
-                          fontFamily: "Outfit-Regular",
-                          fontSize: 13,
-                          color: colors.textSecondary,
-                          lineHeight: 18,
+                          width: 36,
+                          height: 36,
+                          borderRadius: 18,
+                          backgroundColor: "rgba(255,255,255,0.6)",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginLeft: 12,
                         }}
-                        numberOfLines={2}
                       >
-                        {item.subtitle}
-                      </Text>
+                        <ChevronRight size={18} color={pal.textMuted} strokeWidth={2.5} />
+                      </View>
                     </View>
-                    <Feather
-                      name="chevron-right"
-                      size={20}
-                      color={isDark ? "rgba(255,255,255,0.30)" : "rgba(15,23,42,0.30)"}
-                      style={{ marginLeft: 12 }}
-                    />
-                  </View>
-                </Pressable>
-              </Animated.View>
-            ))}
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
           </View>
         )}
       </ThemedScrollView>

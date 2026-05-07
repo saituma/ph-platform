@@ -1,13 +1,15 @@
 import { createApp } from "./app";
 import { env } from "./config/env";
 import { initSocket } from "./socket";
-import { startEmailWorker, startPushWorker, startScheduledWorker, stopScheduledWorker, isQueueEnabled } from "./jobs";
 import { pool } from "./db";
 import { getRedisConnection } from "./jobs/connection";
 import { logger } from "./lib/logger";
+import { startEventLoopDelayLogging } from "./lib/event-loop-delay";
 import http from "http";
 
 export async function startServer() {
+  const stopEventLoopDelayLogging = startEventLoopDelayLogging();
+
   try {
     const { runMigrations } = await import("./db/migrations");
     await runMigrations();
@@ -27,13 +29,7 @@ export async function startServer() {
   const server = http.createServer(app);
   initSocket(server);
 
-  if (isQueueEnabled()) {
-    startEmailWorker();
-    startPushWorker();
-    await startScheduledWorker();
-  } else {
-    logger.info("REDIS_URL not set — job queues disabled, falling back to synchronous delivery");
-  }
+  logger.info("API web process started; workers disabled");
 
   server.listen(env.port, "0.0.0.0", () => {
     logger.info({ port: env.port }, "Server is running");
@@ -56,13 +52,6 @@ export async function startServer() {
       logger.info("Socket.io closed");
     }
 
-    try {
-      await stopScheduledWorker();
-      logger.info("Scheduled worker stopped");
-    } catch {
-      /* best effort */
-    }
-
     const redis = getRedisConnection();
     if (redis) {
       try {
@@ -76,6 +65,7 @@ export async function startServer() {
       logger.info("Database pool drained");
     } catch { /* best effort */ }
 
+    stopEventLoopDelayLogging();
     logger.info("Clean exit");
     process.exit(0);
   };

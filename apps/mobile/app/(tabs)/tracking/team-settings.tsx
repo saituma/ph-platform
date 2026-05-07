@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Switch, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronLeft } from "lucide-react-native";
 import { Stack, useRouter } from "expo-router";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
-import { spacing, radius, fonts } from "@/constants/theme";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { useAppSelector } from "@/store/hooks";
@@ -17,7 +16,7 @@ import {
 
 export default function TeamSettingsScreen() {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
 
@@ -26,8 +25,6 @@ export default function TeamSettingsScreen() {
   const [saving, setSaving] = useState(false);
 
   const safeTop = Math.max(insets.top, 18);
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : colors.border;
-  const cardBg = isDark ? colors.cardElevated : colors.backgroundSecondary;
 
   const loadSettings = useCallback(async () => {
     if (!token) return;
@@ -107,11 +104,11 @@ export default function TeamSettingsScreen() {
 
   if (!token) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background, padding: spacing.xl }}>
-        <Text style={{ fontFamily: fonts.heading2, fontSize: 22, color: colors.textPrimary }}>
+      <View style={{ flex: 1, backgroundColor: p.pageBg, padding: 20 }}>
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary }}>
           Team settings
         </Text>
-        <Text style={{ marginTop: spacing.sm, color: colors.textSecondary }}>
+        <Text style={{ marginTop: 8, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
           Sign in to manage team privacy settings.
         </Text>
       </View>
@@ -119,15 +116,15 @@ export default function TeamSettingsScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingTop: safeTop + spacing.md,
-          paddingHorizontal: spacing.xl,
+          paddingTop: safeTop + 12,
+          paddingHorizontal: 20,
           paddingBottom: trackingScrollBottomPad(insets),
-          gap: spacing.lg,
+          gap: 16,
         }}
       >
         <View
@@ -137,11 +134,21 @@ export default function TeamSettingsScreen() {
             justifyContent: "space-between",
           }}
         >
-          <RoundIconButton
+          <Pressable
             onPress={handleBack}
-            icon={<Ionicons name="arrow-back" size={20} color="hsl(220, 5%, 94%)" />}
-          />
-          <Text style={{ fontFamily: fonts.heading2, fontSize: 22, color: colors.textPrimary }}>
+            style={({ pressed }) => ({
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: p.accent,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <ChevronLeft size={20} color={p.buttonPrimaryText} strokeWidth={2.5} />
+          </Pressable>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary }}>
             Team settings
           </Text>
           <View style={{ width: 44 }} />
@@ -149,30 +156,26 @@ export default function TeamSettingsScreen() {
 
         <View
           style={{
-            backgroundColor: isDark ? "hsl(155, 10%, 8%)" : "hsl(155, 15%, 95%)",
-            borderRadius: radius.xxl,
-            borderWidth: 1,
-            borderColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.15)",
-            padding: spacing.xl,
-            gap: spacing.sm,
+            backgroundColor: p.cardMint,
+            borderRadius: 22,
+            padding: 20,
+            gap: 8,
           }}
         >
-          <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary }}>
             Manage team visibility
           </Text>
-          <Text style={{ color: isDark ? "hsl(155, 30%, 75%)" : "hsl(155, 35%, 35%)" }}>
+          <Text style={{ fontFamily: "Outfit-Regular", color: p.textSecondary }}>
             Control whether your runs appear in the team feed, leaderboard, and directory.
           </Text>
         </View>
 
         <View
           style={{
-            backgroundColor: cardBg,
-            borderRadius: radius.xxl,
-            padding: spacing.xl,
-            borderWidth: 1,
-            borderColor: cardBorder,
-            gap: spacing.lg,
+            backgroundColor: p.cardWhite,
+            borderRadius: 22,
+            padding: 20,
+            gap: 16,
           }}
         >
           <View
@@ -182,44 +185,42 @@ export default function TeamSettingsScreen() {
               justifyContent: "space-between",
             }}
           >
-            <View style={{ flex: 1, paddingRight: spacing.md }}>
-              <Text style={{ fontFamily: fonts.heading3, fontSize: 18, color: colors.textPrimary }}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary }}>
                 Team features
               </Text>
-              <Text style={{ marginTop: 6, color: colors.textSecondary }}>
+              <Text style={{ marginTop: 6, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                 Allow teammates to see your runs and comment.
               </Text>
             </View>
 
             {loading || saving ? (
-              <ActivityIndicator size="small" color={colors.accent} />
+              <ActivityIndicator size="small" color={p.accent} />
             ) : (
               <Switch
                 value={privacySettings?.socialEnabled ?? false}
                 onValueChange={handleToggleSocialEnabled}
-                trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-                thumbColor="hsl(220, 5%, 98%)"
+                trackColor={{ false: p.inputBg, true: p.accent }}
+                thumbColor={p.cardWhite}
               />
             )}
           </View>
         </View>
 
         {loading ? (
-          <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xl }} />
+          <ActivityIndicator color={p.accent} style={{ marginTop: 20 }} />
         ) : null}
 
         {privacySettings?.socialEnabled ? (
           <View
             style={{
-              backgroundColor: cardBg,
-              borderRadius: radius.xxl,
-              padding: spacing.xl,
-              borderWidth: 1,
-              borderColor: cardBorder,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
+              padding: 20,
               gap: 18,
             }}
           >
-            <Text style={{ fontFamily: fonts.bodyBold, color: colors.textPrimary }}>
+            <Text style={{ fontFamily: "Outfit-Bold", color: p.textPrimary }}>
               Preferences
             </Text>
 
@@ -228,34 +229,34 @@ export default function TeamSettingsScreen() {
               subtitle="Visible in the team feed"
               value={privacySettings.shareRunsPublicly}
               onChange={(v) => void updateSetting("shareRunsPublicly", v)}
-              colors={colors}
+              p={p}
               disabled={saving}
             />
-            <Divider color={colors.borderSubtle} />
+            <Divider color={p.divider} />
             <SettingRow
               label="Allow comments"
               subtitle="Teammates can comment on your runs"
               value={privacySettings.allowComments}
               onChange={(v) => void updateSetting("allowComments", v)}
-              colors={colors}
+              p={p}
               disabled={saving}
             />
-            <Divider color={colors.borderSubtle} />
+            <Divider color={p.divider} />
             <SettingRow
               label="Show in leaderboard"
               subtitle="Include your stats in ranking"
               value={privacySettings.showInLeaderboard}
               onChange={(v) => void updateSetting("showInLeaderboard", v)}
-              colors={colors}
+              p={p}
               disabled={saving}
             />
-            <Divider color={colors.borderSubtle} />
+            <Divider color={p.divider} />
             <SettingRow
               label="Show in directory"
               subtitle="Teammates can find your profile"
               value={privacySettings.showInDirectory}
               onChange={(v) => void updateSetting("showInDirectory", v)}
-              colors={colors}
+              p={p}
               disabled={saving}
             />
           </View>
@@ -265,33 +266,8 @@ export default function TeamSettingsScreen() {
   );
 }
 
-function RoundIconButton({
-  onPress,
-  icon,
-}: {
-  onPress: () => void;
-  icon: React.ReactNode;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: "rgba(0,0,0,0.35)",
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: pressed ? 0.85 : 1,
-      })}
-    >
-      {icon}
-    </Pressable>
-  );
-}
-
 function Divider({ color }: { color: string }) {
-  return <View style={{ height: 1, backgroundColor: color, opacity: 0.9 }} />;
+  return <View style={{ height: 1, backgroundColor: color }} />;
 }
 
 function SettingRow({
@@ -299,31 +275,31 @@ function SettingRow({
   subtitle,
   value,
   onChange,
-  colors,
+  p,
   disabled,
 }: {
   label: string;
   subtitle: string;
   value: boolean;
   onChange: (v: boolean) => void;
-  colors: Record<string, string>;
+  p: ReturnType<typeof import("@/components/admin/AdminUI").useAdminPastel>;
   disabled: boolean;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-      <View style={{ flex: 1, paddingRight: spacing.md }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.textPrimary }}>
+      <View style={{ flex: 1, paddingRight: 12 }}>
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>
           {label}
         </Text>
-        <Text style={{ marginTop: 4, fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+        <Text style={{ marginTop: 4, fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
           {subtitle}
         </Text>
       </View>
       <Switch
         value={value}
         onValueChange={onChange}
-        trackColor={{ false: colors.surfaceHigh, true: colors.accent }}
-        thumbColor="hsl(220, 5%, 98%)"
+        trackColor={{ false: p.inputBg, true: p.accent }}
+        thumbColor={p.cardWhite}
         disabled={disabled}
       />
     </View>

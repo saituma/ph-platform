@@ -12,7 +12,7 @@ import {
   videoUploadTable,
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
-import { pushQueue } from "../jobs";
+import { createPushIntent } from "./outbox.service";
 import { cleanupOriginalVideoObject, optimizeUploadedVideoUrl } from "./video-optimization.service";
 
 export async function notifyCoachResponseVideo(input: { videoUploadId: number }) {
@@ -98,7 +98,7 @@ export async function notifyCoachResponseVideo(input: { videoUploadId: number })
     }
 
     for (const userId of recipients) {
-      await pushQueue.enqueue({
+      await createPushIntent({
         userId,
         title: "Coach response",
         body: messageBody,
@@ -260,7 +260,7 @@ export async function reviewVideoUpload(input: {
       };
 
       for (const userId of recipients) {
-        await pushQueue.enqueue({
+        await createPushIntent({
           userId,
           title: "Video Reviewed",
           body: "Your coach has provided feedback on your training video.",

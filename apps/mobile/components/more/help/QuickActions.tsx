@@ -1,45 +1,65 @@
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Pressable, View } from "react-native";
+import { MessageSquare, Smartphone, Lock, ChevronRight } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useRouter } from "expo-router";
 import { QUICK_ACTIONS } from "./constants";
 
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
+  "message-square": MessageSquare,
+  smartphone: Smartphone,
+  lock: Lock,
+};
+
 export function QuickActions() {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
-    <View className="mb-8 gap-3">
-      {QUICK_ACTIONS.map((action) => (
-        <TouchableOpacity
-          key={action.id}
-          onPress={() => router.push(action.route as never)}
-          className="flex-row items-center rounded-[26px] border p-4"
-          style={{
-            backgroundColor: colors.card,
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            ...(isDark ? Shadows.none : Shadows.sm),
-          }}
-          activeOpacity={0.9}
-        >
-          <View
-            className="mr-4 h-12 w-12 items-center justify-center rounded-2xl"
-            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.05)" : colors.accentLight }}
+    <View style={{ marginBottom: 24, gap: 12 }}>
+      {QUICK_ACTIONS.map((action) => {
+        const Icon = ICON_MAP[action.icon] || MessageSquare;
+        return (
+          <Pressable
+            key={action.id}
+            onPress={() => router.push(action.route as never)}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              borderRadius: 22,
+              padding: 16,
+              backgroundColor: p.cardSage,
+              opacity: pressed ? 0.85 : 1,
+            })}
           >
-            <Feather name={action.icon} size={20} color={colors.accent} />
-          </View>
+            <View
+              style={{
+                marginRight: 16,
+                height: 48,
+                width: 48,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 16,
+                backgroundColor: p.accentSoft,
+              }}
+            >
+              <Icon size={20} color={p.accent} />
+            </View>
 
-          <View className="flex-1">
-            <Text className="font-clash text-lg text-app mb-1">{action.label}</Text>
-            <Text className="font-outfit text-sm text-secondary leading-5">{action.description}</Text>
-          </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary, marginBottom: 4 }}>
+                {action.label}
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, lineHeight: 18 }}>
+                {action.description}
+              </Text>
+            </View>
 
-          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
-        </TouchableOpacity>
-      ))}
+            <ChevronRight size={18} color={p.textMuted} />
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

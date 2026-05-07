@@ -4,7 +4,7 @@ import { env } from "../config/env";
 import { logger } from "../lib/logger";
 import { db } from "../db";
 import { athleteTable, subscriptionPlanTable, subscriptionRequestTable, userTable } from "../db/schema";
-import { pushQueue } from "../jobs";
+import { createPushIntent } from "./outbox.service";
 import { quoteAthleteBillingCycleAmount } from "./billing/plan.service";
 import { ATHLETE_BILLING_CYCLES, type AthleteBillingCycle } from "./billing/stripe.service";
 import { buildBillingReceiptEmailFromStripeSession } from "../lib/mailer/billing-receipt-email";
@@ -129,7 +129,7 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
     receipt,
   });
 
-  void pushQueue.enqueue({
+  void createPushIntent({
     userId: row.userId,
     title: "Subscription pending",
     body: `Your ${row.planName} subscription is being reviewed.`,
@@ -201,7 +201,7 @@ export async function notifySubscriptionPlanApproved(userId: number, planTier: s
     planTier,
   });
 
-  void pushQueue.enqueue({
+  void createPushIntent({
     userId,
     title: "Plan approved",
     body: `Your ${planTier} plan has been approved! You now have full access.`,

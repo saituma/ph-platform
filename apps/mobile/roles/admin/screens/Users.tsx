@@ -1,13 +1,11 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { View, Pressable, Image } from "react-native";
 import { useAppSelector } from "@/store/hooks";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { Feather } from "@/components/ui/theme-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Search, Users as UsersIcon } from "lucide-react-native";
+import { Search, Users as UsersIcon, AlertCircle } from "lucide-react-native";
 
 import { useAdminUsers } from "@/hooks/admin/useAdminUsers";
 import { AdminUserDetailModal } from "@/components/admin/AdminUserDetailModal";
@@ -17,20 +15,25 @@ import {
   AdminHeader,
   AdminInput,
   AdminScreen,
+  useAdminPastel,
 } from "@/components/admin/AdminUI";
 
-const ROLE_COLORS: Record<string, { color: string; bg: string }> = {
-  admin: { color: "#7B61FF", bg: "rgba(123,97,255,0.12)" },
-  coach: { color: "#30B0C7", bg: "rgba(48,176,199,0.12)" },
-  athlete: { color: "#34C759", bg: "rgba(52,199,89,0.12)" },
-  guardian: { color: "#FFB020", bg: "rgba(255,176,32,0.12)" },
-  team_coach: { color: "#FF6B6B", bg: "rgba(255,107,107,0.12)" },
-};
+const CARD_COLORS = ["cardSage", "cardPeach", "cardLavender", "cardMint"] as const;
 
-function getInitialColor(name: string | null | undefined): string {
-  const colors = ["#30B0C7", "#7B61FF", "#34C759", "#FFB020", "#FF6B6B"];
-  const idx = (name?.charCodeAt(0) ?? 0) % colors.length;
-  return colors[idx];
+function getRoleBadgeStyle(role: string, p: ReturnType<typeof useAdminPastel>) {
+  switch (role.toLowerCase()) {
+    case "admin":
+      return { color: p.accent, bg: p.accentSoft };
+    case "coach":
+    case "team_coach":
+      return { color: p.success, bg: `${p.success}18` };
+    case "athlete":
+      return { color: p.textSecondary, bg: p.cardMint };
+    case "guardian":
+      return { color: p.warning, bg: `${p.warning}18` };
+    default:
+      return { color: p.textMuted, bg: `${p.textMuted}18` };
+  }
 }
 
 function formatJoinDate(iso: string | null | undefined): string {
@@ -43,17 +46,19 @@ function formatJoinDate(iso: string | null | undefined): string {
 function UserCard({
   user,
   onPress,
-  isDark,
+  index,
 }: {
   user: AdminUser;
   onPress: () => void;
-  isDark: boolean;
+  index: number;
 }) {
+  const p = useAdminPastel();
   const initial = (user.name?.trim().charAt(0) ?? user.email?.charAt(0) ?? "?").toUpperCase();
-  const accentColor = getInitialColor(user.name ?? user.email);
   const role = user.role ?? "user";
-  const roleStyle = ROLE_COLORS[role.toLowerCase()] ?? { color: "#888", bg: "rgba(136,136,136,0.12)" };
+  const roleStyle = getRoleBadgeStyle(role, p);
   const joinLabel = formatJoinDate(user.createdAt);
+  const cardColorKey = CARD_COLORS[index % CARD_COLORS.length];
+  const cardBg = p[cardColorKey];
 
   return (
     <Pressable
@@ -61,34 +66,34 @@ function UserCard({
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
+        paddingHorizontal: 18,
+        paddingVertical: 16,
         gap: 14,
-        backgroundColor: isDark
-          ? pressed ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)"
-          : pressed ? "rgba(15,23,42,0.04)" : "rgba(15,23,42,0.02)",
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+        backgroundColor: cardBg,
+        borderRadius: 28,
+        opacity: pressed ? 0.85 : 1,
+        shadowColor: p.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
       })}
     >
       {/* Avatar */}
       {user.profilePicture ? (
         <Image
           source={{ uri: user.profilePicture }}
-          style={{ width: 48, height: 48, borderRadius: 15, flexShrink: 0 }}
+          style={{ width: 48, height: 48, borderRadius: 16, flexShrink: 0 }}
         />
       ) : (
         <View
           style={{
             width: 48,
             height: 48,
-            borderRadius: 15,
+            borderRadius: 16,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: `${accentColor}20`,
-            borderWidth: 1,
-            borderColor: `${accentColor}30`,
+            backgroundColor: p.cardWhite,
             flexShrink: 0,
           }}
         >
@@ -96,7 +101,7 @@ function UserCard({
             style={{
               fontFamily: "Outfit-Bold",
               fontSize: 19,
-              color: accentColor,
+              color: p.accent,
               lineHeight: 22,
             }}
           >
@@ -108,20 +113,20 @@ function UserCard({
       {/* Main info */}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text
-          style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: isDark ? "#F8FAFC" : "#0F172A" }}
+          style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}
           numberOfLines={1}
         >
           {user.name || "(no name)"}
         </Text>
         <Text
-          style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: isDark ? "rgba(255,255,255,0.45)" : "rgba(15,23,42,0.45)", marginTop: 2 }}
+          style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, marginTop: 2 }}
           numberOfLines={1}
         >
           {user.email}
         </Text>
         {(user.programTier || user.athleteType) && (
           <Text
-            style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)", marginTop: 2 }}
+            style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, marginTop: 2 }}
             numberOfLines={1}
           >
             {[user.programTier, user.athleteType].filter(Boolean).join(" · ")}
@@ -152,11 +157,11 @@ function UserCard({
           </Text>
         </View>
         {user.isBlocked ? (
-          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: "#EF4444", letterSpacing: 0.8 }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.danger, letterSpacing: 0.8 }}>
             BLOCKED
           </Text>
         ) : joinLabel ? (
-          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.3)" }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textMuted }}>
             {joinLabel}
           </Text>
         ) : null}
@@ -166,7 +171,7 @@ function UserCard({
 }
 
 export default function AdminUsersScreen() {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   const token = useAppSelector((state) => state.user.token);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
@@ -202,14 +207,12 @@ export default function AdminUsersScreen() {
           style={{ marginBottom: 18 }}
         >
           <AdminHeader
-            eyebrow="Directory"
             title="Users"
             subtitle={
               loading && users.length === 0
                 ? "Loading users"
                 : `${users.length} registered · ${blockedCount > 0 ? `${blockedCount} blocked` : "none blocked"}`
             }
-            tone="success"
           />
           <View style={{ paddingHorizontal: 20 }}>
             <AdminInput
@@ -231,22 +234,20 @@ export default function AdminUsersScreen() {
           {loading && users.length === 0 ? (
             <View style={{ gap: 10 }}>
               {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} width="100%" height={76} borderRadius={20} />
+                <Skeleton key={i} width="100%" height={80} borderRadius={28} />
               ))}
             </View>
           ) : error ? (
             <View
               style={{
                 padding: 24,
-                borderRadius: 20,
-                backgroundColor: "rgba(239,68,68,0.08)",
-                borderWidth: 1,
-                borderColor: "rgba(239,68,68,0.18)",
+                borderRadius: 28,
+                backgroundColor: `${p.danger}10`,
                 alignItems: "center",
               }}
             >
-              <Feather name="alert-circle" size={22} color="#EF4444" style={{ marginBottom: 10 }} />
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: "#EF4444", textAlign: "center" }}>
+              <AlertCircle size={22} color={p.danger} style={{ marginBottom: 10 }} />
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.danger, textAlign: "center" }}>
                 {error}
               </Text>
             </View>
@@ -259,15 +260,14 @@ export default function AdminUsersScreen() {
                   ? "Clear the search or try another name, email, or role."
                   : "Users will appear here after they register."
               }
-              tone="success"
             />
           ) : (
-            <View style={{ gap: 8 }}>
-              {filteredUsers.map((u) => (
+            <View style={{ gap: 10 }}>
+              {filteredUsers.map((u, index) => (
                 <UserCard
                   key={u.id}
                   user={u}
-                  isDark={isDark}
+                  index={index}
                   onPress={() => u.id != null && setSelectedUserId(u.id)}
                 />
               ))}

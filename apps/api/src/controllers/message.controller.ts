@@ -19,6 +19,7 @@ import { messageTable, userTable } from "../db/schema";
 import { toggleDirectMessageReaction } from "../services/reaction.service";
 import { publicDisplayName } from "../lib/display-name";
 import { isTrainingStaff } from "../lib/user-roles";
+import { createRealtimeTrace, logRealtimeLatency } from "../lib/realtime-latency";
 
 const sendSchema = z
   .object({
@@ -29,6 +30,8 @@ const sendSchema = z
     replyToMessageId: z.number().int().min(1).optional(),
     replyPreview: z.string().trim().max(160).optional(),
     clientId: z.string().trim().min(1).optional(),
+    clientTraceId: z.string().trim().min(1).max(96).optional(),
+    clientSentAt: z.union([z.number(), z.string()]).optional(),
     receiverId: z.number().int().optional(),
   })
   .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
@@ -367,20 +370,7 @@ export async function listMessages(req: Request, res: Response) {
   if (coach) coachesMap.set(coach.id, coach);
   if (manager && manager.id !== coach?.id) coachesMap.set(manager.id, manager);
 
-  if (premium) {
-    const { ensureAiCoachUser } = await import("../services/ai.service");
-    const aiCoachId = await ensureAiCoachUser();
-    // Only add AI coach if it's not already the same as the regular coach
-    if (!coachesMap.has(aiCoachId)) {
-      coachesMap.set(aiCoachId, {
-        id: aiCoachId,
-        name: "AI Coach",
-        role: "AI Assistant",
-        profilePicture: null,
-        isAi: true,
-      });
-    }
-  }
+  const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
 
   const peerIds = Array.from(
     new Set(
@@ -411,6 +401,7 @@ export async function listMessages(req: Request, res: Response) {
       );
 
     for (const peer of peerUsers) {
+      if (peer.email === AI_COACH_EMAIL) continue;
       if (!coachesMap.has(peer.id)) {
         coachesMap.set(peer.id, {
           id: peer.id,
@@ -454,6 +445,12 @@ export async function listMessages(req: Request, res: Response) {
 export async function sendMessageToCoach(req: Request, res: Response) {
   const input = sendSchema.parse(req.body);
   const userId = req.user!.id;
+  const trace = createRealtimeTrace({ traceId: input.clientTraceId ?? input.clientId, clientSentAt: input.clientSentAt });
+  logRealtimeLatency(trace, "http.direct.receive", {
+    senderId: userId,
+    receiverId: input.receiverId ?? null,
+    hasMedia: Boolean(input.mediaUrl),
+  });
 
   let receiverId = input.receiverId;
   if (!receiverId) {
@@ -466,6 +463,7 @@ export async function sendMessageToCoach(req: Request, res: Response) {
   }
 
   try {
+    logRealtimeLatency(trace, "http.direct.before_service", { senderId: userId, receiverId });
     const message = await sendMessage({
       senderId: userId,
       receiverId: receiverId,
@@ -477,7 +475,9 @@ export async function sendMessageToCoach(req: Request, res: Response) {
       replyToMessageId: input.replyToMessageId,
       replyPreview: input.replyPreview,
       clientId: input.clientId,
+      trace,
     });
+    logRealtimeLatency(trace, "http.direct.after_service", { messageId: message.id, receiverId });
     return res.status(201).json({ message });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "";

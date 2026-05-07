@@ -1,28 +1,30 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Ionicons } from "@expo/vector-icons";
+import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useAppSelector } from "@/store/hooks";
 import { fonts } from "@/constants/theme";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Constants from "expo-constants";
 import React, { useMemo } from "react";
 import { Linking, Pressable, View } from "react-native";
+import { Info, Globe, Code, Heart, ChevronLeft } from "lucide-react-native";
 
 const INSTAGRAM_URL = "https://www.instagram.com/ph.perform/";
 
 export default function AboutScreen() {
-  const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
+  const p = useAdminPastel();
 
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 30%, 97%)";
-  const cardBorder = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
-  const accentSoft = isDark ? `${colors.accent}18` : `${colors.accent}14`;
-  const mutedFill = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";
+  const cardBg = p.cardSage;
+  const versionCardBg = p.cardMint;
+  const labelColor = p.textSecondary;
+  const textPrimary = p.textPrimary;
+  const accent = p.accent;
+  const accentSoft = p.accentSoft;
+  const mutedFill = p.inputBg;
+  const pageBg = p.pageBg;
+  const radius = 28;
 
   const versionLine = useMemo(() => {
     const appVersion = Constants.expoConfig?.version ?? "—";
@@ -39,7 +41,7 @@ export default function AboutScreen() {
   const siteUrl = process.env.EXPO_PUBLIC_MARKETING_SITE_URL?.trim() || INSTAGRAM_URL;
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: pageBg }}>
       <MoreStackHeader
         title="About App"
         subtitle="Platform overview, mission, and how to stay in touch with the team."
@@ -66,9 +68,7 @@ export default function AboutScreen() {
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 20,
-              borderWidth: 1,
-              backgroundColor: isDark ? "hsla(155, 25%, 50%, 0.14)" : "hsla(155, 35%, 50%, 0.10)",
-              borderColor: isDark ? "hsla(155, 25%, 50%, 0.35)" : "hsla(155, 35%, 50%, 0.25)",
+              backgroundColor: p.cardLavender,
             }}
           >
             <View
@@ -78,10 +78,10 @@ export default function AboutScreen() {
                 borderRadius: 18,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: colors.accent,
+                backgroundColor: accent,
               }}
             >
-              <Ionicons name="pulse-outline" size={30} color="hsl(220, 5%, 98%)" />
+              <Heart size={30} color="hsl(220, 5%, 98%)" />
             </View>
           </View>
           <Text style={{ fontSize: 28, fontFamily: "TelmaBold", textAlign: "center", color: textPrimary }}>
@@ -93,9 +93,7 @@ export default function AboutScreen() {
               paddingHorizontal: 12,
               paddingVertical: 6,
               borderRadius: 99,
-              borderWidth: 1,
-              backgroundColor: mutedFill,
-              borderColor: cardBorder,
+                            backgroundColor: versionCardBg,
             }}
           >
             <Text style={{ fontSize: 12, fontFamily: fonts.bodyMedium, color: labelColor }}>
@@ -107,13 +105,11 @@ export default function AboutScreen() {
         {/* Mission + platform */}
         <View
           style={{
-            borderRadius: 20,
-            borderWidth: 1,
-            paddingHorizontal: 20,
+            borderRadius: radius,
+                        paddingHorizontal: 20,
             paddingVertical: 20,
             marginBottom: 16,
             backgroundColor: cardBg,
-            borderColor: cardBorder,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -127,7 +123,7 @@ export default function AboutScreen() {
                 backgroundColor: accentSoft,
               }}
             >
-              <Ionicons name="locate-outline" size={16} color={colors.accent} />
+              <Info size={16} color={accent} />
             </View>
             <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
               Our mission
@@ -143,7 +139,7 @@ export default function AboutScreen() {
               height: 1,
               width: "100%",
               marginBottom: 20,
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              backgroundColor: p.divider,
             }}
           />
 
@@ -158,7 +154,7 @@ export default function AboutScreen() {
                 backgroundColor: accentSoft,
               }}
             >
-              <Ionicons name="phone-portrait-outline" size={16} color={colors.accent} />
+              <Code size={16} color={accent} />
             </View>
             <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
               The platform
@@ -194,12 +190,10 @@ export default function AboutScreen() {
               flexDirection: "row",
               alignItems: "center",
               gap: 16,
-              borderRadius: 20,
-              borderWidth: 1,
-              paddingHorizontal: 16,
+              borderRadius: radius,
+                            paddingHorizontal: 16,
               paddingVertical: 16,
               backgroundColor: cardBg,
-              borderColor: cardBorder,
             }}
           >
             <View
@@ -209,12 +203,10 @@ export default function AboutScreen() {
                 borderRadius: 16,
                 alignItems: "center",
                 justifyContent: "center",
-                borderWidth: 1,
-                backgroundColor: isDark ? "hsla(340, 25%, 50%, 0.12)" : "hsla(340, 30%, 50%, 0.08)",
-                borderColor: isDark ? "hsla(340, 25%, 50%, 0.25)" : "hsla(340, 30%, 50%, 0.2)",
+                backgroundColor: accentSoft,
               }}
             >
-              <Ionicons name="logo-instagram" size={26} color={isDark ? "hsl(340, 35%, 65%)" : "hsl(340, 50%, 50%)"} />
+              <Globe size={26} color={accent} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
@@ -224,7 +216,11 @@ export default function AboutScreen() {
                 @ph.perform — updates, drills, and community
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={17} color={isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)"} />
+            <ChevronLeft
+              size={17}
+              color={p.textMuted}
+              style={{ transform: [{ rotate: "180deg" }] }}
+            />
           </View>
         </Pressable>
 
@@ -233,15 +229,15 @@ export default function AboutScreen() {
           <View
             style={{
               height: 56,
-              borderRadius: 20,
-              backgroundColor: colors.accent,
+              borderRadius: radius,
+              backgroundColor: accent,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
               gap: 10,
             }}
           >
-            <Ionicons name="open-outline" size={20} color="#fff" />
+            <Globe size={20} color="#fff" />
             <Text style={{ fontSize: 16, fontFamily: "ClashDisplay-Bold", color: "#fff" }}>
               Visit Website
             </Text>

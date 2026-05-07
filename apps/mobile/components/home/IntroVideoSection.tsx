@@ -1,11 +1,10 @@
 import React, { useEffect } from "react";
 import { View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import VideoPlayer from "@/components/ui/VideoPlayer";
-import { spacing } from "@/constants/theme";
 
 type IntroVideoSectionProps = {
   introVideoUrl?: string | null;
@@ -21,7 +20,7 @@ export const IntroVideoSection = React.memo(function IntroVideoSection({
   tabIndex = 0,
   loading,
 }: IntroVideoSectionProps) {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   const { width } = useWindowDimensions();
 
   useEffect(() => {
@@ -36,13 +35,12 @@ export const IntroVideoSection = React.memo(function IntroVideoSection({
   const videoH = Math.round((cardW * 9) / 16);
 
   return (
-    <View style={{ gap: spacing.md }}>
+    <View style={{ gap: 10 }}>
       <View style={{ paddingHorizontal: 2 }}>
-        <Text style={{ color: isDark ? "#fff" : "#0F172A", fontSize: 20, fontWeight: "700" }}>
+        <Text style={{ color: p.textPrimary, fontSize: 20, fontFamily: "Outfit-Bold" }}>
           Intro video
         </Text>
       </View>
-
       {loading ? (
         <SkeletonBox width={cardW} height={videoH} borderRadius={20} />
       ) : (

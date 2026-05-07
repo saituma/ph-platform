@@ -12,7 +12,7 @@ import {
   userTable,
   notificationTable,
 } from "../db/schema";
-import { sendPushNotification } from "../services/push.service";
+import { createPushIntent } from "../services/outbox.service";
 import { isAthleteUserRole, isTrainingStaff } from "../lib/user-roles";
 import { getSocketServer } from "../socket-hub";
 
@@ -394,27 +394,29 @@ export async function upsertLog(req: Request, res: Response) {
     .where(eq(athleteTable.userId, targetUserId))
     .limit(1);
 
-  const [existingLog] = await db
-    .select()
-    .from(nutritionLogsTable)
-    .where(
-      and(
-        eq(nutritionLogsTable.userId, targetUserId),
-        eq(nutritionLogsTable.dateKey, input.dateKey),
-        eq(nutritionLogsTable.mealType, input.mealType),
-      ),
-    )
-    .limit(1);
+  const result = await db.transaction(async (tx) => {
+    const [existingLog] = await tx
+      .select()
+      .from(nutritionLogsTable)
+      .where(
+        and(
+          eq(nutritionLogsTable.userId, targetUserId),
+          eq(nutritionLogsTable.dateKey, input.dateKey),
+          eq(nutritionLogsTable.mealType, input.mealType),
+        ),
+      )
+      .limit(1);
 
-  let result;
-  if (existingLog) {
-    [result] = await db
-      .update(nutritionLogsTable)
-      .set(buildNutritionUpdatePayload(existingLog, input))
-      .where(eq(nutritionLogsTable.id, existingLog.id))
-      .returning();
-  } else {
-    [result] = await db
+    if (existingLog) {
+      const [updated] = await tx
+        .update(nutritionLogsTable)
+        .set(buildNutritionUpdatePayload(existingLog, input))
+        .where(eq(nutritionLogsTable.id, existingLog.id))
+        .returning();
+      return updated;
+    }
+
+    const [inserted] = await tx
       .insert(nutritionLogsTable)
       .values({
         userId: targetUserId,
@@ -423,8 +425,29 @@ export async function upsertLog(req: Request, res: Response) {
         mealType: input.mealType,
         loggedAt: input.loggedAt ?? new Date(),
       })
+      .onConflictDoUpdate({
+        target: [nutritionLogsTable.userId, nutritionLogsTable.dateKey, nutritionLogsTable.mealType],
+        set: {
+          breakfast: input.breakfast ?? undefined,
+          lunch: input.lunch ?? undefined,
+          dinner: input.dinner ?? undefined,
+          snacks: input.snacks ?? undefined,
+          snacksMorning: input.snacksMorning ?? undefined,
+          snacksAfternoon: input.snacksAfternoon ?? undefined,
+          snacksEvening: input.snacksEvening ?? undefined,
+          foodDiary: input.foodDiary ?? undefined,
+          waterIntake: input.waterIntake ?? undefined,
+          steps: input.steps ?? undefined,
+          sleepHours: input.sleepHours ?? undefined,
+          mood: input.mood ?? undefined,
+          energy: input.energy ?? undefined,
+          pain: input.pain ?? undefined,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
-  }
+    return inserted;
+  });
 
   // Realtime update for athlete + staff viewers (portal nutrition + team athlete detail).
   const io = getSocketServer();
@@ -476,13 +499,18 @@ export async function provideFeedback(req: Request, res: Response) {
     userId: existingLog.userId,
     type: "nutrition_feedback",
     content: "Coach responded to your nutrition tracking log.",
-    link: "/programs",
+    link: "/nutrition",
   });
 
-  void sendPushNotification(existingLog.userId, "Nutrition response", "Coach responded to your nutrition log.", {
-    type: "nutrition_feedback",
-    url: "/programs",
-  });
+  void createPushIntent({
+    userId: existingLog.userId,
+    title: "Nutrition response",
+    body: "Coach responded to your nutrition log.",
+    data: {
+      type: "nutrition_feedback",
+      url: "/nutrition",
+    },
+  }).catch(() => undefined);
 
   const io = getSocketServer();
   if (io && updatedLog) {

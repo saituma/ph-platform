@@ -16,7 +16,6 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -29,14 +28,31 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  Newspaper,
+  Trophy,
+  Flame,
+  Users,
+  Share2,
+  Settings,
+  Heart,
+  MessageCircle,
+  Clock,
+  SlidersHorizontal,
+  ArrowUpDown,
+  Play,
+  ImageIcon,
+  PlusCircle,
+  BarChart3,
+} from "lucide-react-native";
 
 import { useRunStore } from "@/store/useRunStore";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
-import { AppIcon } from "@/components/ui/app-icon";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
-import { spacing, fonts } from "@/constants/theme";
+import { spacing } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
 import {
@@ -73,11 +89,11 @@ import { relativeTime } from "@/lib/tracking/relativeTime";
 
 type TabKey = "feed" | "leaderboard" | "squad" | "challenges";
 
-const TABS: Array<{ key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }> = [
-  { key: "feed", label: "Feed", icon: "newspaper-outline", iconActive: "newspaper" },
-  { key: "leaderboard", label: "Leaderboard", icon: "trophy-outline", iconActive: "trophy" },
-  { key: "challenges", label: "Challenges", icon: "flame-outline", iconActive: "flame" },
-  { key: "squad", label: "Squad", icon: "people-outline", iconActive: "people" },
+const TABS: Array<{ key: TabKey; label: string }> = [
+  { key: "feed", label: "Feed" },
+  { key: "leaderboard", label: "Leaderboard" },
+  { key: "challenges", label: "Challenges" },
+  { key: "squad", label: "Squad" },
 ];
 
 // ─── Feed item union type ────────────────────────────────────────────────────
@@ -91,6 +107,7 @@ type FeedItem =
 export default function TrackingSocialScreen() {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
@@ -158,19 +175,14 @@ export default function TrackingSocialScreen() {
   const [lbCommentItem, setLbCommentItem] = useState<SocialLeaderboardItem | null>(null);
   const [lbCommentOpen, setLbCommentOpen] = useState(false);
 
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : colors.border;
-  const cardBg = isDark ? colors.cardElevated : colors.backgroundSecondary;
-
   const canLoad = token != null;
 
   // ── Gate check ──
   useEffect(() => {
     if (!capabilitiesLoaded) return;
-    // Avoid bounce-back on transient hydration states; only redirect when
-    // tracking is clearly inaccessible.
     if (canAccessTracking && useTeamFeed) return;
     if (!canAccessTracking) {
-      router.replace("/(tabs)/tracking");
+      router.replace("/(tabs)/tracking" as any);
     }
   }, [capabilitiesLoaded, canAccessTracking, router, useTeamFeed]);
 
@@ -493,7 +505,7 @@ export default function TrackingSocialScreen() {
   // Build unified feed sorted by date
   const unifiedFeed = useMemo<FeedItem[]>(() => {
     const runs: FeedItem[] = feed.map((r) => ({ _type: "run" as const, ...r }));
-    const posts: FeedItem[] = postFeed.map((p) => ({ _type: "post" as const, ...p }));
+    const posts: FeedItem[] = postFeed.map((pItem) => ({ _type: "post" as const, ...pItem }));
     const all = [...runs, ...posts];
     all.sort((a, b) => {
       const da = new Date(a._type === "run" ? a.date : a.date).getTime();
@@ -507,12 +519,12 @@ export default function TrackingSocialScreen() {
 
   if (!token) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, backgroundColor: p.pageBg }}>
         <View style={{ paddingTop: insets.top + spacing.xl, padding: spacing.xl }}>
-          <Text style={{ fontFamily: fonts.heading2, fontSize: 22, color: colors.textPrimary }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary }}>
             Team
           </Text>
-          <Text style={{ marginTop: 8, color: colors.textSecondary }}>
+          <Text style={{ marginTop: 8, fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary }}>
             Sign in to use team tracking.
           </Text>
         </View>
@@ -526,7 +538,7 @@ export default function TrackingSocialScreen() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Fixed header - not in scroll */}
@@ -534,7 +546,7 @@ export default function TrackingSocialScreen() {
         style={{
           paddingTop: insets.top,
           paddingHorizontal: spacing.xl,
-          backgroundColor: colors.background,
+          backgroundColor: p.pageBg,
           zIndex: 10,
         }}
       >
@@ -563,22 +575,20 @@ export default function TrackingSocialScreen() {
                 width: 46,
                 height: 46,
                 borderRadius: 23,
-                backgroundColor: colors.accentLight,
+                backgroundColor: p.accentSoft,
                 alignItems: "center",
                 justifyContent: "center",
-                borderWidth: 1.5,
-                borderColor: colors.borderLime,
               }}
             >
               <Text
-                style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary }}
+                style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary }}
               >
                 {teamInitial}
               </Text>
             </View>
             <View>
               <Text
-                style={{ fontFamily: fonts.heading2, fontSize: 19, color: colors.textPrimary, letterSpacing: -0.2 }}
+                style={{ fontFamily: "Outfit-Bold", fontSize: 19, color: p.textPrimary, letterSpacing: -0.2 }}
               >
                 {teamName}
               </Text>
@@ -590,12 +600,12 @@ export default function TrackingSocialScreen() {
                   marginTop: 3,
                 }}
               >
-                <Ionicons name="people" size={12} color={colors.accent} />
+                <Users size={12} color={p.accent} />
                 <Text
                   style={{
-                    fontFamily: fonts.bodyBold,
+                    fontFamily: "Outfit-Bold",
                     fontSize: 12,
-                    color: colors.accent,
+                    color: p.accent,
                   }}
                 >
                   {memberCount} members
@@ -607,19 +617,13 @@ export default function TrackingSocialScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <RoundIconButton
               onPress={shareTeam}
-              icon={<AppIcon name="share" size={18} color={colors.textPrimary} />}
-              backgroundColor={
-                isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"
-              }
-              borderColor={cardBorder}
+              icon={<Share2 size={18} color={p.textPrimary} />}
+              backgroundColor={p.inputBg}
             />
             <RoundIconButton
               onPress={openSettings}
-              icon={<AppIcon name="settings" size={18} color={colors.textPrimary} />}
-              backgroundColor={
-                isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"
-              }
-              borderColor={cardBorder}
+              icon={<Settings size={18} color={p.textPrimary} />}
+              backgroundColor={p.inputBg}
             />
           </View>
         </View>
@@ -631,8 +635,7 @@ export default function TrackingSocialScreen() {
         tabs={TABS}
         activeKey={activeTab}
         onChange={setActiveTab}
-        colors={colors}
-        isDark={isDark}
+        p={p}
       />
 
       {/* Privacy disabled gate */}
@@ -648,10 +651,8 @@ export default function TrackingSocialScreen() {
           <View
             style={{
               width: "100%",
-              backgroundColor: cardBg,
-              borderWidth: 1,
-              borderColor: cardBorder,
-              borderRadius: 20,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: spacing.xl,
               gap: spacing.md,
               alignItems: "center",
@@ -662,19 +663,19 @@ export default function TrackingSocialScreen() {
                 width: 56,
                 height: 56,
                 borderRadius: 28,
-                backgroundColor: colors.accentLight,
+                backgroundColor: p.accentSoft,
                 alignItems: "center",
                 justifyContent: "center",
                 marginBottom: spacing.sm,
               }}
             >
-              <Ionicons name="people-outline" size={26} color={colors.accent} />
+              <Users size={26} color={p.accent} />
             </View>
             <Text
               style={{
-                fontFamily: fonts.heading2,
+                fontFamily: "Outfit-Bold",
                 fontSize: 20,
-                color: colors.textPrimary,
+                color: p.textPrimary,
                 textAlign: "center",
               }}
             >
@@ -682,9 +683,9 @@ export default function TrackingSocialScreen() {
             </Text>
             <Text
               style={{
-                fontFamily: fonts.bodyMedium,
+                fontFamily: "Outfit-Regular",
                 fontSize: 14,
-                color: colors.textSecondary,
+                color: p.textSecondary,
                 textAlign: "center",
                 lineHeight: 20,
               }}
@@ -697,8 +698,8 @@ export default function TrackingSocialScreen() {
               style={({ pressed }) => ({
                 width: "100%",
                 height: 50,
-                borderRadius: 25,
-                backgroundColor: colors.accent,
+                borderRadius: 100,
+                backgroundColor: p.accent,
                 alignItems: "center",
                 justifyContent: "center",
                 marginTop: spacing.sm,
@@ -706,13 +707,13 @@ export default function TrackingSocialScreen() {
               })}
             >
               {settingsLoading ? (
-                <ActivityIndicator color={colors.textInverse} />
+                <ActivityIndicator color={p.buttonPrimaryText} />
               ) : (
                 <Text
                   style={{
-                    fontFamily: fonts.heading3,
+                    fontFamily: "Outfit-Bold",
                     fontSize: 15,
-                    color: colors.textInverse,
+                    color: p.buttonPrimaryText,
                   }}
                 >
                   Enable team features
@@ -730,10 +731,7 @@ export default function TrackingSocialScreen() {
               feed={feed}
               postFeed={postFeed}
               leaderboard={leaderboard}
-              colors={colors}
-              isDark={isDark}
-              cardBg={cardBg}
-              cardBorder={cardBorder}
+              p={p}
               teamInitial={teamInitial}
               loading={isFeedLoading}
               refreshing={refreshing}
@@ -758,6 +756,7 @@ export default function TrackingSocialScreen() {
               onPickSort={pickSort}
               onPickRange={pickRange}
               bottomPad={trackingScrollBottomPad(insets) + 72}
+              colors={colors}
             />
           ) : null}
 
@@ -768,10 +767,7 @@ export default function TrackingSocialScreen() {
               loading={leaderboardLoading}
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={colors}
-              isDark={isDark}
-              cardBg={cardBg}
-              cardBorder={cardBorder}
+              p={p}
               rangeDays={rangeDays}
               onPickRange={pickRange}
               onPickSort={pickLeaderboardSort}
@@ -792,10 +788,7 @@ export default function TrackingSocialScreen() {
               loading={loading}
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={colors}
-              isDark={isDark}
-              cardBg={cardBg}
-              cardBorder={cardBorder}
+              p={p}
               bottomPad={trackingScrollBottomPad(insets) + 72}
               teamName={teamName}
             />
@@ -809,10 +802,7 @@ export default function TrackingSocialScreen() {
               loading={loading}
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={colors}
-              isDark={isDark}
-              cardBg={cardBg}
-              cardBorder={cardBorder}
+              p={p}
               bottomPad={trackingScrollBottomPad(insets) + 72}
             />
           ) : null}
@@ -837,7 +827,7 @@ export default function TrackingSocialScreen() {
           onClose={() => setPostCommentsOpen(false)}
           token={token}
           postId={activePostId}
-          postOwnerName={postFeed.find((p) => p.id === activePostId)?.name ?? null}
+          postOwnerName={postFeed.find((pItem) => pItem.id === activePostId)?.name ?? null}
           useTeamFeed={useTeamFeed}
           onChanged={loadPosts}
         />
@@ -872,11 +862,6 @@ export default function TrackingSocialScreen() {
           bottom: trackingScrollBottomPad(insets) + spacing.md,
           left: spacing.xl,
           right: spacing.xl,
-          shadowColor: "#000",
-          shadowOpacity: isDark ? 0.4 : 0.15,
-          shadowRadius: 16,
-          shadowOffset: { width: 0, height: 8 },
-          elevation: 10,
           zIndex: 99,
         }}
       >
@@ -885,23 +870,24 @@ export default function TrackingSocialScreen() {
           style={({ pressed }) => ({
             width: "100%",
             height: 56,
-            borderRadius: 28,
-            backgroundColor: pressed ? colors.limeDark : colors.accent,
+            borderRadius: 100,
+            backgroundColor: pressed ? p.accent : p.buttonPrimary,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
             gap: 10,
             transform: [{ scale: pressed ? 0.98 : 1 }],
+            opacity: pressed ? 0.9 : 1,
           })}
           accessibilityRole="button"
           accessibilityLabel="Run"
         >
-          <Ionicons name="play" size={20} color={colors.textInverse} />
+          <Play size={20} color={p.buttonPrimaryText} />
           <Text
             style={{
-              fontFamily: fonts.heading2,
+              fontFamily: "Outfit-Bold",
               fontSize: 18,
-              color: colors.textInverse,
+              color: p.buttonPrimaryText,
             }}
           >
             Run
@@ -918,32 +904,28 @@ function PillTabs<K extends string>({
   tabs,
   activeKey,
   onChange,
-  colors,
-  isDark,
+  p,
 }: {
-  tabs: Array<{ key: K; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }>;
+  tabs: Array<{ key: K; label: string }>;
   activeKey: K;
   onChange: (key: K) => void;
-  colors: any;
-  isDark: boolean;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
-  // Robi: tinted, low-saturation backgrounds — no pure black/white
-  const barBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.05)";
-  const activeBg = isDark ? "rgba(255,255,255,0.10)" : "#FFFFFF";
-  // Dark mode: border for elevation instead of shadow
-  const activeBorder = isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.08)";
-  const activeText = isDark ? "rgba(245,245,250,0.98)" : "rgba(15,23,42,0.95)";
-  const inactiveText = isDark ? "rgba(255,255,255,0.38)" : "rgba(15,23,42,0.38)";
-  const activeIcon = isDark ? "rgba(245,245,250,0.95)" : colors.accent;
+  const tabIcons: Record<string, (active: boolean, color: string) => React.ReactNode> = {
+    feed: (_, color) => <Newspaper size={20} color={color} />,
+    leaderboard: (_, color) => <Trophy size={20} color={color} />,
+    challenges: (_, color) => <Flame size={20} color={color} />,
+    squad: (_, color) => <Users size={20} color={color} />,
+  };
 
   return (
     <View
       style={{
         flexDirection: "row",
-        backgroundColor: barBg,
+        backgroundColor: p.inputBg,
         borderTopWidth: 1,
         borderBottomWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.07)",
+        borderColor: p.divider,
         paddingHorizontal: 12,
         paddingVertical: 8,
         gap: 8,
@@ -951,6 +933,8 @@ function PillTabs<K extends string>({
     >
       {tabs.map((tab) => {
         const active = tab.key === activeKey;
+        const iconColor = active ? p.accent : p.textMuted;
+        const renderIcon = tabIcons[tab.key as string];
         return (
           <Pressable
             key={tab.key}
@@ -960,39 +944,21 @@ function PillTabs<K extends string>({
             style={({ pressed }) => ({
               flex: 1,
               height: 60,
-              borderRadius: 12,
-              backgroundColor: active ? activeBg : "transparent",
-              borderWidth: 1,
-              borderColor: active
-                ? activeBorder
-                : isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.07)",
+              borderRadius: 22,
+              backgroundColor: active ? p.cardWhite : "transparent",
               alignItems: "center",
               justifyContent: "center",
               gap: 4,
               opacity: pressed ? 0.7 : 1,
-              // Light mode only: subtle shadow on active card
-              ...(!isDark && active
-                ? {
-                    shadowColor: "rgba(15,23,42,0.12)",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 1,
-                    shadowRadius: 8,
-                    elevation: 2,
-                  }
-                : {}),
             })}
           >
-            <Ionicons
-              name={active ? tab.iconActive : tab.icon}
-              size={20}
-              color={active ? activeIcon : inactiveText}
-            />
+            {renderIcon ? renderIcon(active, iconColor) : null}
             <Text
               style={{
-                fontFamily: active ? fonts.bodyBold : fonts.bodyMedium,
+                fontFamily: active ? "Outfit-Bold" : "Outfit-Regular",
                 fontSize: 11,
                 lineHeight: 14,
-                color: active ? activeText : inactiveText,
+                color: active ? p.textPrimary : p.textMuted,
                 letterSpacing: 0.2,
               }}
             >
@@ -1012,10 +978,7 @@ type FeedTabProps = {
   feed: SocialRunFeedItem[];
   postFeed: SocialPostItem[];
   leaderboard: SocialLeaderboardItem[];
-  colors: any;
-  isDark: boolean;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
   teamInitial: string;
   loading: boolean;
   refreshing: boolean;
@@ -1028,13 +991,14 @@ type FeedTabProps = {
   onToggleRunLike: (r: SocialRunFeedItem) => void;
   onPressOpenRun: (id: number) => void;
   onPressPostComment: (id: number) => void;
-  onTogglePostLike: (p: SocialPostItem) => void;
+  onTogglePostLike: (pItem: SocialPostItem) => void;
   onPressCompose: () => void;
   sort: SocialSort;
   rangeDays: number;
   onPickSort: () => void;
   onPickRange: () => void;
   bottomPad: number;
+  colors: any;
 };
 
 function FeedTab({
@@ -1042,10 +1006,7 @@ function FeedTab({
   feed: _feed,
   postFeed: _postFeed,
   leaderboard,
-  colors,
-  isDark,
-  cardBg,
-  cardBorder,
+  p,
   teamInitial,
   loading,
   refreshing,
@@ -1065,6 +1026,7 @@ function FeedTab({
   onPickSort,
   onPickRange,
   bottomPad,
+  colors,
 }: FeedTabProps) {
   const handleEndReached = useCallback(() => {
     onLoadMoreFeed();
@@ -1104,9 +1066,7 @@ function FeedTab({
           <PostComposerRow
             initial={teamInitial}
             onPress={onPressCompose}
-            colors={colors}
-            cardBg={cardBg}
-            cardBorder={cardBorder}
+            p={p}
           />
         );
       }
@@ -1121,8 +1081,7 @@ function FeedTab({
             totalMinutes={totalMin}
             activeRunners={activeMembers}
             rangeDays={rangeDays}
-            colors={colors}
-            isDark={isDark}
+            p={p}
           />
         );
       }
@@ -1138,17 +1097,15 @@ function FeedTab({
           >
             <FilterPill
               label={rangeDays === 0 ? "All time" : `${rangeDays}d`}
-              icon="time-outline"
+              icon="clock"
               onPress={onPickRange}
-              colors={colors}
-              isDark={isDark}
+              p={p}
             />
             <FilterPill
               label="Sort"
-              icon="options-outline"
+              icon="sliders"
               onPress={onPickSort}
-              colors={colors}
-              isDark={isDark}
+              p={p}
             />
           </View>
         );
@@ -1156,7 +1113,7 @@ function FeedTab({
       if (item._listType === "loading") {
         return (
           <ActivityIndicator
-            color={colors.accent}
+            color={p.accent}
             style={{ marginVertical: 40 }}
           />
         );
@@ -1166,9 +1123,7 @@ function FeedTab({
           <EmptyState
             title="Nothing here yet"
             subtitle="When teammates record runs or post updates, they'll appear here."
-            colors={colors}
-            cardBg={cardBg}
-            cardBorder={cardBorder}
+            p={p}
           />
         );
       }
@@ -1180,9 +1135,8 @@ function FeedTab({
           <Animated.View entering={FadeInDown.delay(Math.min(itemIndex, 10) * 50).springify().damping(15)}>
             <RunCard
               item={feedItem}
+              p={p}
               colors={colors}
-              cardBg={cardBg}
-              cardBorder={cardBorder}
               onPressComment={() => onPressRunComment(feedItem.runLogId)}
               onToggleLike={() => onToggleRunLike(feedItem)}
               onPressOpen={() => onPressOpenRun(feedItem.runLogId)}
@@ -1194,9 +1148,7 @@ function FeedTab({
         <Animated.View entering={FadeInDown.delay(Math.min(itemIndex, 10) * 50).springify().damping(15)}>
           <PostCard
             item={feedItem}
-            colors={colors}
-            cardBg={cardBg}
-            cardBorder={cardBorder}
+            p={p}
             onPressComment={() => onPressPostComment(feedItem.id)}
             onToggleLike={() => onTogglePostLike(feedItem)}
           />
@@ -1204,10 +1156,8 @@ function FeedTab({
       );
     },
     [
-      cardBg,
-      cardBorder,
       colors,
-      isDark,
+      leaderboard,
       onPickRange,
       onPickSort,
       onPressCompose,
@@ -1216,6 +1166,7 @@ function FeedTab({
       onPressRunComment,
       onTogglePostLike,
       onToggleRunLike,
+      p,
       rangeDays,
       teamInitial,
     ],
@@ -1248,13 +1199,13 @@ function FeedTab({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={colors.accent}
+          tintColor={p.accent}
         />
       }
       ListFooterComponent={
         feedLoadingMore || postLoadingMore ? (
           <ActivityIndicator
-            color={colors.accent}
+            color={p.accent}
             style={{ marginVertical: 20 }}
           />
         ) : null
@@ -1270,10 +1221,7 @@ function LeaderboardTab({
   loading,
   refreshing,
   onRefresh,
-  colors,
-  isDark,
-  cardBg,
-  cardBorder,
+  p,
   rangeDays,
   onPickRange,
   onPickSort,
@@ -1285,10 +1233,7 @@ function LeaderboardTab({
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
-  colors: any;
-  isDark: boolean;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
   rangeDays: number;
   onPickRange: () => void;
   onPickSort: () => void;
@@ -1323,24 +1268,22 @@ function LeaderboardTab({
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 4 }}>
             <FilterPill
               label={rangeDays === 0 ? "All time" : `${rangeDays}d`}
-              icon="time-outline"
+              icon="clock"
               onPress={onPickRange}
-              colors={colors}
-              isDark={isDark}
+              p={p}
             />
             <FilterPill
               label="Sort"
-              icon="swap-vertical-outline"
+              icon="arrows"
               onPress={onPickSort}
-              colors={colors}
-              isDark={isDark}
+              p={p}
             />
           </View>
         );
       }
       if (item._listType === "loading") {
         return (
-          <ActivityIndicator color={colors.accent} style={{ marginVertical: 40 }} />
+          <ActivityIndicator color={p.accent} style={{ marginVertical: 40 }} />
         );
       }
       if (item._listType === "empty") {
@@ -1348,27 +1291,23 @@ function LeaderboardTab({
           <EmptyState
             title="No rankings yet"
             subtitle="Rankings will appear once teammates share runs."
-            colors={colors}
-            cardBg={cardBg}
-            cardBorder={cardBorder}
+            p={p}
           />
         );
       }
       const commentCount = postFeed.filter(
-        (p) => p.content.startsWith(`[lb:${item.data.userId}] `),
+        (pItem) => pItem.content.startsWith(`[lb:${item.data.userId}] `),
       ).length;
       return (
         <LeaderboardRow
           item={item.data}
-          colors={colors}
-          cardBg={cardBg}
-          cardBorder={cardBorder}
+          p={p}
           commentCount={commentCount}
           onPressComment={() => onPressComment(item.data)}
         />
       );
     },
-    [cardBg, cardBorder, colors, isDark, onPickRange, onPickSort, onPressComment, postFeed, rangeDays],
+    [onPickRange, onPickSort, onPressComment, p, postFeed, rangeDays],
   );
 
   const keyExtractor = useCallback((item: ListItem) => {
@@ -1391,7 +1330,7 @@ function LeaderboardTab({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={colors.accent}
+          tintColor={p.accent}
         />
       }
     />
@@ -1406,10 +1345,7 @@ function SquadTab({
   loading,
   refreshing,
   onRefresh,
-  colors,
-  isDark: _isDark,
-  cardBg,
-  cardBorder,
+  p,
   bottomPad,
 }: {
   adults: { userId: number; name: string; avatarUrl: string | null }[];
@@ -1417,10 +1353,7 @@ function SquadTab({
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
-  colors: any;
-  isDark: boolean;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
   bottomPad: number;
 }) {
   const statsByUserId = useMemo(() => {
@@ -1443,7 +1376,7 @@ function SquadTab({
     ({ item }: { item: ListItem }) => {
       if (item._listType === "loading") {
         return (
-          <ActivityIndicator color={colors.accent} style={{ marginVertical: 40 }} />
+          <ActivityIndicator color={p.accent} style={{ marginVertical: 40 }} />
         );
       }
       if (item._listType === "empty") {
@@ -1451,9 +1384,7 @@ function SquadTab({
           <EmptyState
             title="No members yet"
             subtitle="Team members will appear here once they join."
-            colors={colors}
-            cardBg={cardBg}
-            cardBorder={cardBorder}
+            p={p}
           />
         );
       }
@@ -1463,10 +1394,8 @@ function SquadTab({
         <View
           style={{
             width: "100%",
-            backgroundColor: cardBg,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: cardBorder,
+            backgroundColor: p.cardWhite,
+            borderRadius: 22,
             padding: spacing.lg,
             gap: 10,
           }}
@@ -1476,13 +1405,14 @@ function SquadTab({
               initial={member.name.slice(0, 1).toUpperCase()}
               url={member.avatarUrl}
               size={44}
+              p={p}
             />
             <View style={{ flex: 1 }}>
               <Text
                 style={{
-                  fontFamily: fonts.bodyBold,
+                  fontFamily: "Outfit-Bold",
                   fontSize: 15,
-                  color: colors.textPrimary,
+                  color: p.textPrimary,
                 }}
               >
                 {member.name}
@@ -1490,9 +1420,9 @@ function SquadTab({
               {stats ? (
                 <Text
                   style={{
-                    fontFamily: fonts.bodyMedium,
+                    fontFamily: "Outfit-Regular",
                     fontSize: 12,
-                    color: colors.textSecondary,
+                    color: p.textSecondary,
                     marginTop: 2,
                   }}
                 >
@@ -1508,10 +1438,10 @@ function SquadTab({
                   borderRadius: 15,
                   backgroundColor:
                     stats.rank === 1
-                      ? "rgba(255,176,32,0.15)"
+                      ? p.warningSoft
                       : stats.rank === 2
-                        ? "rgba(176,190,197,0.15)"
-                        : "rgba(205,127,50,0.15)",
+                        ? p.infoSoft
+                        : p.warningSoft,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
@@ -1525,18 +1455,18 @@ function SquadTab({
           {stats && stats.kmTotal > 0 ? (
             <View style={{ flexDirection: "row", gap: 16, paddingLeft: 56 }}>
               <View>
-                <Text style={{ fontFamily: fonts.statNumber, fontSize: 14, color: colors.textPrimary }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
                   {stats.durationMinutesTotal}
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textSecondary }}>
                   min
                 </Text>
               </View>
               <View>
-                <Text style={{ fontFamily: fonts.statNumber, fontSize: 14, color: colors.textPrimary }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
                   #{stats.rank}
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textSecondary }}>
                   rank
                 </Text>
               </View>
@@ -1545,7 +1475,7 @@ function SquadTab({
         </View>
       );
     },
-    [cardBg, cardBorder, colors],
+    [p, statsByUserId],
   );
 
   const keyExtractor = useCallback((item: ListItem) => {
@@ -1568,7 +1498,7 @@ function SquadTab({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={colors.accent}
+          tintColor={p.accent}
         />
       }
     />
@@ -1579,17 +1509,15 @@ function SquadTab({
 
 const RunCard = memo(function RunCard({
   item,
+  p,
   colors,
-  cardBg,
-  cardBorder,
   onPressComment,
   onToggleLike,
   onPressOpen,
 }: {
   item: SocialRunFeedItem;
+  p: ReturnType<typeof useAdminPastel>;
   colors: any;
-  cardBg: string;
-  cardBorder: string;
   onPressComment: () => void;
   onToggleLike: () => void;
   onPressOpen: () => void;
@@ -1654,16 +1582,14 @@ const RunCard = memo(function RunCard({
       <View
         style={{
           width: "100%",
-          backgroundColor: cardBg,
-          borderWidth: 1,
-          borderColor: cardBorder,
-          borderRadius: 20,
+          backgroundColor: p.cardWhite,
+          borderRadius: 22,
           overflow: "hidden",
         }}
       >
         {/* Heart burst overlay */}
         <Animated.View style={heartStyle} pointerEvents="none">
-          <Ionicons name="heart" size={80} color="#FF3B30" />
+          <Heart size={80} color={p.danger} fill={p.danger} />
         </Animated.View>
 
         {/* Header row */}
@@ -1681,22 +1607,23 @@ const RunCard = memo(function RunCard({
             initial={item.name.slice(0, 1).toUpperCase()}
             url={item.avatarUrl}
             size={40}
+            p={p}
           />
           <View style={{ flex: 1 }}>
             <Text
               style={{
-                fontFamily: fonts.bodyBold,
+                fontFamily: "Outfit-Bold",
                 fontSize: 14,
-                color: colors.textPrimary,
+                color: p.textPrimary,
               }}
             >
               {item.name}
             </Text>
             <Text
               style={{
-                fontFamily: fonts.bodyMedium,
+                fontFamily: "Outfit-Regular",
                 fontSize: 12,
-                color: colors.textSecondary,
+                color: p.textSecondary,
                 marginTop: 1,
               }}
             >
@@ -1707,12 +1634,12 @@ const RunCard = memo(function RunCard({
             style={{
               paddingHorizontal: 8,
               paddingVertical: 3,
-              borderRadius: 20,
-              backgroundColor: colors.accentLight,
+              borderRadius: 100,
+              backgroundColor: p.accentSoft,
             }}
           >
             <Text
-              style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: colors.accent }}
+              style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}
             >
               Run
             </Text>
@@ -1734,11 +1661,11 @@ const RunCard = memo(function RunCard({
             gap: 0,
           }}
         >
-          <StatColumn label="Distance" value={`${km} km`} colors={colors} />
-          <StatDivider />
-          <StatColumn label="Time" value={time} colors={colors} />
-          <StatDivider />
-          <StatColumn label="Pace" value={pace} colors={colors} />
+          <StatColumn label="Distance" value={`${km} km`} p={p} />
+          <StatDivider p={p} />
+          <StatColumn label="Time" value={time} p={p} />
+          <StatDivider p={p} />
+          <StatColumn label="Pace" value={pace} p={p} />
         </View>
 
         {/* Interaction row */}
@@ -1761,27 +1688,26 @@ const RunCard = memo(function RunCard({
               flex: 1,
             }}
           >
-            <Ionicons name="heart" size={14} color={colors.textDim} />
+            <Heart size={14} color={p.textMuted} />
             <Text
               style={{
-                fontFamily: fonts.bodyMedium,
+                fontFamily: "Outfit-Regular",
                 fontSize: 12,
-                color: colors.textSecondary,
+                color: p.textSecondary,
               }}
             >
               {likeCount}
             </Text>
-            <Ionicons
-              name="chatbubble-outline"
+            <MessageCircle
               size={13}
-              color={colors.textDim}
+              color={p.textMuted}
               style={{ marginLeft: 8 }}
             />
             <Text
               style={{
-                fontFamily: fonts.bodyMedium,
+                fontFamily: "Outfit-Regular",
                 fontSize: 12,
-                color: colors.textSecondary,
+                color: p.textSecondary,
               }}
             >
               {commentCount}
@@ -1797,22 +1723,22 @@ const RunCard = memo(function RunCard({
               gap: 6,
               paddingHorizontal: 14,
               paddingVertical: 8,
-              borderRadius: 12,
-              backgroundColor: item.userLiked ? colors.accentLight : "rgba(255,255,255,0.06)",
+              borderRadius: 100,
+              backgroundColor: item.userLiked ? p.accentSoft : p.inputBg,
               opacity: pressed ? 0.8 : 1,
             })}
             accessibilityLabel={item.userLiked ? "Unlike" : "Like"}
           >
-            <Ionicons
-              name={item.userLiked ? "heart" : "heart-outline"}
+            <Heart
               size={16}
-              color={item.userLiked ? colors.accent : colors.textSecondary}
+              color={item.userLiked ? p.accent : p.textSecondary}
+              fill={item.userLiked ? p.accent : "none"}
             />
             <Text
               style={{
-                fontFamily: fonts.bodyBold,
+                fontFamily: "Outfit-Bold",
                 fontSize: 13,
-                color: item.userLiked ? colors.accent : colors.textSecondary,
+                color: item.userLiked ? p.accent : p.textSecondary,
               }}
             >
               Kudos
@@ -1827,18 +1753,18 @@ const RunCard = memo(function RunCard({
               gap: 6,
               paddingHorizontal: 14,
               paddingVertical: 8,
-              borderRadius: 12,
-              backgroundColor: "rgba(255,255,255,0.06)",
+              borderRadius: 100,
+              backgroundColor: p.inputBg,
               opacity: pressed ? 0.8 : 1,
             })}
             accessibilityLabel="Comment"
           >
-            <Ionicons name="chatbubble-outline" size={15} color={colors.textSecondary} />
+            <MessageCircle size={15} color={p.textSecondary} />
             <Text
               style={{
-                fontFamily: fonts.bodyBold,
+                fontFamily: "Outfit-Bold",
                 fontSize: 13,
-                color: colors.textSecondary,
+                color: p.textSecondary,
               }}
             >
               Comment
@@ -1854,16 +1780,12 @@ const RunCard = memo(function RunCard({
 
 const PostCard = memo(function PostCard({
   item,
-  colors,
-  cardBg,
-  cardBorder,
+  p,
   onPressComment,
   onToggleLike,
 }: {
   item: SocialPostItem;
-  colors: any;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
   onPressComment: () => void;
   onToggleLike: () => void;
 }) {
@@ -1923,16 +1845,14 @@ const PostCard = memo(function PostCard({
       <View
         style={{
           width: "100%",
-          backgroundColor: cardBg,
-          borderWidth: 1,
-          borderColor: cardBorder,
-          borderRadius: 20,
+          backgroundColor: p.cardWhite,
+          borderRadius: 22,
           overflow: "hidden",
         }}
       >
         {/* Heart burst overlay */}
         <Animated.View style={heartStyle} pointerEvents="none">
-          <Ionicons name="heart" size={80} color="#FF3B30" />
+          <Heart size={80} color={p.danger} fill={p.danger} />
         </Animated.View>
 
         {/* Header */}
@@ -1950,22 +1870,23 @@ const PostCard = memo(function PostCard({
             initial={item.name.slice(0, 1).toUpperCase()}
             url={item.avatarUrl}
             size={40}
+            p={p}
           />
           <View style={{ flex: 1 }}>
             <Text
               style={{
-                fontFamily: fonts.bodyBold,
+                fontFamily: "Outfit-Bold",
                 fontSize: 14,
-                color: colors.textPrimary,
+                color: p.textPrimary,
               }}
             >
               {item.name}
             </Text>
             <Text
               style={{
-                fontFamily: fonts.bodyMedium,
+                fontFamily: "Outfit-Regular",
                 fontSize: 12,
-                color: colors.textSecondary,
+                color: p.textSecondary,
                 marginTop: 1,
               }}
             >
@@ -1976,12 +1897,12 @@ const PostCard = memo(function PostCard({
             style={{
               paddingHorizontal: 8,
               paddingVertical: 3,
-              borderRadius: 20,
-              backgroundColor: "rgba(123,97,255,0.12)",
+              borderRadius: 100,
+              backgroundColor: p.infoSoft,
             }}
           >
             <Text
-              style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: "#7B61FF" }}
+              style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.info }}
             >
               Post
             </Text>
@@ -1994,9 +1915,9 @@ const PostCard = memo(function PostCard({
             <Text
               numberOfLines={expanded ? undefined : isLongText ? 3 : undefined}
               style={{
-                fontFamily: fonts.bodyMedium,
+                fontFamily: "Outfit-Regular",
                 fontSize: 15,
-                color: colors.textPrimary,
+                color: p.textPrimary,
                 lineHeight: 22,
               }}
             >
@@ -2006,9 +1927,9 @@ const PostCard = memo(function PostCard({
               <Pressable onPress={() => setExpanded(true)} hitSlop={8}>
                 <Text
                   style={{
-                    fontFamily: fonts.bodyBold,
+                    fontFamily: "Outfit-Bold",
                     fontSize: 13,
-                    color: colors.accent,
+                    color: p.accent,
                     marginTop: 4,
                   }}
                 >
@@ -2024,11 +1945,9 @@ const PostCard = memo(function PostCard({
           <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
             <View
               style={{
-                borderRadius: 12,
+                borderRadius: 16,
                 overflow: "hidden",
-                backgroundColor: colors.surfaceHigh,
-                borderWidth: 1,
-                borderColor: cardBorder,
+                backgroundColor: p.inputBg,
               }}
             >
               {item.mediaType === "video" ? (
@@ -2045,18 +1964,18 @@ const PostCard = memo(function PostCard({
                       width: 46,
                       height: 46,
                       borderRadius: 23,
-                      backgroundColor: colors.accentLight,
+                      backgroundColor: p.accentSoft,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <Ionicons name="play" size={20} color={colors.accent} />
+                    <Play size={20} color={p.accent} />
                   </View>
                   <Text
                     style={{
-                      fontFamily: fonts.bodyBold,
+                      fontFamily: "Outfit-Bold",
                       fontSize: 13,
-                      color: colors.textPrimary,
+                      color: p.textPrimary,
                     }}
                   >
                     Video post
@@ -2105,12 +2024,12 @@ const PostCard = memo(function PostCard({
             >
               {likeCount > 0 ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Ionicons name="heart" size={13} color={colors.textDim} />
+                  <Heart size={13} color={p.textMuted} />
                   <Text
                     style={{
-                      fontFamily: fonts.bodyMedium,
+                      fontFamily: "Outfit-Regular",
                       fontSize: 12,
-                      color: colors.textSecondary,
+                      color: p.textSecondary,
                     }}
                   >
                     {likeCount} {likeCount === 1 ? "like" : "likes"}
@@ -2119,12 +2038,12 @@ const PostCard = memo(function PostCard({
               ) : null}
               {commentCount > 0 ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Ionicons name="chatbubble-outline" size={12} color={colors.textDim} />
+                  <MessageCircle size={12} color={p.textMuted} />
                   <Text
                     style={{
-                      fontFamily: fonts.bodyMedium,
+                      fontFamily: "Outfit-Regular",
                       fontSize: 12,
-                      color: colors.textSecondary,
+                      color: p.textSecondary,
                     }}
                   >
                     {commentCount} {commentCount === 1 ? "comment" : "comments"}
@@ -2138,9 +2057,8 @@ const PostCard = memo(function PostCard({
           <View
             style={{
               height: 1,
-              backgroundColor: cardBorder,
+              backgroundColor: p.divider,
               marginBottom: 10,
-              opacity: 0.5,
             }}
           />
 
@@ -2155,24 +2073,24 @@ const PostCard = memo(function PostCard({
                 justifyContent: "center",
                 gap: 6,
                 paddingVertical: 9,
-                borderRadius: 12,
+                borderRadius: 100,
                 backgroundColor: item.userLiked
-                  ? colors.accentLight
-                  : "rgba(255,255,255,0.05)",
+                  ? p.accentSoft
+                  : p.inputBg,
                 opacity: pressed ? 0.8 : 1,
               })}
               accessibilityLabel={item.userLiked ? "Unlike" : "Like"}
             >
-              <Ionicons
-                name={item.userLiked ? "heart" : "heart-outline"}
+              <Heart
                 size={16}
-                color={item.userLiked ? colors.accent : colors.textSecondary}
+                color={item.userLiked ? p.accent : p.textSecondary}
+                fill={item.userLiked ? p.accent : "none"}
               />
               <Text
                 style={{
-                  fontFamily: fonts.bodyBold,
+                  fontFamily: "Outfit-Bold",
                   fontSize: 13,
-                  color: item.userLiked ? colors.accent : colors.textSecondary,
+                  color: item.userLiked ? p.accent : p.textSecondary,
                 }}
               >
                 Like
@@ -2188,18 +2106,18 @@ const PostCard = memo(function PostCard({
                 justifyContent: "center",
                 gap: 6,
                 paddingVertical: 9,
-                borderRadius: 12,
-                backgroundColor: "rgba(255,255,255,0.05)",
+                borderRadius: 100,
+                backgroundColor: p.inputBg,
                 opacity: pressed ? 0.8 : 1,
               })}
               accessibilityLabel="Comment"
             >
-              <Ionicons name="chatbubble-outline" size={15} color={colors.textSecondary} />
+              <MessageCircle size={15} color={p.textSecondary} />
               <Text
                 style={{
-                  fontFamily: fonts.bodyBold,
+                  fontFamily: "Outfit-Bold",
                   fontSize: 13,
-                  color: colors.textSecondary,
+                  color: p.textSecondary,
                 }}
               >
                 Comment
@@ -2216,44 +2134,38 @@ const PostCard = memo(function PostCard({
 
 function LeaderboardRow({
   item,
-  colors,
-  cardBg,
-  cardBorder,
+  p,
   commentCount,
   onPressComment,
 }: {
   item: SocialLeaderboardItem;
-  colors: any;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
   commentCount: number;
   onPressComment: () => void;
 }) {
   const rankColor =
     item.rank === 1
-      ? "#FFB020"
+      ? p.warning
       : item.rank === 2
-      ? "#B0BEC5"
+      ? p.info
       : item.rank === 3
-      ? "#CD7F32"
-      : colors.textSecondary;
+      ? p.warning
+      : p.textSecondary;
   const rankBg =
     item.rank === 1
-      ? "rgba(255,176,32,0.12)"
+      ? p.warningSoft
       : item.rank === 2
-      ? "rgba(176,190,197,0.10)"
+      ? p.infoSoft
       : item.rank === 3
-      ? "rgba(205,127,50,0.10)"
-      : "rgba(255,255,255,0.06)";
+      ? p.warningSoft
+      : p.inputBg;
 
   return (
     <View
       style={{
         width: "100%",
-        backgroundColor: cardBg,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: cardBorder,
+        backgroundColor: p.cardWhite,
+        borderRadius: 22,
         padding: spacing.lg,
         gap: 10,
       }}
@@ -2270,7 +2182,7 @@ function LeaderboardRow({
             justifyContent: "center",
           }}
         >
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: rankColor }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: rankColor }}>
             #{item.rank}
           </Text>
         </View>
@@ -2278,25 +2190,26 @@ function LeaderboardRow({
           initial={item.name.slice(0, 1).toUpperCase()}
           url={item.avatarUrl}
           size={38}
+          p={p}
         />
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
             {item.name}
           </Text>
           <Text
             style={{
-              fontFamily: fonts.bodyMedium,
+              fontFamily: "Outfit-Regular",
               fontSize: 12,
-              color: colors.textSecondary,
+              color: p.textSecondary,
               marginTop: 1,
             }}
           >
             {item.kmTotal.toFixed(1)} km · {item.durationMinutesTotal} min
           </Text>
         </View>
-        <Text style={{ fontFamily: fonts.statNumber, fontSize: 16, color: rankColor }}>
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: rankColor }}>
           {item.kmTotal.toFixed(1)}
-          <Text style={{ fontSize: 11, color: colors.textSecondary }}> km</Text>
+          <Text style={{ fontSize: 11, color: p.textSecondary }}> km</Text>
         </Text>
       </View>
 
@@ -2309,16 +2222,14 @@ function LeaderboardRow({
           gap: 6,
           paddingVertical: 7,
           paddingHorizontal: 12,
-          borderRadius: 10,
-          backgroundColor: "transparent",
-          borderWidth: 1,
-          borderColor: cardBorder,
+          borderRadius: 100,
+          backgroundColor: p.inputBg,
           opacity: pressed ? 0.7 : 1,
           alignSelf: "flex-start",
         })}
       >
-        <Ionicons name="chatbubble-outline" size={14} color={colors.textSecondary} />
-        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+        <MessageCircle size={14} color={p.textSecondary} />
+        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
           {commentCount > 0
             ? `${commentCount} ${commentCount === 1 ? "comment" : "comments"}`
             : "Leave a comment"}
@@ -2333,28 +2244,28 @@ function LeaderboardRow({
 function StatColumn({
   label,
   value,
-  colors,
+  p,
 }: {
   label: string;
   value: string;
-  colors: any;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   return (
     <View style={{ flex: 1, alignItems: "center", paddingVertical: 8 }}>
       <Text
         style={{
-          fontFamily: fonts.statNumber,
+          fontFamily: "Outfit-Bold",
           fontSize: 17,
-          color: colors.textPrimary,
+          color: p.textPrimary,
         }}
       >
         {value}
       </Text>
       <Text
         style={{
-          fontFamily: fonts.bodyMedium,
+          fontFamily: "Outfit-Regular",
           fontSize: 11,
-          color: colors.textSecondary,
+          color: p.textSecondary,
           marginTop: 2,
         }}
       >
@@ -2364,13 +2275,13 @@ function StatColumn({
   );
 }
 
-function StatDivider() {
+function StatDivider({ p }: { p: ReturnType<typeof useAdminPastel> }) {
   return (
     <View
       style={{
         width: 1,
         marginVertical: 8,
-        backgroundColor: "rgba(255,255,255,0.08)",
+        backgroundColor: p.divider,
       }}
     />
   );
@@ -2382,15 +2293,14 @@ function FilterPill({
   label,
   icon,
   onPress,
-  colors,
-  isDark,
+  p,
 }: {
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: "clock" | "sliders" | "arrows";
   onPress: () => void;
-  colors: any;
-  isDark: boolean;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
+  const IconComponent = icon === "clock" ? Clock : icon === "sliders" ? SlidersHorizontal : ArrowUpDown;
   return (
     <Pressable
       onPress={onPress}
@@ -2400,19 +2310,17 @@ function FilterPill({
         gap: 5,
         paddingHorizontal: 12,
         paddingVertical: 7,
-        borderRadius: 20,
-        backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-        borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)",
+        borderRadius: 100,
+        backgroundColor: p.inputBg,
         opacity: pressed ? 0.75 : 1,
       })}
     >
-      <Ionicons name={icon} size={13} color={colors.textSecondary} />
+      <IconComponent size={13} color={p.textSecondary} />
       <Text
         style={{
-          fontFamily: fonts.bodyBold,
+          fontFamily: "Outfit-Bold",
           fontSize: 12,
-          color: colors.textSecondary,
+          color: p.textSecondary,
         }}
       >
         {label}
@@ -2426,75 +2334,60 @@ function FilterPill({
 function PostComposerRow({
   initial,
   onPress,
-  colors,
-  cardBg,
-  cardBorder: _cardBorder,
+  p,
 }: {
   initial: string;
   onPress: () => void;
-  colors: any;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        borderRadius: 20,
+        borderRadius: 22,
         opacity: pressed ? 0.92 : 1,
       })}
     >
-      <LinearGradient
-        colors={[
-          "rgba(200,241,53,0.16)",
-          "rgba(123,97,255,0.12)",
-          "rgba(255,255,255,0.02)",
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ borderRadius: 20, padding: 1 }}
+      <View
+        style={{
+          backgroundColor: p.cardWhite,
+          borderRadius: 22,
+          paddingVertical: 12,
+          paddingHorizontal: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+        }}
       >
+        <InitialAvatar initial={initial} size={38} p={p} />
         <View
           style={{
-            backgroundColor: cardBg,
-            borderRadius: 19,
-            paddingVertical: 12,
+            flex: 1,
+            minHeight: 40,
+            borderRadius: 100,
+            backgroundColor: p.inputBg,
             paddingHorizontal: 14,
             flexDirection: "row",
             alignItems: "center",
-            gap: 10,
+            justifyContent: "space-between",
           }}
         >
-          <InitialAvatar initial={initial} size={38} />
-          <View
+          <Text
             style={{
               flex: 1,
-              minHeight: 40,
-              borderRadius: 20,
-              backgroundColor: colors.surfaceHigh,
-              paddingHorizontal: 14,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
+              fontFamily: "Outfit-Regular",
+              fontSize: 14,
+              color: p.textMuted,
             }}
           >
-            <Text
-              style={{
-                flex: 1,
-                fontFamily: fonts.bodyMedium,
-                fontSize: 14,
-                color: colors.textSecondary,
-              }}
-            >
-              Share with the team...
-            </Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <AppIcon name="image" size={17} color={colors.textSecondary} />
-              <AppIcon name="add-circle" size={17} color={colors.accent} />
-            </View>
+            Share with the team...
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ImageIcon size={17} color={p.textSecondary} />
+            <PlusCircle size={17} color={p.accent} />
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </Pressable>
   );
 }
@@ -2504,13 +2397,11 @@ function PostComposerRow({
 function RoundIconButton({
   onPress,
   icon,
-  backgroundColor = "rgba(0,0,0,0.35)",
-  borderColor = "transparent",
+  backgroundColor = "transparent",
 }: {
   onPress: () => void;
   icon: React.ReactNode;
   backgroundColor?: string;
-  borderColor?: string;
 }) {
   return (
     <Pressable
@@ -2520,8 +2411,6 @@ function RoundIconButton({
         height: 38,
         borderRadius: 19,
         backgroundColor,
-        borderWidth: 1,
-        borderColor,
         alignItems: "center",
         justifyContent: "center",
         opacity: pressed ? 0.8 : 1,
@@ -2538,10 +2427,12 @@ const InitialAvatar = memo(function InitialAvatar({
   initial,
   size = 40,
   url,
+  p,
 }: {
   initial: string;
   size?: number;
   url?: string | null;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   return (
     <View
@@ -2549,9 +2440,7 @@ const InitialAvatar = memo(function InitialAvatar({
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: "rgba(148,163,184,0.22)",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.10)",
+        backgroundColor: p.accentSoft,
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
@@ -2567,9 +2456,9 @@ const InitialAvatar = memo(function InitialAvatar({
       ) : (
         <Text
           style={{
-            fontFamily: fonts.bodyBold,
+            fontFamily: "Outfit-Bold",
             fontSize: Math.max(12, size * 0.36),
-            color: "#FFF",
+            color: p.accent,
           }}
         >
           {initial}
@@ -2586,69 +2475,59 @@ function TeamStatsBanner({
   totalMinutes,
   activeRunners,
   rangeDays,
-  colors,
-  isDark,
+  p,
 }: {
   totalKm: number;
   totalMinutes: number;
   activeRunners: number;
   rangeDays: number;
-  colors: any;
-  isDark: boolean;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   const rangeLabel = rangeDays === 0 ? "All time" : rangeDays === 7 ? "This week" : `Last ${rangeDays} days`;
   return (
-    <LinearGradient
-      colors={
-        isDark
-          ? ["rgba(200,241,53,0.08)", "rgba(200,241,53,0.02)"]
-          : ["rgba(200,241,53,0.12)", "rgba(200,241,53,0.04)"]
-      }
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
       style={{
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: isDark ? "rgba(200,241,53,0.15)" : "rgba(200,241,53,0.25)",
+        borderRadius: 22,
+        backgroundColor: p.cardSage,
         padding: 18,
         gap: 14,
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Ionicons name="stats-chart" size={16} color={colors.accent} />
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.accent, letterSpacing: 0.5 }}>
+        <BarChart3 size={16} color={p.accent} />
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.accent, letterSpacing: 0.5 }}>
           TEAM ACTIVITY · {rangeLabel.toUpperCase()}
         </Text>
       </View>
       <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
         <View style={{ alignItems: "center" }}>
-          <Text style={{ fontFamily: fonts.statNumber, fontSize: 24, color: colors.textPrimary }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 24, color: p.textPrimary }}>
             {totalKm.toFixed(1)}
           </Text>
-          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, marginTop: 2 }}>
             km total
           </Text>
         </View>
         <View style={{ alignItems: "center" }}>
-          <Text style={{ fontFamily: fonts.statNumber, fontSize: 24, color: colors.textPrimary }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 24, color: p.textPrimary }}>
             {totalMinutes >= 60
               ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
               : `${totalMinutes}m`}
           </Text>
-          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, marginTop: 2 }}>
             time
           </Text>
         </View>
         <View style={{ alignItems: "center" }}>
-          <Text style={{ fontFamily: fonts.statNumber, fontSize: 24, color: colors.textPrimary }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 24, color: p.textPrimary }}>
             {activeRunners}
           </Text>
-          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, marginTop: 2 }}>
             runners
           </Text>
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -2660,10 +2539,7 @@ function ChallengesTab({
   loading,
   refreshing,
   onRefresh,
-  colors,
-  isDark,
-  cardBg,
-  cardBorder,
+  p,
   bottomPad,
   teamName,
 }: {
@@ -2672,10 +2548,7 @@ function ChallengesTab({
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
-  colors: any;
-  isDark: boolean;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
   bottomPad: number;
   teamName: string;
 }) {
@@ -2699,17 +2572,15 @@ function ChallengesTab({
   const renderChallengeItem = useCallback(
     ({ item }: { item: ListItem }) => {
       if (item._listType === "loading") {
-        return <ActivityIndicator color={colors.accent} style={{ marginVertical: 40 }} />;
+        return <ActivityIndicator color={p.accent} style={{ marginVertical: 40 }} />;
       }
 
       if (item._listType === "weekly-goal") {
         return (
           <View
             style={{
-              backgroundColor: cardBg,
-              borderWidth: 1,
-              borderColor: cardBorder,
-              borderRadius: 20,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: 20,
               gap: 16,
             }}
@@ -2720,18 +2591,18 @@ function ChallengesTab({
                   width: 44,
                   height: 44,
                   borderRadius: 22,
-                  backgroundColor: "rgba(255,176,32,0.12)",
+                  backgroundColor: p.warningSoft,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Text style={{ fontSize: 22 }}>🏆</Text>
+                <Trophy size={22} color={p.warning} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.heading2, fontSize: 17, color: colors.textPrimary }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 17, color: p.textPrimary }}>
                   Weekly Team Goal
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, marginTop: 2 }}>
                   {teamName} · {weeklyGoalKm} km target
                 </Text>
               </View>
@@ -2739,10 +2610,10 @@ function ChallengesTab({
 
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textPrimary }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textPrimary }}>
                   {totalKm.toFixed(1)} / {weeklyGoalKm} km
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.accent }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.accent }}>
                   {Math.round(goalProgress * 100)}%
                 </Text>
               </View>
@@ -2750,18 +2621,16 @@ function ChallengesTab({
                 style={{
                   height: 10,
                   borderRadius: 5,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                  backgroundColor: p.inputBg,
                   overflow: "hidden",
                 }}
               >
-                <LinearGradient
-                  colors={["#C8F135", "#A0D911"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                <View
                   style={{
                     height: "100%",
                     width: `${Math.round(goalProgress * 100)}%`,
                     borderRadius: 5,
+                    backgroundColor: p.accent,
                   }}
                 />
               </View>
@@ -2769,22 +2638,22 @@ function ChallengesTab({
 
             <View style={{ flexDirection: "row", justifyContent: "space-around", paddingTop: 4 }}>
               <View style={{ alignItems: "center" }}>
-                <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary }}>
                   {totalKm.toFixed(1)}
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>km total</Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textSecondary }}>km total</Text>
               </View>
               <View style={{ alignItems: "center" }}>
-                <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary }}>
                   {activeRunners}
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>runners</Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textSecondary }}>runners</Text>
               </View>
               <View style={{ alignItems: "center" }}>
-                <Text style={{ fontFamily: fonts.statNumber, fontSize: 20, color: colors.textPrimary }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary }}>
                   {leaderboard.length}
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>members</Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textSecondary }}>members</Text>
               </View>
             </View>
           </View>
@@ -2795,10 +2664,8 @@ function ChallengesTab({
         return (
           <View
             style={{
-              backgroundColor: cardBg,
-              borderWidth: 1,
-              borderColor: cardBorder,
-              borderRadius: 20,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: 20,
               gap: 14,
             }}
@@ -2809,22 +2676,22 @@ function ChallengesTab({
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: "rgba(59,130,246,0.12)",
+                  backgroundColor: p.infoSoft,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Ionicons name="people" size={18} color="#3B82F6" />
+                <Users size={18} color={p.info} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.textPrimary }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>
                   Team Participation
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
                   {activeRunners} of {memberCount} members active
                 </Text>
               </View>
-              <Text style={{ fontFamily: fonts.statNumber, fontSize: 22, color: "#3B82F6" }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.info }}>
                 {participationPct}%
               </Text>
             </View>
@@ -2832,7 +2699,7 @@ function ChallengesTab({
               style={{
                 height: 8,
                 borderRadius: 4,
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                backgroundColor: p.inputBg,
                 overflow: "hidden",
               }}
             >
@@ -2841,7 +2708,7 @@ function ChallengesTab({
                   height: "100%",
                   width: `${participationPct}%`,
                   borderRadius: 4,
-                  backgroundColor: "#3B82F6",
+                  backgroundColor: p.info,
                 }}
               />
             </View>
@@ -2856,19 +2723,15 @@ function ChallengesTab({
           <EmptyState
             title="No activity yet"
             subtitle="Start running to see team challenges!"
-            colors={colors}
-            cardBg={cardBg}
-            cardBorder={cardBorder}
+            p={p}
           />
         );
       }
       return (
         <View
           style={{
-            backgroundColor: cardBg,
-            borderWidth: 1,
-            borderColor: cardBorder,
-            borderRadius: 20,
+            backgroundColor: p.cardWhite,
+            borderRadius: 22,
             padding: 20,
             gap: 14,
           }}
@@ -2879,14 +2742,14 @@ function ChallengesTab({
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: "rgba(249,115,22,0.12)",
+                backgroundColor: p.dangerSoft,
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Ionicons name="flame" size={18} color="#F97316" />
+              <Flame size={18} color={p.danger} />
             </View>
-            <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.textPrimary }}>
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>
               Top Performers
             </Text>
           </View>
@@ -2902,9 +2765,9 @@ function ChallengesTab({
             >
               <Text
                 style={{
-                  fontFamily: fonts.bodyBold,
+                  fontFamily: "Outfit-Bold",
                   fontSize: 14,
-                  color: i === 0 ? "#FFB020" : i === 1 ? "#B0BEC5" : i === 2 ? "#CD7F32" : colors.textSecondary,
+                  color: i === 0 ? p.warning : i === 1 ? p.info : i === 2 ? p.warning : p.textSecondary,
                   width: 22,
                 }}
               >
@@ -2914,11 +2777,12 @@ function ChallengesTab({
                 initial={athlete.name.slice(0, 1).toUpperCase()}
                 url={athlete.avatarUrl}
                 size={34}
+                p={p}
               />
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textPrimary, flex: 1 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary, flex: 1 }}>
                 {athlete.name}
               </Text>
-              <Text style={{ fontFamily: fonts.statNumber, fontSize: 14, color: colors.accent }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.accent }}>
                 {athlete.kmTotal.toFixed(1)} km
               </Text>
             </View>
@@ -2926,7 +2790,7 @@ function ChallengesTab({
         </View>
       );
     },
-    [activeRunners, cardBg, cardBorder, colors, goalProgress, isDark, leaderboard, memberCount, participationPct, teamName, totalKm, weeklyGoalKm],
+    [activeRunners, goalProgress, leaderboard, memberCount, p, participationPct, teamName, totalKm, weeklyGoalKm],
   );
 
   return (
@@ -2940,7 +2804,7 @@ function ChallengesTab({
       }}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={p.accent} />
       }
       renderItem={renderChallengeItem}
     />
@@ -2952,24 +2816,18 @@ function ChallengesTab({
 function EmptyState({
   title,
   subtitle,
-  colors,
-  cardBg,
-  cardBorder,
+  p,
 }: {
   title: string;
   subtitle: string;
-  colors: any;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   return (
     <View
       style={{
         width: "100%",
-        backgroundColor: cardBg,
-        borderWidth: 1,
-        borderColor: cardBorder,
-        borderRadius: 20,
+        backgroundColor: p.cardWhite,
+        borderRadius: 22,
         padding: spacing.xl,
         alignItems: "center",
         gap: spacing.sm,
@@ -2977,9 +2835,9 @@ function EmptyState({
     >
       <Text
         style={{
-          fontFamily: fonts.heading2,
+          fontFamily: "Outfit-Bold",
           fontSize: 17,
-          color: colors.textPrimary,
+          color: p.textPrimary,
           textAlign: "center",
         }}
       >
@@ -2987,9 +2845,9 @@ function EmptyState({
       </Text>
       <Text
         style={{
-          fontFamily: fonts.bodyMedium,
+          fontFamily: "Outfit-Regular",
           fontSize: 13,
-          color: colors.textSecondary,
+          color: p.textSecondary,
           textAlign: "center",
           lineHeight: 19,
         }}

@@ -1,3 +1,4 @@
+import { performance } from "node:perf_hooks";
 import { and, desc, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 
 import { db } from "../db";
@@ -14,9 +15,11 @@ import { getSocketServer } from "../socket-hub";
 import { attachDirectMessageReactions } from "./reaction.service";
 import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
 import { withTransientDbRetryConfigured } from "../lib/db-connectivity";
-import { pushQueue } from "../jobs";
+import { createPushIntent } from "./outbox.service";
 import { resolveMessageMediaType } from "../lib/media-message-type";
 import { createLogger } from "../lib/logger";
+import { logRealtimeLatency, type RealtimeTrace } from "../lib/realtime-latency";
+import { runBestEffortBackgroundTask } from "../lib/background-task";
 
 const log = createLogger({ component: "message-service" });
 
@@ -317,7 +320,14 @@ export async function sendMessage(input: {
   senderRole?: string | null;
   /** When true, athletes without messaging-enabled tiers can still message a human coach (e.g. app feedback). */
   bypassMessagingTierForCoach?: boolean;
+  trace?: RealtimeTrace;
 }) {
+  const trace = input.trace;
+  logRealtimeLatency(trace, "direct.service.start", {
+    senderId: input.senderId,
+    receiverId: input.receiverId,
+    hasMedia: Boolean(input.mediaUrl),
+  });
   const safeBaseContent = input.content.trim() || "Attachment";
   const safeReplyPreview = encodeURIComponent((input.replyPreview ?? "").trim().slice(0, 160));
   const replyPrefix =
@@ -412,6 +422,11 @@ export async function sendMessage(input: {
     | undefined;
 
   if (input.clientId) {
+    logRealtimeLatency(trace, "direct.db.before_insert", {
+      senderId: input.senderId,
+      receiverId: resolvedReceiverId,
+      clientId: input.clientId,
+    });
     const result = await db
       .insert(messageTable)
       .values({
@@ -430,6 +445,11 @@ export async function sendMessage(input: {
     message = result[0];
     if (!message) {
       insertedNewMessage = false;
+      logRealtimeLatency(trace, "direct.db.idempotency_hit", {
+        senderId: input.senderId,
+        receiverId: resolvedReceiverId,
+        clientId: input.clientId,
+      });
       const existing = await db
         .select()
         .from(messageTable)
@@ -444,6 +464,10 @@ export async function sendMessage(input: {
       message = existing[0];
     }
   } else {
+    logRealtimeLatency(trace, "direct.db.before_insert", {
+      senderId: input.senderId,
+      receiverId: resolvedReceiverId,
+    });
     const result = await db
       .insert(messageTable)
       .values({
@@ -462,6 +486,11 @@ export async function sendMessage(input: {
   if (!message) {
     throw new Error("Failed to persist direct message");
   }
+  logRealtimeLatency(trace, "direct.db.after_insert", {
+    messageId: message.id,
+    insertedNewMessage,
+    receiverId: resolvedReceiverId,
+  });
 
   let participantIdsForDelivery: number[] = [];
   if (insertedNewMessage) {
@@ -483,6 +512,10 @@ export async function sendMessage(input: {
           target: [messageReceiptTable.messageId, messageReceiptTable.userId],
         });
     }
+    logRealtimeLatency(trace, "direct.db.after_receipts", {
+      messageId: message.id,
+      participantCount: participantIdsForDelivery.length,
+    });
   }
 
   // If message is to AI Coach, generate and send AI response
@@ -534,7 +567,7 @@ export async function sendMessage(input: {
     }
   }
 
-  // Send push notification to receiver (skip for AI coach)
+  // Realtime delivery must not wait on push notification infrastructure.
   if (aiCoachId === null && insertedNewMessage) {
     let senderMeta: { name: string | null; profilePicture: string | null } | null = null;
     try {
@@ -546,24 +579,15 @@ export async function sendMessage(input: {
       senderMeta = sender[0]
         ? { name: sender[0].name ?? null, profilePicture: sender[0].profilePicture ?? null }
         : null;
-
-      const title = `New message from ${senderMeta?.name ?? "Coach"}`;
-      const body = input.contentType === "text" ? input.content : `Sent a ${input.contentType}`;
-
-      await pushQueue.enqueue({ userId: resolvedReceiverId, title, body, data: {
-        type: "message",
-        threadId: String(input.senderId),
-        url: `/messages/${String(input.senderId)}`,
-        mediaUrl: input.mediaUrl ?? null,
-      } });
     } catch (error) {
-      log.error({ err: error }, "Failed to send message push notification");
+      log.error({ err: error, traceId: trace?.traceId, messageId: message.id }, "Failed to load direct message sender metadata");
     }
 
     const io = getSocketServer();
     if (io) {
       const enriched = {
         ...(input.clientId ? { ...message, clientId: input.clientId } : message),
+        ...(trace ? { clientTraceId: trace.traceId, serverReceivedAt: Date.now() - Math.round(performance.now() - trace.startedAt) } : {}),
         contentType: resolveMessageMediaType({
           contentType: message.contentType,
           mediaUrl: message.mediaUrl,
@@ -575,9 +599,19 @@ export async function sendMessage(input: {
         myReadAt: message.createdAt,
       };
       log.debug({ messageId: message.id, senderId: input.senderId, receiverId: resolvedReceiverId }, "Emitting message:new");
+      logRealtimeLatency(trace, "direct.socket.before_broadcast", {
+        messageId: message.id,
+        senderId: input.senderId,
+        receiverId: resolvedReceiverId,
+      });
       io.to(`user:${input.senderId}`).emit("message:new", enriched);
       io.to(`user:${resolvedReceiverId}`).emit("message:new", enriched);
       io.to("admin:all").emit("message:new", enriched);
+      logRealtimeLatency(trace, "direct.socket.after_broadcast", {
+        messageId: message.id,
+        senderId: input.senderId,
+        receiverId: resolvedReceiverId,
+      });
       if (input.contentType === "video" && input.videoUploadId) {
         const [completion] = await db
           .select({
@@ -596,8 +630,59 @@ export async function sendMessage(input: {
           createdAt: message.createdAt,
         });
       }
-      return message;
+    } else {
+      log.warn("Socket server not initialized, skipping message:new emit");
     }
+
+    const title = `New message from ${senderMeta?.name ?? "Coach"}`;
+    const body = input.contentType === "text" ? input.content : `Sent a ${input.contentType}`;
+    logRealtimeLatency(trace, "direct.push.background_scheduled", {
+      messageId: message.id,
+      receiverId: resolvedReceiverId,
+    });
+    runBestEffortBackgroundTask(
+      "direct-message-push",
+      {
+        traceId: trace?.traceId,
+        messageId: message.id,
+        receiverId: resolvedReceiverId,
+        userId: resolvedReceiverId,
+      },
+      async () => {
+        try {
+          logRealtimeLatency(trace, "direct.push.before_enqueue", {
+            messageId: message.id,
+            receiverId: resolvedReceiverId,
+          });
+          await createPushIntent({
+            userId: resolvedReceiverId,
+            title,
+            body,
+            data: {
+              type: "message",
+              threadId: String(input.senderId),
+              url: `/messages/${String(input.senderId)}`,
+              mediaUrl: input.mediaUrl ?? null,
+            },
+          });
+          logRealtimeLatency(trace, "direct.push.after_enqueue", {
+            messageId: message.id,
+            receiverId: resolvedReceiverId,
+          });
+        } catch (error) {
+          log.error(
+            { err: error, traceId: trace?.traceId, messageId: message.id, receiverId: resolvedReceiverId },
+            "Failed to enqueue message push notification",
+          );
+          logRealtimeLatency(trace, "direct.push.enqueue_error", {
+            messageId: message.id,
+            receiverId: resolvedReceiverId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      },
+    );
+    return message;
   }
 
   const io = getSocketServer();
@@ -609,6 +694,7 @@ export async function sendMessage(input: {
     // Only emit user's message back to user for AI coach thread
     const enriched = {
       ...(input.clientId ? { ...message, clientId: input.clientId } : message),
+      ...(trace ? { clientTraceId: trace.traceId, serverReceivedAt: Date.now() - Math.round(performance.now() - trace.startedAt) } : {}),
       contentType: resolveMessageMediaType({
         contentType: message.contentType,
         mediaUrl: message.mediaUrl,

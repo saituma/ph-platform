@@ -1,9 +1,8 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text, TextInput } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
-import { Feather, Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
@@ -17,10 +16,17 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSelector } from "@/store/hooks";
+import {
+  Check,
+  ArrowLeft,
+  Upload,
+  Send,
+  Star,
+} from "lucide-react-native";
 
 export default function SubmitTestimonialScreen() {
   const router = useRouter();
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
   const { token } = useAppSelector((state) => state.user);
   const [quote, setQuote] = useState("");
   const [rating, setRating] = useState(5);
@@ -116,7 +122,7 @@ export default function SubmitTestimonialScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <MoreStackHeader
         title="Submit Testimonial"
         subtitle="Share your progress story and help future athletes feel the value of the platform."
@@ -126,7 +132,7 @@ export default function SubmitTestimonialScreen() {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        style={{ flex: 1 }}
       >
         <ThemedScrollView
           contentContainerStyle={{
@@ -136,30 +142,30 @@ export default function SubmitTestimonialScreen() {
           }}
         >
           {isSubmitted ? (
-            <View className="items-center w-full">
-              <View className="h-20 w-20 rounded-full bg-accent/10 items-center justify-center mb-6">
-                <Feather name="check" size={28} color={colors.accent} />
+            <View style={{ alignItems: "center", width: "100%" }}>
+              <View style={{ height: 80, width: 80, borderRadius: 40, backgroundColor: p.successSoft, alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
+                <Check size={28} color={p.success} />
               </View>
-              <Text className="text-3xl font-telma-bold text-app mb-2 text-center">
+              <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8, textAlign: "center" }}>
                 Thank you!
               </Text>
-              <Text className="text-base font-outfit text-secondary leading-relaxed mb-8 text-center">
+              <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 22, marginBottom: 32, textAlign: "center" }}>
                 Your testimonial has been submitted and is pending review.
               </Text>
               <Pressable onPress={() => router.replace("/(tabs)/more")} style={{ marginTop: 8, width: "100%" }}>
                 <View
                   style={{
                     height: 56,
-                    borderRadius: 20,
-                    backgroundColor: colors.accent,
+                    borderRadius: 100,
+                    backgroundColor: p.accent,
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 10,
                   }}
                 >
-                  <Feather name="arrow-left" size={18} color="#fff" />
-                  <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+                  <ArrowLeft size={18} color={p.buttonPrimaryText} />
+                  <Text style={{ color: p.buttonPrimaryText, fontFamily: "Outfit-Bold", fontSize: 16 }}>
                     Back to More
                   </Text>
                 </View>
@@ -167,64 +173,63 @@ export default function SubmitTestimonialScreen() {
             </View>
           ) : (
             <>
-              <Text className="text-3xl font-telma-bold text-app mb-2">
+              <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8 }}>
                 Share your experience
               </Text>
-              <Text className="text-base font-outfit text-secondary leading-relaxed mb-6">
+              <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 22, marginBottom: 24 }}>
                 Submit a quick testimonial and we&apos;ll review it for the
                 homepage.
               </Text>
 
-              <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: p.textSecondary, textTransform: "uppercase", marginBottom: 16, marginLeft: 8, letterSpacing: 1.2 }}>
                 Testimony
               </Text>
-              <View className="bg-input border border-app rounded-3xl p-5 mb-6 shadow-inner min-h-[160px]">
+              <View style={{ backgroundColor: p.inputBg, borderRadius: 24, padding: 20, marginBottom: 24, minHeight: 160 }}>
                 <TextInput
                   multiline
                   placeholder="Tell us about your results..."
-                  placeholderTextColor={colors.placeholder}
+                  placeholderTextColor={p.textMuted}
                   value={quote}
                   onChangeText={setQuote}
-                  className="font-outfit text-app text-base"
-                  style={{ textAlignVertical: "top" }}
+                  style={{ fontFamily: "Outfit-Regular", color: p.textPrimary, fontSize: 15, textAlignVertical: "top" }}
                 />
               </View>
 
-              <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: p.textSecondary, textTransform: "uppercase", marginBottom: 16, marginLeft: 8, letterSpacing: 1.2 }}>
                 Rating
               </Text>
-              <View className="bg-input border border-app rounded-2xl p-4 mb-6 flex-row items-center gap-1">
+              <View style={{ backgroundColor: p.inputBg, borderRadius: 16, padding: 16, marginBottom: 24, flexDirection: "row", alignItems: "center", gap: 4 }}>
                 {[1, 2, 3, 4, 5].map((i) => (
                   <TouchableOpacity
                     key={i}
                     onPress={() => setRating(i)}
-                    className="p-1"
+                    style={{ padding: 4 }}
                   >
-                    <Ionicons
-                      name={i <= rating ? "star" : "star-outline"}
+                    <Star
                       size={28}
-                      color={i <= rating ? "#F59E0B" : colors.textSecondary}
-                      style={i <= rating ? { opacity: 1 } : { opacity: 0.25 }}
+                      color={i <= rating ? "#F59E0B" : p.textMuted}
+                      fill={i <= rating ? "#F59E0B" : "transparent"}
+                      style={{ opacity: i <= rating ? 1 : 0.25 }}
                     />
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text className="text-xs font-bold font-outfit text-secondary uppercase mb-4 ml-2 tracking-wider">
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: p.textSecondary, textTransform: "uppercase", marginBottom: 16, marginLeft: 8, letterSpacing: 1.2 }}>
                 Photo (optional)
               </Text>
-              <View className="bg-input border border-app rounded-3xl p-5 mb-6">
+              <View style={{ backgroundColor: p.inputBg, borderRadius: 24, padding: 20, marginBottom: 24 }}>
                 <TouchableOpacity
                   onPress={handlePickPhoto}
-                  className="flex-row items-center justify-between"
+                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
                 >
-                  <Text className="text-sm font-outfit text-app">
+                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
                     {photoMeta ? "Replace Photo" : "Upload Photo"}
                   </Text>
-                  <Feather name="upload" size={18} color={colors.accent} />
+                  <Upload size={18} color={p.accent} />
                 </TouchableOpacity>
                 {photoMeta ? (
-                  <View className="mt-4 w-40 aspect-[3/4] rounded-2xl overflow-hidden border border-app">
+                  <View style={{ marginTop: 16, width: 160, aspectRatio: 3 / 4, borderRadius: 16, overflow: "hidden" }}>
                     <Image
                       source={{ uri: photoMeta.uri }}
                       style={{ width: "100%", height: "100%" }}
@@ -234,8 +239,8 @@ export default function SubmitTestimonialScreen() {
               </View>
 
               {error ? (
-                <View className="mb-6 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
-                  <Text className="text-sm font-outfit text-red-400">
+                <View style={{ marginBottom: 24, borderRadius: 16, backgroundColor: p.dangerSoft, padding: 16 }}>
+                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.danger }}>
                     {error}
                   </Text>
                 </View>
@@ -249,17 +254,17 @@ export default function SubmitTestimonialScreen() {
                 <View
                   style={{
                     height: 56,
-                    borderRadius: 20,
-                    backgroundColor: colors.accent,
+                    borderRadius: 100,
+                    backgroundColor: p.accent,
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 10,
                   }}
                 >
-                  <Feather name="send" size={18} color="#fff" />
-                  <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
-                    {isSubmitting ? "Submitting…" : "Submit Testimonial"}
+                  <Send size={18} color={p.buttonPrimaryText} />
+                  <Text style={{ color: p.buttonPrimaryText, fontFamily: "Outfit-Bold", fontSize: 16 }}>
+                    {isSubmitting ? "Submitting..." : "Submit Testimonial"}
                   </Text>
                 </View>
               </Pressable>

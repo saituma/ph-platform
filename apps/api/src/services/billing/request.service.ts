@@ -25,7 +25,7 @@ import {
 import { newReceiptPublicId } from "../../lib/receipt-public-id";
 import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
 import { computePlanPeriodEnd, computeAthleteAccessEnd } from "./plan.service";
-import { pushQueue } from "../../jobs";
+import { createPushIntent } from "../outbox.service";
 import {
   notifySubscriptionEnteredPendingApproval,
   notifySubscriptionPlanApproved,
@@ -809,7 +809,7 @@ export async function approveSubscriptionRequest(requestId: number) {
     });
 
     try {
-      await pushQueue.enqueue({
+      await createPushIntent({
         userId: request.userId,
         title: "Plan approved",
         body: `Your ${planLabel} plan is now active.`,

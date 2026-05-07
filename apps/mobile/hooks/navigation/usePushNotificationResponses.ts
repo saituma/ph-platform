@@ -20,8 +20,7 @@ function resolveNavigationPathFromPushData(
 ): string | null {
   if (!data) return null;
   const type = typeof data.type === "string" ? data.type : undefined;
-  if (type === "nutrition_reminder") {
-    // Reminder → open the logging form, not the (empty) detail view.
+  if (type === "nutrition_reminder" || type === "nutrition_feedback") {
     return "/nutrition";
   }
 

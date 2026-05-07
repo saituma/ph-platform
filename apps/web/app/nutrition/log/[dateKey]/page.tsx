@@ -37,6 +37,26 @@ function parseSlot(value: unknown) {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return { checked: false, details: "" };
   if (raw.toLowerCase() === "yes") return { checked: true, details: "" };
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const summary = parsed
+        .filter((item: any) => item && typeof item.name === "string")
+        .map((item: any) => {
+          const name = item.name;
+          const cal = typeof item.calories === "number" ? `${item.calories} kcal` : "";
+          const weight =
+            typeof item.weightGrams === "number" && item.weightGrams > 0
+              ? `${item.weightGrams}${item.unit || "g"}`
+              : "";
+          return [name, cal, weight].filter(Boolean).join(" · ");
+        })
+        .join(", ");
+      return { checked: true, details: summary || "Logged" };
+    }
+  } catch {}
+
   return { checked: true, details: raw };
 }
 

@@ -12,14 +12,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useRouter, Stack, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronDown, RefreshCw, Clock, Navigation2, X } from "lucide-react-native";
 import Animated, {
   useAnimatedStyle,
   withSpring,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { fonts, radius } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useTabVisibility } from "@/context/TabVisibilityContext";
 import { useRunStore } from "@/store/useRunStore";
@@ -53,24 +53,15 @@ import { haversineDistance } from "@/lib/haversine";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
+  const p = useAdminPastel();
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const { setIsTabBarVisible } = useTabVisibility();
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
-  // Track whether the user has explicitly started a run this session.
-  // Prevents useFocusEffect from redirecting before the user presses Start.
   const hasStartedRef = React.useRef(false);
-  // Tracks whether background tracking is currently active. Used to debounce so that
-  // pause/resume transitions don't repeatedly call startLocationTracking — which would
-  // re-prompt the "Location Disclosure" alert on every press (the white flash).
   const trackingActiveRef = React.useRef(false);
-  // Surgical subscriptions — only fields whose changes the parent must react to.
-  // elapsedSeconds, distanceMeters, coordinates, liveCoordinate are intentionally NOT
-  // subscribed here — their displayers (LiveMap, ActiveRunStatsCard, ActiveRunExpandedView)
-  // self-subscribe so per-tick updates don't re-render this whole 700-line screen.
   const status = useRunStore((s) => s.status);
   const destination = useRunStore((s) => s.destination);
-  // Actions are stable refs — subscribing is free.
   const startRun = useRunStore((s) => s.startRun);
   const pauseRun = useRunStore((s) => s.pauseRun);
   const resumeRun = useRunStore((s) => s.resumeRun);
@@ -134,25 +125,6 @@ export default function ActiveRunScreen() {
     [status],
   );
 
-  // Design Tokens
-  const glassBg = isDark ? "rgba(10,10,10,0.65)" : "rgba(255,255,255,0.78)";
-  const glassBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.10)";
-  const glassShadow = isDark
-    ? {
-        shadowColor: "#000",
-        shadowOpacity: 0.35,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: 10 },
-        elevation: 10,
-      }
-    : {
-        shadowColor: "#000",
-        shadowOpacity: 0.14,
-        shadowRadius: 22,
-        shadowOffset: { width: 0, height: 12 },
-        elevation: 8,
-      };
-
   useEffect(() => {
     requestAnimationFrame(() => setIsTabBarVisible(false));
     return () => {
@@ -180,20 +152,15 @@ export default function ActiveRunScreen() {
             },
           ],
         );
-        return true; // consumed — prevent default back
+        return true;
       }
       return false;
     });
     return () => sub.remove();
   }, [status, resetRun, router]);
 
-  // If this screen gains focus but there's no active run, go back to the
-  // tracking home. This prevents the screen from re-appearing when the user
-  // leaves the tab and comes back after stopping a run.
   useFocusEffect(
     useCallback(() => {
-      // Only redirect if the user already started a run and it's now neither running nor paused.
-      // Without this guard, navigating here before pressing Start would immediately redirect back.
       if (hasStartedRef.current && status !== "running" && status !== "paused" && !shareCardData) {
         router.replace("/(tabs)/tracking" as any);
       }
@@ -241,9 +208,6 @@ export default function ActiveRunScreen() {
   useEffect(() => {
     if (!hasGps || !backgroundTrackingEnabled) return;
     const shouldBeActive = status === "running" || status === "paused";
-    // Only start/stop on actual transition into/out of an active run — not on every
-    // pause/resume. Avoids re-prompting the OS "Location Disclosure" alert (which
-    // looks like a white flash) and avoids the foreground-service notification re-flicker.
     if (shouldBeActive && !trackingActiveRef.current) {
       trackingActiveRef.current = true;
       startLocationTracking().catch(() => null);
@@ -259,7 +223,6 @@ export default function ActiveRunScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     stopRun();
 
-    // Read latest values imperatively — no need to subscribe up here.
     const snap = useRunStore.getState();
     const finalDistance = snap.distanceMeters;
     const finalSeconds = snap.elapsedSeconds;
@@ -308,7 +271,7 @@ export default function ActiveRunScreen() {
     opacity: opacity.value,
     transform: [{ translateY: translateY.value }],
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: p.pageBg,
   }));
 
   const toastStyle = useAnimatedStyle(() => ({
@@ -338,27 +301,27 @@ export default function ActiveRunScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: colors.background,
+          backgroundColor: p.pageBg,
           alignItems: "center",
           justifyContent: "center",
-          paddingHorizontal: 40
+          paddingHorizontal: 40,
         }}
       >
-        <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: isDark ? "rgba(255,200,100,0.1)" : "rgba(255,200,100,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
-           <ActivityIndicator size="large" color={colors.amber} />
+        <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: p.warningSoft, alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
+           <ActivityIndicator size="large" color={p.warning} />
         </View>
         <Text
           style={{
-            fontFamily: fonts.accentBold,
+            fontFamily: "Outfit-Bold",
             fontSize: 22,
-            color: colors.textPrimary,
+            color: p.textPrimary,
             textAlign: "center",
-            marginBottom: 8
+            marginBottom: 8,
           }}
         >
           {gpsError ? "GPS Error" : "Acquiring GPS..."}
         </Text>
-        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.textSecondary, textAlign: "center", lineHeight: 22 }}>
+        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 15, color: p.textSecondary, textAlign: "center", lineHeight: 22 }}>
           {gpsError ?? "We need a strong GPS signal to track your run accurately. Please move to an open area."}
         </Text>
         {gpsError && (
@@ -368,20 +331,20 @@ export default function ActiveRunScreen() {
               marginTop: 32,
               paddingHorizontal: 24,
               paddingVertical: 14,
-              borderRadius: radius.pill,
-              backgroundColor: colors.accent,
+              borderRadius: 100,
+              backgroundColor: p.accent,
               flexDirection: "row",
               alignItems: "center",
               gap: 10,
               opacity: pressed ? 0.9 : 1,
             })}
           >
-            <Ionicons name="refresh" size={18} color="#FFF" />
+            <RefreshCw size={18} color={p.buttonPrimaryText} strokeWidth={2.5} />
             <Text
               style={{
-                fontFamily: fonts.accentBold,
+                fontFamily: "Outfit-Bold",
                 fontSize: 15,
-                color: "#FFF",
+                color: p.buttonPrimaryText,
               }}
             >
               Try again
@@ -418,7 +381,7 @@ export default function ActiveRunScreen() {
   return (
     <>
       <Stack.Screen options={activeRunScreenOptions} />
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
         <Animated.View style={screenStyle}>
         <LiveMap
           initialRegion={initialRegion}
@@ -447,15 +410,13 @@ export default function ActiveRunScreen() {
               width: 54,
               height: 54,
               borderRadius: 27,
-              backgroundColor: isDark ? "rgba(18,18,18,0.92)" : "rgba(255,255,255,0.94)",
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.10)",
+              backgroundColor: p.cardWhite,
               alignItems: "center",
               justifyContent: "center",
               opacity: pressed ? 0.9 : 1,
             })}
           >
-            <Ionicons name="chevron-down" size={26} color={colors.textPrimary} />
+            <ChevronDown size={26} color={p.textPrimary} strokeWidth={2.5} />
           </Pressable>
         </View>
 
@@ -484,24 +445,21 @@ export default function ActiveRunScreen() {
               right: 80,
               paddingHorizontal: 14,
               paddingVertical: 10,
-              borderRadius: radius.xl,
-              backgroundColor: glassBg,
-              borderWidth: 1,
-              borderColor: glassBorder,
-              ...glassShadow,
+              borderRadius: 22,
+              backgroundColor: p.cardWhite,
               flexDirection: "row",
               gap: 10,
-              alignItems: "center"
+              alignItems: "center",
             }}
           >
-            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)", alignItems: "center", justifyContent: "center" }}>
-               <Ionicons name="time-outline" size={17} color={colors.accent} />
+            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+               <Clock size={17} color={p.accent} strokeWidth={2.5} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.accentBold, fontSize: 12, color: colors.textPrimary }}>
-                GPS STABILIZING…
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.textPrimary }}>
+                GPS STABILIZING...
               </Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 10, color: colors.textSecondary }}>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textSecondary }}>
                 Stand still for best accuracy
               </Text>
             </View>
@@ -523,24 +481,22 @@ export default function ActiveRunScreen() {
             <View
               style={{
                 width: "100%",
-                backgroundColor: isDark ? "hsl(220,8%,14%)" : "#F8F6F2",
+                backgroundColor: p.cardWhite,
                 borderRadius: 22,
                 paddingHorizontal: 18,
                 paddingVertical: 16,
                 flexDirection: "row",
                 alignItems: "flex-start",
                 gap: 10,
-                borderWidth: isDark ? 1 : 0,
-                borderColor: "rgba(255,255,255,0.10)",
               }}
             >
               <Text
                 style={{
                   flex: 1,
-                  fontFamily: fonts.bodyMedium,
+                  fontFamily: "Outfit-Regular",
                   fontSize: 16,
                   lineHeight: 22,
-                  color: isDark ? "hsl(220,5%,92%)" : "#18181B",
+                  color: p.textPrimary,
                 }}
               >
                 Share location, change sports, and edit settings right here.
@@ -551,14 +507,14 @@ export default function ActiveRunScreen() {
                 accessibilityRole="button"
                 style={{ padding: 2 }}
               >
-                <Ionicons name="close" size={26} color={isDark ? "hsl(220,5%,70%)" : "#18181B"} />
+                <X size={26} color={p.textMuted} strokeWidth={2} />
               </Pressable>
             </View>
             <View
               style={{
                 width: 22,
                 height: 22,
-                backgroundColor: isDark ? "hsl(220,8%,14%)" : "#F8F6F2",
+                backgroundColor: p.cardWhite,
                 transform: [{ rotate: "45deg" }],
                 marginTop: -11,
               }}
@@ -574,10 +530,7 @@ export default function ActiveRunScreen() {
             osrmRoutingEnabled={osrmRoutingEnabled}
             showWarmupBanner={showWarmupBanner}
             insetsTop={insets.top}
-            glassBg={glassBg}
-            glassBorder={glassBorder}
-            glassShadow={glassShadow}
-            colors={colors}
+            p={p}
           />
         ) : null}
 
@@ -720,10 +673,7 @@ function DestinationBanner({
   osrmRoutingEnabled,
   showWarmupBanner,
   insetsTop,
-  glassBg,
-  glassBorder,
-  glassShadow,
-  colors,
+  p,
 }: {
   destination: { latitude: number; longitude: number };
   routeMetrics: { durationSec: number; distanceM: number } | null;
@@ -731,10 +681,7 @@ function DestinationBanner({
   osrmRoutingEnabled: boolean;
   showWarmupBanner: boolean;
   insetsTop: number;
-  glassBg: string;
-  glassBorder: string;
-  glassShadow: object;
-  colors: Record<string, string>;
+  p: ReturnType<typeof import("@/components/admin/AdminUI").useAdminPastel>;
 }) {
   const liveCoord = useRunStore((s) => s.liveCoordinate);
   const straightLineM =
@@ -769,23 +716,20 @@ function DestinationBanner({
         top: showWarmupBanner ? insetsTop + 150 : insetsTop + 70,
         paddingHorizontal: 16,
         paddingVertical: 10,
-        borderRadius: radius.lg,
-        backgroundColor: glassBg,
-        borderWidth: 1,
-        borderColor: glassBorder,
+        borderRadius: 22,
+        backgroundColor: p.cardWhite,
         opacity: 0.95,
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        ...glassShadow,
       }}
     >
       {isFetchingRoute ? (
-        <ActivityIndicator size="small" color={colors.accent} />
+        <ActivityIndicator size="small" color={p.accent} />
       ) : (
-        <Ionicons name="navigate" size={14} color={colors.accent} />
+        <Navigation2 size={14} color={p.accent} strokeWidth={2.5} />
       )}
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.textSecondary }}>
+      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.textSecondary }}>
         {isFetchingRoute
           ? "CALCULATING..."
           : etaLabel

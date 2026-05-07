@@ -15,8 +15,7 @@ import { Megaphone, Users2, Clock, Search, Plus, Trash2, RefreshCw, Send, Pencil
 
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Chip } from "@/components/admin/AdminShared";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import {
   AdminAnnouncementAudienceType,
   AdminAnnouncementItem,
@@ -57,8 +56,10 @@ const audienceTabs: Array<{ key: AdminAnnouncementAudienceType; label: string }>
 
 const tierOptions = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const;
 
+const cardColors = ["cardSage", "cardPeach", "cardLavender", "cardMint"] as const;
+
 export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const [query, setQuery] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
@@ -201,10 +202,29 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
     ]);
   };
 
-  const accent = colors.accent;
-  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
-  const inputBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)";
-  const sectionBg = isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)";
+  // Inline chip component using pastel styling
+  const PastelChip = ({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) => (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 100,
+        backgroundColor: selected ? p.accent : p.inputBg,
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      <Text
+        style={{
+          fontFamily: "Outfit-SemiBold",
+          fontSize: 13,
+          color: selected ? "#FFFFFF" : p.textSecondary,
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
 
   return (
     <View style={{ gap: 16, paddingHorizontal: 20 }}>
@@ -216,21 +236,21 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
             flexDirection: "row",
             alignItems: "center",
             gap: 8,
-            borderRadius: 14,
+            borderRadius: 16,
             borderWidth: 1,
-            borderColor: border,
-            backgroundColor: inputBg,
+            borderColor: p.inputBorder,
+            backgroundColor: p.inputBg,
             paddingHorizontal: 12,
             height: 44,
           }}
         >
-          <Search size={15} color={colors.textSecondary} />
+          <Search size={15} color={p.textSecondary} />
           <TextInput
-            style={{ flex: 1, fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textPrimary, padding: 0 }}
+            style={{ flex: 1, fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary, padding: 0 }}
             value={query}
             onChangeText={setQuery}
-            placeholder="Search announcements…"
-            placeholderTextColor={colors.placeholder}
+            placeholder="Search announcements..."
+            placeholderTextColor={p.textMuted}
           />
         </View>
         <Pressable
@@ -238,18 +258,16 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
           style={({ pressed }) => ({
             height: 44,
             paddingHorizontal: 16,
-            borderRadius: 14,
+            borderRadius: 100,
             flexDirection: "row",
             alignItems: "center",
             gap: 6,
-            backgroundColor: isDark ? `${accent}18` : `${accent}12`,
-            borderWidth: 1,
-            borderColor: isDark ? `${accent}30` : `${accent}22`,
+            backgroundColor: p.accentSoft,
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <Plus size={15} color={accent} />
-          <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 13, color: accent }}>New</Text>
+          <Plus size={15} color={p.accent} />
+          <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 13, color: p.accent }}>New</Text>
         </Pressable>
       </View>
 
@@ -260,29 +278,29 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
           <Skeleton width="100%" height={76} />
         </View>
       ) : controller.error ? (
-        <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: colors.danger }}>
+        <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.danger }}>
           {controller.error}
         </Text>
       ) : filtered.length === 0 ? (
-        <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: colors.textSecondary }}>
+        <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
           No announcements found.
         </Text>
       ) : (
         <View style={{ gap: 10 }}>
-          {filtered.map((item) => {
+          {filtered.map((item, index) => {
             const starts = item.announcementStartsAt ?? item.startsAt ?? null;
             const ends = item.announcementEndsAt ?? item.endsAt ?? null;
+            const bgColor = p[cardColors[index % cardColors.length]];
             return (
               <Pressable
                 key={String(item.id)}
                 onPress={() => openEdit(item)}
                 style={({ pressed }) => ({
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: border,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.9)",
+                  borderRadius: 28,
+                  backgroundColor: bgColor,
                   padding: 16,
                   opacity: pressed ? 0.85 : 1,
+                  shadowColor: p.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8, elevation: 2,
                 })}
               >
                 <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
@@ -293,21 +311,16 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                       borderRadius: 10,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: item.isActive
-                        ? isDark ? `${accent}1A` : `${accent}12`
-                        : isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+                      backgroundColor: p.accentSoft,
                     }}
                   >
-                    <Megaphone
-                      size={16}
-                      color={item.isActive ? accent : colors.textSecondary}
-                    />
+                    <Megaphone size={16} color={p.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                       <Text
                         numberOfLines={1}
-                        style={{ flex: 1, fontFamily: "Outfit-Bold", fontSize: 14, color: colors.textPrimary }}
+                        style={{ flex: 1, fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}
                       >
                         {String(item.title ?? "Announcement")}
                       </Text>
@@ -316,13 +329,7 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                           paddingHorizontal: 8,
                           paddingVertical: 3,
                           borderRadius: 20,
-                          borderWidth: 1,
-                          borderColor: item.isActive
-                            ? isDark ? `${accent}30` : `${accent}22`
-                            : border,
-                          backgroundColor: item.isActive
-                            ? isDark ? `${accent}14` : `${accent}0C`
-                            : "transparent",
+                          backgroundColor: item.isActive ? p.successSoft : p.warningSoft,
                         }}
                       >
                         <Text
@@ -331,23 +338,23 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                             fontFamily: "Outfit-Bold",
                             textTransform: "uppercase",
                             letterSpacing: 0.8,
-                            color: item.isActive ? accent : colors.textSecondary,
+                            color: item.isActive ? p.success : p.warning,
                           }}
                         >
-                          {item.isActive ? "Live" : "Draft"}
+                          {item.isActive ? "Active" : "Draft"}
                         </Text>
                       </View>
                     </View>
                     <Text
                       numberOfLines={1}
-                      style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginTop: 2 }}
+                      style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 2 }}
                     >
                       {formatSchedule(starts, ends)}
                     </Text>
                     {item.body ? (
                       <Text
                         numberOfLines={2}
-                        style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginTop: 6, lineHeight: 17 }}
+                        style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 6, lineHeight: 17 }}
                       >
                         {String(item.body)}
                       </Text>
@@ -368,7 +375,7 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
         onRequestClose={() => setEditorOpen(false)}
       >
         <KeyboardAvoidingView
-          style={{ flex: 1, backgroundColor: colors.background }}
+          style={{ flex: 1, backgroundColor: p.pageBg }}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           {/* Modal header */}
@@ -380,7 +387,7 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
               paddingTop: Platform.OS === "ios" ? 20 : 40,
               paddingBottom: 16,
               borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: border,
+              borderBottomColor: p.divider,
               gap: 12,
             }}
           >
@@ -391,20 +398,20 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                 borderRadius: 12,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: isDark ? `${accent}18` : `${accent}12`,
+                backgroundColor: p.accentSoft,
               }}
             >
               {editing ? (
-                <Pencil size={18} color={accent} />
+                <Pencil size={18} color={p.accent} />
               ) : (
-                <Megaphone size={18} color={accent} />
+                <Megaphone size={18} color={p.accent} />
               )}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: colors.textPrimary }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary }}>
                 {editing ? "Edit Announcement" : "New Announcement"}
               </Text>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, marginTop: 1 }}>
                 {editing ? `ID #${String(editing.id)}` : "Broadcast to your community"}
               </Text>
             </View>
@@ -414,14 +421,12 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
               style={({ pressed }) => ({
                 paddingHorizontal: 14,
                 paddingVertical: 8,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: border,
-                backgroundColor: inputBg,
+                borderRadius: 100,
+                backgroundColor: p.inputBg,
                 opacity: pressed ? 0.6 : 1,
               })}
             >
-              <Text style={{ fontFamily: "Outfit-Medium", fontSize: 13, color: colors.textSecondary }}>
+              <Text style={{ fontFamily: "Outfit-Medium", fontSize: 13, color: p.textSecondary }}>
                 Cancel
               </Text>
             </Pressable>
@@ -436,10 +441,8 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
             {/* Content section */}
             <View
               style={{
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: border,
-                backgroundColor: sectionBg,
+                borderRadius: 24,
+                backgroundColor: p.cardLavender,
                 overflow: "hidden",
               }}
             >
@@ -451,11 +454,11 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                   paddingHorizontal: 16,
                   paddingVertical: 12,
                   borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: border,
+                  borderBottomColor: p.divider,
                 }}
               >
-                <Megaphone size={14} color={accent} />
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: accent }}>
+                <Megaphone size={14} color={p.accent} />
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: p.accent }}>
                   Content
                 </Text>
               </View>
@@ -463,15 +466,15 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
               <View style={{ padding: 16, gap: 12 }}>
                 {/* Title */}
                 <View>
-                  <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>
+                  <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 12, color: p.textSecondary, marginBottom: 6 }}>
                     Title
                   </Text>
                   <View
                     style={{
-                      borderRadius: 12,
+                      borderRadius: 16,
                       borderWidth: 1,
-                      borderColor: border,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.8)",
+                      borderColor: p.inputBorder,
+                      backgroundColor: p.inputBg,
                       paddingHorizontal: 14,
                       paddingVertical: 12,
                     }}
@@ -480,28 +483,28 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                       value={title}
                       onChangeText={(t) => setTitle(t.slice(0, 120))}
                       placeholder="Short, clear subject line"
-                      placeholderTextColor={colors.placeholder}
-                      style={{ fontFamily: "Outfit-Regular", fontSize: 15, color: colors.textPrimary, padding: 0 }}
+                      placeholderTextColor={p.textMuted}
+                      style={{ fontFamily: "Outfit-Regular", fontSize: 15, color: p.textPrimary, padding: 0 }}
                       returnKeyType="next"
                       maxLength={120}
                     />
                   </View>
-                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: colors.textSecondary, textAlign: "right", marginTop: 4 }}>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, textAlign: "right", marginTop: 4 }}>
                     {title.length}/120
                   </Text>
                 </View>
 
                 {/* Body */}
                 <View>
-                  <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>
+                  <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 12, color: p.textSecondary, marginBottom: 6 }}>
                     Message
                   </Text>
                   <View
                     style={{
-                      borderRadius: 12,
+                      borderRadius: 16,
                       borderWidth: 1,
-                      borderColor: border,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.8)",
+                      borderColor: p.inputBorder,
+                      backgroundColor: p.inputBg,
                       paddingHorizontal: 14,
                       paddingTop: 12,
                       paddingBottom: 8,
@@ -512,14 +515,14 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                       value={body}
                       onChangeText={(t) => setBody(t.slice(0, 1000))}
                       placeholder="What do you want to announce?"
-                      placeholderTextColor={colors.placeholder}
-                      style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textPrimary, padding: 0, lineHeight: 21, flex: 1 }}
+                      placeholderTextColor={p.textMuted}
+                      style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary, padding: 0, lineHeight: 21, flex: 1 }}
                       multiline
                       textAlignVertical="top"
                       maxLength={1000}
                     />
                   </View>
-                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: colors.textSecondary, textAlign: "right", marginTop: 4 }}>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, textAlign: "right", marginTop: 4 }}>
                     {body.length}/1000
                   </Text>
                 </View>
@@ -529,10 +532,8 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
             {/* Audience section */}
             <View
               style={{
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: border,
-                backgroundColor: sectionBg,
+                borderRadius: 24,
+                backgroundColor: p.cardSage,
                 overflow: "hidden",
               }}
             >
@@ -544,11 +545,11 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                   paddingHorizontal: 16,
                   paddingVertical: 12,
                   borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: border,
+                  borderBottomColor: p.divider,
                 }}
               >
-                <Users2 size={14} color={accent} />
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: accent }}>
+                <Users2 size={14} color={p.accent} />
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: p.accent }}>
                   Audience
                 </Text>
               </View>
@@ -556,7 +557,7 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
               <View style={{ padding: 16, gap: 10 }}>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {audienceTabs.map((tab) => (
-                    <Chip
+                    <PastelChip
                       key={tab.key}
                       label={tab.label}
                       selected={audienceType === tab.key}
@@ -567,8 +568,8 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
 
                 {audienceType === "athlete_type" && (
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-                    <Chip label="Youth" selected={athleteType === "youth"} onPress={() => setAthleteType("youth")} />
-                    <Chip label="Adult" selected={athleteType === "adult"} onPress={() => setAthleteType("adult")} />
+                    <PastelChip label="Youth" selected={athleteType === "youth"} onPress={() => setAthleteType("youth")} />
+                    <PastelChip label="Adult" selected={athleteType === "adult"} onPress={() => setAthleteType("adult")} />
                   </View>
                 )}
 
@@ -576,10 +577,10 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                   <View
                     style={{
                       marginTop: 4,
-                      borderRadius: 12,
+                      borderRadius: 16,
                       borderWidth: 1,
-                      borderColor: border,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.8)",
+                      borderColor: p.inputBorder,
+                      backgroundColor: p.inputBg,
                       paddingHorizontal: 14,
                       paddingVertical: 12,
                     }}
@@ -588,8 +589,8 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                       value={team}
                       onChangeText={setTeam}
                       placeholder="Exact team name"
-                      placeholderTextColor={colors.placeholder}
-                      style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textPrimary, padding: 0 }}
+                      placeholderTextColor={p.textMuted}
+                      style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary, padding: 0 }}
                     />
                   </View>
                 )}
@@ -597,7 +598,7 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                 {audienceType === "tier" && (
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
                     {tierOptions.map((t) => (
-                      <Chip
+                      <PastelChip
                         key={t}
                         label={t.replaceAll("_", " ")}
                         selected={tier === t}
@@ -612,10 +613,8 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
             {/* Timing section */}
             <View
               style={{
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: border,
-                backgroundColor: sectionBg,
+                borderRadius: 24,
+                backgroundColor: p.cardLavender,
                 overflow: "hidden",
               }}
             >
@@ -627,33 +626,33 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                   paddingHorizontal: 16,
                   paddingVertical: 12,
                   borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: border,
+                  borderBottomColor: p.divider,
                 }}
               >
-                <Clock size={14} color={accent} />
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: accent }}>
+                <Clock size={14} color={p.accent} />
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: p.accent }}>
                   Timing
                 </Text>
               </View>
 
               <View style={{ padding: 16, gap: 12 }}>
                 <View style={{ flexDirection: "row", gap: 8 }}>
-                  <Chip label="Permanent" selected={timingType === "permanent"} onPress={() => setTimingType("permanent")} />
-                  <Chip label="Scheduled" selected={timingType === "scheduled"} onPress={() => setTimingType("scheduled")} />
+                  <PastelChip label="Permanent" selected={timingType === "permanent"} onPress={() => setTimingType("permanent")} />
+                  <PastelChip label="Scheduled" selected={timingType === "scheduled"} onPress={() => setTimingType("scheduled")} />
                 </View>
 
                 {timingType === "scheduled" && (
                   <View style={{ gap: 10 }}>
                     <View
                       style={{
-                        borderRadius: 14,
+                        borderRadius: 16,
                         borderWidth: 1,
-                        borderColor: border,
-                        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.8)",
+                        borderColor: p.inputBorder,
+                        backgroundColor: p.inputBg,
                         padding: 14,
                       }}
                     >
-                      <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>
+                      <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 12, color: p.textSecondary, marginBottom: 8 }}>
                         Starts
                       </Text>
                       <DateTimePicker
@@ -661,19 +660,18 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                         mode="datetime"
                         display={Platform.OS === "ios" ? "spinner" : "default"}
                         onChange={(_, date) => { if (date) setStartsAt(date); }}
-                        themeVariant={isDark ? "dark" : "light"}
                       />
                     </View>
                     <View
                       style={{
-                        borderRadius: 14,
+                        borderRadius: 16,
                         borderWidth: 1,
-                        borderColor: border,
-                        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.8)",
+                        borderColor: p.inputBorder,
+                        backgroundColor: p.inputBg,
                         padding: 14,
                       }}
                     >
-                      <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>
+                      <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 12, color: p.textSecondary, marginBottom: 8 }}>
                         Ends
                       </Text>
                       <DateTimePicker
@@ -681,7 +679,6 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                         mode="datetime"
                         display={Platform.OS === "ios" ? "spinner" : "default"}
                         onChange={(_, date) => { if (date) setEndsAt(date); }}
-                        themeVariant={isDark ? "dark" : "light"}
                       />
                     </View>
                   </View>
@@ -697,7 +694,7 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
               paddingTop: 12,
               paddingBottom: Platform.OS === "ios" ? 32 : 20,
               borderTopWidth: StyleSheet.hairlineWidth,
-              borderTopColor: border,
+              borderTopColor: p.divider,
               gap: 10,
             }}
           >
@@ -706,27 +703,21 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
               disabled={!canSubmit}
               style={({ pressed }) => ({
                 height: 52,
-                borderRadius: 16,
+                borderRadius: 100,
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                backgroundColor: canSubmit
-                  ? isDark ? `${accent}22` : `${accent}16`
-                  : isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
-                borderWidth: 1,
-                borderColor: canSubmit
-                  ? isDark ? `${accent}38` : `${accent}28`
-                  : border,
+                backgroundColor: canSubmit ? p.accent : p.inputBg,
                 opacity: !canSubmit ? 0.5 : pressed ? 0.75 : 1,
               })}
             >
-              <Send size={16} color={canSubmit ? accent : colors.textSecondary} />
+              <Send size={16} color={canSubmit ? "#FFFFFF" : p.textSecondary} />
               <Text
                 style={{
                   fontFamily: "Outfit-Bold",
                   fontSize: 15,
-                  color: canSubmit ? accent : colors.textSecondary,
+                  color: canSubmit ? "#FFFFFF" : p.textSecondary,
                 }}
               >
                 {editing ? "Save Changes" : "Publish Announcement"}
@@ -739,19 +730,17 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                 disabled={controller.isBusy}
                 style={({ pressed }) => ({
                   height: 44,
-                  borderRadius: 14,
+                  borderRadius: 100,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  backgroundColor: isDark ? `${colors.danger}12` : `${colors.danger}08`,
-                  borderWidth: 1,
-                  borderColor: isDark ? `${colors.danger}28` : `${colors.danger}18`,
+                  backgroundColor: p.dangerSoft,
                   opacity: controller.isBusy ? 0.4 : pressed ? 0.7 : 1,
                 })}
               >
-                <Trash2 size={14} color={colors.danger} />
-                <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 13, color: colors.danger }}>
+                <Trash2 size={14} color={p.danger} />
+                <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 13, color: p.danger }}>
                   Delete Announcement
                 </Text>
               </Pressable>
@@ -761,19 +750,17 @@ export function AdminAnnouncementsSection({ controller, canLoad }: Props) {
                 disabled={controller.loading}
                 style={({ pressed }) => ({
                   height: 44,
-                  borderRadius: 14,
+                  borderRadius: 100,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  backgroundColor: inputBg,
-                  borderWidth: 1,
-                  borderColor: border,
+                  backgroundColor: p.inputBg,
                   opacity: controller.loading ? 0.4 : pressed ? 0.7 : 1,
                 })}
               >
-                <RefreshCw size={14} color={colors.textSecondary} />
-                <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 13, color: colors.textSecondary }}>
+                <RefreshCw size={14} color={p.textSecondary} />
+                <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 13, color: p.textSecondary }}>
                   Refresh List
                 </Text>
               </Pressable>

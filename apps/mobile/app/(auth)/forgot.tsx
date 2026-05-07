@@ -1,10 +1,10 @@
-import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppTheme } from "../theme/AppThemeProvider";
+import { ArrowLeft, Mail } from "lucide-react-native";
+import { useAdminPastel } from "../../components/admin/AdminUI";
 import { apiRequest } from "../../lib/api";
 import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
 import { Text, TextInput } from "../../components/ScaledText";
@@ -14,25 +14,21 @@ export default function ForgotScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
   const normalizedEmail = email.trim().toLowerCase();
   const isEmailValid = /^\S+@\S+\.\S+$/.test(normalizedEmail);
 
   return (
-    <SafeAreaView className="flex-1 bg-app">
-      <View className="px-4 pt-4">
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
         <Pressable
           onPress={() => router.back()}
-          className="p-2 self-start"
+          style={{ padding: 10, alignSelf: "flex-start", borderRadius: 100, backgroundColor: p.cardMint }}
           accessibilityRole="button"
           accessibilityLabel="Go back"
           hitSlop={8}
         >
-          <Feather
-            name="arrow-left"
-            size={24}
-            color={colors.textSecondary}
-          />
+          <ArrowLeft size={22} color={p.textPrimary} strokeWidth={2} />
         </Pressable>
       </View>
 
@@ -44,30 +40,41 @@ export default function ForgotScreen() {
           paddingBottom: 32,
         }}
         keyboardShouldPersistTaps="handled"
-        enableOnAndroid={true}
+        enableOnAndroid
       >
-        <View className="mb-8">
-          <Text className="text-4xl font-telma-bold text-app mb-3">
+        <View style={{ marginBottom: 28, gap: 10 }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 34, lineHeight: 38, letterSpacing: -0.7, color: p.textPrimary }}>
             Forgot Password?
           </Text>
-          <Text className="text-base font-outfit text-secondary leading-6">
-            Enter your email address and {"we'll"} send you an OTP to reset your
-            password.
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, lineHeight: 24, color: p.textMuted, maxWidth: 340 }}>
+            Enter your email address and we&apos;ll send you an OTP to reset your password.
           </Text>
         </View>
 
-        <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14 mb-6">
-          <Feather
-            name="mail"
-            size={20}
-            color={colors.textSecondary}
-          />
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: p.inputBg,
+            borderRadius: 22,
+            paddingHorizontal: 16,
+            height: 56,
+            marginBottom: 24,
+          }}
+        >
+          <Mail size={20} color={p.textMuted} strokeWidth={2} />
           <TextInput
             accessibilityRole="text"
             accessibilityLabel="Email Address"
-            className="flex-1 ml-3 text-app text-base font-outfit"
+            style={{
+              flex: 1,
+              marginLeft: 12,
+              fontFamily: "Outfit-Regular",
+              fontSize: 16,
+              color: p.textPrimary,
+            }}
             placeholder="Email Address"
-            placeholderTextColor={colors.placeholder}
+            placeholderTextColor={p.textMuted}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -75,6 +82,12 @@ export default function ForgotScreen() {
             autoCorrect={false}
           />
         </View>
+
+        {formError ? (
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: "#E53935", marginBottom: 16 }}>
+            {formError}
+          </Text>
+        ) : null}
 
         <Pressable
           accessibilityRole="button"
@@ -106,30 +119,32 @@ export default function ForgotScreen() {
               setIsSubmitting(false);
             }
           }}
-          className={`bg-accent h-14 rounded-xl items-center justify-center mb-8 ${isSubmitting || !normalizedEmail ? "opacity-70" : ""}`}
+          style={{
+            backgroundColor: p.accent,
+            height: 56,
+            borderRadius: 100,
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 28,
+            opacity: isSubmitting || !normalizedEmail ? 0.6 : 1,
+          }}
           disabled={isSubmitting || !normalizedEmail}
         >
-          <Text className="text-white font-bold text-lg font-outfit">
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 17, color: p.buttonPrimaryText }}>
             {isSubmitting ? "Sending..." : "Send OTP"}
           </Text>
         </Pressable>
-        {formError ? (
-          <Text className="text-danger text-xs font-outfit mb-4">
-            {formError}
-          </Text>
-        ) : null}
 
-        <View className="flex-row justify-center items-center">
-          <Text className="text-secondary text-base font-outfit">
-            Remember your password?{" "}
+        <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 4 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 15, color: p.textSecondary }}>
+            Remember your password?
           </Text>
           <Pressable
             accessibilityRole="link"
             accessibilityLabel="Log In"
-            accessibilityHint="Navigate back to login screen"
             onPress={() => router.back()}
           >
-            <Text className="text-accent font-bold text-base font-outfit">
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.accent }}>
               Log In
             </Text>
           </Pressable>

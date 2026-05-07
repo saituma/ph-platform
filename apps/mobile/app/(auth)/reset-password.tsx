@@ -1,10 +1,10 @@
-import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppTheme } from "../theme/AppThemeProvider";
+import { ArrowLeft, Shield, Lock, Eye, EyeOff } from "lucide-react-native";
+import { useAdminPastel } from "../../components/admin/AdminUI";
 import { apiRequest } from "../../lib/api";
 import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
 import { Text, TextInput } from "../../components/ScaledText";
@@ -19,24 +19,20 @@ export default function ResetPasswordScreen() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const router = useRouter();
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
   const { email } = useLocalSearchParams<{ email?: string }>();
   const normalizedCode = code.replace(/\D/g, "").slice(0, 6);
 
   return (
-    <SafeAreaView className="flex-1 bg-app">
-      <View className="px-4 pt-4">
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Go back"
           onPress={() => router.back()}
-          className="p-2 self-start"
+          style={{ padding: 10, alignSelf: "flex-start", borderRadius: 100, backgroundColor: p.cardMint }}
         >
-          <Feather
-            name="arrow-left"
-            size={24}
-            color={colors.textSecondary}
-          />
+          <ArrowLeft size={22} color={p.textPrimary} strokeWidth={2} />
         </Pressable>
       </View>
 
@@ -48,30 +44,35 @@ export default function ResetPasswordScreen() {
           paddingBottom: 32,
         }}
         keyboardShouldPersistTaps="handled"
-        enableOnAndroid={true}
+        enableOnAndroid
       >
-        <View className="mb-8">
-          <Text className="text-4xl font-telma-bold text-app mb-3">
+        <View style={{ marginBottom: 28, gap: 10 }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 34, lineHeight: 38, letterSpacing: -0.7, color: p.textPrimary }}>
             Reset Password
           </Text>
-          <Text className="text-base font-outfit text-secondary leading-6">
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, lineHeight: 24, color: p.textMuted, maxWidth: 340 }}>
             Your identity has been verified. Set your new password.
           </Text>
         </View>
 
-        <View className="gap-4 mb-8">
-          <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
-            <Feather
-              name="shield"
-              size={20}
-              color={colors.textSecondary}
-            />
+        <View style={{ gap: 12, marginBottom: 28 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: p.inputBg,
+              borderRadius: 22,
+              paddingHorizontal: 16,
+              height: 56,
+            }}
+          >
+            <Shield size={20} color={p.textMuted} strokeWidth={2} />
             <TextInput
               accessibilityRole="text"
               accessibilityLabel="Verification Code"
-              className="flex-1 ml-3 text-app text-base font-outfit"
+              style={{ flex: 1, marginLeft: 12, fontFamily: "Outfit-Regular", fontSize: 16, color: p.textPrimary }}
               placeholder="Verification Code"
-              placeholderTextColor={colors.placeholder}
+              placeholderTextColor={p.textMuted}
               keyboardType="number-pad"
               value={normalizedCode}
               onChangeText={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))}
@@ -79,14 +80,23 @@ export default function ResetPasswordScreen() {
             />
           </View>
 
-          <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
-            <Feather name="lock" size={20} color={colors.textSecondary} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: p.inputBg,
+              borderRadius: 22,
+              paddingHorizontal: 16,
+              height: 56,
+            }}
+          >
+            <Lock size={20} color={p.textMuted} strokeWidth={2} />
             <TextInput
               accessibilityRole="text"
               accessibilityLabel="New Password"
-              className="flex-1 ml-3 text-app text-base font-outfit"
+              style={{ flex: 1, marginLeft: 12, fontFamily: "Outfit-Regular", fontSize: 16, color: p.textPrimary }}
               placeholder="New Password"
-              placeholderTextColor={colors.placeholder}
+              placeholderTextColor={p.textMuted}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -96,22 +106,31 @@ export default function ResetPasswordScreen() {
               accessibilityLabel={showPassword ? "Hide password" : "Show password"}
               onPress={() => setShowPassword(!showPassword)}
             >
-              <Feather
-                name={showPassword ? "eye" : "eye-off"}
-                size={20}
-                color={colors.textSecondary}
-              />
+              {showPassword ? (
+                <Eye size={20} color={p.textMuted} strokeWidth={2} />
+              ) : (
+                <EyeOff size={20} color={p.textMuted} strokeWidth={2} />
+              )}
             </Pressable>
           </View>
 
-          <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 h-14">
-            <Feather name="lock" size={20} color={colors.textSecondary} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: p.inputBg,
+              borderRadius: 22,
+              paddingHorizontal: 16,
+              height: 56,
+            }}
+          >
+            <Lock size={20} color={p.textMuted} strokeWidth={2} />
             <TextInput
               accessibilityRole="text"
               accessibilityLabel="Confirm New Password"
-              className="flex-1 ml-3 text-app text-base font-outfit"
+              style={{ flex: 1, marginLeft: 12, fontFamily: "Outfit-Regular", fontSize: 16, color: p.textPrimary }}
               placeholder="Confirm New Password"
-              placeholderTextColor={colors.placeholder}
+              placeholderTextColor={p.textMuted}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirmPassword}
@@ -121,14 +140,20 @@ export default function ResetPasswordScreen() {
               accessibilityLabel={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"}
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
             >
-              <Feather
-                name={showConfirmPassword ? "eye" : "eye-off"}
-                size={20}
-                color={colors.textSecondary}
-              />
+              {showConfirmPassword ? (
+                <Eye size={20} color={p.textMuted} strokeWidth={2} />
+              ) : (
+                <EyeOff size={20} color={p.textMuted} strokeWidth={2} />
+              )}
             </Pressable>
           </View>
         </View>
+
+        {formError ? (
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: "#E53935", marginBottom: 16 }}>
+            {formError}
+          </Text>
+        ) : null}
 
         <Pressable
           accessibilityRole="button"
@@ -161,18 +186,20 @@ export default function ResetPasswordScreen() {
               setIsSubmitting(false);
             }
           }}
-          className={`bg-accent h-14 rounded-xl items-center justify-center mb-8 ${isSubmitting ? "opacity-70" : ""}`}
+          style={{
+            backgroundColor: p.accent,
+            height: 56,
+            borderRadius: 100,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: isSubmitting ? 0.6 : 1,
+          }}
           disabled={isSubmitting}
         >
-          <Text className="text-white font-bold text-lg font-outfit">
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 17, color: p.buttonPrimaryText }}>
             {isSubmitting ? "Resetting..." : "Reset Password"}
           </Text>
         </Pressable>
-        {formError ? (
-          <Text className="text-danger text-xs font-outfit mb-4">
-            {formError}
-          </Text>
-        ) : null}
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );

@@ -9,18 +9,30 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import {
+  ArrowLeft,
+  AlertCircle,
+  Dumbbell,
+  CheckCircle,
+  CloudUpload,
+  Zap,
+  Info,
+  FileText,
+  TrendingUp,
+  TrendingDown,
+  MessageCircle,
+  Video,
+} from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { LinearGradient } from "expo-linear-gradient";
-import { Card } from "heroui-native";
 import { BuiltinCamera } from "@/components/media/BuiltinCamera";
 
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
 import {
   useMySessionExercises,
@@ -28,7 +40,6 @@ import {
   type SessionExercise,
 } from "@/hooks/programs/useMyPrograms";
 import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
-import { Shadows, radius, spacing, fonts } from "@/constants/theme";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import type { SelectedVideo } from "@/types/video-upload";
@@ -58,7 +69,7 @@ export default function AssignedSessionDetailScreen() {
     moduleId?: string;
   }>();
   const token = useAppSelector((s) => s.user.token);
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const sessionIdNum = useMemo(() => {
     const n = Number(sessionId);
@@ -119,7 +130,6 @@ export default function AssignedSessionDetailScreen() {
         }));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        // Clear success state after a short delay
         setTimeout(() => {
           setUploadStateByExId((prev) => {
             const next = { ...prev };
@@ -240,16 +250,16 @@ export default function AssignedSessionDetailScreen() {
   const totalSets = exercises.reduce((sum, ex) => sum + (ex.exercise.sets ?? 0), 0);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top", "left", "right"]}>
       {/* Header */}
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
-          paddingHorizontal: spacing.lg,
-          paddingVertical: spacing.md,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
           borderBottomWidth: 1,
-          borderBottomColor: isDark ? colors.borderSubtle : colors.borderSubtle,
+          borderBottomColor: p.divider,
         }}
       >
         <Pressable
@@ -260,24 +270,22 @@ export default function AssignedSessionDetailScreen() {
             width: 38,
             alignItems: "center",
             justifyContent: "center",
-            borderRadius: radius.sm,
-            backgroundColor: isDark ? colors.surfaceHigh : colors.surfaceHigh,
-            borderWidth: 1,
-            borderColor: isDark ? colors.borderSubtle : colors.borderMid,
+            borderRadius: 100,
+            backgroundColor: p.accentSoft,
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <Feather name="arrow-left" size={18} color={colors.textSecondary} />
+          <ArrowLeft size={18} color={p.accent} />
         </Pressable>
-        <View style={{ flex: 1, marginLeft: spacing.md }}>
+        <View style={{ flex: 1, marginLeft: 12 }}>
           <Text
-            style={{ fontSize: 17, fontFamily: fonts.heading2, color: colors.textPrimary, letterSpacing: -0.3 }}
+            style={{ fontSize: 17, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.3 }}
             numberOfLines={1}
           >
             {sessionTitle}
           </Text>
           {exerciseCount > 0 ? (
-            <Text style={{ fontSize: 12, fontFamily: fonts.bodyRegular, color: colors.textDim, marginTop: 1 }}>
+            <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 1 }}>
               {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
               {totalSets > 0 ? ` · ${totalSets} sets` : ""}
             </Text>
@@ -286,51 +294,50 @@ export default function AssignedSessionDetailScreen() {
       </View>
 
       {isLoading && exercises.length === 0 ? (
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 24, gap: 12 }}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <SkeletonBox key={`sk-${i}`} width="100%" height={140} borderRadius={radius.lg} />
+            <SkeletonBox key={`sk-${i}`} width="100%" height={140} borderRadius={22} />
           ))}
         </View>
       ) : error ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xxxl }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
           <View
             style={{
-              width: 56, height: 56, borderRadius: radius.lg,
-              backgroundColor: isDark ? colors.dangerSoft : colors.dangerSoft,
-              alignItems: "center", justifyContent: "center", marginBottom: spacing.lg,
+              width: 56, height: 56, borderRadius: 22,
+              backgroundColor: p.dangerSoft,
+              alignItems: "center", justifyContent: "center", marginBottom: 16,
             }}
           >
-            <Ionicons name="alert-circle-outline" size={28} color={colors.danger} />
+            <AlertCircle size={28} color={p.danger} />
           </View>
-          <Text style={{ fontSize: 14, fontFamily: fonts.bodyRegular, color: colors.textSecondary, textAlign: "center", lineHeight: 20 }}>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center", lineHeight: 20 }}>
             {error}
           </Text>
         </View>
       ) : exercises.length === 0 ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xxxl }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
           <View
             style={{
-              width: 64, height: 64, borderRadius: radius.xl,
-              backgroundColor: isDark ? colors.surfaceHigh : colors.surfaceHigh,
-              borderWidth: 1, borderColor: isDark ? colors.borderSubtle : colors.borderMid,
-              alignItems: "center", justifyContent: "center", marginBottom: spacing.lg,
+              width: 64, height: 64, borderRadius: 22,
+              backgroundColor: p.cardWhite,
+              alignItems: "center", justifyContent: "center", marginBottom: 16,
             }}
           >
-            <Ionicons name="barbell-outline" size={30} color={colors.textDim} />
+            <Dumbbell size={30} color={p.textMuted} />
           </View>
-          <Text style={{ fontSize: 16, fontFamily: fonts.heading3, color: colors.textPrimary, marginBottom: spacing.xs }}>
+          <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 4 }}>
             No exercises yet
           </Text>
-          <Text style={{ fontSize: 14, fontFamily: fonts.bodyRegular, color: colors.textSecondary, textAlign: "center" }}>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
             Your coach hasn't added exercises to this session.
           </Text>
         </View>
       ) : (
         <>
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: 140 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 140 }}
             refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.accent} />
+              <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={p.accent} />
             }
             showsVerticalScrollIndicator={false}
           >
@@ -344,10 +351,9 @@ export default function AssignedSessionDetailScreen() {
                     exercise={ex}
                     index={idx}
                     total={exercises.length}
-                    colors={colors}
-                    isDark={isDark}
+                    p={p}
                     videoExpanded={activeVideoId === ex.id}
-                    onToggleVideo={() => setActiveVideoId((p) => (p === ex.id ? null : ex.id))}
+                    onToggleVideo={() => setActiveVideoId((prev) => (prev === ex.id ? null : ex.id))}
                     uploadState={uploadStateByExId[ex.id]}
                     isUploading={isUploading}
                     onUploadPress={(source, sectionContentId) =>
@@ -364,16 +370,16 @@ export default function AssignedSessionDetailScreen() {
             style={{
               position: "absolute",
               bottom: 0, left: 0, right: 0,
-              paddingHorizontal: spacing.lg,
-              paddingTop: spacing.md,
+              paddingHorizontal: 16,
+              paddingTop: 12,
               paddingBottom: 36,
             }}
           >
             <LinearGradient
               colors={[
-                isDark ? "rgba(0,0,0,0)" : "rgba(255,255,255,0)",
-                isDark ? "rgba(0,0,0,0.95)" : "rgba(255,255,255,0.95)",
-                isDark ? "#000" : "#fff",
+                "rgba(255,255,255,0)",
+                "rgba(255,255,255,0.95)",
+                "#fff",
               ]}
               style={{ position: "absolute", top: -32, left: 0, right: 0, bottom: 0 }}
               pointerEvents="none"
@@ -382,24 +388,23 @@ export default function AssignedSessionDetailScreen() {
               onPress={handleFinish}
               disabled={isCompleting}
               style={({ pressed }) => ({
-                backgroundColor: colors.accent,
-                borderRadius: radius.md,
+                backgroundColor: p.accent,
+                borderRadius: 100,
                 paddingVertical: 15,
                 alignItems: "center",
                 justifyContent: "center",
                 flexDirection: "row",
-                gap: spacing.sm,
+                gap: 8,
                 opacity: isCompleting ? 0.6 : 1,
                 transform: [{ scale: pressed ? 0.98 : 1 }],
-                ...Shadows.md,
               })}
             >
               {isCompleting ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={p.buttonPrimaryText} />
               ) : (
                 <>
-                  <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={{ fontSize: 16, fontFamily: fonts.accentBold, color: "#fff", letterSpacing: -0.2 }}>
+                  <CheckCircle size={20} color={p.buttonPrimaryText} />
+                  <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText, letterSpacing: -0.2 }}>
                     Finish Session
                   </Text>
                 </>
@@ -453,8 +458,7 @@ function ExerciseCard({
   exercise: ex,
   index,
   total,
-  colors,
-  isDark,
+  p,
   videoExpanded,
   onToggleVideo,
   uploadState,
@@ -464,8 +468,7 @@ function ExerciseCard({
   exercise: SessionExercise;
   index: number;
   total: number;
-  colors: Record<string, string>;
-  isDark: boolean;
+  p: ReturnType<typeof useAdminPastel>;
   videoExpanded: boolean;
   onToggleVideo: () => void;
   uploadState?: ExerciseUploadState;
@@ -501,39 +504,35 @@ function ExerciseCard({
   return (
     <View
       style={{
-        backgroundColor: isDark ? colors.surfaceHigh : colors.card,
-        borderWidth: 1,
-        borderColor: isDark ? colors.borderSubtle : colors.borderMid,
-        borderRadius: radius.lg,
-        marginBottom: spacing.md,
+        backgroundColor: p.cardWhite,
+        borderRadius: 22,
+        marginBottom: 12,
         overflow: "hidden",
-        ...(isDark ? {} : Shadows.sm),
       }}
     >
       {/* Card Header: order + name + meta */}
-      <View style={{ padding: spacing.lg }}>
+      <View style={{ padding: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <View
             style={{
-              width: 32, height: 32, borderRadius: radius.xs,
-              backgroundColor: isDark ? colors.limeGlow : colors.limeGlow,
-              borderWidth: 1, borderColor: isDark ? colors.borderLime : colors.borderLime,
-              alignItems: "center", justifyContent: "center", marginRight: spacing.md,
+              width: 32, height: 32, borderRadius: 8,
+              backgroundColor: p.accentSoft,
+              alignItems: "center", justifyContent: "center", marginRight: 12,
             }}
           >
-            <Text style={{ fontSize: 13, fontFamily: fonts.accentBold, color: colors.accent }}>
+            <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.accent }}>
               {ex.order}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text
-              style={{ fontSize: 15, fontFamily: fonts.heading3, color: colors.textPrimary, letterSpacing: -0.2 }}
+              style={{ fontSize: 15, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.2 }}
               numberOfLines={2}
             >
               {ex.exercise.name}
             </Text>
             {ex.exercise.category ? (
-              <Text style={{ fontSize: 12, fontFamily: fonts.bodyRegular, color: colors.textDim, marginTop: 2 }}>
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 2 }}>
                 {ex.exercise.category}
               </Text>
             ) : null}
@@ -542,28 +541,26 @@ function ExerciseCard({
 
         {/* Meta Pills */}
         {meta.length > 0 || hasRest ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
             {meta.map((m, i) => (
               <View
                 key={i}
                 style={{
-                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.xs,
-                  backgroundColor: isDark ? colors.surfaceHigher : colors.surfaceHigh,
-                  borderWidth: 1, borderColor: isDark ? colors.borderSubtle : colors.borderMid,
+                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100,
+                  backgroundColor: p.inputBg,
                 }}
               >
-                <Text style={{ fontSize: 12, fontFamily: fonts.labelMedium, color: colors.textPrimary }}>{m}</Text>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textPrimary }}>{m}</Text>
               </View>
             ))}
             {hasRest ? (
               <View
                 style={{
-                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.xs,
-                  backgroundColor: isDark ? colors.amberGlow : colors.amberGlow,
-                  borderWidth: 1, borderColor: isDark ? "rgba(255,176,32,0.2)" : "rgba(245,158,11,0.2)",
+                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100,
+                  backgroundColor: p.warningSoft,
                 }}
               >
-                <Text style={{ fontSize: 12, fontFamily: fonts.labelMedium, color: colors.amber }}>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.warning }}>
                   {ex.exercise.restSeconds}s rest
                 </Text>
               </View>
@@ -572,15 +569,13 @@ function ExerciseCard({
         ) : null}
       </View>
 
-      {/* Video Section - inline in body */}
+      {/* Video Section */}
       {hasVideo ? (
-        <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
+        <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
           <View
             style={{
-              borderRadius: radius.md,
+              borderRadius: 14,
               overflow: "hidden",
-              borderWidth: 1,
-              borderColor: isDark ? colors.borderSubtle : colors.borderMid,
             }}
           >
             <VideoPlayer
@@ -594,166 +589,145 @@ function ExerciseCard({
             />
           </View>
 
-          <Card
-            variant={isDark ? "secondary" : "default"}
+          <View
             style={{
-              marginTop: spacing.sm,
-              borderRadius: radius.sm,
-              borderWidth: 1,
-              borderColor: isDark ? colors.borderMid : colors.borderMid,
-              overflow: "visible",
+              marginTop: 8,
+              borderRadius: 14,
+              backgroundColor: p.inputBg,
+              padding: 12,
             }}
           >
-            <Card.Header style={{ paddingHorizontal: spacing.md, paddingTop: 10, paddingBottom: 6 }}>
-              <Text style={{ fontSize: 11, fontFamily: fonts.labelCaps, color: colors.textDim, letterSpacing: 0.8 }}>
-                Upload Your Video
-              </Text>
-            </Card.Header>
-            <Card.Body style={{ paddingHorizontal: spacing.md, paddingBottom: 10, paddingTop: 0 }}>
-              {uploadState?.progress != null && uploadState.progress < 1 ? (
+            <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textMuted, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>
+              Upload Your Video
+            </Text>
+            {uploadState?.progress != null && uploadState.progress < 1 ? (
+              <View
+                style={{
+                  height: 42,
+                  borderRadius: 14,
+                  backgroundColor: p.cardWhite,
+                  overflow: "hidden",
+                  justifyContent: "center",
+                }}
+              >
                 <View
                   style={{
-                    height: 42,
-                    borderRadius: radius.sm,
-                    borderWidth: 1,
-                    borderColor: isDark ? colors.borderMid : colors.borderMid,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
-                    overflow: "hidden",
-                    justifyContent: "center",
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: `${Math.round(uploadState.progress * 100)}%` as any,
+                    backgroundColor: p.accentSoft,
+                    borderRadius: 14,
                   }}
-                >
-                  <View
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: `${Math.round(uploadState.progress * 100)}%` as any,
-                      backgroundColor: isDark ? "rgba(163,230,53,0.12)" : "rgba(132,204,22,0.12)",
-                      borderRadius: radius.sm,
-                    }}
-                  />
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm }}>
-                    <ActivityIndicator size="small" color={colors.accent} />
-                    <Text style={{ fontSize: 12, fontFamily: fonts.labelMedium, color: colors.accent }}>
-                      {uploadState.statusText || `Uploading ${Math.round(uploadState.progress * 100)}%...`}
-                    </Text>
-                  </View>
+                />
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <ActivityIndicator size="small" color={p.accent} />
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.accent }}>
+                    {uploadState.statusText || `Uploading ${Math.round(uploadState.progress * 100)}%...`}
+                  </Text>
                 </View>
-              ) : uploadState?.progress === 1 ? (
-                <View
-                  style={{
+              </View>
+            ) : uploadState?.progress === 1 ? (
+              <View
+                style={{
+                  height: 42,
+                  borderRadius: 14,
+                  backgroundColor: p.successSoft,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <CheckCircle size={15} color={p.success} />
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.success }}>
+                  Uploaded!
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 8, position: "relative" }}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setIsSourceMenuOpen((v) => !v);
+                  }}
+                  disabled={isUploading}
+                  style={({ pressed }) => ({
                     height: 42,
-                    borderRadius: radius.sm,
+                    borderRadius: 14,
                     borderWidth: 1,
-                    borderColor: isDark ? colors.borderLime : colors.borderLime,
-                    backgroundColor: isDark ? colors.limeGlow : colors.accentLight,
+                    borderColor: p.divider,
+                    borderStyle: "dashed" as const,
+                    backgroundColor: p.cardWhite,
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: spacing.sm,
-                  }}
+                    gap: 8,
+                    opacity: isUploading ? 0.4 : pressed ? 0.6 : 1,
+                  })}
                 >
-                  <Ionicons name="checkmark-circle" size={15} color={colors.accent} />
-                  <Text style={{ fontSize: 12, fontFamily: fonts.labelMedium, color: colors.accent }}>
-                    Uploaded!
+                  <CloudUpload size={15} color={p.textMuted} />
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted }}>
+                    Choose Source
                   </Text>
-                </View>
-              ) : (
-                <View style={{ gap: spacing.sm, position: "relative" }}>
-                  <Pressable
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setIsSourceMenuOpen((v) => !v);
-                    }}
-                    disabled={isUploading}
-                    style={({ pressed }) => ({
-                      height: 42,
-                      borderRadius: radius.sm,
-                      borderWidth: 1,
-                      borderColor: isDark ? colors.borderMid : colors.borderMid,
-                      borderStyle: "dashed" as const,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: spacing.sm,
-                      opacity: isUploading ? 0.4 : pressed ? 0.6 : 1,
-                    })}
-                  >
-                    <Ionicons name="cloud-upload-outline" size={15} color={colors.textDim} />
-                    <Text style={{ fontSize: 12, fontFamily: fonts.labelMedium, color: colors.textDim }}>
-                      Choose Source
-                    </Text>
-                  </Pressable>
+                </Pressable>
 
-                  {isSourceMenuOpen ? (
-                    <View
-                      style={{
-                        position: "absolute",
-                        bottom: 48,
-                        left: 0,
-                        right: 0,
-                        zIndex: 30,
-                        borderWidth: 1,
-                        borderColor: isDark ? colors.borderSubtle : colors.borderMid,
-                        borderRadius: radius.sm,
-                        backgroundColor: isDark ? colors.surfaceHigher : colors.surfaceHigh,
-                        overflow: "hidden",
-                        ...(isDark ? Shadows.sm : Shadows.md),
+                {isSourceMenuOpen ? (
+                  <View
+                    style={{
+                      position: "absolute",
+                      bottom: 48,
+                      left: 0,
+                      right: 0,
+                      zIndex: 30,
+                      borderRadius: 14,
+                      backgroundColor: p.cardWhite,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setIsSourceMenuOpen(false);
+                        setTimeout(() => onUploadPress("camera", resolvedSectionContentId), 50);
                       }}
+                      style={({ pressed }) => ({
+                        minHeight: 42,
+                        paddingHorizontal: 14,
+                        justifyContent: "center",
+                        backgroundColor: pressed ? p.accentSoft : "transparent",
+                      })}
                     >
-                      <Pressable
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setIsSourceMenuOpen(false);
-                          setTimeout(() => onUploadPress("camera", resolvedSectionContentId), 50);
-                        }}
-                        style={({ pressed }) => ({
-                          minHeight: 42,
-                          paddingHorizontal: spacing.md,
-                          justifyContent: "center",
-                          backgroundColor: pressed
-                            ? isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)"
-                            : "transparent",
-                        })}
-                      >
-                        <Text style={{ fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
-                          Record Video
-                        </Text>
-                      </Pressable>
-                      <View style={{ height: 1, backgroundColor: isDark ? colors.borderSubtle : colors.borderMid }} />
-                      <Pressable
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setIsSourceMenuOpen(false);
-                          setTimeout(() => onUploadPress("library", resolvedSectionContentId), 50);
-                        }}
-                        style={({ pressed }) => ({
-                          minHeight: 42,
-                          paddingHorizontal: spacing.md,
-                          justifyContent: "center",
-                          backgroundColor: pressed
-                            ? isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(15,23,42,0.06)"
-                            : "transparent",
-                        })}
-                      >
-                        <Text style={{ fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.textPrimary }}>
-                          Choose from Library
-                        </Text>
-                      </Pressable>
-                    </View>
-                  ) : null}
-                </View>
-              )}
-            </Card.Body>
-          </Card>
+                      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
+                        Record Video
+                      </Text>
+                    </Pressable>
+                    <View style={{ height: 1, backgroundColor: p.divider }} />
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setIsSourceMenuOpen(false);
+                        setTimeout(() => onUploadPress("library", resolvedSectionContentId), 50);
+                      }}
+                      style={({ pressed }) => ({
+                        minHeight: 42,
+                        paddingHorizontal: 14,
+                        justifyContent: "center",
+                        backgroundColor: pressed ? p.accentSoft : "transparent",
+                      })}
+                    >
+                      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
+                        Choose from Library
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            )}
+          </View>
           {uploadState?.error ? (
-            <Text style={{ fontSize: 11, fontFamily: fonts.bodyRegular, color: colors.danger, marginTop: 4, textAlign: "center" }}>
+            <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.danger, marginTop: 4, textAlign: "center" }}>
               {uploadState.error}
             </Text>
           ) : null}
@@ -764,74 +738,69 @@ function ExerciseCard({
       {hasTextDetails ? (
         <View
           style={{
-            marginHorizontal: spacing.lg,
-            paddingTop: spacing.md,
-            paddingBottom: spacing.lg,
+            marginHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: 16,
             borderTopWidth: 1,
-            borderTopColor: isDark ? colors.borderSubtle : colors.borderMid,
-            gap: spacing.md,
+            borderTopColor: p.divider,
+            gap: 12,
           }}
         >
-          {hasCues ? <DetailBlock icon="zap" label="Cues" text={ex.exercise.cues!} colors={colors} /> : null}
-          {hasHowTo ? <DetailBlock icon="info" label="How To" text={ex.exercise.howTo!} colors={colors} /> : null}
-          {hasNotes ? <DetailBlock icon="file-text" label="Notes" text={ex.exercise.notes!} colors={colors} /> : null}
+          {hasCues ? <DetailBlock Icon={Zap} label="Cues" text={ex.exercise.cues!} p={p} /> : null}
+          {hasHowTo ? <DetailBlock Icon={Info} label="How To" text={ex.exercise.howTo!} p={p} /> : null}
+          {hasNotes ? <DetailBlock Icon={FileText} label="Notes" text={ex.exercise.notes!} p={p} /> : null}
 
           {hasProgression ? (
             <AccentCallout
-              icon="trending-up" label="Progression" text={ex.progressionNotes!}
-              accentColor={isDark ? "#60A5FA" : "#3B82F6"}
-              bgColor={isDark ? "rgba(59,130,246,0.06)" : "rgba(59,130,246,0.04)"}
-              borderColor={isDark ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.14)"}
-              colors={colors}
+              Icon={TrendingUp} label="Progression" text={ex.progressionNotes!}
+              accentColor={p.info}
+              bgColor={p.infoSoft}
+              p={p}
             />
           ) : null}
 
           {hasRegression ? (
             <AccentCallout
-              icon="trending-down" label="Regression" text={ex.regressionNotes!}
-              accentColor={isDark ? "#FB923C" : "#F97316"}
-              bgColor={isDark ? "rgba(249,115,22,0.06)" : "rgba(249,115,22,0.04)"}
-              borderColor={isDark ? "rgba(249,115,22,0.18)" : "rgba(249,115,22,0.14)"}
-              colors={colors}
+              Icon={TrendingDown} label="Regression" text={ex.regressionNotes!}
+              accentColor={p.warning}
+              bgColor={p.warningSoft}
+              p={p}
             />
           ) : null}
 
           {hasCoachNotes ? (
             <AccentCallout
-              icon="message-circle" label="Coach" text={ex.coachingNotes!}
-              accentColor={colors.accent}
-              bgColor={isDark ? colors.limeGlow : colors.accentLight}
-              borderColor={isDark ? colors.borderLime : colors.borderLime}
-              colors={colors}
+              Icon={MessageCircle} label="Coach" text={ex.coachingNotes!}
+              accentColor={p.accent}
+              bgColor={p.accentSoft}
+              p={p}
             />
           ) : null}
 
           {ex.videoUpload && (ex.videoUpload.coachVideoUrl || ex.videoUpload.feedback) ? (
             <View
               style={{
-                marginTop: spacing.sm,
-                padding: spacing.md,
-                borderRadius: radius.md,
-                backgroundColor: isDark ? "rgba(138, 255, 0, 0.05)" : "rgba(138, 255, 0, 0.03)",
-                borderWidth: 1,
-                borderColor: isDark ? "rgba(138, 255, 0, 0.15)" : "rgba(138, 255, 0, 0.1)",
+                marginTop: 8,
+                padding: 12,
+                borderRadius: 14,
+                backgroundColor: p.accentSoft,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: spacing.md }}>
-                <Ionicons name="videocam" size={16} color={colors.accent} />
-                <Text style={{ fontSize: 12, fontFamily: fonts.accentBold, color: colors.accent, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <Video size={16} color={p.accent} />
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: p.accent, textTransform: "uppercase", letterSpacing: 0.5 }}>
                   Coach Feedback
                 </Text>
               </View>
 
               {ex.videoUpload.coachVideoUrl ? (
-                <View style={{ borderRadius: radius.sm, overflow: "hidden", marginBottom: spacing.sm }}>
+                <View style={{ borderRadius: 14, overflow: "hidden", marginBottom: 8 }}>
                   <VideoPlayer uri={ex.videoUpload.coachVideoUrl} height={180} />
                 </View>
               ) : null}
 
               {ex.videoUpload.feedback ? (
-                <Text style={{ fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.textPrimary, lineHeight: 20, fontStyle: "italic" }}>
+                <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary, lineHeight: 20, fontStyle: "italic" }}>
                   "{ex.videoUpload.feedback}"
                 </Text>
               ) : null}
@@ -846,30 +815,30 @@ function ExerciseCard({
 /* ═══════════════════════════ Detail Block ═══════════════════════════ */
 
 function DetailBlock({
-  icon,
+  Icon,
   label,
   text,
-  colors,
+  p,
 }: {
-  icon: string;
+  Icon: any;
   label: string;
   text: string;
-  colors: Record<string, string>;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   return (
-    <View style={{ gap: spacing.xs }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
-        <Feather name={icon as any} size={12} color={colors.textDim} />
+    <View style={{ gap: 4 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <Icon size={12} color={p.textMuted} />
         <Text
           style={{
-            fontSize: 11, fontFamily: fonts.labelCaps, color: colors.textDim,
+            fontSize: 11, fontFamily: "Outfit-Bold", color: p.textMuted,
             textTransform: "uppercase", letterSpacing: 0.8,
           }}
         >
           {label}
         </Text>
       </View>
-      <Text style={{ fontSize: 13, fontFamily: fonts.bodyRegular, color: colors.textSecondary, lineHeight: 20 }}>
+      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 20 }}>
         {text}
       </Text>
     </View>
@@ -879,42 +848,40 @@ function DetailBlock({
 /* ═══════════════════════════ Accent Callout ═══════════════════════════ */
 
 function AccentCallout({
-  icon,
+  Icon,
   label,
   text,
   accentColor,
   bgColor,
-  borderColor,
-  colors,
+  p,
 }: {
-  icon: string;
+  Icon: any;
   label: string;
   text: string;
   accentColor: string;
   bgColor: string;
-  borderColor: string;
-  colors: Record<string, string>;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   return (
     <View
       style={{
-        paddingHorizontal: spacing.md, paddingVertical: 10, borderRadius: radius.sm,
-        backgroundColor: bgColor, borderWidth: 1, borderColor,
+        paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14,
+        backgroundColor: bgColor,
         borderLeftWidth: 3, borderLeftColor: accentColor,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.xs }}>
-        <Feather name={icon as any} size={12} color={accentColor} />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+        <Icon size={12} color={accentColor} />
         <Text
           style={{
-            fontSize: 11, fontFamily: fonts.labelCaps, color: accentColor,
+            fontSize: 11, fontFamily: "Outfit-Bold", color: accentColor,
             textTransform: "uppercase", letterSpacing: 0.8,
           }}
         >
           {label}
         </Text>
       </View>
-      <Text style={{ fontSize: 13, fontFamily: fonts.bodyRegular, color: colors.textPrimary, lineHeight: 20 }}>
+      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary, lineHeight: 20 }}>
         {text}
       </Text>
     </View>

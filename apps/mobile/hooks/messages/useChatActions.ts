@@ -86,8 +86,12 @@ export function useChatActions({
       const selfId = String(effectiveProfileId ?? "");
       const isPremium = hasPaidProgramTier(programTier);
       const coaches = data.coaches ?? (data.coach ? [data.coach] : []);
+      const aiCoachIds = new Set(
+        coaches.filter((c) => c.isAi).map((c) => String(c.id)),
+      );
       const inboxThreads = (inboxData.threads ?? [])
         .filter((thread) => {
+          if (thread.type !== "group" && aiCoachIds.has(String(thread.peerUserId))) return false;
           if (thread.type !== "group") return true;
           const category = classifyGroupThread({
             id: Number(thread.groupId ?? 0),
@@ -178,7 +182,7 @@ export function useChatActions({
       // Surface every coach as a tappable thread even without message history.
       const inboxThreadIds = new Set(inboxThreads.map((t) => t.id));
       const coachThreads = (coaches ?? [])
-        .filter((coach) => coach?.id != null && !inboxThreadIds.has(String(coach.id)))
+        .filter((coach) => coach?.id != null && !coach.isAi && !inboxThreadIds.has(String(coach.id)))
         .map((coach) =>
           mapCoachToThread(coach, orderedDirectMessages, isPremium),
         );

@@ -8,12 +8,20 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  Users,
+  ChevronRight,
+  MessageCircle,
+  Megaphone,
+  Calendar,
+  BarChart3,
+  Settings,
+  Zap,
+} from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
-import { fonts } from "@/constants/theme";
 import {
   fetchLeaderboard,
   type SocialLeaderboardItem,
@@ -25,7 +33,7 @@ import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterS
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function TeamManagerHomeScreen() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { authTeamMembership, token, appRole } =
     useAppSelector((state) => state.user);
@@ -82,9 +90,6 @@ export default function TeamManagerHomeScreen() {
 
   useEffect(() => {
     void fetchData();
-    // Safety net: never leave the user staring at skeletons. After 5s, show the
-    // actual layout (with whatever data has arrived, or zeros) — fetchData's
-    // setLoaded(true) in finally still runs when it eventually resolves.
     const fallback = setTimeout(() => setLoaded(true), 5000);
     return () => clearTimeout(fallback);
   }, [fetchData]);
@@ -105,17 +110,11 @@ export default function TeamManagerHomeScreen() {
 
   if (appRole !== "team_manager") return null;
 
-  // Hero tint: very subtle lime-tinted background behind the top section
-  const heroBg = isDark ? "hsl(148,18%,6%)" : "hsl(148,22%,96%)";
-  // surfaceHigh gives visible contrast in both light (#F6F8F6) and dark (#111311)
-  const cardBg = colors.surfaceHigh;
-  const cardBorder = isDark ? colors.borderMid : colors.borderMid;
   const participationPct =
     memberCount > 0 ? Math.min((activeCount / memberCount) * 100, 100) : 0;
 
   return (
-    // Outer container carries the hero tint — shows behind rounded card corners
-    <View style={{ flex: 1, backgroundColor: heroBg }}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
@@ -123,8 +122,8 @@ export default function TeamManagerHomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.accent}
-            colors={[colors.accent]}
+            tintColor={p.accent}
+            colors={[p.accent]}
           />
         }
       >
@@ -139,28 +138,13 @@ export default function TeamManagerHomeScreen() {
               overflow: "hidden",
             }}
           >
-            {/* Ambient glow dot */}
-            <View
-              style={{
-                position: "absolute",
-                top: -30,
-                right: -40,
-                width: 220,
-                height: 220,
-                borderRadius: 110,
-                backgroundColor: isDark
-                  ? "rgba(52,199,89,0.07)"
-                  : "rgba(22,163,74,0.07)",
-              }}
-            />
-
             {/* Team name */}
             <Text
               numberOfLines={1}
               style={{
                 fontSize: 36,
-                fontFamily: "TelmaBold",
-                color: isDark ? "hsl(148,8%,94%)" : "hsl(148,28%,10%)",
+                fontFamily: "Outfit-Bold",
+                color: p.textPrimary,
                 letterSpacing: -0.5,
                 lineHeight: 42,
                 marginBottom: 10,
@@ -184,26 +168,18 @@ export default function TeamManagerHomeScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 5,
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.07)"
-                    : "rgba(0,0,0,0.06)",
-                  borderRadius: 99,
+                  backgroundColor: p.accentSoft,
+                  borderRadius: 100,
                   paddingHorizontal: 10,
                   paddingVertical: 5,
                 }}
               >
-                <Ionicons
-                  name="people-outline"
-                  size={11}
-                  color={isDark ? "hsl(148,5%,60%)" : "hsl(148,18%,38%)"}
-                />
+                <Users size={11} color={p.textSecondary} />
                 <Text
                   style={{
                     fontSize: 12,
-                    fontFamily: fonts.bodyMedium,
-                    color: isDark
-                      ? "hsl(148,5%,60%)"
-                      : "hsl(148,18%,38%)",
+                    fontFamily: "Outfit-Regular",
+                    color: p.textSecondary,
                   }}
                 >
                   {memberCount} athletes
@@ -215,12 +191,10 @@ export default function TeamManagerHomeScreen() {
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 5,
-                    backgroundColor: colors.accentLight,
-                    borderRadius: 99,
+                    backgroundColor: p.successSoft,
+                    borderRadius: 100,
                     paddingHorizontal: 10,
                     paddingVertical: 5,
-                    borderWidth: 1,
-                    borderColor: colors.borderLime,
                   }}
                 >
                   <View
@@ -228,14 +202,14 @@ export default function TeamManagerHomeScreen() {
                       width: 6,
                       height: 6,
                       borderRadius: 3,
-                      backgroundColor: colors.accent,
+                      backgroundColor: p.accent,
                     }}
                   />
                   <Text
                     style={{
                       fontSize: 12,
-                      fontFamily: fonts.bodyMedium,
-                      color: colors.accent,
+                      fontFamily: "Outfit-Regular",
+                      color: p.accent,
                     }}
                   >
                     {activeCount} active
@@ -258,10 +232,8 @@ export default function TeamManagerHomeScreen() {
                   <Text
                     style={{
                       fontSize: 64,
-                      fontFamily: "ClashDisplay-Bold",
-                      color: isDark
-                        ? "hsl(148,8%,94%)"
-                        : "hsl(148,28%,8%)",
+                      fontFamily: "Outfit-Bold",
+                      color: p.textPrimary,
                       letterSpacing: -2,
                       lineHeight: 68,
                     }}
@@ -271,10 +243,8 @@ export default function TeamManagerHomeScreen() {
                   <Text
                     style={{
                       fontSize: 20,
-                      fontFamily: fonts.bodyMedium,
-                      color: isDark
-                        ? "hsl(148,5%,52%)"
-                        : "hsl(148,18%,40%)",
+                      fontFamily: "Outfit-Regular",
+                      color: p.textSecondary,
                       marginBottom: 6,
                     }}
                   >
@@ -284,10 +254,8 @@ export default function TeamManagerHomeScreen() {
                 <Text
                   style={{
                     fontSize: 12,
-                    fontFamily: fonts.bodyRegular,
-                    color: isDark
-                      ? "hsl(148,5%,52%)"
-                      : "hsl(148,18%,42%)",
+                    fontFamily: "Outfit-Regular",
+                    color: p.textMuted,
                     marginBottom: 14,
                   }}
                 >
@@ -299,9 +267,7 @@ export default function TeamManagerHomeScreen() {
                       style={{
                         height: 4,
                         borderRadius: 2,
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.09)"
-                          : "rgba(0,0,0,0.09)",
+                        backgroundColor: p.divider,
                         overflow: "hidden",
                       }}
                     >
@@ -310,17 +276,15 @@ export default function TeamManagerHomeScreen() {
                           height: "100%",
                           width: `${participationPct}%`,
                           borderRadius: 2,
-                          backgroundColor: colors.accent,
+                          backgroundColor: p.accent,
                         }}
                       />
                     </View>
                     <Text
                       style={{
                         fontSize: 11,
-                        fontFamily: fonts.bodyRegular,
-                        color: isDark
-                          ? "hsl(148,5%,50%)"
-                          : "hsl(148,18%,44%)",
+                        fontFamily: "Outfit-Regular",
+                        color: p.textMuted,
                         marginTop: 7,
                       }}
                     >
@@ -337,7 +301,7 @@ export default function TeamManagerHomeScreen() {
           {/* ── Floating Content Card ─────────────────────── */}
           <View
             style={{
-              backgroundColor: colors.background,
+              backgroundColor: p.cardWhite,
               borderTopLeftRadius: 28,
               borderTopRightRadius: 28,
               marginTop: -28,
@@ -352,43 +316,27 @@ export default function TeamManagerHomeScreen() {
                 width: 36,
                 height: 4,
                 borderRadius: 2,
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.12)"
-                  : "rgba(0,0,0,0.10)",
+                backgroundColor: p.divider,
                 alignSelf: "center",
                 marginBottom: 28,
               }}
             />
 
-            {/* Compact stats strip — always visible, data from Redux */}
+            {/* Compact stats strip */}
             <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
               <View
                 style={{
                   flexDirection: "row",
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
-                  backgroundColor: cardBg,
+                  borderRadius: 22,
+                  backgroundColor: p.cardSage,
                   overflow: "hidden",
                 }}
               >
-                <StatPill
-                  label="Athletes"
-                  value={memberCount}
-                  accent={colors.accent}
-                />
-                <View style={{ width: 1, backgroundColor: cardBorder }} />
-                <StatPill
-                  label="Youth"
-                  value={youthCount}
-                  accent={isDark ? "hsl(220,30%,72%)" : "hsl(220,40%,55%)"}
-                />
-                <View style={{ width: 1, backgroundColor: cardBorder }} />
-                <StatPill
-                  label="Adults"
-                  value={adultCount}
-                  accent={isDark ? "hsl(160,25%,62%)" : "hsl(160,35%,42%)"}
-                />
+                <StatPill label="Athletes" value={memberCount} />
+                <View style={{ width: 1, backgroundColor: p.divider }} />
+                <StatPill label="Youth" value={youthCount} />
+                <View style={{ width: 1, backgroundColor: p.divider }} />
+                <StatPill label="Adults" value={adultCount} />
               </View>
             </View>
 
@@ -400,7 +348,7 @@ export default function TeamManagerHomeScreen() {
             )}
             {!loaded && (
               <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
-                <SkeletonBlock height={110} borderRadius={18} />
+                <SkeletonBlock height={110} borderRadius={22} />
               </View>
             )}
 
@@ -409,51 +357,49 @@ export default function TeamManagerHomeScreen() {
               <SectionLabel label="Actions" />
               <View
                 style={{
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
-                  backgroundColor: cardBg,
+                  borderRadius: 22,
+                  backgroundColor: p.cardWhite,
                   overflow: "hidden",
                 }}
               >
                 <ActionRow
-                  icon="people-outline"
+                  icon={Users}
                   label="Roster"
                   subtitle={`${memberCount} athlete${memberCount !== 1 ? "s" : ""}`}
-                  accent={colors.accent}
+                  accent={p.accent}
                   isFirst
                   onPress={() => router.push("/team-manager/roster")}
                 />
                 <ActionRow
-                  icon="chatbubbles-outline"
+                  icon={MessageCircle}
                   label="Messages"
-                  accent={colors.cyan}
+                  accent={p.info}
                   onPress={() => router.push("/(tabs)/messages" as any)}
                 />
                 <ActionRow
-                  icon="megaphone-outline"
+                  icon={Megaphone}
                   label="Announcements"
-                  accent={colors.amber}
+                  accent={p.warning}
                   onPress={() => router.push("/announcements" as any)}
                 />
                 <ActionRow
-                  icon="calendar-outline"
+                  icon={Calendar}
                   label="Schedule"
-                  accent={colors.purple}
+                  accent={p.info}
                   onPress={() => router.push("/(tabs)/schedule")}
                 />
                 <ActionRow
-                  icon="analytics-outline"
+                  icon={BarChart3}
                   label="Stats"
-                  accent={colors.coral}
+                  accent={p.danger}
                   onPress={() =>
                     router.push("/(tabs)/tracking/social" as any)
                   }
                 />
                 <ActionRow
-                  icon="settings-outline"
+                  icon={Settings}
                   label="Team Settings"
-                  accent={colors.textSecondary}
+                  accent={p.textMuted}
                   isLast
                   onPress={() =>
                     router.push(
@@ -476,14 +422,14 @@ export default function TeamManagerHomeScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SectionLabel({ label }: { label: string }) {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   return (
     <Text
       style={{
-        fontFamily: fonts.labelCaps,
+        fontFamily: "Outfit-Bold",
         fontSize: 11,
         letterSpacing: 1.2,
-        color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,50%)",
+        color: p.textMuted,
         textTransform: "uppercase",
         paddingLeft: 2,
         marginBottom: 12,
@@ -507,7 +453,7 @@ function SkeletonBlock({
   borderRadius?: number;
   style?: object;
 }) {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -540,9 +486,7 @@ function SkeletonBlock({
         {
           height,
           borderRadius,
-          backgroundColor: isDark
-            ? "rgba(255,255,255,0.07)"
-            : "rgba(0,0,0,0.06)",
+          backgroundColor: p.divider,
           opacity,
         },
         style,
@@ -556,7 +500,7 @@ function SkeletonBlock({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function HeroSkeleton() {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -583,8 +527,6 @@ function HeroSkeleton() {
     outputRange: [0.2, 0.45],
   });
 
-  const bg = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)";
-
   return (
     <View style={{ gap: 10 }}>
       <Animated.View
@@ -592,7 +534,7 @@ function HeroSkeleton() {
           height: 68,
           width: "72%",
           borderRadius: 14,
-          backgroundColor: bg,
+          backgroundColor: p.divider,
           opacity,
         }}
       />
@@ -601,7 +543,7 @@ function HeroSkeleton() {
           height: 4,
           width: "100%",
           borderRadius: 2,
-          backgroundColor: bg,
+          backgroundColor: p.divider,
           opacity,
         }}
       />
@@ -610,7 +552,7 @@ function HeroSkeleton() {
           height: 12,
           width: "52%",
           borderRadius: 6,
-          backgroundColor: bg,
+          backgroundColor: p.divider,
           opacity,
         }}
       />
@@ -628,9 +570,8 @@ function StatPill({
 }: {
   label: string;
   value: number;
-  accent: string;
 }) {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View
@@ -644,8 +585,8 @@ function StatPill({
       <Text
         style={{
           fontSize: 28,
-          fontFamily: "ClashDisplay-Bold",
-          color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)",
+          fontFamily: "Outfit-Bold",
+          color: p.textPrimary,
           letterSpacing: -0.5,
           lineHeight: 32,
         }}
@@ -655,8 +596,8 @@ function StatPill({
       <Text
         style={{
           fontSize: 10,
-          fontFamily: fonts.labelBold,
-          color: isDark ? "hsl(220,5%,46%)" : "hsl(220,5%,52%)",
+          fontFamily: "Outfit-Bold",
+          color: p.textMuted,
           textTransform: "uppercase",
           letterSpacing: 0.8,
           marginTop: 3,
@@ -677,7 +618,7 @@ function LeaderboardPreview({
 }: {
   leaderboard: SocialLeaderboardItem[];
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const top = leaderboard.slice(0, 8);
 
   return (
@@ -692,10 +633,10 @@ function LeaderboardPreview({
       >
         <Text
           style={{
-            fontFamily: fonts.labelCaps,
+            fontFamily: "Outfit-Bold",
             fontSize: 11,
             letterSpacing: 1.2,
-            color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,50%)",
+            color: p.textMuted,
             textTransform: "uppercase",
             paddingLeft: 2,
           }}
@@ -709,8 +650,8 @@ function LeaderboardPreview({
           <Text
             style={{
               fontSize: 12,
-              fontFamily: fonts.bodyMedium,
-              color: colors.accent,
+              fontFamily: "Outfit-Regular",
+              color: p.accent,
             }}
           >
             See all
@@ -740,7 +681,7 @@ function LeaderboardPreview({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const initials = item.name
     .split(" ")
@@ -757,18 +698,13 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
   ];
   const rankColor = isTop3
     ? rankPalette[item.rank - 1]
-    : colors.textSecondary;
-
-  const cardBg = isDark ? colors.surfaceHigh : colors.cardElevated;
-  const cardBorder = isDark ? colors.borderMid : colors.borderSubtle;
+    : p.textMuted;
 
   return (
     <View
       style={{
-        borderRadius: 18,
-        borderWidth: 1,
-        backgroundColor: cardBg,
-        borderColor: cardBorder,
+        borderRadius: 22,
+        backgroundColor: p.cardWhite,
         padding: 14,
         alignItems: "center",
         gap: 7,
@@ -779,7 +715,7 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
         <Text
           style={{
             fontSize: 9,
-            fontFamily: fonts.labelBold,
+            fontFamily: "Outfit-Bold",
             color: rankColor,
           }}
         >
@@ -795,11 +731,9 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
           borderRadius: 22,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: isDark
-            ? colors.surfaceHigher
-            : colors.backgroundSecondary,
+          backgroundColor: p.accentSoft,
           borderWidth: 1,
-          borderColor: cardBorder,
+          borderColor: p.divider,
           overflow: "hidden",
           marginTop: 4,
         }}
@@ -813,8 +747,8 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
           <Text
             style={{
               fontSize: 15,
-              fontFamily: fonts.heading2,
-              color: isDark ? "hsl(220,5%,65%)" : "hsl(220,8%,40%)",
+              fontFamily: "Outfit-Bold",
+              color: p.textSecondary,
             }}
           >
             {initials}
@@ -826,8 +760,8 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
         numberOfLines={1}
         style={{
           fontSize: 11,
-          fontFamily: fonts.bodyMedium,
-          color: isDark ? "hsl(220,5%,80%)" : "hsl(220,8%,22%)",
+          fontFamily: "Outfit-Regular",
+          color: p.textSecondary,
           textAlign: "center",
           maxWidth: 70,
         }}
@@ -838,8 +772,8 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
       <Text
         style={{
           fontSize: 13,
-          fontFamily: "ClashDisplay-Bold",
-          color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,8%)",
+          fontFamily: "Outfit-Bold",
+          color: p.textPrimary,
           letterSpacing: -0.3,
         }}
       >
@@ -847,8 +781,8 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
         <Text
           style={{
             fontSize: 9,
-            fontFamily: fonts.bodyRegular,
-            color: colors.textSecondary,
+            fontFamily: "Outfit-Regular",
+            color: p.textMuted,
           }}
         >
           {" km"}
@@ -863,14 +797,14 @@ function AthleteCard({ item }: { item: SocialLeaderboardItem }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ActionRow({
-  icon,
+  icon: Icon,
   label,
   subtitle,
   accent,
   isFirst,
   onPress,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ComponentType<{ size: number; color: string }>;
   label: string;
   subtitle?: string;
   accent: string;
@@ -878,7 +812,7 @@ function ActionRow({
   isLast?: boolean;
   onPress: () => void;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View>
@@ -886,7 +820,7 @@ function ActionRow({
         <View
           style={{
             height: 1,
-            backgroundColor: isDark ? colors.borderSubtle : colors.borderMid,
+            backgroundColor: p.divider,
             marginLeft: 66,
           }}
         />
@@ -896,14 +830,9 @@ function ActionRow({
         accessibilityLabel={label}
         onPress={onPress}
         style={({ pressed }) => ({
-          backgroundColor: pressed
-            ? isDark
-              ? "rgba(255,255,255,0.04)"
-              : "rgba(0,0,0,0.03)"
-            : "transparent",
+          backgroundColor: pressed ? p.accentSoft : "transparent",
         })}
       >
-        {/* Static layout View — flexDirection must NOT be in the Pressable style function */}
         <View
           style={{
             flexDirection: "row",
@@ -921,10 +850,10 @@ function ActionRow({
               borderRadius: 10,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: isDark ? `${accent}22` : `${accent}18`,
+              backgroundColor: `${accent}18`,
             }}
           >
-            <Ionicons name={icon} size={18} color={accent} />
+            <Icon size={18} color={accent} />
           </View>
 
           {/* Label + subtitle */}
@@ -932,8 +861,8 @@ function ActionRow({
             <Text
               style={{
                 fontSize: 15,
-                fontFamily: fonts.bodyBold,
-                color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,10%)",
+                fontFamily: "Outfit-Bold",
+                color: p.textPrimary,
               }}
             >
               {label}
@@ -942,8 +871,8 @@ function ActionRow({
               <Text
                 style={{
                   fontSize: 12,
-                  fontFamily: fonts.bodyRegular,
-                  color: colors.textSecondary,
+                  fontFamily: "Outfit-Regular",
+                  color: p.textSecondary,
                   marginTop: 1,
                 }}
               >
@@ -953,11 +882,7 @@ function ActionRow({
           </View>
 
           {/* Chevron */}
-          <Ionicons
-            name="chevron-forward"
-            size={14}
-            color={isDark ? "hsl(220,5%,36%)" : "hsl(220,5%,65%)"}
-          />
+          <ChevronRight size={14} color={p.textMuted} />
         </View>
       </Pressable>
     </View>

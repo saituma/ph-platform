@@ -15,7 +15,7 @@ import { normalizeDate } from "../lib/age";
 import { db } from "../db";
 import { notificationTable, userTable } from "../db/schema";
 import { env } from "../config/env";
-import { sendPushNotification } from "../services/push.service";
+import { createPushIntent } from "../services/outbox.service";
 import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
 
 const mealsSchema = z.union([z.array(z.any()), z.record(z.any())]).optional();
@@ -98,11 +98,16 @@ export async function createFoodDiary(req: Request, res: Response) {
         link: "/exercise-library?tab=nutrition",
       })),
     );
-    await Promise.all(
+    await Promise.allSettled(
       coaches.map((coach) =>
-        sendPushNotification(coach.id, "Food diary submitted", `${athlete.name} sent a new food diary entry.`, {
-          type: "food_diary_submitted",
-          url: "/exercise-library?tab=nutrition",
+        createPushIntent({
+          userId: coach.id,
+          title: "Food diary submitted",
+          body: `${athlete.name} sent a new food diary entry.`,
+          data: {
+            type: "food_diary_submitted",
+            url: "/exercise-library?tab=nutrition",
+          },
         }),
       ),
     );
@@ -152,10 +157,15 @@ export async function reviewFoodDiaryAdmin(req: Request, res: Response) {
       content: `Coach responded to ${athleteName}'s food diary.`,
       link: "/programs",
     });
-    void sendPushNotification(guardianUserId, "Coach feedback", `Coach reviewed ${athleteName}'s food diary.`, {
-      type: "food_diary_feedback",
-      url: "/programs",
-    });
+    void createPushIntent({
+      userId: guardianUserId,
+      title: "Coach feedback",
+      body: `Coach reviewed ${athleteName}'s food diary.`,
+      data: {
+        type: "food_diary_feedback",
+        url: "/programs",
+      },
+    }).catch(() => undefined);
   }
 
   return res.status(200).json({ item: updated });

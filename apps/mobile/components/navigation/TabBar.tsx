@@ -10,6 +10,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useAppSelector } from "@/store/hooks";
+import { isAdminRole } from "@/lib/isAdminRole";
 import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 
 // ── Types & Constants ────────────────────────────────────────────────
@@ -127,7 +130,10 @@ const TabItem = React.memo(function TabItem({
   isDark: boolean;
 }) {
   const activeColor = colors.accent ?? colors.tint;
-  const inactiveColor = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)";
+  const isAdminColors = "surface" in colors && (colors as any).surface === "#FFFFFF";
+  const inactiveColor = isAdminColors
+    ? (isDark ? "rgba(106,204,0,0.4)" : "rgba(45,159,63,0.35)")
+    : (isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)");
 
   const animatedIconActiveStyle = useAnimatedStyle(() => {
     if (!scrollOffset) return { opacity: 0 };
@@ -266,6 +272,9 @@ const TabItem = React.memo(function TabItem({
 
 export function TabBar({ tabs, activeIndex, scrollOffset, onTabPress }: TabBarProps) {
   const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
+  const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
+  const isAdmin = isAdminRole(apiUserRole);
   const insets = useAppSafeAreaInsets();
 
   const visibleTabs = useMemo(
@@ -295,20 +304,29 @@ export function TabBar({ tabs, activeIndex, scrollOffset, onTabPress }: TabBarPr
     };
   });
 
+  const tabColors = isAdmin
+    ? { ...colors, accent: p.accent, tint: p.accent, danger: p.danger, surface: p.cardWhite }
+    : colors;
+
   return (
     <View pointerEvents="box-none" style={[styles.wrapper, { paddingBottom: safeBottom }]}>
-      <Animated.View 
+      <Animated.View
         style={[
           styles.dockContainer,
-          { 
-            backgroundColor: isDark ? "rgba(20, 20, 20, 0.75)" : "rgba(255, 255, 255, 0.85)",
-            borderColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.08)",
-          }
+          isAdmin
+            ? {
+                backgroundColor: isDark ? "rgba(15,22,16,0.92)" : "rgba(244,250,242,0.95)",
+                borderColor: isDark ? "rgba(106,204,0,0.15)" : "rgba(45,159,63,0.12)",
+              }
+            : {
+                backgroundColor: isDark ? "rgba(20, 20, 20, 0.75)" : "rgba(255, 255, 255, 0.85)",
+                borderColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.08)",
+              }
         ]}
       >
         {Platform.OS === "ios" && (
           <BlurView
-            intensity={65}
+            intensity={isAdmin ? 50 : 65}
             tint={isDark ? "dark" : "light"}
             style={StyleSheet.absoluteFill}
           />
@@ -323,7 +341,7 @@ export function TabBar({ tabs, activeIndex, scrollOffset, onTabPress }: TabBarPr
               index={index}
               scrollOffset={scrollOffset}
               onTabPress={onTabPress}
-              colors={colors}
+              colors={tabColors}
               isDark={isDark}
             />
           ))}

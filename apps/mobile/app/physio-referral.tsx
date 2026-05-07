@@ -1,12 +1,12 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Linking, Pressable, View } from "react-native";
+import { ActivityIndicator, Image, Linking, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Activity, ExternalLink, Info, Mail, MapPin, Phone, User } from "lucide-react-native";
 
-import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useSocket } from "@/context/SocketContext";
@@ -36,6 +36,7 @@ export default function PhysioReferralScreen() {
   const { token, capabilities } = useAppSelector((state) => state.user);
   const hasProReferrals = Boolean(capabilities?.physioReferrals);
   const { socket } = useSocket();
+  const p = useAdminPastel();
   const [loading, setLoading] = useState(true);
   const [referral, setReferral] = useState<ReferralData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,22 +78,33 @@ export default function PhysioReferralScreen() {
 
   if (!hasProReferrals) {
     return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
         <MoreStackHeader
           title="Referrals"
           subtitle="Physio and partner referrals from your coach."
           onBack={() => router.back()}
         />
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-2xl font-clash font-bold text-app text-center mb-3">Referrals</Text>
-          <Text className="text-base font-outfit text-secondary text-center max-w-[300px]">
-            This area isn’t available for your account yet.
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <Text style={{ fontSize: 24, fontFamily: "Outfit-Bold", color: p.textPrimary, textAlign: "center", marginBottom: 12 }}>
+            Referrals
+          </Text>
+          <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center", maxWidth: 300 }}>
+            This area isn't available for your account yet.
           </Text>
           <Pressable
             onPress={() => router.push("/(tabs)/programs")}
-            className="mt-8 rounded-full px-8 py-3 bg-[#2F8F57]"
+            style={({ pressed }) => ({
+              marginTop: 32,
+              borderRadius: 100,
+              paddingHorizontal: 32,
+              paddingVertical: 12,
+              backgroundColor: p.accent,
+              opacity: pressed ? 0.85 : 1,
+            })}
           >
-            <Text className="text-sm font-outfit font-semibold text-white">Open training</Text>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
+              Open training
+            </Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -117,8 +129,8 @@ export default function PhysioReferralScreen() {
   const organizationLabel = meta.organizationName || meta.clinicName || null;
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <ThemedScrollView contentContainerStyle={{ paddingBottom: 40 }} onRefresh={loadReferral}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <MoreStackHeader
           title="Referrals"
           subtitle="Access the latest referral your coach has assigned, along with contact details and any partner perks."
@@ -126,49 +138,45 @@ export default function PhysioReferralScreen() {
           onBack={() => router.back()}
         />
 
-        <View className="px-6 pt-2">
+        <View style={{ paddingHorizontal: 24, paddingTop: 8 }}>
 
           {loading ? (
-            <View className="rounded-3xl bg-card px-6 py-10 items-center justify-center">
-              <ActivityIndicator color="#2F8F57" />
-              <Text className="text-sm font-outfit text-secondary mt-3">Loading referral details...</Text>
+            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 24, paddingVertical: 40, alignItems: "center", justifyContent: "center" }}>
+              <ActivityIndicator color={p.accent} />
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 12 }}>Loading referral details...</Text>
             </View>
           ) : error ? (
-            <View className="rounded-3xl bg-card px-6 py-6 border border-red-500/20">
-              <Text className="text-sm font-outfit text-red-400 text-center">{error}</Text>
+            <View style={{ borderRadius: 22, backgroundColor: p.dangerSoft, paddingHorizontal: 24, paddingVertical: 24 }}>
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.danger, textAlign: "center" }}>{error}</Text>
             </View>
           ) : !referral ? (
-            <View className="rounded-3xl bg-card px-6 py-10 items-center justify-center border border-white/5">
-              <View className="h-16 w-16 rounded-full bg-secondary/20 items-center justify-center mb-4">
-                <Feather name="activity" size={28} color="#94A3B8" />
+            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 24, paddingVertical: 40, alignItems: "center", justifyContent: "center" }}>
+              <View style={{ height: 64, width: 64, borderRadius: 100, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                <Activity size={28} color={p.textMuted} />
               </View>
-              <Text className="text-lg font-clash text-app font-bold mb-2 text-center">No Referral Yet</Text>
-              <Text className="text-sm font-outfit text-secondary text-center leading-relaxed">
+              <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8, textAlign: "center" }}>No Referral Yet</Text>
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center", lineHeight: 22 }}>
                 Your coach has not assigned a referral for you yet. They will notify you when one is ready.
               </Text>
             </View>
           ) : (
-            <View className="gap-6">
+            <View style={{ gap: 24 }}>
               {/* Main Actions Card */}
               <View style={{
-                borderRadius: 24,
-                backgroundColor: "#1F6F45",
+                borderRadius: 22,
+                backgroundColor: p.accent,
                 paddingHorizontal: 24,
                 paddingVertical: 24,
                 overflow: "hidden",
               }}>
-                <View style={{ position: "absolute", top: -40, right: -40, opacity: 0.1 }}>
-                  <Feather name="activity" size={120} color="#FFFFFF" />
-                </View>
-
-                <Text style={{ fontSize: 22, fontFamily: "Chillax-Semibold", color: "#FFFFFF", marginBottom: 8 }}>
+                <Text style={{ fontSize: 22, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText, marginBottom: 8 }}>
                   Open Referral
                 </Text>
 
                 {referral.discountPercent ? (
                   <View style={{ marginBottom: 20, flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <View style={{ borderRadius: 99, backgroundColor: "rgba(255,255,255,0.25)", paddingHorizontal: 12, paddingVertical: 4 }}>
-                      <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: "#FFFFFF", letterSpacing: 1 }}>
+                    <View style={{ borderRadius: 100, backgroundColor: "rgba(255,255,255,0.25)", paddingHorizontal: 12, paddingVertical: 4 }}>
+                      <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText, letterSpacing: 1 }}>
                         {referral.discountPercent}% OFF
                       </Text>
                     </View>
@@ -189,29 +197,29 @@ export default function PhysioReferralScreen() {
                   disabled={!referralLink}
                   style={({ pressed }) => ({
                     width: "100%",
-                    borderRadius: 16,
+                    borderRadius: 100,
                     paddingVertical: 16,
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 10,
-                    backgroundColor: referralLink ? "#FFFFFF" : "rgba(255,255,255,0.25)",
+                    backgroundColor: referralLink ? p.cardWhite : "rgba(255,255,255,0.25)",
                     opacity: (!referralLink || pressed) ? 0.75 : 1,
                   })}
                 >
                   <Text style={{
                     fontSize: 16,
                     fontFamily: "Outfit-Bold",
-                    color: referralLink ? "#1F6F45" : "#FFFFFF",
+                    color: referralLink ? p.accent : p.buttonPrimaryText,
                   }}>
                     {referralLink ? "Open Referral Link" : "Link not available"}
                   </Text>
-                  {referralLink && <Feather name="external-link" size={18} color="#1F6F45" />}
+                  {referralLink && <ExternalLink size={18} color={p.accent} />}
                 </Pressable>
               </View>
 
               {meta.imageUrl ? (
-                <View className="overflow-hidden rounded-3xl border border-white/5 bg-card">
+                <View style={{ overflow: "hidden", borderRadius: 22, backgroundColor: p.cardWhite }}>
                   <Image
                     source={{ uri: meta.imageUrl }}
                     style={{ width: "100%", height: 220 }}
@@ -222,20 +230,20 @@ export default function PhysioReferralScreen() {
 
               {/* Physio Details Card */}
               {hasMeta && (
-                <View className="rounded-3xl bg-card px-6 py-6 border border-white/5 space-y-5">
-                  <View className="flex-row items-center gap-3 border-b border-white/5 pb-4">
-                    <View className="h-10 w-10 rounded-full bg-accent/20 items-center justify-center">
-                      <Feather name="user" size={20} color="#2F8F57" />
+                <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 24, paddingVertical: 24, gap: 20 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: p.divider, paddingBottom: 16 }}>
+                    <View style={{ height: 40, width: 40, borderRadius: 100, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+                      <User size={20} color={p.accent} />
                     </View>
-                    <View className="flex-1">
-                      <Text className="text-[10px] font-outfit text-secondary uppercase tracking-[2px] font-bold">
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, textTransform: "uppercase", letterSpacing: 2 }}>
                         {referralTypeLabel}
                       </Text>
-                      <Text className="text-lg font-clash text-app font-bold mt-0.5" numberOfLines={1}>
+                      <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.textPrimary, marginTop: 2 }} numberOfLines={1}>
                         {providerLabel}
                       </Text>
                       {organizationLabel && (
-                        <Text className="text-xs font-outfit text-secondary mt-0.5" numberOfLines={1}>
+                        <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 2 }} numberOfLines={1}>
                           {organizationLabel}
                         </Text>
                       )}
@@ -244,23 +252,23 @@ export default function PhysioReferralScreen() {
 
                   {meta.specialty && (
                     <View>
-                      <Text className="text-xs font-outfit text-secondary mb-1">Specialty</Text>
-                      <Text className="text-sm font-outfit text-app">{meta.specialty}</Text>
+                      <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted, marginBottom: 4 }}>Specialty</Text>
+                      <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary }}>{meta.specialty}</Text>
                     </View>
                   )}
 
                   {(meta.phone || meta.email) && (
-                    <View className="flex-row gap-4">
+                    <View style={{ flexDirection: "row", gap: 16 }}>
                       {meta.phone && (
-                        <View className="flex-1 rounded-2xl bg-secondary/10 p-4">
-                          <Feather name="phone" size={16} color="#94A3B8" className="mb-2" />
-                          <Text className="text-xs font-outfit text-app" selectable>{meta.phone}</Text>
+                        <View style={{ flex: 1, borderRadius: 16, backgroundColor: p.inputBg, padding: 16 }}>
+                          <Phone size={16} color={p.textMuted} style={{ marginBottom: 8 }} />
+                          <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textPrimary }} selectable>{meta.phone}</Text>
                         </View>
                       )}
                       {meta.email && (
-                        <View className="flex-1 rounded-2xl bg-secondary/10 p-4">
-                          <Feather name="mail" size={16} color="#94A3B8" className="mb-2" />
-                          <Text className="text-xs font-outfit text-app" selectable numberOfLines={1}>{meta.email}</Text>
+                        <View style={{ flex: 1, borderRadius: 16, backgroundColor: p.inputBg, padding: 16 }}>
+                          <Mail size={16} color={p.textMuted} style={{ marginBottom: 8 }} />
+                          <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textPrimary }} selectable numberOfLines={1}>{meta.email}</Text>
                         </View>
                       )}
                     </View>
@@ -268,21 +276,21 @@ export default function PhysioReferralScreen() {
 
                   {meta.location && (
                     <View>
-                      <Text className="text-xs font-outfit text-secondary mb-1">Location</Text>
-                      <View className="flex-row items-center gap-2">
-                        <Feather name="map-pin" size={14} color="#2F8F57" />
-                        <Text className="text-sm font-outfit text-app flex-1">{meta.location}</Text>
+                      <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted, marginBottom: 4 }}>Location</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <MapPin size={14} color={p.accent} />
+                        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary, flex: 1 }}>{meta.location}</Text>
                       </View>
                     </View>
                   )}
 
                   {meta.notes && (
-                    <View className="rounded-2xl bg-accent/10 p-4 border border-accent/20">
-                      <View className="flex-row items-center gap-2 mb-2">
-                        <Feather name="info" size={14} color="#2F8F57" />
-                        <Text className="text-xs font-outfit text-[#2F8F57] uppercase tracking-wider font-bold">Coach Notes</Text>
+                    <View style={{ borderRadius: 16, backgroundColor: p.accentSoft, padding: 16 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <Info size={14} color={p.accent} />
+                        <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.accent, textTransform: "uppercase", letterSpacing: 1.4 }}>Coach Notes</Text>
                       </View>
-                      <Text className="text-sm font-outfit text-app leading-relaxed">{meta.notes}</Text>
+                      <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary, lineHeight: 22 }}>{meta.notes}</Text>
                     </View>
                   )}
                 </View>
@@ -290,7 +298,7 @@ export default function PhysioReferralScreen() {
             </View>
           )}
         </View>
-      </ThemedScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 }

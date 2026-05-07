@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { ArrowLeft, X } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useFocusEffect } from "@react-navigation/native";
@@ -24,7 +24,7 @@ import * as FileSystem from "expo-file-system/legacy";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
 import { scheduleLocalNotification } from "@/lib/localNotifications";
 import { isAdultAthleteAppRole } from "@/lib/appRole";
@@ -41,7 +41,6 @@ import {
   finishTrainingContentV2Session,
   FinishTrainingSessionWorkoutLog,
 } from "@/services/programs/programsService";
-import { radius, spacing, fonts } from "@/constants/theme";
 import type { SelectedVideo } from "@/types/video-upload";
 
 const VIDEO_MAX_MB = 90;
@@ -57,7 +56,7 @@ type PendingSessionVideo = {
 
 export default function ProgramSessionDetailScreen() {
   const router = useRouter();
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { sessionId, programId, moduleId, backToModule } =
     useLocalSearchParams<{
@@ -69,9 +68,6 @@ export default function ProgramSessionDetailScreen() {
   const { token, athleteUserId, managedAthletes, appRole, capabilities } =
     useAppSelector((state) => state.user);
 
-  /**
-   * Cold start protection: ghost restore guard — see content/[contentId].tsx for rationale.
-   */
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -178,7 +174,6 @@ export default function ProgramSessionDetailScreen() {
     const iosCompressionOptions =
       Platform.OS === "ios"
         ? {
-            // Force H.264 transcode to a smaller target profile where possible.
             videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
             videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
             preferredAssetRepresentationMode:
@@ -526,13 +521,13 @@ export default function ProgramSessionDetailScreen() {
           video: pending.video,
           notes: pending.notes.trim() || undefined,
           sectionContentId,
-          onProgress: (p) => {
+          onProgress: (prog) => {
             setPendingBySectionId((prev) => {
               const current = prev[sectionContentId];
               if (!current) return prev;
               return {
                 ...prev,
-                [sectionContentId]: { ...current, progress: p },
+                [sectionContentId]: { ...current, progress: prog },
               };
             });
           },
@@ -652,24 +647,23 @@ export default function ProgramSessionDetailScreen() {
 
   if (isLoading && !workspace)
     return (
-      <View className="flex-1 bg-app">
+      <View style={{ flex: 1, backgroundColor: p.pageBg }}>
         <SkeletonSessionScreen />
       </View>
     );
 
   if (!isLoading && !workspace && workspaceError)
     return (
-      <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-        <View className="flex-1 items-center justify-center px-8 gap-4">
-          <Text className="text-sm font-outfit text-secondary text-center">
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 16 }}>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
             {workspaceError}
           </Text>
           <Pressable
             onPress={() => void load(true)}
-            className="rounded-2xl px-6 py-3"
-            style={{ backgroundColor: colors.accent }}
+            style={{ borderRadius: 100, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: p.accent }}
           >
-            <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textInverse }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
               Retry
             </Text>
           </Pressable>
@@ -678,36 +672,39 @@ export default function ProgramSessionDetailScreen() {
     );
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <ThemedScrollView
         onRefresh={() => {
           void load(true);
         }}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        <View className="px-6 pt-4">
+        <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
+          {/* Hero header */}
           <View
-            className="mb-6 rounded-[30px] border px-5 py-5"
             style={{
-              backgroundColor: colors.surface,
-              borderColor: colors.borderSubtle,
+              marginBottom: 24, borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+              backgroundColor: p.cardWhite,
             }}
           >
-            <View className="flex-row items-center justify-between">
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <Pressable
                 onPress={handleHeaderBack}
-                className="h-11 w-11 items-center justify-center rounded-[18px]"
-                style={{ backgroundColor: colors.surfaceHigh }}
+                style={{
+                  height: 44, width: 44, alignItems: "center", justifyContent: "center",
+                  borderRadius: 18, backgroundColor: p.inputBg,
+                }}
               >
-                <Feather name="arrow-left" size={20} color={colors.accent} />
+                <ArrowLeft size={20} color={p.accent} />
               </Pressable>
               <View
-                className="rounded-full px-3 py-1.5"
-                style={{ backgroundColor: colors.accentLight }}
+                style={{
+                  borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6,
+                  backgroundColor: p.accentSoft,
+                }}
               >
                 <Text
-                  className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
-                  style={{ color: colors.accent }}
+                  style={{ fontSize: 10, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.3, color: p.accent }}
                 >
                   Session detail
                 </Text>
@@ -715,51 +712,37 @@ export default function ProgramSessionDetailScreen() {
             </View>
 
             <Text
-              className="mt-4 text-[26px] font-telma-bold font-bold"
-              style={{ color: colors.textPrimary }}
+              style={{ marginTop: 16, fontSize: 26, fontFamily: "Outfit-Bold", color: p.textPrimary }}
             >
               {session?.title ?? "Training Session"}
             </Text>
             {module?.title ? (
               <Text
-                className="mt-1 text-xs font-outfit uppercase tracking-widest"
-                style={{ color: colors.textSecondary }}
+                style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit-Regular", textTransform: "uppercase", letterSpacing: 2, color: p.textSecondary }}
               >
                 {module.title}
               </Text>
             ) : null}
 
-            <View className="mt-4 flex-row flex-wrap gap-2">
+            <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               <View
-                className="rounded-full px-3 py-2"
-                style={{ backgroundColor: colors.surfaceHigh }}
+                style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.inputBg }}
               >
-                <Text
-                  className="text-[11px] font-outfit font-semibold"
-                  style={{ color: colors.text }}
-                >
+                <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                   Warmup: {warmupItems.length}
                 </Text>
               </View>
               <View
-                className="rounded-full px-3 py-2"
-                style={{ backgroundColor: colors.surfaceHigh }}
+                style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.inputBg }}
               >
-                <Text
-                  className="text-[11px] font-outfit font-semibold"
-                  style={{ color: colors.text }}
-                >
+                <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                   Main: {mainItems.length}
                 </Text>
               </View>
               <View
-                className="rounded-full px-3 py-2"
-                style={{ backgroundColor: colors.surfaceHigh }}
+                style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.inputBg }}
               >
-                <Text
-                  className="text-[11px] font-outfit font-semibold"
-                  style={{ color: colors.text }}
-                >
+                <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                   Cooldown: {cooldownItems.length}
                 </Text>
               </View>
@@ -834,7 +817,7 @@ export default function ProgramSessionDetailScreen() {
         <View
           style={{
             flex: 1,
-            backgroundColor: "rgba(0,0,0,0.5)",
+            backgroundColor: p.overlay,
             justifyContent: "flex-end",
           }}
         >
@@ -843,23 +826,21 @@ export default function ProgramSessionDetailScreen() {
           >
             <View
               style={{
-                backgroundColor: colors.surface,
-                borderTopLeftRadius: radius.xxl,
-                borderTopRightRadius: radius.xxl,
-                borderColor: colors.borderSubtle,
-                borderWidth: 1,
+                backgroundColor: p.cardWhite,
+                borderTopLeftRadius: 22,
+                borderTopRightRadius: 22,
                 maxHeight: "85%",
-                paddingTop: spacing.xl,
-                paddingHorizontal: spacing.xl,
-                paddingBottom: spacing.xl + insets.bottom,
+                paddingTop: 24,
+                paddingHorizontal: 24,
+                paddingBottom: 24 + insets.bottom,
               }}
             >
-              <View className="flex-row items-center justify-between mb-3">
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                 <Text
                   style={{
-                    fontFamily: fonts.heading1,
+                    fontFamily: "Outfit-Bold",
                     fontSize: 20,
-                    color: colors.textPrimary,
+                    color: p.textPrimary,
                   }}
                 >
                   Workout log
@@ -867,31 +848,31 @@ export default function ProgramSessionDetailScreen() {
                 <Pressable
                   onPress={() => setWorkoutSheetOpen(false)}
                   disabled={isFinishing}
-                  className="h-10 w-10 items-center justify-center rounded-full"
+                  style={{ height: 40, width: 40, alignItems: "center", justifyContent: "center", borderRadius: 100 }}
                 >
-                  <Feather name="x" size={22} color={colors.textPrimary} />
+                  <X size={22} color={p.textPrimary} />
                 </Pressable>
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text
                   style={{
-                    fontFamily: fonts.bodyMedium,
+                    fontFamily: "Outfit-Regular",
                     fontSize: 13,
-                    color: colors.textSecondary,
+                    color: p.textSecondary,
                   }}
                 >
                   Log weights, reps, and RPE if you like, then mark the session
                   complete. You can also finish without logging.
                 </Text>
 
-                <View style={{ marginTop: spacing.lg, gap: 10 }}>
+                <View style={{ marginTop: 16, gap: 10 }}>
                   <View>
                     <Text
                       style={{
-                        fontFamily: fonts.heading3,
+                        fontFamily: "Outfit-Bold",
                         fontSize: 14,
-                        color: colors.textPrimary,
+                        color: p.textPrimary,
                       }}
                     >
                       Weights used
@@ -899,9 +880,9 @@ export default function ProgramSessionDetailScreen() {
                     <View
                       style={{
                         marginTop: 6,
-                        borderRadius: radius.xl,
-                        backgroundColor: colors.surfaceHigh,
-                        borderColor: colors.borderSubtle,
+                        borderRadius: 22,
+                        backgroundColor: p.inputBg,
+                        borderColor: p.inputBorder,
                         borderWidth: 1,
                         paddingHorizontal: 14,
                         paddingVertical: 12,
@@ -911,12 +892,12 @@ export default function ProgramSessionDetailScreen() {
                         value={weightsUsed}
                         onChangeText={setWeightsUsed}
                         placeholder="Optional"
-                        placeholderTextColor={colors.textSecondary}
+                        placeholderTextColor={p.textMuted}
                         multiline
                         style={{
-                          fontFamily: fonts.bodyMedium,
+                          fontFamily: "Outfit-Regular",
                           fontSize: 14,
-                          color: colors.textPrimary,
+                          color: p.textPrimary,
                           minHeight: 60,
                           textAlignVertical: "top",
                         }}
@@ -928,9 +909,9 @@ export default function ProgramSessionDetailScreen() {
                   <View>
                     <Text
                       style={{
-                        fontFamily: fonts.heading3,
+                        fontFamily: "Outfit-Bold",
                         fontSize: 14,
-                        color: colors.textPrimary,
+                        color: p.textPrimary,
                       }}
                     >
                       Reps completed
@@ -938,9 +919,9 @@ export default function ProgramSessionDetailScreen() {
                     <View
                       style={{
                         marginTop: 6,
-                        borderRadius: radius.xl,
-                        backgroundColor: colors.surfaceHigh,
-                        borderColor: colors.borderSubtle,
+                        borderRadius: 22,
+                        backgroundColor: p.inputBg,
+                        borderColor: p.inputBorder,
                         borderWidth: 1,
                         paddingHorizontal: 14,
                         paddingVertical: 12,
@@ -950,12 +931,12 @@ export default function ProgramSessionDetailScreen() {
                         value={repsCompleted}
                         onChangeText={setRepsCompleted}
                         placeholder="Optional"
-                        placeholderTextColor={colors.textSecondary}
+                        placeholderTextColor={p.textMuted}
                         multiline
                         style={{
-                          fontFamily: fonts.bodyMedium,
+                          fontFamily: "Outfit-Regular",
                           fontSize: 14,
-                          color: colors.textPrimary,
+                          color: p.textPrimary,
                           minHeight: 60,
                           textAlignVertical: "top",
                         }}
@@ -967,19 +948,19 @@ export default function ProgramSessionDetailScreen() {
                   <View>
                     <Text
                       style={{
-                        fontFamily: fonts.heading3,
+                        fontFamily: "Outfit-Bold",
                         fontSize: 14,
-                        color: colors.textPrimary,
+                        color: p.textPrimary,
                       }}
                     >
-                      RPE (1–10)
+                      RPE (1-10)
                     </Text>
                     <View
                       style={{
                         marginTop: 6,
-                        borderRadius: radius.xl,
-                        backgroundColor: colors.surfaceHigh,
-                        borderColor: colors.borderSubtle,
+                        borderRadius: 22,
+                        backgroundColor: p.inputBg,
+                        borderColor: p.inputBorder,
                         borderWidth: 1,
                         paddingHorizontal: 14,
                         paddingVertical: 12,
@@ -989,12 +970,12 @@ export default function ProgramSessionDetailScreen() {
                         value={rpeText}
                         onChangeText={setRpeText}
                         placeholder="Optional"
-                        placeholderTextColor={colors.textSecondary}
+                        placeholderTextColor={p.textMuted}
                         keyboardType="number-pad"
                         style={{
-                          fontFamily: fonts.bodyMedium,
+                          fontFamily: "Outfit-Regular",
                           fontSize: 14,
-                          color: colors.textPrimary,
+                          color: p.textPrimary,
                         }}
                         editable={!isFinishing}
                       />
@@ -1003,12 +984,12 @@ export default function ProgramSessionDetailScreen() {
                 </View>
 
                 {finishError ? (
-                  <View style={{ marginTop: spacing.lg }}>
+                  <View style={{ marginTop: 16 }}>
                     <Text
                       style={{
-                        fontFamily: fonts.bodyMedium,
+                        fontFamily: "Outfit-Regular",
                         fontSize: 13,
-                        color: colors.coral,
+                        color: p.danger,
                       }}
                     >
                       {finishError}
@@ -1016,7 +997,7 @@ export default function ProgramSessionDetailScreen() {
                   </View>
                 ) : null}
 
-                <View style={{ marginTop: spacing.xl, gap: 10 }}>
+                <View style={{ marginTop: 24, gap: 10 }}>
                   <Pressable
                     disabled={isFinishing}
                     onPress={async () => {
@@ -1054,8 +1035,8 @@ export default function ProgramSessionDetailScreen() {
                     }}
                     style={{
                       height: 54,
-                      borderRadius: radius.xl,
-                      backgroundColor: colors.accent,
+                      borderRadius: 100,
+                      backgroundColor: p.accent,
                       alignItems: "center",
                       justifyContent: "center",
                       flexDirection: "row",
@@ -1063,13 +1044,13 @@ export default function ProgramSessionDetailScreen() {
                     }}
                   >
                     {isFinishing ? (
-                      <ActivityIndicator color={colors.textInverse} />
+                      <ActivityIndicator color={p.buttonPrimaryText} />
                     ) : null}
                     <Text
                       style={{
-                        fontFamily: fonts.heading3,
+                        fontFamily: "Outfit-Bold",
                         fontSize: 16,
-                        color: colors.textInverse,
+                        color: p.buttonPrimaryText,
                       }}
                     >
                       Save & Complete
@@ -1087,9 +1068,9 @@ export default function ProgramSessionDetailScreen() {
                     }}
                     style={{
                       height: 54,
-                      borderRadius: radius.xl,
+                      borderRadius: 100,
                       backgroundColor: "transparent",
-                      borderColor: colors.borderSubtle,
+                      borderColor: p.divider,
                       borderWidth: 1,
                       alignItems: "center",
                       justifyContent: "center",
@@ -1097,9 +1078,9 @@ export default function ProgramSessionDetailScreen() {
                   >
                     <Text
                       style={{
-                        fontFamily: fonts.heading3,
+                        fontFamily: "Outfit-Bold",
                         fontSize: 16,
-                        color: colors.textSecondary,
+                        color: p.textSecondary,
                       }}
                     >
                       Complete without logging
@@ -1117,9 +1098,9 @@ export default function ProgramSessionDetailScreen() {
                   >
                     <Text
                       style={{
-                        fontFamily: fonts.heading3,
+                        fontFamily: "Outfit-Bold",
                         fontSize: 15,
-                        color: colors.textSecondary,
+                        color: p.textSecondary,
                       }}
                     >
                       Cancel

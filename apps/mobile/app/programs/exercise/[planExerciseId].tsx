@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Linking,
   Pressable,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,7 +17,23 @@ import {
   useRouter,
   type RelativePathString,
 } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import {
+  ArrowLeft,
+  ExternalLink,
+  ChevronRight,
+  CheckCircle,
+  RotateCcw,
+  MessageCircle,
+  List,
+  TrendingUp,
+  TrendingDown,
+  Hash,
+  Repeat,
+  Clock,
+  PauseCircle,
+  Tag,
+  Wrench,
+} from "lucide-react-native";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
@@ -27,8 +42,7 @@ import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { ProgramMetricGrid } from "@/components/programs/metrics/ProgramMetricGrid";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
 
 import { canAccessTier } from "@/lib/planAccess";
@@ -110,59 +124,64 @@ function isGoogleDriveUrl(url: string): boolean {
 const ExternalLinkButton = React.memo(function ExternalLinkButton({
   url,
   label,
+  p,
 }: {
   url: string;
   label: string;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
-  const { isDark } = useAppTheme();
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={() => Linking.openURL(url).catch(() => undefined)}
-      className="rounded-2xl bg-white/10 px-5 py-4 flex-row items-center gap-3"
-      style={isDark ? Shadows.none : Shadows.sm}
+      style={{
+        borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 20, paddingVertical: 16,
+        flexDirection: "row", alignItems: "center", gap: 12,
+      }}
     >
-      <Feather name="external-link" size={18} color="#FFFFFF" />
-      <View className="flex-1">
-        <Text className="text-sm font-outfit text-white font-semibold">
+      <ExternalLink size={18} color={p.accent} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
           {label}
         </Text>
         <Text
-          className="text-[11px] font-outfit text-white/80 mt-0.5"
+          style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 2 }}
           numberOfLines={1}
         >
           {url}
         </Text>
       </View>
-      <Feather name="chevron-right" size={16} color="#94A3B8" />
-    </TouchableOpacity>
+      <ChevronRight size={16} color={p.textMuted} />
+    </Pressable>
   );
 });
 
 const MediaSection = React.memo(function MediaSection({
   url,
   title,
+  p,
 }: {
   url: string;
   title?: string;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   if (isYoutubeUrl(url)) {
     return (
-      <View className="rounded-3xl overflow-hidden bg-white/5">
+      <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
         <VideoPlayer uri={url} title={title} ignoreTabFocus />
       </View>
     );
   }
 
   if (isGoogleDriveUrl(url)) {
-    return <ExternalLinkButton url={url} label="Open in Google Drive" />;
+    return <ExternalLinkButton url={url} label="Open in Google Drive" p={p} />;
   }
 
   if (isExternalVideoUrl(url)) {
-    return <ExternalLinkButton url={url} label="Open Video" />;
+    return <ExternalLinkButton url={url} label="Open Video" p={p} />;
   }
 
   return (
-    <View className="rounded-3xl overflow-hidden bg-white/5">
+    <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
       <VideoPlayer uri={url} title={title} ignoreTabFocus />
     </View>
   );
@@ -179,7 +198,7 @@ export default function PremiumExerciseDetailScreen() {
     (state) => state.user,
   );
 
-  const { isDark, colors } = useAppTheme();
+  const p = useAdminPastel();
   const { isSectionHidden } = useAgeExperience();
   const [item, setItem] = useState<PremiumExerciseDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -187,9 +206,6 @@ export default function PremiumExerciseDetailScreen() {
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
   const lastLoadedRef = useRef<string | null>(null);
 
-  /**
-   * Cold start protection: ghost restore guard — see content/[contentId].tsx for rationale.
-   */
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -261,17 +277,6 @@ export default function PremiumExerciseDetailScreen() {
 
   const linkedContent = item?.linkedProgramSectionContent ?? null;
   const meta = (linkedContent?.metadata ?? {}) as ExerciseMetadata;
-  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark
-    ? "rgba(255,255,255,0.06)"
-    : "rgba(255,255,255,0.84)";
-  const accentSurface = isDark
-    ? "rgba(34,197,94,0.16)"
-    : "rgba(34,197,94,0.10)";
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const mutedSurfaceSoft = isDark
-    ? "rgba(255,255,255,0.06)"
-    : "rgba(15,23,42,0.04)";
   const title = item?.exercise?.name ?? linkedContent?.title ?? "Exercise";
   const mediaUrl = linkedContent?.videoUrl ?? item?.exercise?.videoUrl ?? null;
   const bodyText =
@@ -329,32 +334,31 @@ export default function PremiumExerciseDetailScreen() {
 
   const DetailCard = useCallback(
     ({
-      icon,
+      Icon,
       title,
       body,
     }: {
-      icon: React.ComponentProps<typeof Feather>["name"];
+      Icon: any;
       title: string;
       body: string;
     }) => (
       <View
-        className="rounded-[28px] border px-6 py-5 gap-3"
         style={{
-          backgroundColor: surfaceColor,
-          borderColor: borderSoft,
-          ...(isDark ? Shadows.none : Shadows.sm),
+          borderRadius: 22, paddingHorizontal: 24, paddingVertical: 20, gap: 12,
+          backgroundColor: p.cardWhite,
         }}
       >
-        <View className="flex-row items-center gap-3">
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View
-            className="h-9 w-9 rounded-full items-center justify-center"
-            style={{ backgroundColor: mutedSurfaceSoft }}
+            style={{
+              height: 36, width: 36, borderRadius: 100, alignItems: "center", justifyContent: "center",
+              backgroundColor: p.accentSoft,
+            }}
           >
-            <Feather name={icon} size={16} color={colors.accent} />
+            <Icon size={16} color={p.accent} />
           </View>
           <Text
-            className="text-[12px] font-outfit uppercase tracking-[1.6px] font-bold"
-            style={{ color: colors.textSecondary }}
+            style={{ fontSize: 12, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.6, color: p.textSecondary }}
           >
             {title}
           </Text>
@@ -362,32 +366,24 @@ export default function PremiumExerciseDetailScreen() {
 
         <MarkdownText
           text={body}
-          baseStyle={{ fontSize: 15, lineHeight: 24, color: colors.text }}
+          baseStyle={{ fontSize: 15, lineHeight: 24, color: p.textPrimary }}
           headingStyle={{
             fontSize: 16,
             lineHeight: 24,
-            color: colors.text,
+            color: p.textPrimary,
             fontWeight: "700",
           }}
           subheadingStyle={{
             fontSize: 15,
             lineHeight: 22,
-            color: colors.text,
+            color: p.textPrimary,
             fontWeight: "700",
           }}
           listItemStyle={{ paddingLeft: 6 }}
         />
       </View>
     ),
-    [
-      borderSoft,
-      colors.accent,
-      colors.text,
-      colors.textSecondary,
-      isDark,
-      mutedSurfaceSoft,
-      surfaceColor,
-    ],
+    [p],
   );
 
   const handleBack = useCallback(() => {
@@ -416,58 +412,60 @@ export default function PremiumExerciseDetailScreen() {
   }, [isTogglingComplete, item, token]);
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <SafeMaskedView style={{ flex: 1 }}>
         <ThemedScrollView
           onRefresh={() => load(true)}
           contentContainerStyle={contentContainerStyle}
         >
-          <View className="px-6 pt-6">
+          <View style={{ paddingHorizontal: 24, paddingTop: 24 }}>
+            {/* Hero header */}
             <View
-              className="overflow-hidden rounded-[30px] border px-5 py-5 mb-6"
               style={{
-                backgroundColor: surfaceColor,
-                borderColor: borderSoft,
-                ...(isDark ? Shadows.none : Shadows.md),
+                overflow: "hidden", borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+                marginBottom: 24, backgroundColor: p.cardWhite,
               }}
             >
               <View
-                className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
-                style={{ backgroundColor: accentSurface }}
+                style={{
+                  position: "absolute", right: -40, top: -32, height: 112, width: 112,
+                  borderRadius: 56, backgroundColor: p.accentSoft,
+                }}
               />
-              <View className="flex-row items-center justify-between mb-4">
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <Pressable
                   onPress={handleBack}
-                  className="h-11 w-11 items-center justify-center rounded-[18px]"
-                  style={{ backgroundColor: mutedSurface }}
+                  style={{
+                    height: 44, width: 44, alignItems: "center", justifyContent: "center",
+                    borderRadius: 18, backgroundColor: p.inputBg,
+                  }}
                 >
-                  <Feather name="arrow-left" size={20} color={colors.accent} />
+                  <ArrowLeft size={20} color={p.accent} />
                 </Pressable>
                 <View
-                  className="rounded-full px-3 py-1.5"
-                  style={{ backgroundColor: mutedSurface }}
+                  style={{
+                    borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6,
+                    backgroundColor: p.inputBg,
+                  }}
                 >
                   <Text
-                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
-                    style={{ color: colors.accent }}
+                    style={{ fontSize: 10, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.3, color: p.accent }}
                   >
                     Exercise detail
                   </Text>
                 </View>
               </View>
 
-              <Text className="text-3xl font-telma-bold text-app font-bold">
+              <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                 {title}
               </Text>
-              <View className="mt-4 flex-row flex-wrap gap-2">
+              <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {activeAthlete?.name ? (
                   <View
-                    className="rounded-full px-3 py-2"
-                    style={{ backgroundColor: accentSurface }}
+                    style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.accentSoft }}
                   >
                     <Text
-                      className="text-[11px] font-outfit font-semibold uppercase tracking-[1.2px]"
-                      style={{ color: colors.accent }}
+                      style={{ fontSize: 11, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.2, color: p.accent }}
                     >
                       Athlete: {activeAthlete.name}
                     </Text>
@@ -475,26 +473,18 @@ export default function PremiumExerciseDetailScreen() {
                 ) : null}
                 {item?.session?.weekNumber != null ? (
                   <View
-                    className="rounded-full px-3 py-2"
-                    style={{ backgroundColor: mutedSurface }}
+                    style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.inputBg }}
                   >
-                    <Text
-                      className="text-[11px] font-outfit font-semibold"
-                      style={{ color: colors.text }}
-                    >
+                    <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                       Week {item.session.weekNumber}
                     </Text>
                   </View>
                 ) : null}
                 {item?.session?.sessionNumber != null ? (
                   <View
-                    className="rounded-full px-3 py-2"
-                    style={{ backgroundColor: mutedSurface }}
+                    style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.inputBg }}
                   >
-                    <Text
-                      className="text-[11px] font-outfit font-semibold"
-                      style={{ color: colors.text }}
-                    >
+                    <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                       Session {item.session.sessionNumber}
                     </Text>
                   </View>
@@ -504,33 +494,34 @@ export default function PremiumExerciseDetailScreen() {
 
             {isLoading ? (
               <View
-                className="rounded-3xl bg-[#2F8F57] px-6 py-6 items-center"
-                style={isDark ? Shadows.none : Shadows.sm}
+                style={{
+                  borderRadius: 22, backgroundColor: p.accent, paddingHorizontal: 24, paddingVertical: 24, alignItems: "center",
+                }}
               >
-                <ActivityIndicator color="#FFFFFF" />
-                <Text className="text-sm font-outfit text-white mt-2">
+                <ActivityIndicator color={p.buttonPrimaryText} />
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.buttonPrimaryText, marginTop: 8 }}>
                   Loading exercise...
                 </Text>
               </View>
             ) : error ? (
               <View
-                className="rounded-3xl bg-[#2F8F57] px-6 py-6"
-                style={isDark ? Shadows.none : Shadows.sm}
+                style={{
+                  borderRadius: 22, backgroundColor: p.accent, paddingHorizontal: 24, paddingVertical: 24,
+                }}
               >
-                <Text className="text-sm font-outfit text-white text-center">
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.buttonPrimaryText, textAlign: "center" }}>
                   {error}
                 </Text>
               </View>
             ) : item ? (
-              <View className="gap-4">
+              <View style={{ gap: 16 }}>
                 <View
-                  className="rounded-[28px] px-6 py-6 gap-4"
                   style={{
-                    backgroundColor: surfaceColor,
-                    ...(isDark ? Shadows.none : Shadows.sm),
+                    borderRadius: 22, paddingHorizontal: 24, paddingVertical: 24, gap: 16,
+                    backgroundColor: p.cardWhite,
                   }}
                 >
-                  <Text className="text-2xl font-clash text-app font-bold">
+                  <Text style={{ fontSize: 24, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                     Exercise overview
                   </Text>
 
@@ -598,18 +589,18 @@ export default function PremiumExerciseDetailScreen() {
                       baseStyle={{
                         fontSize: 15,
                         lineHeight: 24,
-                        color: colors.text,
+                        color: p.textPrimary,
                       }}
                       headingStyle={{
                         fontSize: 18,
                         lineHeight: 26,
-                        color: colors.text,
+                        color: p.textPrimary,
                         fontWeight: "700",
                       }}
                       subheadingStyle={{
                         fontSize: 16,
                         lineHeight: 24,
-                        color: colors.text,
+                        color: p.textPrimary,
                         fontWeight: "700",
                       }}
                       listItemStyle={{ paddingLeft: 6 }}
@@ -620,19 +611,18 @@ export default function PremiumExerciseDetailScreen() {
                     onPress={() => {
                       void toggleComplete();
                     }}
-                    className="mt-4 rounded-2xl px-4 py-4 flex-row items-center justify-center gap-2"
                     style={{
-                      backgroundColor: item.completed
-                        ? colors.text
-                        : colors.accent,
+                      marginTop: 16, borderRadius: 100, paddingHorizontal: 16, paddingVertical: 16,
+                      flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+                      backgroundColor: item.completed ? p.textPrimary : p.accent,
                     }}
                   >
-                    <Feather
-                      name={item.completed ? "rotate-ccw" : "check-circle"}
-                      size={18}
-                      color="#ffffff"
-                    />
-                    <Text className="text-white font-outfit font-bold text-sm uppercase tracking-[1.3px]">
+                    {item.completed ? (
+                      <RotateCcw size={18} color={p.buttonPrimaryText} />
+                    ) : (
+                      <CheckCircle size={18} color={p.buttonPrimaryText} />
+                    )}
+                    <Text style={{ color: p.buttonPrimaryText, fontFamily: "Outfit-Bold", fontSize: 14, textTransform: "uppercase", letterSpacing: 1.3 }}>
                       {item.completed
                         ? "Mark incomplete"
                         : "Mark exercise complete"}
@@ -642,19 +632,19 @@ export default function PremiumExerciseDetailScreen() {
 
                 {cues ? (
                   <DetailCard
-                    icon="message-circle"
+                    Icon={MessageCircle}
                     title="Coaching cues"
                     body={cues}
                   />
                 ) : null}
 
                 {meta.steps ? (
-                  <DetailCard icon="list" title="Steps" body={meta.steps} />
+                  <DetailCard Icon={List} title="Steps" body={meta.steps} />
                 ) : null}
 
                 {progression ? (
                   <DetailCard
-                    icon="trending-up"
+                    Icon={TrendingUp}
                     title="Progression"
                     body={progression}
                   />
@@ -662,14 +652,14 @@ export default function PremiumExerciseDetailScreen() {
 
                 {regression ? (
                   <DetailCard
-                    icon="trending-down"
+                    Icon={TrendingDown}
                     title="Regression"
                     body={regression}
                   />
                 ) : null}
 
                 {mediaUrl ? (
-                  <MediaSection url={mediaUrl} title={title} />
+                  <MediaSection url={mediaUrl} title={title} p={p} />
                 ) : null}
               </View>
             ) : null}
@@ -678,12 +668,11 @@ export default function PremiumExerciseDetailScreen() {
 
         {hasSessionNavigation ? (
           <View
-            className="absolute left-6 right-6 flex-row items-center gap-3 rounded-[28px] border px-4 py-4"
             style={{
-              bottom: 20,
-              backgroundColor: surfaceColor,
-              borderColor: borderSoft,
-              ...(isDark ? Shadows.none : Shadows.md),
+              position: "absolute", left: 24, right: 24, bottom: 20,
+              flexDirection: "row", alignItems: "center", gap: 12,
+              borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16,
+              backgroundColor: p.cardWhite,
             }}
           >
             <Pressable
@@ -694,12 +683,15 @@ export default function PremiumExerciseDetailScreen() {
                 );
               }}
               disabled={!previousExerciseId}
-              className={`flex-1 rounded-2xl px-4 py-4 items-center justify-center ${previousExerciseId ? "" : "opacity-50"}`}
-              style={{ backgroundColor: mutedSurface }}
+              style={{
+                flex: 1, borderRadius: 100, paddingHorizontal: 16, paddingVertical: 16,
+                alignItems: "center", justifyContent: "center",
+                backgroundColor: p.inputBg,
+                opacity: previousExerciseId ? 1 : 0.5,
+              }}
             >
               <Text
-                className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px]"
-                style={{ color: colors.text }}
+                style={{ fontSize: 12, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.1, color: p.textPrimary }}
               >
                 Previous
               </Text>
@@ -718,17 +710,18 @@ export default function PremiumExerciseDetailScreen() {
                 }
                 router.replace("/(tabs)/programs");
               }}
-              className="flex-1 rounded-2xl px-4 py-4 items-center justify-center"
-              style={{ backgroundColor: colors.accent }}
+              style={{
+                flex: 1, borderRadius: 100, paddingHorizontal: 16, paddingVertical: 16,
+                alignItems: "center", justifyContent: "center",
+                backgroundColor: p.accent,
+              }}
             >
-              <Text className="text-[12px] font-outfit font-bold uppercase tracking-[1.1px] text-white">
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.1, color: p.buttonPrimaryText }}>
                 {nextExerciseId ? "Next" : "Finish Session"}
               </Text>
             </Pressable>
           </View>
         ) : null}
-
-        {/* Video upload is handled in the Session detail exercise cards to keep everything in one place. */}
       </SafeMaskedView>
     </SafeAreaView>
   );

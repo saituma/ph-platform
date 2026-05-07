@@ -1,3 +1,4 @@
+import { AdminScreen } from "@/components/admin/AdminUI";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 import { selectIsStaffRole } from "@/store/slices/userSlice";
 import ThreadScreen from "@/app/messages/[id]";
@@ -11,6 +12,9 @@ export default function AdminThreadScreen() {
     return <ReplaceOnce href="/(tabs)" />;
   }
 
-  return <ThreadScreen />;
+  return (
+    <AdminScreen withSafeTop={false}>
+      <ThreadScreen />
+    </AdminScreen>
+  );
 }
-

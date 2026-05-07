@@ -1,4 +1,5 @@
-import { deliverEmail, emailLayout, escapeHtml, textP, E } from "./base.mailer";
+import { createEmailIntent } from "../../services/outbox.service";
+import { emailLayout, escapeHtml, textP, E } from "./base.mailer";
 import type { BillingReceiptEmailBlockInput } from "./billing-receipt-email";
 import { billingReceiptEmailBlock, greetingLine } from "./billing-receipt-email";
 import { logger } from "../logger";
@@ -57,7 +58,7 @@ ${textP(`<span style="color:${E.muted};font-size:14px;">Didn’t make this purch
       headline: "Thank you — we’re on it",
       bodyHtml,
     });
-    await deliverEmail({ to: input.to, subject, html });
+    await createEmailIntent({ to: input.to, subject, html });
   } catch (err) {
     logger.warn({ err }, "sendSubscriptionPendingUserEmail skipped");
   }
@@ -98,7 +99,7 @@ ${textP(`<span style="color:${E.muted};font-size:14px;">Open the PH Performance 
       headline: "Renew before you lose access",
       bodyHtml,
     });
-    await deliverEmail({ to: input.to, subject, html });
+    await createEmailIntent({ to: input.to, subject, html });
   } catch (err) {
     logger.warn({ err }, "sendPlanExpiringSoonEmail skipped");
   }
@@ -127,7 +128,7 @@ ${textP(`Questions? Reply to this email or reach support from the app — we’r
       headline: "Plan period ended",
       bodyHtml,
     });
-    await deliverEmail({ to: input.to, subject, html });
+    await createEmailIntent({ to: input.to, subject, html });
   } catch (err) {
     logger.warn({ err }, "sendPlanExpiredEmail skipped");
   }
@@ -155,7 +156,7 @@ ${textP(`Your coach has approved your <strong>${tier}</strong> plan. You now hav
       headline: "You’re all set",
       bodyHtml,
     });
-    await deliverEmail({ to: input.to, subject, html });
+    await createEmailIntent({ to: input.to, subject, html });
   } catch (err) {
     logger.warn({ err }, "sendSubscriptionApprovedUserEmail skipped");
   }
@@ -215,7 +216,7 @@ ${textP(`<span style="color:${E.muted};font-size:13px;">Didn't expect this email
       headline: `Join ${input.planName}`,
       bodyHtml,
     });
-    await deliverEmail({ to: input.to, subject, html });
+    await createEmailIntent({ to: input.to, subject, html });
   } catch (err) {
     logger.warn({ err }, "sendPlanInviteEmail skipped");
   }
@@ -255,7 +256,7 @@ ${textP(`<span style="color:${E.muted};font-size:13px;">If the button does not o
       headline: "Your payment link is ready",
       bodyHtml,
     });
-    await deliverEmail({ to: input.to, subject, html });
+    await createEmailIntent({ to: input.to, subject, html });
     return { ok: true };
   } catch (err) {
     logger.warn({ err, to: input.to }, "sendTeamPlayerPaymentInviteEmail skipped");

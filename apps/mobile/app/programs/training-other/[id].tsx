@@ -1,16 +1,15 @@
 import React, { useEffect, useMemo } from "react";
-import { Linking, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { Linking, Pressable, ScrollView, View } from "react-native";
 import { SkeletonTrainingContentScreen } from "@/components/ui/legacy-skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { ArrowLeft, ExternalLink, ChevronRight, Calendar, Clock } from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { useAppSelector } from "@/store/hooks";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
 
@@ -42,50 +41,52 @@ function isExternalVideoUrl(url: string): boolean {
 const ExternalLinkButton = React.memo(function ExternalLinkButton({
   url,
   label,
-  isDark,
+  p,
 }: {
   url: string;
   label: string;
-  isDark: boolean;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={() => Linking.openURL(url).catch(() => undefined)}
-      className="rounded-2xl bg-white/10 px-5 py-4 flex-row items-center gap-3"
-      style={isDark ? Shadows.none : Shadows.sm}
+      style={{
+        borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 20, paddingVertical: 16,
+        flexDirection: "row", alignItems: "center", gap: 12,
+      }}
     >
-      <Feather name="external-link" size={18} color="#FFFFFF" />
-      <View className="flex-1">
-        <Text className="text-sm font-outfit text-white font-semibold">{label}</Text>
-        <Text className="text-[11px] font-outfit text-white/80 mt-0.5" numberOfLines={1}>
+      <ExternalLink size={18} color={p.accent} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.textPrimary }}>{label}</Text>
+        <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 2 }} numberOfLines={1}>
           {url}
         </Text>
       </View>
-      <Feather name="chevron-right" size={16} color="#94A3B8" />
-    </TouchableOpacity>
+      <ChevronRight size={16} color={p.textMuted} />
+    </Pressable>
   );
 });
 
-function MediaSection({ url, title, isDark }: { url: string; title?: string; isDark: boolean }) {
+function MediaSection({ url, title, p }: { url: string; title?: string; p: ReturnType<typeof useAdminPastel> }) {
   if (isYoutubeUrl(url)) {
     return (
-      <View className="rounded-3xl overflow-hidden bg-white/5">
+      <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
         <VideoPlayer uri={url} title={title} ignoreTabFocus />
       </View>
     );
   }
   if (isExternalNonInlineUrl(url)) {
-    return <ExternalLinkButton url={url} label="Open in Google Drive" isDark={isDark} />;
+    return <ExternalLinkButton url={url} label="Open in Google Drive" p={p} />;
   }
   if (isExternalVideoUrl(url)) {
     return (
-      <View className="rounded-3xl overflow-hidden bg-white/5">
+      <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
         <VideoPlayer uri={url} title={title} ignoreTabFocus />
       </View>
     );
   }
   return (
-    <View className="rounded-3xl overflow-hidden bg-white/5">
+    <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
       <VideoPlayer uri={url} title={title} ignoreTabFocus />
     </View>
   );
@@ -95,7 +96,7 @@ export default function TrainingOtherDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const token = useAppSelector((s) => s.user.token);
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
@@ -124,18 +125,12 @@ export default function TrainingOtherDetailScreen() {
     return null;
   }, [workspace, targetId]);
 
-  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
-  const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const mutedSurfaceSoft = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";
-
   const metadata = (item?.metadata ?? {}) as Record<string, unknown>;
   const scheduleDay = typeof metadata.scheduleDay === "string" ? (metadata.scheduleDay as string) : null;
   const scheduleTime = typeof metadata.scheduleTime === "string" ? (metadata.scheduleTime as string) : null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
       <ScrollView
         contentContainerStyle={{
           paddingTop: insets.top + 12,
@@ -147,35 +142,35 @@ export default function TrainingOtherDetailScreen() {
       >
         {/* Hero header */}
         <View
-          className="overflow-hidden rounded-[30px] border px-5 py-5"
           style={{
-            backgroundColor: surfaceColor,
-            borderColor: borderSoft,
-            ...(isDark ? Shadows.none : Shadows.md),
+            overflow: "hidden", borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+            backgroundColor: p.cardWhite,
           }}
         >
           <View
-            className="absolute -right-10 -top-8 h-28 w-28 rounded-full"
-            style={{ backgroundColor: accentSurface }}
+            style={{
+              position: "absolute", right: -40, top: -32, height: 112, width: 112,
+              borderRadius: 56, backgroundColor: p.accentSoft,
+            }}
           />
 
-          <View className="flex-row items-center justify-between mb-4">
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <Pressable
               onPress={() => router.back()}
-              className="h-11 w-11 items-center justify-center rounded-[18px]"
-              style={{ backgroundColor: mutedSurface }}
+              style={{
+                height: 44, width: 44, alignItems: "center", justifyContent: "center",
+                borderRadius: 18, backgroundColor: p.inputBg,
+              }}
               accessibilityLabel="Go back"
               hitSlop={8}
             >
-              <Feather name="arrow-left" size={20} color={colors.accent} />
+              <ArrowLeft size={20} color={p.accent} />
             </Pressable>
             <View
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: mutedSurface }}
+              style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: p.inputBg }}
             >
               <Text
-                className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]"
-                style={{ color: colors.accent }}
+                style={{ fontSize: 10, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.3, color: p.accent }}
               >
                 {item?.groupLabel ?? "Training"}
               </Text>
@@ -185,57 +180,52 @@ export default function TrainingOtherDetailScreen() {
           {isLoading && !item ? (
             <SkeletonTrainingContentScreen />
           ) : !item ? (
-            <Text className="text-lg font-outfit" style={{ color: colors.text }}>
+            <Text style={{ fontSize: 18, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
               {error ?? "This content is not available."}
             </Text>
           ) : (
             <>
               <Text
-                className="text-3xl font-telma-bold font-bold"
-                style={{ color: colors.text }}
+                style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary }}
               >
                 {item.title}
               </Text>
 
               {(item.scheduleNote || scheduleDay || scheduleTime) ? (
-                <View className="mt-4 flex-row flex-wrap gap-2">
+                <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {item.scheduleNote ? (
                     <View
-                      className="rounded-full px-3 py-2 flex-row items-center gap-2"
-                      style={{ backgroundColor: accentSurface }}
+                      style={{
+                        borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8,
+                        flexDirection: "row", alignItems: "center", gap: 8,
+                        backgroundColor: p.accentSoft,
+                      }}
                     >
-                      <Feather name="calendar" size={12} color={colors.accent} />
-                      <Text
-                        className="text-[11px] font-outfit font-semibold"
-                        style={{ color: colors.accent }}
-                      >
+                      <Calendar size={12} color={p.accent} />
+                      <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.accent }}>
                         {item.scheduleNote}
                       </Text>
                     </View>
                   ) : null}
                   {scheduleDay ? (
                     <View
-                      className="rounded-full px-3 py-2"
-                      style={{ backgroundColor: mutedSurface }}
+                      style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.inputBg }}
                     >
-                      <Text
-                        className="text-[11px] font-outfit font-semibold"
-                        style={{ color: colors.text }}
-                      >
+                      <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                         {scheduleDay}
                       </Text>
                     </View>
                   ) : null}
                   {scheduleTime ? (
                     <View
-                      className="rounded-full px-3 py-2 flex-row items-center gap-1.5"
-                      style={{ backgroundColor: mutedSurface }}
+                      style={{
+                        borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8,
+                        flexDirection: "row", alignItems: "center", gap: 6,
+                        backgroundColor: p.inputBg,
+                      }}
                     >
-                      <Feather name="clock" size={11} color={colors.text} />
-                      <Text
-                        className="text-[11px] font-outfit font-semibold"
-                        style={{ color: colors.text }}
-                      >
+                      <Clock size={11} color={p.textPrimary} />
+                      <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                         {scheduleTime}
                       </Text>
                     </View>
@@ -250,12 +240,11 @@ export default function TrainingOtherDetailScreen() {
         {item?.videoUrl ? (
           <View>
             <Text
-              className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] mb-2 ml-1"
-              style={{ color: colors.textSecondary }}
+              style={{ fontSize: 10, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 8, marginLeft: 4, color: p.textSecondary }}
             >
               Video
             </Text>
-            <MediaSection url={item.videoUrl} title={item.title} isDark={isDark} />
+            <MediaSection url={item.videoUrl} title={item.title} p={p} />
           </View>
         ) : null}
 
@@ -263,25 +252,21 @@ export default function TrainingOtherDetailScreen() {
         {item ? (
           <View>
             <Text
-              className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px] mb-2 ml-1"
-              style={{ color: colors.textSecondary }}
+              style={{ fontSize: 10, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.3, marginBottom: 8, marginLeft: 4, color: p.textSecondary }}
             >
               Details
             </Text>
             <View
-              className="rounded-[24px] border px-5 py-5"
               style={{
-                backgroundColor: surfaceColor,
-                borderColor: borderSoft,
-                ...(isDark ? Shadows.none : Shadows.sm),
+                borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+                backgroundColor: p.cardWhite,
               }}
             >
               {item.body?.trim() ? (
                 <MarkdownText text={item.body} />
               ) : (
                 <Text
-                  className="text-sm font-outfit italic"
-                  style={{ color: colors.textSecondary }}
+                  style={{ fontSize: 14, fontFamily: "Outfit-Regular", fontStyle: "italic", color: p.textSecondary }}
                 >
                   No additional details for this item.
                 </Text>
@@ -290,16 +275,15 @@ export default function TrainingOtherDetailScreen() {
           </View>
         ) : null}
 
-        {/* Error footer (when item not found but workspace loaded) */}
+        {/* Error footer */}
         {!isLoading && !item && error ? (
           <View
-            className="rounded-[24px] border px-5 py-5"
             style={{
-              backgroundColor: mutedSurfaceSoft,
-              borderColor: borderSoft,
+              borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+              backgroundColor: p.inputBg,
             }}
           >
-            <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
               {error}
             </Text>
           </View>

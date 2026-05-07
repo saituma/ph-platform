@@ -1,10 +1,8 @@
 import React, { useState } from "react";
-import { Image, Modal, Pressable, TouchableOpacity, View } from "react-native";
-import { Feather } from "@/components/ui/theme-icons";
+import { Image, Modal, Pressable, View } from "react-native";
+import { ChevronRight, Shield, User } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
-import { SectionHeader } from "./SectionHeader";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { ManagedAthlete } from "./hooks/useProfileSettings";
 
 interface ManagedAthletesSectionProps {
@@ -16,7 +14,7 @@ export function ManagedAthletesSection({
   managedAthletes,
   managedAthleteCount,
 }: ManagedAthletesSectionProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const [isVisible, setIsVisible] = useState(false);
 
   const displayValue = (value: unknown) => {
@@ -33,33 +31,48 @@ export function ManagedAthletesSection({
 
   return (
     <View
-      className="bg-input rounded-3xl p-6 shadow-sm border border-app"
-      style={isDark ? Shadows.none : Shadows.sm}
+      style={{
+        backgroundColor: p.cardSage,
+        borderRadius: 22,
+        padding: 24,
+      }}
     >
-      <SectionHeader
-        title="Guardian Settings"
-        subtitle="Manage your household settings."
-        icon="shield"
-      />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+          <Shield size={18} color={p.accent} strokeWidth={2} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary }}>
+            Guardian Settings
+          </Text>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textMuted }}>
+            Manage your household settings.
+          </Text>
+        </View>
+      </View>
 
-      <TouchableOpacity
+      <Pressable
         onPress={() => setIsVisible(true)}
-        className="flex-row items-center justify-between py-4 border-t border-app"
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingVertical: 16,
+          borderTopWidth: 1,
+          borderTopColor: p.divider,
+          marginTop: 8,
+        }}
       >
-        <Text className="text-base font-medium font-outfit text-app">
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary }}>
           Managed Athletes
         </Text>
-        <View className="flex-row items-center">
-          <Text className="text-accent font-medium mr-2">
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.accent }}>
             {managedAthleteCount} Active
           </Text>
-          <Feather
-            name="chevron-right"
-            size={20}
-            color={colors.textSecondary}
-          />
+          <ChevronRight size={18} color={p.textMuted} strokeWidth={2} />
         </View>
-      </TouchableOpacity>
+      </Pressable>
 
       <Modal
         visible={isVisible}
@@ -68,85 +81,91 @@ export function ManagedAthletesSection({
         onRequestClose={() => setIsVisible(false)}
       >
         <Pressable
-          className="flex-1 bg-black/50 items-center justify-center px-6"
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}
           onPress={() => setIsVisible(false)}
         >
           <Pressable
-            className="w-full rounded-3xl bg-app p-6 border border-app"
+            style={{
+              width: "100%",
+              borderRadius: 22,
+              backgroundColor: p.cardWhite,
+              padding: 24,
+            }}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text className="text-lg font-clash text-app mb-2">
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, marginBottom: 4 }}>
               Managed Athletes
             </Text>
-            <Text className="text-sm font-outfit text-secondary mb-4">
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted, marginBottom: 16 }}>
               Review the athlete profiles managed by this account.
             </Text>
             {managedAthletes.length ? (
-              <View className="gap-3">
+              <View style={{ gap: 16 }}>
                 {managedAthletes.map((athlete, index) => (
                   <View
                     key={athlete.id ?? athlete.name ?? `athlete-${index}`}
-                    className="gap-3"
+                    style={{ gap: 12 }}
                   >
-                    <View className="flex-row items-center gap-3">
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                       {athlete.profilePicture ? (
-                        <View className="w-14 h-14 rounded-full overflow-hidden border-2 border-accent">
+                        <View style={{ width: 52, height: 52, borderRadius: 26, overflow: "hidden", borderWidth: 2, borderColor: p.accent }}>
                           <Image
                             source={{ uri: athlete.profilePicture }}
-                            style={{ width: 56, height: 56 }}
+                            style={{ width: 48, height: 48 }}
                           />
                         </View>
                       ) : (
-                        <View className="w-14 h-14 rounded-full bg-secondary items-center justify-center border-2 border-accent">
-                          <Feather
-                            name="user"
-                            size={26}
-                            color={colors.textSecondary}
-                          />
+                        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: p.cardMint, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: p.accent }}>
+                          <User size={24} color={p.accent} strokeWidth={2} />
                         </View>
                       )}
-                      <View className="flex-1">
-                        <Text className="text-base font-bold font-outfit text-app">
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary }}>
                           {athlete.name ?? "Athlete"}
                         </Text>
-                        <Text className="text-xs font-outfit text-secondary">
-                          {athlete.team ?? "Team not set"} •{" "}
-                          {athlete.level ?? "Level not set"}
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
+                          {athlete.team ?? "Team not set"} • {athlete.level ?? "Level not set"}
                         </Text>
                       </View>
                     </View>
-                    <View className="gap-2">
-                      <Text className="text-sm font-outfit text-app">
+                    <View style={{ gap: 4, paddingLeft: 4 }}>
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary }}>
                         Age: {athlete.age ?? "—"}
                       </Text>
-                      <Text className="text-sm font-outfit text-app">
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary }}>
                         Training days: {athlete.trainingPerWeek ?? "—"}
                       </Text>
-                      <Text className="text-sm font-outfit text-app">
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary }}>
                         Goals: {athlete.performanceGoals ?? "—"}
                       </Text>
-                      <Text className="text-sm font-outfit text-app">
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary }}>
                         Equipment: {athlete.equipmentAccess ?? "—"}
                       </Text>
-                      <Text className="text-sm font-outfit text-app">
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary }}>
                         Injuries: {displayValue(athlete.injuries)}
                       </Text>
                     </View>
-                    <View className="h-px bg-border/60" />
+                    <View style={{ height: 1, backgroundColor: p.divider }} />
                   </View>
                 ))}
               </View>
             ) : (
-              <Text className="text-sm font-outfit text-secondary">
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted }}>
                 No athlete profile found for this account.
               </Text>
             )}
-            <TouchableOpacity
+            <Pressable
               onPress={() => setIsVisible(false)}
-              className="mt-6 rounded-2xl bg-accent py-3 items-center"
+              style={{
+                marginTop: 20,
+                borderRadius: 100,
+                backgroundColor: p.accent,
+                paddingVertical: 14,
+                alignItems: "center",
+              }}
             >
-              <Text className="text-sm font-outfit text-white">Close</Text>
-            </TouchableOpacity>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.buttonPrimaryText }}>Close</Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>

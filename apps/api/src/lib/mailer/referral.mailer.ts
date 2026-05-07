@@ -1,4 +1,5 @@
-import { deliverEmail, emailLayout, escapeHtml, escapeAttr, textP, labelRow, E } from "./base.mailer";
+import { createEmailIntent } from "../../services/outbox.service";
+import { emailLayout, escapeHtml, escapeAttr, textP, labelRow, E } from "./base.mailer";
 
 export async function sendReferralAssignedEmail(input: {
   to: string;
@@ -43,5 +44,5 @@ ${textP(`Use the referral link above in the app or email whenever you’re ready
     bodyHtml,
   });
 
-  await deliverEmail({ to: input.to, subject, html });
+  await createEmailIntent({ to: input.to, subject, html });
 }

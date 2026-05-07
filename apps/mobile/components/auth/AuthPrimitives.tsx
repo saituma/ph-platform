@@ -1,8 +1,16 @@
-import { Feather } from "@expo/vector-icons";
 import { ReactNode } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { Mail, Lock, Shield, Eye, EyeOff } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
+
+const LUCIDE_ICONS: Record<string, any> = {
+  mail: Mail,
+  lock: Lock,
+  shield: Shield,
+  eye: Eye,
+  "eye-off": EyeOff,
+};
 
 type AuthHeaderProps = {
   badge?: string;
@@ -15,7 +23,7 @@ type AuthFormGroupProps = {
 };
 
 type AuthFieldRowProps = {
-  icon: keyof typeof Feather.glyphMap;
+  icon: string;
   label: string;
   error?: string;
   isLast?: boolean;
@@ -31,7 +39,7 @@ type AuthPrimaryButtonProps = {
 };
 
 export function AuthHeader({ badge, title, subtitle }: AuthHeaderProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View style={styles.header}>
@@ -39,15 +47,17 @@ export function AuthHeader({ badge, title, subtitle }: AuthHeaderProps) {
         <View
           style={[
             styles.badge,
-            {
-              backgroundColor: isDark ? `${colors.accent}20` : colors.accentLight,
-              borderColor: isDark ? `${colors.accent}30` : `${colors.accent}24`,
-            },
+            { backgroundColor: p.accentSoft },
           ]}
         >
           <Text
-            className="font-outfit-semibold uppercase"
-            style={[styles.badgeText, { color: colors.accent }]}
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 11,
+              letterSpacing: 1.1,
+              color: p.accent,
+              textTransform: "uppercase",
+            }}
           >
             {badge}
           </Text>
@@ -55,16 +65,24 @@ export function AuthHeader({ badge, title, subtitle }: AuthHeaderProps) {
       ) : null}
       <Text
         accessibilityRole="header"
-        className="font-outfit-semibold"
-        selectable
-        style={[styles.title, { color: colors.text }]}
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 34,
+          lineHeight: 38,
+          letterSpacing: -0.7,
+          color: p.textPrimary,
+        }}
       >
         {title}
       </Text>
       <Text
-        className="font-outfit"
-        selectable
-        style={[styles.subtitle, { color: colors.textSecondary }]}
+        style={{
+          fontFamily: "Outfit-Regular",
+          fontSize: 16,
+          lineHeight: 24,
+          color: p.textMuted,
+          maxWidth: 360,
+        }}
       >
         {subtitle}
       </Text>
@@ -73,19 +91,13 @@ export function AuthHeader({ badge, title, subtitle }: AuthHeaderProps) {
 }
 
 export function AuthFormGroup({ children }: AuthFormGroupProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View
       style={[
         styles.formGroup,
-        {
-          backgroundColor: isDark ? colors.cardElevated : colors.card,
-          borderColor: `${colors.border}`,
-          boxShadow: isDark
-            ? "0 0 0 rgba(0,0,0,0)"
-            : "0 18px 38px rgba(15, 23, 42, 0.06)",
-        },
+        { backgroundColor: p.inputBg },
       ]}
     >
       {children}
@@ -101,8 +113,9 @@ export function AuthFieldRow({
   trailing,
   children,
 }: AuthFieldRowProps) {
-  const { colors, isDark } = useAppTheme();
-  const tint = error ? colors.danger : colors.textSecondary;
+  const p = useAdminPastel();
+  const tint = error ? "#E53935" : p.textMuted;
+  const IconComponent = LUCIDE_ICONS[icon];
 
   return (
     <View accessibilityLabel={label} accessibilityRole="text">
@@ -110,15 +123,22 @@ export function AuthFieldRow({
         <View
           style={[
             styles.iconWrap,
-            {
-              backgroundColor: isDark ? `${colors.background}80` : colors.backgroundSecondary,
-            },
+            { backgroundColor: p.cardMint },
           ]}
         >
-          <Feather name={icon} size={17} color={tint} />
+          {IconComponent ? (
+            <IconComponent size={17} color={tint} strokeWidth={2} />
+          ) : null}
         </View>
         <View style={styles.inputWrap}>
-          <Text className="font-outfit-medium" style={[styles.label, { color: tint }]}>
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 12,
+              lineHeight: 16,
+              color: tint,
+            }}
+          >
             {label}
           </Text>
           {children}
@@ -129,12 +149,22 @@ export function AuthFieldRow({
         <View
           style={[
             styles.separator,
-            { backgroundColor: isDark ? `${colors.border}` : `${colors.border}` },
+            { backgroundColor: p.inputBorder },
           ]}
         />
       ) : null}
       {error ? (
-        <Text className="font-outfit" selectable style={[styles.errorText, { color: colors.danger }]}>
+        <Text
+          style={{
+            fontFamily: "Outfit-Regular",
+            fontSize: 12,
+            lineHeight: 18,
+            marginLeft: 66,
+            marginRight: 18,
+            marginBottom: 12,
+            color: "#E53935",
+          }}
+        >
           {error}
         </Text>
       ) : null}
@@ -148,7 +178,7 @@ export function AuthPrimaryButton({
   isBusy = false,
   onPress,
 }: AuthPrimaryButtonProps) {
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <Pressable
@@ -160,13 +190,18 @@ export function AuthPrimaryButton({
       style={[
         styles.primaryButton,
         {
-          backgroundColor: colors.accent,
+          backgroundColor: p.accent,
           opacity: isBusy ? 0.72 : 1,
-          boxShadow: "0 14px 28px rgba(34, 197, 94, 0.22)",
         },
       ]}
     >
-      <Text className="font-outfit-semibold" style={styles.primaryButtonText}>
+      <Text
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 17,
+          color: p.buttonPrimaryText,
+        }}
+      >
         {isBusy ? busyLabel : label}
       </Text>
     </Pressable>
@@ -181,27 +216,11 @@ const styles = StyleSheet.create({
   badge: {
     alignSelf: "flex-start",
     borderRadius: 999,
-    borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
-  badgeText: {
-    fontSize: 11,
-    letterSpacing: 1.1,
-  },
-  title: {
-    fontSize: 34,
-    lineHeight: 38,
-    letterSpacing: -0.7,
-  },
-  subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-    maxWidth: 360,
-  },
   formGroup: {
     borderRadius: 24,
-    borderWidth: 1,
     overflow: "hidden",
   },
   row: {
@@ -223,10 +242,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  label: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
   trailing: {
     justifyContent: "center",
     alignItems: "center",
@@ -235,16 +250,9 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginLeft: 66,
   },
-  errorText: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginLeft: 66,
-    marginRight: 18,
-    marginBottom: 12,
-  },
   primaryButton: {
     minHeight: 56,
-    borderRadius: 18,
+    borderRadius: 100,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
@@ -254,9 +262,5 @@ const styles = StyleSheet.create({
       },
       default: {},
     }),
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
   },
 });

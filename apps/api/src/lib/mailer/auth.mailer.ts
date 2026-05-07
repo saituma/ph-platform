@@ -1,4 +1,5 @@
-import { deliverEmail, emailLayout, escapeHtml, textP, E } from "./base.mailer";
+import { createEmailIntent } from "../../services/outbox.service";
+import { emailLayout, escapeHtml, textP, E } from "./base.mailer";
 
 export async function sendOtpEmail(input: { to: string; code: string }) {
   const subject = "Your PH Performance verification code";
@@ -21,7 +22,7 @@ ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">This cod
     bodyHtml,
   });
 
-  await deliverEmail({ to: input.to, subject, html });
+  await createEmailIntent({ to: input.to, subject, html });
 }
 
 /** Welcome email after admin provisions a guardian account (temporary password; user changes it in the app). */
@@ -52,7 +53,7 @@ ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">For your
     bodyHtml,
   });
 
-  await deliverEmail({ to: input.to, subject, html });
+  await createEmailIntent({ to: input.to, subject, html });
 }
 
 /** Password reset email triggered by an admin (temporary password; user changes it in the app). */
@@ -84,5 +85,5 @@ ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">If you d
     bodyHtml,
   });
 
-  await deliverEmail({ to: input.to, subject, html });
+  await createEmailIntent({ to: input.to, subject, html });
 }

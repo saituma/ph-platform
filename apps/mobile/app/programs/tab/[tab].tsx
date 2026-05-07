@@ -8,9 +8,8 @@ import { getSessionTypesForTab } from "@/constants/program-details";
 import { apiRequest } from "@/lib/api";
 import { normalizeProgramTier } from "@/lib/planAccess";
 import { useAppSelector } from "@/store/hooks";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Feather } from "@expo/vector-icons";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
+import { ArrowLeft } from "lucide-react-native";
 
 type ExerciseMetadata = {
   sets?: number | null;
@@ -48,7 +47,7 @@ export default function ProgramTabDetailScreen() {
   const programTier = useAppSelector((state) => state.user.programTier);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const managedAthletes = useAppSelector((state) => state.user.managedAthletes);
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const activeAthleteAge = useMemo(() => {
     if (!managedAthletes.length) return null;
@@ -68,16 +67,14 @@ export default function ProgramTabDetailScreen() {
     if (!managedAthletes.length) return null;
     return managedAthletes.find((athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId) ?? managedAthletes[0];
   }, [athleteUserId, managedAthletes]);
-  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
-  const accentSurface = isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.10)";
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+
   useEffect(() => {
     if (deepLinkFallbackDoneRef.current) return;
     if (router.canGoBack()) return;
     deepLinkFallbackDoneRef.current = true;
     router.replace("/(tabs)");
   }, [router]);
+
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
@@ -135,47 +132,57 @@ export default function ProgramTabDetailScreen() {
       onRefresh={loadContent}
       contentContainerStyle={{ paddingBottom: 40 }}
     >
-      <View className="px-6 pt-6">
+      <View style={{ paddingHorizontal: 24, paddingTop: 24 }}>
+        {/* Hero header */}
         <View
-          className="overflow-hidden rounded-[30px] border px-5 py-5"
-          style={{ backgroundColor: surfaceColor, borderColor: borderSoft, ...(isDark ? Shadows.none : Shadows.md) }}
+          style={{
+            overflow: "hidden", borderRadius: 22, paddingHorizontal: 20, paddingVertical: 20,
+            backgroundColor: p.cardWhite,
+          }}
         >
-          <View className="absolute -right-10 -top-8 h-28 w-28 rounded-full" style={{ backgroundColor: accentSurface }} />
-          <View className="flex-row items-center justify-between">
+          <View
+            style={{
+              position: "absolute", right: -40, top: -32, height: 112, width: 112,
+              borderRadius: 56, backgroundColor: p.accentSoft,
+            }}
+          />
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <Pressable
               onPress={handleBack}
-              className="h-11 w-11 items-center justify-center rounded-[18px]"
-              style={{ backgroundColor: mutedSurface }}
+              style={{
+                height: 44, width: 44, alignItems: "center", justifyContent: "center",
+                borderRadius: 18, backgroundColor: p.inputBg,
+              }}
             >
-              <Feather name="arrow-left" size={20} color={colors.accent} />
+              <ArrowLeft size={20} color={p.accent} />
             </Pressable>
-            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: mutedSurface }}>
-              <Text className="text-[10px] font-outfit font-bold uppercase tracking-[1.3px]" style={{ color: colors.accent }}>
+            <View style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: p.inputBg }}>
+              <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 1.3, color: p.accent }}>
                 Tab detail
               </Text>
             </View>
           </View>
 
-          <Text className="mt-4 text-[26px] font-telma-bold text-app font-bold">
+          <Text style={{ marginTop: 16, fontSize: 26, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
             {tabName || "Program Section"}
           </Text>
-          <View className="mt-4 flex-row flex-wrap gap-2">
+          <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {currentAthlete?.name ? (
-              <View className="rounded-full px-3 py-2" style={{ backgroundColor: accentSurface }}>
-                <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.accent }}>
+              <View style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.accentSoft }}>
+                <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.accent }}>
                   Athlete: {currentAthlete.name}
                 </Text>
               </View>
             ) : null}
             {currentAthlete?.age ? (
-              <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
-                <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+              <View style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.inputBg }}>
+                <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                   {currentAthlete.age} yrs
                 </Text>
               </View>
             ) : null}
-            <View className="rounded-full px-3 py-2" style={{ backgroundColor: mutedSurface }}>
-              <Text className="text-[11px] font-outfit font-semibold" style={{ color: colors.text }}>
+            <View style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: p.inputBg }}>
+              <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                 {items.length} items
               </Text>
             </View>
@@ -183,21 +190,21 @@ export default function ProgramTabDetailScreen() {
         </View>
 
         {isLoading ? (
-          <View className="mt-6 rounded-3xl px-4 py-4" style={{ backgroundColor: surfaceColor }}>
-            <Text className="text-sm font-outfit text-secondary">Loading content…</Text>
+          <View style={{ marginTop: 24, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: p.cardWhite }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>Loading content...</Text>
           </View>
         ) : error ? (
-          <View className="mt-6 rounded-3xl px-4 py-4" style={{ backgroundColor: surfaceColor }}>
-            <Text className="text-sm font-outfit text-secondary">{error}</Text>
+          <View style={{ marginTop: 24, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: p.cardWhite }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>{error}</Text>
           </View>
         ) : items.length === 0 ? (
-          <View className="mt-6 rounded-3xl px-4 py-4" style={{ backgroundColor: surfaceColor }}>
-            <Text className="text-sm font-outfit text-secondary">
+          <View style={{ marginTop: 24, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: p.cardWhite }}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
               No content available for this section yet.
             </Text>
           </View>
         ) : (
-          <View className="mt-6 gap-4">
+          <View style={{ marginTop: 24, gap: 16 }}>
             {items.map((item) => {
               const meta = (item.metadata ?? {}) as ExerciseMetadata;
               const hasExercise = !!(meta.sets || meta.reps || meta.duration || meta.restSeconds);
@@ -205,42 +212,44 @@ export default function ProgramTabDetailScreen() {
                 <Pressable
                   key={item.id}
                   onPress={() => router.push(`/programs/content/${item.id}`)}
-                  className="rounded-[28px] px-4 py-4 gap-2"
-                  style={{ backgroundColor: surfaceColor, ...(isDark ? Shadows.none : Shadows.sm) }}
+                  style={{
+                    borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16, gap: 8,
+                    backgroundColor: p.cardWhite,
+                  }}
                 >
-                  <Text className="text-base font-clash text-app font-bold">
+                  <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                     {item.title}
                   </Text>
                   {hasExercise && (
-                    <View className="flex-row flex-wrap gap-1.5">
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                       {meta.sets != null && (
-                        <View className="rounded-full bg-accent/20 px-2.5 py-0.5">
-                          <Text className="text-[10px] font-outfit text-accent">{meta.sets} sets</Text>
+                        <View style={{ borderRadius: 100, backgroundColor: p.accentSoft, paddingHorizontal: 10, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.accent }}>{meta.sets} sets</Text>
                         </View>
                       )}
                       {meta.reps != null && (
-                        <View className="rounded-full bg-accent/20 px-2.5 py-0.5">
-                          <Text className="text-[10px] font-outfit text-accent">{meta.reps} reps</Text>
+                        <View style={{ borderRadius: 100, backgroundColor: p.accentSoft, paddingHorizontal: 10, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.accent }}>{meta.reps} reps</Text>
                         </View>
                       )}
                       {meta.duration != null && (
-                        <View className="rounded-full bg-accent/20 px-2.5 py-0.5">
-                          <Text className="text-[10px] font-outfit text-accent">{meta.duration}s</Text>
+                        <View style={{ borderRadius: 100, backgroundColor: p.accentSoft, paddingHorizontal: 10, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.accent }}>{meta.duration}s</Text>
                         </View>
                       )}
                       {meta.restSeconds != null && (
-                        <View className="rounded-full bg-accent/20 px-2.5 py-0.5">
-                          <Text className="text-[10px] font-outfit text-accent">{meta.restSeconds}s rest</Text>
+                        <View style={{ borderRadius: 100, backgroundColor: p.accentSoft, paddingHorizontal: 10, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.accent }}>{meta.restSeconds}s rest</Text>
                         </View>
                       )}
                       {meta.category && (
-                        <View className="rounded-full bg-accent/30 px-2.5 py-0.5">
-                          <Text className="text-[10px] font-outfit text-accent font-semibold">{meta.category}</Text>
+                        <View style={{ borderRadius: 100, backgroundColor: p.accentSoft, paddingHorizontal: 10, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.accent }}>{meta.category}</Text>
                         </View>
                       )}
                     </View>
                   )}
-                  <Text className="text-xs font-outfit text-secondary mt-1">
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 4 }}>
                     Tap to view details{item.videoUrl ? ' and video' : ''}.
                   </Text>
                 </Pressable>

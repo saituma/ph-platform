@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import React, { useCallback, useDeferredValue, useState } from "react";
 import {
@@ -10,14 +9,13 @@ import {
   View,
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { Search, XCircle, MessageSquare } from "lucide-react-native";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { ThreadListItem } from "@/components/messages/inbox";
 import { Text } from "@/components/ScaledText";
 import { SkeletonMessagingScreen } from "@/components/ui/legacy-skeleton";
 import type { MessageThread, TypingStatus } from "@/types/messages";
-
-// ── Props ────────────────────────────────────────────────────────────
 
 type InboxScreenProps = {
   threads: MessageThread[];
@@ -36,8 +34,6 @@ type InboxScreenProps = {
 
 type InboxFilter = "all" | "unread";
 
-// ── Inbox search / filters (thread rows use ThreadListItem + list-row UI) ─
-
 interface FilterPillProps {
   label: string;
   active: boolean;
@@ -51,31 +47,7 @@ const FilterPill = function FilterPill({
   onPress,
   count,
 }: FilterPillProps) {
-  const { colors, isDark } = useAppTheme();
-
-  const bg = active
-    ? colors.accent
-    : isDark
-      ? "hsl(220, 5%, 92%)"
-      : "hsl(220, 8%, 12%)";
-
-  const textColor = active
-    ? "hsl(220, 5%, 98%)"
-    : isDark
-      ? "hsl(220, 8%, 10%)"
-      : "hsl(220, 5%, 94%)";
-
-  const badgeBg = active
-    ? "rgba(255,255,255,0.22)"
-    : isDark
-      ? "rgba(0,0,0,0.12)"
-      : "rgba(255,255,255,0.18)";
-
-  const badgeText = active
-    ? "hsl(220, 5%, 98%)"
-    : isDark
-      ? "hsl(220, 8%, 10%)"
-      : "hsl(220, 5%, 94%)";
+  const p = useAdminPastel();
 
   return (
     <Pressable
@@ -83,13 +55,7 @@ const FilterPill = function FilterPill({
       style={({ pressed }: { pressed: boolean }) => [
         styles.filterPill,
         {
-          backgroundColor: bg,
-          borderWidth: 1,
-          borderColor: active
-            ? colors.accent
-            : isDark
-              ? "hsl(220, 5%, 85%)"
-              : "hsl(220, 8%, 18%)",
+          backgroundColor: active ? p.accent : p.cardSage,
           transform: [{ scale: pressed ? 0.95 : 1 }],
         },
       ]}
@@ -98,19 +64,32 @@ const FilterPill = function FilterPill({
       accessibilityLabel={`Filter by ${label}`}
     >
       <Text
-        style={[
-          styles.filterPillText,
-          {
-            fontFamily: active ? "Outfit-Bold" : "Outfit-Medium",
-            color: textColor,
-          },
-        ]}
+        style={{
+          fontFamily: active ? "Outfit-Bold" : "Outfit-Regular",
+          fontSize: 15,
+          color: active ? p.buttonPrimaryText : p.textSecondary,
+        }}
       >
         {label}
       </Text>
       {count !== undefined && count > 0 && (
-        <View style={[styles.pillBadge, { backgroundColor: badgeBg }]}>
-          <Text style={[styles.pillBadgeText, { color: badgeText }]}>
+        <View
+          style={[
+            styles.pillBadge,
+            {
+              backgroundColor: active
+                ? "rgba(255,255,255,0.22)"
+                : p.accentSoft,
+            },
+          ]}
+        >
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 12,
+              color: active ? p.buttonPrimaryText : p.accent,
+            }}
+          >
             {count}
           </Text>
         </View>
@@ -119,45 +98,43 @@ const FilterPill = function FilterPill({
   );
 };
 
-// ── Empty State ──────────────────────────────────────────────────────
-
 const InboxEmptyState = function InboxEmptyState() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   return (
     <Animated.View entering={FadeIn.delay(200)} style={styles.emptyContainer}>
       <View
         style={[
           styles.emptyIconContainer,
-          { backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)" },
+          { backgroundColor: p.cardMint },
         ]}
       >
-        <Ionicons
-          name="chatbubbles"
-          size={56}
-          color={colors.textDim}
-        />
+        <MessageSquare size={48} color={p.accent} strokeWidth={1.5} />
       </View>
       <Text
-        style={[
-          styles.emptyTitle,
-          { fontFamily: "Chillax-Semibold", color: colors.textPrimary },
-        ]}
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 24,
+          marginBottom: 12,
+          textAlign: "center",
+          color: p.textPrimary,
+        }}
       >
         Your Inbox is Empty
       </Text>
       <Text
-        style={[
-          styles.emptySubtext,
-          { fontFamily: "Outfit-Regular", color: colors.textSecondary },
-        ]}
+        style={{
+          fontFamily: "Outfit-Regular",
+          fontSize: 16,
+          textAlign: "center",
+          lineHeight: 24,
+          color: p.textMuted,
+        }}
       >
         When you connect with your team, coach, or friends, your messages will show up here.
       </Text>
     </Animated.View>
   );
 };
-
-// ── Main ─────────────────────────────────────────────────────────────
 
 function InboxScreenBase({
   threads,
@@ -167,7 +144,7 @@ function InboxScreenBase({
   onRefresh,
   onOpenThread,
 }: InboxScreenProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const [searchText, setSearchText] = useState("");
   const [activeFilter, setActiveFilter] = useState<InboxFilter>("all");
@@ -221,39 +198,31 @@ function InboxScreenBase({
 
   if (isLoading) {
     return (
-      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.screen, { backgroundColor: p.pageBg }]}>
         <SkeletonMessagingScreen />
       </View>
     );
   }
 
-  const screenBg = colors.background;
-
   return (
-    <View style={[styles.screen, { backgroundColor: screenBg }]}>
+    <View style={[styles.screen, { backgroundColor: p.pageBg }]}>
       <Animated.View entering={FadeIn.duration(200)} style={styles.headerBlock}>
-
-
         <View style={styles.searchWrap}>
           <View
             style={[
               styles.searchInner,
-              {
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-                borderWidth: 1,
-              },
+              { backgroundColor: p.inputBg },
             ]}
           >
-            <Ionicons name="search" size={20} color={colors.textDim} />
+            <Search size={18} color={p.textMuted} strokeWidth={2} />
             <TextInput
               placeholder="Search conversations..."
-              placeholderTextColor={colors.textDim}
+              placeholderTextColor={p.textMuted}
               value={searchText}
               onChangeText={setSearchText}
               style={[
                 styles.searchInput,
-                { fontFamily: "Outfit-Medium", color: colors.textPrimary },
+                { fontFamily: "Outfit-Regular", color: p.textPrimary },
               ]}
               returnKeyType="search"
               autoCorrect={false}
@@ -261,7 +230,7 @@ function InboxScreenBase({
             />
             {searchText.length > 0 && Platform.OS === "android" && (
                <Pressable onPress={clearSearch} style={styles.clearBtn}>
-                 <Ionicons name="close-circle" size={20} color={colors.textDim} />
+                 <XCircle size={18} color={p.textMuted} strokeWidth={2} />
                </Pressable>
             )}
           </View>
@@ -298,7 +267,7 @@ function InboxScreenBase({
             <RefreshControl
               refreshing={false}
               onRefresh={onRefresh}
-              tintColor={colors.accent}
+              tintColor={p.accent}
             />
           }
           ItemSeparatorComponent={undefined}
@@ -312,8 +281,6 @@ function InboxScreenBase({
 
 export const InboxScreen = InboxScreenBase;
 
-// ── Styles ───────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -323,17 +290,16 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
   },
-
   searchWrap: {
     marginBottom: 12,
   },
   searchInner: {
-    height: 36,
-    borderRadius: 10,
+    height: 44,
+    borderRadius: 22,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
@@ -352,15 +318,12 @@ const styles = StyleSheet.create({
   },
   filterPill: {
     height: 38,
-    borderRadius: 19,
+    borderRadius: 100,
     flexDirection: "row",
     paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-  },
-  filterPillText: {
-    fontSize: 15,
   },
   pillBadge: {
     paddingHorizontal: 6,
@@ -370,11 +333,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pillBadgeText: {
-    fontSize: 12,
-    fontFamily: "Outfit-Bold",
-  },
-  // --- Empty state ---
   emptyContainer: {
     flex: 1,
     alignItems: "center",
@@ -389,15 +347,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 24,
-  },
-  emptyTitle: {
-    fontSize: 26,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  emptySubtext: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
   },
 });

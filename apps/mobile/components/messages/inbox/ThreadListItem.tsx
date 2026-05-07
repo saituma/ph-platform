@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import React, { useCallback } from "react";
 import {
@@ -6,8 +5,9 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import { Users } from "lucide-react-native";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import type { MessageThread } from "@/types/messages";
 
@@ -49,7 +49,7 @@ export const ThreadListItem = React.memo(function ThreadListItem({
   openingThreadId,
   onOpenThread,
 }: ThreadListItemProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const typing = typingStatus;
   const sharedBoundTag = `thread-card-${thread.id}`;
@@ -62,10 +62,6 @@ export const ThreadListItem = React.memo(function ThreadListItem({
   const isTeamThread =
     thread.channelType === "team" || thread.channelType === "coach_group";
 
-  const separatorColor = isDark
-    ? "rgba(255,255,255,0.06)"
-    : "rgba(0,0,0,0.08)";
-
   const handlePress = useCallback(
     () => onOpenThread(thread, sharedBoundTag, sharedAvatarTag),
     [onOpenThread, thread, sharedBoundTag, sharedAvatarTag],
@@ -76,16 +72,15 @@ export const ThreadListItem = React.memo(function ThreadListItem({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`Open conversation with ${thread.name}${unreadBadge ? `, ${unreadBadge} unread` : ""}`}
-      android_ripple={{ color: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }}
+      android_ripple={{ color: "rgba(45,159,63,0.08)" }}
       style={({ pressed }) => ({
         opacity: isOpening ? 0.55 : 1,
         backgroundColor: pressed && !isOpening
-          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"
+          ? p.accentSoft
           : "transparent",
       })}
     >
-      <View style={[styles.row, { borderBottomColor: separatorColor }]}>
-        {/* Avatar */}
+      <View style={[styles.row, { borderBottomColor: p.divider }]}>
         <View style={styles.avatarContainer}>
           {thread.avatarUrl ? (
             <Image
@@ -99,18 +94,14 @@ export const ThreadListItem = React.memo(function ThreadListItem({
               style={[
                 styles.avatar,
                 styles.avatarPlaceholder,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.07)"
-                    : "rgba(0,0,0,0.05)",
-                },
+                { backgroundColor: p.cardMint },
               ]}
             >
               <Text
                 style={{
                   fontSize: 17,
                   fontFamily: "Outfit-Bold",
-                  color: colors.textPrimary,
+                  color: p.accent,
                   letterSpacing: 0.5,
                 }}
               >
@@ -124,32 +115,31 @@ export const ThreadListItem = React.memo(function ThreadListItem({
               style={[
                 styles.statusBadge,
                 {
-                  backgroundColor: isDark ? colors.surfaceHigher : "#F4F5F4",
-                  borderColor: colors.background,
+                  backgroundColor: p.cardSage,
+                  borderColor: p.pageBg,
                 },
               ]}
             >
-              <Ionicons name="people" size={9} color={colors.accent} />
+              <Users size={9} color={p.accent} strokeWidth={2.5} />
             </View>
           ) : isOnline ? (
             <View
               style={[
                 styles.onlineDot,
-                { borderColor: colors.background },
+                { borderColor: p.pageBg },
               ]}
             />
           ) : null}
         </View>
 
-        {/* Content */}
         <View style={styles.content}>
           <View style={styles.topRow}>
             <Text
               style={[
                 styles.name,
                 {
-                  fontFamily: isUnread ? "Outfit-Bold" : "Outfit-SemiBold",
-                  color: colors.textPrimary,
+                  fontFamily: isUnread ? "Outfit-Bold" : "Outfit-Regular",
+                  color: p.textPrimary,
                 },
               ]}
               numberOfLines={1}
@@ -161,7 +151,7 @@ export const ThreadListItem = React.memo(function ThreadListItem({
                 styles.time,
                 {
                   fontFamily: "Outfit-Regular",
-                  color: isUnread ? colors.accent : colors.textDim,
+                  color: isUnread ? p.accent : p.textMuted,
                 },
               ]}
               numberOfLines={1}
@@ -175,12 +165,12 @@ export const ThreadListItem = React.memo(function ThreadListItem({
               style={[
                 styles.preview,
                 {
-                  fontFamily: isUnread ? "Outfit-Medium" : "Outfit-Regular",
+                  fontFamily: isUnread ? "Outfit-Bold" : "Outfit-Regular",
                   color: typing?.isTyping
-                    ? colors.accent
+                    ? p.accent
                     : isUnread
-                      ? colors.textSecondary
-                      : colors.textDim,
+                      ? p.textSecondary
+                      : p.textMuted,
                 },
               ]}
               numberOfLines={1}
@@ -189,15 +179,13 @@ export const ThreadListItem = React.memo(function ThreadListItem({
             </Text>
 
             {isUnread && (
-              <View style={[styles.badge, { backgroundColor: colors.accent }]}>
+              <View style={[styles.badge, { backgroundColor: p.accent }]}>
                 <Text
-                  style={[
-                    styles.badgeText,
-                    {
-                      fontFamily: "Outfit-Bold",
-                      color: isDark ? colors.textInverse : "#0A0B0A",
-                    },
-                  ]}
+                  style={{
+                    fontFamily: "Outfit-Bold",
+                    fontSize: 11,
+                    color: p.buttonPrimaryText,
+                  }}
                 >
                   {unreadBadge}
                 </Text>
@@ -214,7 +202,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -223,9 +211,9 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
   avatarPlaceholder: {
     justifyContent: "center",
@@ -255,7 +243,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: 4,
   },
   topRow: {
     flexDirection: "row",
@@ -289,8 +277,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  badgeText: {
-    fontSize: 11,
   },
 });

@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   TextInput,
-  ScrollView,
-  Alert,
   Platform,
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -19,17 +16,14 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { 
-  Smile, 
-  Tag, 
-  FileText, 
-  Save, 
-  CheckCircle2, 
+import {
+  Smile,
+  Save,
+  CheckCircle2,
   MessageSquare,
   Activity,
-  Heart
+  Heart,
 } from "lucide-react-native";
-import { fonts, radius, spacing } from "@/constants/theme";
 
 import { useRunStore } from "../../../store/useRunStore";
 import { updateRunFeedback } from "../../../lib/sqliteRuns";
@@ -40,7 +34,7 @@ import {
   FeelTagSelector,
   FEEL_TAGS,
 } from "../../../components/tracking/FeelTagSelector";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text as ScaledText } from "@/components/ScaledText";
 import { trackingScrollBottomPad } from "../../../lib/tracking/mainTabBarInset";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -50,7 +44,7 @@ export default function FeedbackScreen() {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
   const toast = useAppToast();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const {
     status,
     resetRun,
@@ -140,11 +134,6 @@ export default function FeedbackScreen() {
     transform: [{ scale: scaleSaveBtn.value }],
   }));
 
-  // Design Tokens
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
-  const cardBg = isDark ? colors.cardElevated : colors.background;
-  const accentMuted = `${colors.accent}15`;
-
   return (
     <>
       <Stack.Screen
@@ -153,7 +142,7 @@ export default function FeedbackScreen() {
           presentation: "modal",
         }}
       />
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
@@ -162,7 +151,7 @@ export default function FeedbackScreen() {
             bounces={true}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
-              paddingHorizontal: spacing.xl,
+              paddingHorizontal: 20,
               paddingTop: 40,
               paddingBottom: trackingScrollBottomPad(insets),
             }}
@@ -170,14 +159,14 @@ export default function FeedbackScreen() {
           >
           {/* Header */}
           <View style={{ alignItems: "center", marginBottom: 40 }}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: accentMuted, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-              <Smile size={32} color={colors.accent} strokeWidth={2.5} />
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+              <Smile size={32} color={p.accent} strokeWidth={2.5} />
             </View>
             <ScaledText
               style={{
-                fontFamily: fonts.accentBold,
+                fontFamily: "Outfit-Bold",
                 fontSize: 34,
-                color: colors.textPrimary,
+                color: p.textPrimary,
                 textAlign: "center",
                 letterSpacing: -0.5,
               }}
@@ -186,9 +175,9 @@ export default function FeedbackScreen() {
             </ScaledText>
             <ScaledText
               style={{
-                fontFamily: fonts.bodyMedium,
+                fontFamily: "Outfit-Regular",
                 fontSize: 15,
-                color: colors.textSecondary,
+                color: p.textSecondary,
                 marginTop: 6,
               }}
             >
@@ -199,17 +188,15 @@ export default function FeedbackScreen() {
           {/* Effort Level card */}
           <View
             style={{
-              backgroundColor: cardBg,
-              borderColor: cardBorder,
-              borderWidth: 1,
-              borderRadius: radius.xxl,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: 24,
               marginBottom: 24,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 }}>
-              <Activity size={18} color={colors.purple} strokeWidth={2.5} />
-              <ScaledText style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>
+              <Activity size={18} color={p.accent} strokeWidth={2.5} />
+              <ScaledText style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textSecondary, letterSpacing: 2 }}>
                 EFFORT LEVEL
               </ScaledText>
             </View>
@@ -225,17 +212,15 @@ export default function FeedbackScreen() {
           {/* Feel Tags card */}
           <View
             style={{
-              backgroundColor: cardBg,
-              borderColor: cardBorder,
-              borderWidth: 1,
-              borderRadius: radius.xxl,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: 24,
               marginBottom: 24,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 }}>
-              <Heart size={18} color={colors.cyan} strokeWidth={2.5} />
-              <ScaledText style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>
+              <Heart size={18} color={p.accent} strokeWidth={2.5} />
+              <ScaledText style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textSecondary, letterSpacing: 2 }}>
                 HOW DID YOU FEEL?
               </ScaledText>
             </View>
@@ -245,22 +230,20 @@ export default function FeedbackScreen() {
           {/* Notes card */}
           <View
             style={{
-              backgroundColor: cardBg,
-              borderColor: cardBorder,
-              borderWidth: 1,
-              borderRadius: radius.xxl,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: 24,
               marginBottom: 40,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MessageSquare size={18} color={colors.textSecondary} strokeWidth={2.5} />
-                <ScaledText style={{ fontFamily: fonts.labelCaps, fontSize: 11, color: colors.textSecondary, letterSpacing: 2 }}>
+                <MessageSquare size={18} color={p.textSecondary} strokeWidth={2.5} />
+                <ScaledText style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textSecondary, letterSpacing: 2 }}>
                   NOTES
                 </ScaledText>
               </View>
-              <ScaledText style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.textDim }}>
+              <ScaledText style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
                 {notes.length} / 200
               </ScaledText>
             </View>
@@ -270,20 +253,20 @@ export default function FeedbackScreen() {
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               placeholder="What was on your mind today?"
-              placeholderTextColor={colors.placeholder}
+              placeholderTextColor={p.textMuted}
               multiline
               maxLength={200}
               textAlignVertical="top"
               style={{
-                backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                borderColor: isFocused ? colors.accent : cardBorder,
+                backgroundColor: p.inputBg,
+                borderColor: isFocused ? p.accent : p.divider,
                 borderWidth: 1,
-                borderRadius: radius.xl,
+                borderRadius: 16,
                 padding: 16,
                 minHeight: 120,
-                fontFamily: fonts.bodyMedium,
+                fontFamily: "Outfit-Regular",
                 fontSize: 15,
-                color: colors.text,
+                color: p.textPrimary,
               }}
             />
           </View>
@@ -312,19 +295,18 @@ export default function FeedbackScreen() {
                 {
                   width: "100%",
                   height: 72,
-                  backgroundColor: colors.accent,
-                  borderRadius: radius.xxl,
+                  backgroundColor: p.accent,
+                  borderRadius: 100,
                   flexDirection: "row",
                   justifyContent: "center",
                   alignItems: "center",
                   gap: 12,
                   opacity: effort === null ? 0.4 : 1,
-                  ...(isDark || effort === null ? {} : { shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 10 }, elevation: 8 }),
                 },
               ]}
             >
-              <Save size={22} color="#FFF" strokeWidth={2.5} />
-              <ScaledText style={{ fontFamily: fonts.accentBold, fontSize: 20, color: "#FFF" }}>
+              <Save size={22} color={p.buttonPrimaryText} strokeWidth={2.5} />
+              <ScaledText style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.buttonPrimaryText }}>
                 SAVE WORKOUT
               </ScaledText>
             </Animated.View>
@@ -342,26 +324,23 @@ export default function FeedbackScreen() {
               top: insets.top + 10,
               left: 20,
               right: 20,
-              backgroundColor: colors.cardElevated,
-              borderColor: colors.accent,
-              borderWidth: 1,
-              borderRadius: radius.xl,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: 16,
               flexDirection: "row",
               justifyContent: "center",
               alignItems: "center",
               gap: 12,
               zIndex: 999,
-              ...(isDark ? {} : { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 }),
             },
           ]}
         >
-          <CheckCircle2 size={22} color={colors.accent} strokeWidth={2.5} />
+          <CheckCircle2 size={22} color={p.accent} strokeWidth={2.5} />
           <ScaledText
             style={{
-              fontFamily: fonts.accentBold,
+              fontFamily: "Outfit-Bold",
               fontSize: 16,
-              color: colors.textPrimary,
+              color: p.textPrimary,
             }}
           >
             Workout Saved!

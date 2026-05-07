@@ -93,17 +93,30 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     newSocket.on("connect", () => {
       connectErrorCountRef.current = 0;
       dispatch(socketConnected());
+      console.info("[RealtimeLatency] mobile.socket.connect", {
+        socketId: newSocket.id,
+        transport: newSocket.io.engine.transport.name,
+      });
       emitActingJoin();
     });
 
     newSocket.on("disconnect", (reason) => {
       dispatch(socketDisconnected(String(reason)));
+      console.info("[RealtimeLatency] mobile.socket.disconnect", {
+        reason: String(reason),
+        transport: newSocket.io.engine.transport.name,
+      });
     });
 
     newSocket.on("connect_error", (error) => {
       connectErrorCountRef.current += 1;
       dispatch(socketConnectError());
       Sentry.addBreadcrumb({ category: "socket", message: `connect_error #${connectErrorCountRef.current}`, level: "warning", data: { message: error.message } });
+      console.warn("[RealtimeLatency] mobile.socket.connect_error", {
+        attempts: connectErrorCountRef.current,
+        message: error.message,
+        transport: newSocket.io.engine.transport.name,
+      });
       if (connectErrorCountRef.current >= 5) {
         Sentry.captureException(error, {
           tags: { "socket.attempts": connectErrorCountRef.current },
@@ -173,6 +186,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     newSocket.on("physio:referral:deleted", onReferralDeleted);
     newSocket.on("program:changed", onProgramChanged);
     newSocket.on("schedule:changed", onScheduleChanged);
+    newSocket.io.engine.on("upgrade", (transport) => {
+      console.info("[RealtimeLatency] mobile.socket.transport_upgrade", {
+        socketId: newSocket.id,
+        transport: transport.name,
+      });
+    });
 
     // Message/group alerts delivered via server-side Expo push (system tray when backgrounded).
     // Foreground handling uses addNotificationReceivedListener in InAppNotificationsContext.

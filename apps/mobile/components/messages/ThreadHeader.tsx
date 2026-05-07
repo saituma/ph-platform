@@ -1,13 +1,12 @@
-import { Pressable, StyleSheet, View } from "react-native";
-import Animated from "react-native-reanimated";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronLeft, Search } from "lucide-react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Transition } from "@/components/navigation/TransitionStack";
 import { Text } from "@/components/ScaledText";
-import { fonts } from "@/constants/theme";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import type { MessageThread } from "@/types/messages";
 
 type ThreadHeaderProps = {
@@ -36,43 +35,54 @@ export function ThreadHeader({
 	sharedBoundTag,
 	sharedAvatarTag,
 }: ThreadHeaderProps) {
-	const { colors, isDark } = useAppTheme();
-	const insets = useAppSafeAreaInsets();
-	const headerBorder = isDark
-		? "rgba(255,255,255,0.08)"
-		: "rgba(15,23,42,0.06)";
-	const avatarBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(34,197,94,0.12)";
-	const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
-	const textSecondary = isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,45%)";
-	const onlineColor = isDark ? "hsl(155, 30%, 55%)" : "hsl(155, 40%, 38%)";
+	const p = useAdminPastel();
+	const { isDark } = useAppTheme();
 
 	const isOnline = thread.lastSeen === "Online";
-	const statusLine = thread.lastSeen ?? thread.responseTime ?? "Coaching chat";
+	const isGroup = thread.id.startsWith("group:");
+	const statusLine = isGroup
+		? (thread.responseTime ?? "Group chat")
+		: isOnline
+			? "Online"
+			: (thread.lastSeen ?? thread.responseTime ?? "Coaching chat");
+
+	const headerBg = isDark ? p.cardWhite : "#FFFFFF";
+	const shadowStyle = Platform.select({
+		ios: {
+			shadowColor: "#000",
+			shadowOffset: { width: 0, height: 1 },
+			shadowOpacity: isDark ? 0.3 : 0.06,
+			shadowRadius: 4,
+		},
+		android: {
+			elevation: 2,
+		},
+	});
 
 	return (
-		<View
-			style={{
-				borderBottomWidth: StyleSheet.hairlineWidth,
-				borderBottomColor: headerBorder,
-				backgroundColor: colors.background,
-				paddingTop: insets.top,
-			}}
+		<SafeAreaView
+			edges={["top"]}
+			style={[{ backgroundColor: headerBg }, shadowStyle]}
 		>
-			<Animated.View style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
+			<View style={styles.row}>
 				<Transition.View
 					sharedBoundTag={sharedBoundTag}
-					style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}
+					style={styles.innerRow}
 				>
 					<Pressable
 						onPress={onBack}
 						hitSlop={12}
-						style={({ pressed }) => ({
-							paddingHorizontal: 4,
-							paddingVertical: 8,
-							opacity: pressed ? 0.5 : 1,
-						})}
+						style={({ pressed }) => [
+							styles.iconButton,
+							{
+								backgroundColor: isDark
+									? "rgba(255,255,255,0.06)"
+									: "rgba(0,0,0,0.03)",
+								opacity: pressed ? 0.6 : 1,
+							},
+						]}
 					>
-						<Ionicons name="chevron-back" size={28} color={textPrimary} />
+						<ChevronLeft size={22} color={p.textPrimary} />
 					</Pressable>
 
 					<Pressable
@@ -87,47 +97,48 @@ export function ThreadHeader({
 							flex: 1,
 							flexDirection: "row",
 							alignItems: "center",
-							gap: 10,
-							opacity: pressed && onHeaderPress ? 0.75 : 1,
+							gap: 12,
+							opacity: pressed && onHeaderPress ? 0.7 : 1,
 						})}
 					>
-						<Transition.View sharedBoundTag={sharedAvatarTag}>
+						<Transition.View
+							sharedBoundTag={sharedAvatarTag}
+							style={styles.avatarWrap}
+						>
 							{thread.avatarUrl ? (
-								<View
-									style={{
-										height: 36,
-										width: 36,
-										borderRadius: 18,
-										overflow: "hidden",
-									}}
-								>
-									<Image
-										source={{ uri: thread.avatarUrl }}
-										style={{ height: 36, width: 36 }}
-										contentFit="cover"
-									/>
-								</View>
+								<Image
+									source={{ uri: thread.avatarUrl }}
+									style={styles.avatarImage}
+									contentFit="cover"
+								/>
 							) : (
 								<View
-									style={{
-										height: 36,
-										width: 36,
-										borderRadius: 18,
-										alignItems: "center",
-										justifyContent: "center",
-										backgroundColor: avatarBg,
-									}}
+									style={[
+										styles.avatarFallback,
+										{ backgroundColor: p.accentSoft },
+									]}
 								>
 									<Text
 										style={{
-											fontFamily: fonts.bodyBold,
-											fontSize: 14,
-											color: colors.accent,
+											fontFamily: "Outfit-Bold",
+											fontSize: 15,
+											color: p.accent,
 										}}
 									>
 										{getInitials(thread.name)}
 									</Text>
 								</View>
+							)}
+							{isOnline && (
+								<View
+									style={[
+										styles.onlineDot,
+										{
+											backgroundColor: p.success,
+											borderColor: headerBg,
+										},
+									]}
+								/>
 							)}
 						</Transition.View>
 
@@ -135,51 +146,94 @@ export function ThreadHeader({
 							<Text
 								numberOfLines={1}
 								style={{
-									fontFamily: fonts.bodyBold,
-									fontSize: 16,
-									color: textPrimary,
+									fontFamily: "Outfit-SemiBold",
+									fontSize: 17,
+									color: p.textPrimary,
+									letterSpacing: -0.2,
 								}}
 							>
 								{thread.name}
 							</Text>
-							<View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-								{isOnline && (
-									<View
-										style={{
-											width: 7,
-											height: 7,
-											borderRadius: 4,
-											backgroundColor: onlineColor,
-										}}
-									/>
-								)}
-								<Text
-									numberOfLines={1}
-									style={{
-										fontSize: 12,
-										fontFamily: "Outfit",
-										color: isOnline ? onlineColor : textSecondary,
-									}}
-								>
-									{statusLine}
-								</Text>
-							</View>
+							<Text
+								numberOfLines={1}
+								style={{
+									fontSize: 12,
+									fontFamily: "Outfit-Regular",
+									color: isOnline ? p.success : p.textMuted,
+									marginTop: 1,
+								}}
+							>
+								{statusLine}
+							</Text>
 						</View>
 					</Pressable>
-						{onSearch && (
-							<Pressable
-								onPress={onSearch}
-								hitSlop={12}
-								style={({ pressed }) => ({
-									padding: 6,
-									opacity: pressed ? 0.5 : 1,
-								})}
-							>
-								<Ionicons name="search" size={20} color={textSecondary} />
-							</Pressable>
-						)}
+
+					{onSearch && (
+						<Pressable
+							onPress={onSearch}
+							hitSlop={12}
+							style={({ pressed }) => [
+								styles.iconButton,
+								{
+									backgroundColor: isDark
+										? "rgba(255,255,255,0.06)"
+										: "rgba(0,0,0,0.03)",
+									opacity: pressed ? 0.6 : 1,
+								},
+							]}
+						>
+							<Search size={18} color={p.textMuted} />
+						</Pressable>
+					)}
 				</Transition.View>
-			</Animated.View>
-		</View>
+			</View>
+		</SafeAreaView>
 	);
 }
+
+const styles = StyleSheet.create({
+	row: {
+		paddingHorizontal: 12,
+		paddingTop: 6,
+		paddingBottom: 10,
+	},
+	innerRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+	},
+	iconButton: {
+		width: 38,
+		height: 38,
+		borderRadius: 19,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	avatarWrap: {
+		width: 42,
+		height: 42,
+		borderRadius: 21,
+		overflow: "visible",
+	},
+	avatarImage: {
+		width: 42,
+		height: 42,
+		borderRadius: 21,
+	},
+	avatarFallback: {
+		width: 42,
+		height: 42,
+		borderRadius: 21,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	onlineDot: {
+		position: "absolute",
+		bottom: 0,
+		right: 0,
+		width: 12,
+		height: 12,
+		borderRadius: 6,
+		borderWidth: 2,
+	},
+});

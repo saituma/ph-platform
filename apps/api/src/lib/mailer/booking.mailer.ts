@@ -1,4 +1,5 @@
-import { deliverEmail, emailLayout, escapeHtml, escapeAttr, textP, labelRow, E } from "./base.mailer";
+import { createEmailIntent } from "../../services/outbox.service";
+import { emailLayout, escapeHtml, escapeAttr, textP, labelRow, E } from "./base.mailer";
 
 const TBD = "TBD (coach will confirm)";
 
@@ -54,7 +55,7 @@ ${textP(`Thanks for your request — we’ve received it and it’s <strong>pend
     bodyHtml,
   });
 
-  await deliverEmail({ to: input.to, subject, html });
+  await createEmailIntent({ to: input.to, subject, html });
 }
 
 export async function sendBookingApprovedEmail(input: {
@@ -102,7 +103,7 @@ ${textP(`Thanks for training with PH Performance.`, "0")}`;
     bodyHtml,
   });
 
-  await deliverEmail({ to: input.to, subject, html });
+  await createEmailIntent({ to: input.to, subject, html });
 }
 
 export async function sendBookingDeclinedEmail(input: {
@@ -157,7 +158,7 @@ ${textP(`We weren’t able to confirm the session below. That can happen when a 
     bodyHtml,
   });
 
-  await deliverEmail({ to: input.to, subject, html });
+  await createEmailIntent({ to: input.to, subject, html });
 }
 
 export async function sendBookingRequestAdminEmail(input: {
@@ -231,5 +232,5 @@ ${textP(`<span style="color:${E.muted};font-size:14px;">Buttons use secure links
     bodyHtml,
   });
 
-  await deliverEmail({ to: input.to, subject, html });
+  await createEmailIntent({ to: input.to, subject, html });
 }

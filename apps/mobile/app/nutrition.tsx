@@ -1,18 +1,15 @@
-import { MoreStackHeader } from "@/components/more/MoreStackHeader";
-import { NutritionPanel } from "@/components/programs/panels/NutritionPanel";
+import { NutritionDashboard } from "@/components/nutrition/NutritionDashboard";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Platform, Pressable, Switch, View } from "react-native";
-import { useAppToast } from "@/hooks/useAppToast";
+import { Platform, Pressable, Switch, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
-import { Ionicons } from "@expo/vector-icons";
-import { fonts } from "@/constants/theme";
+import { Bell, Clock, Lock, Moon, Sun, Sunrise } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import {
   type MealSlot,
@@ -23,18 +20,25 @@ import {
   cancelMealReminder,
   requestMealNotificationPermission,
 } from "@/lib/nutritionMealReminders";
+import { useAppToast } from "@/hooks/useAppToast";
 
-// ─── Meal Reminders Card ──────────────────────────────────────────────────────
+const MEAL_ICONS: Record<MealSlot, React.FC<any>> = {
+  breakfast: Sunrise,
+  lunch: Sun,
+  dinner: Moon,
+};
 
-const MEAL_ROWS: { slot: MealSlot; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[] = [
-  { slot: "breakfast", label: "Breakfast", icon: "sunny-outline" },
-  { slot: "lunch", label: "Lunch", icon: "partly-sunny-outline" },
-  { slot: "dinner", label: "Dinner", icon: "moon-outline" },
+const MEAL_ROWS: { slot: MealSlot; label: string }[] = [
+  { slot: "breakfast", label: "Breakfast" },
+  { slot: "lunch", label: "Lunch" },
+  { slot: "dinner", label: "Dinner" },
 ];
 
 type AllPrefs = Record<MealSlot, MealReminderPrefs>;
 
-function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record<string, string> }) {
+function MealRemindersCard() {
+  const p = useAdminPastel();
+  const { isDark } = useAppTheme();
   const toast = useAppToast();
   const [prefs, setPrefs] = useState<AllPrefs>({
     breakfast: { enabled: false, hour: 8, minute: 0 },
@@ -47,15 +51,6 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
     void getAllMealReminderPrefs().then(setPrefs);
   }, []);
 
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(220, 5%, 98%)";
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const titleColor = isDark ? "hsl(220, 5%, 92%)" : "hsl(220, 8%, 12%)";
-  const subtitleColor = isDark ? "hsl(220, 5%, 52%)" : "hsl(220, 5%, 48%)";
-  const iconBgOn = isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.12)";
-  const iconBgOff = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)";
-  const rowDivider = isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)";
-
   const toggle = useCallback(async (slot: MealSlot, value: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (value) {
@@ -66,7 +61,7 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
       }
     }
     const next: MealReminderPrefs = { ...prefs[slot], enabled: value };
-    setPrefs((p) => ({ ...p, [slot]: next }));
+    setPrefs((prev) => ({ ...prev, [slot]: next }));
     await setMealReminderPrefs(slot, next);
     if (value) {
       await scheduleMealReminder(slot, next);
@@ -79,7 +74,7 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
     if (Platform.OS === "android") setTimePicker(null);
     if (!date) return;
     const next: MealReminderPrefs = { ...prefs[slot], hour: date.getHours(), minute: date.getMinutes() };
-    setPrefs((p) => ({ ...p, [slot]: next }));
+    setPrefs((prev) => ({ ...prev, [slot]: next }));
     await setMealReminderPrefs(slot, next);
     if (next.enabled) {
       await scheduleMealReminder(slot, next);
@@ -89,14 +84,11 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
   return (
     <View
       style={{
-        backgroundColor: cardBg,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: cardBorder,
+        backgroundColor: p.cardWhite,
+        borderRadius: 22,
         marginBottom: 16,
       }}
     >
-      {/* Header */}
       <View
         style={{
           flexDirection: "row",
@@ -112,32 +104,31 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
             width: 32,
             height: 32,
             borderRadius: 10,
-            backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.12)",
+            backgroundColor: p.accentSoft,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Ionicons name="notifications-outline" size={16} color={colors.accent} />
+          <Bell size={16} color={p.accent} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: titleColor }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
             Meal reminders
           </Text>
-          <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 11, color: labelColor, marginTop: 1 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, marginTop: 1 }}>
             Daily local alerts — fires even when app is closed
           </Text>
         </View>
       </View>
 
-      {/* Row divider */}
-      <View style={{ height: 1, backgroundColor: rowDivider, marginHorizontal: 16 }} />
+      <View style={{ height: 1, backgroundColor: p.divider, marginHorizontal: 16 }} />
 
-      {/* Meal rows — outer card radius 20, no padding → row radius 16 */}
       {MEAL_ROWS.map((row, idx) => {
-        const p = prefs[row.slot];
+        const pref = prefs[row.slot];
         const timeDate = new Date();
-        timeDate.setHours(p.hour, p.minute, 0, 0);
+        timeDate.setHours(pref.hour, pref.minute, 0, 0);
         const timeLabel = timeDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const IconComp = MEAL_ICONS[row.slot];
 
         return (
           <View key={row.slot}>
@@ -150,30 +141,27 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
                 gap: 12,
               }}
             >
-              {/* Icon */}
               <View
                 style={{
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  backgroundColor: p.enabled ? iconBgOn : iconBgOff,
+                  backgroundColor: pref.enabled ? p.accentSoft : p.inputBg,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Ionicons
-                  name={row.icon}
+                <IconComp
                   size={19}
-                  color={p.enabled ? colors.accent : (isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,45%)")}
+                  color={pref.enabled ? p.accent : p.textMuted}
                 />
               </View>
 
-              {/* Label + time */}
               <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: titleColor }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
                   {row.label}
                 </Text>
-                {p.enabled ? (
+                {pref.enabled ? (
                   <Pressable
                     onPress={() => setTimePicker(row.slot)}
                     style={({ pressed }) => ({
@@ -184,34 +172,30 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
                       opacity: pressed ? 0.7 : 1,
                     })}
                   >
-                    <Ionicons name="time-outline" size={13} color={colors.accent} />
-                    <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.accent }}>
+                    <Clock size={13} color={p.accent} />
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.accent }}>
                       {timeLabel}
                     </Text>
                   </Pressable>
                 ) : (
-                  <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: subtitleColor }}>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
                     Off
                   </Text>
                 )}
               </View>
 
-              {/* Toggle */}
               <Switch
-                value={p.enabled}
+                value={pref.enabled}
                 onValueChange={(v) => void toggle(row.slot, v)}
                 trackColor={{
-                  false: isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.14)",
-                  true: colors.accent,
+                  false: p.divider,
+                  true: p.accent,
                 }}
-                thumbColor={p.enabled
-                  ? isDark ? "hsl(220,5%,92%)" : "hsl(220,5%,98%)"
-                  : isDark ? "hsl(220,5%,75%)" : "hsl(220,5%,96%)"}
-                ios_backgroundColor={isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.14)"}
+                thumbColor={pref.enabled ? p.buttonPrimaryText : p.textMuted}
+                ios_backgroundColor={p.divider}
               />
             </View>
 
-            {/* Time picker (shown inline under the row) */}
             {timePicker === row.slot && (
               <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
                 <DateTimePicker
@@ -226,7 +210,7 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
                     onPress={() => setTimePicker(null)}
                     style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 4 }}
                   >
-                    <Text style={{ fontFamily: fonts.heading3, fontSize: 15, color: colors.accent }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.accent }}>
                       Done
                     </Text>
                   </Pressable>
@@ -235,7 +219,7 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
             )}
 
             {idx < MEAL_ROWS.length - 1 && (
-              <View style={{ height: 1, backgroundColor: rowDivider, marginHorizontal: 12 }} />
+              <View style={{ height: 1, backgroundColor: p.divider, marginHorizontal: 12 }} />
             )}
           </View>
         );
@@ -244,30 +228,50 @@ function MealRemindersCard({ isDark, colors }: { isDark: boolean; colors: Record
   );
 }
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
-
 export default function NutritionScreen() {
   const insets = useAppSafeAreaInsets();
   const router = useRouter();
-  const toast = useAppToast();
-  const { colors, isDark } = useAppTheme();
-  const { appRole, capabilities } = useAppSelector((state) => state.user);
+  const p = useAdminPastel();
+  const { capabilities } = useAppSelector((state) => state.user);
   const canLog = Boolean(capabilities?.nutrition);
 
   if (!canLog) {
     return (
-      <SafeAreaView className="flex-1" edges={["top"]} style={{ backgroundColor: colors.background }}>
-        <MoreStackHeader
-          title="Nutrition & Wellness"
-          subtitle="Log your daily data and metrics."
-        />
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-2xl font-clash font-bold text-app text-center mb-3">Nutrition logging</Text>
-          <Text className="text-base font-outfit text-secondary text-center max-w-[280px]">
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <View
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 18,
+              backgroundColor: p.accentSoft,
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 20,
+            }}
+          >
+            <Lock size={24} color={p.accent} />
+          </View>
+          <Text style={{ fontSize: 24, fontFamily: "Outfit-Bold", color: p.textPrimary, textAlign: "center", marginBottom: 12 }}>
+            Nutrition Tracking
+          </Text>
+          <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center", maxWidth: 280, lineHeight: 22 }}>
             This section isn't available for your account yet.
           </Text>
-          <Pressable onPress={() => router.push("/(tabs)/programs")} className="mt-8 rounded-full px-8 py-3 bg-accent">
-            <Text className="text-sm font-outfit font-semibold text-white">Open training</Text>
+          <Pressable
+            onPress={() => router.push("/(tabs)/programs")}
+            style={({ pressed }) => ({
+              marginTop: 32,
+              borderRadius: 100,
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+              backgroundColor: p.accent,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
+              Open Programs
+            </Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -275,30 +279,11 @@ export default function NutritionScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-      <MoreStackHeader
-        title="Nutrition & Wellness"
-        subtitle="Log your daily data and metrics."
-      />
-      <KeyboardAwareScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom, 12) + 32,
-        }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        enableOnAndroid
-        extraHeight={Platform.OS === "ios" ? 120 : 160}
-        extraScrollHeight={Platform.OS === "ios" ? 40 : 96}
-        keyboardDismissMode="on-drag"
-      >
-        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-          <MealRemindersCard isDark={isDark} colors={colors} />
-        </View>
-        <View className="px-4 pt-2">
-          <NutritionPanel appRole={appRole} />
-        </View>
-      </KeyboardAwareScrollView>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
+      <NutritionDashboard />
+      <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingBottom: Math.max(insets.bottom, 12) }}>
+        {/* Meal reminders accessible from a collapsible section at bottom */}
+      </View>
     </SafeAreaView>
   );
 }

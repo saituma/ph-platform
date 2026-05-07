@@ -3,13 +3,34 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
+import type { AdminPastelColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import {
+  User,
+  Bell,
+  Lock,
+  Star,
+  Megaphone,
+  HelpCircle,
+  MessageCircle,
+  Info,
+  FileText,
+  Shield,
+  LogOut,
+  ChevronRight,
+  Sun,
+  Moon,
+  BookOpen,
+  Apple,
+  Activity,
+} from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
@@ -21,7 +42,6 @@ import {
 } from "../../store/slices/userSlice";
 import type { AppCapabilities } from "../../store/slices/userSlice";
 import { Text } from "@/components/ScaledText";
-import { fonts } from "@/constants/theme";
 import {
   normalizeProgramTier,
 } from "@/lib/planAccess";
@@ -57,7 +77,8 @@ function formatAccessTierLabel(tier: string | null | undefined): string {
 }
 
 export default function MoreScreen() {
-  const { colors, isDark, toggleColorScheme } = useAppTheme();
+  const { isDark, toggleColorScheme } = useAppTheme();
+  const p = useAdminPastel();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const profile = useAppSelector((state) => state.user.profile);
@@ -160,18 +181,11 @@ export default function MoreScreen() {
   const insets = useAppSafeAreaInsets();
   const tabBarOverlayHeightEstimate = 86 + Math.max(insets.bottom, 12);
 
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 20%, 97%)";
-  const cardBorder = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const textPrimary = isDark ? "hsl(220, 5%, 94%)" : "hsl(220, 8%, 10%)";
-  const subtleBg = isDark
-    ? "rgba(255,255,255,0.05)"
-    : "rgba(255,255,255,0.84)";
+  /* Build menu items with index for alternating colors */
+  let menuIndex = 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <ThemedScrollView
         onRefresh={handleRefresh}
         showsVerticalScrollIndicator={false}
@@ -194,8 +208,8 @@ export default function MoreScreen() {
             numberOfLines={1}
             style={{
               fontSize: 32,
-              fontFamily: "Telma-Bold",
-              color: textPrimary,
+              fontFamily: "Outfit-Bold",
+              color: p.textPrimary,
               letterSpacing: -0.5,
             }}
           >
@@ -209,11 +223,9 @@ export default function MoreScreen() {
             style={{
               overflow: "hidden",
               borderRadius: 28,
-              borderWidth: 1,
               borderCurve: "continuous",
               padding: 24,
-              backgroundColor: cardBg,
-              borderColor: cardBorder,
+              backgroundColor: p.cardSage,
             }}
           >
             <View
@@ -224,9 +236,7 @@ export default function MoreScreen() {
                 height: 100,
                 width: 100,
                 borderRadius: 50,
-                backgroundColor: isDark
-                  ? "rgba(34,197,94,0.12)"
-                  : "rgba(34,197,94,0.08)",
+                backgroundColor: p.accentSoft,
               }}
             />
 
@@ -250,7 +260,7 @@ export default function MoreScreen() {
                         borderCurve: "continuous",
                         overflow: "hidden",
                         borderWidth: 1,
-                        borderColor: cardBorder,
+                        borderColor: p.divider,
                       }}
                     >
                       <Image
@@ -268,12 +278,12 @@ export default function MoreScreen() {
                         borderCurve: "continuous",
                         alignItems: "center",
                         justifyContent: "center",
-                        backgroundColor: subtleBg,
+                        backgroundColor: p.inputBg,
                         borderWidth: 1,
-                        borderColor: cardBorder,
+                        borderColor: p.divider,
                       }}
                     >
-                      <Ionicons name="person-outline" size={26} color={colors.accent} />
+                      <User size={26} color={p.accent} />
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
@@ -281,8 +291,8 @@ export default function MoreScreen() {
                       numberOfLines={1}
                       style={{
                         fontSize: 20,
-                        fontFamily: "ClashDisplay-Bold",
-                        color: textPrimary,
+                        fontFamily: "Outfit-Bold",
+                        color: p.textPrimary,
                         lineHeight: 24,
                       }}
                     >
@@ -291,9 +301,9 @@ export default function MoreScreen() {
                     <Text
                       numberOfLines={1}
                       style={{
-                        fontFamily: "Outfit",
+                        fontFamily: "Outfit-Regular",
                         fontSize: 14,
-                        color: labelColor,
+                        color: p.textSecondary,
                         marginTop: 4,
                       }}
                     >
@@ -310,16 +320,16 @@ export default function MoreScreen() {
                       borderCurve: "continuous",
                       paddingHorizontal: 20,
                       paddingVertical: 18,
-                      backgroundColor: subtleBg,
+                      backgroundColor: p.inputBg,
                     }}
                   >
                     <Text
                       style={{
                         fontSize: 10,
-                        fontFamily: fonts.labelBold,
+                        fontFamily: "Outfit-Bold",
                         textTransform: "uppercase",
                         letterSpacing: 1.2,
-                        color: labelColor,
+                        color: p.textMuted,
                       }}
                     >
                       Access
@@ -328,8 +338,8 @@ export default function MoreScreen() {
                       style={{
                         marginTop: 6,
                         fontSize: 17,
-                        fontFamily: "ClashDisplay-Semibold",
-                        color: textPrimary,
+                        fontFamily: "Outfit-Bold",
+                        color: p.textPrimary,
                       }}
                     >
                       {formatAccessTierLabel(programTier)}
@@ -341,16 +351,16 @@ export default function MoreScreen() {
                       borderCurve: "continuous",
                       paddingHorizontal: 20,
                       paddingVertical: 18,
-                      backgroundColor: subtleBg,
+                      backgroundColor: p.inputBg,
                     }}
                   >
                     <Text
                       style={{
                         fontSize: 10,
-                        fontFamily: fonts.labelBold,
+                        fontFamily: "Outfit-Bold",
                         textTransform: "uppercase",
                         letterSpacing: 1.2,
-                        color: labelColor,
+                        color: p.textMuted,
                       }}
                     >
                       Experience
@@ -359,8 +369,8 @@ export default function MoreScreen() {
                       style={{
                         marginTop: 6,
                         fontSize: 17,
-                        fontFamily: "ClashDisplay-Semibold",
-                        color: textPrimary,
+                        fontFamily: "Outfit-Bold",
+                        color: p.textPrimary,
                       }}
                     >
                       {isAuthenticated && ageExperienceLoading
@@ -374,7 +384,7 @@ export default function MoreScreen() {
           </View>
         </View>
 
-        {/* Menu Items — flat list, no group borders */}
+        {/* Menu Items */}
         <Animated.View style={[{ paddingHorizontal: 20, width: "100%" }, transitionStyle]}>
           {isLoading ? (
             <View style={{ gap: 16, paddingHorizontal: 4 }}>
@@ -394,7 +404,7 @@ export default function MoreScreen() {
               <View
                 style={{
                   flexDirection: "row",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+                  backgroundColor: p.cardWhite,
                   borderRadius: 99,
                   padding: 4,
                   marginBottom: 8,
@@ -413,12 +423,11 @@ export default function MoreScreen() {
                     gap: 7,
                     paddingVertical: 11,
                     borderRadius: 99,
-                    backgroundColor: !isDark ? subtleBg : "transparent",
-                    ...(!isDark ? { shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 } : {}),
+                    backgroundColor: !isDark ? p.accent : "transparent",
                   }}
                 >
-                  <Feather name="sun" size={16} color={!isDark ? colors.accent : "rgba(255,255,255,0.35)"} />
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: !isDark ? textPrimary : "rgba(255,255,255,0.35)" }}>
+                  <Sun size={16} color={!isDark ? "#FFFFFF" : p.textMuted} />
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: !isDark ? "#FFFFFF" : p.textMuted }}>
                     Light
                   </Text>
                 </Pressable>
@@ -435,168 +444,131 @@ export default function MoreScreen() {
                     gap: 7,
                     paddingVertical: 11,
                     borderRadius: 99,
-                    backgroundColor: isDark ? subtleBg : "transparent",
-                    ...(isDark ? { shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 } : {}),
+                    backgroundColor: isDark ? p.accent : "transparent",
                   }}
                 >
-                  <Feather name="moon" size={16} color={isDark ? colors.accent : "rgba(0,0,0,0.35)"} />
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: isDark ? textPrimary : "rgba(0,0,0,0.35)" }}>
+                  <Moon size={16} color={isDark ? "#FFFFFF" : p.textMuted} />
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: isDark ? "#FFFFFF" : p.textMuted }}>
                     Dark
                   </Text>
                 </Pressable>
               </View>
 
-              <SectionLabel text="Account" color={labelColor} />
+              <SectionLabel text="Account" p={p} />
 
               <MenuItem
-                icon="person-outline"
+                Icon={User}
                 label="Profile Information"
                 subtitle="Name, email, avatar"
                 onPress={() => router.navigate("/profile-settings")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
-              />
-              <MenuItem
-                icon="shield-checkmark-outline"
-                label="Permissions"
-                subtitle="Notifications & push"
-                onPress={() => router.navigate("/permissions")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
               {showParentPlatform ? (
                 <MenuItem
-                  icon="book-outline"
+                  Icon={BookOpen}
                   label="Parent Platform"
                   subtitle="Resources for parents"
                   onPress={() => router.push("/parent-platform")}
-                  accentColor={colors.accent}
-                  textColor={textPrimary}
-                  subtitleColor={labelColor}
-                  isDark={isDark}
+                  p={p}
+                  index={menuIndex++}
                 />
               ) : null}
               {canAccessFoodDiary ? (
                 <MenuItem
-                  icon="nutrition-outline"
+                  Icon={Apple}
                   label="Nutrition Tracking"
                   subtitle="Food diary & meals"
                   onPress={() => router.push("/nutrition")}
-                  accentColor={colors.accent}
-                  textColor={textPrimary}
-                  subtitleColor={labelColor}
-                  isDark={isDark}
+                  p={p}
+                  index={menuIndex++}
                 />
               ) : null}
               {showPhysioReferrals ? (
                 <MenuItem
-                  icon="pulse-outline"
+                  Icon={Activity}
                   label="Referrals"
                   subtitle="Physio referrals"
                   onPress={() => router.push("/physio-referral")}
-                  accentColor={colors.accent}
-                  textColor={textPrimary}
-                  subtitleColor={labelColor}
-                  isDark={isDark}
+                  p={p}
+                  index={menuIndex++}
                 />
               ) : null}
               <MenuItem
-                icon="notifications-outline"
+                Icon={Bell}
                 label="Notifications"
                 subtitle="Alerts & reminders"
                 onPress={() => router.navigate("/notifications")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
               <MenuItem
-                icon="lock-closed-outline"
+                Icon={Lock}
                 label="Privacy & Security"
                 subtitle="Password & app lock"
                 onPress={() => router.navigate("/privacy-security")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
 
-              <SectionLabel text="Support & About" color={labelColor} />
+              <SectionLabel text="Support & About" p={p} />
 
               <MenuItem
-                icon="star-outline"
+                Icon={Star}
                 label="Submit Testimonial"
                 subtitle="Share your experience"
                 onPress={() => router.navigate("/submit-testimonial")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
               <MenuItem
-                icon="megaphone-outline"
+                Icon={Megaphone}
                 label="Announcements"
                 subtitle="Latest updates"
                 onPress={() => router.push("/announcements" as any)}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
               <MenuItem
-                icon="help-circle-outline"
+                Icon={HelpCircle}
                 label="Help Center"
                 subtitle="FAQ & guides"
                 onPress={() => router.push("/help-center")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
               <MenuItem
-                icon="chatbubble-ellipses-outline"
+                Icon={MessageCircle}
                 label="Send Feedback"
                 subtitle="Report issues or ideas"
                 onPress={() => router.push("/feedback")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
               <MenuItem
-                icon="information-circle-outline"
+                Icon={Info}
                 label="About App"
                 subtitle="Version & credits"
                 onPress={() => router.push("/about")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
 
-              <SectionLabel text="Legal" color={labelColor} />
+              <SectionLabel text="Legal" p={p} />
 
               <MenuItem
-                icon="document-text-outline"
+                Icon={FileText}
                 label="Terms of Service"
                 onPress={() => router.navigate("/terms")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
               <MenuItem
-                icon="shield-outline"
+                Icon={Shield}
                 label="Privacy Policy"
                 onPress={() => router.navigate("/privacy-policy")}
-                accentColor={colors.accent}
-                textColor={textPrimary}
-                subtitleColor={labelColor}
-                isDark={isDark}
+                p={p}
+                index={menuIndex++}
               />
 
               {/* Logout */}
@@ -624,17 +596,17 @@ export default function MoreScreen() {
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
-                    borderRadius: 20,
+                    borderRadius: 100,
                     borderCurve: "continuous",
                     gap: 10,
-                    backgroundColor: "#DC2626",
+                    backgroundColor: p.danger,
                   }}
                 >
-                  <Ionicons name="log-out-outline" size={20} color="#FAFAFA" />
+                  <LogOut size={20} color="#FFFFFF" />
                   <Text
                     style={{
-                      fontFamily: "ClashDisplay-Bold",
-                      color: "#FAFAFA",
+                      fontFamily: "Outfit-Bold",
+                      color: "#FFFFFF",
                       fontSize: 16,
                     }}
                   >
@@ -646,9 +618,9 @@ export default function MoreScreen() {
               <Text
                 style={{
                   textAlign: "center",
-                  fontFamily: "Outfit",
+                  fontFamily: "Outfit-Regular",
                   fontSize: 12,
-                  color: labelColor,
+                  color: p.textMuted,
                   marginTop: 24,
                   opacity: 0.6,
                 }}
@@ -663,13 +635,13 @@ export default function MoreScreen() {
   );
 }
 
-function SectionLabel({ text, color }: { text: string; color: string }) {
+function SectionLabel({ text, p }: { text: string; p: AdminPastelColors }) {
   return (
     <Text
       style={{
         fontSize: 12,
-        fontFamily: fonts.labelBold,
-        color,
+        fontFamily: "Outfit-Bold",
+        color: p.textMuted,
         textTransform: "uppercase",
         letterSpacing: 1.2,
         marginTop: 24,
@@ -683,26 +655,21 @@ function SectionLabel({ text, color }: { text: string; color: string }) {
 }
 
 function MenuItem({
-  icon,
+  Icon,
   label,
   subtitle,
   onPress,
-  accentColor,
-  textColor,
-  subtitleColor,
-  isDark,
+  p,
+  index,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  Icon: LucideIcon;
   label: string;
   subtitle?: string;
   onPress?: () => void;
-  accentColor: string;
-  textColor: string;
-  subtitleColor: string;
-  isDark: boolean;
+  p: AdminPastelColors;
+  index: number;
 }) {
-  const cardBg = isDark ? "#1A1D1A" : "#F0FAF4";
-  const cardBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(34,197,94,0.3)";
+  const bg = index % 2 === 0 ? p.cardWhite : p.cardSage;
 
   return (
     <Pressable
@@ -717,64 +684,52 @@ function MenuItem({
           paddingHorizontal: 18,
           paddingVertical: 18,
           borderRadius: 20,
-          borderWidth: 1,
-          borderColor: cardBorder,
-          backgroundColor: cardBg,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: isDark ? 0.3 : 0.06,
-          shadowRadius: 8,
-          elevation: 3,
+          borderCurve: "continuous",
+          backgroundColor: bg,
         }}
       >
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <View
-          style={{
-            width: 48,
-            height: 48,
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 16,
-            borderCurve: "continuous",
-            marginRight: 16,
-            backgroundColor: isDark
-              ? "rgba(255,255,255,0.06)"
-              : `${accentColor}12`,
-          }}
-        >
-          <Ionicons name={icon} size={22} color={accentColor} />
-        </View>
-        <View style={{ flex: 1, marginRight: 12 }}>
-          <Text
-            numberOfLines={1}
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View
             style={{
-              fontFamily: fonts.bodyMedium,
-              fontSize: 16,
-              color: textColor,
+              width: 48,
+              height: 48,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 16,
+              borderCurve: "continuous",
+              marginRight: 16,
+              backgroundColor: p.accentSoft,
             }}
           >
-            {label}
-          </Text>
-          {subtitle ? (
+            <Icon size={22} color={p.accent} />
+          </View>
+          <View style={{ flex: 1, marginRight: 12 }}>
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: "Outfit",
-                fontSize: 13,
-                color: subtitleColor,
-                marginTop: 2,
+                fontFamily: "Outfit-Bold",
+                fontSize: 16,
+                color: p.textPrimary,
               }}
             >
-              {subtitle}
+              {label}
             </Text>
-          ) : null}
+            {subtitle ? (
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 13,
+                  color: p.textSecondary,
+                  marginTop: 2,
+                }}
+              >
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          <ChevronRight size={18} color={p.textMuted} />
         </View>
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={isDark ? "hsl(220, 5%, 35%)" : "hsl(220, 5%, 72%)"}
-        />
-      </View>
       </View>
     </Pressable>
   );

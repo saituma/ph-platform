@@ -4,7 +4,8 @@ import {
   formatBillingRoleLabel,
   standaloneReceiptHtmlDocument,
 } from "./billing-receipt-email";
-import { deliverEmail, emailLayout, escapeHtml, escapeAttr, textP, labelRow, E } from "./base.mailer";
+import { createEmailIntent } from "../../services/outbox.service";
+import { emailLayout, escapeHtml, escapeAttr, textP, labelRow, E } from "./base.mailer";
 import { displayGreetingName } from "./greeting";
 import { logger } from "../logger";
 
@@ -132,7 +133,7 @@ ${reviewBtn}`;
           ]
         : undefined;
 
-    await deliverEmail({ to: input.to, subject, html, attachments });
+    await createEmailIntent({ to: input.to, subject, html, attachments });
   } catch (err) {
     logger.error({ err }, "sendSubscriptionPendingStaffEmail failed");
     throw err;

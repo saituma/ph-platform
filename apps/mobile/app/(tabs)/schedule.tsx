@@ -11,7 +11,23 @@ import {
   Linking,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  Clock,
+  Calendar,
+  Zap,
+  MapPin,
+  Video,
+  Plus,
+  ChevronUp,
+  ChevronDown,
+  Users,
+  Repeat,
+  Store,
+  Timer,
+  Dumbbell,
+  Phone,
+  Heart,
+} from "lucide-react-native";
 import Animated, {
   FadeInDown,
   withSpring,
@@ -22,7 +38,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -36,6 +52,7 @@ import { useActingUser } from "@/hooks/useActingUser";
 import { useAppToast } from "@/hooks/useAppToast";
 import type { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
+import type { AdminPastelColors } from "@/constants/theme";
 
 // ── Pure helpers ──────────────────────────────────────────────────────
 
@@ -53,13 +70,13 @@ function relativeDate(dateKey: string): string {
   });
 }
 
-function accentFor(status?: string, colors?: Record<string, string>) {
+function accentFor(status: string | undefined, p: AdminPastelColors) {
   switch (status?.toLowerCase()) {
-    case "confirmed": return colors?.success ?? "#22C55E";
-    case "pending":   return colors?.warning ?? "#F59E0B";
+    case "confirmed": return p.success;
+    case "pending":   return p.warning;
     case "declined":
-    case "cancelled": return colors?.textSecondary ?? "#94A3B8";
-    default:          return colors?.accent ?? "#6366F1";
+    case "cancelled": return p.textMuted;
+    default:          return p.accent;
   }
 }
 
@@ -73,10 +90,10 @@ function labelFor(status?: string) {
   }
 }
 
-function iconFor(type: string): keyof typeof Ionicons.glyphMap {
-  if (type === "call") return "call-outline";
-  if (type === "recovery") return "heart-outline";
-  return "barbell-outline";
+function IconFor({ type, color, size }: { type: string; color: string; size: number }) {
+  if (type === "call") return <Phone size={size} color={color} />;
+  if (type === "recovery") return <Heart size={size} color={color} />;
+  return <Dumbbell size={size} color={color} />;
 }
 
 function duration(a: string, b: string) {
@@ -92,25 +109,26 @@ function duration(a: string, b: string) {
 // ── Section label row ────────────────────────────────────────────────
 
 const SectionLabel = memo(function SectionLabel({
-  icon, label, count, accent,
+  icon: Icon, label, count, accent,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ComponentType<{ size: number; color: string }>;
   label: string;
   count?: number;
   accent?: string;
 }) {
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
+  const accentColor = accent ?? p.accent;
   return (
     <View style={s.sectionLabel}>
-      <View style={[s.sectionIcon, { backgroundColor: `${accent ?? colors.accent}15` }]}>
-        <Ionicons name={icon} size={14} color={accent ?? colors.accent} />
+      <View style={{ width: 26, height: 26, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: p.accentSoft }}>
+        <Icon size={14} color={accentColor} />
       </View>
-      <Text style={[s.sectionLabelText, { color: colors.textPrimary, fontFamily: "Outfit-SemiBold" }]}>
+      <Text style={{ fontSize: 15, letterSpacing: -0.1, color: p.textPrimary, fontFamily: "Outfit-Bold" }}>
         {label}
       </Text>
       {count != null && (
-        <View style={[s.countPill, { backgroundColor: `${accent ?? colors.accent}18` }]}>
-          <Text style={[s.countText, { color: accent ?? colors.accent, fontFamily: "Outfit-SemiBold" }]}>
+        <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, backgroundColor: `${accentColor}18` }}>
+          <Text style={{ fontSize: 12, color: accentColor, fontFamily: "Outfit-Bold" }}>
             {count}
           </Text>
         </View>
@@ -122,17 +140,19 @@ const SectionLabel = memo(function SectionLabel({
 // ── Date group header ────────────────────────────────────────────────
 
 const DateGroup = memo(function DateGroup({ dateKey }: { dateKey: string }) {
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
   const isToday = dateKey === todayKey();
   return (
     <View style={s.dateGroup}>
-      <Text style={[
-        s.dateGroupText,
-        { fontFamily: isToday ? "Outfit-Bold" : "Outfit-SemiBold", color: isToday ? colors.accent : colors.textSecondary },
-      ]}>
+      <Text style={{
+        fontSize: 12,
+        letterSpacing: 0.3,
+        fontFamily: isToday ? "Outfit-Bold" : "Outfit-Regular",
+        color: isToday ? p.accent : p.textSecondary,
+      }}>
         {relativeDate(dateKey)}
       </Text>
-      <View style={[s.dateGroupLine, { backgroundColor: `${colors.textSecondary}18` }]} />
+      <View style={{ flex: 1, height: 1, backgroundColor: p.divider }} />
     </View>
   );
 });
@@ -142,6 +162,7 @@ const DateGroup = memo(function DateGroup({ dateKey }: { dateKey: string }) {
 interface CardProps { event: ScheduleEvent; index: number; onCancel?: () => void; }
 
 const MeetingLinkTap = memo(function MeetingLinkTap({ meetingLink }: { meetingLink: string }) {
+  const p = useAdminPastel();
   const linkScale = useSharedValue(1);
   const linkAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: linkScale.value }] }));
   const openLink = useCallback(() => { Linking.openURL(meetingLink); }, [meetingLink]);
@@ -161,9 +182,9 @@ const MeetingLinkTap = memo(function MeetingLinkTap({ meetingLink }: { meetingLi
     }), [openLink, linkScale]);
   return (
     <GestureDetector gesture={linkTap}>
-      <Animated.View style={[s.row, { marginTop: 4 }, linkAnimStyle]}>
-        <Ionicons name="videocam-outline" size={12} color="#6366F1" />
-        <Text style={[s.meta, { color: "#6366F1", fontFamily: "Outfit-Regular", marginLeft: 3 }]}>
+      <Animated.View style={[{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 }, linkAnimStyle]}>
+        <Video size={12} color={p.accent} />
+        <Text style={{ fontSize: 13, color: p.accent, fontFamily: "Outfit-Regular", marginLeft: 3 }}>
           Join online
         </Text>
       </Animated.View>
@@ -172,6 +193,7 @@ const MeetingLinkTap = memo(function MeetingLinkTap({ meetingLink }: { meetingLi
 });
 
 const CancelTap = memo(function CancelTap({ onCancel }: { onCancel: () => void }) {
+  const p = useAdminPastel();
   const cancelScale = useSharedValue(1);
   const cancelAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: cancelScale.value }] }));
   const cancelTap = useMemo(() => Gesture.Tap()
@@ -191,11 +213,11 @@ const CancelTap = memo(function CancelTap({ onCancel }: { onCancel: () => void }
   return (
     <GestureDetector gesture={cancelTap}>
       <Animated.View
-        style={[s.cancelLink, cancelAnimStyle]}
+        style={[{ marginTop: 10, alignSelf: "flex-start" }, cancelAnimStyle]}
         accessibilityRole="button"
         accessibilityLabel="Cancel request"
       >
-        <Text style={[s.cancelLinkText, { fontFamily: "Outfit-Medium" }]}>
+        <Text style={{ fontSize: 12, color: p.danger, fontFamily: "Outfit-Regular" }}>
           Cancel request
         </Text>
       </Animated.View>
@@ -204,12 +226,12 @@ const CancelTap = memo(function CancelTap({ onCancel }: { onCancel: () => void }
 });
 
 const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const reduceMotion = useReducedMotion();
-  const accent  = accentFor(event.status);
+  const accent  = accentFor(event.status, p);
   const durStr  = duration(event.timeStart, event.timeEnd);
-  const isPending  = event.status?.toLowerCase() === "pending";
   const isDeclined = event.status?.toLowerCase() === "declined" || event.status?.toLowerCase() === "cancelled";
+  const isPending  = event.status?.toLowerCase() === "pending";
 
   const entering = !reduceMotion
     ? FadeInDown.delay(Math.min(index, 10) * 50).springify().damping(15)
@@ -217,39 +239,42 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardPr
 
   return (
     <Animated.View entering={entering}>
-      <View style={[
-        s.card,
-        { backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF", opacity: isDeclined ? 0.55 : 1,
-          shadowColor: isDark ? "transparent" : "#000" },
-      ]}>
+      <View style={{
+        flexDirection: "row",
+        borderRadius: 18,
+        marginBottom: 10,
+        overflow: "hidden",
+        backgroundColor: p.cardWhite,
+        opacity: isDeclined ? 0.55 : 1,
+      }}>
         {/* Accent bar */}
-        <View style={[s.accentBar, { backgroundColor: accent }]} />
+        <View style={{ width: 4, backgroundColor: accent }} />
 
         {/* Body */}
-        <View style={s.cardBody}>
+        <View style={{ flex: 1, paddingHorizontal: 14, paddingVertical: 14 }}>
           {/* Title + badge */}
-          <View style={s.row}>
-            <Text style={[s.cardTitle, { color: colors.textPrimary, fontFamily: "Outfit-SemiBold" }]} numberOfLines={1}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+            <Text style={{ flex: 1, fontSize: 15, letterSpacing: -0.1, color: p.textPrimary, fontFamily: "Outfit-Bold" }} numberOfLines={1}>
               {event.title}
             </Text>
-            <View style={[s.badge, { backgroundColor: `${accent}1A` }]}>
-              {isPending && <View style={[s.dot, { backgroundColor: accent }]} />}
-              <Text style={[s.badgeText, { color: accent, fontFamily: "Outfit-Medium" }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: `${accent}1A` }}>
+              {isPending && <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: accent }} />}
+              <Text style={{ fontSize: 11, color: accent, fontFamily: "Outfit-Regular" }}>
                 {labelFor(event.status)}
               </Text>
             </View>
           </View>
 
           {/* Time + duration */}
-          <View style={[s.row, { marginTop: 6 }]}>
-            <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
-            <Text style={[s.meta, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6 }}>
+            <Clock size={12} color={p.textSecondary} />
+            <Text style={{ fontSize: 13, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
               {event.timeStart}{event.timeEnd ? ` – ${event.timeEnd}` : ""}
             </Text>
             {durStr && (
               <>
-                <Text style={[s.metaDot, { color: colors.textSecondary }]}>·</Text>
-                <Text style={[s.meta, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+                <Text style={{ fontSize: 13, opacity: 0.4, color: p.textSecondary }}>·</Text>
+                <Text style={{ fontSize: 13, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
                   {durStr}
                 </Text>
               </>
@@ -260,9 +285,9 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardPr
           {event.meetingLink ? (
             <MeetingLinkTap meetingLink={event.meetingLink} />
           ) : event.location && event.location !== "TBD" ? (
-            <View style={[s.row, { marginTop: 4 }]}>
-              <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
-              <Text style={[s.meta, { color: colors.textSecondary, fontFamily: "Outfit-Regular", marginLeft: 3 }]} numberOfLines={1}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 }}>
+              <MapPin size={12} color={p.textSecondary} />
+              <Text style={{ fontSize: 13, color: p.textSecondary, fontFamily: "Outfit-Regular", marginLeft: 3 }} numberOfLines={1}>
                 {event.location}
               </Text>
             </View>
@@ -270,7 +295,7 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardPr
 
           {/* Notes */}
           {event.notes ? (
-            <Text style={[s.notes, { color: colors.textSecondary }]} numberOfLines={2}>
+            <Text style={{ fontSize: 12, lineHeight: 17, opacity: 0.65, marginTop: 6, color: p.textSecondary, fontFamily: "Outfit-Regular" }} numberOfLines={2}>
               {event.notes}
             </Text>
           ) : null}
@@ -280,8 +305,8 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardPr
         </View>
 
         {/* Type icon */}
-        <View style={[s.typeIcon, { backgroundColor: isDark ? "#2A2A2C" : "#F2F2F7" }]}>
-          <Ionicons name={iconFor(event.type)} size={15} color={colors.textSecondary} />
+        <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center", margin: 14, alignSelf: "flex-start", backgroundColor: p.inputBg }}>
+          <IconFor type={event.type} size={15} color={p.textSecondary} />
         </View>
       </View>
     </Animated.View>
@@ -290,13 +315,11 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel }: CardPr
 
 // ── Empty slot (inside a section) ────────────────────────────────────
 
-const InlineEmpty = memo(function InlineEmpty({
-  message, isDark,
-}: { message: string; isDark: boolean }) {
-  const { colors } = useAppTheme();
+const InlineEmpty = memo(function InlineEmpty({ message }: { message: string }) {
+  const p = useAdminPastel();
   return (
-    <View style={[s.inlineEmpty, { backgroundColor: isDark ? "#1C1C1E" : "#F8F8F8" }]}>
-      <Text style={[s.inlineEmptyText, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+    <View style={{ borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 4, backgroundColor: p.inputBg }}>
+      <Text style={{ fontSize: 13, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
         {message}
       </Text>
     </View>
@@ -308,7 +331,7 @@ const InlineEmpty = memo(function InlineEmpty({
 const PastToggle = memo(function PastToggle({
   count, open, onToggle,
 }: { count: number; open: boolean; onToggle: () => void }) {
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
   const toggleScale = useSharedValue(1);
   const toggleAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: toggleScale.value }] }));
   const toggleTap = useMemo(() => Gesture.Tap()
@@ -328,18 +351,17 @@ const PastToggle = memo(function PastToggle({
   return (
     <GestureDetector gesture={toggleTap}>
       <Animated.View
-        style={[s.pastToggle, toggleAnimStyle]}
+        style={[{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 10, marginBottom: 4, alignSelf: "flex-start" }, toggleAnimStyle]}
         accessibilityRole="button"
       >
-        <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-        <Text style={[s.pastToggleText, { color: colors.textSecondary, fontFamily: "Outfit-Medium" }]}>
+        <Clock size={14} color={p.textMuted} />
+        <Text style={{ fontSize: 13, color: p.textMuted, fontFamily: "Outfit-Regular" }}>
           {open ? "Hide" : `Show ${count} past session${count !== 1 ? "s" : ""}`}
         </Text>
-        <Ionicons
-          name={open ? "chevron-up" : "chevron-down"}
-          size={14}
-          color={colors.textSecondary}
-        />
+        {open
+          ? <ChevronUp size={14} color={p.textMuted} />
+          : <ChevronDown size={14} color={p.textMuted} />
+        }
       </Animated.View>
     </GestureDetector>
   );
@@ -350,25 +372,25 @@ const PastToggle = memo(function PastToggle({
 const StatsBar = memo(function StatsBar({
   upcoming, pending,
 }: { upcoming: number; pending: number }) {
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
   if (upcoming === 0 && pending === 0) return null;
   return (
     <View style={s.statsBar}>
       {upcoming > 0 && (
         <View style={s.statChip}>
-          <View style={[s.statDot, { backgroundColor: "#22C55E" }]} />
-          <Text style={[s.statText, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: p.success }} />
+          <Text style={{ fontSize: 12, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
             {upcoming} upcoming
           </Text>
         </View>
       )}
       {upcoming > 0 && pending > 0 && (
-        <View style={[s.statDivider, { backgroundColor: `${colors.textSecondary}20` }]} />
+        <View style={{ width: 1, height: 12, backgroundColor: p.divider }} />
       )}
       {pending > 0 && (
         <View style={s.statChip}>
-          <View style={[s.statDot, { backgroundColor: "#F59E0B" }]} />
-          <Text style={[s.statText, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: p.warning }} />
+          <Text style={{ fontSize: 12, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
             {pending} pending
           </Text>
         </View>
@@ -380,14 +402,21 @@ const StatsBar = memo(function StatsBar({
 // ── Team banner ──────────────────────────────────────────────────────
 
 const TeamBanner = memo(function TeamBanner() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   return (
-    <View style={[s.teamBanner, {
-      backgroundColor: isDark ? "rgba(99,102,241,0.10)" : "rgba(99,102,241,0.07)",
-      borderColor:     isDark ? "rgba(99,102,241,0.22)" : "rgba(99,102,241,0.16)",
-    }]}>
-      <Ionicons name="people-outline" size={15} color="#6366F1" />
-      <Text style={[s.teamBannerText, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+    <View style={{
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginHorizontal: 20,
+      marginBottom: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: p.cardMint,
+    }}>
+      <Users size={15} color={p.accent} />
+      <Text style={{ fontSize: 13, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
         Your coach manages your schedule
       </Text>
     </View>
@@ -425,13 +454,12 @@ function formatServiceSchedule(service: import("@/components/tracking/schedule/t
 interface ServiceCardProps {
   service: import("@/components/tracking/schedule/types").ServiceType;
   onBook?: () => void;
-  isDark: boolean;
-  colors: Record<string, string>;
+  p: AdminPastelColors;
 }
 
 const BookButton = memo(function BookButton({
-  onBook, serviceName, accentColor,
-}: { onBook: () => void; serviceName: string; accentColor: string }) {
+  onBook, serviceName, accentColor, textColor,
+}: { onBook: () => void; serviceName: string; accentColor: string; textColor: string }) {
   const bookScale = useSharedValue(1);
   const bookAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: bookScale.value }] }));
   const bookTap = useMemo(() => Gesture.Tap()
@@ -451,43 +479,48 @@ const BookButton = memo(function BookButton({
   return (
     <GestureDetector gesture={bookTap}>
       <Animated.View
-        style={[sc.bookBtn, { backgroundColor: accentColor }, bookAnimStyle]}
+        style={[{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexShrink: 0, backgroundColor: accentColor }, bookAnimStyle]}
         accessibilityRole="button"
         accessibilityLabel={`Book ${serviceName}`}
       >
-        <Text style={[sc.bookBtnText, { fontFamily: "Outfit-SemiBold" }]}>Book</Text>
+        <Text style={{ fontSize: 12, color: textColor, fontFamily: "Outfit-Bold" }}>Book</Text>
       </Animated.View>
     </GestureDetector>
   );
 });
 
-const ServiceCard = memo(function ServiceCard({ service, onBook, isDark, colors }: ServiceCardProps) {
+const ServiceCard = memo(function ServiceCard({ service, onBook, p }: ServiceCardProps) {
   const scheduleLabel = useMemo(() => formatServiceSchedule(service), [service]);
   const isRecurring = service.schedulePattern === "weekly_recurring";
   const bookable = service.isBookable !== false;
 
   return (
-    <View style={[
-      sc.card,
-      { backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF", shadowColor: isDark ? "transparent" : "#000" },
-    ]}>
-      <View style={[sc.dot, { backgroundColor: isRecurring ? "#6366F1" : "#22C55E" }]} />
-      <View style={sc.body}>
-        <Text style={[sc.name, { color: colors.textPrimary, fontFamily: "Outfit-SemiBold" }]} numberOfLines={1}>
+    <View style={{
+      width: 220,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      borderRadius: 18,
+      padding: 14,
+      marginRight: 12,
+      backgroundColor: p.cardWhite,
+    }}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, alignSelf: "flex-start", marginTop: 4, flexShrink: 0, backgroundColor: isRecurring ? p.accent : p.success }} />
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={{ fontSize: 14, letterSpacing: -0.1, color: p.textPrimary, fontFamily: "Outfit-Bold" }} numberOfLines={1}>
           {service.name}
         </Text>
-        <View style={sc.row}>
-          <Ionicons
-            name={isRecurring ? "repeat-outline" : "calendar-outline"}
-            size={11}
-            color={isRecurring ? "#6366F1" : "#22C55E"}
-          />
-          <Text style={[sc.schedule, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          {isRecurring
+            ? <Repeat size={11} color={p.accent} />
+            : <Calendar size={11} color={p.success} />
+          }
+          <Text style={{ fontSize: 11, flex: 1, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
             {scheduleLabel}
           </Text>
         </View>
         {service.durationMinutes > 0 && (
-          <Text style={[sc.duration, { color: colors.textSecondary, fontFamily: "Outfit-Regular" }]}>
+          <Text style={{ fontSize: 11, opacity: 0.6, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
             {service.durationMinutes < 60
               ? `${service.durationMinutes}m`
               : `${Math.floor(service.durationMinutes / 60)}h${service.durationMinutes % 60 ? ` ${service.durationMinutes % 60}m` : ""}`}
@@ -495,10 +528,10 @@ const ServiceCard = memo(function ServiceCard({ service, onBook, isDark, colors 
         )}
       </View>
       {bookable && onBook ? (
-        <BookButton onBook={onBook} serviceName={service.name} accentColor={colors.accent} />
+        <BookButton onBook={onBook} serviceName={service.name} accentColor={p.accent} textColor={p.buttonPrimaryText} />
       ) : (
-        <View style={[sc.infoTag, { backgroundColor: `${colors.textSecondary}18` }]}>
-          <Text style={[sc.infoTagText, { color: colors.textSecondary, fontFamily: "Outfit-Medium" }]}>
+        <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, flexShrink: 0, backgroundColor: p.accentSoft }}>
+          <Text style={{ fontSize: 11, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
             Info
           </Text>
         </View>
@@ -513,36 +546,33 @@ interface ServicesPanelProps {
   bookable: import("@/components/tracking/schedule/types").ServiceType[];
   nonBookable: import("@/components/tracking/schedule/types").ServiceType[];
   onBook: (serviceId: number) => void;
-  isDark: boolean;
-  colors: Record<string, string>;
+  p: AdminPastelColors;
 }
 
-const ServicesPanel = memo(function ServicesPanel({ bookable, nonBookable, onBook, isDark, colors }: ServicesPanelProps) {
+const ServicesPanel = memo(function ServicesPanel({ bookable, nonBookable, onBook, p }: ServicesPanelProps) {
   if (bookable.length === 0 && nonBookable.length === 0) return null;
   const all = [...bookable, ...nonBookable];
   return (
-    <View style={sp.wrapper}>
-      <SectionLabel icon="storefront-outline" label="Services" count={all.length} accent="#6366F1" />
+    <View style={{ paddingHorizontal: 20, marginBottom: 8 }}>
+      <SectionLabel icon={Store} label="Services" count={all.length} accent={p.accent} />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={sp.scroll}
+        contentContainerStyle={{ paddingVertical: 4 }}
       >
         {bookable.map((svc) => (
           <ServiceCard
             key={svc.id}
             service={svc}
             onBook={() => onBook(svc.id)}
-            isDark={isDark}
-            colors={colors}
+            p={p}
           />
         ))}
         {nonBookable.map((svc) => (
           <ServiceCard
             key={svc.id}
             service={svc}
-            isDark={isDark}
-            colors={colors}
+            p={p}
           />
         ))}
       </ScrollView>
@@ -553,7 +583,7 @@ const ServicesPanel = memo(function ServicesPanel({ bookable, nonBookable, onBoo
 // ── Main screen ──────────────────────────────────────────────────────
 
 export default memo(function ScheduleScreen() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const toast = useAppToast();
   const token = useAppSelector((s) => s.user.token);
@@ -562,7 +592,7 @@ export default memo(function ScheduleScreen() {
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const { effectiveProfileId } = useActingUser();
-  const canBook = false;
+  const canBook = capabilities?.coachBooking === true;
   const userTeamId = authTeamMembership?.teamId ?? null;
   const userAthleteType = useMemo(() => {
     const active =
@@ -733,7 +763,7 @@ export default memo(function ScheduleScreen() {
   }
   if (eventsLoading) {
     return (
-      <View style={[s.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
         <SkeletonScheduleScreen />
       </View>
     );
@@ -742,11 +772,11 @@ export default memo(function ScheduleScreen() {
   const fabBottom = 20 + insets.bottom + 56; // 56 = TAB_HEIGHT
 
   return (
-    <View style={[s.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
 
       {/* ── Header ── */}
-      <View style={s.header}>
-        <Text style={[s.screenTitle, { color: colors.textPrimary, fontFamily: "Outfit-Bold" }]}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 }}>
+        <Text style={{ fontSize: 28, letterSpacing: -0.5, color: p.textPrimary, fontFamily: "Outfit-Bold" }}>
           Schedule
         </Text>
         <StatsBar upcoming={upcoming.length} pending={requests.length} />
@@ -761,34 +791,33 @@ export default memo(function ScheduleScreen() {
           bookable={bookableServices}
           nonBookable={nonBookableServices}
           onBook={openBookingForService}
-          isDark={isDark}
-          colors={colors as Record<string, string>}
+          p={p}
         />
       )}
 
       {/* ── Main scroll ── */}
       <ScrollView
-        style={s.scroll}
-        contentContainerStyle={[
-          s.scrollContent,
-          { paddingBottom: fabBottom + (canBook ? 72 : 24) },
-        ]}
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingBottom: fabBottom + (canBook ? 72 : 24),
+        }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={false}
             onRefresh={refreshEvents}
-            tintColor={colors.accent}
+            tintColor={p.accent}
           />
         }
       >
 
         {/* ════ UPCOMING ════ */}
         <SectionLabel
-          icon="flash-outline"
+          icon={Zap}
           label="Upcoming"
           count={upcoming.length}
-          accent="#22C55E"
+          accent={p.success}
         />
 
         {upcomingGroups.length === 0 ? (
@@ -796,7 +825,6 @@ export default memo(function ScheduleScreen() {
             message={canBook
               ? "No upcoming sessions — book one below."
               : "No upcoming sessions yet."}
-            isDark={isDark}
           />
         ) : (
           upcomingGroups.map(([dateKey, group]) => (
@@ -810,12 +838,12 @@ export default memo(function ScheduleScreen() {
         )}
 
         {/* ════ REQUESTS ════ */}
-        <View style={s.sectionGap} />
+        <View style={{ height: 24 }} />
         <SectionLabel
-          icon="hourglass-outline"
+          icon={Timer}
           label="Requests"
           count={requests.length}
-          accent="#F59E0B"
+          accent={p.warning}
         />
 
         {requests.length === 0 ? (
@@ -823,7 +851,6 @@ export default memo(function ScheduleScreen() {
             message={canBook
               ? "No pending requests."
               : "No booking requests."}
-            isDark={isDark}
           />
         ) : (
           requests.map((evt, i) => (
@@ -842,7 +869,7 @@ export default memo(function ScheduleScreen() {
         {/* ════ PAST ════ */}
         {past.length > 0 && (
           <>
-            <View style={s.sectionGap} />
+            <View style={{ height: 24 }} />
             <PastToggle
               count={past.length}
               open={pastOpen}
@@ -864,13 +891,26 @@ export default memo(function ScheduleScreen() {
       {canBook && (
         <GestureDetector gesture={fabTap}>
           <Animated.View
-            style={[s.fabWrap, { bottom: fabBottom }, fabStyle]}
+            style={[{ position: "absolute", left: 20, right: 20, bottom: fabBottom }, fabStyle]}
             accessibilityLabel="Book a session"
             accessibilityRole="button"
           >
-            <View style={[s.fabBtn, { backgroundColor: colors.accent }]}>
-              <Ionicons name="add" size={22} color="#FFF" />
-              <Text style={[s.fabLabel, { fontFamily: "Outfit-SemiBold" }]}>
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              height: 56,
+              borderRadius: 100,
+              backgroundColor: p.accent,
+              shadowColor: p.shadow,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.18,
+              shadowRadius: 12,
+              elevation: 6,
+            }}>
+              <Plus size={22} color={p.buttonPrimaryText} />
+              <Text style={{ fontSize: 16, color: p.buttonPrimaryText, letterSpacing: -0.1, fontFamily: "Outfit-Bold" }}>
                 Book a Session
               </Text>
             </View>
@@ -894,133 +934,11 @@ export default memo(function ScheduleScreen() {
   );
 });
 
-// ── Styles ────────────────────────────────────────────────────────────
+// ── Styles (minimal - only layout helpers that don't reference colors) ──
 
 const s = StyleSheet.create({
-  screen:        { flex: 1 },
-  scroll:        { flex: 1 },
-  scrollContent: { paddingHorizontal: 20 },
-
-  // Header
-  header:      { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 },
-  screenTitle: { fontSize: 28, letterSpacing: -0.5 },
-
-  // Stats bar
-  statsBar:    { flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 },
-  statChip:    { flexDirection: "row", alignItems: "center", gap: 5 },
-  statDot:     { width: 6, height: 6, borderRadius: 3 },
-  statText:    { fontSize: 12 },
-  statDivider: { width: 1, height: 12 },
-
-  // Team banner
-  teamBanner: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    marginHorizontal: 20, marginBottom: 12,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 12, borderWidth: 1,
-  },
-  teamBannerText: { fontSize: 13 },
-
-  // Section label
-  sectionLabel:     { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 12 },
-  sectionIcon:      { width: 26, height: 26, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  sectionLabelText: { fontSize: 15, letterSpacing: -0.1 },
-  countPill:        { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
-  countText:        { fontSize: 12 },
-  sectionGap:       { height: 24 },
-
-  // Date group
-  dateGroup:     { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 4 },
-  dateGroupText: { fontSize: 12, letterSpacing: 0.3 },
-  dateGroupLine: { flex: 1, height: 1 },
-
-  // Card
-  card: {
-    flexDirection: "row", borderRadius: 18, marginBottom: 10,
-    overflow: "hidden",
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6,
-    elevation: 2,
-  },
-  accentBar: { width: 4 },
-  cardBody:  { flex: 1, paddingHorizontal: 14, paddingVertical: 14 },
-  row:       { flexDirection: "row", alignItems: "center", gap: 5 },
-  cardTitle: { flex: 1, fontSize: 15, letterSpacing: -0.1 },
-  badge: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
-  },
-  dot:       { width: 5, height: 5, borderRadius: 2.5 },
-  badgeText: { fontSize: 11 },
-  meta:      { fontSize: 13 },
-  metaDot:   { fontSize: 13, opacity: 0.4 },
-  notes:     { fontSize: 12, lineHeight: 17, opacity: 0.65, marginTop: 6 },
-  typeIcon: {
-    width: 34, height: 34, borderRadius: 10,
-    alignItems: "center", justifyContent: "center",
-    margin: 14, alignSelf: "flex-start",
-  },
-
-  // Cancel link
-  cancelLink: { marginTop: 10, alignSelf: "flex-start" },
-  cancelLinkText: { fontSize: 12, color: "#EF4444" },
-
-  // Inline empty
-  inlineEmpty: {
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-    marginBottom: 4,
-  },
-  inlineEmptyText: { fontSize: 13 },
-
-  // Past toggle
-  pastToggle: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingVertical: 10, marginBottom: 4, alignSelf: "flex-start",
-  },
-  pastToggleText: { fontSize: 13 },
-
-  // Services panel
-  servicesSection: { marginBottom: 4 },
-
-  // FAB
-  fabWrap: { position: "absolute", left: 20, right: 20 },
-  fabBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, height: 56, borderRadius: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12,
-    elevation: 6,
-  },
-  fabLabel: { fontSize: 16, color: "#FFF", letterSpacing: -0.1 },
-});
-
-// ── Service card styles ───────────────────────────────────────────────
-
-const sc = StyleSheet.create({
-  card: {
-    width: 220, flexDirection: "row", alignItems: "center", gap: 10,
-    borderRadius: 18, padding: 14, marginRight: 12,
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6,
-    elevation: 2,
-  },
-  dot: { width: 8, height: 8, borderRadius: 4, alignSelf: "flex-start", marginTop: 4, flexShrink: 0 },
-  body: { flex: 1, gap: 3 },
-  name: { fontSize: 14, letterSpacing: -0.1 },
-  row: { flexDirection: "row", alignItems: "center", gap: 4 },
-  schedule: { fontSize: 11, flex: 1 },
-  duration: { fontSize: 11, opacity: 0.6 },
-  bookBtn: {
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexShrink: 0,
-  },
-  bookBtnText: { fontSize: 12, color: "#FFF" },
-  infoTag: {
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, flexShrink: 0,
-  },
-  infoTagText: { fontSize: 11 },
-});
-
-// ── Services panel styles ─────────────────────────────────────────────
-
-const sp = StyleSheet.create({
-  wrapper: { paddingHorizontal: 20, marginBottom: 8 },
-  scroll: { paddingVertical: 4 },
+  sectionLabel: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 12 },
+  dateGroup:    { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 4 },
+  statsBar:     { flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 },
+  statChip:     { flexDirection: "row", alignItems: "center", gap: 5 },
 });

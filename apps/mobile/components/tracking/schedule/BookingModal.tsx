@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Keyboard,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -9,12 +10,14 @@ import {
   View,
 } from "react-native";
 import { BottomSheet } from "heroui-native";
+import { useQuery } from "@tanstack/react-query";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { ServiceType } from "./types";
+import { useAdminPastel } from "@/components/admin/AdminUI";
+import { ServiceType, GeneratedAvailabilityOccurrence } from "./types";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { useRouter } from "expo-router";
 
 interface BookingModalProps {
@@ -27,6 +30,14 @@ interface BookingModalProps {
   canCreateBookings: boolean;
   onSuccess: (startsAt: Date) => void;
   initialServiceId?: number | null;
+}
+
+function formatSlotTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatSlotDate(iso: string) {
+  return new Date(iso).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 }
 
 export function BookingModal({
@@ -42,13 +53,12 @@ export function BookingModal({
 }: BookingModalProps) {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const snapPoints = useMemo(() => ["62%", "90%"], []);
 
-  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(
-    null,
-  );
+  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
+  const [selectedOccurrence, setSelectedOccurrence] = useState<GeneratedAvailabilityOccurrence | null>(null);
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [confirmedStartsAt, setConfirmedStartsAt] = useState<Date | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -58,8 +68,32 @@ export function BookingModal({
   const hasUserSelectedService = useRef(false);
 
   const activeServices = services.filter((s) => s.isActive !== false);
-  const selectedService =
-    activeServices.find((s) => s.id === selectedServiceId) ?? null;
+  const selectedService = activeServices.find((s) => s.id === selectedServiceId) ?? null;
+  const isRecurring = selectedService?.schedulePattern === "weekly_recurring";
+
+  const availFrom = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  const availTo = useMemo(() => { const d = new Date(); d.setDate(d.getDate() + 30); d.setHours(23, 59, 59, 999); return d; }, []);
+
+  const { data: availabilityData, isLoading: availabilityLoading } = useQuery({
+    queryKey: queryKeys.bookings.generatedAvailability(selectedServiceId ?? 0, availFrom.toISOString(), availTo.toISOString()),
+    queryFn: async () => {
+      const data = await apiRequest<{ items: GeneratedAvailabilityOccurrence[] }>(
+        `/bookings/generated-availability?from=${encodeURIComponent(availFrom.toISOString())}&to=${encodeURIComponent(availTo.toISOString())}`,
+        { token, forceRefresh: true, timeoutMs: 8000 },
+      );
+      return data.items ?? [];
+    },
+    enabled: Boolean(token) && visible && isRecurring && !!selectedServiceId,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const serviceOccurrences = useMemo(() => {
+    if (!availabilityData || !selectedServiceId) return [];
+    return availabilityData
+      .filter((o) => o.serviceTypeId === selectedServiceId)
+      .filter((o) => new Date(o.startsAt).getTime() > Date.now())
+      .filter((o) => o.remainingCapacity == null || o.remainingCapacity > 0);
+  }, [availabilityData, selectedServiceId]);
 
   const isBookingSlotsFull =
     selectedService?.totalSlots != null &&
@@ -75,23 +109,12 @@ export function BookingModal({
   const locationLabel = selectedService?.defaultLocation?.trim() || tbd;
   const meetingLinkLabel = selectedService?.defaultMeetingLink?.trim() || tbd;
 
-  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark
-    ? "rgba(255,255,255,0.05)"
-    : "rgba(255,255,255,0.82)";
-  const accentSurface = isDark
-    ? "rgba(34,197,94,0.16)"
-    : "rgba(34,197,94,0.10)";
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const errorColor = isDark ? "#FCA5A5" : colors.danger;
-  const cardBg = isDark ? "rgba(36,34,29,0.98)" : "rgba(255,255,255,0.98)";
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.10)";
-
   useEffect(() => {
     if (!visible) {
       setBookingConfirmed(false);
       setBookingError(null);
       setConfirmedStartsAt(null);
+      setSelectedOccurrence(null);
       setNotes("");
       hasUserSelectedService.current = false;
     }
@@ -99,309 +122,198 @@ export function BookingModal({
 
   useEffect(() => {
     if (!visible) return;
-    if (!activeServices.length) {
-      setSelectedServiceId(null);
-      return;
-    }
+    if (!activeServices.length) { setSelectedServiceId(null); return; }
     if (hasUserSelectedService.current && selectedServiceId) return;
-    const preferred = initialServiceId
-      ? activeServices.find((s) => s.id === initialServiceId)
-      : null;
+    const preferred = initialServiceId ? activeServices.find((s) => s.id === initialServiceId) : null;
     const next = preferred ?? activeServices[0];
     if (!selectedServiceId || !activeServices.some((s) => s.id === selectedServiceId)) {
       setSelectedServiceId(next.id);
     }
   }, [visible, activeServices, selectedServiceId, initialServiceId]);
 
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        Keyboard.dismiss();
-        onClose();
-      }
-    },
-    [onClose],
-  );
+  useEffect(() => { setSelectedOccurrence(null); }, [selectedServiceId]);
+
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (!open) { Keyboard.dismiss(); onClose(); }
+  }, [onClose]);
 
   const notifyBookingConfirmed = useCallback(async (startsAt?: Date | null) => {
     try {
       const { getNotifications } = await import("@/lib/notifications");
       const Notifications = await getNotifications();
       if (!Notifications) return;
-
-      const dateLabel = startsAt
-        ? startsAt.toLocaleDateString([], {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-          })
-        : "your selected date";
-      const timeLabel = startsAt
-        ? startsAt.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : "";
-
+      const dateLabel = startsAt ? startsAt.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) : "your selected date";
+      const timeLabel = startsAt ? startsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "Booking request sent",
-          body: timeLabel
-            ? `Your session on ${dateLabel} at ${timeLabel} is awaiting coach approval.`
-            : `Your session request for ${dateLabel} is awaiting coach approval.`,
+          body: timeLabel ? `Your session on ${dateLabel} at ${timeLabel} is awaiting coach approval.` : `Your session request for ${dateLabel} is awaiting coach approval.`,
           data: { type: "booking", screen: "schedule" },
           sound: "default",
         },
         trigger: null,
       });
-    } catch {
-      // best-effort
-    }
+    } catch { /* best-effort */ }
   }, []);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
-    if (!selectedService) {
-      setBookingError("Pick a session type first.");
-      return;
-    }
-    if (selectedService.isLocked) {
-      setBookingError(
-        selectedService.lockReason ||
-          "This session type isn't available for your account.",
-      );
-      return;
-    }
-    if (isSlotFull) {
-      setBookingError(
-        isBookingSlotsFull
-          ? "No booking slots left for this service."
-          : "This session is full.",
-      );
-      return;
-    }
+    if (!selectedService) { setBookingError("Pick a session type first."); return; }
+    if (selectedService.isLocked) { setBookingError(selectedService.lockReason || "This session type isn't available for your account."); return; }
+    if (isSlotFull) { setBookingError(isBookingSlotsFull ? "No booking slots left for this service." : "This session is full."); return; }
+    if (isRecurring && !selectedOccurrence) { setBookingError("Pick a time slot first."); return; }
     setBookingError(null);
     setIsSubmitting(true);
     try {
-      let startsAt = new Date();
-      if (selectedService.oneTimeDate) {
-        startsAt = new Date(
-          `${selectedService.oneTimeDate}T${selectedService.oneTimeTime || "09:00:00"}`,
-        );
+      let startsAt: Date;
+      let endsAt: Date;
+      if (selectedOccurrence) {
+        startsAt = new Date(selectedOccurrence.startsAt);
+        endsAt = new Date(selectedOccurrence.endsAt);
+      } else if (selectedService.oneTimeDate) {
+        startsAt = new Date(`${selectedService.oneTimeDate}T${selectedService.oneTimeTime || "09:00:00"}`);
+        endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
       } else {
         startsAt = new Date();
         startsAt.setDate(startsAt.getDate() + 1);
         startsAt.setHours(12, 0, 0, 0);
+        endsAt = new Date(startsAt.getTime() + selectedService.durationMinutes * 60000);
       }
-      const endsAt = new Date(
-        startsAt.getTime() + selectedService.durationMinutes * 60000,
-      );
-      await apiRequest("/bookings", {
-        method: "POST",
-        token,
-        body: {
-          serviceTypeId: selectedService.id,
-          startsAt: startsAt.toISOString(),
-          endsAt: endsAt.toISOString(),
-          timezoneOffsetMinutes: startsAt.getTimezoneOffset(),
-          notes: notes.trim() ? notes.trim() : undefined,
-        },
-        suppressStatusCodes: [400, 403],
-      });
+      const body: Record<string, unknown> = {
+        serviceTypeId: selectedService.id,
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        timezoneOffsetMinutes: startsAt.getTimezoneOffset(),
+        notes: notes.trim() ? notes.trim() : undefined,
+      };
+      if (selectedOccurrence) body.occurrenceKey = selectedOccurrence.occurrenceKey;
+
+      await apiRequest("/bookings", { method: "POST", token, body, suppressStatusCodes: [400, 403] });
       setConfirmedStartsAt(startsAt);
       setBookingConfirmed(true);
       await notifyBookingConfirmed(startsAt);
       onSuccess(startsAt);
     } catch (err: any) {
-      const rawMessage = err?.message ?? "Failed to submit booking";
-      const cleanedMessage = String(rawMessage).replace(/^\d+\s+/, "");
-      setBookingError(cleanedMessage);
+      setBookingError(String(err?.message ?? "Failed to submit booking").replace(/^\d+\s+/, ""));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const canSubmit = !!selectedService && canCreateBookings && !selectedService?.isLocked && !isSlotFull && (!isRecurring || !!selectedOccurrence);
+
   return (
     <BottomSheet isOpen={visible} onOpenChange={handleOpenChange}>
       <BottomSheet.Portal>
-        <BottomSheet.Overlay className="bg-black/45" />
+        <BottomSheet.Overlay style={{ backgroundColor: p.overlay }} />
         <BottomSheet.Content
           snapPoints={snapPoints}
           enablePanDownToClose
           backgroundStyle={{
-            backgroundColor: cardBg,
+            backgroundColor: p.pageBg,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
             borderWidth: 1,
-            borderColor: cardBorder,
+            borderColor: p.divider,
           }}
-          handleIndicatorStyle={{
-            backgroundColor: isDark ? "rgba(255,255,255,0.30)" : "rgba(15,23,42,0.22)",
-            width: 44,
-          }}
+          handleIndicatorStyle={{ backgroundColor: p.textMuted, width: 44 }}
         >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         bounces={false}
         overScrollMode="never"
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingBottom: Math.max(insets.bottom, 12) + 24 + 56,
-        }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: Math.max(insets.bottom, 12) + 24 + 56 }}
       >
-        <View
-          style={{
-            paddingTop: 14,
-            paddingHorizontal: 20,
-            paddingBottom: 26,
-          }}
-        >
+        <View style={{ paddingTop: 14, paddingHorizontal: 20, paddingBottom: 26 }}>
+          {/* ── Header ── */}
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text className="text-lg font-clash text-app">
+            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: p.textPrimary }}>
               {bookingConfirmed ? "Request sent" : "Request a session"}
             </Text>
-            <Pressable onPress={onClose}>
-              <Feather name="x" size={20} className="text-secondary" />
+            <Pressable onPress={onClose} style={{ padding: 6, borderRadius: 20, backgroundColor: p.accentSoft }}>
+              <Feather name="x" size={18} color={p.textSecondary} />
             </Pressable>
           </View>
 
+          {/* ── Access banner ── */}
           {!bookingConfirmed && !canCreateBookings ? (
-            <View
-              className="mt-3 rounded-[22px] border px-4 py-3 gap-2"
-              style={{
-                borderColor: borderSoft,
-                backgroundColor: accentSurface,
-              }}
-            >
-              <Text className="text-xs font-outfit text-app leading-5">
-                Pick a service, date, and time below. Booking requests need the right access level for your account.
+            <View style={{ marginTop: 12, borderRadius: 20, backgroundColor: p.cardMint, padding: 14, gap: 6 }}>
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 18 }}>
+                Pick a service, date, and time below. Booking requests need the right access level.
               </Text>
-              <Pressable
-                onPress={() => {
-                  onClose();
-                  router.push("/(tabs)/programs");
-                }}
-                className="self-start"
-              >
-                <Text
-                  className="text-xs font-outfit font-semibold"
-                  style={{ color: colors.accent }}
-                >
-                  Open training →
-                </Text>
+              <Pressable onPress={() => { onClose(); router.push("/(tabs)/programs"); }}>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-SemiBold", color: p.accent }}>Open training →</Text>
               </Pressable>
             </View>
           ) : null}
 
           {bookingConfirmed ? (
             <>
-              <Text className="text-sm font-outfit text-secondary mt-2">
+              <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 8 }}>
                 {confirmedStartsAt
-                  ? `We sent your request for ${confirmedStartsAt.toLocaleDateString(
-                      [],
-                      {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      },
-                    )} at ${confirmedStartsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
+                  ? `We sent your request for ${confirmedStartsAt.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })} at ${confirmedStartsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
                   : "Your session request was sent."}
               </Text>
-              <View
-                className="mt-4 rounded-[22px] border p-4"
-                style={{
-                  backgroundColor: mutedSurface,
-                  borderColor: borderSoft,
-                }}
-              >
-                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+
+              <View style={{ marginTop: 16, borderRadius: 22, backgroundColor: p.cardSage, padding: 16 }}>
+                <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.success, letterSpacing: 1.2, textTransform: "uppercase" }}>
                   Awaiting coach approval
                 </Text>
-                <Text className="text-sm font-outfit text-app mt-2">
-                  You&apos;ll see it on the calendar when it&apos;s confirmed.
-                  Check your email for a copy.
+                <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary, marginTop: 8 }}>
+                  You'll see it on the calendar when confirmed. Check your email for a copy.
                 </Text>
-                <Text className="text-xs font-outfit text-secondary mt-3">
-                  Location: {locationLabel}
-                </Text>
-                <Text className="text-xs font-outfit text-secondary mt-1">
-                  Meeting link: {meetingLinkLabel}
-                </Text>
+                <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 12 }}>Location: {locationLabel}</Text>
+                <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 4 }}>Meeting link: {meetingLinkLabel}</Text>
               </View>
-              <Pressable
-                onPress={onClose}
-                className="mt-4 px-4 py-3 rounded-full bg-accent"
-              >
-                <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
-                  Done
-                </Text>
+
+              <Pressable onPress={onClose} style={{ marginTop: 16, paddingVertical: 14, borderRadius: 100, backgroundColor: p.buttonPrimary, alignItems: "center" }}>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText, letterSpacing: 1.2, textTransform: "uppercase" }}>Done</Text>
               </Pressable>
             </>
           ) : (
             <>
-              <Text className="text-sm font-outfit text-secondary mt-2">
-                Choose the session type, then pick any day and time that works
-                for you. Nothing is final until the coach approves.
+              <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 8, lineHeight: 19 }}>
+                Choose the session type, then pick a time slot. Nothing is final until the coach approves.
               </Text>
 
-              {servicesLoading && (
-                <Text className="text-xs font-outfit text-secondary mt-3">
-                  Loading services...
-                </Text>
-              )}
-              {servicesError && (
-                <Text
-                  className="text-xs font-outfit mt-3"
-                  style={{ color: errorColor }}
-                >
-                  {servicesError}
-                </Text>
-              )}
+              {servicesLoading && <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 12 }}>Loading services...</Text>}
+              {servicesError && <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.danger, marginTop: 12 }}>{servicesError}</Text>}
 
+              {/* ── Service pills ── */}
               {activeServices.length === 0 ? (
-                <View
-                  className="mt-4 rounded-[22px] border border-dashed p-4"
-                  style={{
-                    borderColor: borderSoft,
-                    backgroundColor: mutedSurface,
-                  }}
-                >
-                  <Text className="text-sm font-outfit text-secondary">
-                    No booking types are available right now.
-                  </Text>
+                <View style={{ marginTop: 16, borderRadius: 22, backgroundColor: p.cardWhite, borderWidth: 1, borderColor: p.divider, borderStyle: "dashed", padding: 16 }}>
+                  <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>No booking types are available right now.</Text>
                 </View>
               ) : (
-                <View className="mt-4 flex-row flex-wrap gap-2">
+                <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {activeServices.map((item) => {
                     const active = selectedServiceId === item.id;
                     const locked = item.isLocked === true;
                     return (
                       <Pressable
                         key={item.id}
-                        onPress={() => {
-                          hasUserSelectedService.current = true;
-                          if (item.id) {
-                            setSelectedServiceId(item.id);
-                          }
-                        }}
-                        className="px-4 py-2 rounded-full border"
+                        onPress={() => { hasUserSelectedService.current = true; if (item.id) setSelectedServiceId(item.id); }}
                         style={{
-                          backgroundColor: active
-                            ? colors.accent
-                            : mutedSurface,
-                          borderColor: active ? colors.accent : borderSoft,
-                          opacity: locked && !active ? 0.6 : 1,
+                          paddingHorizontal: 16,
+                          paddingVertical: 9,
+                          borderRadius: 100,
+                          backgroundColor: active ? p.accent : p.cardWhite,
+                          borderWidth: 1,
+                          borderColor: active ? p.accent : p.divider,
+                          opacity: locked && !active ? 0.5 : 1,
                         }}
                       >
-                        <Text
-                          className={`text-xs font-outfit uppercase tracking-[1.4px] ${
-                            active ? "text-white" : "text-secondary"
-                          }`}
-                        >
-                          {item.name}
-                          {locked ? " · LOCKED" : ""}
+                        <Text style={{
+                          fontSize: 11,
+                          fontFamily: "Outfit-Bold",
+                          color: active ? p.buttonPrimaryText : p.textSecondary,
+                          letterSpacing: 1.4,
+                          textTransform: "uppercase",
+                        }}>
+                          {item.name}{locked ? " · LOCKED" : ""}
                         </Text>
                       </Pressable>
                     );
@@ -409,278 +321,189 @@ export function BookingModal({
                 </View>
               )}
 
+              {/* ── Locked banner ── */}
               {selectedService?.isLocked ? (
-                <View
-                  className="mt-4 rounded-[22px] border px-4 py-3 gap-2"
-                  style={{
-                    borderColor: borderSoft,
-                    backgroundColor: accentSurface,
-                  }}
-                >
-                  <Text className="text-xs font-outfit text-app leading-5">
-                    {selectedService.lockReason ||
-                      "This session type isn't available for your account."}
+                <View style={{ marginTop: 16, borderRadius: 22, backgroundColor: p.cardPink, padding: 14, gap: 6 }}>
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textPrimary, lineHeight: 18 }}>
+                    {selectedService.lockReason || "This session type isn't available for your account."}
                   </Text>
-                  <Pressable
-                    onPress={() => {
-                      onClose();
-                      router.push("/(tabs)/programs");
-                    }}
-                    className="self-start"
-                  >
-                    <Text
-                      className="text-xs font-outfit font-semibold"
-                      style={{ color: colors.accent }}
-                    >
-                      Open training →
-                    </Text>
+                  <Pressable onPress={() => { onClose(); router.push("/(tabs)/programs"); }}>
+                    <Text style={{ fontSize: 12, fontFamily: "Outfit-SemiBold", color: p.accent }}>Open training →</Text>
                   </Pressable>
                 </View>
               ) : null}
 
               {selectedService?.description?.trim() ? (
-                <Text className="text-sm font-outfit text-secondary mt-3">
+                <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 12, lineHeight: 19 }}>
                   {selectedService.description.trim()}
                 </Text>
               ) : null}
 
-              {selectedService &&
-                (() => {
-                  const total = selectedService.totalSlots;
-                  const remT = selectedService.remainingTotalSlots;
-                  if (total != null && remT != null) {
-                    const full = remT <= 0;
-                    return (
-                      <View
-                        className="mt-3 rounded-[22px] border px-4 py-3"
-                        style={{
-                          borderColor: full ? errorColor : borderSoft,
-                          backgroundColor: full
-                            ? isDark
-                              ? "rgba(248,113,113,0.12)"
-                              : "rgba(248,113,113,0.08)"
-                            : mutedSurface,
-                        }}
-                      >
-                        <Text
-                          className="text-xs font-outfit font-semibold uppercase tracking-[1.2px]"
-                          style={{ color: full ? errorColor : colors.accent }}
-                        >
-                          Slots
-                        </Text>
-                        <Text className="text-sm font-outfit text-app mt-1 leading-5">
-                          {full
-                            ? "No booking slots left for this service."
-                            : `${remT} of ${total} booking slot${total === 1 ? "" : "s"} left`}
-                        </Text>
-                      </View>
-                    );
-                  }
-                  const cap = selectedService.capacity;
-                  const rem = selectedService.remainingCapacity;
-                  if (cap != null && rem != null) {
-                    return (
-                      <View
-                        className="mt-3 rounded-[22px] border px-4 py-3"
-                        style={{
-                          borderColor: isSlotFull ? errorColor : borderSoft,
-                          backgroundColor: isSlotFull
-                            ? isDark
-                              ? "rgba(248,113,113,0.12)"
-                              : "rgba(248,113,113,0.08)"
-                            : mutedSurface,
-                        }}
-                      >
-                        <Text
-                          className="text-xs font-outfit font-semibold uppercase tracking-[1.2px]"
-                          style={{ color: isSlotFull ? errorColor : colors.accent }}
-                        >
-                          Availability
-                        </Text>
-                        <Text className="text-sm font-outfit text-app mt-1 leading-5">
-                          {isSlotFull
-                            ? "No spots left for this session."
-                            : `${rem} of ${cap} spot${cap === 1 ? "" : "s"} open`}
-                        </Text>
-                      </View>
-                    );
-                  }
-                  if (cap != null && rem == null) {
-                    return (
-                      <View
-                        className="mt-3 rounded-[22px] border px-4 py-3"
-                        style={{
-                          borderColor: borderSoft,
-                          backgroundColor: mutedSurface,
-                        }}
-                      >
-                        <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                          Group size
-                        </Text>
-                        <Text className="text-sm font-outfit text-app mt-1 leading-5">
-                          Up to {cap} athlete{cap === 1 ? "" : "s"} per session — pick a
-                          date to see openings.
-                        </Text>
-                      </View>
-                    );
-                  }
+              {/* ── Capacity info ── */}
+              {selectedService && (() => {
+                const total = selectedService.totalSlots;
+                const remT = selectedService.remainingTotalSlots;
+                if (total != null && remT != null) {
+                  const full = remT <= 0;
                   return (
-                    <View
-                      className="mt-3 rounded-[22px] border px-4 py-3"
-                      style={{
-                        borderColor: borderSoft,
-                        backgroundColor: mutedSurface,
-                      }}
-                    >
-                      <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                        Scheduling
-                      </Text>
-                      <Text className="text-sm font-outfit text-app mt-1 leading-5">
-                        You&apos;re requesting this session type — your coach confirms date, time, and
-                        availability after you send the request.
+                    <View style={{ marginTop: 12, borderRadius: 22, backgroundColor: full ? p.dangerSoft : p.successSoft, padding: 14 }}>
+                      <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: full ? p.danger : p.success, letterSpacing: 1.2, textTransform: "uppercase" }}>Slots</Text>
+                      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary, marginTop: 4 }}>
+                        {full ? "No booking slots left for this service." : `${remT} of ${total} booking slot${total === 1 ? "" : "s"} left`}
                       </Text>
                     </View>
                   );
-                })()}
+                }
+                const cap = selectedService.capacity;
+                const rem = selectedService.remainingCapacity;
+                if (cap != null && rem != null) {
+                  return (
+                    <View style={{ marginTop: 12, borderRadius: 22, backgroundColor: isSlotFull ? p.dangerSoft : p.successSoft, padding: 14 }}>
+                      <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: isSlotFull ? p.danger : p.success, letterSpacing: 1.2, textTransform: "uppercase" }}>Availability</Text>
+                      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary, marginTop: 4 }}>
+                        {isSlotFull ? "No spots left for this session." : `${rem} of ${cap} spot${cap === 1 ? "" : "s"} open`}
+                      </Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
 
-              {selectedService && selectedService.oneTimeDate ? (
-                <View
-                  className="mt-4 rounded-2xl border px-3 py-3"
-                  style={{
-                    borderColor: colors.accent,
-                    backgroundColor: accentSurface,
-                  }}
-                >
-                  <Text
-                    className="text-[10px] font-outfit font-bold uppercase tracking-[1.2px]"
-                    style={{ color: colors.accent }}
-                  >
-                    Scheduled for
-                  </Text>
-                  <Text className="text-sm font-outfit text-app font-semibold mt-1">
-                    {new Date(
-                      `${selectedService.oneTimeDate}T12:00:00`,
-                    ).toLocaleDateString([], {
-                      weekday: "long",
-                      month: "short",
-                      day: "numeric",
-                    })}{" "}
-                    · {selectedService.oneTimeTime}
+              {/* ── One-time date ── */}
+              {selectedService?.oneTimeDate ? (
+                <View style={{ marginTop: 16, borderRadius: 20, backgroundColor: p.accentSoft, borderWidth: 1, borderColor: p.accent, padding: 14 }}>
+                  <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.accent, letterSpacing: 1.2, textTransform: "uppercase" }}>Scheduled for</Text>
+                  <Text style={{ fontSize: 13, fontFamily: "Outfit-SemiBold", color: p.textPrimary, marginTop: 4 }}>
+                    {new Date(`${selectedService.oneTimeDate}T12:00:00`).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })} · {selectedService.oneTimeTime}
                   </Text>
                 </View>
               ) : null}
 
-              <View
-                className="mt-4 rounded-[22px] border p-4"
-                style={{
-                  backgroundColor: mutedSurface,
-                  borderColor: borderSoft,
-                }}
-              >
-                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                  Location & link
-                </Text>
-                <View className="mt-3 gap-2">
-                  <View
-                    className="rounded-2xl border px-3 py-2"
-                    style={{
-                      backgroundColor: surfaceColor,
-                      borderColor: borderSoft,
-                    }}
-                  >
-                    <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                      Location
-                    </Text>
-                    <Text className="text-sm font-outfit text-app mt-1">
-                      {locationLabel}
-                    </Text>
+              {/* ── Available time slots (recurring) ── */}
+              {selectedService && isRecurring && !selectedService.isLocked ? (
+                <View style={{ marginTop: 16, gap: 10 }}>
+                  <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, letterSpacing: 1.2, textTransform: "uppercase" }}>Pick a time slot</Text>
+
+                  {availabilityLoading ? (
+                    <View style={{ alignItems: "center", paddingVertical: 16 }}>
+                      <ActivityIndicator size="small" color={p.accent} />
+                      <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 8 }}>Loading available slots...</Text>
+                    </View>
+                  ) : serviceOccurrences.length === 0 ? (
+                    <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, borderWidth: 1, borderColor: p.divider, borderStyle: "dashed", padding: 16 }}>
+                      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>No available slots in the next 30 days. Check back later.</Text>
+                    </View>
+                  ) : (
+                    <ScrollView horizontal={false} style={{ maxHeight: 220 }} showsVerticalScrollIndicator nestedScrollEnabled>
+                      <View style={{ gap: 8 }}>
+                        {serviceOccurrences.map((occ) => {
+                          const isSelected = selectedOccurrence?.occurrenceKey === occ.occurrenceKey;
+                          const spots = occ.remainingCapacity;
+                          return (
+                            <Pressable
+                              key={occ.occurrenceKey}
+                              onPress={() => setSelectedOccurrence(occ)}
+                              style={{
+                                borderRadius: 20,
+                                borderWidth: 1.5,
+                                borderColor: isSelected ? p.accent : p.divider,
+                                backgroundColor: isSelected ? p.cardSage : p.cardWhite,
+                                paddingHorizontal: 14,
+                                paddingVertical: 12,
+                              }}
+                            >
+                              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                                <View style={{ gap: 2 }}>
+                                  <Text style={{ fontSize: 13, fontFamily: "Outfit-SemiBold", color: p.textPrimary }}>{formatSlotDate(occ.startsAt)}</Text>
+                                  <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted }}>{formatSlotTime(occ.startsAt)} – {formatSlotTime(occ.endsAt)}</Text>
+                                </View>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                  {spots != null && (
+                                    <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: spots <= 1 ? p.danger : p.accent, textTransform: "uppercase" }}>
+                                      {spots} spot{spots === 1 ? "" : "s"}
+                                    </Text>
+                                  )}
+                                  {isSelected && (
+                                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: p.accent, alignItems: "center", justifyContent: "center" }}>
+                                      <Feather name="check" size={13} color={p.buttonPrimaryText} />
+                                    </View>
+                                  )}
+                                </View>
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+                  )}
+                </View>
+              ) : null}
+
+              {/* ── Location & link ── */}
+              <View style={{ marginTop: 16, borderRadius: 22, backgroundColor: p.cardWhite, padding: 16 }}>
+                <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, letterSpacing: 1.2, textTransform: "uppercase" }}>Location & link</Text>
+                <View style={{ marginTop: 10, gap: 8 }}>
+                  <View style={{ borderRadius: 16, backgroundColor: p.inputBg, borderWidth: 1, borderColor: p.inputBorder, paddingHorizontal: 12, paddingVertical: 8 }}>
+                    <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, letterSpacing: 1, textTransform: "uppercase" }}>Location</Text>
+                    <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary, marginTop: 4 }}>{locationLabel}</Text>
                   </View>
-                  <View
-                    className="rounded-2xl border px-3 py-2"
-                    style={{
-                      backgroundColor: surfaceColor,
-                      borderColor: borderSoft,
-                    }}
-                  >
-                    <Text className="text-[0.6875rem] font-outfit text-secondary uppercase tracking-[1.2px]">
-                      Meeting link
-                    </Text>
-                    <Text className="text-sm font-outfit text-app mt-1">
-                      {meetingLinkLabel}
-                    </Text>
+                  <View style={{ borderRadius: 16, backgroundColor: p.inputBg, borderWidth: 1, borderColor: p.inputBorder, paddingHorizontal: 12, paddingVertical: 8 }}>
+                    <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, letterSpacing: 1, textTransform: "uppercase" }}>Meeting link</Text>
+                    <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary, marginTop: 4 }}>{meetingLinkLabel}</Text>
                   </View>
                 </View>
               </View>
 
-              <View
-                className="mt-4 rounded-[22px] border p-4"
-                style={{
-                  backgroundColor: mutedSurface,
-                  borderColor: borderSoft,
-                }}
-              >
-                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
-                  Notes (optional)
-                </Text>
-                <View
-                  className="mt-3 rounded-2xl border px-3 py-2"
-                  style={{
-                    backgroundColor: surfaceColor,
-                    borderColor: borderSoft,
-                  }}
-                >
+              {/* ── Notes ── */}
+              <View style={{ marginTop: 16, borderRadius: 22, backgroundColor: p.cardWhite, padding: 16 }}>
+                <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, letterSpacing: 1.2, textTransform: "uppercase" }}>Notes (optional)</Text>
+                <View style={{ marginTop: 10, borderRadius: 16, backgroundColor: p.inputBg, borderWidth: 1, borderColor: p.inputBorder, paddingHorizontal: 12, paddingVertical: 8 }}>
                   <TextInput
                     value={notes}
                     onChangeText={setNotes}
                     placeholder="Anything you'd like your coach to know?"
-                    placeholderTextColor={
-                      isDark
-                        ? "rgba(255,255,255,0.35)"
-                        : "rgba(15,23,42,0.35)"
-                    }
+                    placeholderTextColor={p.textMuted}
                     multiline
                     textAlignVertical="top"
                     style={{
                       minHeight: 72,
-                      color: isDark ? "#FFFFFF" : "#0F172A",
-                      fontFamily: Platform.select({
-                        ios: "System",
-                        android: "sans-serif",
-                      }),
+                      color: p.textPrimary,
+                      fontFamily: Platform.select({ ios: "Outfit-Regular", android: "Outfit-Regular" }),
                       fontSize: 14,
                     }}
                   />
                 </View>
               </View>
 
+              {/* ── Submit ── */}
               <Pressable
                 onPress={handleSubmit}
-                disabled={
-                  !selectedService ||
-                  isSubmitting ||
-                  !canCreateBookings ||
-                  selectedService?.isLocked === true ||
-                  isSlotFull
-                }
-                className={`mt-4 px-4 py-3 flex-row items-center justify-center gap-2 rounded-full ${
-                  selectedService &&
-                  canCreateBookings &&
-                  !selectedService?.isLocked &&
-                  !isSlotFull
-                    ? "bg-accent"
-                    : "bg-secondary/20"
-                }`}
+                disabled={!canSubmit || isSubmitting}
+                style={{
+                  marginTop: 16,
+                  paddingVertical: 14,
+                  borderRadius: 100,
+                  backgroundColor: canSubmit ? p.buttonPrimary : p.accentSoft,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  opacity: canSubmit ? 1 : 0.6,
+                  shadowColor: p.shadow,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: canSubmit ? 0.2 : 0,
+                  shadowRadius: 12,
+                  elevation: canSubmit ? 4 : 0,
+                }}
               >
-                {isSubmitting && (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                )}
-                <Text
-                  className={`text-xs font-outfit uppercase tracking-[1.2px] text-center ${
-                    selectedService && canCreateBookings && !isSlotFull
-                      ? "text-white"
-                      : "text-secondary"
-                  }`}
-                >
+                {isSubmitting && <ActivityIndicator size="small" color={p.buttonPrimaryText} />}
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: "Outfit-Bold",
+                  color: canSubmit ? p.buttonPrimaryText : p.textMuted,
+                  letterSpacing: 1.2,
+                  textTransform: "uppercase",
+                }}>
                   {isSubmitting
                     ? "Sending..."
                     : selectedService?.isLocked
@@ -689,21 +512,19 @@ export function BookingModal({
                         ? "Slot Full"
                         : !canCreateBookings
                           ? "Access required"
-                          : "Send request"}
+                          : isRecurring && !selectedOccurrence
+                            ? "Pick a slot"
+                            : "Send request"}
                 </Text>
               </Pressable>
               {bookingError && (
-                <Text
-                  className="text-xs font-outfit mt-3"
-                  style={{ color: errorColor }}
-                >
-                  {bookingError}
-                </Text>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.danger, marginTop: 12 }}>{bookingError}</Text>
               )}
             </>
           )}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
         </BottomSheet.Content>
       </BottomSheet.Portal>
     </BottomSheet>

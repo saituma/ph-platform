@@ -97,6 +97,13 @@ export async function createUserFromCognito(input: {
   const revived = await reviveSoftDeletedUserForCognito(input);
   if (revived) return revived;
 
+  const existing = await db
+    .select()
+    .from(userTable)
+    .where(and(eq(userTable.email, input.email), eq(userTable.isDeleted, false)))
+    .limit(1);
+  if (existing[0]) return existing[0];
+
   const result = await db
     .insert(userTable)
     .values({

@@ -1,5 +1,4 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
-import { Ionicons } from "@expo/vector-icons";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { apiRequest } from "@/lib/api";
@@ -7,29 +6,21 @@ import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import * as SecureStore from "expo-secure-store";
 import { Text } from "@/components/ScaledText";
+import { Check } from "lucide-react-native";
 
 export default function PrivacyPolicyScreen() {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const params = useLocalSearchParams<{ from?: string }>();
   const { token } = useAppSelector((state) => state.user);
   const [privacyContent, setPrivacyContent] = useState<string | null>(null);
   const [privacyVersion, setPrivacyVersion] = useState<string | null>(null);
   const [privacyUpdatedAt, setPrivacyUpdatedAt] = useState<string | null>(null);
-
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
-  const textBody = isDark ? "hsl(220, 5%, 60%)" : "hsl(220, 5%, 42%)";
-  const headingColor = isDark ? "hsl(220,5%,90%)" : "hsl(220,8%,12%)";
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
-  const cardBorder = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
 
   const cacheKeys = useMemo(
     () => ({
@@ -123,7 +114,7 @@ export default function PrivacyPolicyScreen() {
   };
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: p.pageBg }}>
       <MoreStackHeader
         title="Privacy Policy"
         subtitle="Understand how your account data is handled, protected, and updated across the platform."
@@ -143,12 +134,12 @@ export default function PrivacyPolicyScreen() {
       >
         <View style={{ marginBottom: 24 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: colors.accent }} />
-            <Text style={{ fontSize: 28, fontFamily: "TelmaBold", color: textPrimary }}>
+            <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: p.accent }} />
+            <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
               Data Protection
             </Text>
           </View>
-          <Text style={{ fontSize: 15, fontFamily: "Outfit", color: labelColor, marginTop: 4 }}>
+          <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 4 }}>
             {privacyUpdatedAt
               ? `Updated: ${new Date(privacyUpdatedAt).toLocaleDateString()}`
               : privacyVersion
@@ -160,18 +151,16 @@ export default function PrivacyPolicyScreen() {
         <View style={{ gap: 24 }}>
           <View
             style={{
-              backgroundColor: cardBg,
+              backgroundColor: p.cardWhite,
               borderRadius: 20,
-              borderWidth: 1,
-              borderColor: cardBorder,
               padding: 20,
             }}
           >
             <MarkdownText
               text={(privacyContent && privacyContent.trim().length ? privacyContent : fallbackContent).trim()}
-              baseStyle={{ fontSize: 15, lineHeight: 24, color: textBody }}
-              headingStyle={{ fontSize: 20, lineHeight: 28, color: headingColor, fontWeight: "700" }}
-              subheadingStyle={{ fontSize: 18, lineHeight: 26, color: headingColor, fontWeight: "700" }}
+              baseStyle={{ fontSize: 15, lineHeight: 24, color: p.textSecondary }}
+              headingStyle={{ fontSize: 20, lineHeight: 28, color: p.textPrimary, fontWeight: "700" }}
+              subheadingStyle={{ fontSize: 18, lineHeight: 26, color: p.textPrimary, fontWeight: "700" }}
               listItemStyle={{ paddingLeft: 6 }}
             />
           </View>
@@ -181,16 +170,16 @@ export default function PrivacyPolicyScreen() {
           <View
             style={{
               height: 56,
-              borderRadius: 20,
-              backgroundColor: colors.accent,
+              borderRadius: 100,
+              backgroundColor: p.accent,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
               gap: 10,
             }}
           >
-            <Ionicons name="checkmark" size={20} color="#fff" />
-            <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+            <Check size={20} color={p.buttonPrimaryText} />
+            <Text style={{ color: p.buttonPrimaryText, fontFamily: "Outfit-Bold", fontSize: 16 }}>
               I Understand
             </Text>
           </View>

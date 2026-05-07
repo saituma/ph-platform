@@ -140,6 +140,7 @@ async function sendToAdditionalDevices(
   }
 }
 
+/** Worker/provider-only. Request paths must use createPushIntent (outbox) instead of calling this directly. */
 export async function sendPushNotification(userId: number, title: string, body: string, data?: Record<string, any>) {
   try {
     warnMissingExpoAccessTokenOnce();

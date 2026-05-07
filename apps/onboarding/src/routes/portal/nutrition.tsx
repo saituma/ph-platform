@@ -7,7 +7,9 @@ import {
 	Droplets,
 	Footprints,
 	Loader2,
+	MessageSquare,
 	Moon,
+	Play,
 	Save,
 	Smile,
 	Utensils,
@@ -82,6 +84,8 @@ function NutritionPage() {
 	const [forceProfileEdit, setForceProfileEdit] = useState(false);
 	const [targets, setTargets] = useState<any>(null);
 	const [weekLogs, setWeekLogs] = useState<any[]>([]);
+	const [coachFeedbackLogs, setCoachFeedbackLogs] = useState<any[]>([]);
+	const [showAllCoach, setShowAllCoach] = useState(false);
 	const [hasNutritionProfile, setHasNutritionProfile] = useState<
 		boolean | null
 	>(null);
@@ -158,7 +162,12 @@ function NutritionPage() {
 			weekStart.setDate(weekStart.getDate() - 6);
 			const weekStartKey = weekStart.toISOString().slice(0, 10);
 
-			const [todayData, weekData, targetsData] = await Promise.all([
+			const thirtyDaysAgo = new Date();
+			thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+			const thirtyDaysAgoKey = thirtyDaysAgo.toISOString().slice(0, 10);
+			const todayKey = new Date().toISOString().slice(0, 10);
+
+			const [todayData, weekData, targetsData, feedbackData] = await Promise.all([
 				settingsService.getNutritionLogs({
 					userId: user.id || "me",
 					from: dateKey,
@@ -173,6 +182,14 @@ function NutritionPage() {
 				settingsService
 					.getNutritionTargets(user.id || "me")
 					.catch(() => ({ targets: null })),
+				settingsService
+					.getNutritionLogs({
+						userId: user.id || "me",
+						from: thirtyDaysAgoKey,
+						to: todayKey,
+						limit: 100,
+					})
+					.catch(() => ({ logs: [] })),
 			]);
 
 			const currentLog = todayData.logs.find((l: any) => l.dateKey === dateKey);
@@ -211,6 +228,18 @@ function NutritionPage() {
 					a.dateKey.localeCompare(b.dateKey),
 				),
 			);
+
+			// Filter logs that have coach feedback
+			const withFeedback = (feedbackData.logs || [])
+				.filter(
+					(l: any) =>
+						(l.coachFeedback && l.coachFeedback.trim()) ||
+						l.coachFeedbackMediaUrl,
+				)
+				.sort((a: any, b: any) =>
+					String(b.dateKey).localeCompare(String(a.dateKey)),
+				);
+			setCoachFeedbackLogs(withFeedback);
 		} catch (error) {
 			console.error("Failed to fetch nutrition log", error);
 		} finally {
@@ -973,6 +1002,111 @@ function NutritionPage() {
 							</CardContent>
 						</Card>
 					)}
+
+					{/* Coach Responses */}
+					<Card className="border-2">
+						<CardHeader className="pb-3">
+							<div className="flex items-center gap-2 text-primary">
+								<MessageSquare className="h-5 w-5" />
+								<CardTitle className="text-lg font-bold uppercase tracking-tight">
+									Coach Responses
+								</CardTitle>
+								{coachFeedbackLogs.length > 0 && (
+									<span className="ml-auto text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+										{coachFeedbackLogs.length}
+									</span>
+								)}
+							</div>
+						</CardHeader>
+						<CardContent>
+							{coachFeedbackLogs.length === 0 ? (
+								<div className="flex flex-col items-center py-8 text-center">
+									<div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+										<MessageSquare className="h-6 w-6 text-primary" />
+									</div>
+									<p className="font-bold text-base">No coach replies yet</p>
+									<p className="text-sm text-muted-foreground mt-1 max-w-xs">
+										Once your coach responds to a nutrition log, their feedback
+										will show up here in real time.
+									</p>
+								</div>
+							) : (
+								<div className="space-y-3">
+									{(showAllCoach
+										? coachFeedbackLogs
+										: coachFeedbackLogs.slice(0, 3)
+									).map((entry) => (
+										<div
+											key={String(entry.id ?? entry.dateKey)}
+											className="rounded-xl border-2 p-4 space-y-2"
+										>
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-2">
+													<span className="h-2 w-2 rounded-full bg-primary inline-block" />
+													<span className="text-sm font-bold">
+														{new Date(
+															entry.dateKey + "T12:00:00",
+														).toLocaleDateString(undefined, {
+															weekday: "short",
+															month: "short",
+															day: "numeric",
+															year: "numeric",
+														})}
+													</span>
+												</div>
+												{entry.coachFeedbackMediaUrl && (
+													<span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+														<Play className="h-3 w-3" />
+														Media
+													</span>
+												)}
+											</div>
+											{entry.coachFeedback ? (
+												<p className="text-sm text-muted-foreground leading-relaxed">
+													{entry.coachFeedback}
+												</p>
+											) : (
+												<p className="text-sm text-muted-foreground italic">
+													Coach sent a media response.
+												</p>
+											)}
+											{entry.coachFeedbackMediaUrl && (
+												<div className="mt-2">
+													{/\.(mp4|mov|webm)$/i.test(
+														entry.coachFeedbackMediaUrl,
+													) ? (
+														<video
+															src={entry.coachFeedbackMediaUrl}
+															controls
+															className="w-full max-w-md rounded-xl border"
+														/>
+													) : (
+														<img
+															src={entry.coachFeedbackMediaUrl}
+															alt="Coach feedback media"
+															className="w-full max-w-md rounded-xl border object-cover"
+														/>
+													)}
+												</div>
+											)}
+										</div>
+									))}
+
+									{coachFeedbackLogs.length > 3 && (
+										<Button
+											variant="outline"
+											className="w-full rounded-xl font-bold"
+											onClick={() => setShowAllCoach((v) => !v)}
+										>
+											{showAllCoach
+												? "Show less"
+												: `View all ${coachFeedbackLogs.length} responses`}
+										</Button>
+									)}
+								</div>
+							)}
+						</CardContent>
+					</Card>
 				</>
 			)}
 		</PageTransition>

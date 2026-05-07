@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { BottomSheet } from "heroui-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -109,6 +109,7 @@ export function ActiveRunSportSheet({
             borderRadius: 2,
           }}
         >
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -323,6 +324,7 @@ export function ActiveRunSportSheet({
               </View>
             ))}
           </ScrollView>
+          </KeyboardAvoidingView>
         </BottomSheet.Content>
       </BottomSheet.Portal>
     </BottomSheet>

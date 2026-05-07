@@ -1,7 +1,6 @@
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
-import { Ionicons } from "@expo/vector-icons";
-import { fonts } from "@/constants/theme";
+import { ArrowLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, View } from "react-native";
@@ -24,28 +23,18 @@ export function MoreStackHeader({
   rightSlot,
 }: MoreStackHeaderProps) {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
-
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 30%, 97%)";
-  const cardBorder = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
-  const accentSoft = isDark
-    ? "rgba(34,197,94,0.14)"
-    : "rgba(34,197,94,0.10)";
+  const p = useAdminPastel();
 
   return (
-    <View style={{ paddingHorizontal: 16, paddingBottom: 8, paddingTop: 12, backgroundColor: colors.background }}>
+    <View style={{ paddingHorizontal: 16, paddingBottom: 8, paddingTop: 12, backgroundColor: p.pageBg }}>
       <View
         style={{
           overflow: "hidden",
           borderRadius: 24,
-          borderWidth: 1,
           paddingHorizontal: 16,
           paddingBottom: 16,
           paddingTop: 16,
-          backgroundColor: cardBg,
-          borderColor: cardBorder,
+          backgroundColor: p.cardSage,
         }}
       >
         <View
@@ -56,7 +45,7 @@ export function MoreStackHeader({
             height: 112,
             width: 112,
             borderRadius: 56,
-            backgroundColor: accentSoft,
+            backgroundColor: p.accentSoft,
           }}
         />
         <View
@@ -67,7 +56,7 @@ export function MoreStackHeader({
             height: 96,
             width: 96,
             borderRadius: 48,
-            backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.04)",
+            backgroundColor: p.cardMint,
           }}
         />
 
@@ -90,12 +79,12 @@ export function MoreStackHeader({
               width: 44,
               alignItems: "center",
               justifyContent: "center",
-              borderRadius: 14,
-              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.85)",
+              borderRadius: 100,
+              backgroundColor: p.cardWhite,
               opacity: pressed ? 0.8 : 1,
             })}
           >
-            <Ionicons name="arrow-back" size={20} color={colors.accent} />
+            <ArrowLeft size={20} color={p.accent} strokeWidth={2} />
           </Pressable>
 
           {rightSlot ?? (badge ? (
@@ -104,16 +93,16 @@ export function MoreStackHeader({
                 borderRadius: 99,
                 paddingHorizontal: 12,
                 paddingVertical: 6,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.8)",
+                backgroundColor: p.cardWhite,
               }}
             >
               <Text
                 style={{
                   fontSize: 10,
-                  fontFamily: fonts.bodyBold,
+                  fontFamily: "Outfit-Bold",
                   textTransform: "uppercase",
                   letterSpacing: 1.4,
-                  color: colors.accent,
+                  color: p.accent,
                 }}
               >
                 {badge}
@@ -125,10 +114,10 @@ export function MoreStackHeader({
         <View style={{ marginTop: 16 }}>
           <Text
             style={{
-              fontFamily: "TelmaBold",
+              fontFamily: "Outfit-Bold",
               fontSize: 28,
               letterSpacing: -0.3,
-              color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
+              color: p.textPrimary,
             }}
           >
             {title}
@@ -139,8 +128,8 @@ export function MoreStackHeader({
                 marginTop: 8,
                 fontSize: 15,
                 lineHeight: 22,
-                fontFamily: "Outfit",
-                color: isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,45%)",
+                fontFamily: "Outfit-Regular",
+                color: p.textMuted,
               }}
             >
               {subtitle}

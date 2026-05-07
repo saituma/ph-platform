@@ -1,5 +1,24 @@
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Text, TextInput } from "@/components/ScaledText";
+import {
+  AdminScreen,
+  AdminHeader,
+  AdminBackButton,
+  AdminCard,
+  AdminButton,
+  AdminBadge,
+  AdminInput,
+  AdminFormField,
+  AdminChipSelect,
+  AdminSegmentedTabs,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminModalContainer,
+  AdminModalTitle,
+  AdminModalSubtitle,
+  AdminIconButton,
+  useAdminPastel,
+} from "@/components/admin/AdminUI";
+import type { AdminCardColor } from "@/constants/theme";
+import { Text } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { apiRequest } from "@/lib/api";
 import { formatIsoShort } from "@/lib/admin-utils";
@@ -10,232 +29,68 @@ import { useMediaUpload } from "@/hooks/messages/useMediaUpload";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 import { isAdminRole } from "@/lib/isAdminRole";
 import { useAppSelector } from "@/store/hooks";
-import { Feather } from "@/components/ui/theme-icons";
+import {
+  Send,
+  Plus,
+  Filter,
+  ChevronDown,
+  Image as ImageIcon,
+  Trash2,
+  Users,
+  User,
+  Calendar,
+  Camera,
+  Search,
+  MapPin,
+  Phone,
+  Mail,
+  Star,
+  XCircle,
+  PlusCircle,
+  List,
+  PenLine,
+} from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, usePathname } from "expo-router";
-import { goBackOrFallbackTabs } from "@/lib/navigation/androidBackToTabs";
+import {
+  Modal,
+  Pressable,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  Alert,
+} from "react-native";
+import { useRouter } from "expo-router";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 
 // --- Constants ---
 
 const TARGET_MODES = [
-  { label: "Single Athlete", value: "single" },
-  { label: "Team", value: "team" },
-  { label: "Age Range", value: "age_range" },
-  { label: "Group", value: "group" },
-] as const;
+  { key: "single" as const, label: "Single Athlete" },
+  { key: "team" as const, label: "Team" },
+  { key: "age_range" as const, label: "Age Range" },
+  { key: "group" as const, label: "Group" },
+];
 
-const REFERRAL_TYPES = ["Physio", "Stocks", "Nutrition", "Recovery", "Doctor", "Specialist", "Other"];
+const REFERRAL_TYPES_OPTIONS = [
+  { key: "Physio", label: "Physio" },
+  { key: "Stocks", label: "Stocks" },
+  { key: "Nutrition", label: "Nutrition" },
+  { key: "Recovery", label: "Recovery" },
+  { key: "Doctor", label: "Doctor" },
+  { key: "Specialist", label: "Specialist" },
+  { key: "Other", label: "Other" },
+];
 
-// --- Components ---
-
-function ActionButton({
-  label,
-  onPress,
-  tone = "accent",
-  size = "md",
-  disabled,
-  loading,
-  icon,
-}: {
-  label: string;
-  onPress: () => void;
-  tone?: "neutral" | "success" | "danger" | "accent";
-  size?: "sm" | "md" | "lg";
-  disabled?: boolean;
-  loading?: boolean;
-  icon?: any;
-}) {
-  const { isDark } = useAppTheme();
-  const bg = tone === "accent" || tone === "success" ? "#22C55E" : 
-             tone === "danger" ? "#EF4444" : 
-             isDark ? "rgba(255,255,255,0.15)" : "#F1F5F9";
-  const textColor = (tone === "neutral" && !isDark) ? "#0F172A" : "#FFFFFF";
-  const height = size === "sm" ? 44 : size === "md" ? 58 : 66;
-  const px = size === "sm" ? 16 : size === "md" ? 28 : 36;
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      disabled={disabled || loading}
-      onPress={onPress}
-      style={{
-        height,
-        paddingHorizontal: px,
-        borderRadius: 14,
-        backgroundColor: bg,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: (disabled || loading) ? 0.6 : 1,
-      }}
-    >
-      {loading ? (
-        <ActivityIndicator color="#FFFFFF" size="small" />
-      ) : (
-        <>
-          {icon && <Feather name={icon} size={size === "sm" ? 18 : 22} color={textColor} style={{ marginRight: 10 }} />}
-          <Text
-            className="font-outfit-bold uppercase tracking-[1.5px]"
-            style={{ color: textColor, fontSize: size === "sm" ? 13 : 15 }}
-          >
-            {label}
-          </Text>
-        </>
-      )}
-    </TouchableOpacity>
-  );
-}
-
-function FormInput({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType = "default",
-  multiline = false,
-  prefix,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder?: string;
-  keyboardType?: "default" | "numeric" | "email-address";
-  multiline?: boolean;
-  prefix?: string;
-}) {
-  const { colors, isDark } = useAppTheme();
-  const [isFocused, setIsFocused] = useState(false);
-  
-  return (
-    <View className="mb-6">
-      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
-        {label}
-      </Text>
-      <View 
-        className="rounded-[18px] border flex-row items-center px-5"
-        style={{
-          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
-          borderColor: isFocused ? colors.accent : (isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)"),
-          minHeight: multiline ? 140 : 62,
-          paddingTop: multiline ? 18 : 0,
-          paddingBottom: multiline ? 18 : 0,
-          borderWidth: isFocused ? 2 : 1,
-        }}
-      >
-        {prefix && (
-          <View className="bg-accent/10 px-2 py-1 rounded-lg mr-3">
-            <Text className="text-[14px] font-outfit-bold text-accent">{prefix}</Text>
-          </View>
-        )}
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.placeholder}
-          keyboardType={keyboardType}
-          multiline={multiline}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          textAlignVertical={multiline ? "top" : "center"}
-          className="flex-1 text-[17px] font-outfit text-app"
-          cursorColor={colors.accent}
-        />
-      </View>
-    </View>
-  );
-}
-
-function Dropdown({
-  label,
-  value,
-  onSelect,
-  options,
-}: {
-  label: string;
-  value: string;
-  onSelect: (val: string) => void;
-  options: { label: string; value: string }[] | string[];
-}) {
-  const { colors, isDark } = useAppTheme();
-  const [open, setOpen] = useState(false);
-
-  const displayLabel = useMemo(() => {
-    const found = options.find(o => typeof o === 'string' ? o === value : o.value === value);
-    if (!found) return value || "Select...";
-    return typeof found === 'string' ? found : found.label;
-  }, [options, value]);
-
-  return (
-    <View className="mb-6">
-      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
-        {label}
-      </Text>
-      <TouchableOpacity
-        onPress={() => setOpen(true)}
-        activeOpacity={0.7}
-        className="rounded-[18px] border flex-row items-center justify-between px-5 h-[62px]"
-        style={{
-          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
-          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
-        }}
-      >
-        <Text className="text-[17px] font-outfit text-app">{displayLabel}</Text>
-        <Feather name="chevron-down" size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
-
-      <Modal visible={open} transparent animationType="fade">
-        <Pressable 
-          className="flex-1 bg-black/60 items-center justify-center p-6"
-          onPress={() => setOpen(false)}
-        >
-          <View 
-            className="w-full max-w-sm rounded-[32px] overflow-hidden"
-            style={{ backgroundColor: isDark ? "#161628" : "#FFFFFF" }}
-          >
-            <View className="p-6 border-b border-app/10">
-              <Text className="text-xl font-clash font-bold text-app">{label}</Text>
-            </View>
-            <ScrollView style={{ maxHeight: 400 }}>
-              {options.map((opt, i) => {
-                const optVal = typeof opt === 'string' ? opt : opt.value;
-                const optLab = typeof opt === 'string' ? opt : opt.label;
-                const isSelected = optVal === value;
-                return (
-                  <TouchableOpacity
-                    key={i}
-                    onPress={() => {
-                      onSelect(optVal);
-                      setOpen(false);
-                    }}
-                    className="px-6 py-5 flex-row items-center justify-between border-b border-app/5"
-                  >
-                    <Text 
-                      className={`text-[16px] ${isSelected ? 'font-outfit-bold text-accent' : 'font-outfit text-app'}`}
-                    >
-                      {optLab}
-                    </Text>
-                    {isSelected && <Feather name="check" size={20} color={colors.accent} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Modal>
-    </View>
-  );
-}
+const CARD_COLORS: AdminCardColor[] = ["sage", "pink", "lavender", "peach", "mint", "yellow"];
 
 // --- Screen ---
 
 export default function AdminOpsReferralsScreen() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const router = useRouter();
-  const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
@@ -278,6 +133,11 @@ export default function AdminOpsReferralsScreen() {
   const [notes, setNotes] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // Team dropdown modal
+  const [teamModalOpen, setTeamModalOpen] = useState(false);
+  // Group dropdown modal
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+
   // Referral Groups
   const [referralGroups, setReferralGroups] = useState<any[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
@@ -305,10 +165,10 @@ export default function AdminOpsReferralsScreen() {
   };
 
   const pickImage = async (source: "camera" | "library") => {
-    const permission = source === "camera" 
+    const permission = source === "camera"
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (!permission.granted) return;
 
     const result = source === "camera"
@@ -316,7 +176,7 @@ export default function AdminOpsReferralsScreen() {
       : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsEditing: true });
 
     if (result.canceled || !result.assets[0]) return;
-    
+
     const asset = result.assets[0];
     setIsUploading(true);
     try {
@@ -339,7 +199,6 @@ export default function AdminOpsReferralsScreen() {
     if (targetMode === "single") return selectedAthleteId ? 1 : 0;
     if (targetMode === "team") {
       if (!teamName) return 0;
-      // We assume athleteOptions might be partial, but we show what we have
       return athleteOptions.filter(u => (u as any).team === teamName).length;
     }
     if (targetMode === "age_range") {
@@ -348,7 +207,7 @@ export default function AdminOpsReferralsScreen() {
       if (isNaN(min) || (ageMode === "range_age" && isNaN(max))) return 0;
       return athleteOptions.filter(u => {
         const age = (u as any).age;
-        return typeof age === 'number' && age >= min && age <= max;
+        return typeof age === "number" && age >= min && age <= max;
       }).length;
     }
     if (targetMode === "group") {
@@ -418,8 +277,7 @@ export default function AdminOpsReferralsScreen() {
           metadata,
         });
       } else {
-        // Bulk creation
-        const targeting = 
+        const targeting =
           targetMode === "team" ? { mode: "team", team: teamName } :
           targetMode === "age_range" ? { mode: "age_range", minAge: Number(minAge), maxAge: Number(ageMode === "single_age" ? minAge : maxAge) } :
           { mode: "group", groupId: Number(selectedGroupId) };
@@ -430,7 +288,7 @@ export default function AdminOpsReferralsScreen() {
           body: { targeting, referalLink: referralLink, discountPercent: discountPercent ? Number(discountPercent) : undefined, metadata },
         });
       }
-      
+
       resetForm();
       setActiveTab("existing");
       void referralsHook.load({ limit: 50 }, true);
@@ -440,131 +298,237 @@ export default function AdminOpsReferralsScreen() {
   };
 
   const renderCreateForm = () => (
-    <View className="pb-40">
-      {/* Target & Type Selection */}
-      <View className="px-6 mb-8">
-        <Dropdown 
-          label="Target Mode" 
-          value={targetMode} 
-          onSelect={(val: any) => setTargetMode(val)} 
-          options={TARGET_MODES as any} 
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(400).springify()}
+      style={{ paddingBottom: 160 }}
+    >
+      {/* Target Mode */}
+      <View style={{ paddingHorizontal: 24, marginBottom: 20 }}>
+        <Text
+          style={{
+            fontFamily: "Outfit-Bold",
+            fontSize: 12,
+            letterSpacing: 0.5,
+            textTransform: "uppercase",
+            color: p.textMuted,
+            marginBottom: 10,
+          }}
+        >
+          Target Mode
+        </Text>
+        <AdminChipSelect
+          options={TARGET_MODES}
+          value={targetMode}
+          onChange={setTargetMode}
         />
+      </View>
 
-        <View className="flex-row gap-x-4">
-          <View className="flex-1">
-            <Dropdown 
-              label="Referral Type" 
-              value={referralType} 
-              onSelect={setReferralType} 
-              options={REFERRAL_TYPES} 
+      {/* Referral Type */}
+      <View style={{ paddingHorizontal: 24, marginBottom: 20 }}>
+        <Text
+          style={{
+            fontFamily: "Outfit-Bold",
+            fontSize: 12,
+            letterSpacing: 0.5,
+            textTransform: "uppercase",
+            color: p.textMuted,
+            marginBottom: 10,
+          }}
+        >
+          Referral Type
+        </Text>
+        <AdminChipSelect
+          options={REFERRAL_TYPES_OPTIONS}
+          value={referralType}
+          onChange={setReferralType}
+        />
+        {referralType === "Other" && (
+          <View style={{ marginTop: 12 }}>
+            <AdminFormField
+              label="Custom Type"
+              value={customReferralType}
+              onChangeText={setCustomReferralType}
+              placeholder="e.g. Wellness"
             />
           </View>
-          {referralType === "Other" && (
-            <View className="flex-1">
-              <FormInput 
-                label="Custom Type" 
-                value={customReferralType} 
-                onChangeText={setCustomReferralType} 
-                placeholder="e.g. Wellness" 
-              />
-            </View>
-          )}
-        </View>
+        )}
       </View>
 
       {/* Target Configuration */}
-      <View className="px-6 mb-8">
+      <View style={{ paddingHorizontal: 24, marginBottom: 20 }}>
         {targetMode === "single" && (
           <View>
-            <FormInput 
-              label="Athlete" 
-              value={athleteSearch} 
-              onChangeText={setAthleteSearch} 
-              placeholder="Search by name or guardian" 
+            <AdminFormField
+              label="Search Athlete"
+              value={athleteSearch}
+              onChangeText={setAthleteSearch}
+              placeholder="Search by name or guardian"
             />
             {athleteSearch.length > 0 && !selectedAthleteId && (
-              <View
-                className="mb-6 rounded-[24px] border overflow-hidden"
-                style={{
-                  backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                }}
-              >
-                {usersLoading ? <ActivityIndicator size="small" className="py-6" color={colors.accent} /> : 
+              <AdminCard color="white" style={{ marginBottom: 16 }}>
+                {usersLoading ? (
+                  <ActivityIndicator size="small" color={p.accent} style={{ paddingVertical: 16 }} />
+                ) : (
                   athleteOptions.slice(0, 6).map(u => (
-                    <TouchableOpacity 
-                      key={u.id} 
+                    <Pressable
+                      key={u.id}
                       onPress={() => {
                         setSelectedUserId(u.id!);
                         setSelectedAthleteLabel(u.name || u.email || "Unknown");
                         setAthleteSearch(u.name || u.email || "Unknown");
                       }}
-                      className="p-5 border-b border-app/5 last:border-0 flex-row items-center justify-between"
+                      style={({ pressed }) => ({
+                        paddingVertical: 14,
+                        paddingHorizontal: 4,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        borderBottomWidth: 1,
+                        borderBottomColor: p.divider,
+                        opacity: pressed ? 0.7 : 1,
+                      })}
                     >
-                      <View className="flex-1">
-                        <Text className="font-outfit-bold text-[16px] text-app">{u.name}</Text>
-                        <Text className="text-[12px] font-outfit text-textSecondary mt-0.5">{u.email}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>
+                          {u.name}
+                        </Text>
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, marginTop: 2 }}>
+                          {u.email}
+                        </Text>
                       </View>
-                      <Feather name="plus-circle" size={20} color={colors.accent} />
-                    </TouchableOpacity>
+                      <PlusCircle size={20} color={p.accent} strokeWidth={2} />
+                    </Pressable>
                   ))
-                }
-              </View>
+                )}
+              </AdminCard>
             )}
             {selectedAthleteId && (
-              <View className="mb-8 flex-row items-center justify-between bg-accent/5 p-5 rounded-[22px] border border-accent/20">
-                <View className="flex-row items-center flex-1">
-                  <View className="h-10 w-10 rounded-full bg-accent/10 items-center justify-center mr-4">
-                    <Feather name="user" size={20} color={colors.accent} />
+              <AdminCard color="lavender" style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: p.accentSoft,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: 14,
+                    }}
+                  >
+                    <User size={20} color={p.accent} strokeWidth={2} />
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-[11px] font-outfit-bold text-accent uppercase tracking-wider mb-0.5">Target Athlete</Text>
-                    <Text className="font-outfit-bold text-[16px] text-app">{selectedAthleteLabel}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent, textTransform: "uppercase", letterSpacing: 0.8 }}>
+                      Target Athlete
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary, marginTop: 2 }}>
+                      {selectedAthleteLabel}
+                    </Text>
                   </View>
+                  <Pressable onPress={() => { setSelectedUserId(null); setAthleteSearch(""); }}>
+                    <XCircle size={24} color={p.textMuted} strokeWidth={2} />
+                  </Pressable>
                 </View>
-                <TouchableOpacity onPress={() => { setSelectedUserId(null); setAthleteSearch(""); }}>
-                  <Feather name="x-circle" size={24} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
+              </AdminCard>
             )}
           </View>
         )}
 
         {targetMode === "team" && (
-          <Dropdown 
-            label="Select Team" 
-            value={teamName} 
-            onSelect={setTeamName} 
-            options={teamsHook.teams.map(t => ({ label: `${t.team} (${t.memberCount})`, value: t.team }))} 
-          />
+          <View style={{ marginBottom: 16 }}>
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 12,
+                letterSpacing: 0.5,
+                textTransform: "uppercase",
+                color: p.textMuted,
+                marginBottom: 8,
+              }}
+            >
+              Select Team
+            </Text>
+            <Pressable
+              onPress={() => setTeamModalOpen(true)}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                height: 52,
+                paddingHorizontal: 18,
+                borderRadius: 20,
+                backgroundColor: p.inputBg,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: teamName ? p.textPrimary : p.textMuted }}>
+                {teamName || "Select a team..."}
+              </Text>
+              <ChevronDown size={18} color={p.textMuted} strokeWidth={2} />
+            </Pressable>
+
+            <Modal visible={teamModalOpen} transparent animationType="fade">
+              <AdminModalContainer onClose={() => setTeamModalOpen(false)}>
+                <AdminModalTitle>Select Team</AdminModalTitle>
+                <AdminModalSubtitle>Choose the team to target</AdminModalSubtitle>
+                <ScrollView style={{ maxHeight: 360 }}>
+                  {teamsHook.teams.map((t, i) => (
+                    <Pressable
+                      key={i}
+                      onPress={() => {
+                        setTeamName(t.team);
+                        setTeamModalOpen(false);
+                      }}
+                      style={({ pressed }) => ({
+                        paddingVertical: 14,
+                        paddingHorizontal: 4,
+                        borderBottomWidth: 1,
+                        borderBottomColor: p.divider,
+                        opacity: pressed ? 0.7 : 1,
+                      })}
+                    >
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: t.team === teamName ? p.accent : p.textPrimary }}>
+                        {t.team} ({t.memberCount})
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </AdminModalContainer>
+            </Modal>
+          </View>
         )}
 
         {targetMode === "age_range" && (
           <View>
-            <Dropdown 
-              label="Age Option" 
-              value={ageMode} 
-              onSelect={(val: any) => setAgeMode(val)} 
-              options={[{ label: "Single Age", value: "single_age" }, { label: "Age Range", value: "range_age" }]} 
-            />
-            <View className="flex-row gap-4">
-              <View className="flex-1">
-                <FormInput 
-                  label={ageMode === "single_age" ? "Age" : "Min Age"} 
-                  value={minAge} 
-                  onChangeText={setMinAge} 
-                  keyboardType="numeric" 
-                  placeholder="6" 
+            <View style={{ marginBottom: 12 }}>
+              <AdminChipSelect
+                options={[
+                  { key: "single_age" as const, label: "Single Age" },
+                  { key: "range_age" as const, label: "Age Range" },
+                ]}
+                value={ageMode}
+                onChange={setAgeMode}
+              />
+            </View>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <AdminFormField
+                  label={ageMode === "single_age" ? "Age" : "Min Age"}
+                  value={minAge}
+                  onChangeText={setMinAge}
+                  keyboardType="number-pad"
+                  placeholder="6"
                 />
               </View>
               {ageMode === "range_age" && (
-                <View className="flex-1">
-                  <FormInput 
-                    label="Max Age" 
-                    value={maxAge} 
-                    onChangeText={setMaxAge} 
-                    keyboardType="numeric" 
-                    placeholder="14" 
+                <View style={{ flex: 1 }}>
+                  <AdminFormField
+                    label="Max Age"
+                    value={maxAge}
+                    onChangeText={setMaxAge}
+                    keyboardType="number-pad"
+                    placeholder="14"
                   />
                 </View>
               )}
@@ -573,399 +537,465 @@ export default function AdminOpsReferralsScreen() {
         )}
 
         {targetMode === "group" && (
-          <Dropdown 
-            label="Saved Group" 
-            value={selectedGroupId} 
-            onSelect={setSelectedGroupId} 
-            options={referralGroups.map(g => ({ label: `${g.name} (${g.members.length})`, value: String(g.id) }))} 
-          />
+          <View style={{ marginBottom: 16 }}>
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 12,
+                letterSpacing: 0.5,
+                textTransform: "uppercase",
+                color: p.textMuted,
+                marginBottom: 8,
+              }}
+            >
+              Saved Group
+            </Text>
+            <Pressable
+              onPress={() => setGroupModalOpen(true)}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                height: 52,
+                paddingHorizontal: 18,
+                borderRadius: 20,
+                backgroundColor: p.inputBg,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: selectedGroupId ? p.textPrimary : p.textMuted }}>
+                {selectedGroupId
+                  ? referralGroups.find(g => String(g.id) === selectedGroupId)?.name ?? "Select..."
+                  : "Select a group..."}
+              </Text>
+              <ChevronDown size={18} color={p.textMuted} strokeWidth={2} />
+            </Pressable>
+
+            <Modal visible={groupModalOpen} transparent animationType="fade">
+              <AdminModalContainer onClose={() => setGroupModalOpen(false)}>
+                <AdminModalTitle>Select Group</AdminModalTitle>
+                <AdminModalSubtitle>Choose the referral group to target</AdminModalSubtitle>
+                <ScrollView style={{ maxHeight: 360 }}>
+                  {referralGroups.map((g, i) => (
+                    <Pressable
+                      key={i}
+                      onPress={() => {
+                        setSelectedGroupId(String(g.id));
+                        setGroupModalOpen(false);
+                      }}
+                      style={({ pressed }) => ({
+                        paddingVertical: 14,
+                        paddingHorizontal: 4,
+                        borderBottomWidth: 1,
+                        borderBottomColor: p.divider,
+                        opacity: pressed ? 0.7 : 1,
+                      })}
+                    >
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: String(g.id) === selectedGroupId ? p.accent : p.textPrimary }}>
+                        {g.name} ({g.members.length})
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </AdminModalContainer>
+            </Modal>
+          </View>
         )}
 
-        <View 
-          className="p-8 rounded-[32px] border mb-10 flex-row items-center justify-between"
-          style={{ 
-            backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
-            borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)"
-          }}
-        >
-          <View>
-            <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-1">Target Preview</Text>
-            <Text className="text-sm font-outfit text-textSecondary">Eligible athletes matching criteria</Text>
+        {/* Target Preview */}
+        <AdminCard color="mint" style={{ marginTop: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, textTransform: "uppercase", letterSpacing: 1.2, color: p.textMuted, marginBottom: 4 }}>
+                Target Preview
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary }}>
+                Eligible athletes matching criteria
+              </Text>
+            </View>
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 18,
+                backgroundColor: p.accentSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontFamily: "Outfit-ExtraBold", fontSize: 24, color: p.accent }}>
+                {targetedCount}
+              </Text>
+            </View>
           </View>
-          <View className="h-16 w-16 rounded-2xl bg-accent/10 items-center justify-center border border-accent/20">
-            <Text className="text-3xl font-clash font-bold text-accent">{targetedCount}</Text>
-          </View>
-        </View>
+        </AdminCard>
       </View>
 
       {/* Referral Details */}
-      <View className="px-6 mb-10">
-        <View className="flex-row gap-x-4">
-          <View className="w-[35%]">
-            <FormInput 
-              label="Discount" 
-              value={discountPercent} 
-              onChangeText={setDiscountPercent} 
-              keyboardType="numeric" 
-              placeholder="10" 
-              prefix="%"
+      <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ width: "32%" }}>
+            <AdminFormField
+              label="Discount %"
+              value={discountPercent}
+              onChangeText={setDiscountPercent}
+              keyboardType="number-pad"
+              placeholder="10"
             />
           </View>
-          <View className="flex-1">
-            <FormInput 
-              label="Referral Link" 
-              value={referralLink} 
-              onChangeText={setReferralLink} 
-              placeholder="https://partner-provider.com/..." 
+          <View style={{ flex: 1 }}>
+            <AdminFormField
+              label="Referral Link"
+              value={referralLink}
+              onChangeText={setReferralLink}
+              placeholder="https://partner-provider.com/..."
+              keyboardType="url"
             />
           </View>
         </View>
       </View>
 
       {/* Partner Details Section */}
-      <View className="px-6 mb-12">
-        <View className="flex-row items-center gap-2 mb-8">
-          <View className="h-5 w-1.5 rounded-full bg-accent" />
-          <Text className="text-[15px] font-outfit-bold text-app uppercase tracking-[2.5px]">Partner Details</Text>
+      <View style={{ paddingHorizontal: 24, marginBottom: 28 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 }}>
+          <View style={{ width: 4, height: 20, borderRadius: 2, backgroundColor: p.accent }} />
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, textTransform: "uppercase", letterSpacing: 1.5, color: p.textPrimary }}>
+            Partner Details
+          </Text>
         </View>
-        
-        <FormInput label="Provider / Contact Name" value={providerName} onChangeText={setProviderName} placeholder="e.g. Dr. John Smith" />
-        <FormInput label="Organisation / Company" value={organizationName} onChangeText={setOrganizationName} placeholder="e.g. City Physio" />
-        
-        <View className="mb-8">
-          <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-4 ml-1">Referral Image</Text>
-          
+
+        <AdminFormField label="Provider / Contact Name" value={providerName} onChangeText={setProviderName} placeholder="e.g. Dr. John Smith" />
+        <AdminFormField label="Organisation / Company" value={organizationName} onChangeText={setOrganizationName} placeholder="e.g. City Physio" />
+
+        {/* Media Upload */}
+        <View style={{ marginBottom: 16 }}>
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 12,
+              letterSpacing: 0.5,
+              textTransform: "uppercase",
+              color: p.textMuted,
+              marginBottom: 10,
+            }}
+          >
+            Referral Image
+          </Text>
+
           {imageUrl ? (
-            <View className="mb-6 rounded-[28px] overflow-hidden border border-app/10 relative shadow-sm">
-              <Image source={{ uri: imageUrl }} style={{ width: '100%', height: 240 }} resizeMode="cover" />
-              <TouchableOpacity 
+            <View style={{ borderRadius: 22, overflow: "hidden", marginBottom: 12, position: "relative" }}>
+              <Image source={{ uri: imageUrl }} style={{ width: "100%", height: 200 }} resizeMode="cover" />
+              <Pressable
                 onPress={() => setImageUrl("")}
-                className="absolute top-4 right-4 bg-black/60 h-12 w-12 items-center justify-center rounded-full"
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  right: 12,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: "rgba(0,0,0,0.6)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                <Feather name="trash-2" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+                <Trash2 size={18} color="#FFFFFF" strokeWidth={2} />
+              </Pressable>
             </View>
           ) : isUploading ? (
-            <View className="mb-6 h-[240px] rounded-[28px] bg-secondary/5 items-center justify-center border border-dashed border-app/20">
-              <ActivityIndicator color={colors.accent} />
-              <Text className="mt-3 text-xs font-outfit text-textSecondary uppercase tracking-widest">Uploading Image...</Text>
+            <View
+              style={{
+                height: 200,
+                borderRadius: 22,
+                backgroundColor: p.inputBg,
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderStyle: "dashed",
+                borderColor: p.inputBorder,
+              }}
+            >
+              <ActivityIndicator color={p.accent} />
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginTop: 10 }}>
+                Uploading...
+              </Text>
             </View>
           ) : (
-            <View className="flex-row gap-4 mb-6">
-              <TouchableOpacity 
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <Pressable
                 onPress={() => pickImage("camera")}
-                activeOpacity={0.7}
-                className="flex-1 h-16 rounded-[22px] border border-app/10 items-center justify-center bg-card flex-row"
+                style={({ pressed }) => ({
+                  flex: 1,
+                  height: 52,
+                  borderRadius: 18,
+                  backgroundColor: p.cardPeach,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  opacity: pressed ? 0.8 : 1,
+                })}
               >
-                <Feather name="camera" size={20} color={colors.text} />
-                <Text className="ml-3 font-outfit-bold text-[14px] text-app uppercase tracking-wider">Camera</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
+                <Camera size={18} color={p.textPrimary} strokeWidth={2} />
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textPrimary }}>Camera</Text>
+              </Pressable>
+              <Pressable
                 onPress={() => pickImage("library")}
-                activeOpacity={0.7}
-                className="flex-1 h-16 rounded-[22px] border border-app/10 items-center justify-center bg-card flex-row"
+                style={({ pressed }) => ({
+                  flex: 1,
+                  height: 52,
+                  borderRadius: 18,
+                  backgroundColor: p.cardLavender,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  opacity: pressed ? 0.8 : 1,
+                })}
               >
-                <Feather name="image" size={20} color={colors.text} />
-                <Text className="ml-3 font-outfit-bold text-[14px] text-app uppercase tracking-wider">Gallery</Text>
-              </TouchableOpacity>
+                <ImageIcon size={18} color={p.textPrimary} strokeWidth={2} />
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textPrimary }}>Gallery</Text>
+              </Pressable>
             </View>
           )}
         </View>
 
-        <FormInput label="Location / Address" value={location} onChangeText={setLocation} placeholder="123 Health St, London..." />
-        <View className="flex-row gap-x-4">
-          <View className="flex-1"><FormInput label="Phone" value={phone} onChangeText={setPhone} placeholder="+44..." /></View>
-          <View className="flex-1"><FormInput label="Email" value={emailField} onChangeText={setEmailField} placeholder="contact@..." /></View>
+        <AdminFormField label="Location / Address" value={location} onChangeText={setLocation} placeholder="123 Health St, London..." />
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <AdminFormField label="Phone" value={phone} onChangeText={setPhone} placeholder="+44..." />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AdminFormField label="Email" value={emailField} onChangeText={setEmailField} placeholder="contact@..." />
+          </View>
         </View>
-        <FormInput label="Focus / Specialty" value={specialty} onChangeText={setSpecialty} placeholder="e.g. Sports Injury, Physio" />
-        <FormInput label="Additional Notes" value={notes} onChangeText={setNotes} placeholder="Visible to athlete..." multiline />
+        <AdminFormField label="Focus / Specialty" value={specialty} onChangeText={setSpecialty} placeholder="e.g. Sports Injury, Physio" />
+        <AdminFormField label="Additional Notes" value={notes} onChangeText={setNotes} placeholder="Visible to athlete..." multiline />
       </View>
 
-      <View className="px-6">
+      {/* Error + Create Button */}
+      <View style={{ paddingHorizontal: 24 }}>
         {createError && (
-          <View className="mb-6 p-5 rounded-[22px] bg-red-500/10 border border-red-500/20">
-            <Text className="text-red-400 font-outfit text-center text-sm">{createError}</Text>
-          </View>
+          <AdminCard color="pink" style={{ marginBottom: 16 }}>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.danger, textAlign: "center" }}>
+              {createError}
+            </Text>
+          </AdminCard>
         )}
 
-        <ActionButton 
-          label={targetMode === "single" ? "Save Referral & Notify Athlete" : "Create Referrals & Notify Athletes"}
-          onPress={handleCreate} 
+        <AdminButton
+          label={targetMode === "single" ? "Save Referral & Notify" : "Create Referrals & Notify"}
+          onPress={handleCreate}
           loading={referralsHook.mutatingId === -1}
-          tone="accent"
-          size="lg"
+          icon={Send}
         />
       </View>
-    </View>
+    </Animated.View>
   );
 
   const renderExistingList = () => (
-    <View className="px-6 pb-40 gap-6">
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(400).springify()}
+      style={{ paddingHorizontal: 24, paddingBottom: 160, gap: 14 }}
+    >
       {referralsHook.items.length === 0 ? (
-        <View className="py-20 items-center justify-center border border-dashed border-app/20 rounded-[32px]">
-          <Feather name="search" size={32} color={colors.textSecondary} />
-          <Text className="text-sm font-outfit text-textSecondary mt-4 italic">No referrals found matching your query.</Text>
-        </View>
+        <AdminEmptyState
+          icon={Search}
+          title="No Referrals Found"
+          description="No referrals match your query. Create one to get started."
+        />
       ) : (
-        referralsHook.items.map((item) => {
+        referralsHook.items.map((item, index) => {
           const meta = item.metadata || {};
           const hasMeta = !!(meta.providerName || meta.organizationName || meta.location || meta.phone || meta.email || meta.specialty || meta.notes || meta.imageUrl);
-          
-          return (
-            <View
-              key={item.id}
-              className="rounded-[36px] border p-8"
-              style={{
-                backgroundColor: isDark ? colors.cardElevated : colors.card,
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-              }}
-            >
-              <View className="flex-row items-center justify-between mb-6">
-                <View className="px-3 py-1 rounded-full bg-accent/10 border border-accent/20">
-                  <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-widest">
-                    {meta.referralType || "Physio"}
-                  </Text>
-                </View>
-                <Text className="text-xs font-outfit text-textSecondary uppercase tracking-wider">{formatIsoShort(item.createdAt || "")}</Text>
-              </View>
-              
-              <Text className="text-2xl font-clash font-bold text-app mb-1">{item.athleteName}</Text>
-              <Text className="text-sm font-outfit text-textSecondary mb-6">Tier: {item.programTier || "PHP"} · Target: {meta.assignmentMode || "Single"}</Text>
+          const cardColor = CARD_COLORS[index % CARD_COLORS.length];
 
+          return (
+            <AdminCard key={item.id} color={cardColor}>
+              {/* Header Row */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <AdminBadge color="lavender">
+                  {meta.referralType || "Physio"}
+                </AdminBadge>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
+                  {formatIsoShort(item.createdAt || "")}
+                </Text>
+              </View>
+
+              {/* Athlete Name */}
+              <Text style={{ fontFamily: "Outfit-ExtraBold", fontSize: 20, color: p.textPrimary, marginBottom: 4 }}>
+                {item.athleteName}
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, marginBottom: 14 }}>
+                Tier: {item.programTier || "PHP"} · Target: {meta.assignmentMode || "Single"}
+              </Text>
+
+              {/* Meta Details */}
               {hasMeta && (
-                <View 
-                  className="mb-6 p-6 rounded-[28px]"
-                  style={{ backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)" }}
+                <View
+                  style={{
+                    marginBottom: 14,
+                    padding: 16,
+                    borderRadius: 20,
+                    backgroundColor: p.inputBg,
+                  }}
                 >
                   {meta.imageUrl && (
-                    <Image 
-                      source={{ uri: meta.imageUrl }} 
-                      style={{ width: '100%', height: 180, borderRadius: 20, marginBottom: 16 }} 
-                      resizeMode="cover" 
+                    <Image
+                      source={{ uri: meta.imageUrl }}
+                      style={{ width: "100%", height: 160, borderRadius: 16, marginBottom: 12 }}
+                      resizeMode="cover"
                     />
                   )}
-                  {meta.providerName && <Text className="font-outfit-bold text-app text-lg">{meta.providerName}</Text>}
-                  {meta.organizationName && <Text className="font-outfit text-textSecondary text-sm mb-3">{meta.organizationName}</Text>}
-                  
-                  <View className="flex-row flex-wrap gap-4 mt-2">
+                  {meta.providerName && (
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary }}>
+                      {meta.providerName}
+                    </Text>
+                  )}
+                  {meta.organizationName && (
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, marginBottom: 8 }}>
+                      {meta.organizationName}
+                    </Text>
+                  )}
+
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
                     {meta.location && (
-                      <View className="flex-row items-center gap-1.5">
-                        <Feather name="map-pin" size={12} color={colors.accent} />
-                        <Text className="text-xs font-outfit text-textSecondary">{meta.location}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <MapPin size={12} color={p.accent} strokeWidth={2} />
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
+                          {meta.location}
+                        </Text>
                       </View>
                     )}
                     {meta.phone && (
-                      <View className="flex-row items-center gap-1.5">
-                        <Feather name="phone" size={12} color={colors.accent} />
-                        <Text className="text-xs font-outfit text-textSecondary">{meta.phone}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Phone size={12} color={p.accent} strokeWidth={2} />
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
+                          {meta.phone}
+                        </Text>
                       </View>
                     )}
                     {meta.email && (
-                      <View className="flex-row items-center gap-1.5">
-                        <Feather name="mail" size={12} color={colors.accent} />
-                        <Text className="text-xs font-outfit text-textSecondary">{meta.email}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Mail size={12} color={p.accent} strokeWidth={2} />
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
+                          {meta.email}
+                        </Text>
                       </View>
                     )}
                   </View>
 
                   {meta.specialty && (
-                    <Text className="mt-4 text-xs font-outfit-bold text-accent uppercase tracking-wider">
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent, textTransform: "uppercase", letterSpacing: 0.8, marginTop: 10 }}>
                       Focus: {meta.specialty}
                     </Text>
                   )}
                   {meta.notes && (
-                    <Text className="mt-3 text-sm font-outfit text-textSecondary italic leading-relaxed">
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, fontStyle: "italic", marginTop: 8, lineHeight: 19 }}>
                       "{meta.notes}"
                     </Text>
                   )}
                 </View>
               )}
-              
-              <View className="flex-row gap-4 pt-6 border-t border-app/5">
-                <TouchableOpacity
-                  onPress={() => {
-                    Alert.alert("Edit not yet available", "Editing referrals from mobile is coming soon. Use the admin web panel to edit referrals.");
-                  }}
-                  className="flex-1 h-12 rounded-2xl bg-secondary/10 items-center justify-center"
-                >
-                  <Text className="text-xs font-outfit-bold text-app uppercase tracking-widest">Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  disabled={referralsHook.mutatingId === item.id}
-                  onPress={() => {
-                    Alert.alert(
-                      "Delete Referral",
-                      "This will permanently remove the referral and notify the athlete. Continue?",
-                      [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                          text: "Delete",
-                          style: "destructive",
-                          onPress: async () => {
-                            await referralsHook.remove(item.id);
-                            void referralsHook.load({ limit: 50 }, true);
+
+              {/* Action Buttons */}
+              <View style={{ flexDirection: "row", gap: 10, paddingTop: 14, borderTopWidth: 1, borderTopColor: p.divider }}>
+                <View style={{ flex: 1 }}>
+                  <AdminButton
+                    label="Edit"
+                    variant="secondary"
+                    icon={PenLine}
+                    compact
+                    onPress={() => {
+                      Alert.alert("Edit not yet available", "Editing referrals from mobile is coming soon. Use the admin web panel.");
+                    }}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AdminButton
+                    label="Delete"
+                    variant="danger"
+                    icon={Trash2}
+                    compact
+                    disabled={referralsHook.mutatingId === item.id}
+                    onPress={() => {
+                      Alert.alert(
+                        "Delete Referral",
+                        "This will permanently remove the referral and notify the athlete. Continue?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Delete",
+                            style: "destructive",
+                            onPress: async () => {
+                              await referralsHook.remove(item.id);
+                              void referralsHook.load({ limit: 50 }, true);
+                            },
                           },
-                        },
-                      ],
-                    );
-                  }}
-                  className="flex-1 h-12 rounded-2xl bg-red-500/10 items-center justify-center"
-                  style={{ opacity: referralsHook.mutatingId === item.id ? 0.5 : 1 }}
-                >
-                  <Text className="text-xs font-outfit-bold text-red-400 uppercase tracking-widest">Delete</Text>
-                </TouchableOpacity>
+                        ],
+                      );
+                    }}
+                  />
+                </View>
               </View>
-            </View>
+            </AdminCard>
           );
         })
       )}
-    </View>
+    </Animated.View>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+    <AdminScreen>
       <ThemedScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(360).springify()}
-          style={{ paddingTop: 20, paddingHorizontal: 24, marginBottom: 28 }}
+          style={{ paddingHorizontal: 24, paddingTop: 8, marginBottom: 8 }}
         >
-          <TouchableOpacity
-            onPress={() => goBackOrFallbackTabs(router, pathname)}
-            style={{
-              width: 40, height: 40, borderRadius: 20,
-              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
-              alignItems: "center", justifyContent: "center",
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-              marginBottom: 20, alignSelf: "flex-start",
-            }}
-          >
-            <Feather name="chevron-left" size={22} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 }}>
-            <View
-              style={{
-                width: 5,
-                height: 36,
-                borderRadius: 3,
-                backgroundColor: "#30B0C7",
-              }}
-            />
-            <View>
-              <Text
-                style={{
-                  fontFamily: "Telma-Bold",
-                  fontSize: 44,
-                  color: colors.textPrimary,
-                  letterSpacing: -1,
-                  lineHeight: 48,
-                }}
-              >
-                Referrals
-              </Text>
-              <Text
-                style={{
-                  fontFamily: "Outfit-Regular",
-                  fontSize: 13,
-                  color: colors.textSecondary,
-                  marginTop: 2,
-                }}
-              >
-                Create managed referrals for athletes, teams, or groups.
-              </Text>
-            </View>
-          </View>
+          <AdminBackButton onPress={() => router.back()} />
+        </Animated.View>
+
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.delay(100).duration(360).springify()}
+        >
+          <AdminHeader
+            title="Referrals"
+            subtitle="Create managed referrals for athletes, teams, or groups."
+          />
         </Animated.View>
 
         {/* Tab Switcher */}
         <Animated.View
-          entering={reduceMotion ? undefined : FadeInDown.delay(120).duration(360).springify()}
-          style={{ paddingHorizontal: 24, marginBottom: 32 }}
+          entering={reduceMotion ? undefined : FadeInDown.delay(140).duration(360).springify()}
         >
-          <View
-            style={{
-              flexDirection: "row",
-              padding: 5,
-              borderRadius: 24,
-              borderWidth: 1,
-              backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-              borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
-              gap: 4,
-            }}
-          >
-            {(["create", "existing"] as const).map((t) => {
-              const isActive = activeTab === t;
-              const icon = t === "create" ? "plus-circle" : "list";
-              const tabColor = "#30B0C7";
-              return (
-                <TouchableOpacity
-                  key={t}
-                  onPress={() => setActiveTab(t)}
-                  activeOpacity={0.8}
-                  style={{
-                    flex: 1,
-                    height: 52,
-                    borderRadius: 18,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexDirection: "row",
-                    gap: 8,
-                    backgroundColor: isActive
-                      ? isDark ? `${tabColor}22` : `${tabColor}16`
-                      : "transparent",
-                    borderWidth: isActive ? 1 : 0,
-                    borderColor: isActive
-                      ? isDark ? `${tabColor}35` : `${tabColor}28`
-                      : "transparent",
-                  }}
-                >
-                  <Feather
-                    name={icon as any}
-                    size={16}
-                    color={isActive ? tabColor : colors.textSecondary}
-                  />
-                  <Text
-                    style={{
-                      fontFamily: "Outfit-Bold",
-                      fontSize: 13,
-                      letterSpacing: 0.6,
-                      textTransform: "uppercase",
-                      color: isActive ? tabColor : colors.textSecondary,
-                    }}
-                  >
-                    {t === "create" ? "Create" : "Existing"}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <AdminSegmentedTabs
+            tabs={[
+              { key: "create" as const, label: "Create", icon: Plus },
+              { key: "existing" as const, label: "Existing", icon: List },
+            ]}
+            value={activeTab}
+            onChange={setActiveTab}
+          />
         </Animated.View>
 
         {activeTab === "create" ? renderCreateForm() : (
           <View>
-            <View className="px-6 mb-8">
-              <View 
-                className="flex-row items-center rounded-2xl border px-4 h-14"
-                style={{
-                  backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
-                }}
-              >
-                <Feather name="search" size={20} color={colors.textSecondary} />
-                <TextInput
-                  placeholder="Search existing referrals..."
-                  value={q}
-                  onChangeText={setQ}
-                  className="flex-1 ml-3 font-outfit text-[16px] text-app"
-                  placeholderTextColor={colors.placeholder}
-                />
-              </View>
-            </View>
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInDown.delay(160).duration(360).springify()}
+              style={{ paddingHorizontal: 24, marginBottom: 16 }}
+            >
+              <AdminInput
+                placeholder="Search existing referrals..."
+                value={q}
+                onChangeText={setQ}
+                onClear={() => setQ("")}
+              />
+            </Animated.View>
             {renderExistingList()}
           </View>
         )}
       </ThemedScrollView>
-    </SafeAreaView>
+    </AdminScreen>
   );
 }

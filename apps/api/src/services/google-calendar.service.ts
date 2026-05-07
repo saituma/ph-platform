@@ -4,6 +4,20 @@ import { db } from "../db";
 import { adminSettingsTable } from "../db/schema";
 import { env } from "../config/env";
 
+// In-memory token cache to avoid hitting Google's token endpoint on every operation
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+
+const TOKEN_CACHE_BUFFER_MS = 5 * 60 * 1000; // 5 minutes before expiry
+
+function getTokenCacheKey(config: GoogleCalendarConfig): string {
+  if (config.mode === "oauth") return `oauth:${config.refreshToken.slice(0, 16)}`;
+  return `sa:${config.clientEmail}`;
+}
+
+function clearTokenCacheForConfig(config: GoogleCalendarConfig): void {
+  tokenCache.delete(getTokenCacheKey(config));
+}
+
 type UpsertCalendarEventInput = {
   title: string;
   description?: string | null;
@@ -41,8 +55,8 @@ function normalizePrivateKey(privateKeyRaw: string) {
 }
 
 function getOAuthConfigFromEnv() {
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() ?? "";
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim() ?? "";
+  const clientId = env.googleOAuthClientId;
+  const clientSecret = env.googleOAuthClientSecret;
   return { clientId, clientSecret };
 }
 
@@ -61,9 +75,9 @@ function isLikelyServiceAccountKey(value: string) {
 }
 
 function getGoogleCalendarConfigFromEnv(): ServiceAccountConfig | null {
-  const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim();
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
-  const privateKeyRaw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim();
+  const calendarId = env.googleCalendarId;
+  const clientEmail = env.googleServiceAccountEmail;
+  const privateKeyRaw = env.googleServiceAccountPrivateKey;
   if (!calendarId || !clientEmail || !privateKeyRaw) return null;
   return { mode: "service_account", calendarId, clientEmail, privateKey: normalizePrivateKey(privateKeyRaw) };
 }
@@ -173,7 +187,7 @@ export async function getGoogleOAuthStartUrlForAdmin(userId: number) {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export async function completeGoogleOAuthConnection(input: { code: string; state: string }) {
+export async function completeGoogleOAuthConnection(input: { code: string; state: string }): Promise<{ userId: number }> {
   const userId = await verifyOAuthState(input.state);
   const tokenData = await exchangeOAuthCode(input.code);
   const refreshToken = (tokenData.refresh_token || "").trim();
@@ -205,6 +219,7 @@ export async function completeGoogleOAuthConnection(input: { code: string; state
         updatedAt: new Date(),
       },
     });
+  return { userId };
 }
 
 export async function listGoogleCalendarsForAdmin(userId: number) {
@@ -357,8 +372,22 @@ async function getAccessTokenForServiceAccount(clientEmail: string, privateKey: 
 }
 
 async function getCalendarAccessToken(config: GoogleCalendarConfig) {
-  if (config.mode === "oauth") return refreshOAuthAccessToken(config.refreshToken);
-  return getAccessTokenForServiceAccount(config.clientEmail, normalizePrivateKey(config.privateKey));
+  const cacheKey = getTokenCacheKey(config);
+  const cached = tokenCache.get(cacheKey);
+  if (cached && cached.expiresAt - TOKEN_CACHE_BUFFER_MS > Date.now()) {
+    return cached.token;
+  }
+
+  let token: string;
+  if (config.mode === "oauth") {
+    token = await refreshOAuthAccessToken(config.refreshToken);
+  } else {
+    token = await getAccessTokenForServiceAccount(config.clientEmail, normalizePrivateKey(config.privateKey));
+  }
+
+  // Cache with ~1 hour TTL (Google tokens typically expire in 3600s)
+  tokenCache.set(cacheKey, { token, expiresAt: Date.now() + 3600 * 1000 });
+  return token;
 }
 
 export async function testGoogleCalendarConnection(config: GoogleCalendarConfig) {
@@ -394,7 +423,7 @@ export async function upsertGoogleCalendarEvent(
     ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cfg.calendarId)}/events/${encodeURIComponent(input.existingEventId)}`
     : `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cfg.calendarId)}/events`;
 
-  const res = await fetch(path, {
+  let res = await fetch(path, {
     method,
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -403,10 +432,63 @@ export async function upsertGoogleCalendarEvent(
     body: JSON.stringify(payload),
   });
 
+  // Auth revoked — clear cached token and throw specific error
+  if (res.status === 401 || res.status === 403) {
+    clearTokenCacheForConfig(cfg);
+    const text = await res.text();
+    throw new Error(`GOOGLE_AUTH_REVOKED: ${text}`);
+  }
+
+  // Event was deleted externally — fall back to creating a new one
+  if (res.status === 404 && method === "PATCH") {
+    const createPath = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cfg.calendarId)}/events`;
+    res = await fetch(createPath, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`GOOGLE_EVENT_UPSERT_FAILED: ${text}`);
   }
   const json = (await res.json()) as { id?: string };
   return json.id ?? null;
+}
+
+export async function deleteGoogleCalendarEvent(
+  eventId: string,
+  config: GoogleCalendarConfig,
+): Promise<void> {
+  const accessToken = await getCalendarAccessToken(config);
+  const path = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(config.calendarId)}/events/${encodeURIComponent(eventId)}`;
+  const res = await fetch(path, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status === 401 || res.status === 403) {
+    clearTokenCacheForConfig(config);
+    throw new Error("GOOGLE_AUTH_REVOKED");
+  }
+  // 404/410 means already deleted — treat as success
+  if (res.status === 404 || res.status === 410) return;
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GOOGLE_EVENT_DELETE_FAILED: ${text}`);
+  }
+}
+
+export async function isGoogleCalendarHealthy(userId: number): Promise<boolean> {
+  try {
+    const config = await getGoogleCalendarConnectionForAdmin(userId);
+    if (!config) return false;
+    await testGoogleCalendarConnection(config);
+    return true;
+  } catch {
+    return false;
+  }
 }

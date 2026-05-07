@@ -1,10 +1,7 @@
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Text, TextInput } from "@/components/ScaledText";
-import { Skeleton } from "@/components/Skeleton";
+import { Text } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAdminSessions } from "@/hooks/admin/useAdminSessions";
 import { useAdminAudienceWorkspace, SessionItem } from "@/hooks/admin/useAdminAudienceWorkspace";
-import { goBackOrFallbackTabs } from "@/lib/navigation/androidBackToTabs";
 import { VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION } from "@/lib/media/videoPickerNativeResolution";
 import { safeLaunchImagePicker } from "@/lib/media/safeLaunchImagePicker";
 import { apiRequest } from "@/lib/api";
@@ -14,33 +11,55 @@ import {
   type SessionExerciseFormState,
 } from "@/lib/training-content-session-item";
 import { useAppSelector } from "@/store/hooks";
-import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import type { ImagePickerAsset } from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   View,
-  TouchableOpacity,
   Modal,
-  Pressable,
   ActivityIndicator,
   Alert,
   ScrollView,
   Switch,
-  StyleSheet,
 } from "react-native";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import { Feather } from "@/components/ui/theme-icons";
+import {
+  Dumbbell,
+  Plus,
+  Trash2,
+  Video,
+  Film,
+  Edit2,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react-native";
+import {
+  AdminScreen,
+  AdminHeader,
+  AdminBackButton,
+  AdminCard,
+  AdminButton,
+  AdminBadge,
+  AdminFormField,
+  AdminChipSelect,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminIconButton,
+  AdminModalContainer,
+  AdminModalTitle,
+  AdminModalSubtitle,
+  useAdminPastel,
+} from "@/components/admin/AdminUI";
+import type { AdminCardColor } from "@/constants/theme";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 
+const CARD_COLORS: AdminCardColor[] = ["sage", "lavender", "peach", "mint", "pink", "yellow"];
+
 export default function AdminSessionDetailScreen() {
-  const { colors, isDark } = useAppTheme();
-  const insets = useAppSafeAreaInsets();
+  const p = useAdminPastel();
   const router = useRouter();
-  const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const { sessionId: rawSessionId, audienceLabel: rawLabel, moduleId: rawModuleId } =
     useLocalSearchParams<{ sessionId: string; audienceLabel: string; moduleId: string }>();
@@ -233,479 +252,279 @@ export default function AdminSessionDetailScreen() {
     }
   };
 
-  const cardBg     = isDark ? colors.cardElevated : colors.card;
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const chipBg     = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)";
-  const divider    = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
-
   if (workspaceLoading && !session) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-        <View style={{ padding: 24, gap: 12 }}>
-          <Skeleton width="55%" height={28} />
-          <Skeleton width="100%" height={120} borderRadius={20} />
-        </View>
-      </SafeAreaView>
+      <AdminScreen>
+        <AdminLoadingState label="Loading session" />
+      </AdminScreen>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-
-      {/* ── Nav header ──────────────────────���───────────────────── */}
-      <View
-        style={{
-          paddingHorizontal: 20, paddingVertical: 14,
-          flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-          borderBottomWidth: 1, borderBottomColor: divider,
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => goBackOrFallbackTabs(router, pathname)}
-          style={{
-            width: 40, height: 40, borderRadius: 20,
-            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
-            alignItems: "center", justifyContent: "center",
-            borderWidth: 1, borderColor: divider,
-          }}
-        >
-          <Feather name="chevron-left" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 12 }}>
-          <Text style={{ fontFamily: "Clash-Bold", fontSize: 18, color: colors.textPrimary, letterSpacing: -0.3 }} numberOfLines={1}>
-            {session?.title || "Session Detail"}
-          </Text>
-        </View>
-        <View style={{ width: 40 }} />
+    <AdminScreen>
+      {/* Header */}
+      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 8 }}>
+        <AdminBackButton onPress={() => router.back()} />
       </View>
+      <AdminHeader
+        title={session?.title || "Session Detail"}
+        subtitle={session ? `Day ${session.order + 1}` : undefined}
+        right={
+          <AdminButton
+            label="Add Exercise"
+            icon={Plus}
+            onPress={() => { setItemForm({ ...emptySessionExerciseForm(), blockType: "main" }); setItemModalOpen(true); }}
+            compact
+          />
+        }
+        compact
+      />
 
       <ThemedScrollView showsVerticalScrollIndicator={false} onRefresh={() => loadWorkspace(true)}>
         <View style={{ padding: 20, paddingBottom: 120 }}>
 
-          {/* ── Section header ──────���───────────────────────────── */}
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(300).springify()}
-            style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}
-          >
-            <View>
-              <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: `${colors.accent}18`, alignSelf: "flex-start", marginBottom: 6 }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.accent, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  Day {session ? session.order + 1 : "?"}
-                </Text>
-              </View>
-              <Text style={{ fontFamily: "Clash-Bold", fontSize: 24, color: colors.textPrimary, letterSpacing: -0.4 }}>
-                Exercises
-              </Text>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
-                Name, sets, reps or time, coaching notes, and video.
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => { setItemForm({ ...emptySessionExerciseForm(), blockType: "main" }); setItemModalOpen(true); }}
-              activeOpacity={0.8}
-              style={{
-                height: 44, paddingHorizontal: 18, borderRadius: 14,
-                backgroundColor: colors.accent,
-                flexDirection: "row", alignItems: "center", gap: 7,
-                marginLeft: 12,
-              }}
-            >
-              <Feather name="plus" size={16} color={colors.textInverse} />
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textInverse, letterSpacing: 0.4, textTransform: "uppercase" }}>
-                Add
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-          {/* ── Exercise list ───────────────────��────────────────── */}
+          {/* Exercise list */}
           {mainItems.length === 0 ? (
-            <View style={{
-              paddingVertical: 64, alignItems: "center", justifyContent: "center",
-              borderWidth: 1, borderStyle: "dashed",
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.12)",
-              borderRadius: 20, gap: 10,
-            }}>
-              <Feather name="activity" size={28} color={colors.textSecondary} style={{ opacity: 0.35 }} />
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary }}>
-                No exercises in this session yet.
-              </Text>
-            </View>
+            <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(300).springify()}>
+              <AdminEmptyState
+                icon={Dumbbell}
+                title="No exercises yet"
+                description="Add exercises with sets, reps, coaching notes, and video."
+                color="sage"
+                action={
+                  <AdminButton
+                    label="Add Exercise"
+                    icon={Plus}
+                    onPress={() => { setItemForm({ ...emptySessionExerciseForm(), blockType: "main" }); setItemModalOpen(true); }}
+                  />
+                }
+              />
+            </Animated.View>
           ) : (
-            <View style={{ gap: 12 }}>
-              {mainItems.map((item, idx) => (
-                <Animated.View
-                  key={item.id}
-                  entering={reduceMotion ? undefined : FadeInDown.delay(idx * 45 + 80).duration(280).springify()}
-                  style={{
-                    padding: 20, borderRadius: 20, borderWidth: 1,
-                    backgroundColor: cardBg, borderColor: cardBorder,
-                  }}
-                >
-                  {/* Title row */}
-                  <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
-                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 17, color: colors.textPrimary, letterSpacing: -0.2, lineHeight: 22 }} numberOfLines={2}>
-                        {item.order}. {item.title}
-                      </Text>
-                    </View>
-                    {item.videoUrl ? (
-                      <View style={{
-                        paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
-                        backgroundColor: `${colors.accent}18`,
-                        flexDirection: "row", alignItems: "center", gap: 4,
-                      }}>
-                        <Feather name="video" size={12} color={colors.accent} />
-                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: colors.accent, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                          Video
-                        </Text>
+            <View style={{ gap: 14 }}>
+              {mainItems.map((item, idx) => {
+                const cardColor = CARD_COLORS[idx % CARD_COLORS.length];
+                return (
+                  <Animated.View
+                    key={item.id}
+                    entering={reduceMotion ? undefined : FadeInDown.delay(idx * 45 + 80).duration(280).springify()}
+                  >
+                    <AdminCard color={cardColor}>
+                      {/* Title row */}
+                      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                        <View style={{ flex: 1, marginRight: 10, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                          <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+                            <Text style={{ fontFamily: "Outfit-ExtraBold", fontSize: 13, color: p.accent }}>{item.order}</Text>
+                          </View>
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary, letterSpacing: -0.2, flex: 1 }} numberOfLines={2}>
+                            {item.title}
+                          </Text>
+                        </View>
+                        {item.videoUrl ? (
+                          <AdminBadge color="mint">
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                              <Video size={10} color={p.accent} strokeWidth={2.5} />
+                              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.accent }}>Video</Text>
+                            </View>
+                          </AdminBadge>
+                        ) : null}
                       </View>
-                    ) : null}
-                  </View>
 
-                  {/* Metadata chips */}
-                  {item.metadata && (item.metadata.sets != null || item.metadata.reps != null || item.metadata.duration != null) ? (
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                      {item.metadata.sets != null && (
-                        <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: chipBg }}>
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: colors.accent }}>{item.metadata.sets} sets</Text>
+                      {/* Category badge */}
+                      {item.metadata?.category ? (
+                        <View style={{ marginBottom: 10 }}>
+                          <AdminBadge color="lavender">
+                            {item.metadata.category}
+                          </AdminBadge>
                         </View>
-                      )}
-                      {item.metadata.reps != null && (
-                        <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: chipBg }}>
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: colors.accent }}>{item.metadata.reps} reps</Text>
+                      ) : null}
+
+                      {/* Metadata chips */}
+                      {item.metadata && (item.metadata.sets != null || item.metadata.reps != null || item.metadata.duration != null) ? (
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                          {item.metadata.sets != null && (
+                            <AdminBadge color="peach">{item.metadata.sets} sets</AdminBadge>
+                          )}
+                          {item.metadata.reps != null && (
+                            <AdminBadge color="sage">{item.metadata.reps} reps</AdminBadge>
+                          )}
+                          {item.metadata.duration != null && (
+                            <AdminBadge color="mint">{item.metadata.duration}s</AdminBadge>
+                          )}
+                          {item.metadata.restSeconds != null && (
+                            <AdminBadge color="yellow">{item.metadata.restSeconds}s rest</AdminBadge>
+                          )}
                         </View>
-                      )}
-                      {item.metadata.duration != null && (
-                        <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: chipBg }}>
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: colors.accent }}>{item.metadata.duration}s</Text>
-                        </View>
-                      )}
-                      {item.metadata.restSeconds != null && (
-                        <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: chipBg }}>
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: colors.textSecondary }}>{item.metadata.restSeconds}s rest</Text>
-                        </View>
-                      )}
-                    </View>
-                  ) : null}
+                      ) : null}
 
-                  {/* Coaching notes */}
-                  {item.body ? (
-                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, lineHeight: 18, marginBottom: 16 }} numberOfLines={3}>
-                      {item.body}
-                    </Text>
-                  ) : null}
+                      {/* Coaching notes */}
+                      {item.body ? (
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, lineHeight: 18, marginBottom: 14 }} numberOfLines={3}>
+                          {item.body}
+                        </Text>
+                      ) : null}
 
-                  {/* Action row */}
-                  <View style={{ flexDirection: "row", gap: 8, paddingTop: 16, borderTopWidth: 1, borderTopColor: divider }}>
-                    <View style={{ flexDirection: "row", gap: 6 }}>
-                      <TouchableOpacity
-                        onPress={() => handleMove(item.id, "up")}
-                        style={{
-                          width: 40, height: 40, borderRadius: 12,
-                          backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
-                          alignItems: "center", justifyContent: "center",
-                          borderWidth: 1, borderColor: divider,
-                        }}
-                      >
-                        <Feather name="arrow-up" size={15} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleMove(item.id, "down")}
-                        style={{
-                          width: 40, height: 40, borderRadius: 12,
-                          backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
-                          alignItems: "center", justifyContent: "center",
-                          borderWidth: 1, borderColor: divider,
-                        }}
-                      >
-                        <Feather name="arrow-down" size={15} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                    </View>
-
-                    <TouchableOpacity
-                      onPress={() => { setItemForm(populateFormFromItem(item)); setItemModalOpen(true); }}
-                      style={{
-                        flex: 1, height: 40, borderRadius: 12,
-                        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
-                        alignItems: "center", justifyContent: "center",
-                        flexDirection: "row", gap: 6,
-                        borderWidth: 1, borderColor: divider,
-                      }}
-                    >
-                      <Feather name="edit-2" size={14} color={colors.textPrimary} />
-                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textPrimary, textTransform: "uppercase", letterSpacing: 0.4 }}>Edit</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => handleDeleteItem(item.id, item.title)}
-                      style={{
-                        flex: 1, height: 40, borderRadius: 12,
-                        backgroundColor: "rgba(239,68,68,0.1)",
-                        alignItems: "center", justifyContent: "center",
-                        flexDirection: "row", gap: 6,
-                        borderWidth: 1, borderColor: "rgba(239,68,68,0.2)",
-                      }}
-                    >
-                      <Feather name="trash-2" size={14} color={colors.danger} />
-                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.danger, textTransform: "uppercase", letterSpacing: 0.4 }}>Delete</Text>
-                    </TouchableOpacity>
-                  </View>
-                </Animated.View>
-              ))}
+                      {/* Action row */}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 14, borderTopWidth: 1, borderTopColor: p.divider }}>
+                        <AdminIconButton icon={ArrowUp} onPress={() => handleMove(item.id, "up")} accessibilityLabel="Move up" />
+                        <AdminIconButton icon={ArrowDown} onPress={() => handleMove(item.id, "down")} accessibilityLabel="Move down" />
+                        <View style={{ flex: 1 }} />
+                        <AdminIconButton icon={Edit2} variant="accent" onPress={() => { setItemForm(populateFormFromItem(item)); setItemModalOpen(true); }} accessibilityLabel="Edit exercise" />
+                        <AdminIconButton icon={Trash2} variant="danger" onPress={() => handleDeleteItem(item.id, item.title)} accessibilityLabel="Delete exercise" />
+                      </View>
+                    </AdminCard>
+                  </Animated.View>
+                );
+              })}
             </View>
           )}
         </View>
       </ThemedScrollView>
 
-      {/* ── Exercise Modal ───────────────────────────────────────── */}
+      {/* Exercise Modal */}
       <Modal visible={itemModalOpen} transparent animationType="fade">
-        <View style={StyleSheet.absoluteFillObject} className="justify-center">
-          <Pressable
-            style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(0,0,0,0.58)" }]}
-            onPress={() => setItemModalOpen(false)}
-          />
-          <View style={{
-            marginHorizontal: 16, maxHeight: "90%", alignSelf: "center", width: "100%", maxWidth: 480,
-            borderRadius: 28, overflow: "hidden",
-            borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            backgroundColor: isDark ? "hsl(220,10%,10%)" : "#FFFFFF",
-          }}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ padding: 24, paddingBottom: 32 }}
-            >
-              <Text style={{ fontFamily: "Clash-Bold", fontSize: 22, color: colors.textPrimary, letterSpacing: -0.4, marginBottom: 4 }}>
-                {itemForm.id ? "Edit exercise" : "Add exercise"}
+        <AdminModalContainer onClose={() => setItemModalOpen(false)} position="bottom">
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <AdminModalTitle>{itemForm.id ? "Edit exercise" : "Add exercise"}</AdminModalTitle>
+            <AdminModalSubtitle>
+              {`Add exercise details for ${session?.title ?? "this session"}.`}
+            </AdminModalSubtitle>
+
+            <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
+              <View style={{ flex: 1 }}>
+                <AdminFormField label="Exercise name" value={itemForm.title} onChangeText={(t) => setItemForm((prev) => ({ ...prev, title: t }))} placeholder="Exercise name" />
+              </View>
+              <View style={{ width: 80 }}>
+                <AdminFormField label="Order" value={itemForm.order} onChangeText={(t) => setItemForm((prev) => ({ ...prev, order: t }))} placeholder="#" keyboardType="number-pad" />
+              </View>
+            </View>
+
+            <AdminFormField label="Coaching notes" value={itemForm.body} onChangeText={(t) => setItemForm((prev) => ({ ...prev, body: t }))} placeholder="Primary coaching notes" multiline />
+
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
+              <View style={{ width: "47%" }}>
+                <AdminFormField label="Sets" value={itemForm.sets} onChangeText={(t) => setItemForm((prev) => ({ ...prev, sets: t }))} placeholder="Sets" keyboardType="number-pad" />
+              </View>
+              <View style={{ width: "47%" }}>
+                <AdminFormField label="Reps / Time" value={itemForm.reps} onChangeText={(t) => setItemForm((prev) => ({ ...prev, reps: t }))} placeholder="Reps" keyboardType="number-pad" />
+              </View>
+              <View style={{ width: "47%" }}>
+                <AdminFormField label="Duration (sec)" value={itemForm.duration} onChangeText={(t) => setItemForm((prev) => ({ ...prev, duration: t }))} placeholder="Sec" keyboardType="number-pad" />
+              </View>
+              <View style={{ width: "47%" }}>
+                <AdminFormField label="Rest (sec)" value={itemForm.restSeconds} onChangeText={(t) => setItemForm((prev) => ({ ...prev, restSeconds: t }))} placeholder="Rest" keyboardType="number-pad" />
+              </View>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
+              <View style={{ flex: 1 }}>
+                <AdminFormField label="Equipment" value={itemForm.equipment} onChangeText={(t) => setItemForm((prev) => ({ ...prev, equipment: t }))} placeholder="Equipment" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AdminFormField label="Category" value={itemForm.category} onChangeText={(t) => setItemForm((prev) => ({ ...prev, category: t }))} placeholder="Category" />
+              </View>
+            </View>
+
+            <AdminFormField label="Coaching cues" value={itemForm.cues} onChangeText={(t) => setItemForm((prev) => ({ ...prev, cues: t }))} placeholder="Cues" multiline />
+            <AdminFormField label="Steps" value={itemForm.steps} onChangeText={(t) => setItemForm((prev) => ({ ...prev, steps: t }))} placeholder="Steps" multiline />
+
+            <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
+              <View style={{ flex: 1 }}>
+                <AdminFormField label="Progression" value={itemForm.progression} onChangeText={(t) => setItemForm((prev) => ({ ...prev, progression: t }))} placeholder="Progression" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AdminFormField label="Regression" value={itemForm.regression} onChangeText={(t) => setItemForm((prev) => ({ ...prev, regression: t }))} placeholder="Regression" />
+              </View>
+            </View>
+
+            {/* Video section */}
+            <View style={{
+              borderRadius: 20, padding: 16, marginBottom: 16,
+              backgroundColor: p.cardMint,
+            }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textPrimary, marginBottom: 12 }}>
+                Exercise video
               </Text>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginBottom: 20, lineHeight: 18 }}>
-                Add exercise name, sets, reps or time, coaching notes, and video in {session?.title ?? "this session"}.
-              </Text>
-
-              <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
-                <View style={{ flex: 1 }}>
-                  <FormField label="Exercise name" value={itemForm.title} onChangeText={(t) => setItemForm((p) => ({ ...p, title: t }))} placeholder="Exercise name" isDark={isDark} colors={colors} />
-                </View>
-                <View style={{ width: 80 }}>
-                  <FormField label="Order" value={itemForm.order} onChangeText={(t) => setItemForm((p) => ({ ...p, order: t }))} placeholder="#" keyboardType="number-pad" isDark={isDark} colors={colors} />
-                </View>
-              </View>
-
-              <FormField label="Coaching notes" value={itemForm.body} onChangeText={(t) => setItemForm((p) => ({ ...p, body: t }))} placeholder="Primary coaching notes" multiline isDark={isDark} colors={colors} />
-
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
-                <View style={{ width: "47%" }}>
-                  <FormField label="Sets" value={itemForm.sets} onChangeText={(t) => setItemForm((p) => ({ ...p, sets: t }))} placeholder="Sets" keyboardType="number-pad" isDark={isDark} colors={colors} />
-                </View>
-                <View style={{ width: "47%" }}>
-                  <FormField label="Reps / Time" value={itemForm.reps} onChangeText={(t) => setItemForm((p) => ({ ...p, reps: t }))} placeholder="Reps" keyboardType="number-pad" isDark={isDark} colors={colors} />
-                </View>
-                <View style={{ width: "47%" }}>
-                  <FormField label="Duration (sec)" value={itemForm.duration} onChangeText={(t) => setItemForm((p) => ({ ...p, duration: t }))} placeholder="Sec" keyboardType="number-pad" isDark={isDark} colors={colors} />
-                </View>
-                <View style={{ width: "47%" }}>
-                  <FormField label="Rest (sec)" value={itemForm.restSeconds} onChangeText={(t) => setItemForm((p) => ({ ...p, restSeconds: t }))} placeholder="Rest" keyboardType="number-pad" isDark={isDark} colors={colors} />
-                </View>
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
-                <View style={{ flex: 1 }}>
-                  <FormField label="Equipment" value={itemForm.equipment} onChangeText={(t) => setItemForm((p) => ({ ...p, equipment: t }))} placeholder="Equipment" isDark={isDark} colors={colors} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <FormField label="Category" value={itemForm.category} onChangeText={(t) => setItemForm((p) => ({ ...p, category: t }))} placeholder="Category" isDark={isDark} colors={colors} />
-                </View>
-              </View>
-
-              <FormField label="Coaching cues" value={itemForm.cues} onChangeText={(t) => setItemForm((p) => ({ ...p, cues: t }))} placeholder="Cues" multiline isDark={isDark} colors={colors} />
-              <FormField label="Steps" value={itemForm.steps} onChangeText={(t) => setItemForm((p) => ({ ...p, steps: t }))} placeholder="Steps" multiline isDark={isDark} colors={colors} />
-
-              <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
-                <View style={{ flex: 1 }}>
-                  <FormField label="Progression" value={itemForm.progression} onChangeText={(t) => setItemForm((p) => ({ ...p, progression: t }))} placeholder="Progression" isDark={isDark} colors={colors} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <FormField label="Regression" value={itemForm.regression} onChangeText={(t) => setItemForm((p) => ({ ...p, regression: t }))} placeholder="Regression" isDark={isDark} colors={colors} />
-                </View>
-              </View>
-
-              {/* Video section */}
-              <View style={{
-                borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16,
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
-              }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textPrimary, marginBottom: 12 }}>
-                  Exercise video
-                </Text>
-                <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
-                  <TouchableOpacity
-                    onPress={() => void pickExerciseVideoFromLibrary()}
-                    disabled={videoUploading}
-                    style={{
-                      flex: 1, height: 44, borderRadius: 12, borderWidth: 1,
-                      borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)",
-                      alignItems: "center", justifyContent: "center",
-                      opacity: videoUploading ? 0.6 : 1,
-                    }}
-                  >
-                    {videoUploading
-                      ? <ActivityIndicator size="small" color={colors.accent} />
-                      : <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textPrimary, textAlign: "center" }}>Upload from library</Text>
-                    }
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => void recordExerciseVideo()}
-                    disabled={videoUploading}
-                    style={{
-                      flex: 1, height: 44, borderRadius: 12, borderWidth: 1,
-                      borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)",
-                      alignItems: "center", justifyContent: "center",
-                      opacity: videoUploading ? 0.6 : 1,
-                    }}
-                  >
-                    {videoUploading
-                      ? <ActivityIndicator size="small" color={colors.accent} />
-                      : <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textPrimary, textAlign: "center" }}>Record video</Text>
-                    }
-                  </TouchableOpacity>
-                </View>
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>
-                  Or paste a URL:
-                </Text>
-                <FormField label="Video URL" value={itemForm.videoUrl} onChangeText={(t) => setItemForm((p) => ({ ...p, videoUrl: t }))} placeholder="https://..." isDark={isDark} colors={colors} />
-                {itemForm.videoUrl.trim() ? (
-                  <View style={{ marginTop: 8, borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)" }}>
-                    <VideoPlayer uri={itemForm.videoUrl.trim()} height={180} autoPlay={false} initialMuted={false} isLooping={false} />
-                  </View>
-                ) : null}
-              </View>
-
-              {/* Allow upload toggle */}
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, marginBottom: 16 }}>
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textPrimary, flex: 1, paddingRight: 16 }}>
-                  Allow athlete video upload
-                </Text>
-                <Switch
-                  value={itemForm.allowVideoUpload}
-                  onValueChange={(v) => setItemForm((p) => ({ ...p, allowVideoUpload: v }))}
-                  trackColor={{ false: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.12)", true: colors.accent }}
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+                <AdminButton
+                  label="Upload"
+                  icon={Film}
+                  variant="secondary"
+                  onPress={() => void pickExerciseVideoFromLibrary()}
+                  disabled={videoUploading}
+                  loading={videoUploading}
+                  compact
+                  style={{ flex: 1 }}
+                />
+                <AdminButton
+                  label="Record"
+                  icon={Video}
+                  variant="secondary"
+                  onPress={() => void recordExerciseVideo()}
+                  disabled={videoUploading}
+                  loading={videoUploading}
+                  compact
+                  style={{ flex: 1 }}
                 />
               </View>
+              <AdminFormField label="Video URL" value={itemForm.videoUrl} onChangeText={(t) => setItemForm((prev) => ({ ...prev, videoUrl: t }))} placeholder="https://..." keyboardType="url" />
+              {itemForm.videoUrl.trim() ? (
+                <View style={{ marginTop: 8, borderRadius: 16, overflow: "hidden" }}>
+                  <VideoPlayer uri={itemForm.videoUrl.trim()} height={180} autoPlay={false} initialMuted={false} isLooping={false} />
+                </View>
+              ) : null}
+            </View>
 
-              {/* Block type */}
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>
+            {/* Allow upload toggle */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, marginBottom: 16 }}>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary, flex: 1, paddingRight: 16 }}>
+                Allow athlete video upload
+              </Text>
+              <Switch
+                value={itemForm.allowVideoUpload}
+                onValueChange={(v) => setItemForm((prev) => ({ ...prev, allowVideoUpload: v }))}
+                trackColor={{ false: p.divider, true: p.accent }}
+              />
+            </View>
+
+            {/* Block type */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase", color: p.textMuted, marginBottom: 10 }}>
                 Block type
               </Text>
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
-                {(["warmup", "main", "cooldown"] as const).map((type) => {
-                  const isActive = itemForm.blockType === type;
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      onPress={() => setItemForm((p) => ({ ...p, blockType: type }))}
-                      activeOpacity={0.8}
-                      style={{
-                        flex: 1, height: 40, borderRadius: 12, borderWidth: 1,
-                        alignItems: "center", justifyContent: "center",
-                        backgroundColor: isActive ? colors.accent : "transparent",
-                        borderColor: isActive ? colors.accent : isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)",
-                      }}
-                    >
-                      <Text style={{
-                        fontFamily: "Outfit-Bold", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4,
-                        color: isActive ? colors.textInverse : colors.textSecondary,
-                      }}>
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <AdminChipSelect
+                options={[
+                  { key: "warmup" as const, label: "Warmup" },
+                  { key: "main" as const, label: "Main" },
+                  { key: "cooldown" as const, label: "Cooldown" },
+                ]}
+                value={itemForm.blockType as "warmup" | "main" | "cooldown"}
+                onChange={(v) => setItemForm((prev) => ({ ...prev, blockType: v }))}
+              />
+            </View>
 
-              {/* Form actions */}
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <TouchableOpacity
-                  onPress={() => setItemModalOpen(false)}
-                  style={{
-                    flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-                  }}
-                >
-                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textPrimary, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleSaveItem}
-                  disabled={!itemForm.title.trim() || !itemForm.body.trim() || sessionsHook.isBusy}
-                  style={{
-                    flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
-                    backgroundColor: colors.accent,
-                    opacity: sessionsHook.isBusy || !itemForm.body.trim() ? 0.55 : 1,
-                  }}
-                >
-                  {sessionsHook.isBusy
-                    ? <ActivityIndicator color={colors.textInverse} size="small" />
-                    : <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textInverse, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                        {itemForm.id ? "Update" : "Create"}
-                      </Text>
-                  }
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
+            {/* Form actions */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <AdminButton
+                label="Cancel"
+                variant="ghost"
+                onPress={() => setItemModalOpen(false)}
+                style={{ flex: 1 }}
+              />
+              <AdminButton
+                label={itemForm.id ? "Update" : "Create"}
+                onPress={handleSaveItem}
+                disabled={!itemForm.title.trim() || !itemForm.body.trim() || sessionsHook.isBusy}
+                loading={sessionsHook.isBusy}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </ScrollView>
+        </AdminModalContainer>
       </Modal>
-    </SafeAreaView>
-  );
-}
-
-// ── Form field ─────────────────────────────��──────────────────────────
-
-function FormField({
-  label, value, onChangeText, placeholder, multiline = false, keyboardType, isDark, colors,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  placeholder?: string;
-  multiline?: boolean;
-  keyboardType?: "default" | "number-pad";
-  isDark: boolean;
-  colors: any;
-}) {
-  const [isFocused, setIsFocused] = useState(false);
-
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={{
-        fontFamily: "Outfit-Bold", fontSize: 11, color: colors.textSecondary,
-        textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 7,
-      }}>
-        {label}
-      </Text>
-      <View style={{
-        borderRadius: 14, borderWidth: isFocused ? 2 : 1,
-        paddingHorizontal: 14, justifyContent: "center",
-        backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)",
-        borderColor: isFocused ? colors.accent : (isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)"),
-        minHeight: multiline ? 112 : 48,
-        paddingVertical: multiline ? 14 : 0,
-      }}>
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.placeholder}
-          multiline={multiline}
-          keyboardType={keyboardType}
-          textAlignVertical={multiline ? "top" : "center"}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          style={{ fontFamily: "Outfit-Regular", fontSize: 15, color: colors.textPrimary }}
-          cursorColor={colors.accent}
-        />
-      </View>
-    </View>
+    </AdminScreen>
   );
 }

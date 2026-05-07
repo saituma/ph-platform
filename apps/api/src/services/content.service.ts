@@ -12,7 +12,7 @@ import {
   storyTable,
   userTable,
 } from "../db/schema";
-import { pushQueue } from "../jobs";
+import { createPushIntent } from "./outbox.service";
 import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "coach"]);
@@ -204,7 +204,7 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
 
   for (const u of users) {
     if (!(await userMatchesAnnouncementItem(u.id, item, u.role))) continue;
-    await pushQueue.enqueue({ userId: u.id, title, body, data: {
+    await createPushIntent({ userId: u.id, title, body, data: {
       type: "announcement",
       url: "/announcements",
       contentId: String(item.id),

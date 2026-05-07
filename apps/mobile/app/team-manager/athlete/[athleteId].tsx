@@ -10,11 +10,14 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Lock,
+} from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Skeleton } from "@/components/Skeleton";
-import { fonts } from "@/constants/theme";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
@@ -36,13 +39,14 @@ function getInitials(name: string | null | undefined): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function FieldLabel({ label, isDark }: { label: string; isDark: boolean }) {
+function FieldLabel({ label }: { label: string }) {
+  const p = useAdminPastel();
   return (
     <Text
       style={{
         fontSize: 11,
-        fontFamily: fonts.bodyBold,
-        color: isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)",
+        fontFamily: "Outfit-Bold",
+        color: p.textMuted,
         textTransform: "uppercase",
         letterSpacing: 0.8,
         marginBottom: 6,
@@ -68,28 +72,26 @@ function EditableField({
   keyboardType?: "default" | "numeric";
   placeholder?: string;
 }) {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View style={{ marginBottom: 18 }}>
-      <FieldLabel label={label} isDark={isDark} />
+      <FieldLabel label={label} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         multiline={multiline}
         keyboardType={keyboardType}
-        placeholder={placeholder ?? `Enter ${label.toLowerCase()}…`}
-        placeholderTextColor={isDark ? "hsl(220, 5%, 45%)" : "hsl(220, 5%, 55%)"}
+        placeholder={placeholder ?? `Enter ${label.toLowerCase()}...`}
+        placeholderTextColor={p.textMuted}
         style={{
           borderRadius: 14,
-          borderWidth: 1,
           paddingHorizontal: 16,
           paddingVertical: multiline ? 14 : 12,
           fontSize: 15,
-          fontFamily: "Outfit",
-          color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
-          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)",
-          borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)",
+          fontFamily: "Outfit-Regular",
+          color: p.textPrimary,
+          backgroundColor: p.inputBg,
           minHeight: multiline ? 96 : undefined,
           textAlignVertical: multiline ? "top" : "auto",
         }}
@@ -99,25 +101,23 @@ function EditableField({
 }
 
 function ReadonlyField({ label, value }: { label: string; value: string }) {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   return (
     <View style={{ marginBottom: 18 }}>
-      <FieldLabel label={label} isDark={isDark} />
+      <FieldLabel label={label} />
       <View
         style={{
           borderRadius: 14,
-          borderWidth: 1,
           paddingHorizontal: 16,
           paddingVertical: 12,
-          backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)",
-          borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+          backgroundColor: p.inputBg,
         }}
       >
         <Text
           style={{
             fontSize: 15,
-            fontFamily: "Outfit",
-            color: isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)",
+            fontFamily: "Outfit-Regular",
+            color: p.textMuted,
           }}
         >
           {value || "—"}
@@ -128,7 +128,7 @@ function ReadonlyField({ label, value }: { label: string; value: string }) {
 }
 
 export default function AthleteDetailScreen() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { athleteId: athleteIdParam } = useLocalSearchParams<{ athleteId: string }>();
   const athleteId = Number(athleteIdParam);
@@ -155,17 +155,6 @@ export default function AthleteDetailScreen() {
   const [resettingPassword, setResettingPassword] = useState(false);
 
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
-  const cardBorder = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const errorColor = isDark ? "hsl(0, 35%, 60%)" : "hsl(0, 40%, 48%)";
-  const errorBorder = isDark ? "hsla(0, 35%, 60%, 0.2)" : "hsla(0, 40%, 48%, 0.15)";
-  const errorBg = isDark ? "hsla(0, 35%, 60%, 0.08)" : "hsla(0, 40%, 48%, 0.05)";
-  const successColor = isDark ? "hsl(155, 30%, 60%)" : "hsl(155, 35%, 40%)";
-  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
 
   const loadAthlete = useCallback(
     async (forceRefresh = false) => {
@@ -265,7 +254,7 @@ export default function AthleteDetailScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: p.pageBg }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       {/* Back header */}
@@ -276,7 +265,7 @@ export default function AthleteDetailScreen() {
           paddingHorizontal: 20,
           flexDirection: "row",
           alignItems: "center",
-          backgroundColor: colors.background,
+          backgroundColor: p.pageBg,
         }}
       >
         <Pressable
@@ -289,20 +278,19 @@ export default function AthleteDetailScreen() {
             borderRadius: 12,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
-            opacity: pressed ? 0.7 : 1,
+            backgroundColor: pressed ? p.accentSoft : p.cardWhite,
             marginRight: 14,
           })}
         >
-          <Ionicons name="arrow-back" size={20} color={textPrimary} />
+          <ArrowLeft size={20} color={p.textPrimary} />
         </Pressable>
         <Text
           numberOfLines={1}
           style={{
             flex: 1,
             fontSize: 18,
-            fontFamily: fonts.bodyBold,
-            color: textPrimary,
+            fontFamily: "Outfit-Bold",
+            color: p.textPrimary,
             letterSpacing: -0.2,
           }}
         >
@@ -325,9 +313,9 @@ export default function AthleteDetailScreen() {
           </View>
         ) : error ? (
           <View style={{ paddingTop: 24 }}>
-            <Text style={{ fontSize: 14, fontFamily: "Outfit", color: errorColor }}>{error}</Text>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.danger }}>{error}</Text>
             <Pressable onPress={() => loadAthlete(true)} style={{ marginTop: 12 }}>
-              <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: colors.accent }}>
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.accent }}>
                 Try again
               </Text>
             </Pressable>
@@ -343,12 +331,12 @@ export default function AthleteDetailScreen() {
                   borderRadius: 24,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}14`,
+                  backgroundColor: p.accentSoft,
                   marginBottom: 14,
                 }}
               >
                 <Text
-                  style={{ color: colors.accent, fontFamily: "ClashDisplay-Bold", fontSize: 26 }}
+                  style={{ color: p.accent, fontFamily: "Outfit-Bold", fontSize: 26 }}
                 >
                   {initials}
                 </Text>
@@ -356,8 +344,8 @@ export default function AthleteDetailScreen() {
               <Text
                 style={{
                   fontSize: 22,
-                  fontFamily: "TelmaBold",
-                  color: textPrimary,
+                  fontFamily: "Outfit-Bold",
+                  color: p.textPrimary,
                   letterSpacing: -0.3,
                   textAlign: "center",
                 }}
@@ -368,8 +356,8 @@ export default function AthleteDetailScreen() {
                 <Text
                   style={{
                     fontSize: 13,
-                    fontFamily: fonts.bodyMedium,
-                    color: labelColor,
+                    fontFamily: "Outfit-Regular",
+                    color: p.textSecondary,
                     marginTop: 4,
                     textAlign: "center",
                   }}
@@ -382,19 +370,17 @@ export default function AthleteDetailScreen() {
             {/* Editable card */}
             <View
               style={{
-                borderRadius: 20,
-                borderWidth: 1,
+                borderRadius: 22,
                 padding: 20,
-                backgroundColor: cardBg,
-                borderColor: cardBorder,
+                backgroundColor: p.cardWhite,
                 marginBottom: 16,
               }}
             >
               <Text
                 style={{
                   fontSize: 11,
-                  fontFamily: fonts.bodyBold,
-                  color: labelColor,
+                  fontFamily: "Outfit-Bold",
+                  color: p.textMuted,
                   textTransform: "uppercase",
                   letterSpacing: 1.0,
                   marginBottom: 16,
@@ -417,29 +403,29 @@ export default function AthleteDetailScreen() {
                 value={performanceGoals}
                 onChangeText={setPerformanceGoals}
                 multiline
-                placeholder="e.g. Improve 5K time, build endurance…"
+                placeholder="e.g. Improve 5K time, build endurance..."
               />
               <EditableField
                 label="Equipment Notes"
                 value={equipment}
                 onChangeText={setEquipment}
                 multiline
-                placeholder="e.g. Needs new running shoes, GPS watch…"
+                placeholder="e.g. Needs new running shoes, GPS watch..."
               />
               <EditableField
                 label="Growth Notes"
                 value={growthNotes}
                 onChangeText={setGrowthNotes}
                 multiline
-                placeholder="Progress observations, areas to focus on…"
+                placeholder="Progress observations, areas to focus on..."
               />
 
               {saveError ? (
                 <Text
                   style={{
                     fontSize: 13,
-                    fontFamily: "Outfit",
-                    color: errorColor,
+                    fontFamily: "Outfit-Regular",
+                    color: p.danger,
                     marginBottom: 10,
                   }}
                 >
@@ -450,8 +436,8 @@ export default function AthleteDetailScreen() {
                 <Text
                   style={{
                     fontSize: 13,
-                    fontFamily: "Outfit",
-                    color: successColor,
+                    fontFamily: "Outfit-Regular",
+                    color: p.success,
                     marginBottom: 10,
                   }}
                 >
@@ -464,23 +450,23 @@ export default function AthleteDetailScreen() {
                 onPress={handleSave}
                 disabled={saving}
                 style={({ pressed }) => ({
-                  borderRadius: 14,
+                  borderRadius: 100,
                   height: 52,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: colors.accent,
+                  backgroundColor: p.accent,
                   opacity: pressed || saving ? 0.75 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 })}
               >
                 {saving ? (
-                  <ActivityIndicator color="hsl(220, 5%, 98%)" size="small" />
+                  <ActivityIndicator color={p.buttonPrimaryText} size="small" />
                 ) : (
                   <Text
                     style={{
                       fontSize: 16,
-                      fontFamily: fonts.bodyBold,
-                      color: "hsl(220, 5%, 98%)",
+                      fontFamily: "Outfit-Bold",
+                      color: p.buttonPrimaryText,
                       letterSpacing: 0.1,
                     }}
                   >
@@ -493,18 +479,16 @@ export default function AthleteDetailScreen() {
             {/* Danger zone card */}
             <View
               style={{
-                borderRadius: 20,
-                borderWidth: 1,
+                borderRadius: 22,
                 padding: 20,
-                backgroundColor: cardBg,
-                borderColor: errorBorder,
+                backgroundColor: p.dangerSoft,
               }}
             >
               <Text
                 style={{
                   fontSize: 11,
-                  fontFamily: fonts.bodyBold,
-                  color: errorColor,
+                  fontFamily: "Outfit-Bold",
+                  color: p.danger,
                   textTransform: "uppercase",
                   letterSpacing: 1.0,
                   marginBottom: 14,
@@ -521,25 +505,23 @@ export default function AthleteDetailScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 12,
-                  borderRadius: 14,
-                  borderWidth: 1,
+                  borderRadius: 22,
                   padding: 14,
-                  backgroundColor: errorBg,
-                  borderColor: errorBorder,
+                  backgroundColor: p.cardWhite,
                   opacity: pressed || resettingPassword ? 0.7 : 1,
                 })}
               >
                 {resettingPassword ? (
-                  <ActivityIndicator color={errorColor} size="small" />
+                  <ActivityIndicator color={p.danger} size="small" />
                 ) : (
-                  <Ionicons name="lock-closed-outline" size={20} color={errorColor} />
+                  <Lock size={20} color={p.danger} />
                 )}
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{
                       fontSize: 15,
-                      fontFamily: fonts.bodyBold,
-                      color: errorColor,
+                      fontFamily: "Outfit-Bold",
+                      color: p.danger,
                     }}
                   >
                     Reset Password
@@ -547,15 +529,15 @@ export default function AthleteDetailScreen() {
                   <Text
                     style={{
                       fontSize: 12,
-                      fontFamily: fonts.bodyMedium,
-                      color: labelColor,
+                      fontFamily: "Outfit-Regular",
+                      color: p.textSecondary,
                       marginTop: 2,
                     }}
                   >
                     Send a password reset email to this athlete
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={17} color={errorColor} />
+                <ChevronRight size={17} color={p.danger} />
               </Pressable>
             </View>
           </>

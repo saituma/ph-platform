@@ -16,6 +16,7 @@ import { toggleGroupMessageReaction } from "../services/reaction.service";
 import { db } from "../db";
 import { chatGroupMessageTable } from "../db/schema";
 import { and, desc, eq, ilike } from "drizzle-orm";
+import { createRealtimeTrace, logRealtimeLatency } from "../lib/realtime-latency";
 
 const createGroupSchema = z.object({
   name: z.string().min(1),
@@ -35,6 +36,8 @@ const sendGroupMessageSchema = z
     replyToMessageId: z.number().int().min(1).optional(),
     replyPreview: z.string().trim().max(160).optional(),
     clientId: z.string().trim().min(1).optional(),
+    clientTraceId: z.string().trim().min(1).max(96).optional(),
+    clientSentAt: z.union([z.number(), z.string()]).optional(),
   })
   .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
     message: "Message content or mediaUrl is required",
@@ -106,6 +109,13 @@ export async function sendGroupChatMessage(req: Request, res: Response) {
     return res.status(403).json({ error: "Forbidden" });
   }
   const input = sendGroupMessageSchema.parse(req.body);
+  const trace = createRealtimeTrace({ traceId: input.clientTraceId ?? input.clientId, clientSentAt: input.clientSentAt });
+  logRealtimeLatency(trace, "http.group.receive", {
+    senderId: req.user!.id,
+    groupId,
+    hasMedia: Boolean(input.mediaUrl),
+  });
+  logRealtimeLatency(trace, "http.group.before_service", { senderId: req.user!.id, groupId });
   const message = await createGroupMessage({
     groupId,
     senderId: req.user!.id,
@@ -115,7 +125,9 @@ export async function sendGroupChatMessage(req: Request, res: Response) {
     replyToMessageId: input.replyToMessageId,
     replyPreview: input.replyPreview,
     clientId: input.clientId ?? null,
+    trace,
   });
+  logRealtimeLatency(trace, "http.group.after_service", { messageId: message.id, groupId });
   return res.status(201).json({ message });
 }
 

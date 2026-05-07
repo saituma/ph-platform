@@ -2,9 +2,8 @@ import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import React from "react";
 import { View } from "react-native";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import { fonts } from "@/constants/theme";
 
 import { useHelpCenter } from "@/components/more/help/hooks/useHelpCenter";
 import { SearchHeader } from "@/components/more/help/SearchHeader";
@@ -17,9 +16,8 @@ import { HelpFooter } from "@/components/more/help/HelpFooter";
 import { Text } from "@/components/ScaledText";
 
 export default function HelpCenterScreen() {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
 
   const {
     searchQuery,
@@ -33,7 +31,7 @@ export default function HelpCenterScreen() {
   } = useHelpCenter();
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: isDark ? "hsl(220, 8%, 6%)" : "hsl(220, 15%, 98%)" }}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: p.pageBg }}>
       <MoreStackHeader
         title="Help Center"
         subtitle="Search answers, browse common topics, and take the fastest route to support."
@@ -55,13 +53,13 @@ export default function HelpCenterScreen() {
           setSearchQuery={setSearchQuery}
         />
 
-        <SectionLabel label="Start here" color={labelColor} />
+        <SectionLabel label="Start here" color={p.textSecondary} />
         <SupportMetrics />
 
-        <SectionLabel label="Quick actions" color={labelColor} />
+        <SectionLabel label="Quick actions" color={p.textSecondary} />
         <QuickActions />
 
-        <SectionLabel label="Browse by topic" color={labelColor} />
+        <SectionLabel label="Browse by topic" color={p.textSecondary} />
         <CategoryList
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
@@ -73,7 +71,7 @@ export default function HelpCenterScreen() {
           onReset={handleReset}
         />
 
-        <SectionLabel label="Frequently asked" color={labelColor} />
+        <SectionLabel label="Frequently asked" color={p.textSecondary} />
         <FAQSection
           expandedFaq={expandedFaq}
           setExpandedFaq={setExpandedFaq}
@@ -90,7 +88,7 @@ function SectionLabel({ label, color }: { label: string; color: string }) {
     <Text
       style={{
         marginLeft: 8,
-        fontFamily: fonts.bodyBold,
+        fontFamily: "Outfit-Bold",
         textTransform: "uppercase",
         letterSpacing: 1.2,
         color,

@@ -1,7 +1,6 @@
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import { MarkdownText } from "@/components/ui/MarkdownText";
-import { Feather } from "@/components/ui/theme-icons";
 import { apiRequest } from "@/lib/api";
 import {
   isYoutubeUrl,
@@ -12,6 +11,8 @@ import React from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   TextInput,
@@ -25,6 +26,14 @@ import { Image as ExpoImage } from "expo-image";
 import { SkeletonAnnouncementsScreen } from "@/components/ui/legacy-skeleton";
 import { OpenGraphPreview } from "@/components/media/OpenGraphPreview";
 import { BottomSheet } from "heroui-native";
+import {
+  ChevronLeft,
+  Plus,
+  RefreshCw,
+  Radio,
+  Pencil,
+  Trash2,
+} from "lucide-react-native";
 
 type AnnouncementItem = {
   id: number | string;
@@ -115,7 +124,7 @@ const extractAnnouncement = (item: AnnouncementItem): ParsedAnnouncement => {
 };
 
 export default function AnnouncementsScreen() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const router = useRouter();
   const toast = useAppToast();
   const token = useAppSelector((state) => state.user.token);
@@ -255,62 +264,60 @@ export default function AnnouncementsScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: p.pageBg }}
       edges={["top"]}
     >
-      <View className="px-6 py-4 flex-row items-center justify-between">
+      <View style={{ paddingHorizontal: 24, paddingVertical: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Pressable
           onPress={() =>
             router.canGoBack()
               ? router.back()
               : router.replace("/(tabs)/messages")
           }
-          className="h-11 w-11 rounded-2xl items-center justify-center border"
           style={{
-            borderColor: isDark
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(15,23,42,0.06)",
-            backgroundColor: isDark
-              ? "rgba(255,255,255,0.04)"
-              : "rgba(15,23,42,0.03)",
+            height: 44,
+            width: 44,
+            borderRadius: 16,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: p.cardWhite,
           }}
         >
-          <Feather name="chevron-left" size={20} color={colors.text} />
+          <ChevronLeft size={20} color={p.textPrimary} />
         </Pressable>
         <Text
-          className="text-xl font-clash font-bold"
-          style={{ color: colors.text }}
+          style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}
         >
           Announcements
         </Text>
-        <View className="flex-row items-center gap-2">
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           {isAdmin ? (
             <Pressable
               onPress={() => handleOpenForm()}
-              className="h-11 w-11 rounded-2xl items-center justify-center border"
               style={{
-                borderColor: colors.accent,
-                backgroundColor: isDark
-                  ? "rgba(34,197,94,0.16)"
-                  : "rgba(34,197,94,0.10)",
+                height: 44,
+                width: 44,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: p.accentSoft,
               }}
             >
-              <Feather name="plus" size={20} color={colors.accent} />
+              <Plus size={20} color={p.accent} />
             </Pressable>
           ) : null}
           <Pressable
             onPress={() => void load()}
-            className="h-11 w-11 rounded-2xl items-center justify-center border"
             style={{
-              borderColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(15,23,42,0.06)",
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.04)"
-                : "rgba(15,23,42,0.03)",
+              height: 44,
+              width: 44,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: p.cardWhite,
             }}
           >
-            <Feather name="refresh-cw" size={18} color={colors.textSecondary} />
+            <RefreshCw size={18} color={p.textSecondary} />
           </Pressable>
         </View>
       </View>
@@ -318,39 +325,38 @@ export default function AnnouncementsScreen() {
       {isLoading ? (
         <SkeletonAnnouncementsScreen />
       ) : error ? (
-        <View className="flex-1 items-center justify-center px-8">
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
           <Text
-            className="text-base font-outfit text-center"
-            style={{ color: colors.textSecondary }}
+            style={{ fontSize: 15, fontFamily: "Outfit-Regular", textAlign: "center", color: p.textSecondary }}
           >
             {error}
           </Text>
           <Pressable
             onPress={() => void load()}
-            className="mt-6 rounded-full px-6 py-3"
-            style={{ backgroundColor: colors.accent }}
+            style={{ marginTop: 24, borderRadius: 100, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: p.accent }}
           >
-            <Text className="text-sm font-outfit font-bold text-white">
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
               Try again
             </Text>
           </Pressable>
         </View>
       ) : items.length === 0 ? (
-        <View className="flex-1 items-center justify-center px-8">
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
           <Text
-            className="text-base font-outfit text-center"
-            style={{ color: colors.textSecondary }}
+            style={{ fontSize: 15, fontFamily: "Outfit-Regular", textAlign: "center", color: p.textSecondary }}
           >
             No announcements yet.
           </Text>
         </View>
       ) : (
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
         <ScrollView
-          className="flex-1"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
         >
-          <View className="gap-4">
+          <View style={{ gap: 16 }}>
             {items.map((item) => {
               const parsed = extractAnnouncement(item);
               const title = (item.title ?? "").trim() || "Announcement";
@@ -362,30 +368,32 @@ export default function AnnouncementsScreen() {
               return (
                 <View
                   key={String(item.id)}
-                  className="rounded-[28px] border px-5 py-5 overflow-hidden"
                   style={{
-                    backgroundColor: colors.card,
-                    borderColor: colors.borderSubtle,
+                    borderRadius: 28,
+                    paddingHorizontal: 20,
+                    paddingVertical: 20,
+                    overflow: "hidden",
+                    backgroundColor: p.cardWhite,
                   }}
                 >
-                  <View className="flex-row items-start justify-between gap-4">
-                    <View className="flex-1">
-                      <View className="flex-row items-center gap-2">
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                         <Text
-                          className="text-lg font-clash font-bold"
-                          style={{ color: colors.text }}
+                          style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.textPrimary }}
                         >
                           {title}
                         </Text>
                         {isAdmin && item.isActive === false ? (
                           <View
-                            className="rounded-full px-2 py-0.5 border"
                             style={{
-                              backgroundColor: "rgba(239,68,68,0.1)",
-                              borderColor: "rgba(239,68,68,0.2)",
+                              borderRadius: 100,
+                              paddingHorizontal: 8,
+                              paddingVertical: 2,
+                              backgroundColor: p.dangerSoft,
                             }}
                           >
-                            <Text className="text-[10px] text-[#EF4444] font-bold uppercase">
+                            <Text style={{ fontSize: 10, color: p.danger, fontFamily: "Outfit-Bold", textTransform: "uppercase" }}>
                               Inactive
                             </Text>
                           </View>
@@ -393,35 +401,36 @@ export default function AnnouncementsScreen() {
                       </View>
                       {when ? (
                         <Text
-                          className="mt-1 text-[12px] font-outfit"
-                          style={{ color: colors.textSecondary }}
+                          style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
                         >
                           {when}
                         </Text>
                       ) : null}
                     </View>
                     <View
-                      className="h-10 w-10 rounded-2xl items-center justify-center"
                       style={{
-                        backgroundColor: isDark
-                          ? "rgba(34,197,94,0.16)"
-                          : "rgba(34,197,94,0.10)",
+                        height: 40,
+                        width: 40,
+                        borderRadius: 16,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: p.accentSoft,
                       }}
                     >
-                      <Feather name="radio" size={18} color={colors.accent} />
+                      <Radio size={18} color={p.accent} />
                     </View>
                   </View>
 
                   {parsed.text ? (
-                    <View className="mt-4">
+                    <View style={{ marginTop: 16 }}>
                       <MarkdownText text={parsed.text} />
                     </View>
                   ) : null}
 
                   {parsed.images.length ? (
-                    <View className="mt-4 gap-3">
+                    <View style={{ marginTop: 16, gap: 12 }}>
                       {parsed.images.map((entry) => (
-                        <View key={entry.url} className="gap-2">
+                        <View key={entry.url} style={{ gap: 8 }}>
                           <ExpoImage
                             source={{ uri: entry.url }}
                             style={{
@@ -433,8 +442,7 @@ export default function AnnouncementsScreen() {
                           />
                           {entry.caption ? (
                             <Text
-                              className="text-[12px] font-outfit"
-                              style={{ color: colors.textSecondary }}
+                              style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
                             >
                               {entry.caption}
                             </Text>
@@ -445,10 +453,10 @@ export default function AnnouncementsScreen() {
                   ) : null}
 
                   {parsed.videos.length ? (
-                    <View className="mt-4 gap-3">
+                    <View style={{ marginTop: 16, gap: 12 }}>
                       {parsed.videos.map((entry) =>
                         isYoutubeUrl(entry.url) ? (
-                          <View key={entry.url} className="gap-2">
+                          <View key={entry.url} style={{ gap: 8 }}>
                             <View
                               style={{
                                 height: 220,
@@ -464,15 +472,14 @@ export default function AnnouncementsScreen() {
                             </View>
                             {entry.caption ? (
                               <Text
-                                className="text-[12px] font-outfit"
-                                style={{ color: colors.textSecondary }}
+                                style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
                               >
                                 {entry.caption}
                               </Text>
                             ) : null}
                           </View>
                         ) : (
-                          <View key={entry.url} className="gap-2">
+                          <View key={entry.url} style={{ gap: 8 }}>
                             <View
                               style={{ borderRadius: 18, overflow: "hidden" }}
                             >
@@ -486,8 +493,7 @@ export default function AnnouncementsScreen() {
                             </View>
                             {entry.caption ? (
                               <Text
-                                className="text-[12px] font-outfit"
-                                style={{ color: colors.textSecondary }}
+                                style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
                               >
                                 {entry.caption}
                               </Text>
@@ -499,7 +505,7 @@ export default function AnnouncementsScreen() {
                   ) : null}
 
                   {token && parsed.links.length ? (
-                    <View className="mt-4 gap-3">
+                    <View style={{ marginTop: 16, gap: 12 }}>
                       {parsed.links.slice(0, 2).map((url) => (
                         <OpenGraphPreview key={url} url={url} token={token} />
                       ))}
@@ -507,30 +513,40 @@ export default function AnnouncementsScreen() {
                   ) : null}
 
                   {isAdmin ? (
-                    <View className="mt-6 pt-4 border-t flex-row items-center gap-3" style={{ borderColor: colors.borderSubtle }}>
+                    <View style={{ marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderColor: p.divider, flexDirection: "row", alignItems: "center", gap: 12 }}>
                       <Pressable
                         onPress={() => handleOpenForm(item)}
-                        className="flex-1 h-10 rounded-2xl items-center justify-center border flex-row gap-2"
                         style={{
-                          borderColor: colors.borderSubtle,
-                          backgroundColor: colors.backgroundSecondary,
+                          flex: 1,
+                          height: 40,
+                          borderRadius: 16,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: p.inputBg,
+                          flexDirection: "row",
+                          gap: 8,
                         }}
                       >
-                        <Feather name="edit-2" size={14} color={colors.textSecondary} />
-                        <Text className="text-[13px] font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+                        <Pencil size={14} color={p.textSecondary} />
+                        <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.textSecondary }}>
                           Edit
                         </Text>
                       </Pressable>
                       <Pressable
                         onPress={() => handleDelete(item.id)}
-                        className="flex-1 h-10 rounded-2xl items-center justify-center border flex-row gap-2"
                         style={{
-                          borderColor: "rgba(239,68,68,0.25)",
-                          backgroundColor: "rgba(239,68,68,0.10)",
+                          flex: 1,
+                          height: 40,
+                          borderRadius: 16,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: p.dangerSoft,
+                          flexDirection: "row",
+                          gap: 8,
                         }}
                       >
-                        <Feather name="trash-2" size={14} color="#EF4444" />
-                        <Text className="text-[13px] font-outfit font-semibold" style={{ color: "#EF4444" }}>
+                        <Trash2 size={14} color={p.danger} />
+                        <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.danger }}>
                           Delete
                         </Text>
                       </Pressable>
@@ -541,40 +557,36 @@ export default function AnnouncementsScreen() {
             })}
           </View>
         </ScrollView>
+        </KeyboardAvoidingView>
       )}
 
       <BottomSheet isOpen={sheetOpen} onOpenChange={setSheetOpen}>
         <BottomSheet.Portal>
-          <BottomSheet.Overlay className="bg-black/40" />
+          <BottomSheet.Overlay style={{ backgroundColor: p.overlay }} />
           <BottomSheet.Content
             snapPoints={["85%"]}
             enablePanDownToClose
-            backgroundStyle={{ backgroundColor: colors.card }}
+            backgroundStyle={{ backgroundColor: p.cardWhite }}
             handleIndicatorStyle={{
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.28)"
-                : "rgba(15,23,42,0.22)",
+              backgroundColor: p.textMuted,
             }}
           >
             <View style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 40 }}>
               <BottomSheet.Title
-                className="text-2xl font-clash font-bold"
-                style={{ color: colors.text }}
+                style={{ fontSize: 24, fontFamily: "Outfit-Bold", color: p.textPrimary }}
               >
                 {editingId ? "Edit Announcement" : "New Announcement"}
               </BottomSheet.Title>
               <BottomSheet.Description
-                className="mt-1 text-sm font-outfit"
-                style={{ color: colors.textSecondary }}
+                style={{ marginTop: 4, fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}
               >
                 Broadcast an update to your athletes. Markdown supported.
               </BottomSheet.Description>
 
-              <View className="mt-6 gap-5">
+              <View style={{ marginTop: 24, gap: 20 }}>
                 <View>
                   <Text
-                    className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px] mb-2"
-                    style={{ color: colors.textSecondary }}
+                    style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textSecondary, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}
                   >
                     Title
                   </Text>
@@ -582,20 +594,21 @@ export default function AnnouncementsScreen() {
                     value={formTitle}
                     onChangeText={setFormTitle}
                     placeholder="Announcement title..."
-                    placeholderTextColor={colors.textSecondary}
-                    className="h-14 rounded-2xl border px-4 font-outfit"
+                    placeholderTextColor={p.textMuted}
                     style={{
-                      borderColor: colors.borderSubtle,
-                      backgroundColor: colors.backgroundSecondary,
-                      color: colors.text,
+                      height: 56,
+                      borderRadius: 16,
+                      paddingHorizontal: 16,
+                      fontFamily: "Outfit-Regular",
+                      backgroundColor: p.inputBg,
+                      color: p.textPrimary,
                     }}
                   />
                 </View>
 
-                <View className="flex-1">
+                <View style={{ flex: 1 }}>
                   <Text
-                    className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px] mb-2"
-                    style={{ color: colors.textSecondary }}
+                    style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textSecondary, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}
                   >
                     Content
                   </Text>
@@ -603,14 +616,16 @@ export default function AnnouncementsScreen() {
                     value={formBody}
                     onChangeText={setFormBody}
                     placeholder="Markdown content..."
-                    placeholderTextColor={colors.textSecondary}
+                    placeholderTextColor={p.textMuted}
                     multiline
                     numberOfLines={10}
-                    className="min-h-[200px] rounded-2xl border p-4 font-outfit"
                     style={{
-                      borderColor: colors.borderSubtle,
-                      backgroundColor: colors.backgroundSecondary,
-                      color: colors.text,
+                      minHeight: 200,
+                      borderRadius: 16,
+                      padding: 16,
+                      fontFamily: "Outfit-Regular",
+                      backgroundColor: p.inputBg,
+                      color: p.textPrimary,
                       textAlignVertical: "top",
                     }}
                   />
@@ -618,27 +633,37 @@ export default function AnnouncementsScreen() {
 
                 <Pressable
                   onPress={() => setFormIsActive(!formIsActive)}
-                  className="flex-row items-center justify-between h-14 rounded-2xl border px-4"
                   style={{
-                    borderColor: colors.borderSubtle,
-                    backgroundColor: colors.backgroundSecondary,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    height: 56,
+                    borderRadius: 16,
+                    paddingHorizontal: 16,
+                    backgroundColor: p.inputBg,
                   }}
                 >
                   <Text
-                    className="text-sm font-outfit font-semibold"
-                    style={{ color: colors.text }}
+                    style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.textPrimary }}
                   >
                     Published & Active
                   </Text>
                   <View
-                    className="w-12 h-7 rounded-full px-1 justify-center"
                     style={{
-                      backgroundColor: formIsActive ? colors.accent : colors.border,
+                      width: 48,
+                      height: 28,
+                      borderRadius: 14,
+                      paddingHorizontal: 4,
+                      justifyContent: "center",
+                      backgroundColor: formIsActive ? p.accent : p.divider,
                     }}
                   >
                     <View
-                      className="w-5 h-5 rounded-full bg-white"
                       style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        backgroundColor: "#fff",
                         alignSelf: formIsActive ? "flex-end" : "flex-start",
                       }}
                     />
@@ -646,18 +671,20 @@ export default function AnnouncementsScreen() {
                 </Pressable>
               </View>
 
-              <View className="mt-8 flex-row items-center gap-3">
+              <View style={{ marginTop: 32, flexDirection: "row", alignItems: "center", gap: 12 }}>
                 <Pressable
                   onPress={() => setSheetOpen(false)}
-                  className="flex-1 h-14 rounded-2xl items-center justify-center border"
                   style={{
-                    borderColor: colors.borderSubtle,
-                    backgroundColor: colors.backgroundSecondary,
+                    flex: 1,
+                    height: 56,
+                    borderRadius: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: p.inputBg,
                   }}
                 >
                   <Text
-                    className="font-outfit font-bold"
-                    style={{ color: colors.text }}
+                    style={{ fontFamily: "Outfit-Bold", color: p.textPrimary }}
                   >
                     Cancel
                   </Text>
@@ -665,16 +692,20 @@ export default function AnnouncementsScreen() {
                 <Pressable
                   onPress={handleSave}
                   disabled={isSaving || !formTitle.trim()}
-                  className="flex-1 h-14 rounded-2xl items-center justify-center"
                   style={{
-                    backgroundColor: colors.accent,
+                    flex: 1,
+                    height: 56,
+                    borderRadius: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: p.accent,
                     opacity: isSaving || !formTitle.trim() ? 0.6 : 1,
                   }}
                 >
                   {isSaving ? (
-                    <ActivityIndicator color="white" />
+                    <ActivityIndicator color={p.buttonPrimaryText} />
                   ) : (
-                    <Text className="font-outfit font-bold text-white">
+                    <Text style={{ fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
                       {editingId ? "Save changes" : "Post announcement"}
                     </Text>
                   )}

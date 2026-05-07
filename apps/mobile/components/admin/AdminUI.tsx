@@ -19,65 +19,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
-import { Shadows, radius as radiusPresets } from "@/constants/theme";
+import { adminPastel, type AdminCardColor, type AdminPastelColors } from "@/constants/theme";
 
-type AdminTone = "neutral" | "accent" | "success" | "info" | "warning" | "danger";
+export function useAdminPastel() {
+  const { isDark } = useAppTheme();
+  return (isDark ? adminPastel.dark : adminPastel.light) as typeof adminPastel.light;
+}
 
-type ToneStyle = {
-  color: string;
-  bg: string;
-  border: string;
+const CARD_COLOR_KEY: Record<AdminCardColor, keyof AdminPastelColors> = {
+  sage: "cardSage",
+  pink: "cardPink",
+  lavender: "cardLavender",
+  peach: "cardPeach",
+  mint: "cardMint",
+  yellow: "cardYellow",
+  white: "cardWhite",
 };
 
-function withAlpha(hex: string | undefined, alpha: string) {
-  if (!hex || !hex.startsWith("#") || hex.length !== 7) return hex || "#000000";
-  return `${hex}${alpha}`;
-}
-
-/**
- * Validates if a string is a proper 6-digit hex color code.
- * Useful for preventing color conversion errors in libraries like color-kit.
- */
-export function isValidHex(color: string | null | undefined): boolean {
-  if (!color || typeof color !== "string") return false;
-  return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color);
-}
-
-function getAdminTone(
-  colors: ReturnType<typeof useAppTheme>["colors"],
-  isDark: boolean,
-  tone: AdminTone = "neutral",
-): ToneStyle {
-  const neutralBg = isDark ? "rgba(255,255,255,0.045)" : "rgba(15,23,42,0.035)";
-  const neutralBorder = isDark ? "rgba(255,255,255,0.09)" : "rgba(15,23,42,0.08)";
-  const map: Record<AdminTone, string> = {
-    neutral: colors.textSecondary || "#64748b",
-    accent: colors.accent || "#30B0C7",
-    success: colors.success || "#22c55e",
-    info: colors.cyan || "#06b6d4",
-    warning: colors.warning || "#f59e0b",
-    danger: colors.danger || "#ef4444",
-  };
-
-  if (tone === "neutral") {
-    return {
-      color: colors.textSecondary || "#64748b",
-      bg: neutralBg,
-      border: neutralBorder,
-    };
-  }
-
-  const color = map[tone] || "#000000";
-  return {
-    color,
-    bg: isDark ? withAlpha(color, "20") : withAlpha(color, "14"),
-    border: isDark ? withAlpha(color, "3D") : withAlpha(color, "29"),
-  };
-}
-
-function useAdminTone(tone: AdminTone = "neutral"): ToneStyle {
-  const { colors, isDark } = useAppTheme();
-  return getAdminTone(colors, isDark, tone);
+function cardBg(p: AdminPastelColors, color: AdminCardColor = "white"): string {
+  return p[CARD_COLOR_KEY[color]] as string;
 }
 
 export function AdminScreen({
@@ -89,80 +49,55 @@ export function AdminScreen({
   withSafeTop?: boolean;
   style?: ViewStyle;
 }) {
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
 
   if (!withSafeTop) {
     return (
-      <View style={[{ flex: 1, backgroundColor: colors.background }, style]}>
+      <View style={[{ flex: 1, backgroundColor: p.pageBg }, style]}>
         {children}
       </View>
     );
   }
 
   return (
-    <SafeAreaView edges={["top"]} style={[{ flex: 1, backgroundColor: colors.background }, style]}>
+    <SafeAreaView edges={["top"]} style={[{ flex: 1, backgroundColor: p.pageBg }, style]}>
       {children}
     </SafeAreaView>
   );
 }
 
 export function AdminHeader({
-  eyebrow,
   title,
   subtitle,
-  tone = "accent",
   right,
   compact = false,
 }: {
   eyebrow?: string;
   title: string;
   subtitle?: string;
-  tone?: AdminTone;
+  tone?: string;
   right?: React.ReactNode;
   compact?: boolean;
 }) {
-  const { colors } = useAppTheme();
-  const toneStyle = useAdminTone(tone);
+  const p = useAdminPastel();
 
   return (
     <View
       style={{
-        paddingTop: compact ? 24 : 48,
-        paddingHorizontal: 20,
-        paddingBottom: compact ? 18 : 32,
+        paddingTop: compact ? 16 : 24,
+        paddingHorizontal: 24,
+        paddingBottom: compact ? 14 : 20,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-        <View
-          style={{
-            width: 4,
-            height: compact ? 42 : 54,
-            borderRadius: 999,
-            backgroundColor: toneStyle.color,
-          }}
-        />
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          {eyebrow ? (
-            <Text
-              style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 11,
-                letterSpacing: 0.8,
-                textTransform: "uppercase",
-                color: toneStyle.color,
-                marginBottom: 4,
-              }}
-              numberOfLines={1}
-            >
-              {eyebrow}
-            </Text>
-          ) : null}
           <Text
             style={{
-              fontFamily: "Satoshi-Bold",
-              fontSize: compact ? 30 : 36,
+              fontFamily: "Outfit-ExtraBold",
+              fontSize: compact ? 28 : 34,
               lineHeight: compact ? 34 : 40,
-              color: colors.textPrimary,
+              color: p.textPrimary,
+              letterSpacing: -0.8,
             }}
             numberOfLines={1}
             adjustsFontSizeToFit
@@ -174,10 +109,10 @@ export function AdminHeader({
             <Text
               style={{
                 fontFamily: "Outfit-Regular",
-                fontSize: 13,
-                lineHeight: 18,
-                color: colors.textSecondary,
-                marginTop: 5,
+                fontSize: 14,
+                lineHeight: 20,
+                color: p.textSecondary,
+                marginTop: 4,
               }}
               numberOfLines={2}
             >
@@ -191,35 +126,112 @@ export function AdminHeader({
   );
 }
 
+export function AdminBackButton({ onPress }: { onPress: () => void }) {
+  const p = useAdminPastel();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Go back"
+      onPress={onPress}
+      hitSlop={8}
+      style={({ pressed }) => ({
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: p.cardWhite,
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: p.shadow,
+        shadowOpacity: 1,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      <ChevronRight
+        size={20}
+        color={p.textPrimary}
+        strokeWidth={2.2}
+        style={{ transform: [{ scaleX: -1 }] }}
+      />
+    </Pressable>
+  );
+}
+
 export function AdminCard({
   children,
+  color = "white",
   style,
-  padding = 16,
-  pressed,
-  transparent = false,
+  padding = 20,
+  onPress,
+  onLongPress,
 }: {
   children: React.ReactNode;
+  color?: AdminCardColor;
   style?: ViewStyle | ViewStyle[];
   padding?: number;
-  pressed?: boolean;
-  transparent?: boolean;
+  onPress?: () => void;
+  onLongPress?: () => void;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
+  const bg = cardBg(p, color);
 
+  const inner = (pressed = false) => (
+    <View
+      style={[
+        {
+          borderRadius: 28,
+          padding,
+          backgroundColor: bg,
+          shadowColor: p.shadow,
+          shadowOpacity: 1,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 3,
+          opacity: pressed ? 0.92 : 1,
+          transform: [{ scale: pressed ? 0.985 : 1 }],
+        },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+
+  if (onPress || onLongPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={400}
+        style={{ borderRadius: 28 }}
+      >
+        {({ pressed }) => inner(pressed)}
+      </Pressable>
+    );
+  }
+
+  return inner();
+}
+
+export function AdminDashboardGrid({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: ViewStyle;
+}) {
   return (
     <View
       style={[
         {
-          borderRadius: radiusPresets.lg,
-          borderWidth: 1,
-          padding,
-          backgroundColor: transparent 
-            ? "transparent" 
-            : isDark ? colors.cardElevated : colors.card,
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
-          ...(isDark || transparent ? Shadows.none : Shadows.sm),
-          opacity: pressed ? 0.92 : 1,
-          transform: [{ scale: pressed ? 0.995 : 1 }],
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 14,
+          paddingHorizontal: 24,
         },
         style,
       ]}
@@ -229,30 +241,125 @@ export function AdminCard({
   );
 }
 
+export function AdminGridItem({
+  children,
+  color = "white",
+  style,
+}: {
+  children: React.ReactNode;
+  color?: AdminCardColor;
+  style?: ViewStyle;
+}) {
+  return (
+    <View style={[{ flex: 1, minWidth: "45%" }, style]}>
+      <AdminCard color={color} padding={18}>
+        {children}
+      </AdminCard>
+    </View>
+  );
+}
+
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+
+export function AdminButton({
+  label,
+  variant = "primary",
+  onPress,
+  icon: Icon,
+  disabled,
+  loading,
+  style,
+  compact = false,
+}: {
+  label: string;
+  variant?: ButtonVariant;
+  onPress: () => void;
+  icon?: LucideIcon;
+  disabled?: boolean;
+  loading?: boolean;
+  style?: ViewStyle;
+  compact?: boolean;
+}) {
+  const p = useAdminPastel();
+
+  const bgMap: Record<ButtonVariant, string> = {
+    primary: p.buttonPrimary,
+    secondary: p.accentSoft,
+    ghost: "transparent",
+    danger: p.dangerSoft,
+  };
+  const textMap: Record<ButtonVariant, string> = {
+    primary: p.buttonPrimaryText,
+    secondary: p.accent,
+    ghost: p.textSecondary,
+    danger: p.danger,
+  };
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled || loading}
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          height: compact ? 40 : 48,
+          paddingHorizontal: compact ? 16 : 24,
+          borderRadius: 100,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          backgroundColor: bgMap[variant],
+          opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
+          transform: [{ scale: pressed ? 0.97 : 1 }],
+        },
+        style,
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={textMap[variant]} />
+      ) : (
+        <>
+          {Icon ? <Icon size={compact ? 15 : 17} color={textMap[variant]} strokeWidth={2.3} /> : null}
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: compact ? 12 : 14,
+              letterSpacing: 0.3,
+              color: textMap[variant],
+            }}
+          >
+            {label}
+          </Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
 export function AdminBadge({
   children,
-  tone = "neutral",
+  color = "lavender",
   style,
   textStyle,
 }: {
   children: React.ReactNode;
-  tone?: AdminTone;
+  color?: AdminCardColor;
+  tone?: string;
   style?: ViewStyle;
   textStyle?: TextStyle;
 }) {
-  const toneStyle = useAdminTone(tone);
+  const p = useAdminPastel();
 
   return (
     <View
       style={[
         {
           minHeight: 24,
-          paddingHorizontal: 9,
+          paddingHorizontal: 10,
           paddingVertical: 4,
-          borderRadius: radiusPresets.pill,
-          borderWidth: 1,
-          borderColor: toneStyle.border,
-          backgroundColor: toneStyle.bg,
+          borderRadius: 100,
+          backgroundColor: cardBg(p, color),
           alignItems: "center",
           justifyContent: "center",
         },
@@ -265,7 +372,7 @@ export function AdminBadge({
             fontFamily: "Outfit-Bold",
             fontSize: 11,
             lineHeight: 14,
-            color: toneStyle.color,
+            color: p.textSecondary,
           },
           textStyle,
         ]}
@@ -280,17 +387,29 @@ export function AdminBadge({
 export function AdminIconButton({
   icon: Icon,
   onPress,
-  tone = "neutral",
+  variant = "ghost",
   disabled,
   accessibilityLabel,
 }: {
   icon: LucideIcon;
   onPress?: () => void;
-  tone?: AdminTone;
+  variant?: "ghost" | "danger" | "accent";
+  tone?: string;
   disabled?: boolean;
   accessibilityLabel: string;
 }) {
-  const toneStyle = useAdminTone(tone);
+  const p = useAdminPastel();
+
+  const bgMap = {
+    ghost: p.inputBg,
+    danger: p.dangerSoft,
+    accent: p.accentSoft,
+  };
+  const colorMap = {
+    ghost: p.textSecondary,
+    danger: p.danger,
+    accent: p.accent,
+  };
 
   return (
     <Pressable
@@ -300,19 +419,17 @@ export function AdminIconButton({
       onPress={onPress}
       hitSlop={8}
       style={({ pressed }) => ({
-        width: 42,
-        height: 42,
-        borderRadius: 14,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: "center",
         justifyContent: "center",
-        borderWidth: 1,
-        borderColor: toneStyle.border,
-        backgroundColor: toneStyle.bg,
-        opacity: disabled ? 0.45 : pressed ? 0.72 : 1,
-        transform: [{ scale: pressed ? 0.97 : 1 }],
+        backgroundColor: bgMap[variant],
+        opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
+        transform: [{ scale: pressed ? 0.95 : 1 }],
       })}
     >
-      <Icon size={18} color={toneStyle.color} strokeWidth={2.2} />
+      <Icon size={18} color={colorMap[variant]} strokeWidth={2.2} />
     </Pressable>
   );
 }
@@ -333,32 +450,30 @@ export function AdminInput({
   onClear?: () => void;
   containerStyle?: ViewStyle;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View
       style={[
         {
-          minHeight: 44,
+          minHeight: 48,
           flexDirection: "row",
           alignItems: "center",
-          gap: 9,
-          paddingHorizontal: 13,
-          borderRadius: 14,
-          borderWidth: 1,
-          backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(15,23,42,0.035)",
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+          gap: 10,
+          paddingHorizontal: 16,
+          borderRadius: 20,
+          backgroundColor: p.inputBg,
         },
         containerStyle,
       ]}
     >
-      <LeftIcon size={17} color={colors.textSecondary} strokeWidth={2.1} />
+      <LeftIcon size={18} color={p.textMuted} strokeWidth={2} />
       <TextInput
         {...props}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={colors.placeholder}
+        placeholderTextColor={p.textMuted}
         returnKeyType={props.returnKeyType ?? "search"}
         autoCorrect={props.autoCorrect ?? false}
         style={[
@@ -366,8 +481,8 @@ export function AdminInput({
             flex: 1,
             padding: 0,
             fontFamily: "Outfit-Regular",
-            fontSize: 14,
-            color: colors.textPrimary,
+            fontSize: 15,
+            color: p.textPrimary,
           },
           props.style,
         ]}
@@ -379,7 +494,7 @@ export function AdminInput({
           onPress={onClear}
           hitSlop={8}
         >
-          <X size={16} color={colors.textSecondary} strokeWidth={2.1} />
+          <X size={16} color={p.textMuted} strokeWidth={2} />
         </Pressable>
       ) : null}
     </View>
@@ -394,32 +509,28 @@ export function AdminSegmentedTabs<T extends string>({
   tabs: {
     key: T;
     label: string;
-    icon: LucideIcon;
-    tone?: AdminTone;
+    icon?: LucideIcon;
     badgeCount?: number;
   }[];
   value: T;
   onChange: (key: T) => void;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View
       style={{
         flexDirection: "row",
-        gap: 5,
+        gap: 6,
         padding: 5,
-        marginHorizontal: 16,
-        marginBottom: 14,
-        borderRadius: 18,
-        borderWidth: 1,
-        backgroundColor: isDark ? "rgba(255,255,255,0.035)" : "rgba(15,23,42,0.03)",
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.07)",
+        marginHorizontal: 24,
+        marginBottom: 16,
+        borderRadius: 24,
+        backgroundColor: p.inputBg,
       }}
     >
       {tabs.map((tab) => {
         const selected = tab.key === value;
-        const toneStyle = getAdminTone(colors, isDark, tab.tone ?? "accent");
         const Icon = tab.icon;
 
         return (
@@ -430,48 +541,50 @@ export function AdminSegmentedTabs<T extends string>({
             onPress={() => onChange(tab.key)}
             style={({ pressed }) => ({
               flex: 1,
-              minHeight: 46,
-              borderRadius: 13,
+              minHeight: 44,
+              borderRadius: 20,
               alignItems: "center",
               justifyContent: "center",
               flexDirection: "row",
               gap: 7,
-              backgroundColor: selected ? toneStyle.bg : "transparent",
-              borderWidth: selected ? 1 : 0,
-              borderColor: selected ? toneStyle.border : "transparent",
+              backgroundColor: selected ? p.cardWhite : "transparent",
+              shadowColor: selected ? p.shadow : "transparent",
+              shadowOpacity: selected ? 1 : 0,
+              shadowRadius: selected ? 8 : 0,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: selected ? 2 : 0,
               opacity: pressed ? 0.75 : 1,
             })}
           >
-            <View>
-              <Icon
-                size={16}
-                color={selected ? toneStyle.color : colors.textSecondary}
-                strokeWidth={selected ? 2.35 : 2}
-              />
-              {tab.badgeCount && tab.badgeCount > 0 ? (
-                <View
-                  style={{
-                    position: "absolute",
-                    top: -4,
-                    right: -5,
-                    width: 7,
-                    height: 7,
-                    borderRadius: 999,
-                    backgroundColor: toneStyle.color,
-                  }}
+            {Icon ? (
+              <View>
+                <Icon
+                  size={16}
+                  color={selected ? p.accent : p.textMuted}
+                  strokeWidth={selected ? 2.3 : 2}
                 />
-              ) : null}
-            </View>
+                {tab.badgeCount && tab.badgeCount > 0 ? (
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -3,
+                      right: -4,
+                      width: 7,
+                      height: 7,
+                      borderRadius: 999,
+                      backgroundColor: p.danger,
+                    }}
+                  />
+                ) : null}
+              </View>
+            ) : null}
             <Text
               style={{
                 fontFamily: "Outfit-Bold",
-                fontSize: 11,
-                textTransform: "uppercase",
-                color: selected ? toneStyle.color : colors.textSecondary,
+                fontSize: 13,
+                color: selected ? p.textPrimary : p.textMuted,
               }}
               numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.78}
             >
               {tab.label}
             </Text>
@@ -486,48 +599,46 @@ export function AdminEmptyState({
   icon: Icon = AlertCircle,
   title,
   description,
-  tone = "neutral",
   action,
+  color = "lavender",
 }: {
   icon?: LucideIcon;
   title: string;
   description?: string;
-  tone?: AdminTone;
   action?: React.ReactNode;
+  color?: AdminCardColor;
+  tone?: string;
 }) {
-  const { colors } = useAppTheme();
-  const toneStyle = useAdminTone(tone);
+  const p = useAdminPastel();
 
   return (
     <View
       style={{
-        paddingVertical: 46,
+        paddingVertical: 56,
         paddingHorizontal: 24,
         alignItems: "center",
         justifyContent: "center",
-        gap: 12,
+        gap: 14,
       }}
     >
       <View
         style={{
-          width: 58,
-          height: 58,
-          borderRadius: 19,
+          width: 64,
+          height: 64,
+          borderRadius: 22,
           alignItems: "center",
           justifyContent: "center",
-          borderWidth: 1,
-          backgroundColor: toneStyle.bg,
-          borderColor: toneStyle.border,
+          backgroundColor: cardBg(p, color),
         }}
       >
-        <Icon size={25} color={toneStyle.color} strokeWidth={2.1} />
+        <Icon size={28} color={p.textMuted} strokeWidth={1.8} />
       </View>
-      <View style={{ gap: 4, alignItems: "center" }}>
+      <View style={{ gap: 6, alignItems: "center" }}>
         <Text
           style={{
-            fontFamily: "Satoshi-Bold",
-            fontSize: 16,
-            color: colors.textPrimary,
+            fontFamily: "Outfit-Bold",
+            fontSize: 17,
+            color: p.textPrimary,
             textAlign: "center",
           }}
         >
@@ -537,11 +648,11 @@ export function AdminEmptyState({
           <Text
             style={{
               fontFamily: "Outfit-Regular",
-              fontSize: 13,
-              lineHeight: 18,
-              color: colors.textSecondary,
+              fontSize: 14,
+              lineHeight: 20,
+              color: p.textSecondary,
               textAlign: "center",
-              maxWidth: 260,
+              maxWidth: 280,
             }}
           >
             {description}
@@ -554,24 +665,24 @@ export function AdminEmptyState({
 }
 
 export function AdminLoadingState({ label = "Loading" }: { label?: string }) {
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View
       style={{
         flex: 1,
-        minHeight: 180,
+        minHeight: 200,
         alignItems: "center",
         justifyContent: "center",
-        gap: 12,
+        gap: 14,
       }}
     >
-      <ActivityIndicator color={colors.accent} />
+      <ActivityIndicator color={p.accent} size="large" />
       <Text
         style={{
           fontFamily: "Outfit-Regular",
-          fontSize: 13,
-          color: colors.textSecondary,
+          fontSize: 14,
+          color: p.textMuted,
         }}
       >
         {label}
@@ -588,7 +699,7 @@ export function AdminListRow({
   trailing,
   onPress,
   unreadCount,
-  tone = "accent",
+  color = "white",
 }: {
   title: string;
   subtitle?: string;
@@ -597,93 +708,271 @@ export function AdminListRow({
   trailing?: React.ReactNode;
   onPress?: () => void;
   unreadCount?: number;
-  tone?: AdminTone;
+  color?: AdminCardColor;
+  tone?: string;
 }) {
-  const { colors } = useAppTheme();
-  const toneStyle = useAdminTone(tone);
+  const p = useAdminPastel();
+
+  return (
+    <AdminCard color={color} onPress={onPress} padding={16}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+        {leading}
+        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text
+              style={{
+                flex: 1,
+                fontFamily: "Outfit-Bold",
+                fontSize: 16,
+                color: p.textPrimary,
+              }}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            {meta ? (
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 12,
+                  color: p.textMuted,
+                }}
+                numberOfLines={1}
+              >
+                {meta}
+              </Text>
+            ) : null}
+          </View>
+          {subtitle ? (
+            <Text
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 13,
+                lineHeight: 18,
+                color: p.textSecondary,
+              }}
+              numberOfLines={1}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+        {unreadCount && unreadCount > 0 ? (
+          <View
+            style={{
+              minWidth: 26,
+              height: 26,
+              paddingHorizontal: 8,
+              borderRadius: 999,
+              backgroundColor: p.accent,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 11,
+                color: p.buttonPrimaryText,
+              }}
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </Text>
+          </View>
+        ) : trailing ?? (
+          <ChevronRight size={18} color={p.textMuted} strokeWidth={2} />
+        )}
+      </View>
+    </AdminCard>
+  );
+}
+
+export function AdminModalContainer({
+  children,
+  onClose,
+  position = "center",
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  position?: "center" | "bottom";
+}) {
+  const p = useAdminPastel();
 
   return (
     <Pressable
-      accessibilityRole={onPress ? "button" : undefined}
-      onPress={onPress}
-      disabled={!onPress}
-      style={({ pressed }) => ({
-        opacity: pressed ? 0.82 : 1,
-        transform: [{ scale: pressed ? 0.992 : 1 }],
-      })}
+      style={{
+        flex: 1,
+        backgroundColor: p.overlay,
+        alignItems: position === "center" ? "center" : "center",
+        justifyContent: position === "center" ? "center" : "flex-end",
+        padding: position === "center" ? 24 : 0,
+      }}
+      onPress={onClose}
     >
-      {({ pressed }) => (
-        <AdminCard padding={14} pressed={pressed}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            {leading}
-            <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Text
-                  style={{
-                    flex: 1,
-                    fontFamily: "Satoshi-Bold",
-                    fontSize: 15,
-                    color: colors.textPrimary,
-                  }}
-                  numberOfLines={1}
-                >
-                  {title}
-                </Text>
-                {meta ? (
-                  <Text
-                    style={{
-                      fontFamily: "Outfit-Regular",
-                      fontSize: 11,
-                      color: colors.textSecondary,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {meta}
-                  </Text>
-                ) : null}
-              </View>
-              {subtitle ? (
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Regular",
-                    fontSize: 13,
-                    lineHeight: 18,
-                    color: colors.textSecondary,
-                  }}
-                  numberOfLines={1}
-                >
-                  {subtitle}
-                </Text>
-              ) : null}
-            </View>
-            {unreadCount && unreadCount > 0 ? (
-              <View
-                style={{
-                  minWidth: 24,
-                  height: 24,
-                  paddingHorizontal: 7,
-                  borderRadius: 999,
-                  backgroundColor: toneStyle.color,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Bold",
-                    fontSize: 11,
-                    color: "#FFFFFF",
-                  }}
-                >
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </Text>
-              </View>
-            ) : trailing ?? (
-              <ChevronRight size={17} color={colors.textSecondary} strokeWidth={2.1} />
-            )}
-          </View>
-        </AdminCard>
-      )}
+      <Pressable
+        style={{
+          width: position === "center" ? "100%" : "100%",
+          maxWidth: position === "center" ? 400 : undefined,
+          maxHeight: position === "bottom" ? "85%" : undefined,
+          borderRadius: position === "center" ? 32 : 0,
+          borderTopLeftRadius: 32,
+          borderTopRightRadius: 32,
+          padding: 28,
+          backgroundColor: p.cardWhite,
+          shadowColor: p.shadowMd,
+          shadowOpacity: 1,
+          shadowRadius: 24,
+          shadowOffset: { width: 0, height: -4 },
+          elevation: 10,
+        }}
+      >
+        {children}
+      </Pressable>
     </Pressable>
   );
+}
+
+export function AdminModalTitle({ children }: { children: string }) {
+  const p = useAdminPastel();
+  return (
+    <Text
+      style={{
+        fontFamily: "Outfit-ExtraBold",
+        fontSize: 22,
+        color: p.textPrimary,
+        letterSpacing: -0.4,
+        marginBottom: 6,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+export function AdminModalSubtitle({ children }: { children: string }) {
+  const p = useAdminPastel();
+  return (
+    <Text
+      style={{
+        fontFamily: "Outfit-Regular",
+        fontSize: 14,
+        color: p.textSecondary,
+        marginBottom: 20,
+        lineHeight: 20,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+export function AdminFormField({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  autoFocus,
+  keyboardType,
+  multiline,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder: string;
+  autoFocus?: boolean;
+  keyboardType?: "default" | "number-pad" | "url";
+  multiline?: boolean;
+}) {
+  const p = useAdminPastel();
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <Text
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 12,
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+          color: p.textMuted,
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </Text>
+      <View
+        style={{
+          borderRadius: 20,
+          paddingHorizontal: 18,
+          minHeight: multiline ? 80 : 52,
+          justifyContent: multiline ? "flex-start" : "center",
+          paddingVertical: multiline ? 14 : 0,
+          backgroundColor: p.inputBg,
+        }}
+      >
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={p.textMuted}
+          style={{
+            fontFamily: "Outfit-Regular",
+            fontSize: 16,
+            color: p.textPrimary,
+          }}
+          cursorColor={p.accent}
+          keyboardType={keyboardType}
+          autoFocus={autoFocus}
+          multiline={multiline}
+          textAlignVertical={multiline ? "top" : "center"}
+        />
+      </View>
+    </View>
+  );
+}
+
+export function AdminChipSelect<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { key: T; label: string }[];
+  value: T;
+  onChange: (key: T) => void;
+}) {
+  const p = useAdminPastel();
+
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {options.map((opt) => {
+        const selected = opt.key === value;
+        return (
+          <Pressable
+            key={opt.key}
+            onPress={() => onChange(opt.key)}
+            style={({ pressed }) => ({
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 100,
+              backgroundColor: selected ? p.buttonPrimary : p.inputBg,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 13,
+                color: selected ? p.buttonPrimaryText : p.textSecondary,
+              }}
+            >
+              {opt.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function isValidHex(color: string | null | undefined): boolean {
+  if (!color || typeof color !== "string") return false;
+  return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color);
 }

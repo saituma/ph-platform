@@ -1,9 +1,8 @@
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Pressable, View } from "react-native";
+import { Plus, Minus } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { FAQS } from "./constants";
 
 interface FAQSectionProps {
@@ -12,36 +11,52 @@ interface FAQSectionProps {
 }
 
 export function FAQSection({ expandedFaq, setExpandedFaq }: FAQSectionProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
-    <View className="mb-8 gap-3">
+    <View style={{ marginBottom: 24, gap: 12 }}>
       {FAQS.map((item) => {
         const isOpen = expandedFaq === item.id;
 
         return (
-          <TouchableOpacity
+          <Pressable
             key={item.id}
             onPress={() => setExpandedFaq(isOpen ? null : item.id)}
-            className="rounded-[24px] border p-5"
-            style={{
-              backgroundColor: colors.card,
-              borderColor: isOpen ? colors.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-              ...(isDark ? Shadows.none : Shadows.sm),
-            }}
-            activeOpacity={0.9}
+            style={({ pressed }) => ({
+              borderRadius: 22,
+              padding: 20,
+              backgroundColor: isOpen ? p.accentSoft : p.cardSage,
+              opacity: pressed ? 0.9 : 1,
+            })}
           >
-            <View className="flex-row items-center gap-3">
-              <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: isOpen ? colors.accentLight : isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)" }}>
-                <Feather name={isOpen ? "minus" : "plus"} size={18} color={colors.accent} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View
+                style={{
+                  height: 40,
+                  width: 40,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 14,
+                  backgroundColor: isOpen ? p.cardWhite : p.cardMint,
+                }}
+              >
+                {isOpen ? (
+                  <Minus size={18} color={p.accent} />
+                ) : (
+                  <Plus size={18} color={p.accent} />
+                )}
               </View>
-              <Text className="flex-1 font-outfit text-base font-bold text-app leading-6">{item.question}</Text>
+              <Text style={{ flex: 1, fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary, lineHeight: 22 }}>
+                {item.question}
+              </Text>
             </View>
 
             {isOpen ? (
-              <Text className="mt-4 font-outfit text-sm text-secondary leading-6">{item.answer}</Text>
+              <Text style={{ marginTop: 16, fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary, lineHeight: 22 }}>
+                {item.answer}
+              </Text>
             ) : null}
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>

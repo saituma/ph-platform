@@ -1,3 +1,4 @@
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ChatMessage } from "@/constants/messages";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
@@ -11,19 +12,21 @@ import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import ThreadSearchModal from "@/components/messages/ThreadSearchModal";
 import { UserProfileSheet, type ProfileTarget } from "@/components/messages/UserProfileSheet";
 import { useMessagesController } from "@/hooks/useMessagesController";
-import { fonts } from "@/constants/theme";
 import React from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { messagesApi } from "@/lib/apiClient/messages";
 import * as Haptics from "expo-haptics";
 import { useAppSelector } from "@/store/hooks";
+import { useAppToast } from "@/hooks/useAppToast";
 import { useLocalSearchParams } from "expo-router";
 import { Text } from "@/components/ScaledText";
 import { SkeletonThreadScreen } from "@/components/ui/legacy-skeleton";
 
 export default function ThreadScreen() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
+  const { isDark } = useAppTheme();
+  const toast = useAppToast();
   const token = useAppSelector((state) => state.user.token);
   const appRole = useAppSelector((state) => state.user.appRole);
   const profile = useAppSelector((state) => state.user.profile);
@@ -139,11 +142,14 @@ export default function ThreadScreen() {
 
   const handlePinMessage = React.useCallback(async (message: ChatMessage) => {
     try {
-      await messagesApi.pinMessage(message.id, { token });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const res = await messagesApi.pinMessage(message.id, { token }) as { pinned?: boolean };
+      toast.success(res?.pinned ? "Message pinned" : "Message unpinned");
     } catch (e) {
       console.warn("[pin] failed:", e);
+      toast.error("Couldn't pin message");
     }
-  }, [token]);
+  }, [token, toast]);
 
   const handleRemovePendingAttachment = React.useCallback(() => {
     setPendingAttachment(null);
@@ -152,14 +158,14 @@ export default function ThreadScreen() {
 
   if (!currentThread) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, backgroundColor: p.pageBg }}>
         <SkeletonThreadScreen />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <ThreadHeader
         thread={currentThread}
         onBack={clearThread}
@@ -175,18 +181,16 @@ export default function ThreadScreen() {
               borderRadius: 16,
               paddingHorizontal: 16,
               paddingVertical: 12,
-              borderWidth: 1,
-              backgroundColor: isDark ? "hsla(155, 25%, 50%, 0.08)" : "hsla(155, 35%, 50%, 0.06)",
-              borderColor: isDark ? "hsla(155, 25%, 50%, 0.16)" : "hsla(155, 35%, 50%, 0.12)",
+              backgroundColor: p.accentSoft,
             }}
           >
             <Text
               style={{
                 fontSize: 11,
-                fontFamily: fonts.bodyBold,
+                fontFamily: "Outfit-Bold",
                 textTransform: "uppercase",
                 letterSpacing: 1.2,
-                color: colors.accent,
+                color: p.accent,
               }}
             >
               Coaching thread
@@ -195,8 +199,8 @@ export default function ThreadScreen() {
               style={{
                 marginTop: 4,
                 fontSize: 14,
-                fontFamily: "Outfit",
-                color: isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,45%)",
+                fontFamily: "Outfit-Regular",
+                color: p.textSecondary,
               }}
             >
               Keep {focusName}&apos;s progress updates in one thread for faster
@@ -219,7 +223,7 @@ export default function ThreadScreen() {
         isLoading={isLoading}
         isThreadLoading={isThreadLoading}
         typingStatus={typingStatus}
-        textSecondaryColor={colors.textSecondary}
+        textSecondaryColor={p.textSecondary}
         onDraftChange={setDraft}
         onSend={handleSend}
         onOpenComposerMenu={() => setComposerMenuOpen(true)}

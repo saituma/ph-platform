@@ -16,6 +16,7 @@ import {
   AdminEmptyState,
   AdminInput,
   AdminListRow,
+  useAdminPastel,
 } from "@/components/admin/AdminUI";
 import {
   formatWhen,
@@ -54,6 +55,8 @@ import {
   prefetchAdminDmThreadMessages,
 } from "@/lib/admin/adminMessageCache";
 
+const AVATAR_CARD_COLORS = ["cardSage", "cardPeach", "cardLavender", "cardMint"] as const;
+
 interface Props {
   token: string | null;
   canLoad: boolean;
@@ -68,6 +71,7 @@ export function AdminDmSection({
   initialUserId,
 }: Props) {
   const { colors } = useAppTheme();
+  const p = useAdminPastel();
   const { socket } = useSocket();
   const dms = useAdminDms(token, canLoad);
   const { uploadAttachment } = useMediaUpload(token);
@@ -171,37 +175,39 @@ export function AdminDmSection({
     dms.loadMessages(userId, false);
   }, [dms]);
 
-  const renderUserSearchItem = useCallback(({ item }: { item: { id: number; name: string; role: string } }) => (
-    <Pressable
-      onPress={() => handleSelectNewDmUser(item.id, item.name ?? `User ${item.id}`)}
-      style={({ pressed }) => ({
-        flexDirection: "row", alignItems: "center", gap: 12,
-        paddingHorizontal: 16, paddingVertical: 12,
-        backgroundColor: pressed ? "rgba(48,176,199,0.08)" : "transparent",
-      })}
-    >
-      <View style={{
-        width: 44, height: 44, borderRadius: 14,
-        alignItems: "center", justifyContent: "center",
-        backgroundColor: "rgba(48,176,199,0.14)",
-        borderWidth: 1, borderColor: "rgba(48,176,199,0.24)",
-      }}>
-        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#30B0C7" }}>
-          {getInitials(item.name) || "?"}
-        </Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 15, color: colors.textPrimary }}>
-          {item.name ?? `User ${item.id}`}
-        </Text>
-        {item.role ? (
-          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary, marginTop: 1 }}>
-            {item.role}
+  const renderUserSearchItem = useCallback(({ item, index }: { item: { id: number; name: string; role: string }; index: number }) => {
+    const avatarBg = p[AVATAR_CARD_COLORS[index % AVATAR_CARD_COLORS.length]];
+    return (
+      <Pressable
+        onPress={() => handleSelectNewDmUser(item.id, item.name ?? `User ${item.id}`)}
+        style={({ pressed }) => ({
+          flexDirection: "row", alignItems: "center", gap: 12,
+          paddingHorizontal: 16, paddingVertical: 12,
+          backgroundColor: pressed ? p.accentSoft : "transparent",
+        })}
+      >
+        <View style={{
+          width: 44, height: 44, borderRadius: 14,
+          alignItems: "center", justifyContent: "center",
+          backgroundColor: avatarBg,
+        }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.accent }}>
+            {getInitials(item.name) || "?"}
           </Text>
-        ) : null}
-      </View>
-    </Pressable>
-  ), [handleSelectNewDmUser, getInitials, colors.textPrimary, colors.textSecondary]);
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 15, color: p.textPrimary }}>
+            {item.name ?? `User ${item.id}`}
+          </Text>
+          {item.role ? (
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, marginTop: 1 }}>
+              {item.role}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  }, [handleSelectNewDmUser, getInitials, p]);
 
   useEffect(() => {
     if (!socket || !dms.activeDmUserId) return;
@@ -539,13 +545,11 @@ export function AdminDmSection({
             borderRadius: 12,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "rgba(48,176,199,0.14)",
-            borderWidth: 1,
-            borderColor: "rgba(48,176,199,0.28)",
+            backgroundColor: p.accentSoft,
             opacity: pressed ? 0.7 : 1,
           })}
         >
-          <SquarePen size={18} color="#30B0C7" />
+          <SquarePen size={18} color={p.accent} />
         </Pressable>
       </View>
 
@@ -568,50 +572,51 @@ export function AdminDmSection({
         />
       ) : (
         <View style={{ gap: 10 }}>
-          {dms.threads.map((t) => (
-            <AdminListRow
-              key={t.userId}
-              title={t.name ?? `User ${t.userId}`}
-              subtitle={stripPreview(t.preview) || "No messages yet"}
-              meta={formatWhen(t.time)}
-              unreadCount={safeNumber(t.unread)}
-              tone="info"
-              leading={
-                <View
-                  style={{
-                    width: 46,
-                    height: 46,
-                    borderRadius: 15,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: "rgba(48,176,199,0.14)",
-                    borderWidth: 1,
-                    borderColor: "rgba(48,176,199,0.24)",
-                  }}
-                >
-                  <Text
+          {dms.threads.map((t, index) => {
+            const avatarBg = p[AVATAR_CARD_COLORS[index % AVATAR_CARD_COLORS.length]];
+            return (
+              <AdminListRow
+                key={t.userId}
+                title={t.name ?? `User ${t.userId}`}
+                subtitle={stripPreview(t.preview) || "No messages yet"}
+                meta={formatWhen(t.time)}
+                unreadCount={safeNumber(t.unread)}
+                tone="info"
+                leading={
+                  <View
                     style={{
-                      fontFamily: "Outfit-Bold",
-                      fontSize: 13,
-                      color: "#30B0C7",
+                      width: 46,
+                      height: 46,
+                      borderRadius: 15,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: avatarBg,
                     }}
                   >
-                    {getInitials(t.name) || "?"}
-                  </Text>
-                </View>
-              }
-              trailing={
-                t.premium ? (
-                  <AdminBadge tone="accent">Priority</AdminBadge>
-                ) : undefined
-              }
-              onPress={() => {
-                dms.setActiveDmUserId(t.userId);
-                dms.setActiveDmName(t.name ?? `User ${t.userId}`);
-                dms.loadMessages(t.userId, true);
-              }}
-            />
-          ))}
+                    <Text
+                      style={{
+                        fontFamily: "Outfit-Bold",
+                        fontSize: 13,
+                        color: p.accent,
+                      }}
+                    >
+                      {getInitials(t.name) || "?"}
+                    </Text>
+                  </View>
+                }
+                trailing={
+                  t.premium ? (
+                    <AdminBadge tone="accent">Priority</AdminBadge>
+                  ) : undefined
+                }
+                onPress={() => {
+                  dms.setActiveDmUserId(t.userId);
+                  dms.setActiveDmName(t.name ?? `User ${t.userId}`);
+                  dms.loadMessages(t.userId, true);
+                }}
+              />
+            );
+          })}
         </View>
       )}
 
@@ -622,18 +627,18 @@ export function AdminDmSection({
         presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
         onRequestClose={() => setNewDmOpen(false)}
       >
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, backgroundColor: p.pageBg }}>
           {/* Header */}
           <View style={{
             flexDirection: "row", alignItems: "center", justifyContent: "space-between",
             paddingHorizontal: 20, paddingTop: Platform.OS === "ios" ? 20 : 40, paddingBottom: 12,
-            borderBottomWidth: 1, borderBottomColor: "rgba(48,176,199,0.14)",
+            borderBottomWidth: 1, borderBottomColor: p.divider,
           }}>
-            <Text style={{ fontFamily: "Satoshi-Bold", fontSize: 20, color: colors.textPrimary }}>
+            <Text style={{ fontFamily: "Satoshi-Bold", fontSize: 20, color: p.textPrimary }}>
               New Message
             </Text>
             <Pressable onPress={() => setNewDmOpen(false)} hitSlop={10}>
-              <Text style={{ fontFamily: "Outfit-Medium", fontSize: 15, color: "#30B0C7" }}>Cancel</Text>
+              <Text style={{ fontFamily: "Outfit-Medium", fontSize: 15, color: p.accent }}>Cancel</Text>
             </Pressable>
           </View>
 
@@ -642,24 +647,24 @@ export function AdminDmSection({
             flexDirection: "row", alignItems: "center", gap: 8,
             margin: 16, paddingHorizontal: 12, height: 42,
             borderRadius: 12, borderWidth: 1,
-            backgroundColor: "rgba(48,176,199,0.06)",
-            borderColor: "rgba(48,176,199,0.18)",
+            backgroundColor: p.inputBg,
+            borderColor: p.inputBorder,
           }}>
-            <Search size={16} color="#30B0C7" />
+            <Search size={16} color={p.accent} />
             <TextInput
               value={userSearch}
               onChangeText={setUserSearch}
               placeholder="Search by name..."
-              placeholderTextColor={colors.textDim}
+              placeholderTextColor={p.textMuted}
               autoFocus
-              style={{ flex: 1, fontSize: 15, fontFamily: "Outfit-Regular", color: colors.textPrimary, padding: 0 }}
+              style={{ flex: 1, fontSize: 15, fontFamily: "Outfit-Regular", color: p.textPrimary, padding: 0 }}
             />
           </View>
 
           {/* List */}
           {userSearchLoading ? (
             <View style={{ paddingTop: 32, alignItems: "center" }}>
-              <ActivityIndicator color="#30B0C7" />
+              <ActivityIndicator color={p.accent} />
             </View>
           ) : (
             <FlashList
@@ -670,7 +675,7 @@ export function AdminDmSection({
               ListEmptyComponent={
                 userSearch.trim() ? (
                   <View style={{ paddingTop: 40, alignItems: "center" }}>
-                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: colors.textSecondary }}>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary }}>
                       No users found
                     </Text>
                   </View>
@@ -697,7 +702,7 @@ export function AdminDmSection({
         }}
       >
         <BottomSheetModalProvider>
-        <View className="flex-1 bg-app" style={{ backgroundColor: colors.background }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
           {currentThread ? (
             <>
               <ThreadHeader
@@ -756,7 +761,7 @@ export function AdminDmSection({
               />
             </>
           ) : (
-            <View className="flex-1 items-center justify-center">
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
               <ActivityIndicator size="large" color={colors.accent} />
             </View>
           )}
@@ -789,15 +794,15 @@ export function AdminDmSection({
             setDraft((prev) => prev + emoji);
           }}
         />
-	        <GifPickerModal
-	          open={gifPickerOpen}
-	          onClose={() => setGifPickerOpen(false)}
-	          token={token}
-	          onSelectGif={(url: string) => {
-	            setDraft((prev) => prev + ` ${url}`);
-	            setGifPickerOpen(false);
-	          }}
-	        />
+        <GifPickerModal
+          open={gifPickerOpen}
+          onClose={() => setGifPickerOpen(false)}
+          token={token}
+          onSelectGif={(url: string) => {
+            setDraft((prev) => prev + ` ${url}`);
+            setGifPickerOpen(false);
+          }}
+        />
         <MessageContextMenu
           message={messageActionsTarget}
           selfUserId={myUserId ?? 0}
@@ -832,7 +837,7 @@ export function AdminDmSection({
         />
         </View>
         </BottomSheetModalProvider>
-	      </Modal>
+      </Modal>
     </View>
   );
 }

@@ -216,6 +216,7 @@ export function LeaderboardCommentSheet({
               style={{ maxHeight: 380 }}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}
+              keyboardShouldPersistTaps="handled"
             >
               {comments.length === 0 ? (
                 <View style={{ paddingVertical: 32, alignItems: "center" }}>

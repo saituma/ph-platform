@@ -52,16 +52,19 @@ describe("chat controller", () => {
 
     await sendGroupChatMessage(req, res);
 
-    expect(createGroupMessage).toHaveBeenCalledWith({
-      groupId: 2,
-      senderId: 1,
-      content: "Hello",
-      contentType: "text",
-      mediaUrl: undefined,
-      clientId: null,
-      replyToMessageId: undefined,
-      replyPreview: undefined,
-    });
+    expect(createGroupMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        groupId: 2,
+        senderId: 1,
+        content: "Hello",
+        contentType: "text",
+        mediaUrl: undefined,
+        clientId: null,
+        replyToMessageId: undefined,
+        replyPreview: undefined,
+        trace: expect.objectContaining({ traceId: expect.any(String) }),
+      }),
+    );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ message: { id: 1 } });
   });

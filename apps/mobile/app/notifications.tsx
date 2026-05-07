@@ -1,12 +1,11 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, Switch, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
@@ -19,6 +18,18 @@ import {
   getNotificationTitle,
   inferNotificationCategory,
 } from "@/lib/notificationPresentation";
+import {
+  Bell,
+  Mail,
+  MessageSquare,
+  Calendar,
+  TrendingUp,
+  AlertTriangle,
+  Megaphone,
+  Info,
+  Check,
+} from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 
 const GROUP_WINDOW_MS = 2 * 60 * 60 * 1000;
 
@@ -49,9 +60,24 @@ type NotificationSection = {
   groups: NotificationGroup[];
 };
 
+const CATEGORY_ICON: Record<string, LucideIcon> = {
+  message: MessageSquare,
+  schedule: Calendar,
+  progress: TrendingUp,
+  account: Info,
+  system: AlertTriangle,
+  announcement: Megaphone,
+};
+
+const TOGGLE_ICON: Record<string, LucideIcon> = {
+  notifications: Bell,
+  mail: Mail,
+  "chatbubble-ellipses": MessageSquare,
+};
+
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { isDark, colors } = useAppTheme();
+  const p = useAdminPastel();
   const { token } = useAppSelector((state) => state.user);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(false);
@@ -157,7 +183,7 @@ export default function NotificationsScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <MoreStackHeader
         title="Notifications"
         subtitle="Stay in the loop with messages, schedule changes, and account updates."
@@ -174,15 +200,15 @@ export default function NotificationsScreen() {
           paddingBottom: 40,
         }}
       >
-        <View className="mb-8">
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center gap-3">
-              <View className="h-6 w-1.5 rounded-full bg-accent" />
-              <Text className="text-3xl font-clash text-app">Recent Activity</Text>
+        <View style={{ marginBottom: 32 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: p.accent }} />
+              <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary }}>Recent Activity</Text>
             </View>
             {unreadTotal > 0 ? (
-              <View className="px-3 py-1 rounded-full bg-accent/10 border border-accent/30">
-                <Text className="text-xs font-outfit-semibold text-app">
+              <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 100, backgroundColor: p.accentSoft }}>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: p.accent }}>
                   {unreadTotal} unread
                 </Text>
               </View>
@@ -192,39 +218,40 @@ export default function NotificationsScreen() {
           {loadingNotifications ? (
             <SkeletonNotificationsScreen />
           ) : notifications.length === 0 ? (
-            <View className="bg-card rounded-3xl border border-border p-6">
-              <Text className="text-base font-outfit text-secondary">
+            <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, padding: 24 }}>
+              <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                 No notifications yet.
               </Text>
-              <Text className="text-sm font-outfit text-secondary mt-2">
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 8 }}>
                 We will surface important updates here the moment they happen.
               </Text>
             </View>
           ) : (
-            <View className="gap-6">
+            <View style={{ gap: 24 }}>
               {sections.map((section) => (
-                <View key={section.key} className="gap-3">
-                  <Text className="text-xs font-outfit-semibold text-secondary uppercase tracking-widest">
+                <View key={section.key} style={{ gap: 12 }}>
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: p.textSecondary, textTransform: "uppercase", letterSpacing: 1.5 }}>
                     {section.title}
                   </Text>
                   {section.groups.map((group, index) => {
-                    const meta = getNotificationMeta(group.category);
                     const accent =
                       group.category === "schedule"
-                        ? colors.warning
+                        ? p.warning
                         : group.category === "account"
-                        ? colors.tint
+                        ? p.info
                         : group.category === "progress"
-                        ? colors.success
+                        ? p.success
                         : group.category === "system"
-                        ? colors.warning
-                        : colors.accent;
+                        ? p.warning
+                        : p.accent;
                     const accentSoft =
                       group.category === "schedule"
-                        ? colors.warningSoft
+                        ? p.warningSoft
                         : group.category === "progress"
-                        ? colors.successSoft
-                        : colors.accentLight;
+                        ? p.successSoft
+                        : p.accentSoft;
+
+                    const IconComp = CATEGORY_ICON[group.category] || Bell;
 
                     return (
                       <Animated.View
@@ -248,19 +275,12 @@ export default function NotificationsScreen() {
                         >
                           <View
                             style={{
-                              backgroundColor: colors.card,
+                              backgroundColor: p.cardWhite,
                               borderRadius: 22,
-                              borderWidth: 1,
-                              borderColor: group.unreadCount > 0 ? accent : colors.border,
                               padding: 16,
-                              shadowColor: "#000",
-                              shadowOpacity: isDark ? 0.25 : 0.08,
-                              shadowRadius: 14,
-                              shadowOffset: { width: 0, height: 6 },
-                              elevation: isDark ? 6 : 4,
                             }}
                           >
-                            <View className="flex-row items-center">
+                            <View style={{ flexDirection: "row", alignItems: "center" }}>
                               <View
                                 style={{
                                   width: 44,
@@ -272,29 +292,28 @@ export default function NotificationsScreen() {
                                   marginRight: 14,
                                 }}
                               >
-                                <Ionicons name={meta.icon} size={20} color={accent} />
+                                <IconComp size={20} color={accent} />
                               </View>
                               <View style={{ flex: 1 }}>
-                                <View className="flex-row items-center gap-2">
-                                  <Text className="text-base font-outfit-semibold text-app">
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                  <Text style={{ fontSize: 15, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
                                     {group.title}
                                   </Text>
                                   {group.count > 1 ? (
-                                    <View className="px-2 py-0.5 rounded-full bg-accent/10 border border-accent/30">
-                                      <Text className="text-[11px] font-outfit-semibold text-app">
+                                    <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 100, backgroundColor: p.accentSoft }}>
+                                      <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.accent }}>
                                         {group.count}
                                       </Text>
                                     </View>
                                   ) : null}
                                 </View>
                                 <Text
-                                  className="text-sm font-outfit text-secondary"
                                   numberOfLines={2}
-                                  style={{ marginTop: 4 }}
+                                  style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 4 }}
                                 >
                                   {group.message}
                                 </Text>
-                                <View className="flex-row items-center mt-3">
+                                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 12 }}>
                                   {group.unreadCount > 0 ? (
                                     <View
                                       style={{
@@ -306,12 +325,12 @@ export default function NotificationsScreen() {
                                       }}
                                     />
                                   ) : null}
-                                  <Text className="text-xs font-outfit text-secondary">
+                                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted }}>
                                     {formatRelativeTime(group.latestAt)}
                                   </Text>
                                   {group.unreadCount > 0 ? (
-                                    <Text className="text-xs font-outfit text-secondary" style={{ marginLeft: 6 }}>
-                                      • {group.unreadCount} unread
+                                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted, marginLeft: 6 }}>
+                                      · {group.unreadCount} unread
                                     </Text>
                                   ) : null}
                                 </View>
@@ -328,50 +347,44 @@ export default function NotificationsScreen() {
           )}
         </View>
 
-        <View className="mb-6">
-          <View className="flex-row items-center gap-3 mb-3">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text className="text-3xl font-clash text-app">Alert Preferences</Text>
+        <View style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: p.accent }} />
+            <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary }}>Alert Preferences</Text>
           </View>
-          <Text className="text-base font-outfit text-secondary leading-relaxed">
+          <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 22 }}>
             Choose the channels and cadence that feel right for you.
           </Text>
         </View>
 
         <View
-          className="bg-input rounded-3xl overflow-hidden border border-app shadow-sm mb-8"
-          style={
-            isDark
-              ? undefined
-              : {
-                  shadowColor: "#0F172A",
-                  shadowOpacity: 0.08,
-                  shadowRadius: 12,
-                  shadowOffset: { width: 0, height: 6 },
-                  elevation: 6,
-                }
-          }
+          style={{
+            backgroundColor: p.cardWhite,
+            borderRadius: 24,
+            overflow: "hidden",
+            marginBottom: 32,
+          }}
         >
           <NotificationToggle
             label="Push Notifications"
             description="Receive alerts on your device for new messages and events."
             value={pushEnabled}
             onToggle={setPushEnabled}
-            icon="notifications"
+            iconKey="notifications"
           />
           <NotificationToggle
             label="Email Updates"
             description="Get weekly digests and important account alerts via email."
             value={emailEnabled}
             onToggle={setEmailEnabled}
-            icon="mail"
+            iconKey="mail"
           />
           <NotificationToggle
             label="SMS Alerts"
             description="Receive urgent schedule changes via text message."
             value={smsEnabled}
             onToggle={setSmsEnabled}
-            icon="chatbubble-ellipses"
+            iconKey="chatbubble-ellipses"
             isLast
           />
         </View>
@@ -380,8 +393,8 @@ export default function NotificationsScreen() {
           onPress={() => router.navigate("/(tabs)/more")}
           style={({ pressed }) => ({
             height: 56,
-            borderRadius: 20,
-            backgroundColor: colors.accent,
+            borderRadius: 100,
+            backgroundColor: p.accent,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
@@ -390,8 +403,8 @@ export default function NotificationsScreen() {
             transform: [{ scale: pressed ? 0.98 : 1 }],
           })}
         >
-          <Ionicons name="checkmark" size={20} color="#fff" />
-          <Text style={{ color: "#fff", fontFamily: "ClashDisplay-Bold", fontSize: 16 }}>
+          <Check size={20} color={p.buttonPrimaryText} />
+          <Text style={{ color: p.buttonPrimaryText, fontFamily: "Outfit-Bold", fontSize: 16 }}>
             Save Preferences
           </Text>
         </Pressable>
@@ -405,33 +418,34 @@ function NotificationToggle({
   description,
   value,
   onToggle,
-  icon,
+  iconKey,
   isLast = false,
 }: {
   label: string;
   description: string;
   value: boolean;
   onToggle: (v: boolean) => void;
-  icon: keyof typeof Ionicons.glyphMap;
+  iconKey: string;
   isLast?: boolean;
 }) {
-  const { colors } = useAppTheme();
+  const p = useAdminPastel();
+  const IconComp = TOGGLE_ICON[iconKey] || Bell;
   return (
-    <View className={`flex-row items-center p-5 ${!isLast ? "border-b border-app" : ""}`}>
-      <View className="flex-1 mr-4">
-        <View className="flex-row items-center mb-1 gap-2">
-          <View className="h-6 w-6 rounded-lg bg-secondary items-center justify-center">
-            <Ionicons name={icon} size={14} color={colors.accent} />
+    <View style={{ flexDirection: "row", alignItems: "center", padding: 20, borderBottomWidth: isLast ? 0 : 1, borderColor: p.divider }}>
+      <View style={{ flex: 1, marginRight: 16 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, gap: 8 }}>
+          <View style={{ height: 24, width: 24, borderRadius: 8, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+            <IconComp size={14} color={p.accent} />
           </View>
-          <Text className="text-lg font-bold font-clash text-app">{label}</Text>
+          <Text style={{ fontSize: 17, fontFamily: "Outfit-Bold", color: p.textPrimary }}>{label}</Text>
         </View>
-        <Text className="text-sm font-outfit text-secondary leading-relaxed">{description}</Text>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 20 }}>{description}</Text>
       </View>
       <Switch
         value={value}
         onValueChange={onToggle}
-        trackColor={{ false: colors.border, true: colors.accent }}
-        thumbColor={colors.background}
+        trackColor={{ false: p.divider, true: p.accent }}
+        thumbColor={p.cardWhite}
       />
     </View>
   );

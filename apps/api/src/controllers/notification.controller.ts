@@ -6,7 +6,7 @@ import { logger } from "../lib/logger";
 
 import { db } from "../db";
 import { notificationTable, userDeviceTokensTable, userTable } from "../db/schema";
-import { sendPushNotification } from "../services/push.service";
+import { createPushIntent } from "../services/outbox.service";
 import { parsePagination } from "../lib/pagination";
 
 export async function listNotifications(req: Request, res: Response) {
@@ -175,12 +175,12 @@ export async function testPushNotification(req: Request, res: Response) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  await sendPushNotification(
-    req.user.id,
-    "Test Notification",
-    "If you see this, push notifications are working correctly!",
-    { type: "system", test: true, url: "/notifications" },
-  );
+  await createPushIntent({
+    userId: req.user.id,
+    title: "Test Notification",
+    body: "If you see this, push notifications are working correctly!",
+    data: { type: "system", test: true, url: "/notifications" },
+  });
 
-  return res.status(200).json({ success: true, message: "Test notification sent" });
+  return res.status(202).json({ success: true, message: "Test notification queued" });
 }

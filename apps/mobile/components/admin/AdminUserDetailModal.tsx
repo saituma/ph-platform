@@ -1,14 +1,31 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { View, TextInput, Alert, ScrollView, Pressable } from "react-native";
+import {
+  View,
+  TextInput,
+  Alert,
+  ScrollView,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { AdminUser, UserOnboardingPayload } from "@/types/admin";
-import { SmallAction } from "./AdminShared";
 import { apiRequest } from "@/lib/api";
 import { AdaptiveSheet } from "@/components/native/AdaptiveSheet";
 import { showNativeActionMenu } from "@/components/native/NativeActionMenu";
+import type { LucideIcon } from "lucide-react-native";
+import {
+  X,
+  RefreshCw,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  KeyRound,
+  ChevronDown,
+  UserCircle,
+} from "lucide-react-native";
 
 interface Props {
   user: AdminUser | null;
@@ -31,10 +48,10 @@ export function AdminUserDetailModal({
   token,
   isBusy,
 }: Props) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const [tierDraft, setTierDraft] = useState("");
   const [passwordDraft, setPasswordDraft] = useState("");
-  
+
   const [athlete, setAthlete] = useState<any>(null);
   const [athleteLoading, setAthleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +69,10 @@ export function AdminUserDetailModal({
     setAthleteLoading(true);
     setError(null);
     try {
-      const res = await apiRequest<UserOnboardingPayload>(`/admin/users/${user.id}/onboarding`, { token, skipCache: true });
+      const res = await apiRequest<UserOnboardingPayload>(
+        `/admin/users/${user.id}/onboarding`,
+        { token, skipCache: true },
+      );
       setAthlete(res?.athlete ?? null);
     } catch (e) {
       setError("Failed to load athlete context.");
@@ -65,7 +85,11 @@ export function AdminUserDetailModal({
     if (!user?.id) return;
     Alert.alert("Delete user", `Delete ${user.email ?? "this user"}?`, [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => onDelete(user.id!).then(onClose) },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => onDelete(user.id!).then(onClose),
+      },
     ]);
   };
 
@@ -76,18 +100,16 @@ export function AdminUserDetailModal({
       await apiRequest(`/admin/users/${user.id}/reset-password`, {
         method: "POST",
         token,
-        body: { temporaryPassword: passwordDraft.trim() || undefined }
+        body: { temporaryPassword: passwordDraft.trim() || undefined },
       });
-      Alert.alert("Password Reset", "Temporary password has been emailed to the user.");
+      Alert.alert(
+        "Password Reset",
+        "Temporary password has been emailed to the user.",
+      );
       setPasswordDraft("");
     } catch (e: any) {
       setError(e.message || "Failed to reset password");
     }
-  };
-
-  const CardStyle = {
-    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
   };
 
   const tierOptions = useMemo(
@@ -117,133 +139,578 @@ export function AdminUserDetailModal({
       onClose={onClose}
       keyboardAvoiding={false}
     >
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <View className="flex-row justify-between items-center px-6 pt-8 pb-4 border-b" style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }}>
-          <View className="flex-1">
-            <Text className="text-2xl font-telma-bold text-app">{user?.name ?? "User"}</Text>
-            <Text className="text-xs font-outfit text-secondary">User ID {user?.id ?? "—"} • {user?.programTier ?? "No Tier"}</Text>
+      <View style={{ flex: 1, backgroundColor: p.pageBg }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            paddingHorizontal: 24,
+            paddingTop: 32,
+            paddingBottom: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: p.divider,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 22,
+                color: p.textPrimary,
+              }}
+            >
+              {user?.name ?? "User"}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 12,
+                color: p.textSecondary,
+                marginTop: 2,
+              }}
+            >
+              User ID {user?.id ?? "—"} •{" "}
+              {user?.programTier ?? "No Tier"}
+            </Text>
           </View>
-          <SmallAction label="Close" tone="neutral" onPress={onClose} />
+          <Pressable
+            onPress={onClose}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 100,
+              backgroundColor: p.inputBg,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <X size={18} color={p.textSecondary} />
+          </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Error banner */}
           {error && (
-            <View className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl mb-4">
-              <Text className="text-sm font-outfit text-red-500">{error}</Text>
+            <View
+              style={{
+                backgroundColor: p.dangerSoft,
+                borderWidth: 1,
+                borderColor: p.danger,
+                padding: 14,
+                borderRadius: 16,
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 13,
+                  color: p.danger,
+                }}
+              >
+                {error}
+              </Text>
             </View>
           )}
 
           {/* Account Card */}
-          <Text className="text-lg font-clash-semibold text-app mb-2">Account Context</Text>
-          <View className="rounded-[28px] border p-5 mb-6" style={CardStyle}>
-            <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Role</Text><Text className="text-sm font-clash-medium text-app">{user?.role ?? "—"}</Text></View>
-            <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Email</Text><Text className="text-sm font-outfit text-app">{user?.email ?? "—"}</Text></View>
-            <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Status</Text><Text className={`text-sm font-clash-medium ${user?.isBlocked ? "text-red-400" : "text-[#10B981]"}`}>{user?.isBlocked ? "Blocked" : "Active"}</Text></View>
-            <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Created At</Text><Text className="text-sm font-outfit text-app">{user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}</Text></View>
-            <View className="flex-row justify-between"><Text className="text-sm font-outfit text-secondary">Cognito</Text><Text className="text-xs font-outfit text-accent max-w-[60%]">{user?.cognitoSub ?? "—"}</Text></View>
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 16,
+              color: p.textPrimary,
+              marginBottom: 8,
+            }}
+          >
+            Account Context
+          </Text>
+          <View
+            style={{
+              backgroundColor: p.cardLavender,
+              borderRadius: 28,
+              padding: 20,
+              marginBottom: 24,
+            }}
+          >
+            <InfoRow label="Role" value={user?.role ?? "—"} p={p} />
+            <InfoRow label="Email" value={user?.email ?? "—"} p={p} />
+            <InfoRow
+              label="Status"
+              value={user?.isBlocked ? "Blocked" : "Active"}
+              p={p}
+              valueColor={user?.isBlocked ? p.danger : p.success}
+              badge
+              badgeBg={user?.isBlocked ? p.dangerSoft : p.successSoft}
+            />
+            <InfoRow
+              label="Created At"
+              value={
+                user?.createdAt
+                  ? new Date(user.createdAt).toLocaleDateString()
+                  : "—"
+              }
+              p={p}
+            />
+            <InfoRow
+              label="Cognito"
+              value={user?.cognitoSub ?? "—"}
+              p={p}
+              small
+            />
           </View>
 
           {/* Athlete Profile Card */}
-          <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-lg font-clash-semibold text-app">Athlete Data</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 16,
+                color: p.textPrimary,
+              }}
+            >
+              Athlete Data
+            </Text>
             {athlete?.profilePicture && (
-              <View className="h-10 w-10 rounded-full border border-accent overflow-hidden">
-                <View className="flex-1 bg-accent/20 items-center justify-center">
-                   <Text className="text-[10px] font-telma-bold text-accent">PHOTO</Text>
-                </View>
+              <View
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 100,
+                  backgroundColor: p.accentSoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <UserCircle size={20} color={p.accent} />
               </View>
             )}
           </View>
-          <View className="rounded-[28px] border p-5 mb-6" style={CardStyle}>
+          <View
+            style={{
+              backgroundColor: p.cardMint,
+              borderRadius: 28,
+              padding: 20,
+              marginBottom: 24,
+            }}
+          >
             {athleteLoading ? (
-              <View className="gap-3"><Skeleton width="100%" height={20} /><Skeleton width="100%" height={20} /><Skeleton width="100%" height={20} /></View>
+              <View style={{ gap: 12 }}>
+                <Skeleton width="100%" height={20} />
+                <Skeleton width="100%" height={20} />
+                <Skeleton width="100%" height={20} />
+              </View>
             ) : athlete ? (
               <>
-                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Athlete ID</Text><Text className="text-sm font-outfit text-app">{athlete.id ?? "—"}</Text></View>
-                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Birth Date</Text><Text className="text-sm font-outfit text-app">{athlete.birthDate ?? "—"}</Text></View>
-                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Team</Text><Text className="text-sm font-clash-medium text-app">{athlete.team ?? "None"}</Text></View>
-                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Training / Week</Text><Text className="text-sm font-outfit text-app">{athlete.trainingPerWeek ?? "—"} days</Text></View>
-                <View className="flex-row justify-between mb-3"><Text className="text-sm font-outfit text-secondary">Created At</Text><Text className="text-sm font-outfit text-app">{athlete.createdAt ? new Date(athlete.createdAt).toLocaleDateString() : "—"}</Text></View>
-                {!!athlete.injuries && athlete.injuries !== "None" && athlete.injuries !== "" && (
-                   <View className="mt-2 bg-red-500/10 rounded-xl p-3 border border-red-500/20">
-                     <Text className="text-[11px] font-outfit-bold text-red-500 uppercase tracking-widest mb-1">Reported Injuries</Text>
-                     <Text className="text-sm font-outfit text-app">{String(athlete.injuries)}</Text>
-                   </View>
-                )}
+                <InfoRow
+                  label="Athlete ID"
+                  value={String(athlete.id ?? "—")}
+                  p={p}
+                />
+                <InfoRow
+                  label="Birth Date"
+                  value={athlete.birthDate ?? "—"}
+                  p={p}
+                />
+                <InfoRow
+                  label="Team"
+                  value={athlete.team ?? "None"}
+                  p={p}
+                  bold
+                />
+                <InfoRow
+                  label="Training / Week"
+                  value={`${athlete.trainingPerWeek ?? "—"} days`}
+                  p={p}
+                />
+                <InfoRow
+                  label="Created At"
+                  value={
+                    athlete.createdAt
+                      ? new Date(athlete.createdAt).toLocaleDateString()
+                      : "—"
+                  }
+                  p={p}
+                />
+                {!!athlete.injuries &&
+                  athlete.injuries !== "None" &&
+                  athlete.injuries !== "" && (
+                    <View
+                      style={{
+                        marginTop: 10,
+                        backgroundColor: p.dangerSoft,
+                        borderRadius: 16,
+                        padding: 12,
+                        borderWidth: 1,
+                        borderColor: p.danger,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "Outfit-Bold",
+                          fontSize: 10,
+                          color: p.danger,
+                          textTransform: "uppercase",
+                          letterSpacing: 1.2,
+                          marginBottom: 4,
+                        }}
+                      >
+                        Reported Injuries
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: "Outfit-Regular",
+                          fontSize: 13,
+                          color: p.textPrimary,
+                        }}
+                      >
+                        {String(athlete.injuries)}
+                      </Text>
+                    </View>
+                  )}
               </>
             ) : (
-              <Text className="text-sm font-outfit text-secondary italic">No dedicated athlete profile associated with this account.</Text>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 13,
+                  color: p.textSecondary,
+                  fontStyle: "italic",
+                }}
+              >
+                No dedicated athlete profile associated with this account.
+              </Text>
             )}
           </View>
 
           {/* Password Settings */}
-          <Text className="text-lg font-clash-semibold text-app mb-2">Password Manager</Text>
-          <View className="rounded-[28px] border p-5 mb-6" style={CardStyle}>
-            <Text className="text-[12px] font-outfit text-secondary leading-5 mb-3">
-              Resetting generates a temporary password and invalidates existing user sessions automatically. You may assign a specific password or leave blank for a secure random hash.
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 16,
+              color: p.textPrimary,
+              marginBottom: 8,
+            }}
+          >
+            Password Manager
+          </Text>
+          <View
+            style={{
+              backgroundColor: p.cardPeach,
+              borderRadius: 28,
+              padding: 20,
+              marginBottom: 24,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 12,
+                color: p.textSecondary,
+                lineHeight: 18,
+                marginBottom: 12,
+              }}
+            >
+              Resetting generates a temporary password and invalidates existing
+              user sessions automatically. You may assign a specific password or
+              leave blank for a secure random hash.
             </Text>
-            <View className="flex-row gap-2 items-center">
-               <TextInput
-                 value={passwordDraft}
-                 onChangeText={setPasswordDraft}
-                 placeholder="Auto-generate secure hash"
-                 placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"}
-                 className="flex-1 rounded-2xl border px-4 py-3 text-app font-outfit bg-background"
-                 style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }}
-                 autoCapitalize="none"
-                 secureTextEntry
-               />
-               <SmallAction label="Reset" tone="danger" onPress={handleResetPassword} disabled={isBusy} />
+            <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+              <TextInput
+                value={passwordDraft}
+                onChangeText={setPasswordDraft}
+                placeholder="Auto-generate secure hash"
+                placeholderTextColor={p.textMuted}
+                style={{
+                  flex: 1,
+                  borderRadius: 16,
+                  backgroundColor: p.inputBg,
+                  borderWidth: 1,
+                  borderColor: p.inputBorder,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 14,
+                  color: p.textPrimary,
+                }}
+                autoCapitalize="none"
+                secureTextEntry
+              />
+              <PillButton
+                label="Reset"
+                icon={KeyRound}
+                color={p.danger}
+                bg={p.dangerSoft}
+                onPress={handleResetPassword}
+                disabled={isBusy}
+              />
             </View>
           </View>
 
           {/* Admin Controls */}
-          <Text className="text-lg font-clash-semibold text-app mb-2">Admin Modifiers</Text>
-          <View className="rounded-[28px] border p-5 bg-card" style={CardStyle}>
-             <Text className="text-[11px] font-outfit-semibold text-secondary mb-2 uppercase tracking-widest">Swap Program Tier</Text>
-             <View className="gap-2 mb-6">
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={openTierPicker}
-                  className="rounded-2xl border border-app/10 bg-background px-4 py-3 active:opacity-90"
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 16,
+              color: p.textPrimary,
+              marginBottom: 8,
+            }}
+          >
+            Admin Modifiers
+          </Text>
+          <View
+            style={{
+              backgroundColor: p.cardWhite,
+              borderRadius: 28,
+              padding: 20,
+            }}
+          >
+            {/* Tier selector */}
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 10,
+                color: p.textSecondary,
+                textTransform: "uppercase",
+                letterSpacing: 1.5,
+                marginBottom: 8,
+              }}
+            >
+              Swap Program Tier
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openTierPicker}
+              style={{
+                borderRadius: 16,
+                backgroundColor: p.inputBg,
+                borderWidth: 1,
+                borderColor: p.inputBorder,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                marginBottom: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <View>
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Regular",
+                    fontSize: 11,
+                    color: p.textMuted,
+                    marginBottom: 2,
+                  }}
                 >
-                  <Text className="text-[12px] font-outfit text-secondary mb-1">Selected tier</Text>
-                  <Text className="text-[14px] font-clash font-bold text-app">{tierLabel}</Text>
-                </Pressable>
-                <View className="flex-row gap-2">
-                  <SmallAction
-                    label="Change tier"
-                    tone="success"
-                    onPress={() =>
-                      user?.athleteId && user?.id
-                        ? onSaveTier(user.athleteId, user.id, normalizedTier)
-                        : Promise.resolve()
-                    }
-                    disabled={isBusy || !user?.athleteId || !user?.id}
-                  />
-                  <SmallAction
-                    label="Refresh"
-                    tone="neutral"
-                    onPress={loadAthleteData}
-                    disabled={isBusy || athleteLoading}
-                  />
-                </View>
-             </View>
+                  Selected tier
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Bold",
+                    fontSize: 14,
+                    color: p.textPrimary,
+                  }}
+                >
+                  {tierLabel}
+                </Text>
+              </View>
+              <ChevronDown size={16} color={p.textMuted} />
+            </Pressable>
+            <View
+              style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}
+            >
+              <PillButton
+                label="Change tier"
+                color={p.cardWhite}
+                bg={p.accent}
+                onPress={() =>
+                  user?.athleteId && user?.id
+                    ? onSaveTier(user.athleteId, user.id, normalizedTier)
+                    : Promise.resolve()
+                }
+                disabled={isBusy || !user?.athleteId || !user?.id}
+              />
+              <PillButton
+                label="Refresh"
+                icon={RefreshCw}
+                color={p.textSecondary}
+                bg={p.inputBg}
+                onPress={loadAthleteData}
+                disabled={isBusy || athleteLoading}
+              />
+            </View>
 
-             <Text className="text-[11px] font-outfit-semibold text-secondary mb-2 uppercase tracking-widest">Network Rules</Text>
-             <View className="flex-row flex-wrap gap-2">
-                <SmallAction 
-                  label={user?.isBlocked ? "Restore Access" : "Block User"} 
-                  tone={user?.isBlocked ? "success" : "danger"} 
-                  onPress={() => user?.id && onToggleBlock(user.id, !user.isBlocked)} 
-                  disabled={isBusy} 
-                />
-                <SmallAction label="Purge Account" tone="danger" onPress={handleDelete} disabled={isBusy} />
-             </View>
+            {/* Network Rules */}
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 10,
+                color: p.textSecondary,
+                textTransform: "uppercase",
+                letterSpacing: 1.5,
+                marginBottom: 8,
+              }}
+            >
+              Network Rules
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              <PillButton
+                label={user?.isBlocked ? "Restore Access" : "Block User"}
+                icon={user?.isBlocked ? ShieldCheck : ShieldOff}
+                color={user?.isBlocked ? p.cardWhite : p.danger}
+                bg={user?.isBlocked ? p.success : p.dangerSoft}
+                onPress={() =>
+                  user?.id && onToggleBlock(user.id, !user.isBlocked)
+                }
+                disabled={isBusy}
+              />
+              <PillButton
+                label="Purge Account"
+                icon={Trash2}
+                color={p.danger}
+                bg={p.dangerSoft}
+                onPress={handleDelete}
+                disabled={isBusy}
+              />
+            </View>
           </View>
-
         </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </AdaptiveSheet>
+  );
+}
+
+/* ── Sub-components ─────────────────────────────── */
+
+function InfoRow({
+  label,
+  value,
+  p,
+  valueColor,
+  bold,
+  small,
+  badge,
+  badgeBg,
+}: {
+  label: string;
+  value: string;
+  p: ReturnType<typeof useAdminPastel>;
+  valueColor?: string;
+  bold?: boolean;
+  small?: boolean;
+  badge?: boolean;
+  badgeBg?: string;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 10,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: "Outfit-Regular",
+          fontSize: 13,
+          color: p.textSecondary,
+        }}
+      >
+        {label}
+      </Text>
+      {badge ? (
+        <View
+          style={{
+            backgroundColor: badgeBg,
+            paddingHorizontal: 10,
+            paddingVertical: 3,
+            borderRadius: 100,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 12,
+              color: valueColor ?? p.textPrimary,
+            }}
+          >
+            {value}
+          </Text>
+        </View>
+      ) : (
+        <Text
+          style={{
+            fontFamily: bold ? "Outfit-Bold" : "Outfit-Regular",
+            fontSize: small ? 11 : 13,
+            color: valueColor ?? p.textPrimary,
+            maxWidth: "60%",
+            textAlign: "right",
+          }}
+          numberOfLines={1}
+        >
+          {value}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function PillButton({
+  label,
+  icon: Icon,
+  color,
+  bg,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  icon?: LucideIcon;
+  color: string;
+  bg: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: bg,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 100,
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {Icon && <Icon size={14} color={color} />}
+      <Text
+        style={{
+          fontFamily: "Outfit-Bold",
+          fontSize: 12,
+          color,
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }

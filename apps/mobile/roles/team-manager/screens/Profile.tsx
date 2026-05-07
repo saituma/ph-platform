@@ -12,17 +12,32 @@ import Animated, {
 } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import {
+  Camera,
+  ChevronRight,
+  Sun,
+  Moon,
+  User,
+  Lock,
+  Shield,
+  Info,
+  HelpCircle,
+  MessageSquare,
+  FileText,
+  ShieldCheck,
+  LogOut,
+} from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout } from "@/store/slices/userSlice";
 import { useProfileSettings } from "@/components/more/profile/hooks/useProfileSettings";
-import { fonts } from "@/constants/theme";
 
 export default function TeamManagerProfileScreen() {
-  const { colors, isDark, toggleColorScheme } = useAppTheme();
+  const p = useAdminPastel();
+  const { isDark, toggleColorScheme } = useAppTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const insets = useAppSafeAreaInsets();
@@ -64,19 +79,13 @@ export default function TeamManagerProfileScreen() {
 
   if (appRole !== "team_manager") return null;
 
-  const heroBg = isDark ? "hsl(148,18%,6%)" : "hsl(148,22%,96%)";
-  const cardBg = colors.surfaceHigh;
-  const cardBorder = colors.borderMid;
-  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
-  const divider = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
-
   const displayName = profile.name || "Team Manager";
   const displayEmail = profile.email || (isAuthenticated ? "Email unavailable" : "Not signed in");
   const avatarInitial = (profile.name?.charAt(0) ?? "T").toUpperCase();
   const avatarUri = pendingAvatarUri ?? profile.avatar ?? null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: heroBg, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
 
       {/* Header */}
       <View
@@ -93,15 +102,15 @@ export default function TeamManagerProfileScreen() {
             style={{
               height: 22,
               width: 5,
-              borderRadius: 99,
-              backgroundColor: colors.accent,
+              borderRadius: 100,
+              backgroundColor: p.accent,
             }}
           />
           <Text
             style={{
               fontSize: 32,
-              fontFamily: "TelmaBold",
-              color: textPrimary,
+              fontFamily: "Outfit-Bold",
+              color: p.textPrimary,
               letterSpacing: -0.3,
             }}
           >
@@ -135,7 +144,7 @@ export default function TeamManagerProfileScreen() {
                     borderRadius: 26,
                     overflow: "hidden",
                     borderWidth: 2,
-                    borderColor: isDark ? `${colors.accent}40` : `${colors.accent}30`,
+                    borderColor: p.accentSoft,
                   }}
                 >
                   {avatarUri ? (
@@ -150,14 +159,14 @@ export default function TeamManagerProfileScreen() {
                         flex: 1,
                         alignItems: "center",
                         justifyContent: "center",
-                        backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}14`,
+                        backgroundColor: p.accentSoft,
                       }}
                     >
                       <Text
                         style={{
                           fontSize: 32,
-                          fontFamily: "ClashDisplay-Bold",
-                          color: colors.accent,
+                          fontFamily: "Outfit-Bold",
+                          color: p.accent,
                         }}
                       >
                         {avatarInitial}
@@ -174,14 +183,14 @@ export default function TeamManagerProfileScreen() {
                     width: 26,
                     height: 26,
                     borderRadius: 8,
-                    backgroundColor: colors.accent,
+                    backgroundColor: p.accent,
                     alignItems: "center",
                     justifyContent: "center",
                     borderWidth: 2,
-                    borderColor: heroBg,
+                    borderColor: p.pageBg,
                   }}
                 >
-                  <Ionicons name="camera" size={13} color="#fff" />
+                  <Camera size={13} color={p.buttonPrimaryText} />
                 </View>
               </Pressable>
 
@@ -193,12 +202,12 @@ export default function TeamManagerProfileScreen() {
                     style={({ pressed }) => ({
                       paddingHorizontal: 16,
                       paddingVertical: 7,
-                      borderRadius: 12,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                      borderRadius: 100,
+                      backgroundColor: p.accentSoft,
                       opacity: pressed ? 0.7 : 1,
                     })}
                   >
-                    <Text style={{ fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.textSecondary }}>
+                    <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                       Cancel
                     </Text>
                   </Pressable>
@@ -208,13 +217,13 @@ export default function TeamManagerProfileScreen() {
                     style={({ pressed }) => ({
                       paddingHorizontal: 16,
                       paddingVertical: 7,
-                      borderRadius: 12,
-                      backgroundColor: colors.accent,
+                      borderRadius: 100,
+                      backgroundColor: p.accent,
                       opacity: pressed || isUploadingAvatar ? 0.7 : 1,
                     })}
                   >
-                    <Text style={{ fontSize: 13, fontFamily: fonts.bodyBold, color: "#fff" }}>
-                      {isUploadingAvatar ? "Saving…" : "Use Photo"}
+                    <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
+                      {isUploadingAvatar ? "Saving..." : "Use Photo"}
                     </Text>
                   </Pressable>
                 </View>
@@ -225,8 +234,8 @@ export default function TeamManagerProfileScreen() {
                   numberOfLines={1}
                   style={{
                     fontSize: 24,
-                    fontFamily: "ClashDisplay-Bold",
-                    color: textPrimary,
+                    fontFamily: "Outfit-Bold",
+                    color: p.textPrimary,
                     letterSpacing: -0.3,
                   }}
                 >
@@ -234,19 +243,19 @@ export default function TeamManagerProfileScreen() {
                 </Text>
                 <View
                   style={{
-                    borderRadius: 12,
+                    borderRadius: 100,
                     paddingHorizontal: 10,
                     paddingVertical: 3,
-                    backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
+                    backgroundColor: p.accentSoft,
                   }}
                 >
                   <Text
                     style={{
                       fontSize: 10,
-                      fontFamily: fonts.bodyBold,
+                      fontFamily: "Outfit-Bold",
                       textTransform: "uppercase",
                       letterSpacing: 1.2,
-                      color: colors.accent,
+                      color: p.accent,
                     }}
                   >
                     Team Manager
@@ -256,8 +265,8 @@ export default function TeamManagerProfileScreen() {
                   numberOfLines={1}
                   style={{
                     fontSize: 13,
-                    fontFamily: fonts.bodyMedium,
-                    color: colors.textSecondary,
+                    fontFamily: "Outfit-Regular",
+                    color: p.textSecondary,
                   }}
                 >
                   {displayEmail}
@@ -269,7 +278,7 @@ export default function TeamManagerProfileScreen() {
           {/* ── Floating Content Card ─────────────────────── */}
           <View
             style={{
-              backgroundColor: cardBg,
+              backgroundColor: p.cardWhite,
               borderTopLeftRadius: 28,
               borderTopRightRadius: 28,
               marginTop: -28,
@@ -282,8 +291,8 @@ export default function TeamManagerProfileScreen() {
                 style={{
                   width: 36,
                   height: 4,
-                  borderRadius: 99,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)",
+                  borderRadius: 100,
+                  backgroundColor: p.divider,
                 }}
               />
             </View>
@@ -293,8 +302,8 @@ export default function TeamManagerProfileScreen() {
               <View
                 style={{
                   flexDirection: "row",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
-                  borderRadius: 99,
+                  backgroundColor: p.inputBg,
+                  borderRadius: 100,
                   padding: 4,
                 }}
               >
@@ -307,19 +316,12 @@ export default function TeamManagerProfileScreen() {
                     justifyContent: "center",
                     gap: 7,
                     paddingVertical: 10,
-                    borderRadius: 99,
-                    backgroundColor: !isDark ? (colors.surfaceHigh || "#fff") : "transparent",
-                    ...((!isDark) ? {
-                      shadowColor: "#000",
-                      shadowOpacity: 0.08,
-                      shadowRadius: 6,
-                      shadowOffset: { width: 0, height: 2 },
-                      elevation: 2,
-                    } : {}),
+                    borderRadius: 100,
+                    backgroundColor: !isDark ? p.cardWhite : "transparent",
                   }}
                 >
-                  <Feather name="sun" size={16} color={!isDark ? colors.accent : (isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)")} />
-                  <Text style={{ fontSize: 13, fontFamily: fonts.bodyBold, color: !isDark ? textPrimary : "rgba(255,255,255,0.35)" }}>
+                  <Sun size={16} color={!isDark ? p.accent : p.textMuted} />
+                  <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: !isDark ? p.textPrimary : p.textMuted }}>
                     Light
                   </Text>
                 </Pressable>
@@ -332,19 +334,12 @@ export default function TeamManagerProfileScreen() {
                     justifyContent: "center",
                     gap: 7,
                     paddingVertical: 10,
-                    borderRadius: 99,
-                    backgroundColor: isDark ? (colors.surfaceHigh || "#1a1a1a") : "transparent",
-                    ...(isDark ? {
-                      shadowColor: "#000",
-                      shadowOpacity: 0.2,
-                      shadowRadius: 6,
-                      shadowOffset: { width: 0, height: 2 },
-                      elevation: 2,
-                    } : {}),
+                    borderRadius: 100,
+                    backgroundColor: isDark ? p.cardWhite : "transparent",
                   }}
                 >
-                  <Feather name="moon" size={16} color={isDark ? colors.accent : "rgba(0,0,0,0.35)"} />
-                  <Text style={{ fontSize: 13, fontFamily: fonts.bodyBold, color: isDark ? textPrimary : "rgba(0,0,0,0.35)" }}>
+                  <Moon size={16} color={isDark ? p.accent : p.textMuted} />
+                  <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: isDark ? p.textPrimary : p.textMuted }}>
                     Dark
                   </Text>
                 </Pressable>
@@ -352,122 +347,98 @@ export default function TeamManagerProfileScreen() {
             </View>
 
             {/* ── Settings ──────────────────────────────────── */}
-            <SectionLabel label="Settings" isDark={isDark} />
+            <SectionLabel label="Settings" />
             <View
               style={{
                 marginHorizontal: 16,
-                backgroundColor: isDark ? colors.surfaceHigher : "#fff",
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: cardBorder,
+                backgroundColor: p.cardWhite,
+                borderRadius: 22,
                 overflow: "hidden",
                 marginBottom: 8,
               }}
             >
               <ProfileRow
-                icon="person-outline"
+                icon={User}
                 label="Edit Profile"
                 subtitle="Name, photo, email"
-                accent={colors.accent}
-                isDark={isDark}
-                divider={divider}
+                accent={p.accent}
                 onPress={() => router.push("/profile-settings")}
               />
               <ProfileRow
-                icon="camera-outline"
+                icon={Camera}
                 label="Change Photo"
                 subtitle="Update your profile picture"
-                accent={colors.cyan}
-                isDark={isDark}
-                divider={divider}
+                accent={p.info}
                 isLast
                 onPress={handlePickAvatar}
               />
             </View>
 
             {/* ── Account ───────────────────────────────────── */}
-            <SectionLabel label="Account" isDark={isDark} />
+            <SectionLabel label="Account" />
             <View
               style={{
                 marginHorizontal: 16,
-                backgroundColor: isDark ? colors.surfaceHigher : "#fff",
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: cardBorder,
+                backgroundColor: p.cardWhite,
+                borderRadius: 22,
                 overflow: "hidden",
                 marginBottom: 8,
               }}
             >
               <ProfileRow
-                icon="lock-closed-outline"
+                icon={Lock}
                 label="Privacy & Security"
-                accent={colors.amber}
-                isDark={isDark}
-                divider={divider}
+                accent={p.warning}
                 onPress={() => router.navigate("/privacy-security")}
               />
               <ProfileRow
-                icon="shield-outline"
+                icon={Shield}
                 label="Permissions"
-                accent={colors.purple}
-                isDark={isDark}
-                divider={divider}
+                accent={p.info}
                 onPress={() => router.navigate("/permissions")}
               />
               <ProfileRow
-                icon="information-circle-outline"
+                icon={Info}
                 label="About App"
-                accent={colors.textSecondary}
-                isDark={isDark}
-                divider={divider}
+                accent={p.textMuted}
                 isLast
                 onPress={() => router.push("/about")}
               />
             </View>
 
             {/* ── Support ───────────────────────────────────── */}
-            <SectionLabel label="Support" isDark={isDark} />
+            <SectionLabel label="Support" />
             <View
               style={{
                 marginHorizontal: 16,
-                backgroundColor: isDark ? colors.surfaceHigher : "#fff",
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: cardBorder,
+                backgroundColor: p.cardWhite,
+                borderRadius: 22,
                 overflow: "hidden",
                 marginBottom: 24,
               }}
             >
               <ProfileRow
-                icon="help-circle-outline"
+                icon={HelpCircle}
                 label="Help Center"
-                accent={colors.cyan}
-                isDark={isDark}
-                divider={divider}
+                accent={p.info}
                 onPress={() => router.push("/help-center")}
               />
               <ProfileRow
-                icon="chatbox-outline"
+                icon={MessageSquare}
                 label="Send Feedback"
-                accent={colors.accent}
-                isDark={isDark}
-                divider={divider}
+                accent={p.accent}
                 onPress={() => router.push("/feedback")}
               />
               <ProfileRow
-                icon="document-text-outline"
+                icon={FileText}
                 label="Terms of Service"
-                accent={colors.textSecondary}
-                isDark={isDark}
-                divider={divider}
+                accent={p.textMuted}
                 onPress={() => router.navigate("/terms")}
               />
               <ProfileRow
-                icon="shield-checkmark-outline"
+                icon={ShieldCheck}
                 label="Privacy Policy"
-                accent={colors.textSecondary}
-                isDark={isDark}
-                divider={divider}
+                accent={p.textMuted}
                 isLast
                 onPress={() => router.navigate("/privacy-policy")}
               />
@@ -487,18 +458,18 @@ export default function TeamManagerProfileScreen() {
                 <View
                   style={{
                     height: 52,
-                    borderRadius: 16,
-                    backgroundColor: "#DC2626",
+                    borderRadius: 100,
+                    backgroundColor: p.danger,
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 10,
                   }}
                 >
-                  <Ionicons name="log-out-outline" size={18} color="#fff" />
+                  <LogOut size={18} color="#fff" />
                   <Text
                     style={{
-                      fontFamily: fonts.bodyBold,
+                      fontFamily: "Outfit-Bold",
                       fontSize: 15,
                       color: "#fff",
                     }}
@@ -518,7 +489,8 @@ export default function TeamManagerProfileScreen() {
 
 // ── SectionLabel ───────────────────────────────────────────────────────────
 
-function SectionLabel({ label, isDark }: { label: string; isDark: boolean }) {
+function SectionLabel({ label }: { label: string }) {
+  const p = useAdminPastel();
   return (
     <View
       style={{
@@ -534,15 +506,15 @@ function SectionLabel({ label, isDark }: { label: string; isDark: boolean }) {
         style={{
           height: 14,
           width: 3,
-          borderRadius: 99,
-          backgroundColor: isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,65%)",
+          borderRadius: 100,
+          backgroundColor: p.textMuted,
         }}
       />
       <Text
         style={{
           fontSize: 11,
-          fontFamily: fonts.labelCaps,
-          color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,50%)",
+          fontFamily: "Outfit-Bold",
+          color: p.textMuted,
           textTransform: "uppercase",
           letterSpacing: 1.2,
         }}
@@ -556,27 +528,21 @@ function SectionLabel({ label, isDark }: { label: string; isDark: boolean }) {
 // ── ProfileRow ─────────────────────────────────────────────────────────────
 
 function ProfileRow({
-  icon,
+  icon: Icon,
   label,
   subtitle,
   accent,
-  isDark,
-  divider,
   isLast = false,
   onPress,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ComponentType<{ size: number; color: string }>;
   label: string;
   subtitle?: string;
   accent: string;
-  isDark: boolean;
-  divider: string;
   isLast?: boolean;
   onPress: () => void;
 }) {
-  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
-  const textSub = isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,55%)";
-  const chevronColor = isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,60%)";
+  const p = useAdminPastel();
 
   return (
     <Pressable
@@ -584,11 +550,9 @@ function ProfileRow({
       accessibilityRole="button"
       accessibilityLabel={label}
       style={({ pressed }) => ({
-        backgroundColor: pressed
-          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
-          : "transparent",
+        backgroundColor: pressed ? p.accentSoft : "transparent",
         borderBottomWidth: isLast ? 0 : 1,
-        borderBottomColor: divider,
+        borderBottomColor: p.divider,
       })}
     >
       <View
@@ -610,19 +574,19 @@ function ProfileRow({
             backgroundColor: `${accent}18`,
           }}
         >
-          <Ionicons name={icon} size={18} color={accent} />
+          <Icon size={18} color={accent} />
         </View>
         <View style={{ flex: 1, gap: 1 }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: textPrimary }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>
             {label}
           </Text>
           {subtitle && (
-            <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: textSub }}>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
               {subtitle}
             </Text>
           )}
         </View>
-        <Ionicons name="chevron-forward" size={14} color={chevronColor} />
+        <ChevronRight size={14} color={p.textMuted} />
       </View>
     </Pressable>
   );

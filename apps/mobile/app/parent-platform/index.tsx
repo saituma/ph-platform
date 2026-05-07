@@ -3,12 +3,12 @@ import { Alert, Pressable, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Feather } from "@expo/vector-icons";
+import { ArrowRight, BookOpen, ChevronRight, Lock } from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
 import { AgeGate } from "@/components/AgeGate";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useAppSelector } from "@/store/hooks";
 import { apiRequest } from "@/lib/api";
@@ -24,7 +24,7 @@ export default function ParentPlatformScreen() {
   const { token, programTier } = useAppSelector((s) => s.user);
   const router = useRouter();
   const { isSectionHidden } = useAgeExperience();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const [items, setItems] = useState<ParentCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,7 +94,7 @@ export default function ParentPlatformScreen() {
     return (
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        style={{ backgroundColor: colors.background }}
+        style={{ backgroundColor: p.pageBg }}
         contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
       >
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 }}>
@@ -103,19 +103,19 @@ export default function ParentPlatformScreen() {
               width: 56,
               height: 56,
               borderRadius: 18,
-              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(34,197,94,0.10)",
+              backgroundColor: p.accentSoft,
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 20,
             }}
           >
-            <Feather name="lock" size={24} color={colors.accent} />
+            <Lock size={24} color={p.accent} />
           </View>
           <Text
             style={{
-              fontFamily: "Telma-Bold",
+              fontFamily: "Outfit-Bold",
               fontSize: 28,
-              color: colors.textPrimary,
+              color: p.textPrimary,
               textAlign: "center",
               marginBottom: 10,
             }}
@@ -126,7 +126,7 @@ export default function ParentPlatformScreen() {
             style={{
               fontFamily: "Outfit-Regular",
               fontSize: 15,
-              color: colors.textSecondary,
+              color: p.textSecondary,
               textAlign: "center",
               lineHeight: 22,
               maxWidth: 280,
@@ -138,14 +138,14 @@ export default function ParentPlatformScreen() {
           <Pressable
             onPress={() => router.push("/(tabs)/programs")}
             style={({ pressed }) => ({
-              backgroundColor: colors.accent,
+              backgroundColor: p.accent,
               paddingHorizontal: 28,
               paddingVertical: 14,
               borderRadius: 100,
               opacity: pressed ? 0.85 : 1,
             })}
           >
-            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.buttonPrimaryText }}>
               Open Programs
             </Text>
           </Pressable>
@@ -157,7 +157,7 @@ export default function ParentPlatformScreen() {
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      style={{ backgroundColor: colors.background }}
+      style={{ backgroundColor: p.pageBg }}
       contentContainerStyle={{ paddingBottom: 60 }}
     >
       {/* Hero */}
@@ -168,7 +168,7 @@ export default function ParentPlatformScreen() {
         <View
           style={{
             alignSelf: "flex-start",
-            backgroundColor: isDark ? "rgba(34,197,94,0.16)" : "rgba(34,197,94,0.12)",
+            backgroundColor: p.accentSoft,
             borderRadius: 100,
             paddingHorizontal: 12,
             paddingVertical: 6,
@@ -181,7 +181,7 @@ export default function ParentPlatformScreen() {
               fontSize: 10,
               letterSpacing: 1.4,
               textTransform: "uppercase",
-              color: colors.accent,
+              color: p.accent,
             }}
           >
             Family Support Library
@@ -189,9 +189,9 @@ export default function ParentPlatformScreen() {
         </View>
         <Text
           style={{
-            fontFamily: "Telma-Bold",
+            fontFamily: "Outfit-Bold",
             fontSize: 40,
-            color: colors.textPrimary,
+            color: p.textPrimary,
             letterSpacing: -0.5,
             lineHeight: 46,
           }}
@@ -202,7 +202,7 @@ export default function ParentPlatformScreen() {
           style={{
             fontFamily: "Outfit-Regular",
             fontSize: 15,
-            color: colors.textSecondary,
+            color: p.textSecondary,
             marginTop: 10,
             lineHeight: 22,
           }}
@@ -216,7 +216,7 @@ export default function ParentPlatformScreen() {
         entering={FadeInDown.delay(80).duration(380)}
         style={{ paddingHorizontal: 24 }}
       >
-        <SectionLabel label="Featured" />
+        <SectionLabel label="Featured" p={p} />
         {isLoading ? (
           <View style={{ gap: 16 }}>
             {[1, 2, 3].map((i) => (
@@ -235,8 +235,7 @@ export default function ParentPlatformScreen() {
                   item={item}
                   isLocked={isLocked}
                   onPress={() => openCourse(item)}
-                  colors={colors}
-                  isDark={isDark}
+                  p={p}
                 />
               );
             })}
@@ -249,7 +248,7 @@ export default function ParentPlatformScreen() {
         entering={FadeInDown.delay(160).duration(380)}
         style={{ paddingHorizontal: 24, marginTop: 40 }}
       >
-        <SectionLabel label="Browse by topic" />
+        <SectionLabel label="Browse by topic" p={p} />
         <View style={{ gap: 12 }}>
           {PARENT_CATEGORIES.map((cat) => {
             return (
@@ -268,16 +267,10 @@ export default function ParentPlatformScreen() {
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 14,
-                    borderRadius: 18,
-                    borderWidth: 1,
+                    borderRadius: 22,
                     paddingVertical: 14,
                     paddingHorizontal: 16,
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.04)"
-                      : colors.card,
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : "rgba(15,23,42,0.06)",
+                    backgroundColor: p.cardWhite,
                   }}
                 >
                   <View
@@ -285,36 +278,26 @@ export default function ParentPlatformScreen() {
                       width: 44,
                       height: 44,
                       borderRadius: 14,
-                      backgroundColor: isDark
-                        ? "rgba(34,197,94,0.16)"
-                        : "rgba(34,197,94,0.12)",
+                      backgroundColor: p.accentSoft,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <Feather
-                      name={cat.icon as any}
-                      size={20}
-                      color={colors.accent}
-                    />
+                    <BookOpen size={20} color={p.accent} />
                   </View>
                   <Text
                     style={{
                       flex: 1,
-                      fontFamily: "ClashDisplay-Bold",
+                      fontFamily: "Outfit-Bold",
                       fontSize: 14,
-                      color: colors.textPrimary,
+                      color: p.textPrimary,
                       lineHeight: 20,
                     }}
                     numberOfLines={1}
                   >
                     {cat.title}
                   </Text>
-                  <Feather
-                    name="chevron-right"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
+                  <ChevronRight size={16} color={p.textSecondary} />
                 </View>
               </Pressable>
             );
@@ -325,7 +308,7 @@ export default function ParentPlatformScreen() {
   );
 }
 
-function SectionLabel({ label }: { label: string }) {
+function SectionLabel({ label, p }: { label: string; p: ReturnType<typeof useAdminPastel> }) {
   return (
     <Text
       style={{
@@ -333,7 +316,7 @@ function SectionLabel({ label }: { label: string }) {
         fontSize: 10,
         letterSpacing: 1.6,
         textTransform: "uppercase",
-        color: "#6B7280",
+        color: p.textMuted,
         marginBottom: 16,
         marginLeft: 2,
       }}
@@ -368,28 +351,22 @@ function FeaturedCard({
   item,
   isLocked,
   onPress,
-  colors,
-  isDark,
+  p,
 }: {
   item: ParentCourseItem;
   isLocked: boolean;
   onPress: () => void;
-  colors: ReturnType<typeof useAppTheme>["colors"];
-  isDark: boolean;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        borderRadius: 24,
-        borderWidth: 1,
+        borderRadius: 22,
         overflow: "hidden",
         opacity: isLocked ? 0.65 : pressed ? 0.92 : 1,
         transform: [{ scale: pressed ? 0.985 : 1 }],
-        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : colors.card,
-        borderColor: isDark
-          ? "rgba(255,255,255,0.08)"
-          : "rgba(15,23,42,0.06)",
+        backgroundColor: p.cardWhite,
       })}
     >
       {item.coverImage ? (
@@ -399,14 +376,12 @@ function FeaturedCard({
           style={{
             width: "100%",
             aspectRatio: 16 / 9,
-            backgroundColor: isDark
-              ? "rgba(34,197,94,0.10)"
-              : "rgba(34,197,94,0.08)",
+            backgroundColor: p.accentSoft,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Feather name="book-open" size={32} color="rgba(34,197,94,0.5)" />
+          <BookOpen size={32} color={p.accent} strokeWidth={1.5} />
         </View>
       )}
 
@@ -415,9 +390,7 @@ function FeaturedCard({
           <View
             style={{
               alignSelf: "flex-start",
-              backgroundColor: isDark
-                ? "rgba(34,197,94,0.14)"
-                : "rgba(34,197,94,0.10)",
+              backgroundColor: p.accentSoft,
               borderRadius: 100,
               paddingHorizontal: 10,
               paddingVertical: 4,
@@ -430,7 +403,7 @@ function FeaturedCard({
                 fontSize: 10,
                 letterSpacing: 1.2,
                 textTransform: "uppercase",
-                color: colors.accent,
+                color: p.accent,
               }}
             >
               {item.category}
@@ -440,9 +413,9 @@ function FeaturedCard({
 
         <Text
           style={{
-            fontFamily: "Telma-Bold",
+            fontFamily: "Outfit-Bold",
             fontSize: 22,
-            color: colors.textPrimary,
+            color: p.textPrimary,
             lineHeight: 28,
             marginBottom: 8,
           }}
@@ -454,7 +427,7 @@ function FeaturedCard({
           style={{
             fontFamily: "Outfit-Regular",
             fontSize: 14,
-            color: colors.textSecondary,
+            color: p.textSecondary,
             lineHeight: 20,
           }}
           numberOfLines={2}
@@ -474,7 +447,7 @@ function FeaturedCard({
             style={{
               fontFamily: "Outfit-Regular",
               fontSize: 12,
-              color: colors.textSecondary,
+              color: p.textMuted,
               textTransform: "uppercase",
               letterSpacing: 1,
             }}
@@ -486,9 +459,7 @@ function FeaturedCard({
             {isLocked ? (
               <View
                 style={{
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.06)"
-                    : "rgba(15,23,42,0.05)",
+                  backgroundColor: p.accentSoft,
                   borderRadius: 100,
                   paddingHorizontal: 10,
                   paddingVertical: 4,
@@ -500,14 +471,14 @@ function FeaturedCard({
                     fontSize: 10,
                     letterSpacing: 1.1,
                     textTransform: "uppercase",
-                    color: colors.textSecondary,
+                    color: p.textSecondary,
                   }}
                 >
                   Locked
                 </Text>
               </View>
             ) : null}
-            <Feather name="arrow-right" size={16} color={colors.accent} />
+            <ArrowRight size={16} color={p.accent} />
           </View>
         </View>
       </View>

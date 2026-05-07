@@ -6,12 +6,16 @@ export type SocketMessageNewPayload = ApiChatMessage & {
   senderAvatar?: string | null;
   receiverName?: string;
   clientId?: string;
+  clientTraceId?: string;
+  serverReceivedAt?: number;
 };
 
 export type SocketGroupMessagePayload = ApiChatMessage & {
   groupId: number;
   groupName?: string;
   clientId?: string;
+  clientTraceId?: string;
+  serverReceivedAt?: number;
 };
 
 export type SocketTypingUpdatePayload = {

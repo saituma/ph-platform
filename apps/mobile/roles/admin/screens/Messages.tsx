@@ -83,10 +83,8 @@ export default function AdminMessagesScreen() {
   return (
     <AdminScreen>
       <AdminHeader
-        eyebrow="Admin"
         title="Messages"
         subtitle="Direct inbox, announcements, and team conversations"
-        tone="info"
       />
 
       <AdminSegmentedTabs

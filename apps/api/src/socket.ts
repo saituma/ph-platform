@@ -15,6 +15,7 @@ import { setSocketServer } from "./socket-hub";
 import { db } from "./db";
 import { userTable } from "./db/schema";
 import { getRedisConnection } from "./jobs/connection";
+import { createRealtimeTrace, logRealtimeLatency } from "./lib/realtime-latency";
 
 type AuthPayload = {
   sub?: string;
@@ -36,6 +37,8 @@ const messageSendSchema = z.object({
   replyToMessageId: z.coerce.number().int().positive().optional(),
   replyPreview: z.string().max(160).optional(),
   clientId: z.string().max(64).optional(),
+  clientTraceId: z.string().max(96).optional(),
+  clientSentAt: z.union([z.number(), z.string()]).optional(),
   actingUserId: z.coerce.number().int().positive().optional(),
 });
 
@@ -47,6 +50,8 @@ const groupSendSchema = z.object({
   replyToMessageId: z.coerce.number().int().positive().optional(),
   replyPreview: z.string().max(160).optional(),
   clientId: z.string().max(64).optional(),
+  clientTraceId: z.string().max(96).optional(),
+  clientSentAt: z.union([z.number(), z.string()]).optional(),
   actingUserId: z.coerce.number().int().positive().optional(),
 });
 
@@ -282,6 +287,18 @@ export function initSocket(server: HttpServer) {
 
   io.on("connection", async (socket) => {
     const userId = socket.data.userId as number;
+    log.info(
+      {
+        userId,
+        socketId: socket.id,
+        transport: socket.conn.transport.name,
+        recovered: socket.recovered,
+      },
+      "Socket connected",
+    );
+    socket.conn.on("upgrade", (transport) => {
+      log.info({ userId, socketId: socket.id, transport: transport.name }, "Socket transport upgraded");
+    });
     socket.join(`user:${userId}`);
     if (["admin", "coach", "superAdmin"].includes(socket.data.role as string)) {
       socket.join("admin:all");
@@ -368,6 +385,14 @@ export function initSocket(server: HttpServer) {
     });
 
     guarded("message:send", messageSendSchema, async (data) => {
+      const trace = createRealtimeTrace({ traceId: data.clientTraceId ?? data.clientId, clientSentAt: data.clientSentAt });
+      logRealtimeLatency(trace, "socket.message.receive", {
+        userId,
+        receiverId: data.toUserId,
+        socketId: socket.id,
+        transport: socket.conn.transport.name,
+        hasMedia: Boolean(data.mediaUrl),
+      });
       const content = data.content?.trim() ?? "";
       if (!content && !data.mediaUrl) return;
       const senderId =
@@ -379,6 +404,7 @@ export function initSocket(server: HttpServer) {
       }
 
       try {
+        logRealtimeLatency(trace, "socket.message.before_service", { senderId, receiverId: data.toUserId });
         const saved = await sendMessage({
           senderId,
           receiverId: data.toUserId,
@@ -388,7 +414,9 @@ export function initSocket(server: HttpServer) {
           replyToMessageId: data.replyToMessageId ?? null,
           replyPreview: data.replyPreview ?? null,
           clientId: data.clientId,
+          trace,
         });
+        logRealtimeLatency(trace, "socket.message.after_service", { messageId: saved.id });
         if (data.clientId) {
           socket.emit("message:ack", {
             clientId: data.clientId,
@@ -415,6 +443,14 @@ export function initSocket(server: HttpServer) {
     });
 
     guarded("group:send", groupSendSchema, async (data) => {
+      const trace = createRealtimeTrace({ traceId: data.clientTraceId ?? data.clientId, clientSentAt: data.clientSentAt });
+      logRealtimeLatency(trace, "socket.group.receive", {
+        userId,
+        groupId: data.groupId,
+        socketId: socket.id,
+        transport: socket.conn.transport.name,
+        hasMedia: Boolean(data.mediaUrl),
+      });
       const content = data.content?.trim() ?? "";
       if (!content && !data.mediaUrl) return;
       const allowed = await isGroupMember(data.groupId, userId);
@@ -427,6 +463,7 @@ export function initSocket(server: HttpServer) {
         if (!athlete || athlete.userId !== senderId) return;
       }
 
+      logRealtimeLatency(trace, "socket.group.before_service", { senderId, groupId: data.groupId });
       const message = await createGroupMessage({
         groupId: data.groupId,
         senderId,
@@ -436,7 +473,9 @@ export function initSocket(server: HttpServer) {
         replyToMessageId: data.replyToMessageId ?? null,
         replyPreview: data.replyPreview ?? null,
         clientId: data.clientId ?? null,
+        trace,
       });
+      logRealtimeLatency(trace, "socket.group.after_service", { messageId: message.id, groupId: data.groupId });
       if (data.clientId) {
         socket.emit("message:ack", {
           clientId: data.clientId,
@@ -500,7 +539,16 @@ export function initSocket(server: HttpServer) {
       }
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
+      log.info(
+        {
+          userId,
+          socketId: socket.id,
+          reason,
+          transport: socket.conn.transport.name,
+        },
+        "Socket disconnected",
+      );
       onlineUsers.delete(userId);
       io.emit("presence:offline", { userId });
       db.update(userTable)

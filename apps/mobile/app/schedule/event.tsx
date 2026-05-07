@@ -2,11 +2,10 @@ import React, { useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@/components/ui/theme-icons";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import { SafeMaskedView, Transition } from "@/components/navigation/TransitionStack";
-import { Shadows } from "@/constants/theme";
+import { X } from "lucide-react-native";
 
 type ScheduleEvent = {
   id: string;
@@ -27,7 +26,7 @@ type ScheduleEvent = {
 
 export default function ScheduleEventScreen() {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const { event: eventParam, sharedBoundTag } = useLocalSearchParams<{
     event?: string;
     sharedBoundTag?: string;
@@ -42,90 +41,85 @@ export default function ScheduleEventScreen() {
     }
   }, [eventParam]);
 
-  const overlayColor = isDark ? "rgba(15,23,42,0.45)" : "rgba(15,23,42,0.28)";
-  const surfaceColor = isDark ? colors.cardElevated : "#F7FFF9";
-  const mutedSurface = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.84)";
-  const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: overlayColor }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.overlay }}>
       <SafeMaskedView style={{ flex: 1 }}>
-        <View className="flex-1 justify-end">
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
           <Transition.View
             sharedBoundTag={sharedBoundTag}
-            className="rounded-t-[32px] border px-6 pt-6 pb-8"
             style={{
-              backgroundColor: surfaceColor,
-              borderColor: borderSoft,
-              ...(isDark ? Shadows.none : Shadows.lg),
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              paddingHorizontal: 24,
+              paddingTop: 24,
+              paddingBottom: 32,
+              backgroundColor: p.cardWhite,
             }}
           >
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-xl font-clash text-app">Booking details</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>Booking details</Text>
               <Pressable
                 onPress={() => router.back()}
-                className="h-10 w-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: mutedSurface }}
+                style={{ height: 40, width: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: p.inputBg }}
               >
-                <Feather name="x" size={18} color={colors.text} />
+                <X size={18} color={p.textPrimary} />
               </Pressable>
             </View>
 
             {event ? (
               <>
-                <View className="rounded-[22px] p-4" style={{ backgroundColor: mutedSurface }}>
-                  <Text className="text-base font-outfit text-app">
+                <View style={{ borderRadius: 22, padding: 16, backgroundColor: p.inputBg }}>
+                  <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
                     {event.title}
                   </Text>
-                  <Text className="text-xs font-outfit text-secondary mt-1">
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 4 }}>
                     {event.timeStart} - {event.timeEnd}
                   </Text>
-                  <Text className="text-xs font-outfit text-secondary mt-1">
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 4 }}>
                     Status: {event.status ?? "confirmed"}
                   </Text>
-                  <Text className="text-xs font-outfit text-secondary mt-1">
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 4 }}>
                     Location: {event.location ?? "TBD"}
                   </Text>
                   {event.meetingLink ? (
-                    <Text className="text-xs font-outfit text-secondary mt-1">
+                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 4 }}>
                       Meeting: {event.meetingLink}
                     </Text>
                   ) : null}
-                  <Text className="text-xs font-outfit text-secondary mt-1">
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 4 }}>
                     Athlete: {event.athlete ?? "Athlete"}
                   </Text>
                 </View>
 
-                <View className="mt-4 rounded-[22px] p-4" style={{ backgroundColor: mutedSurface, ...(isDark ? Shadows.none : Shadows.sm) }}>
-                  <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+                <View style={{ marginTop: 16, borderRadius: 22, padding: 16, backgroundColor: p.inputBg }}>
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, textTransform: "uppercase", letterSpacing: 1.2 }}>
                     Notes
                   </Text>
-                  <Text className="text-sm font-outfit text-app mt-2">
+                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary, marginTop: 8 }}>
                     {event.notes || "No notes yet."}
                   </Text>
                 </View>
               </>
             ) : (
-              <Text className="text-sm font-outfit text-secondary">
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                 Event details are unavailable.
               </Text>
             )}
 
-            <View className="mt-5 flex-row items-center gap-3">
+            <View style={{ marginTop: 20, flexDirection: "row", alignItems: "center", gap: 12 }}>
               <Pressable
-                className="flex-1 px-4 py-3 rounded-full"
-                style={{ backgroundColor: mutedSurface, borderWidth: 1, borderColor: borderSoft }}
+                style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 100, backgroundColor: p.inputBg }}
                 onPress={() => router.back()}
               >
-                <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px] text-center">
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, textTransform: "uppercase", letterSpacing: 1.2, textAlign: "center" }}>
                   Back
                 </Text>
               </Pressable>
               <Pressable
-                className="flex-1 px-4 py-3 rounded-full bg-accent"
+                style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 100, backgroundColor: p.accent }}
                 onPress={() => router.back()}
               >
-                <Text className="text-xs font-outfit text-white uppercase tracking-[1.2px] text-center">
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.buttonPrimaryText, textTransform: "uppercase", letterSpacing: 1.2, textAlign: "center" }}>
                   Done
                 </Text>
               </Pressable>

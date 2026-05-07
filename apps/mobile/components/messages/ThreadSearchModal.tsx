@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Modal, Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, TextInput, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -149,6 +149,7 @@ export default function ThreadSearchModal({ visible, threadId, token, onClose, o
         {!loading && !error && searched && results.length === 0 && <CenterMsg text="No messages found" color={ts} />}
 
         {/* Results */}
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
         <FlashList
           data={results}
           keyExtractor={(item) => String(item.id)}
@@ -157,6 +158,7 @@ export default function ThreadSearchModal({ visible, threadId, token, onClose, o
           keyboardDismissMode="on-drag"
           contentContainerStyle={{ paddingBottom: insets.bottom }}
         />
+        </KeyboardAvoidingView>
       </Animated.View>
     </Modal>
   );

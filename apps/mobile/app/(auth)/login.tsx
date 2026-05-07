@@ -1,4 +1,3 @@
-import { Feather } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -7,8 +6,10 @@ import { Controller, useForm } from "react-hook-form";
 import { Linking, Pressable, StyleSheet, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Sun, Moon, Eye, EyeOff } from "lucide-react-native";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
+import { useAdminPastel } from "../../components/admin/AdminUI";
 import { apiRequest } from "../../lib/api";
 import { getAuthBaseUrl } from "../../lib/authBaseUrl";
 import { signInWithWorkerAndExchange } from "../../lib/workerAuth";
@@ -36,15 +37,8 @@ import { enrichTeamFieldsIfOnboardingHasThem } from "../../lib/auth/enrichTeamFr
 import { resolveAppRole } from "../../lib/appRole";
 import { markLoginFresh } from "../../store/AuthPersist";
 
-// ─── Background video ─────────────────────────────────────────────────────────
-// Drop your video file at:  apps/mobile/assets/videos/login-bg.mp4
-// Then change `null` below to:  require("../../assets/videos/login-bg.mp4")
-//
-// Requirements: short loop (5–15s), H.264 MP4, < 5 MB, no audio needed.
-// Using a local bundled asset means zero network requests and no rate-limit risk.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const LOGIN_VIDEO_SOURCE: number | null = require("../../assets/videos/login-bg.mp4") as number;
-// ─────────────────────────────────────────────────────────────────────────────
 
 const HAS_VIDEO = LOGIN_VIDEO_SOURCE !== null;
 
@@ -60,19 +54,16 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
-  const { isDark, toggleColorScheme, colors } = useAppTheme();
+  const { isDark, toggleColorScheme } = useAppTheme();
+  const p = useAdminPastel();
   const dispatch = useAppDispatch();
 
-  // useVideoPlayer is always called (rules of hooks).
-  // When LOGIN_VIDEO_SOURCE is null the player stays idle — no network request,
-  // no render, no error.
-  const player = useVideoPlayer(LOGIN_VIDEO_SOURCE, (p) => {
-    p.loop = true;
-    p.muted = true;
-    if (HAS_VIDEO) p.play();
+  const player = useVideoPlayer(LOGIN_VIDEO_SOURCE, (pl) => {
+    pl.loop = true;
+    pl.muted = true;
+    if (HAS_VIDEO) pl.play();
   });
 
-  // Silence any playback errors so they never bubble up as render errors.
   useEffect(() => {
     if (!HAS_VIDEO) return;
     const sub = player.addListener("statusChange", ({ status, error }) => {
@@ -83,11 +74,9 @@ export default function LoginScreen() {
     return () => sub.remove();
   }, [player]);
 
-  // Text colors adapt: white when the dark video overlay is active,
-  // otherwise use the current theme tokens.
-  const headingColor  = HAS_VIDEO ? "rgba(255,255,255,0.95)" : colors.text;
-  const subtitleColor = HAS_VIDEO ? "rgba(255,255,255,0.62)" : colors.textSecondary;
-  const inputColor    = HAS_VIDEO ? "#FFFFFF" : colors.text;
+  const headingColor = HAS_VIDEO ? "rgba(255,255,255,0.95)" : p.textPrimary;
+  const subtitleColor = HAS_VIDEO ? "rgba(255,255,255,0.62)" : p.textMuted;
+  const inputColor = p.textPrimary;
 
   const {
     control,
@@ -200,9 +189,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-
-      {/* ── Video background (only mounted when a source is configured) ── */}
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       {HAS_VIDEO && (
         <>
           <VideoView
@@ -211,56 +198,64 @@ export default function LoginScreen() {
             contentFit="cover"
             nativeControls={false}
           />
-          {/* Dark overlay keeps text legible regardless of video content */}
-          <View style={[StyleSheet.absoluteFill, styles.overlay]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.52)" }]} />
         </>
       )}
 
-      {/* ── Content (always above the video layer) ─────────────────────── */}
-      <SafeAreaView style={styles.safeArea}>
-
-        {/* Theme toggle */}
-        <View style={styles.topRow}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "transparent" }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 4, alignItems: "flex-end" }}>
           <Pressable
             onPress={toggleColorScheme}
-            style={styles.themeBtn}
+            style={{ padding: 10, borderRadius: 100, backgroundColor: HAS_VIDEO ? "rgba(255,255,255,0.12)" : p.cardMint }}
             accessibilityRole="button"
             accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
           >
-            <Feather
-              name={isDark ? "sun" : "moon"}
-              size={22}
-              color={HAS_VIDEO ? "rgba(255,255,255,0.70)" : colors.themeToggleIcon}
-            />
+            {isDark ? (
+              <Sun size={20} color={HAS_VIDEO ? "rgba(255,255,255,0.70)" : p.accent} strokeWidth={2} />
+            ) : (
+              <Moon size={20} color={HAS_VIDEO ? "rgba(255,255,255,0.70)" : p.accent} strokeWidth={2} />
+            )}
           </Pressable>
         </View>
 
         <KeyboardAwareScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingHorizontal: 20,
+            paddingBottom: 32,
+            paddingTop: 8,
+          }}
           keyboardShouldPersistTaps="handled"
           enableOnAndroid
           showsVerticalScrollIndicator={false}
         >
-          {/* Header — inline so color overrides work over the video overlay */}
-          <View style={styles.header}>
+          <View style={{ gap: 10, marginBottom: 28 }}>
             <Text
-              className="font-outfit-semibold"
-              selectable
-              style={[styles.title, { color: headingColor }]}
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 34,
+                lineHeight: 38,
+                letterSpacing: -0.7,
+                color: headingColor,
+              }}
             >
               Welcome back
             </Text>
             <Text
-              className="font-outfit"
-              selectable
-              style={[styles.subtitle, { color: subtitleColor }]}
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 16,
+                lineHeight: 24,
+                color: subtitleColor,
+                maxWidth: 360,
+              }}
             >
               Sign in to keep your training progress, coach feedback, and schedule in sync.
             </Text>
           </View>
 
-          {/* Form fields */}
-          <View style={styles.formGap}>
+          <View style={{ gap: 16, marginBottom: 20 }}>
             <AuthFormGroup>
               <AuthFieldRow icon="mail" label="Email" error={errors.email?.message}>
                 <Controller
@@ -268,10 +263,9 @@ export default function LoginScreen() {
                   name="email"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
-                      className="text-app font-outfit"
-                      style={[styles.input, { color: inputColor }]}
+                      style={{ fontFamily: "Outfit-Regular", fontSize: 17, lineHeight: 22, paddingVertical: 0, color: inputColor }}
                       placeholder="name@example.com"
-                      placeholderTextColor={colors.placeholder}
+                      placeholderTextColor={p.textMuted}
                       onBlur={onBlur}
                       onChangeText={onChange}
                       value={value}
@@ -297,11 +291,11 @@ export default function LoginScreen() {
                     hitSlop={10}
                     onPress={() => setShowPassword((v) => !v)}
                   >
-                    <Feather
-                      name={showPassword ? "eye" : "eye-off"}
-                      size={18}
-                      color={colors.textSecondary}
-                    />
+                    {showPassword ? (
+                      <Eye size={18} color={p.textMuted} strokeWidth={2} />
+                    ) : (
+                      <EyeOff size={18} color={p.textMuted} strokeWidth={2} />
+                    )}
                   </Pressable>
                 }
               >
@@ -310,10 +304,9 @@ export default function LoginScreen() {
                   name="password"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
-                      className="text-app font-outfit"
-                      style={[styles.input, { color: inputColor }]}
+                      style={{ fontFamily: "Outfit-Regular", fontSize: 17, lineHeight: 22, paddingVertical: 0, color: inputColor }}
                       placeholder="Enter your password"
-                      placeholderTextColor={colors.placeholder}
+                      placeholderTextColor={p.textMuted}
                       onBlur={onBlur}
                       onChangeText={onChange}
                       value={value}
@@ -329,22 +322,27 @@ export default function LoginScreen() {
             </AuthFormGroup>
           </View>
 
-          {/* Forgot password */}
-          <View style={styles.forgotRow}>
+          <View style={{ alignItems: "flex-end", marginBottom: 24 }}>
             <Pressable
               accessibilityRole="link"
               accessibilityLabel="Forgot Password"
-              accessibilityHint="Navigate to password reset"
               onPress={() => router.push("/forgot")}
             >
-              <Text className="font-outfit-semibold" style={{ fontSize: 14, color: colors.accent }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.accent }}>
                 Forgot Password?
               </Text>
             </Pressable>
           </View>
 
           {formError ? (
-            <Text className="text-danger text-sm font-outfit mb-4" selectable>
+            <Text
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 14,
+                color: "#E53935",
+                marginBottom: 16,
+              }}
+            >
               {formError}
             </Text>
           ) : null}
@@ -356,18 +354,13 @@ export default function LoginScreen() {
             busyLabel="Signing In..."
           />
 
-          {/* Register */}
-          <View style={styles.registerRow}>
-            <Text
-              className="text-sm font-outfit text-center"
-              style={{ color: subtitleColor }}
-            >
+          <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: subtitleColor }}>
               Don&apos;t have an account?
             </Text>
             <Pressable
               accessibilityRole="link"
               accessibilityLabel="Register"
-              accessibilityHint="Opens registration in browser"
               onPress={() => {
                 const url =
                   (process.env.EXPO_PUBLIC_ONBOARDING_URL ?? "").trim() ||
@@ -377,14 +370,11 @@ export default function LoginScreen() {
               style={{
                 paddingHorizontal: 16,
                 paddingVertical: 7,
-                borderRadius: 20,
-                backgroundColor: colors.accent,
+                borderRadius: 100,
+                backgroundColor: p.accent,
               }}
             >
-              <Text
-                className="font-outfit-bold"
-                style={{ fontSize: 13, color: "#FFFFFF", letterSpacing: 0.3 }}
-              >
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.buttonPrimaryText, letterSpacing: 0.3 }}>
                 Register
               </Text>
             </Pressable>
@@ -394,65 +384,3 @@ export default function LoginScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  overlay: {
-    backgroundColor: "rgba(0,0,0,0.52)",
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
-  topRow: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    alignItems: "flex-end",
-  },
-  themeBtn: {
-    padding: 8,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-    paddingTop: 8,
-  },
-  header: {
-    gap: 10,
-    marginBottom: 28,
-  },
-  title: {
-    fontSize: 34,
-    lineHeight: 38,
-    letterSpacing: -0.7,
-  },
-  subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-    maxWidth: 360,
-  },
-  formGap: {
-    gap: 16,
-    marginBottom: 20,
-  },
-  input: {
-    fontSize: 17,
-    lineHeight: 22,
-    paddingVertical: 0,
-  },
-  forgotRow: {
-    alignItems: "flex-end",
-    marginBottom: 24,
-  },
-  registerRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 4,
-  },
-});

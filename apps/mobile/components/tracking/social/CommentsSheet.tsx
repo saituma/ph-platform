@@ -352,6 +352,7 @@ export function CommentsSheet({
               style={{ maxHeight: 360 }}
               contentContainerStyle={{ gap: 10, paddingRight: 2 }}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
               {thread.roots.length === 0 ? (
                 <Text className="text-sm font-outfit" style={{ color: colors.textSecondary }}>

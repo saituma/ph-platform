@@ -4,7 +4,7 @@ import * as ProgramBuilderService from "../../services/admin/program-builder.ser
 import { db } from "../../db";
 import { athleteTable, guardianTable, notificationTable, programTable } from "../../db/schema";
 import { eq } from "drizzle-orm";
-import { pushQueue } from "../../jobs";
+import { createPushIntent } from "../../services/outbox.service";
 import { getSocketServer } from "../../socket-hub";
 
 const moduleSchema = z.object({
@@ -183,7 +183,7 @@ export async function assignProgram(req: Request, res: Response) {
       );
 
       for (const userId of recipients) {
-        void pushQueue.enqueue({
+        void createPushIntent({
           userId,
           title: "New program assigned",
           body: content,

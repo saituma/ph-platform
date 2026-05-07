@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
 import { SkeletonTrackingSocialScreen } from "@/components/ui/legacy-skeleton";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -19,9 +17,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
-import { fonts, spacing } from "@/constants/theme";
+import { spacing } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
 import {
@@ -51,6 +50,26 @@ import { relativeTime } from "@/lib/tracking/relativeTime";
 import { apiRequest } from "@/lib/api";
 import { useSafePathname } from "@/hooks/navigation/useSafeExpoRouter";
 import TrackingSocialScreen from "./social";
+import {
+  Play,
+  TrendingUp,
+  ChevronRight,
+  CheckCircle,
+  ShieldCheck,
+  CloudOff,
+  Zap,
+  Moon,
+  Users,
+  Gauge,
+  Clock,
+  Calendar,
+  Megaphone,
+  ClipboardList,
+  MessageCircle,
+  Trophy,
+  Settings,
+  MapPin,
+} from "lucide-react-native";
 
 const SPORT_CATEGORIES: { label: string; icon: string; sports: string[] }[] = [
   { label: "Foot Sports", icon: "shoe-sneaker", sports: ["run", "trail_run", "walk", "hike", "virtual_run", "treadmill"] },
@@ -104,7 +123,8 @@ export default function TrackingHomeScreen() {
   const pathname = useSafePathname("");
   const insets = useAppSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
-  const { colors, isDark } = useAppTheme();
+  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   const appRole = useAppSelector((s) => s.user.appRole);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
@@ -233,10 +253,6 @@ export default function TrackingHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportId>("run");
-  // When a run is already active and the user lands on / returns to this screen,
-  // jump straight to the live stats screen. Read status imperatively so the
-  // callback reference is stable — useFocusEffect should only fire on actual
-  // focus gain, not on every Zustand status change while already focused.
   useFocusEffect(
     useCallback(() => {
       const status = useRunStore.getState().status;
@@ -285,9 +301,6 @@ export default function TrackingHomeScreen() {
     router.replace("/(tabs)");
   }, [capabilitiesLoaded, canAccessTracking, router]);
 
-  // Team/social is a nested route under tracking, but this role shell renders
-  // fixed tab components. Mirror that nested route here so header tab navigation
-  // can actually switch views instead of snapping back to running.
   if (pathname.includes("/tracking/social")) {
     return <TrackingSocialScreen />;
   }
@@ -297,7 +310,6 @@ export default function TrackingHomeScreen() {
   if (isTeamManager) {
     return (
       <ManagerDashboard
-        colors={colors}
         isDark={isDark}
         insets={insets}
         showTeamTab={showTeamTab}
@@ -309,15 +321,9 @@ export default function TrackingHomeScreen() {
     );
   }
 
-  // Robis: tinted not pure, low-sat dark bg
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
-  const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)";
-  const metricBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.04)";
-  const separatorColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
-
   return (
     <>
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <ScrollView
         bounces
         showsVerticalScrollIndicator={false}
@@ -326,15 +332,15 @@ export default function TrackingHomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.accent}
-            colors={[colors.accent]}
+            tintColor={p.accent}
+            colors={[p.accent]}
           />
         }
       >
         <View style={{ paddingHorizontal: spacing.xl }}>
           <TrackingHeaderTabs
             active="running"
-            colors={colors}
+            colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
             isDark={isDark}
             topInset={insets.top}
             paddingHorizontal={0}
@@ -349,7 +355,7 @@ export default function TrackingHomeScreen() {
           {/* ── Training Goals ── */}
           {goals.length > 0 && (
             <View style={{ gap: 8 }}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)", paddingHorizontal: 4 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary, paddingHorizontal: 4 }}>
                 Training Goals
               </Text>
               {goals.map((goal) => {
@@ -378,7 +384,7 @@ export default function TrackingHomeScreen() {
                 const hasMeasurableProgress = goal.unit === "km" || goal.unit === "min" || goal.unit === "sec";
                 const pct = hasMeasurableProgress ? Math.min(1, progress / goal.targetValue) : null;
                 const done = pct != null && pct >= 1;
-                const barColor = done ? "#22c55e" : colors.accent;
+                const barColor = done ? p.success : p.accent;
 
                 const progressLabel = hasMeasurableProgress
                   ? goal.unit === "km"
@@ -392,21 +398,19 @@ export default function TrackingHomeScreen() {
                   <View
                     key={goal.id}
                     style={{
-                      backgroundColor: cardBg,
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: done ? `${barColor}40` : cardBorder,
+                      backgroundColor: p.cardWhite,
+                      borderRadius: 22,
                       padding: 16,
                       gap: 10,
                     }}
                   >
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <View style={{ flex: 1, marginRight: 8, gap: 2 }}>
-                        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
+                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
                           {goal.title}
                         </Text>
                         {goal.description ? (
-                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)" }}>
+                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
                             {goal.description}
                           </Text>
                         ) : null}
@@ -414,16 +418,16 @@ export default function TrackingHomeScreen() {
                       <View style={{ alignItems: "flex-end", gap: 2 }}>
                         {done ? (
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                            <Ionicons name="checkmark-circle" size={15} color="#22c55e" />
-                            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: "#22c55e" }}>Done</Text>
+                            <CheckCircle size={15} color={p.success} />
+                            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.success }}>Done</Text>
                           </View>
                         ) : (
-                          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: barColor }}>
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: barColor }}>
                             {goal.targetValue} {unitLabel}
                           </Text>
                         )}
                         {dueLabel && (
-                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: isDark ? "hsl(220,5%,45%)" : "hsl(220,5%,55%)" }}>
+                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
                             {dueLabel}
                           </Text>
                         )}
@@ -432,14 +436,14 @@ export default function TrackingHomeScreen() {
 
                     {pct != null && (
                       <View style={{ gap: 5 }}>
-                        <View style={{ height: 7, borderRadius: 4, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)", overflow: "hidden" }}>
+                        <View style={{ height: 7, borderRadius: 4, backgroundColor: p.accentSoft, overflow: "hidden" }}>
                           <View style={{ height: "100%", width: `${Math.round(pct * 100)}%`, borderRadius: 4, backgroundColor: barColor }} />
                         </View>
                         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,52%)" }}>
+                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
                             {progressLabel}
                           </Text>
-                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,52%)" }}>
+                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
                             {Math.round(pct * 100)}%
                           </Text>
                         </View>
@@ -447,7 +451,7 @@ export default function TrackingHomeScreen() {
                     )}
 
                     {goal.coachName && (
-                      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: isDark ? "hsl(220,5%,40%)" : "hsl(220,5%,58%)" }}>
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
                         by {goal.coachName}
                       </Text>
                     )}
@@ -461,10 +465,8 @@ export default function TrackingHomeScreen() {
           <Animated.View
             entering={FadeInDown.delay(0).springify().damping(15)}
             style={{
-              backgroundColor: cardBg,
-              borderRadius: 24,
-              borderWidth: 1,
-              borderColor: cardBorder,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: 20,
               gap: 16,
             }}
@@ -473,10 +475,10 @@ export default function TrackingHomeScreen() {
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <Text
                 style={{
-                  fontFamily: fonts.bodyBold,
+                  fontFamily: "Outfit-Bold",
                   fontSize: 11,
                   letterSpacing: 1.2,
-                  color: isDark ? "hsl(220,5%,50%)" : "hsl(220,5%,48%)",
+                  color: p.textMuted,
                   textTransform: "uppercase",
                 }}
               >
@@ -484,9 +486,9 @@ export default function TrackingHomeScreen() {
               </Text>
               <Text
                 style={{
-                  fontFamily: fonts.bodyMedium,
+                  fontFamily: "Outfit-Regular",
                   fontSize: 12,
-                  color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,52%)",
+                  color: p.textSecondary,
                 }}
               >
                 {weeklyRunCountLabel}
@@ -499,18 +501,18 @@ export default function TrackingHomeScreen() {
                 value={weeklyStats.totalDistance / 1000}
                 decimals={1}
                 style={{
-                  fontFamily: fonts.heroDisplay,
+                  fontFamily: "Outfit-Bold",
                   fontSize: 52,
                   lineHeight: 52,
-                  color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
+                  color: p.textPrimary,
                   letterSpacing: -1,
                 }}
               />
               <Text
                 style={{
-                  fontFamily: fonts.bodyMedium,
+                  fontFamily: "Outfit-Regular",
                   fontSize: 20,
-                  color: colors.textSecondary,
+                  color: p.textSecondary,
                   paddingBottom: 8,
                 }}
               >
@@ -518,25 +520,28 @@ export default function TrackingHomeScreen() {
               </Text>
             </View>
 
-            {/* Metrics row — outer padding 20, inner radius = 24-20 = 4 → use 8 for feel */}
+            {/* Metrics row */}
             <View style={{ flexDirection: "row", gap: 8 }}>
               <MetricTile
                 label="Time"
                 value={`${weeklyTime.h}h ${weeklyTime.m}m`}
-                bg={metricBg}
-                accent={colors.accent}
+                bg={p.inputBg}
+                accent={p.accent}
+                textPrimary={p.textPrimary}
               />
               <MetricTile
                 label="Avg / run"
                 value={`${averageRunDistanceKm} km`}
-                bg={metricBg}
-                accent={colors.accent}
+                bg={p.inputBg}
+                accent={p.accent}
+                textPrimary={p.textPrimary}
               />
               <MetricTile
                 label="Status"
                 value={weeklyStats.numRuns > 0 ? "Active" : "Ready"}
-                bg={metricBg}
-                accent={colors.accent}
+                bg={p.inputBg}
+                accent={p.accent}
+                textPrimary={p.textPrimary}
                 valueIsAccent
               />
             </View>
@@ -546,24 +551,22 @@ export default function TrackingHomeScreen() {
           <Animated.View
             entering={FadeInDown.delay(50).springify().damping(15)}
             style={{
-              backgroundColor: cardBg,
-              borderRadius: 24,
-              borderWidth: 1,
-              borderColor: cardBorder,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: 20,
               gap: 12,
             }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
               <View style={{ gap: 2 }}>
-                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>
                   Weekly distance
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,50%)" }}>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
                   Last 12 weeks
                 </Text>
               </View>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,42%)" : "hsl(220,5%,55%)" }}>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
                 {lastRunLabel}
               </Text>
             </View>
@@ -571,8 +574,8 @@ export default function TrackingHomeScreen() {
               width={Math.max(260, screenWidth - spacing.xl * 2 - 40)}
               height={96}
               points={last12WeeksKm}
-              color={colors.accent}
-              gridColor={isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)"}
+              color={p.accent}
+              gridColor={p.divider}
             />
           </Animated.View>
 
@@ -580,10 +583,8 @@ export default function TrackingHomeScreen() {
           <Pressable
             onPress={() => router.push("/progress" as any)}
             style={({ pressed }) => ({
-              backgroundColor: cardBg,
-              borderRadius: 24,
-              borderWidth: 1,
-              borderColor: cardBorder,
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
               padding: 16,
               flexDirection: "row",
               alignItems: "center",
@@ -593,48 +594,43 @@ export default function TrackingHomeScreen() {
             })}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              {/* outer padding 16, icon wrap radius = 24-16 = 8 */}
               <View
                 style={{
                   width: 40,
                   height: 40,
                   borderRadius: 10,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.07)" : `${colors.accent}18`,
+                  backgroundColor: p.accentSoft,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Ionicons name="trending-up-outline" size={19} color={colors.accent} />
+                <TrendingUp size={19} color={p.accent} />
               </View>
               <View style={{ gap: 2 }}>
-                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
                   Progress Tracking
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,50%)" }}>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
                   Strength · Weight · Body
                 </Text>
               </View>
             </View>
-            <Ionicons
-              name="chevron-forward"
-              size={17}
-              color={isDark ? "hsl(220,5%,40%)" : "hsl(220,5%,58%)"}
-            />
+            <ChevronRight size={17} color={p.textMuted} />
           </Pressable>
 
           {/* ── Recent runs (categorized) ── */}
           {capabilities?.runTracking !== false && <View style={{ gap: 8 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>
                 Activities
               </Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,42%)" : "hsl(220,5%,55%)" }}>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
                 {runs.length} total
               </Text>
             </View>
 
             {runs.length === 0 ? (
-              <TrackingEmptyState onStartRun={handleStartRun} colors={colors} isDark={isDark} />
+              <TrackingEmptyState onStartRun={handleStartRun} p={p} />
             ) : hasCategorized ? (
               /* ── Multi-sport: show by category ── */
               <View style={{ gap: 12 }}>
@@ -642,22 +638,20 @@ export default function TrackingHomeScreen() {
                   <View key={section.label} style={{ gap: 6 }}>
                     {/* Section header */}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
-                      <MaterialCommunityIcons name={section.icon as any} size={14} color={colors.accent} />
-                      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.8, color: isDark ? "hsl(220,5%,55%)" : "hsl(220,5%,48%)", textTransform: "uppercase" }}>
+                      <Zap size={14} color={p.accent} />
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, letterSpacing: 0.8, color: p.textMuted, textTransform: "uppercase" }}>
                         {section.label}
                       </Text>
                     </View>
                     {/* Runs card */}
-                    <View style={{ backgroundColor: cardBg, borderRadius: 20, borderWidth: 1, borderColor: cardBorder, overflow: "hidden" }}>
+                    <View style={{ backgroundColor: p.cardWhite, borderRadius: 22, overflow: "hidden" }}>
                       {section.data.slice(0, 5).map((run, idx) => (
                         <RunRow
                           key={run.id}
                           run={run}
                           idx={idx}
                           total={Math.min(section.data.length, 5)}
-                          colors={colors}
-                          isDark={isDark}
-                          separatorColor={separatorColor}
+                          p={p}
                           formatKm={formatKm}
                           onPress={() => router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any)}
                         />
@@ -668,16 +662,14 @@ export default function TrackingHomeScreen() {
               </View>
             ) : (
               /* ── Single sport: plain list ── */
-              <View style={{ backgroundColor: cardBg, borderRadius: 24, borderWidth: 1, borderColor: cardBorder, overflow: "hidden" }}>
+              <View style={{ backgroundColor: p.cardWhite, borderRadius: 22, overflow: "hidden" }}>
                 {runs.slice(0, 6).map((run, idx) => (
                   <RunRow
                     key={run.id}
                     run={run}
                     idx={idx}
                     total={Math.min(runs.length, 6)}
-                    colors={colors}
-                    isDark={isDark}
-                    separatorColor={separatorColor}
+                    p={p}
                     formatKm={formatKm}
                     onPress={() => router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any)}
                   />
@@ -690,7 +682,7 @@ export default function TrackingHomeScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* FAB — robis: border instead of shadow in dark mode */}
+      {/* FAB */}
       {capabilities?.runTracking !== false && <View
         style={{
           position: "absolute",
@@ -698,16 +690,6 @@ export default function TrackingHomeScreen() {
           right: 20,
           zIndex: 99,
           opacity: sportSheetOpen ? 0 : 1,
-          // Light mode only shadow
-          ...(isDark
-            ? {}
-            : {
-                shadowColor: colors.accent,
-                shadowOpacity: 0.25,
-                shadowRadius: 16,
-                shadowOffset: { width: 0, height: 8 },
-                elevation: 10,
-              }),
         }}
       >
         <GestureDetector gesture={fabTap}>
@@ -716,16 +698,14 @@ export default function TrackingHomeScreen() {
               width: 64,
               height: 64,
               borderRadius: 32,
-              backgroundColor: colors.accent,
+              backgroundColor: p.accent,
               alignItems: "center",
               justifyContent: "center",
-              borderWidth: isDark ? 1 : 0,
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : "transparent",
             }]}
             accessibilityRole="button"
             accessibilityLabel="Start run"
           >
-            <Ionicons name="play" size={28} color={isDark ? "hsl(220,8%,10%)" : "#fafafa"} style={{ marginLeft: 4 }} />
+            <Play size={28} color={p.buttonPrimaryText} style={{ marginLeft: 4 }} />
           </Animated.View>
         </GestureDetector>
       </View>}
@@ -747,7 +727,7 @@ export default function TrackingHomeScreen() {
         router.push("/active-run" as any);
       }}
       onClose={() => setSportSheetOpen(false)}
-      colors={colors}
+      colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
     />
     </>
   );
@@ -759,18 +739,14 @@ function RunRow({
   run,
   idx,
   total,
-  colors,
-  isDark,
-  separatorColor,
+  p,
   formatKm,
   onPress,
 }: {
   run: RunRecord;
   idx: number;
   total: number;
-  colors: Record<string, string>;
-  isDark: boolean;
-  separatorColor: string;
+  p: ReturnType<typeof useAdminPastel>;
   formatKm: (m: number) => string;
   onPress: () => void;
 }) {
@@ -781,35 +757,33 @@ function RunRow({
       style={({ pressed }) => ({
         paddingHorizontal: 20,
         paddingVertical: 14,
-        backgroundColor: pressed
-          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
-          : "transparent",
+        backgroundColor: pressed ? p.accentSoft : "transparent",
       })}
     >
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
-          <View style={{ width: 3, height: 36, borderRadius: 2, backgroundColor: colors.accent, opacity: 0.55 }} />
+          <View style={{ width: 3, height: 36, borderRadius: 2, backgroundColor: p.accent, opacity: 0.55 }} />
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 18, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)" }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary }}>
                 {formatKm(run.distance_meters)}
               </Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
                 km
               </Text>
             </View>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,54%)", marginTop: 1 }}>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginTop: 1 }}>
               {new Date(run.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
             </Text>
           </View>
         </View>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: isDark ? "hsl(220,5%,56%)" : "hsl(220,5%,44%)" }}>
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textSecondary }}>
           {formatDurationClock(run.duration_seconds)}
         </Text>
       </View>
 
       {idx < total - 1 && (
-        <View style={{ position: "absolute", bottom: 0, left: 35, right: 20, height: 1, backgroundColor: separatorColor }} />
+        <View style={{ position: "absolute", bottom: 0, left: 35, right: 20, height: 1, backgroundColor: p.divider }} />
       )}
     </Pressable>
     </Animated.View>
@@ -823,12 +797,14 @@ function MetricTile({
   value,
   bg,
   accent,
+  textPrimary,
   valueIsAccent = false,
 }: {
   label: string;
   value: string;
   bg: string;
   accent: string;
+  textPrimary: string;
   valueIsAccent?: boolean;
 }) {
   return (
@@ -844,7 +820,7 @@ function MetricTile({
     >
       <Text
         style={{
-          fontFamily: fonts.bodyBold,
+          fontFamily: "Outfit-Bold",
           fontSize: 10,
           letterSpacing: 0.8,
           textTransform: "uppercase",
@@ -855,9 +831,9 @@ function MetricTile({
       </Text>
       <Text
         style={{
-          fontFamily: fonts.bodyBold,
+          fontFamily: "Outfit-Bold",
           fontSize: 14,
-          color: valueIsAccent ? accent : undefined,
+          color: valueIsAccent ? accent : textPrimary,
         }}
       >
         {value}
@@ -921,12 +897,10 @@ function LineChart({
 
 function TrackingEmptyState({
   onStartRun,
-  colors,
-  isDark,
+  p,
 }: {
   onStartRun: () => void;
-  colors: any;
-  isDark: boolean;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   const scale = useSharedValue(1);
   const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -956,21 +930,21 @@ function TrackingEmptyState({
     >
       <Animated.View entering={FadeInDown.duration(500).springify()}>
         <Svg width={96} height={96} viewBox="0 0 100 100" fill="none">
-          <Circle cx="50" cy="20" r="10" fill={colors.accent} opacity="0.85" />
-          <Path d="M50 35 C58 50, 42 65, 48 85" stroke={colors.accent} strokeWidth="8" strokeLinecap="round" opacity="0.75" />
-          <Path d="M50 35 C38 45, 62 60, 58 85" stroke={colors.accent} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
-          <Path d="M50 35 L26 46" stroke={colors.accent} strokeWidth="8" strokeLinecap="round" opacity="0.65" />
-          <Path d="M50 35 L74 26" stroke={colors.accent} strokeWidth="8" strokeLinecap="round" opacity="0.65" />
-          <Path d="M15 95 L85 95" stroke={colors.accent} strokeWidth="3" strokeLinecap="round" opacity="0.25" />
-          <Path d="M5 50 L18 50 M10 70 L23 70" stroke={colors.accent} strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+          <Circle cx="50" cy="20" r="10" fill={p.accent} opacity="0.85" />
+          <Path d="M50 35 C58 50, 42 65, 48 85" stroke={p.accent} strokeWidth="8" strokeLinecap="round" opacity="0.75" />
+          <Path d="M50 35 C38 45, 62 60, 58 85" stroke={p.accent} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
+          <Path d="M50 35 L26 46" stroke={p.accent} strokeWidth="8" strokeLinecap="round" opacity="0.65" />
+          <Path d="M50 35 L74 26" stroke={p.accent} strokeWidth="8" strokeLinecap="round" opacity="0.65" />
+          <Path d="M15 95 L85 95" stroke={p.accent} strokeWidth="3" strokeLinecap="round" opacity="0.25" />
+          <Path d="M5 50 L18 50 M10 70 L23 70" stroke={p.accent} strokeWidth="3" strokeLinecap="round" opacity="0.35" />
         </Svg>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(80).duration(500).springify()} style={{ alignItems: "center", gap: 8 }}>
-        <Text style={{ fontFamily: fonts.heading2, fontSize: 22, color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,10%)", textAlign: "center" }}>
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary, textAlign: "center" }}>
           Your first run awaits
         </Text>
-        <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 14, color: isDark ? "hsl(220,5%,48%)" : "hsl(220,5%,48%)", textAlign: "center", lineHeight: 20, maxWidth: 220 }}>
+        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary, textAlign: "center", lineHeight: 20, maxWidth: 220 }}>
           Hit start and we'll track every step of the way
         </Text>
       </Animated.View>
@@ -979,16 +953,14 @@ function TrackingEmptyState({
         <GestureDetector gesture={emptyStateTap}>
           <Animated.View
             style={[btnStyle, {
-              backgroundColor: colors.accent,
+              backgroundColor: p.accent,
               height: 52,
-              borderRadius: 26,
+              borderRadius: 100,
               justifyContent: "center",
               alignItems: "center",
-              borderWidth: isDark ? 1 : 0,
-              borderColor: isDark ? "rgba(255,255,255,0.10)" : "transparent",
             }]}
           >
-            <Text style={{ fontFamily: fonts.heading2, fontSize: 15, color: isDark ? "hsl(220,8%,10%)" : "hsl(0,0%,98%)" }}>
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.buttonPrimaryText }}>
               Start your first run
             </Text>
           </Animated.View>
@@ -1010,7 +982,6 @@ type AthleteWithStats = ManagedAthlete & {
 };
 
 function ManagerDashboard({
-  colors,
   isDark,
   insets,
   showTeamTab,
@@ -1019,7 +990,6 @@ function ManagerDashboard({
   authTeamMembership,
   router,
 }: {
-  colors: Record<string, string>;
   isDark: boolean;
   insets: { top: number; bottom: number };
   showTeamTab: boolean;
@@ -1028,6 +998,7 @@ function ManagerDashboard({
   authTeamMembership: { team: string | null; teamId: number | null } | null;
   router: ReturnType<typeof useRouter>;
 }) {
+  const p = useAdminPastel();
   const capabilities = useAppSelector((s) => s.user.capabilities);
   const [filter, setFilter] = useState<ManagerFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
@@ -1036,12 +1007,6 @@ function ManagerDashboard({
   const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
   const [recentRuns, setRecentRuns] = useState<SocialRunFeedItem[]>([]);
   const [liveLocations, setLiveLocations] = useState<UserLocation[]>([]);
-
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
-  const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const activeGreen = isDark ? "hsl(155, 30%, 55%)" : "hsl(155, 40%, 40%)";
-  const inactiveGray = isDark ? "hsl(220, 5%, 50%)" : "hsl(220, 5%, 55%)";
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -1112,7 +1077,7 @@ function ManagerDashboard({
   const teamName = authTeamMembership?.team ?? managedAthletes[0]?.team ?? "Your Team";
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <ScrollView
         bounces
         showsVerticalScrollIndicator={false}
@@ -1121,15 +1086,15 @@ function ManagerDashboard({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.accent}
-            colors={[colors.accent]}
+            tintColor={p.accent}
+            colors={[p.accent]}
           />
         }
       >
         <View style={{ paddingHorizontal: spacing.xl }}>
           <TrackingHeaderTabs
             active="running"
-            colors={colors}
+            colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
             isDark={isDark}
             topInset={insets.top}
             paddingHorizontal={0}
@@ -1138,12 +1103,12 @@ function ManagerDashboard({
 
           {/* Team name */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <Ionicons name="shield-checkmark" size={18} color={colors.accent} />
+            <ShieldCheck size={18} color={p.accent} />
             <Text
               style={{
-                fontFamily: fonts.bodyMedium,
+                fontFamily: "Outfit-Regular",
                 fontSize: 13,
-                color: labelColor,
+                color: p.textSecondary,
               }}
             >
               {teamName} · Manager View
@@ -1155,8 +1120,8 @@ function ManagerDashboard({
           <SkeletonTrackingSocialScreen />
         ) : fetchError ? (
           <View style={{ paddingVertical: 60, alignItems: "center", gap: 12, paddingHorizontal: spacing.xl }}>
-            <Ionicons name="cloud-offline-outline" size={36} color={labelColor} />
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: labelColor, textAlign: "center" }}>
+            <CloudOff size={36} color={p.textMuted} />
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted, textAlign: "center" }}>
               Couldn't load team data. Pull down to retry.
             </Text>
           </View>
@@ -1167,59 +1132,49 @@ function ManagerDashboard({
               <ManagerStatCard
                 label="Team KM"
                 value={teamTotalKm.toFixed(1)}
-                icon="speedometer-outline"
-                accent={colors.accent}
-                isDark={isDark}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
+                icon="gauge"
+                accent={p.accent}
+                p={p}
               />
               <ManagerStatCard
                 label="Team Time"
                 value={`${Math.floor(teamTotalMin / 60)}h ${Math.round(teamTotalMin % 60)}m`}
-                icon="time-outline"
-                accent={colors.accent}
-                isDark={isDark}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
+                icon="clock"
+                accent={p.accent}
+                p={p}
               />
             </View>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <ManagerStatCard
                 label="Active"
                 value={String(activeCount)}
-                icon="flash-outline"
-                accent={activeGreen}
-                isDark={isDark}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
+                icon="zap"
+                accent={p.success}
+                p={p}
               />
               <ManagerStatCard
                 label="Inactive"
                 value={String(inactiveCount)}
-                icon="moon-outline"
-                accent={inactiveGray}
-                isDark={isDark}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
+                icon="moon"
+                accent={p.textMuted}
+                p={p}
               />
               <ManagerStatCard
                 label="Athletes"
                 value={String(managedAthletes.length)}
-                icon="people-outline"
-                accent={colors.accent}
-                isDark={isDark}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
+                icon="users"
+                accent={p.accent}
+                p={p}
               />
             </View>
 
             {/* ── Quick Actions ── */}
             <Text
               style={{
-                fontFamily: fonts.bodyBold,
+                fontFamily: "Outfit-Bold",
                 fontSize: 11,
                 letterSpacing: 1.2,
-                color: labelColor,
+                color: p.textMuted,
                 textTransform: "uppercase",
                 paddingLeft: 4,
                 marginTop: 4,
@@ -1229,48 +1184,40 @@ function ManagerDashboard({
             </Text>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <ManagerQuickAction
-                icon="calendar-outline"
+                icon="calendar"
                 label="Schedule"
-                isDark={isDark}
-                accent={colors.accent}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
+                accent={p.accent}
+                p={p}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/(tabs)/schedule" as any);
                 }}
               />
               <ManagerQuickAction
-                icon="megaphone-outline"
+                icon="megaphone"
                 label="Announce"
-                isDark={isDark}
-                accent={isDark ? "hsl(40, 30%, 55%)" : "hsl(40, 45%, 45%)"}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
+                accent={p.warning}
+                p={p}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/announcements" as any);
                 }}
               />
               <ManagerQuickAction
-                icon="clipboard-outline"
+                icon="clipboard"
                 label="Roster"
-                isDark={isDark}
-                accent={isDark ? "hsl(270, 25%, 65%)" : "hsl(270, 35%, 50%)"}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
+                accent={p.info}
+                p={p}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/team-manager/roster" as any);
                 }}
               />
               <ManagerQuickAction
-                icon="chatbubbles-outline"
+                icon="chat"
                 label="Chat"
-                isDark={isDark}
-                accent={isDark ? "hsl(190, 25%, 55%)" : "hsl(190, 40%, 40%)"}
-                cardBg={cardBg}
-                cardBorder={cardBorder}
+                accent={p.info}
+                p={p}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/(tabs)/messages" as any);
@@ -1283,10 +1230,10 @@ function ManagerDashboard({
               <>
                 <Text
                   style={{
-                    fontFamily: fonts.bodyBold,
+                    fontFamily: "Outfit-Bold",
                     fontSize: 11,
                     letterSpacing: 1.2,
-                    color: labelColor,
+                    color: p.textMuted,
                     textTransform: "uppercase",
                     paddingLeft: 4,
                     marginTop: 4,
@@ -1296,10 +1243,8 @@ function ManagerDashboard({
                 </Text>
                 <View
                   style={{
-                    backgroundColor: cardBg,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: cardBorder,
+                    backgroundColor: p.cardWhite,
+                    borderRadius: 22,
                     overflow: "hidden",
                   }}
                 >
@@ -1318,7 +1263,7 @@ function ManagerDashboard({
                           alignItems: "center",
                           gap: 12,
                           borderBottomWidth: idx < liveLocations.length - 1 ? 1 : 0,
-                          borderBottomColor: cardBorder,
+                          borderBottomColor: p.divider,
                         }}
                       >
                         <View>
@@ -1326,8 +1271,8 @@ function ManagerDashboard({
                             uri={null}
                             name={loc.name}
                             size={36}
-                            isDark={isDark}
-                            accent={colors.accent}
+                            accent={p.accent}
+                            accentSoft={p.accentSoft}
                           />
                           <View
                             style={{
@@ -1337,9 +1282,9 @@ function ManagerDashboard({
                               width: 12,
                               height: 12,
                               borderRadius: 6,
-                              backgroundColor: isRecent ? activeGreen : (isDark ? "hsl(40, 30%, 55%)" : "hsl(40, 45%, 45%)"),
+                              backgroundColor: isRecent ? p.success : p.warning,
                               borderWidth: 2,
-                              borderColor: cardBg,
+                              borderColor: p.cardWhite,
                             }}
                           />
                         </View>
@@ -1347,27 +1292,26 @@ function ManagerDashboard({
                           <Text
                             numberOfLines={1}
                             style={{
-                              fontFamily: fonts.bodyBold,
+                              fontFamily: "Outfit-Bold",
                               fontSize: 14,
-                              color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
+                              color: p.textPrimary,
                             }}
                           >
                             {loc.name}
                           </Text>
                           <Text
                             style={{
-                              fontFamily: fonts.bodyMedium,
+                              fontFamily: "Outfit-Regular",
                               fontSize: 12,
-                              color: isRecent ? activeGreen : labelColor,
+                              color: isRecent ? p.success : p.textSecondary,
                             }}
                           >
                             {isRecent ? "Sharing now" : `${minutesAgo}m ago`}
                           </Text>
                         </View>
-                        <Ionicons
-                          name="location"
+                        <MapPin
                           size={16}
-                          color={isRecent ? activeGreen : labelColor}
+                          color={isRecent ? p.success : p.textMuted}
                         />
                       </View>
                     );
@@ -1390,23 +1334,15 @@ function ManagerDashboard({
                     style={{
                       paddingHorizontal: 14,
                       paddingVertical: 7,
-                      borderRadius: 20,
-                      backgroundColor: selected
-                        ? colors.accent
-                        : isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
-                      borderWidth: 1,
-                      borderColor: selected
-                        ? colors.accent
-                        : cardBorder,
+                      borderRadius: 100,
+                      backgroundColor: selected ? p.accent : p.inputBg,
                     }}
                   >
                     <Text
                       style={{
-                        fontFamily: fonts.bodyBold,
+                        fontFamily: "Outfit-Bold",
                         fontSize: 12,
-                        color: selected
-                          ? isDark ? "hsl(220,8%,10%)" : "#fafafa"
-                          : isDark ? "hsl(220,5%,65%)" : "hsl(220,5%,40%)",
+                        color: selected ? p.buttonPrimaryText : p.textSecondary,
                         textTransform: "capitalize",
                       }}
                     >
@@ -1420,10 +1356,10 @@ function ManagerDashboard({
             {/* ── Section label ── */}
             <Text
               style={{
-                fontFamily: fonts.bodyBold,
+                fontFamily: "Outfit-Bold",
                 fontSize: 11,
                 letterSpacing: 1.2,
-                color: labelColor,
+                color: p.textMuted,
                 textTransform: "uppercase",
                 paddingLeft: 4,
                 marginTop: 4,
@@ -1435,22 +1371,16 @@ function ManagerDashboard({
             {/* ── Athlete list ── */}
             {filtered.length === 0 ? (
               <View style={{ paddingVertical: 40, alignItems: "center", gap: 8 }}>
-                <Ionicons
-                  name={filter === "inactive" ? "moon-outline" : "flash-outline"}
-                  size={32}
-                  color={labelColor}
-                />
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: labelColor }}>
+                {filter === "inactive" ? <Moon size={32} color={p.textMuted} /> : <Zap size={32} color={p.textMuted} />}
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted }}>
                   {filter === "inactive" ? "All athletes are active this week" : "No athletes match this filter"}
                 </Text>
               </View>
             ) : (
               <View
                 style={{
-                  backgroundColor: cardBg,
-                  borderRadius: 24,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
+                  backgroundColor: p.cardWhite,
+                  borderRadius: 22,
                   overflow: "hidden",
                 }}
               >
@@ -1459,9 +1389,7 @@ function ManagerDashboard({
                     key={athlete.id ?? athlete.userId ?? idx}
                     athlete={athlete}
                     rank={idx + 1}
-                    colors={colors}
-                    isDark={isDark}
-                    cardBorder={cardBorder}
+                    p={p}
                     isLast={idx === filtered.length - 1}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1477,10 +1405,10 @@ function ManagerDashboard({
               <>
                 <Text
                   style={{
-                    fontFamily: fonts.bodyBold,
+                    fontFamily: "Outfit-Bold",
                     fontSize: 11,
                     letterSpacing: 1.2,
-                    color: labelColor,
+                    color: p.textMuted,
                     textTransform: "uppercase",
                     paddingLeft: 4,
                     marginTop: 8,
@@ -1490,10 +1418,8 @@ function ManagerDashboard({
                 </Text>
                 <View
                   style={{
-                    backgroundColor: cardBg,
-                    borderRadius: 24,
-                    borderWidth: 1,
-                    borderColor: cardBorder,
+                    backgroundColor: p.cardWhite,
+                    borderRadius: 22,
                     overflow: "hidden",
                   }}
                 >
@@ -1510,26 +1436,24 @@ function ManagerDashboard({
                         flexDirection: "row",
                         alignItems: "center",
                         gap: 12,
-                        backgroundColor: pressed
-                          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
-                          : "transparent",
+                        backgroundColor: pressed ? p.accentSoft : "transparent",
                       })}
                     >
                       <ManagerAvatar
                         uri={run.avatarUrl}
                         name={run.name}
                         size={36}
-                        isDark={isDark}
-                        accent={colors.accent}
+                        accent={p.accent}
+                        accentSoft={p.accentSoft}
                       />
                       <View style={{ flex: 1, gap: 2 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                           <Text
                             numberOfLines={1}
                             style={{
-                              fontFamily: fonts.bodyBold,
+                              fontFamily: "Outfit-Bold",
                               fontSize: 14,
-                              color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
+                              color: p.textPrimary,
                               flex: 1,
                             }}
                           >
@@ -1537,24 +1461,24 @@ function ManagerDashboard({
                           </Text>
                           <Text
                             style={{
-                              fontFamily: fonts.bodyMedium,
+                              fontFamily: "Outfit-Regular",
                               fontSize: 11,
-                              color: labelColor,
+                              color: p.textMuted,
                             }}
                           >
                             {relativeTime(run.date)}
                           </Text>
                         </View>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.accent }}>
+                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.accent }}>
                             {(run.distanceMeters / 1000).toFixed(1)} km
                           </Text>
-                          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: labelColor }}>
+                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
                             {formatDurationClock(run.durationSeconds)}
                           </Text>
                         </View>
                       </View>
-                      <Ionicons name="chevron-forward" size={16} color={labelColor} />
+                      <ChevronRight size={16} color={p.textMuted} />
                     </Pressable>
                   ))}
                 </View>
@@ -1564,10 +1488,10 @@ function ManagerDashboard({
             {/* ── Management links ── */}
             <Text
               style={{
-                fontFamily: fonts.bodyBold,
+                fontFamily: "Outfit-Bold",
                 fontSize: 11,
                 letterSpacing: 1.2,
-                color: labelColor,
+                color: p.textMuted,
                 textTransform: "uppercase",
                 paddingLeft: 4,
                 marginTop: 8,
@@ -1577,32 +1501,28 @@ function ManagerDashboard({
             </Text>
             <View
               style={{
-                backgroundColor: cardBg,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: cardBorder,
+                backgroundColor: p.cardWhite,
+                borderRadius: 22,
                 overflow: "hidden",
               }}
             >
               <ManagerLinkRow
-                icon="trophy-outline"
+                icon="trophy"
                 label="Team Feed & Leaderboard"
                 subtitle="Posts, challenges, and squad activity"
-                accent={colors.accent}
-                isDark={isDark}
-                cardBorder={cardBorder}
+                accent={p.accent}
+                p={p}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/(tabs)/tracking/social" as any);
                 }}
               />
               <ManagerLinkRow
-                icon="settings-outline"
+                icon="settings"
                 label="Team Tracking Settings"
                 subtitle="Privacy, sharing, and visibility"
-                accent={isDark ? "hsl(220,5%,65%)" : "hsl(220,5%,45%)"}
-                isDark={isDark}
-                cardBorder={cardBorder}
+                accent={p.textSecondary}
+                p={p}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/(tabs)/tracking/team-settings" as any);
@@ -1610,12 +1530,11 @@ function ManagerDashboard({
               />
               {capabilities?.schedule && (
                 <ManagerLinkRow
-                  icon="calendar-outline"
+                  icon="calendar"
                   label="Team Schedule"
                   subtitle="Training sessions and events"
-                  accent={isDark ? "hsl(270, 25%, 65%)" : "hsl(270, 35%, 50%)"}
-                  isDark={isDark}
-                  cardBorder={cardBorder}
+                  accent={p.info}
+                  p={p}
                   isLast
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1635,31 +1554,34 @@ function ManagerDashboard({
 
 // ── ManagerStatCard ────────────────────────────────────────────────────────
 
+const STAT_ICONS = {
+  gauge: Gauge,
+  clock: Clock,
+  zap: Zap,
+  moon: Moon,
+  users: Users,
+} as const;
+
 function ManagerStatCard({
   label,
   value,
   icon,
   accent,
-  isDark,
-  cardBg,
-  cardBorder,
+  p,
 }: {
   label: string;
   value: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof STAT_ICONS;
   accent: string;
-  isDark: boolean;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
+  const IconComp = STAT_ICONS[icon];
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: cardBg,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: cardBorder,
+        backgroundColor: p.cardWhite,
+        borderRadius: 22,
         padding: 14,
         gap: 8,
       }}
@@ -1669,18 +1591,18 @@ function ManagerStatCard({
           width: 32,
           height: 32,
           borderRadius: 10,
-          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+          backgroundColor: p.accentSoft,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Ionicons name={icon} size={16} color={accent} />
+        <IconComp size={16} color={accent} />
       </View>
       <Text
         style={{
-          fontFamily: fonts.heroDisplay,
+          fontFamily: "Outfit-Bold",
           fontSize: 22,
-          color: isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)",
+          color: p.textPrimary,
           letterSpacing: -0.5,
         }}
       >
@@ -1688,10 +1610,10 @@ function ManagerStatCard({
       </Text>
       <Text
         style={{
-          fontFamily: fonts.bodyBold,
+          fontFamily: "Outfit-Bold",
           fontSize: 10,
           letterSpacing: 0.8,
-          color: isDark ? "hsl(220,5%,50%)" : "hsl(220,5%,48%)",
+          color: p.textMuted,
           textTransform: "uppercase",
         }}
       >
@@ -1706,26 +1628,19 @@ function ManagerStatCard({
 function AthleteRow({
   athlete,
   rank,
-  colors,
-  isDark,
-  cardBorder,
+  p,
   isLast,
   onPress,
 }: {
   athlete: AthleteWithStats;
   rank: number;
-  colors: Record<string, string>;
-  isDark: boolean;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
   isLast: boolean;
   onPress: () => void;
 }) {
-  const labelColor = isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)";
   const isActive = athlete.kmTotal > 0;
 
-  const statusDot = isActive
-    ? isDark ? "hsl(155, 30%, 55%)" : "hsl(155, 40%, 40%)"
-    : isDark ? "hsl(220,5%,35%)" : "hsl(220,5%,65%)";
+  const statusDot = isActive ? p.success : p.textMuted;
 
   return (
     <Pressable
@@ -1736,11 +1651,9 @@ function AthleteRow({
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        backgroundColor: pressed
-          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
-          : "transparent",
+        backgroundColor: pressed ? p.accentSoft : "transparent",
         borderBottomWidth: isLast ? 0 : 1,
-        borderBottomColor: cardBorder,
+        borderBottomColor: p.divider,
       })}
     >
       {/* Rank */}
@@ -1751,7 +1664,7 @@ function AthleteRow({
             height: 24,
             borderRadius: 12,
             backgroundColor: rank <= 3 && isActive
-              ? rank === 1 ? "rgba(255,195,0,0.18)" : rank === 2 ? "rgba(192,192,192,0.22)" : "rgba(205,127,50,0.18)"
+              ? rank === 1 ? p.warningSoft : rank === 2 ? p.infoSoft : p.warningSoft
               : "transparent",
             alignItems: "center",
             justifyContent: "center",
@@ -1759,11 +1672,11 @@ function AthleteRow({
         >
           <Text
             style={{
-              fontFamily: fonts.bodyBold,
+              fontFamily: "Outfit-Bold",
               fontSize: 12,
               color: rank <= 3 && isActive
-                ? rank === 1 ? "#D4A017" : rank === 2 ? "#8E8E93" : "#B87333"
-                : labelColor,
+                ? rank === 1 ? p.warning : rank === 2 ? p.info : p.warning
+                : p.textMuted,
             }}
           >
             {rank}
@@ -1777,8 +1690,8 @@ function AthleteRow({
           uri={athlete.profilePicture ?? null}
           name={athlete.name ?? "?"}
           size={42}
-          isDark={isDark}
-          accent={colors.accent}
+          accent={p.accent}
+          accentSoft={p.accentSoft}
         />
         <View
           style={{
@@ -1790,7 +1703,7 @@ function AthleteRow({
             borderRadius: 6,
             backgroundColor: statusDot,
             borderWidth: 2,
-            borderColor: isDark ? "hsl(220, 8%, 12%)" : colors.card,
+            borderColor: p.cardWhite,
           }}
         />
       </View>
@@ -1800,18 +1713,18 @@ function AthleteRow({
         <Text
           numberOfLines={1}
           style={{
-            fontFamily: fonts.bodyBold,
+            fontFamily: "Outfit-Bold",
             fontSize: 15,
-            color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
+            color: p.textPrimary,
           }}
         >
           {athlete.name ?? "Unknown"}
         </Text>
         <Text
           style={{
-            fontFamily: fonts.bodyMedium,
+            fontFamily: "Outfit-Regular",
             fontSize: 12,
-            color: labelColor,
+            color: p.textSecondary,
           }}
         >
           {athlete.lastRunDate
@@ -1824,25 +1737,25 @@ function AthleteRow({
       <View style={{ alignItems: "flex-end", gap: 2 }}>
         <Text
           style={{
-            fontFamily: fonts.bodyBold,
+            fontFamily: "Outfit-Bold",
             fontSize: 15,
-            color: isActive ? colors.accent : labelColor,
+            color: isActive ? p.accent : p.textMuted,
           }}
         >
           {athlete.kmTotal.toFixed(1)} km
         </Text>
         <Text
           style={{
-            fontFamily: fonts.bodyMedium,
+            fontFamily: "Outfit-Regular",
             fontSize: 11,
-            color: labelColor,
+            color: p.textMuted,
           }}
         >
           {Math.floor(athlete.durationMinutesTotal / 60)}h {Math.round(athlete.durationMinutesTotal % 60)}m
         </Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={16} color={labelColor} />
+      <ChevronRight size={16} color={p.textMuted} />
     </Pressable>
   );
 }
@@ -1853,14 +1766,14 @@ function ManagerAvatar({
   uri,
   name,
   size,
-  isDark,
   accent,
+  accentSoft,
 }: {
   uri: string | null;
   name: string;
   size: number;
-  isDark: boolean;
   accent: string;
+  accentSoft: string;
 }) {
   if (uri) {
     return (
@@ -1878,14 +1791,14 @@ function ManagerAvatar({
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: isDark ? "rgba(200,241,53,0.12)" : `${accent}18`,
+        backgroundColor: accentSoft,
         alignItems: "center",
         justifyContent: "center",
       }}
     >
       <Text
         style={{
-          fontFamily: fonts.bodyBold,
+          fontFamily: "Outfit-Bold",
           fontSize: size * 0.4,
           color: accent,
         }}
@@ -1898,32 +1811,34 @@ function ManagerAvatar({
 
 // ── ManagerQuickAction ─────────────────────────────────────────────────────
 
+const QUICK_ACTION_ICONS = {
+  calendar: Calendar,
+  megaphone: Megaphone,
+  clipboard: ClipboardList,
+  chat: MessageCircle,
+} as const;
+
 function ManagerQuickAction({
   icon,
   label,
-  isDark,
   accent,
-  cardBg,
-  cardBorder,
+  p,
   onPress,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof QUICK_ACTION_ICONS;
   label: string;
-  isDark: boolean;
   accent: string;
-  cardBg: string;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
   onPress: () => void;
 }) {
+  const IconComp = QUICK_ACTION_ICONS[icon];
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
-        backgroundColor: cardBg,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: cardBorder,
+        backgroundColor: p.cardWhite,
+        borderRadius: 22,
         paddingVertical: 14,
         alignItems: "center",
         gap: 8,
@@ -1936,18 +1851,18 @@ function ManagerQuickAction({
           width: 36,
           height: 36,
           borderRadius: 10,
-          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+          backgroundColor: p.accentSoft,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Ionicons name={icon} size={18} color={accent} />
+        <IconComp size={18} color={accent} />
       </View>
       <Text
         style={{
-          fontFamily: fonts.bodyBold,
+          fontFamily: "Outfit-Bold",
           fontSize: 11,
-          color: isDark ? "hsl(220,5%,70%)" : "hsl(220,5%,35%)",
+          color: p.textSecondary,
           textAlign: "center",
         }}
       >
@@ -1959,26 +1874,30 @@ function ManagerQuickAction({
 
 // ── ManagerLinkRow ─────────────────────────────────────────────────────────
 
+const LINK_ICONS = {
+  trophy: Trophy,
+  settings: Settings,
+  calendar: Calendar,
+} as const;
+
 function ManagerLinkRow({
   icon,
   label,
   subtitle,
   accent,
-  isDark,
-  cardBorder,
+  p,
   isLast = false,
   onPress,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof LINK_ICONS;
   label: string;
   subtitle: string;
   accent: string;
-  isDark: boolean;
-  cardBorder: string;
+  p: ReturnType<typeof useAdminPastel>;
   isLast?: boolean;
   onPress: () => void;
 }) {
-  const linkLabelColor = isDark ? "hsl(220,5%,52%)" : "hsl(220,5%,48%)";
+  const IconComp = LINK_ICONS[icon];
   return (
     <Pressable
       onPress={onPress}
@@ -1988,11 +1907,9 @@ function ManagerLinkRow({
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        backgroundColor: pressed
-          ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
-          : "transparent",
+        backgroundColor: pressed ? p.accentSoft : "transparent",
         borderBottomWidth: isLast ? 0 : 1,
-        borderBottomColor: cardBorder,
+        borderBottomColor: p.divider,
       })}
     >
       <View
@@ -2000,34 +1917,34 @@ function ManagerLinkRow({
           width: 40,
           height: 40,
           borderRadius: 12,
-          backgroundColor: isDark ? `${accent}18` : `${accent}14`,
+          backgroundColor: p.accentSoft,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Ionicons name={icon} size={19} color={accent} />
+        <IconComp size={19} color={accent} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text
           style={{
-            fontFamily: fonts.bodyBold,
+            fontFamily: "Outfit-Bold",
             fontSize: 14,
-            color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,12%)",
+            color: p.textPrimary,
           }}
         >
           {label}
         </Text>
         <Text
           style={{
-            fontFamily: fonts.bodyMedium,
+            fontFamily: "Outfit-Regular",
             fontSize: 12,
-            color: linkLabelColor,
+            color: p.textSecondary,
           }}
         >
           {subtitle}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={17} color={linkLabelColor} />
+      <ChevronRight size={17} color={p.textMuted} />
     </Pressable>
   );
 }

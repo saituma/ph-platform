@@ -3,13 +3,13 @@ import { ActivityIndicator, Pressable, Share, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { ChevronLeft, Share2 } from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { useAppToast } from "@/hooks/useAppToast";
-import { radius, spacing } from "@/constants/theme";
 import { fetchRunDetail } from "@/services/tracking/socialService";
 import { TrackingMapView } from "@/components/tracking/TrackingMapView";
 import { MapStyleSwitcher } from "@/components/tracking/MapStyleSwitcher";
@@ -23,6 +23,7 @@ export default function RunPathScreen() {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
   const toast = useAppToast();
+  const p = useAdminPastel();
   const { colors } = useAppTheme();
   const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
@@ -85,7 +86,7 @@ export default function RunPathScreen() {
 
   const layers = useMemo((): TrackingMapLayer[] => {
     if (!points || points.length < 2) return [];
-    const pts = points.map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
+    const pts = points.map((pt) => ({ latitude: pt.latitude, longitude: pt.longitude }));
     return [
       {
         id: "route",
@@ -142,9 +143,9 @@ export default function RunPathScreen() {
 
   if (!token) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-        <View style={{ paddingTop: insets.top + 12, paddingHorizontal: spacing.xl }}>
-          <Text className="text-base font-outfit" style={{ color: colors.textSecondary }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
+        <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 20 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: p.textSecondary }}>
             Sign in to view run paths.
           </Text>
         </View>
@@ -154,15 +155,15 @@ export default function RunPathScreen() {
 
   if (runLogId == null) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-        <View style={{ paddingTop: insets.top + 12, paddingHorizontal: spacing.xl }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
+        <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 20 }}>
           <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Feather name="chevron-left" size={18} color={colors.icon} />
-            <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+            <ChevronLeft size={18} color={p.textSecondary} strokeWidth={2.5} />
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textSecondary }}>
               Back
             </Text>
           </Pressable>
-          <Text className="text-base font-outfit mt-4" style={{ color: colors.textSecondary }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: p.textSecondary, marginTop: 16 }}>
             Invalid run.
           </Text>
         </View>
@@ -171,28 +172,28 @@ export default function RunPathScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: spacing.xl, paddingBottom: 10 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
+      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 20, paddingBottom: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => ({
               height: 40,
               paddingHorizontal: 10,
-              borderRadius: radius.pill,
+              borderRadius: 100,
               flexDirection: "row",
               alignItems: "center",
               gap: 8,
               opacity: pressed ? 0.85 : 1,
             })}
           >
-            <Feather name="chevron-left" size={18} color={colors.icon} />
-            <Text className="text-sm font-outfit font-semibold" style={{ color: colors.textSecondary }}>
+            <ChevronLeft size={18} color={p.textSecondary} strokeWidth={2.5} />
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textSecondary }}>
               Back
             </Text>
           </Pressable>
 
-          <Text className="text-sm font-clash font-semibold" style={{ color: colors.text }}>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
             Run path
           </Text>
 
@@ -201,18 +202,18 @@ export default function RunPathScreen() {
             style={({ pressed }) => ({
               width: 40,
               height: 40,
-              borderRadius: radius.pill,
+              borderRadius: 100,
               alignItems: "center",
               justifyContent: "center",
               opacity: pressed ? 0.85 : 1,
             })}
           >
-            <Feather name="share-2" size={18} color={colors.icon} />
+            <Share2 size={18} color={p.textSecondary} strokeWidth={2.5} />
           </Pressable>
         </View>
 
         {item ? (
-          <Text className="text-xs font-outfit mt-2" style={{ color: colors.textSecondary }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, marginTop: 8 }}>
             {item.name} · {new Date(item.date).toLocaleDateString()}
           </Text>
         ) : null}
@@ -221,11 +222,11 @@ export default function RunPathScreen() {
       <View style={{ flex: 1 }}>
         {loading ? (
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-            <ActivityIndicator />
+            <ActivityIndicator color={p.accent} />
           </View>
         ) : !points || points.length < 2 ? (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl }}>
-            <Text className="text-base font-outfit" style={{ color: colors.textSecondary, textAlign: "center" }}>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 }}>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: p.textSecondary, textAlign: "center" }}>
               No route recorded for this run.
             </Text>
           </View>

@@ -1,10 +1,16 @@
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Pressable, View } from "react-native";
+import { LayoutGrid, User, Activity, Shield } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { HELP_CATEGORIES } from "./constants";
+
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
+  grid: LayoutGrid,
+  user: User,
+  activity: Activity,
+  shield: Shield,
+};
 
 interface CategoryListProps {
   selectedCategory: string;
@@ -12,32 +18,48 @@ interface CategoryListProps {
 }
 
 export function CategoryList({ selectedCategory, onSelectCategory }: CategoryListProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
-    <View className="flex-row flex-wrap justify-between mb-8">
-      {HELP_CATEGORIES.map((category) => (
-        <TouchableOpacity
-          key={category.id}
-          onPress={() => onSelectCategory(category.id)}
-          className="mb-4 w-[48%] rounded-[28px] border p-4"
-          style={{
-            backgroundColor: selectedCategory === category.id ? (isDark ? "rgba(34,197,94,0.16)" : "#F0FDF4") : colors.card,
-            borderColor: selectedCategory === category.id ? colors.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            ...(isDark ? Shadows.none : Shadows.sm),
-          }}
-          activeOpacity={0.9}
-        >
-          <View
-            className="mb-3 h-12 w-12 items-center justify-center rounded-2xl"
-            style={{ backgroundColor: selectedCategory === category.id ? colors.accentLight : isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)" }}
+    <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 24 }}>
+      {HELP_CATEGORIES.map((category) => {
+        const isSelected = selectedCategory === category.id;
+        const Icon = ICON_MAP[category.icon] || LayoutGrid;
+        return (
+          <Pressable
+            key={category.id}
+            onPress={() => onSelectCategory(category.id)}
+            style={({ pressed }) => ({
+              marginBottom: 12,
+              width: "48%",
+              borderRadius: 22,
+              padding: 16,
+              backgroundColor: isSelected ? p.accentSoft : p.cardSage,
+              opacity: pressed ? 0.85 : 1,
+            })}
           >
-            <Feather name={category.icon} size={22} color={colors.accent} />
-          </View>
-          <Text className="font-clash text-lg font-bold text-app mb-1">{category.label}</Text>
-          <Text className="font-outfit text-sm text-secondary leading-5">{category.description}</Text>
-        </TouchableOpacity>
-      ))}
+            <View
+              style={{
+                marginBottom: 12,
+                height: 48,
+                width: 48,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 16,
+                backgroundColor: isSelected ? p.cardWhite : p.cardMint,
+              }}
+            >
+              <Icon size={22} color={p.accent} />
+            </View>
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary, marginBottom: 4 }}>
+              {category.label}
+            </Text>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, lineHeight: 18 }}>
+              {category.description}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

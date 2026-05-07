@@ -1,15 +1,15 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { Skeleton } from "@/components/Skeleton";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 
 import React from "react";
-import { Pressable, View, TextInput, ActivityIndicator, Modal } from "react-native";
+import { Pressable, View, TextInput, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { Image } from "expo-image";
-import { Feather } from "@expo/vector-icons";
+import { User, Camera, Mail, Lock, Save } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
@@ -22,8 +22,18 @@ import * as Haptics from "expo-haptics";
 export default function ProfileSettingsScreen() {
   const { isSectionHidden } = useAgeExperience();
   const { isLoading } = useRefreshContext();
-  const { colors, isDark } = useAppTheme();
-  const { token, appRole } = useAppSelector((state) => state.user);
+  const p = useAdminPastel();
+  const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
+
+  const c = {
+    bg: p.pageBg,
+    card: p.cardLavender,
+    text: p.textPrimary,
+    textSec: p.textSecondary,
+    accent: p.accent,
+    inputBg: p.inputBg,
+    inputBorder: p.inputBorder,
+  };
 
   const {
     profile,
@@ -73,25 +83,23 @@ export default function ProfileSettingsScreen() {
     }
   };
 
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : "hsl(150, 20%, 97%)";
-  const cardBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const textPrimary = isDark ? "hsl(220, 5%, 94%)" : "hsl(220, 8%, 10%)";
-  const subtleBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.84)";
-
   const hasChanges = name !== (profile.name || "");
+  const cardRadius = 28;
+  const btnRadius = 100;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }} edges={["top"]}>
       <MoreStackHeader
         title="Profile Information"
         subtitle="Manage your personal details and avatar."
         badge="Account"
       />
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
       <ThemedScrollView
         onRefresh={handleRefresh}
         style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingBottom: 60,
           paddingHorizontal: 20,
@@ -100,7 +108,7 @@ export default function ProfileSettingsScreen() {
       >
         {isLoading ? (
           <View style={{ gap: 16 }}>
-            <Skeleton width="100%" height={240} borderRadius={28} />
+            <Skeleton width="100%" height={240} borderRadius={cardRadius} />
           </View>
         ) : (
           <View style={{ gap: 24 }}>
@@ -108,12 +116,12 @@ export default function ProfileSettingsScreen() {
             <View
               style={{
                 overflow: "hidden",
-                borderRadius: 28,
-                borderWidth: 1,
+                borderRadius: cardRadius,
+                borderWidth: 0,
                 borderCurve: "continuous",
                 padding: 24,
-                backgroundColor: cardBg,
-                borderColor: cardBorder,
+                backgroundColor: c.card,
+                borderColor: c.inputBorder,
               }}
             >
               <View style={{ alignItems: "center", marginBottom: 28 }}>
@@ -125,56 +133,56 @@ export default function ProfileSettingsScreen() {
                   })}
                 >
                   {profile.avatar ? (
-                    <View style={{ width: 100, height: 100, borderRadius: 32, overflow: "hidden", borderWidth: 2, borderColor: colors.accent, borderCurve: "continuous" }}>
+                    <View style={{ width: 100, height: 100, borderRadius: 32, overflow: "hidden", borderWidth: 2, borderColor: c.accent, borderCurve: "continuous" }}>
                       <Image source={{ uri: profile.avatar }} style={{ width: 100, height: 100 }} contentFit="cover" />
                     </View>
                   ) : (
-                    <View style={{ width: 100, height: 100, borderRadius: 32, backgroundColor: subtleBg, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.accent, borderCurve: "continuous" }}>
-                      <Feather name="user" size={40} color={colors.accent} />
+                    <View style={{ width: 100, height: 100, borderRadius: 32, backgroundColor: c.inputBg, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: c.accent, borderCurve: "continuous" }}>
+                      <User size={40} color={c.accent} />
                     </View>
                   )}
-                  <View style={{ position: "absolute", bottom: -8, right: -8, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: cardBg }}>
+                  <View style={{ position: "absolute", bottom: -8, right: -8, width: 36, height: 36, borderRadius: 18, backgroundColor: c.accent, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: c.card }}>
                     {isUploadingAvatar ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Feather name="camera" size={16} color="#fff" />
+                      <Camera size={16} color="#fff" />
                     )}
                   </View>
                 </Pressable>
-                <Text style={{ marginTop: 16, fontSize: 13, fontFamily: "Outfit", color: labelColor }}>
+                <Text style={{ marginTop: 16, fontSize: 13, fontFamily: "Outfit", color: c.textSec }}>
                   Tap to update avatar
                 </Text>
               </View>
 
               <View style={{ gap: 16 }}>
                 <View>
-                  <Text style={{ fontSize: 12, fontFamily: "ClashDisplay-Semibold", textTransform: "uppercase", letterSpacing: 1.2, color: labelColor, marginBottom: 8, marginLeft: 4 }}>
+                  <Text style={{ fontSize: 12, fontFamily: "ClashDisplay-Semibold", textTransform: "uppercase", letterSpacing: 1.2, color: c.textSec, marginBottom: 8, marginLeft: 4 }}>
                     Full Name
                   </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: subtleBg, borderRadius: 16, paddingHorizontal: 16, height: 56, borderWidth: 1, borderColor: cardBorder, borderCurve: "continuous" }}>
-                    <Feather name="user" size={18} color={labelColor} style={{ marginRight: 12 }} />
+                  <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: c.inputBg, borderRadius: 16, paddingHorizontal: 16, height: 56, borderWidth: 1, borderColor: c.inputBorder, borderCurve: "continuous" }}>
+                    <User size={18} color={c.textSec} style={{ marginRight: 12 }} />
                     <TextInput
-                      style={{ flex: 1, fontSize: 16, fontFamily: "Outfit", color: textPrimary }}
+                      style={{ flex: 1, fontSize: 16, fontFamily: "Outfit", color: c.text }}
                       value={name}
                       onChangeText={setName}
                       placeholder="Your full name"
-                      placeholderTextColor={labelColor}
+                      placeholderTextColor={c.textSec}
                     />
                   </View>
                 </View>
 
                 <View>
-                  <Text style={{ fontSize: 12, fontFamily: "ClashDisplay-Semibold", textTransform: "uppercase", letterSpacing: 1.2, color: labelColor, marginBottom: 8, marginLeft: 4 }}>
+                  <Text style={{ fontSize: 12, fontFamily: "ClashDisplay-Semibold", textTransform: "uppercase", letterSpacing: 1.2, color: c.textSec, marginBottom: 8, marginLeft: 4 }}>
                     Email Address
                   </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)", borderRadius: 16, paddingHorizontal: 16, height: 56, borderWidth: 1, borderColor: cardBorder, borderCurve: "continuous" }}>
-                    <Feather name="mail" size={18} color={labelColor} style={{ marginRight: 12 }} />
+                  <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: c.inputBg, borderRadius: 16, paddingHorizontal: 16, height: 56, borderWidth: 1, borderColor: c.inputBorder, borderCurve: "continuous" }}>
+                    <Mail size={18} color={c.textSec} style={{ marginRight: 12 }} />
                     <TextInput
-                      style={{ flex: 1, fontSize: 16, fontFamily: "Outfit", color: labelColor }}
+                      style={{ flex: 1, fontSize: 16, fontFamily: "Outfit", color: c.textSec }}
                       value={email}
                       editable={false}
                     />
-                    <Feather name="lock" size={14} color={labelColor} style={{ marginLeft: 8 }} />
+                    <Lock size={14} color={c.textSec} style={{ marginLeft: 8 }} />
                   </View>
                 </View>
               </View>
@@ -187,37 +195,37 @@ export default function ProfileSettingsScreen() {
               />
             )}
 
-            <Pressable 
+            <Pressable
               onPress={() => {
                 if (!hasChanges) return;
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 handleSave();
-              }} 
-              disabled={isSaving || !hasChanges} 
+              }}
+              disabled={isSaving || !hasChanges}
               style={({ pressed }) => ({
                 marginTop: 8,
                 opacity: (isSaving || !hasChanges) ? 0.5 : (pressed ? 0.8 : 1),
-                transform: [{ scale: pressed && hasChanges && !isSaving ? 0.98 : 1 }]
+                transform: [{ scale: pressed && hasChanges && !isSaving ? 0.98 : 1 }],
               })}
             >
               <View
                 style={{
                   height: 56,
-                  borderRadius: 20,
+                  borderRadius: btnRadius,
                   borderCurve: "continuous",
-                  backgroundColor: colors.accent,
+                  backgroundColor: c.accent,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  shadowColor: colors.accent,
+                  shadowColor: c.accent,
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.3,
                   shadowRadius: 12,
                   elevation: 4,
                 }}
               >
-                <Feather name="save" size={18} color="#fff" />
+                <Save size={18} color="#fff" />
                 <Text style={{ color: "#fff", fontSize: 16, fontFamily: "ClashDisplay-Bold" }}>
                   {isSaving ? "Saving Updates..." : "Save Changes"}
                 </Text>
@@ -226,6 +234,7 @@ export default function ProfileSettingsScreen() {
           </View>
         )}
       </ThemedScrollView>
+      </KeyboardAvoidingView>
 
       {/* Avatar Confirmation Modal */}
       <Modal
@@ -238,30 +247,30 @@ export default function ProfileSettingsScreen() {
           style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", paddingHorizontal: 16 }}
           onPress={() => setPendingAvatarUri(null)}
         >
-          <Pressable 
-            style={{ width: "100%", maxWidth: 320, borderRadius: 28, borderCurve: "continuous", backgroundColor: isDark ? "#1C1C1E" : "#FFF", padding: 24, alignItems: "center", shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}
+          <Pressable
+            style={{ width: "100%", maxWidth: 320, borderRadius: cardRadius, borderCurve: "continuous", backgroundColor: c.card, padding: 24, alignItems: "center" }}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={{ fontSize: 20, fontFamily: "ClashDisplay-Bold", color: textPrimary, marginBottom: 8 }}>Use this photo?</Text>
-            <Text style={{ fontSize: 14, fontFamily: "Outfit", color: labelColor, textAlign: "center", marginBottom: 24 }}>
+            <Text style={{ fontSize: 20, fontFamily: "ClashDisplay-Bold", color: c.text, marginBottom: 8 }}>Use this photo?</Text>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit", color: c.textSec, textAlign: "center", marginBottom: 24 }}>
               This will be visible across your profile.
             </Text>
-            
+
             {pendingAvatarUri ? (
-              <View style={{ marginBottom: 32, borderRadius: 40, borderCurve: "continuous", overflow: "hidden", borderWidth: 4, borderColor: cardBorder }}>
+              <View style={{ marginBottom: 32, borderRadius: 40, borderCurve: "continuous", overflow: "hidden", borderWidth: 4, borderColor: c.inputBorder }}>
                 <Image source={{ uri: pendingAvatarUri }} style={{ width: 140, height: 140 }} />
               </View>
             ) : null}
 
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, width: "100%" }}>
               <Pressable
-                style={({ pressed }) => ({ flex: 1, height: 48, borderRadius: 16, borderCurve: "continuous", borderWidth: 1, borderColor: cardBorder, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 })}
+                style={({ pressed }) => ({ flex: 1, height: 48, borderRadius: 100, borderCurve: "continuous", borderWidth: 0, borderColor: c.inputBorder, backgroundColor: c.inputBg, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 })}
                 onPress={() => setPendingAvatarUri(null)}
               >
-                <Text style={{ fontFamily: "Outfit", color: textPrimary, fontSize: 15 }}>Cancel</Text>
+                <Text style={{ fontFamily: "Outfit", color: c.text, fontSize: 15 }}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={({ pressed }) => ({ flex: 1, height: 48, borderRadius: 16, borderCurve: "continuous", backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", opacity: isUploadingAvatar ? 0.5 : (pressed ? 0.8 : 1) })}
+                style={({ pressed }) => ({ flex: 1, height: 48, borderRadius: 100, borderCurve: "continuous", backgroundColor: c.accent, alignItems: "center", justifyContent: "center", opacity: isUploadingAvatar ? 0.5 : (pressed ? 0.8 : 1) })}
                 disabled={isUploadingAvatar}
                 onPress={handleConfirmAvatar}
               >

@@ -1,12 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Image, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  Users,
+  UserPlus,
+  Megaphone,
+  Calendar,
+  Trophy,
+  BarChart3,
+  ShieldCheck,
+  ChevronRight,
+  GraduationCap,
+  User,
+} from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
-import { fonts } from "@/constants/theme";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterService";
 import { TEAM_MANAGER_TAB_ROUTES } from "@/roles/team-manager/tabs";
@@ -16,7 +26,7 @@ import { TEAM_MANAGER_TAB_ROUTES } from "@/roles/team-manager/tabs";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function TeamManagerManageScreen() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { authTeamMembership, appRole, token } = useAppSelector((s) => s.user);
 
@@ -71,12 +81,8 @@ export default function TeamManagerManageScreen() {
 
   if (appRole !== "team_manager") return null;
 
-  const heroBg = isDark ? "hsl(148,18%,6%)" : "hsl(148,22%,96%)";
-  const cardBg = colors.surfaceHigh;
-  const cardBorder = isDark ? colors.borderMid : colors.borderMid;
-
   return (
-    <View style={{ flex: 1, backgroundColor: heroBg }}>
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
@@ -84,8 +90,8 @@ export default function TeamManagerManageScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.accent}
-            colors={[colors.accent]}
+            tintColor={p.accent}
+            colors={[p.accent]}
           />
         }
       >
@@ -100,27 +106,12 @@ export default function TeamManagerManageScreen() {
               overflow: "hidden",
             }}
           >
-            {/* Ambient glow */}
-            <View
-              style={{
-                position: "absolute",
-                top: -30,
-                right: -40,
-                width: 220,
-                height: 220,
-                borderRadius: 110,
-                backgroundColor: isDark
-                  ? "rgba(52,199,89,0.07)"
-                  : "rgba(22,163,74,0.07)",
-              }}
-            />
-
             {/* Title */}
             <Text
               style={{
                 fontSize: 36,
-                fontFamily: "TelmaBold",
-                color: isDark ? "hsl(148,8%,94%)" : "hsl(148,28%,10%)",
+                fontFamily: "Outfit-Bold",
+                color: p.textPrimary,
                 letterSpacing: -0.5,
                 lineHeight: 42,
                 marginBottom: 10,
@@ -134,8 +125,8 @@ export default function TeamManagerManageScreen() {
               numberOfLines={1}
               style={{
                 fontSize: 13,
-                fontFamily: fonts.bodyMedium,
-                color: isDark ? "hsl(148,5%,55%)" : "hsl(148,18%,40%)",
+                fontFamily: "Outfit-Regular",
+                color: p.textSecondary,
                 marginBottom: 16,
               }}
             >
@@ -152,25 +143,12 @@ export default function TeamManagerManageScreen() {
                 marginBottom: 20,
               }}
             >
-              <CountBadge
-                value={memberCount}
-                label="athletes"
-                icon="people-outline"
-              />
+              <CountBadge value={memberCount} label="athletes" icon={Users} />
               {youthCount > 0 && (
-                <CountBadge
-                  value={youthCount}
-                  label="youth"
-                  icon="school-outline"
-                  accent
-                />
+                <CountBadge value={youthCount} label="youth" icon={GraduationCap} accent />
               )}
               {adultCount > 0 && (
-                <CountBadge
-                  value={adultCount}
-                  label="adults"
-                  icon="body-outline"
-                />
+                <CountBadge value={adultCount} label="adults" icon={User} />
               )}
             </View>
 
@@ -182,20 +160,20 @@ export default function TeamManagerManageScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 7,
-                  backgroundColor: colors.accent,
+                  backgroundColor: p.accent,
                   paddingHorizontal: 18,
                   paddingVertical: 11,
-                  borderRadius: 22,
+                  borderRadius: 100,
                   opacity: pressed ? 0.82 : 1,
                   transform: [{ scale: pressed ? 0.96 : 1 }],
                 })}
               >
-                <Ionicons name="person-add" size={15} color="#000" />
+                <UserPlus size={15} color={p.buttonPrimaryText} />
                 <Text
                   style={{
                     fontSize: 14,
-                    fontFamily: fonts.bodyBold,
-                    color: "#000",
+                    fontFamily: "Outfit-Bold",
+                    color: p.buttonPrimaryText,
                   }}
                 >
                   Add Athlete
@@ -208,23 +186,19 @@ export default function TeamManagerManageScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 7,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)",
+                  backgroundColor: p.accentSoft,
                   paddingHorizontal: 18,
                   paddingVertical: 11,
-                  borderRadius: 22,
+                  borderRadius: 100,
                   opacity: pressed ? 0.72 : 1,
                 })}
               >
-                <Ionicons
-                  name="people-outline"
-                  size={15}
-                  color={isDark ? "hsl(148,5%,75%)" : "hsl(148,28%,20%)"}
-                />
+                <Users size={15} color={p.textSecondary} />
                 <Text
                   style={{
                     fontSize: 14,
-                    fontFamily: fonts.bodyBold,
-                    color: isDark ? "hsl(148,5%,75%)" : "hsl(148,28%,20%)",
+                    fontFamily: "Outfit-Bold",
+                    color: p.textSecondary,
                   }}
                 >
                   View All
@@ -236,7 +210,7 @@ export default function TeamManagerManageScreen() {
           {/* ── Floating Content Card ─────────────────────── */}
           <View
             style={{
-              backgroundColor: colors.background,
+              backgroundColor: p.cardWhite,
               borderTopLeftRadius: 28,
               borderTopRightRadius: 28,
               marginTop: -28,
@@ -251,9 +225,7 @@ export default function TeamManagerManageScreen() {
                 width: 36,
                 height: 4,
                 borderRadius: 2,
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.12)"
-                  : "rgba(0,0,0,0.10)",
+                backgroundColor: p.divider,
                 alignSelf: "center",
                 marginBottom: 28,
               }}
@@ -273,10 +245,10 @@ export default function TeamManagerManageScreen() {
                 >
                   <Text
                     style={{
-                      fontFamily: fonts.labelCaps,
+                      fontFamily: "Outfit-Bold",
                       fontSize: 11,
                       letterSpacing: 1.2,
-                      color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,50%)",
+                      color: p.textMuted,
                       textTransform: "uppercase",
                       paddingLeft: 2,
                     }}
@@ -290,8 +262,8 @@ export default function TeamManagerManageScreen() {
                     <Text
                       style={{
                         fontSize: 12,
-                        fontFamily: fonts.bodyMedium,
-                        color: colors.accent,
+                        fontFamily: "Outfit-Regular",
+                        color: p.accent,
                       }}
                     >
                       View all
@@ -337,25 +309,19 @@ export default function TeamManagerManageScreen() {
               >
                 <View
                   style={{
-                    borderRadius: 18,
-                    borderWidth: 1,
-                    borderColor: cardBorder,
-                    backgroundColor: cardBg,
+                    borderRadius: 22,
+                    backgroundColor: p.cardSage,
                     padding: 28,
                     alignItems: "center",
                     gap: 8,
                   }}
                 >
-                  <Ionicons
-                    name="people-outline"
-                    size={32}
-                    color={isDark ? "hsl(220,5%,40%)" : "hsl(220,5%,65%)"}
-                  />
+                  <Users size={32} color={p.textMuted} />
                   <Text
                     style={{
                       fontSize: 14,
-                      fontFamily: fonts.bodyBold,
-                      color: isDark ? "hsl(220,5%,70%)" : "hsl(220,8%,30%)",
+                      fontFamily: "Outfit-Bold",
+                      color: p.textPrimary,
                       textAlign: "center",
                     }}
                   >
@@ -364,8 +330,8 @@ export default function TeamManagerManageScreen() {
                   <Text
                     style={{
                       fontSize: 12,
-                      fontFamily: fonts.bodyRegular,
-                      color: colors.textSecondary,
+                      fontFamily: "Outfit-Regular",
+                      color: p.textSecondary,
                       textAlign: "center",
                     }}
                   >
@@ -380,33 +346,31 @@ export default function TeamManagerManageScreen() {
               <SectionLabel label="Manage" />
               <View
                 style={{
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
-                  backgroundColor: cardBg,
+                  borderRadius: 22,
+                  backgroundColor: p.cardWhite,
                   overflow: "hidden",
                 }}
               >
                 <ManageRow
-                  icon="people-outline"
+                  icon={Users}
                   label="View Roster"
                   subtitle="View and edit athlete profiles"
-                  accent={colors.accent}
+                  accent={p.accent}
                   isFirst
                   onPress={() => router.push("/team-manager/roster")}
                 />
                 <ManageRow
-                  icon="person-add-outline"
+                  icon={UserPlus}
                   label="Add Athlete"
                   subtitle="Invite a new athlete to your team"
-                  accent={colors.cyan}
+                  accent={p.info}
                   onPress={() => router.push("/team-manager/add-athlete" as any)}
                 />
                 <ManageRow
-                  icon="megaphone-outline"
+                  icon={Megaphone}
                   label="Announcements"
                   subtitle="Post updates for your team"
-                  accent={colors.amber}
+                  accent={p.warning}
                   onPress={() => router.push("/announcements" as any)}
                 />
               </View>
@@ -417,18 +381,16 @@ export default function TeamManagerManageScreen() {
               <SectionLabel label="Schedule & Stats" />
               <View
                 style={{
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
-                  backgroundColor: cardBg,
+                  borderRadius: 22,
+                  backgroundColor: p.cardWhite,
                   overflow: "hidden",
                 }}
               >
                 <ManageRow
-                  icon="calendar-outline"
+                  icon={Calendar}
                   label="Sessions & Events"
                   subtitle="View and manage training sessions"
-                  accent={colors.purple}
+                  accent={p.info}
                   isFirst
                   onPress={() => {
                     const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "schedule");
@@ -436,20 +398,20 @@ export default function TeamManagerManageScreen() {
                   }}
                 />
                 <ManageRow
-                  icon="trophy-outline"
+                  icon={Trophy}
                   label="Leaderboard"
                   subtitle="View rankings and weekly activity"
-                  accent={colors.amber}
+                  accent={p.warning}
                   onPress={() => {
                     const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "tracking");
                     if (idx >= 0) requestGlobalTabChange(idx);
                   }}
                 />
                 <ManageRow
-                  icon="analytics-outline"
+                  icon={BarChart3}
                   label="Athlete Activity"
                   subtitle="Monitor runs and performance stats"
-                  accent={colors.coral}
+                  accent={p.danger}
                   onPress={() => {
                     const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "tracking");
                     if (idx >= 0) requestGlobalTabChange(idx);
@@ -463,18 +425,16 @@ export default function TeamManagerManageScreen() {
               <SectionLabel label="Settings" />
               <View
                 style={{
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
-                  backgroundColor: cardBg,
+                  borderRadius: 22,
+                  backgroundColor: p.cardWhite,
                   overflow: "hidden",
                 }}
               >
                 <ManageRow
-                  icon="shield-checkmark-outline"
+                  icon={ShieldCheck}
                   label="Privacy & Visibility"
                   subtitle="Control who can see team activity"
-                  accent={colors.purple}
+                  accent={p.info}
                   isFirst
                   onPress={() => {
                     const idx = TEAM_MANAGER_TAB_ROUTES.findIndex((t) => t.key === "tracking");
@@ -497,14 +457,14 @@ export default function TeamManagerManageScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SectionLabel({ label }: { label: string }) {
-  const { isDark } = useAppTheme();
+  const p = useAdminPastel();
   return (
     <Text
       style={{
-        fontFamily: fonts.labelCaps,
+        fontFamily: "Outfit-Bold",
         fontSize: 11,
         letterSpacing: 1.2,
-        color: isDark ? "hsl(220,5%,44%)" : "hsl(220,5%,50%)",
+        color: p.textMuted,
         textTransform: "uppercase",
         paddingLeft: 2,
         marginBottom: 12,
@@ -522,15 +482,15 @@ function SectionLabel({ label }: { label: string }) {
 function CountBadge({
   value,
   label,
-  icon,
+  icon: Icon,
   accent,
 }: {
   value: number;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ComponentType<{ size: number; color: string }>;
   accent?: boolean;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View
@@ -538,38 +498,21 @@ function CountBadge({
         flexDirection: "row",
         alignItems: "center",
         gap: 5,
-        backgroundColor: accent
-          ? colors.accentLight
-          : isDark
-            ? "rgba(255,255,255,0.07)"
-            : "rgba(0,0,0,0.06)",
-        borderRadius: 99,
+        backgroundColor: accent ? p.successSoft : p.accentSoft,
+        borderRadius: 100,
         paddingHorizontal: 10,
         paddingVertical: 5,
-        borderWidth: accent ? 1 : 0,
-        borderColor: accent ? colors.borderLime : "transparent",
       }}
     >
-      <Ionicons
-        name={icon}
+      <Icon
         size={11}
-        color={
-          accent
-            ? colors.accent
-            : isDark
-              ? "hsl(148,5%,60%)"
-              : "hsl(148,18%,38%)"
-        }
+        color={accent ? p.accent : p.textSecondary}
       />
       <Text
         style={{
           fontSize: 12,
-          fontFamily: fonts.bodyMedium,
-          color: accent
-            ? colors.accent
-            : isDark
-              ? "hsl(148,5%,60%)"
-              : "hsl(148,18%,38%)",
+          fontFamily: "Outfit-Regular",
+          color: accent ? p.accent : p.textSecondary,
         }}
       >
         {value} {label}
@@ -589,7 +532,7 @@ function AthleteAvatar({
   athlete: { id?: number; name?: string | null; profilePicture?: string | null };
   onPress: () => void;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const initials = (athlete.name ?? "?")
     .trim()
@@ -598,9 +541,6 @@ function AthleteAvatar({
     .slice(0, 2)
     .join("")
     .toUpperCase();
-
-  const cardBg = isDark ? colors.surfaceHigh : colors.cardElevated;
-  const cardBorder = isDark ? colors.borderMid : colors.borderMid;
 
   return (
     <Pressable
@@ -624,9 +564,7 @@ function AthleteAvatar({
             borderRadius: 16,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: cardBg,
-            borderWidth: 1,
-            borderColor: cardBorder,
+            backgroundColor: p.cardSage,
             overflow: "hidden",
           }}
         >
@@ -639,8 +577,8 @@ function AthleteAvatar({
             <Text
               style={{
                 fontSize: 16,
-                fontFamily: "ClashDisplay-Bold",
-                color: colors.accent,
+                fontFamily: "Outfit-Bold",
+                color: p.accent,
               }}
             >
               {initials}
@@ -651,8 +589,8 @@ function AthleteAvatar({
           numberOfLines={1}
           style={{
             fontSize: 10,
-            fontFamily: fonts.bodyMedium,
-            color: isDark ? "hsl(220,5%,72%)" : "hsl(220,8%,28%)",
+            fontFamily: "Outfit-Regular",
+            color: p.textSecondary,
             textAlign: "center",
             maxWidth: 62,
           }}
@@ -669,21 +607,21 @@ function AthleteAvatar({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ManageRow({
-  icon,
+  icon: Icon,
   label,
   subtitle,
   accent,
   isFirst,
   onPress,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ComponentType<{ size: number; color: string }>;
   label: string;
   subtitle: string;
   accent: string;
   isFirst?: boolean;
   onPress: () => void;
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View>
@@ -691,7 +629,7 @@ function ManageRow({
         <View
           style={{
             height: 1,
-            backgroundColor: isDark ? colors.borderSubtle : colors.borderMid,
+            backgroundColor: p.divider,
             marginLeft: 66,
           }}
         />
@@ -701,14 +639,9 @@ function ManageRow({
         accessibilityLabel={label}
         onPress={onPress}
         style={({ pressed }) => ({
-          backgroundColor: pressed
-            ? isDark
-              ? "rgba(255,255,255,0.04)"
-              : "rgba(0,0,0,0.03)"
-            : "transparent",
+          backgroundColor: pressed ? p.accentSoft : "transparent",
         })}
       >
-        {/* Static layout — flexDirection MUST be in a plain View, not Pressable style fn */}
         <View
           style={{
             flexDirection: "row",
@@ -726,10 +659,10 @@ function ManageRow({
               borderRadius: 11,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: isDark ? `${accent}22` : `${accent}18`,
+              backgroundColor: `${accent}18`,
             }}
           >
-            <Ionicons name={icon} size={18} color={accent} />
+            <Icon size={18} color={accent} />
           </View>
 
           {/* Text */}
@@ -737,8 +670,8 @@ function ManageRow({
             <Text
               style={{
                 fontSize: 15,
-                fontFamily: fonts.bodyBold,
-                color: isDark ? "hsl(220,5%,92%)" : "hsl(220,8%,10%)",
+                fontFamily: "Outfit-Bold",
+                color: p.textPrimary,
               }}
             >
               {label}
@@ -746,8 +679,8 @@ function ManageRow({
             <Text
               style={{
                 fontSize: 12,
-                fontFamily: fonts.bodyRegular,
-                color: colors.textSecondary,
+                fontFamily: "Outfit-Regular",
+                color: p.textSecondary,
                 marginTop: 1,
               }}
             >
@@ -756,11 +689,7 @@ function ManageRow({
           </View>
 
           {/* Chevron */}
-          <Ionicons
-            name="chevron-forward"
-            size={14}
-            color={isDark ? "hsl(220,5%,36%)" : "hsl(220,5%,65%)"}
-          />
+          <ChevronRight size={14} color={p.textMuted} />
         </View>
       </Pressable>
     </View>

@@ -1,18 +1,23 @@
 import React, { useMemo, useState } from "react";
-import { View, TouchableOpacity, ActivityIndicator, TextInput, ScrollView, Modal, Pressable } from "react-native";
+import {
+  View,
+  TouchableOpacity,
+  ScrollView,
+  Modal,
+  Pressable,
+} from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { ServiceType, type AdminBooking } from "@/types/admin";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import { Feather } from "@/components/ui/theme-icons";
-import { Shadows } from "@/constants/theme";
-import { formatIsoShort } from "@/lib/admin-utils";
+import { Calendar, ChevronDown } from "lucide-react-native";
 
 import { useAdminBookingsController } from "../../hooks/admin/controllers/useAdminBookingsController";
 import { BookingListItem } from "./bookings/BookingListItem";
 import { CreateBookingModal } from "./bookings/CreateBookingModal";
 import { BookingDetailModal } from "./bookings/BookingDetailModal";
+
 function bookingStartMs(b: AdminBooking): number {
   const s = b.startsAt;
   if (!s) return 0;
@@ -33,7 +38,7 @@ export function AdminBookingsSection({
   services,
   initialAction,
 }: Props) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
 
   const {
@@ -48,11 +53,13 @@ export function AdminBookingsSection({
   const chips = ["All", "Group", "Individual", "Lift Lab", "Premium"];
 
   const filteredBookings = useMemo(() => {
-    return bookingsHook.bookings.filter(b => {
+    return bookingsHook.bookings.filter((b) => {
       const type = b.serviceType ?? b.type ?? "";
       if (activeChip === "All") return true;
-      if (activeChip === "Group") return ["group_call", "semi_private"].includes(type);
-      if (activeChip === "Individual") return ["individual_call", "one_on_one", "one_to_one"].includes(type);
+      if (activeChip === "Group")
+        return ["group_call", "semi_private"].includes(type);
+      if (activeChip === "Individual")
+        return ["individual_call", "one_on_one", "one_to_one"].includes(type);
       if (activeChip === "Lift Lab") return type === "lift_lab_1on1";
       if (activeChip === "Premium") return type === "role_model";
       return true;
@@ -91,51 +98,120 @@ export function AdminBookingsSection({
   }, [filteredBookings]);
 
   return (
-    <View className="px-6 pb-40">
+    <View style={{ paddingHorizontal: 24, paddingBottom: 160 }}>
       {/* Book for a client */}
-      <View className="mb-10">
-        <Text className="text-2xl font-clash font-bold text-app mb-2">Book for a client</Text>
-        <Text className="text-sm font-outfit text-textSecondary mb-6">
+      <View style={{ marginBottom: 40 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontFamily: "Outfit-Bold",
+            color: p.textPrimary,
+            marginBottom: 8,
+          }}
+        >
+          Book for a client
+        </Text>
+        <Text
+          style={{
+            fontSize: 14,
+            fontFamily: "Outfit-Regular",
+            color: p.textSecondary,
+            marginBottom: 24,
+          }}
+        >
           Place a booking as admin (bypasses availability if needed).
         </Text>
         <TouchableOpacity
           onPress={() => create.setOpen(true)}
           activeOpacity={0.8}
-          className="h-14 rounded-[18px] bg-[#22C55E] flex-row items-center justify-center gap-2 px-6 shadow-sm"
+          style={{
+            height: 56,
+            borderRadius: 100,
+            backgroundColor: p.accent,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            paddingHorizontal: 24,
+          }}
         >
-          <Feather name="calendar" size={18} color="#FFFFFF" />
-          <Text className="font-outfit-bold text-white uppercase tracking-wider">Create booking</Text>
+          <Calendar size={18} color="#FFFFFF" />
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              color: "#FFFFFF",
+              textTransform: "uppercase",
+              letterSpacing: 1.2,
+            }}
+          >
+            Create booking
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Filters (Like Web) */}
-      <View className="mb-8 gap-4">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-xl font-clash font-bold text-app">Upcoming</Text>
-          <View className="px-3 py-1 rounded-full bg-accent/10">
-            <Text className="text-[10px] font-outfit-bold text-accent uppercase tracking-widest">
+      {/* Filters */}
+      <View style={{ marginBottom: 32, gap: 16 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 20,
+              fontFamily: "Outfit-Bold",
+              color: p.textPrimary,
+            }}
+          >
+            Upcoming
+          </Text>
+          <View
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 4,
+              borderRadius: 100,
+              backgroundColor: p.accentSoft,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontFamily: "Outfit-Bold",
+                color: p.accent,
+                textTransform: "uppercase",
+                letterSpacing: 1.5,
+              }}
+            >
               {upcomingBookings.length} Bookings
             </Text>
           </View>
         </View>
-        
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View className="flex-row gap-2">
+          <View style={{ flexDirection: "row", gap: 8 }}>
             {chips.map((chip) => {
               const isActive = activeChip === chip;
               return (
                 <TouchableOpacity
                   key={chip}
                   onPress={() => setActiveChip(chip)}
-                  className="h-10 px-4 rounded-full border items-center justify-center"
                   style={{
-                    backgroundColor: isActive ? colors.accent : isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF",
-                    borderColor: isActive ? colors.accent : isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+                    height: 40,
+                    paddingHorizontal: 16,
+                    borderRadius: 100,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: isActive ? p.accent : p.cardWhite,
                   }}
                 >
                   <Text
-                    className="text-xs font-outfit-bold"
-                    style={{ color: isActive ? colors.textInverse : colors.textSecondary }}
+                    style={{
+                      fontSize: 12,
+                      fontFamily: "Outfit-Bold",
+                      color: isActive ? "#FFFFFF" : p.textSecondary,
+                    }}
                   >
                     {chip}
                   </Text>
@@ -148,21 +224,40 @@ export function AdminBookingsSection({
 
       {/* Upcoming List */}
       {bookingsHook.bookingsLoading && bookingsHook.bookings.length === 0 ? (
-        <View className="gap-4 mb-10">
-          <Skeleton width="100%" height={120} borderRadius={32} />
-          <Skeleton width="100%" height={120} borderRadius={32} />
+        <View style={{ gap: 16, marginBottom: 40 }}>
+          <Skeleton width="100%" height={120} borderRadius={28} />
+          <Skeleton width="100%" height={120} borderRadius={28} />
         </View>
       ) : upcomingBookings.length === 0 ? (
-        <View className="py-12 items-center justify-center border border-dashed border-app/20 rounded-[32px] mb-10">
-          <Text className="text-textSecondary font-outfit italic">No upcoming bookings found.</Text>
+        <View
+          style={{
+            paddingVertical: 48,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1.5,
+            borderStyle: "dashed",
+            borderColor: p.textMuted,
+            borderRadius: 28,
+            marginBottom: 40,
+          }}
+        >
+          <Text
+            style={{
+              color: p.textMuted,
+              fontFamily: "Outfit-Regular",
+              fontStyle: "italic",
+            }}
+          >
+            No upcoming bookings found.
+          </Text>
         </View>
       ) : (
-        <View className="gap-4 mb-12">
+        <View style={{ gap: 16, marginBottom: 48 }}>
           {upcomingBookings.map((b) => (
             <BookingListItem
               key={String(b.id)}
               booking={b}
-              isDark={isDark}
+              isDark={false}
               isMutating={bookingsHook.bookingMutatingId === b.id}
               onPress={() => {
                 detail.setOpenId(b.id);
@@ -177,26 +272,83 @@ export function AdminBookingsSection({
       )}
 
       {/* Past Bookings */}
-      <View className="mb-6">
-        <Text className="text-xl font-clash font-bold text-app mb-2">Past Bookings</Text>
-        <Text className="text-sm font-outfit text-textSecondary">Completed sessions for the selected criteria.</Text>
+      <View style={{ marginBottom: 24 }}>
+        <Text
+          style={{
+            fontSize: 20,
+            fontFamily: "Outfit-Bold",
+            color: p.textPrimary,
+            marginBottom: 8,
+          }}
+        >
+          Past Bookings
+        </Text>
+        <Text
+          style={{
+            fontSize: 14,
+            fontFamily: "Outfit-Regular",
+            color: p.textSecondary,
+          }}
+        >
+          Completed sessions for the selected criteria.
+        </Text>
       </View>
 
       {pastBookings.length === 0 ? (
-        <View className="py-8 items-center justify-center border border-dashed border-app/20 rounded-[32px]">
-          <Text className="text-textSecondary font-outfit italic">No past bookings.</Text>
+        <View
+          style={{
+            paddingVertical: 32,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1.5,
+            borderStyle: "dashed",
+            borderColor: p.textMuted,
+            borderRadius: 28,
+          }}
+        >
+          <Text
+            style={{
+              color: p.textMuted,
+              fontFamily: "Outfit-Regular",
+              fontStyle: "italic",
+            }}
+          >
+            No past bookings.
+          </Text>
         </View>
       ) : (
-        <View className="gap-3">
+        <View style={{ gap: 12 }}>
           {pastBookings.slice(0, 10).map((b) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               key={b.id}
               onPress={() => detail.setOpenId(b.id)}
-              className="flex-row items-center justify-between p-5 rounded-2xl bg-secondary/5 border border-app/5"
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: 20,
+                borderRadius: 28,
+                backgroundColor: p.cardSage,
+              }}
             >
-              <View className="flex-1">
-                <Text className="font-outfit-bold text-app" numberOfLines={1}>{b.serviceName}</Text>
-                <Text className="text-xs font-outfit text-textSecondary mt-0.5">
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Bold",
+                    color: p.textPrimary,
+                  }}
+                  numberOfLines={1}
+                >
+                  {b.serviceName}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontFamily: "Outfit-Regular",
+                    color: p.textSecondary,
+                    marginTop: 2,
+                  }}
+                >
                   {b.athleteName} •{" "}
                   {b.startsAt
                     ? new Date(b.startsAt).toLocaleTimeString([], {
@@ -206,8 +358,26 @@ export function AdminBookingsSection({
                     : "—"}
                 </Text>
               </View>
-              <View className="h-8 px-4 rounded-lg bg-secondary/10 items-center justify-center">
-                <Text className="text-[10px] font-outfit-bold text-app uppercase">View</Text>
+              <View
+                style={{
+                  height: 32,
+                  paddingHorizontal: 16,
+                  borderRadius: 100,
+                  backgroundColor: p.accentSoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontFamily: "Outfit-Bold",
+                    color: p.accent,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  View
+                </Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -215,31 +385,106 @@ export function AdminBookingsSection({
       )}
 
       {/* Cancelled / Declined */}
-      <View className="mt-10 mb-6">
-        <Text className="text-xl font-clash font-bold text-app mb-2">Cancelled</Text>
-        <Text className="text-sm font-outfit text-textSecondary">Declined and cancelled bookings.</Text>
+      <View style={{ marginTop: 40, marginBottom: 24 }}>
+        <Text
+          style={{
+            fontSize: 20,
+            fontFamily: "Outfit-Bold",
+            color: p.textPrimary,
+            marginBottom: 8,
+          }}
+        >
+          Cancelled
+        </Text>
+        <Text
+          style={{
+            fontSize: 14,
+            fontFamily: "Outfit-Regular",
+            color: p.textSecondary,
+          }}
+        >
+          Declined and cancelled bookings.
+        </Text>
       </View>
 
       {cancelledBookings.length === 0 ? (
-        <View className="py-8 items-center justify-center border border-dashed border-app/20 rounded-[32px]">
-          <Text className="text-textSecondary font-outfit italic">No cancelled bookings.</Text>
+        <View
+          style={{
+            paddingVertical: 32,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1.5,
+            borderStyle: "dashed",
+            borderColor: p.textMuted,
+            borderRadius: 28,
+          }}
+        >
+          <Text
+            style={{
+              color: p.textMuted,
+              fontFamily: "Outfit-Regular",
+              fontStyle: "italic",
+            }}
+          >
+            No cancelled bookings.
+          </Text>
         </View>
       ) : (
-        <View className="gap-3">
+        <View style={{ gap: 12 }}>
           {cancelledBookings.slice(0, 10).map((b) => (
             <TouchableOpacity
               key={b.id}
               onPress={() => detail.setOpenId(b.id)}
-              className="flex-row items-center justify-between p-5 rounded-2xl bg-red-500/5 border border-red-500/10"
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: 20,
+                borderRadius: 28,
+                backgroundColor: p.dangerSoft,
+              }}
             >
-              <View className="flex-1">
-                <Text className="font-outfit-bold text-app" numberOfLines={1}>{b.serviceName}</Text>
-                <Text className="text-xs font-outfit text-textSecondary mt-0.5">
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Bold",
+                    color: p.textPrimary,
+                  }}
+                  numberOfLines={1}
+                >
+                  {b.serviceName}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontFamily: "Outfit-Regular",
+                    color: p.textSecondary,
+                    marginTop: 2,
+                  }}
+                >
                   {b.athleteName} • {b.status}
                 </Text>
               </View>
-              <View className="h-8 px-4 rounded-lg bg-red-500/10 items-center justify-center">
-                <Text className="text-[10px] font-outfit-bold text-red-400 uppercase">View</Text>
+              <View
+                style={{
+                  height: 32,
+                  paddingHorizontal: 16,
+                  borderRadius: 100,
+                  backgroundColor: p.danger,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontFamily: "Outfit-Bold",
+                    color: "#FFFFFF",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  View
+                </Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -255,8 +500,8 @@ export function AdminBookingsSection({
         users={bookingsHook.createBookingUsers}
         onSearchUsers={() => bookingsHook.searchUsers(create.userQuery, true)}
         isBusy={bookingsHook.createBookingBusy}
-        colors={colors}
-        isDark={isDark}
+        colors={p as any}
+        isDark={false}
         insetsTop={insets.top}
       />
 
@@ -264,12 +509,18 @@ export function AdminBookingsSection({
         isVisible={detail.openId != null}
         onClose={() => detail.setOpenId(null)}
         booking={bookingsHook.bookings.find((x) => x.id === detail.openId)}
-        detail={detail.openId ? bookingsHook.bookingDetails[detail.openId] : null}
-        isLoading={detail.openId ? Boolean(bookingsHook.bookingDetailLoadingIds[detail.openId]) : false}
+        detail={
+          detail.openId ? bookingsHook.bookingDetails[detail.openId] : null
+        }
+        isLoading={
+          detail.openId
+            ? Boolean(bookingsHook.bookingDetailLoadingIds[detail.openId])
+            : false
+        }
         onUpdateStatus={handleUpdateStatus}
         isMutating={bookingsHook.bookingMutatingId === detail.openId}
-        colors={colors}
-        isDark={isDark}
+        colors={p as any}
+        isDark={false}
         insetsTop={insets.top}
       />
     </View>
@@ -277,34 +528,80 @@ export function AdminBookingsSection({
 }
 
 function FilterChip({ label, options, onSelect }: any) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const [open, setOpen] = useState(false);
 
   return (
     <View>
-      <TouchableOpacity 
+      <TouchableOpacity
         onPress={() => setOpen(true)}
-        className="px-4 h-10 rounded-full border flex-row items-center gap-2"
         style={{
-          backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF",
-          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+          paddingHorizontal: 16,
+          height: 40,
+          borderRadius: 100,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          backgroundColor: p.cardWhite,
         }}
       >
-        <Text className="text-xs font-outfit-bold text-app">{label}</Text>
-        <Feather name="chevron-down" size={14} color={colors.textSecondary} />
+        <Text
+          style={{
+            fontSize: 12,
+            fontFamily: "Outfit-Bold",
+            color: p.textPrimary,
+          }}
+        >
+          {label}
+        </Text>
+        <ChevronDown size={14} color={p.textSecondary} />
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade">
-        <Pressable className="flex-1 bg-black/60 items-center justify-center p-6" onPress={() => setOpen(false)}>
-          <View className="w-full max-w-xs rounded-[28px] overflow-hidden" style={{ backgroundColor: isDark ? "#161628" : "#FFFFFF" }}>
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: p.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+          onPress={() => setOpen(false)}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 320,
+              borderRadius: 28,
+              overflow: "hidden",
+              backgroundColor: p.cardWhite,
+            }}
+          >
             <ScrollView style={{ maxHeight: 300 }}>
               {options.map((opt: any, i: number) => (
-                <TouchableOpacity 
-                  key={i} 
-                  onPress={() => { onSelect(opt); setOpen(false); }}
-                  className="px-6 py-4 border-b border-app/5 last:border-0"
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => {
+                    onSelect(opt);
+                    setOpen(false);
+                  }}
+                  style={{
+                    paddingHorizontal: 24,
+                    paddingVertical: 16,
+                    borderBottomWidth: i < options.length - 1 ? 1 : 0,
+                    borderBottomColor: p.divider,
+                  }}
                 >
-                  <Text className={`text-sm ${opt === label ? 'font-outfit-bold text-accent' : 'font-outfit text-app'}`}>{opt}</Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontFamily:
+                        opt === label ? "Outfit-Bold" : "Outfit-Regular",
+                      color: opt === label ? p.accent : p.textPrimary,
+                    }}
+                  >
+                    {opt}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>

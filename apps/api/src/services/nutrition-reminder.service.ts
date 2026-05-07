@@ -3,7 +3,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "../db";
 import { logger } from "../lib/logger";
 import { athleteTable, guardianTable, nutritionLogsTable, userTable } from "../db/schema";
-import { pushQueue } from "../jobs";
+import { createPushIntent } from "./outbox.service";
 
 function getLocalDateKeyAndMinutes(now: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -157,7 +157,7 @@ export async function runNutritionLogReminderSweep() {
       })
       .where(eq(userTable.id, athlete.id));
 
-    void pushQueue.enqueue({ userId: athlete.id, title, body, data: {
+    void createPushIntent({ userId: athlete.id, title, body, data: {
       type: "nutrition_reminder",
       url: "/nutrition",
       dateKey,
@@ -165,7 +165,7 @@ export async function runNutritionLogReminderSweep() {
 
     const guardianUserIds = await getGuardianUserIdsForAthleteUserId(athlete.id);
     for (const guardianUserId of guardianUserIds) {
-      void pushQueue.enqueue({ userId: guardianUserId, title, body, data: {
+      void createPushIntent({ userId: guardianUserId, title, body, data: {
         type: "nutrition_reminder",
         url: "/nutrition",
         dateKey,

@@ -1,16 +1,31 @@
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Text, TextInput } from "@/components/ScaledText";
-import { Skeleton } from "@/components/Skeleton";
+import {
+  AdminScreen,
+  AdminHeader,
+  AdminBackButton,
+  AdminCard,
+  AdminButton,
+  AdminBadge,
+  AdminInput,
+  AdminFormField,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminModalContainer,
+  AdminModalTitle,
+  AdminModalSubtitle,
+  useAdminPastel,
+} from "@/components/admin/AdminUI";
+import type { AdminCardColor } from "@/constants/theme";
+import { Text } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { isAdminRole } from "@/lib/isAdminRole";
 import { useAppSelector } from "@/store/hooks";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, Switch, View } from "react-native";
-import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
+import { Users } from "lucide-react-native";
 
 type AdminTeamMember = {
   athleteId: number;
@@ -66,85 +81,14 @@ type AdminUserRow = {
   athleteTeam?: string | null;
 };
 
-function SmallAction({
-  label,
-  tone,
-  onPress,
-  disabled,
-}: {
-  label: string;
-  tone: "neutral" | "success" | "danger";
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  const { colors, isDark } = useAppTheme();
-  const tint =
-    tone === "success"
-      ? colors.accent
-      : tone === "danger"
-        ? colors.danger
-        : colors.text;
-  const bg =
-    tone === "success"
-      ? isDark
-        ? `${colors.accent}18`
-        : `${colors.accent}12`
-      : tone === "danger"
-        ? isDark
-          ? `${colors.danger}18`
-          : `${colors.danger}10`
-        : isDark
-          ? "rgba(255,255,255,0.04)"
-          : "rgba(15,23,42,0.04)";
-  const border =
-    tone === "success"
-      ? isDark
-        ? `${colors.accent}30`
-        : `${colors.accent}24`
-      : tone === "danger"
-        ? isDark
-          ? `${colors.danger}30`
-          : `${colors.danger}24`
-        : isDark
-          ? "rgba(255,255,255,0.06)"
-          : "rgba(15,23,42,0.06)";
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        {
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          borderRadius: 16,
-          borderWidth: 1,
-          backgroundColor: bg,
-          borderColor: border,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
-        },
-      ]}
-    >
-      <Text
-        className="text-[12px] font-outfit-semibold"
-        style={{ color: tint }}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 function asString(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
 }
 
 export default function AdminTeamDetailScreen() {
-  const { colors, isDark } = useAppTheme();
-  const insets = useAppSafeAreaInsets();
+  const p = useAdminPastel();
+  const router = useRouter();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
   const canLoad = Boolean(token && bootstrapReady);
@@ -267,7 +211,7 @@ export default function AdminTeamDetailScreen() {
   const canSelectAthlete = useCallback(
     (athleteTeam: string | null) => {
       if (!athleteTeam) return true;
-      if (athleteTeam === teamName) return false; // already in team
+      if (athleteTeam === teamName) return false;
       if (includeOtherTeams) return true;
       return false;
     },
@@ -333,400 +277,440 @@ export default function AdminTeamDetailScreen() {
   ]);
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top }}>
+    <AdminScreen>
+      <AdminHeader
+        title={teamName || "Team"}
+        subtitle={`${members.length} member${members.length !== 1 ? "s" : ""}`}
+        right={<AdminBackButton onPress={() => router.back()} />}
+      />
+
       <ThemedScrollView onRefresh={() => load(true)}>
-        <View className="pt-6 mb-4 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-3 flex-1 mr-4 overflow-hidden">
-            <View className="h-6 w-1.5 rounded-full bg-accent" />
-            <Text
-              className="text-2xl font-telma-bold text-app tracking-tight"
-              numberOfLines={1}
-            >
-              {teamName || "Team"}
-            </Text>
-          </View>
-          <SmallAction
-            label="Assign"
-            tone="success"
-            onPress={() => setAssignOpen(true)}
-            disabled={!canLoad || !teamName}
-          />
-        </View>
-
-        {/* Team type badge */}
-        <View className="mb-3 flex-row items-center gap-2">
-          <View
-            className="rounded-full px-3 py-1"
-            style={{
-              backgroundColor:
-                athleteType === "adult"
-                  ? isDark ? "rgba(99,102,241,0.18)" : "rgba(99,102,241,0.10)"
-                  : isDark ? `${colors.accent}22` : `${colors.accent}14`,
-            }}
+        <View style={{ paddingHorizontal: 24, gap: 16 }}>
+          {/* Team type badge + assign button */}
+          <Animated.View
+            entering={FadeInDown.duration(400).delay(100)}
+            style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
           >
-            <Text
-              className="text-[11px] font-outfit-semibold uppercase tracking-wider"
-              style={{
-                color: athleteType === "adult" ? (isDark ? "#a5b4fc" : "#4f46e5") : colors.accent,
-              }}
-            >
+            <AdminBadge color={athleteType === "youth" ? "mint" : "lavender"}>
               {athleteType === "adult" ? "Adult Team" : "Youth Team"}
-            </Text>
-          </View>
-          {athleteType === "adult" ? (
-            <SmallAction
-              label="Post to whole team"
-              tone="success"
-              onPress={() => {/* navigate to post screen */}}
+            </AdminBadge>
+            <View style={{ flex: 1 }} />
+            <AdminButton
+              label="Assign Athlete"
+              variant="primary"
+              compact
+              onPress={() => setAssignOpen(true)}
+              disabled={!canLoad || !teamName}
             />
-          ) : null}
-        </View>
+          </Animated.View>
 
-        <View
-          className="rounded-[28px] border p-5 mb-5"
-          style={{
-            backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-            borderColor: isDark
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(15,23,42,0.06)",
-            ...(isDark ? Shadows.none : Shadows.md),
-          }}
-        >
-          <Text className="text-base font-clash font-bold text-app mb-2">
-            Members
-          </Text>
-          {error ? (
-            <Text selectable className="text-sm font-outfit text-red-400">
-              {error}
-            </Text>
-          ) : null}
+          {/* Members card */}
+          <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+            <AdminCard color="white">
+              <Text
+                style={{
+                  fontFamily: "Outfit-ExtraBold",
+                  fontSize: 17,
+                  color: p.textPrimary,
+                  marginBottom: 14,
+                }}
+              >
+                Members
+              </Text>
 
-          {!canLoad ? (
-            <Text className="text-sm font-outfit text-secondary">
-              Waiting for auth bootstrap…
-            </Text>
-          ) : loading && !detail ? (
-            <View className="gap-2">
-              <Skeleton width="70%" height={16} />
-              <Skeleton width="55%" height={16} />
-            </View>
-          ) : members.length === 0 ? (
-            <Text className="text-sm font-outfit text-secondary">
-              No members yet.
-            </Text>
-          ) : athleteType === "youth" ? (
-            <View className="gap-5">
-              {BAND_ORDER.filter((band) => ageBandGroups[band]?.length).map((band) => (
-                <View key={band}>
-                  <View className="flex-row items-center justify-between mb-2">
-                    <View className="flex-row items-center gap-2">
-                      <View
-                        className="rounded-md px-2 py-0.5"
-                        style={{ backgroundColor: `${colors.accent}18` }}
-                      >
-                        <Text
-                          className="text-[11px] font-outfit-semibold uppercase tracking-wider"
-                          style={{ color: colors.accent }}
-                        >
-                          {band}
-                        </Text>
-                      </View>
-                      <Text className="text-[12px] font-outfit text-secondary">
-                        {ageBandGroups[band].length} athlete{ageBandGroups[band].length !== 1 ? "s" : ""}
-                      </Text>
-                    </View>
-                    <SmallAction
-                      label={`Post to ${band}`}
-                      tone="success"
-                      onPress={() => {/* navigate to post screen for this age group */}}
-                    />
-                  </View>
-                  <View className="gap-2">
-                    {ageBandGroups[band].map((m) => (
-                      <View
-                        key={m.athleteId}
-                        className="rounded-2xl border px-4 py-3"
-                        style={{
-                          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                          borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-                        }}
-                      >
-                        <Text className="text-[13px] font-clash font-bold text-app" numberOfLines={1}>
-                          {m.athleteName ?? `Athlete #${m.athleteId}`}
-                        </Text>
-                        <Text className="text-[12px] font-outfit text-secondary">
-                          {m.age != null ? `Age ${m.age}` : "Age unknown"}
-                          {m.currentProgramTier ? ` · ${m.currentProgramTier}` : ""}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View className="gap-2">
-              {members.map((m) => (
-                <View
-                  key={m.athleteId}
-                  className="rounded-2xl border px-4 py-3 flex-row items-center justify-between"
+              {error ? (
+                <Text
+                  selectable
                   style={{
-                    backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
-                    borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
+                    fontFamily: "Outfit-Regular",
+                    fontSize: 14,
+                    color: p.danger,
                   }}
                 >
-                  <View className="flex-1 mr-3">
-                    <Text className="text-[13px] font-clash font-bold text-app" numberOfLines={1}>
-                      {m.athleteName ?? `Athlete #${m.athleteId}`}
-                    </Text>
-                    {m.currentProgramTier ? (
-                      <Text className="text-[12px] font-outfit text-secondary" numberOfLines={1}>
-                        {m.currentProgramTier}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <SmallAction
-                    label="Post"
-                    tone="success"
-                    onPress={() => {/* navigate to post screen for this athlete */}}
-                  />
+                  {error}
+                </Text>
+              ) : null}
+
+              {!canLoad ? (
+                <Text
+                  style={{
+                    fontFamily: "Outfit-Regular",
+                    fontSize: 14,
+                    color: p.textSecondary,
+                  }}
+                >
+                  Waiting for auth bootstrap...
+                </Text>
+              ) : loading && !detail ? (
+                <AdminLoadingState label="Loading members" />
+              ) : members.length === 0 ? (
+                <AdminEmptyState
+                  icon={Users}
+                  title="No members yet"
+                  description="Assign athletes to this team using the button above."
+                  color="mint"
+                />
+              ) : athleteType === "youth" ? (
+                <View style={{ gap: 20 }}>
+                  {BAND_ORDER.filter((band) => ageBandGroups[band]?.length).map(
+                    (band, bandIdx) => (
+                      <Animated.View
+                        key={band}
+                        entering={FadeInDown.duration(350).delay(250 + bandIdx * 80)}
+                      >
+                        {/* Band header */}
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: 10,
+                          }}
+                        >
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <AdminBadge color="sage">
+                              {band}
+                            </AdminBadge>
+                            <Text
+                              style={{
+                                fontFamily: "Outfit-Regular",
+                                fontSize: 12,
+                                color: p.textMuted,
+                              }}
+                            >
+                              {ageBandGroups[band].length} athlete
+                              {ageBandGroups[band].length !== 1 ? "s" : ""}
+                            </Text>
+                          </View>
+                          <AdminButton
+                            label={`Post to ${band}`}
+                            variant="secondary"
+                            compact
+                            onPress={() => {/* navigate to post screen for this age group */}}
+                          />
+                        </View>
+
+                        {/* Band members */}
+                        <View style={{ gap: 8 }}>
+                          {ageBandGroups[band].map((m) => (
+                            <View
+                              key={m.athleteId}
+                              style={{
+                                backgroundColor: p.inputBg,
+                                borderRadius: 20,
+                                padding: 16,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontFamily: "Outfit-Bold",
+                                  fontSize: 14,
+                                  color: p.textPrimary,
+                                }}
+                                numberOfLines={1}
+                              >
+                                {m.athleteName ?? `Athlete #${m.athleteId}`}
+                              </Text>
+                              <Text
+                                style={{
+                                  fontFamily: "Outfit-Regular",
+                                  fontSize: 12,
+                                  color: p.textSecondary,
+                                  marginTop: 2,
+                                }}
+                              >
+                                {m.age != null ? `Age ${m.age}` : "Age unknown"}
+                                {m.currentProgramTier ? ` · ${m.currentProgramTier}` : ""}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </Animated.View>
+                    ),
+                  )}
                 </View>
-              ))}
-            </View>
-          )}
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {members.map((m, idx) => (
+                    <Animated.View
+                      key={m.athleteId}
+                      entering={FadeInDown.duration(300).delay(200 + idx * 50)}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor: p.inputBg,
+                        borderRadius: 20,
+                        padding: 16,
+                      }}
+                    >
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text
+                          style={{
+                            fontFamily: "Outfit-Bold",
+                            fontSize: 14,
+                            color: p.textPrimary,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {m.athleteName ?? `Athlete #${m.athleteId}`}
+                        </Text>
+                        {m.currentProgramTier ? (
+                          <Text
+                            style={{
+                              fontFamily: "Outfit-Regular",
+                              fontSize: 12,
+                              color: p.textSecondary,
+                              marginTop: 2,
+                            }}
+                            numberOfLines={1}
+                          >
+                            {m.currentProgramTier}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <AdminButton
+                        label="Post"
+                        variant="secondary"
+                        compact
+                        onPress={() => {/* navigate to post screen for this athlete */}}
+                      />
+                    </Animated.View>
+                  ))}
+                </View>
+              )}
+            </AdminCard>
+          </Animated.View>
         </View>
       </ThemedScrollView>
 
+      {/* Assign Athlete Modal */}
       <Modal
         visible={assignOpen}
         transparent
         animationType="fade"
         onRequestClose={() => setAssignOpen(false)}
       >
-        <View
-          className="flex-1 justify-end"
-          style={{ paddingBottom: insets.bottom + 12 }}
-        >
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setAssignOpen(false)}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0,0,0,0.55)",
-            }}
+        <AdminModalContainer onClose={() => setAssignOpen(false)} position="bottom">
+          <AdminModalTitle>Assign Athlete</AdminModalTitle>
+          <AdminModalSubtitle>{`Search for athletes and assign them to ${teamName || "this team"}.`}</AdminModalSubtitle>
+
+          {/* Search input */}
+          <AdminInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search athletes by name"
+            onClear={() => setSearchQuery("")}
           />
 
+          {/* Action buttons */}
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+            <AdminButton
+              label={searching ? "Searching..." : "Search"}
+              variant="secondary"
+              compact
+              onPress={search}
+              disabled={!canLoad || searching}
+              loading={searching}
+            />
+            <AdminButton
+              label={attachBusy ? "Assigning..." : "Assign"}
+              variant="primary"
+              compact
+              onPress={assign}
+              disabled={!canAssign}
+              loading={attachBusy}
+            />
+          </View>
+
+          {/* Errors */}
+          {searchError ? (
+            <Text
+              selectable
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 13,
+                color: p.danger,
+                marginTop: 12,
+              }}
+            >
+              {searchError}
+            </Text>
+          ) : null}
+
+          {attachError ? (
+            <Text
+              selectable
+              style={{
+                fontFamily: "Outfit-Regular",
+                fontSize: 13,
+                color: p.danger,
+                marginTop: 8,
+              }}
+            >
+              {attachError}
+            </Text>
+          ) : null}
+
+          {/* Include other teams toggle */}
           <View
-            className="rounded-t-[28px] border px-5 pt-5 pb-6"
             style={{
-              backgroundColor: isDark ? colors.cardElevated : "#FFFFFF",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.10)"
-                : "rgba(15,23,42,0.08)",
-              ...(isDark ? Shadows.none : Shadows.md),
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 20,
             }}
           >
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-base font-clash font-bold text-app">
-                Assign athlete
-              </Text>
-              <SmallAction
-                label="Close"
-                tone="neutral"
-                onPress={() => setAssignOpen(false)}
-              />
-            </View>
-
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search athletes"
-              autoCapitalize="none"
-              className="rounded-2xl border px-4 py-3 font-outfit text-app"
-              style={{
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.10)"
-                  : "rgba(15,23,42,0.08)",
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.03)"
-                  : "rgba(15,23,42,0.03)",
-              }}
-            />
-
-            <View className="flex-row gap-2 mt-3">
-              <SmallAction
-                label={searching ? "Searching…" : "Search"}
-                tone="neutral"
-                onPress={search}
-                disabled={!canLoad || searching}
-              />
-              <SmallAction
-                label={attachBusy ? "Assigning…" : "Assign"}
-                tone="success"
-                onPress={assign}
-                disabled={!canAssign}
-              />
-            </View>
-
-            {searchError ? (
+            <View style={{ flex: 1, marginRight: 12 }}>
               <Text
-                selectable
-                className="text-sm font-outfit text-red-400 mt-3"
-              >
-                {searchError}
-              </Text>
-            ) : null}
-
-            {attachError ? (
-              <Text
-                selectable
-                className="text-sm font-outfit text-red-400 mt-2"
-              >
-                {attachError}
-              </Text>
-            ) : null}
-
-            <View className="flex-row items-center justify-between mt-4">
-              <View className="flex-1 mr-3">
-                <Text className="text-[13px] font-outfit-semibold text-app">
-                  Include athletes from other teams
-                </Text>
-                <Text className="text-[12px] font-outfit text-secondary">
-                  Required for moving athletes (type MOVE)
-                </Text>
-              </View>
-              <Switch
-                value={includeOtherTeams}
-                onValueChange={setIncludeOtherTeams}
-                trackColor={{
-                  false: isDark
-                    ? "rgba(255,255,255,0.15)"
-                    : "rgba(15,23,42,0.15)",
-                  true: `${colors.accent}70`,
-                }}
-                thumbColor={includeOtherTeams ? colors.accent : undefined}
-              />
-            </View>
-
-            {includeOtherTeams ? (
-              <View className="mt-3">
-                <Text className="text-[12px] font-outfit text-secondary mb-2">
-                  Type MOVE to confirm cross-team move
-                </Text>
-                <TextInput
-                  value={moveConfirm}
-                  onChangeText={setMoveConfirm}
-                  placeholder="MOVE"
-                  autoCapitalize="characters"
-                  className="rounded-2xl border px-4 py-3 font-outfit text-app"
-                  style={{
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.10)"
-                      : "rgba(15,23,42,0.08)",
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.03)"
-                      : "rgba(15,23,42,0.03)",
-                  }}
-                />
-              </View>
-            ) : null}
-
-            {selected ? (
-              <View
-                className="mt-4 rounded-2xl border px-4 py-3"
                 style={{
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.03)"
-                    : "rgba(15,23,42,0.03)",
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.06)"
-                    : "rgba(15,23,42,0.06)",
+                  fontFamily: "Outfit-Bold",
+                  fontSize: 13,
+                  color: p.textPrimary,
                 }}
               >
-                <Text className="text-[12px] font-outfit text-secondary">
-                  Selected
-                </Text>
-                <Text
-                  className="text-[13px] font-clash font-bold text-app"
-                  numberOfLines={1}
-                >
-                  {selected.athleteName ?? `Athlete #${selected.athleteId}`}
-                </Text>
-                <Text
-                  className="text-[12px] font-outfit text-secondary"
-                  numberOfLines={1}
-                >
-                  {selected.athleteTeam
-                    ? `Current team: ${selected.athleteTeam}`
-                    : "Unassigned"}
-                  {selectedIsMove ? " (MOVE)" : ""}
-                </Text>
-              </View>
-            ) : null}
-
-            {results.length ? (
-              <View className="mt-4 gap-2">
-                {results.map((u) => {
-                  const athleteId =
-                    typeof u.athleteId === "number" ? u.athleteId : null;
-                  if (!athleteId) return null;
-                  const athleteTeam = u.athleteTeam ?? null;
-                  const alreadyInTeam = Boolean(
-                    athleteTeam && athleteTeam === teamName,
-                  );
-                  const canSelect =
-                    !alreadyInTeam && canSelectAthlete(athleteTeam);
-                  return (
-                    <Pressable
-                      key={athleteId}
-                      accessibilityRole="button"
-                      disabled={!canSelect}
-                      onPress={() =>
-                        setSelected({
-                          athleteId,
-                          athleteName: u.athleteName ?? null,
-                          athleteTeam,
-                        })
-                      }
-                      className="rounded-2xl border px-4 py-3"
-                      style={({ pressed }) => ({
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.03)"
-                          : "rgba(15,23,42,0.03)",
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.06)"
-                          : "rgba(15,23,42,0.06)",
-                        opacity: !canSelect ? 0.45 : pressed ? 0.85 : 1,
-                      })}
-                    >
-                      <Text
-                        className="text-[13px] font-clash font-bold text-app"
-                        numberOfLines={1}
-                      >
-                        {u.athleteName ?? `Athlete #${athleteId}`}
-                      </Text>
-                      <Text
-                        className="text-[12px] font-outfit text-secondary"
-                        numberOfLines={2}
-                      >
-                        {alreadyInTeam
-                          ? "Already in this team"
-                          : athleteTeam
-                            ? `Current team: ${athleteTeam}`
-                            : "Unassigned"}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : null}
+                Include athletes from other teams
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 12,
+                  color: p.textSecondary,
+                  marginTop: 2,
+                }}
+              >
+                Required for moving athletes (type MOVE)
+              </Text>
+            </View>
+            <Switch
+              value={includeOtherTeams}
+              onValueChange={setIncludeOtherTeams}
+              trackColor={{
+                false: p.inputBg,
+                true: p.accentSoft,
+              }}
+              thumbColor={includeOtherTeams ? p.accent : p.cardWhite}
+            />
           </View>
-        </View>
+
+          {/* MOVE confirmation input */}
+          {includeOtherTeams ? (
+            <View style={{ marginTop: 14 }}>
+              <AdminFormField
+                label="Confirm Move"
+                value={moveConfirm}
+                onChangeText={setMoveConfirm}
+                placeholder="Type MOVE to confirm"
+              />
+            </View>
+          ) : null}
+
+          {/* Selected athlete card */}
+          {selected ? (
+            <AdminCard color="sage" style={{ marginTop: 16 }} padding={16}>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 11,
+                  color: p.textMuted,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                }}
+              >
+                Selected
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Bold",
+                  fontSize: 15,
+                  color: p.textPrimary,
+                  marginTop: 4,
+                }}
+                numberOfLines={1}
+              >
+                {selected.athleteName ?? `Athlete #${selected.athleteId}`}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 12,
+                  color: p.textSecondary,
+                  marginTop: 2,
+                }}
+                numberOfLines={1}
+              >
+                {selected.athleteTeam
+                  ? `Current team: ${selected.athleteTeam}`
+                  : "Unassigned"}
+                {selectedIsMove ? " (MOVE)" : ""}
+              </Text>
+            </AdminCard>
+          ) : null}
+
+          {/* Search results */}
+          {results.length ? (
+            <View style={{ gap: 8, marginTop: 16 }}>
+              {results.map((u) => {
+                const athleteId =
+                  typeof u.athleteId === "number" ? u.athleteId : null;
+                if (!athleteId) return null;
+                const athleteTeam = u.athleteTeam ?? null;
+                const alreadyInTeam = Boolean(
+                  athleteTeam && athleteTeam === teamName,
+                );
+                const canSelect =
+                  !alreadyInTeam && canSelectAthlete(athleteTeam);
+                return (
+                  <Pressable
+                    key={athleteId}
+                    accessibilityRole="button"
+                    disabled={!canSelect}
+                    onPress={() =>
+                      setSelected({
+                        athleteId,
+                        athleteName: u.athleteName ?? null,
+                        athleteTeam,
+                      })
+                    }
+                    style={({ pressed }) => ({
+                      backgroundColor: pressed ? p.accentSoft : p.inputBg,
+                      borderRadius: 20,
+                      padding: 16,
+                      opacity: !canSelect ? 0.45 : 1,
+                      transform: [{ scale: pressed ? 0.98 : 1 }],
+                    })}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: "Outfit-Bold",
+                        fontSize: 14,
+                        color: p.textPrimary,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {u.athleteName ?? `Athlete #${athleteId}`}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: "Outfit-Regular",
+                        fontSize: 12,
+                        color: p.textSecondary,
+                        marginTop: 2,
+                      }}
+                      numberOfLines={2}
+                    >
+                      {alreadyInTeam
+                        ? "Already in this team"
+                        : athleteTeam
+                          ? `Current team: ${athleteTeam}`
+                          : "Unassigned"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+        </AdminModalContainer>
       </Modal>
-    </View>
+    </AdminScreen>
   );
 }

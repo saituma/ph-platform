@@ -321,6 +321,15 @@ export function useMessagesController(options?: {
       if (currentThread.id.startsWith("group:")) {
         const groupId = Number(currentThread.id.replace("group:", ""));
         const clientId = `client-${Date.now()}`;
+        const clientSentAt = Date.now();
+        const clientTraceId = `${clientId}-group`;
+        console.info("[RealtimeLatency] mobile.group.before_send", {
+          clientTraceId,
+          clientId,
+          groupId,
+          socketConnected: socket?.connected ?? false,
+          socketTransport: socket?.io?.engine?.transport?.name ?? "unknown",
+        });
         const previewLabel =
           trimmed ||
           getMediaPreviewLabel(payload.contentType, Boolean(payload.mediaUrl));
@@ -374,9 +383,19 @@ export function useMessagesController(options?: {
               ...(payload.mediaUrl ? { mediaUrl: payload.mediaUrl } : {}),
               ...(replyTarget ? { replyToMessageId: replyTarget.messageId, replyPreview: replyTarget.preview } : {}),
               clientId,
+              clientTraceId,
+              clientSentAt,
             } as any,
             { token, headers: actingHeaders },
           );
+          console.info("[RealtimeLatency] mobile.group.http_response", {
+            clientTraceId,
+            clientId,
+            messageId: created?.message?.id ?? null,
+            elapsedMs: Date.now() - clientSentAt,
+            socketConnected: socket?.connected ?? false,
+            socketTransport: socket?.io?.engine?.transport?.name ?? "unknown",
+          });
           const serverMsg = created?.message;
           if (serverMsg?.id) {
             const parsed = parseReplyPrefix(serverMsg.content);
@@ -433,9 +452,10 @@ export function useMessagesController(options?: {
             void loadGroupMessages(groupId, { silent: true });
           }
         } catch (err) {
-          setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
-          void loadGroupMessages(groupId, { silent: true });
-          throw err;
+          console.warn("[send] group message failed:", err);
+          setMessages((prev) =>
+            prev.map((m) => (m.clientId === clientId ? { ...m, status: "failed" } : m)),
+          );
         }
         return;
       }
@@ -443,6 +463,15 @@ export function useMessagesController(options?: {
       const toUserId = Number(currentThread.id);
       if (!Number.isFinite(toUserId) || toUserId <= 0) return;
       const clientId = `client-${Date.now()}`;
+      const clientSentAt = Date.now();
+      const clientTraceId = `${clientId}-direct`;
+      console.info("[RealtimeLatency] mobile.direct.before_send", {
+        clientTraceId,
+        clientId,
+        toUserId,
+        socketConnected: socket?.connected ?? false,
+        socketTransport: socket?.io?.engine?.transport?.name ?? "unknown",
+      });
       setMessages((prev) => [
         ...prev,
         {
@@ -493,9 +522,19 @@ export function useMessagesController(options?: {
             ...(payload.mediaUrl ? { mediaUrl: payload.mediaUrl } : {}),
             ...(replyTarget ? { replyToMessageId: replyTarget.messageId, replyPreview: replyTarget.preview } : {}),
             clientId,
+            clientTraceId,
+            clientSentAt,
           },
           { token, headers: actingHeaders },
         );
+        console.info("[RealtimeLatency] mobile.direct.http_response", {
+          clientTraceId,
+          clientId,
+          messageId: created?.message?.id ?? null,
+          elapsedMs: Date.now() - clientSentAt,
+          socketConnected: socket?.connected ?? false,
+          socketTransport: socket?.io?.engine?.transport?.name ?? "unknown",
+        });
         const serverMsg = created?.message;
         if (serverMsg?.id) {
           const mapped = mapApiDirectMessageToChatMessage(
@@ -527,9 +566,10 @@ export function useMessagesController(options?: {
           void Image.prefetch(serverMsg.mediaUrl);
         }
       } catch (err) {
-        setMessages((prev) => prev.filter((m) => m.clientId !== clientId));
-        void loadMessages({ silent: true });
-        throw err;
+        console.warn("[send] direct message failed:", err);
+        setMessages((prev) =>
+          prev.map((m) => (m.clientId === clientId ? { ...m, status: "failed" } : m)),
+        );
       }
     },
     [
@@ -544,6 +584,7 @@ export function useMessagesController(options?: {
       replyTarget?.messageId,
       replyTarget?.preview,
       token,
+      socket,
       setMessages,
       setThreads,
       getMediaPreviewLabel,

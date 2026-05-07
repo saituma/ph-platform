@@ -2,14 +2,14 @@ import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { Text } from "@/components/ScaledText";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { apiRequest } from "@/lib/api";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { TouchableOpacity, View } from "react-native";
+import { ScrollView, TouchableOpacity, View } from "react-native";
 import { SkeletonNutritionLogScreen } from "@/components/ui/legacy-skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { X } from "lucide-react-native";
 
 function parseSlot(value: unknown) {
   const raw = typeof value === "string" ? value.trim() : "";
@@ -20,7 +20,7 @@ function parseSlot(value: unknown) {
 
 export default function NutritionLogDetailScreen() {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const { dateKey, userId } = useLocalSearchParams<{
     dateKey: string;
     userId?: string;
@@ -135,7 +135,7 @@ export default function NutritionLogDetailScreen() {
   }, [log]);
 
   return (
-    <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <MoreStackHeader
         title="Nutrition Log"
         subtitle={String(dateKey ?? "")}
@@ -145,37 +145,43 @@ export default function NutritionLogDetailScreen() {
               if (router.canGoBack()) router.back();
               else router.replace("/nutrition");
             }}
-            className="h-10 w-10 items-center justify-center rounded-full bg-white/10"
+            style={{
+              height: 40,
+              width: 40,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 100,
+              backgroundColor: p.inputBg,
+            }}
           >
-            <Feather name="x" size={20} color="#fff" />
+            <X size={20} color={p.textSecondary} />
           </TouchableOpacity>
         }
       />
 
-      <View className="px-4 pt-3 gap-4">
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 16, paddingBottom: 40 }}>
         {loading ? (
           <SkeletonNutritionLogScreen />
         ) : error === "Log not found." ? (
           <View
-            className="rounded-3xl border px-5 py-6 gap-4 items-center"
             style={{
-              backgroundColor: colors.card,
-              borderColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(15,23,42,0.06)",
+              borderRadius: 22,
+              paddingHorizontal: 20,
+              paddingVertical: 24,
+              gap: 16,
+              alignItems: "center",
+              backgroundColor: p.cardWhite,
             }}
           >
-            <Text className="text-sm font-outfit text-secondary text-center">
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
               No nutrition log for this day yet.
             </Text>
             <TouchableOpacity
               onPress={() => router.replace("/nutrition" as any)}
-              className="rounded-2xl px-6 py-3"
-              style={{ backgroundColor: colors.accent }}
+              style={{ borderRadius: 100, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: p.accent }}
             >
               <Text
-                className="text-sm font-outfit font-semibold text-center"
-                style={{ color: "#fff" }}
+                style={{ fontSize: 14, fontFamily: "Outfit-Bold", textAlign: "center", color: p.buttonPrimaryText }}
               >
                 Log today's nutrition
               </Text>
@@ -183,66 +189,63 @@ export default function NutritionLogDetailScreen() {
           </View>
         ) : error ? (
           <View
-            className="rounded-3xl border px-5 py-5"
             style={{
-              backgroundColor: colors.card,
-              borderColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(15,23,42,0.06)",
+              borderRadius: 22,
+              paddingHorizontal: 20,
+              paddingVertical: 20,
+              backgroundColor: p.cardPeach,
             }}
           >
-            <Text className="text-sm font-outfit text-secondary">{error}</Text>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>{error}</Text>
           </View>
         ) : (
           <>
             <View
-              className="rounded-3xl border p-5 gap-2"
               style={{
-                backgroundColor: colors.card,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
+                borderRadius: 22,
+                padding: 20,
+                gap: 8,
+                backgroundColor: p.cardWhite,
               }}
             >
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.2 }}>
                 Your log
               </Text>
               {lines.length ? (
                 lines.map((t) => (
-                  <Text key={t} className="text-sm font-outfit text-app">
+                  <Text key={t} style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
                     {t}
                   </Text>
                 ))
               ) : (
-                <Text className="text-sm font-outfit text-secondary">
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                   No details logged.
                 </Text>
               )}
             </View>
 
             <View
-              className="rounded-3xl border p-5 gap-3"
               style={{
-                backgroundColor: colors.card,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(15,23,42,0.06)",
+                borderRadius: 22,
+                padding: 20,
+                gap: 12,
+                backgroundColor: p.cardWhite,
               }}
             >
-              <Text className="text-xs font-outfit text-secondary uppercase tracking-[1.2px]">
+              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.2 }}>
                 Coach response
               </Text>
               {coachText ? (
-                <Text className="text-sm font-outfit text-app leading-6">
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary, lineHeight: 24 }}>
                   {coachText}
                 </Text>
               ) : (
-                <Text className="text-sm font-outfit text-secondary">
+                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                   No coach response yet.
                 </Text>
               )}
               {coachMedia ? (
-                <View className="rounded-3xl overflow-hidden bg-black">
+                <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
                   <VideoPlayer
                     uri={coachMedia}
                     height={200}
@@ -253,7 +256,7 @@ export default function NutritionLogDetailScreen() {
             </View>
           </>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

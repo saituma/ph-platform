@@ -21,7 +21,7 @@ import {
 import { db } from "../db";
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getSocketServer } from "../socket-hub";
-import { sendPushNotification } from "../services/push.service";
+import { createPushIntent } from "../services/outbox.service";
 import { createReferralGroup, getReferralGroupAthletes, listReferralGroups } from "../services/referral-group.service";
 import { sendReferralAssignedEmail } from "../lib/mailer";
 import { athleteHasFeature } from "../services/billing/feature-access.service";
@@ -291,14 +291,19 @@ async function notifyReferralRecipients(input: {
     }
 
     if (input.sendPush) {
-      await Promise.all(
+      await Promise.allSettled(
         recipientUserIds.map((userId) =>
-          sendPushNotification(userId, "Referral", input.content, {
+          createPushIntent({
+            userId,
+            title: "Referral",
+            body: input.content,
+            data: {
             type: "physio-referral",
             screen: "physio-referral",
             url: "/physio-referral",
             athleteId: String(input.athleteId),
             referralId: input.referralId ? String(input.referralId) : undefined,
+            },
           }),
         ),
       );

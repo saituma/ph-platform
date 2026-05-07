@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { View, TouchableOpacity, TextInput, Modal, Platform, ActivityIndicator, Pressable, ScrollView } from "react-native";
+import {
+  View,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Platform,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+} from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import {
   defaultServicePatchJson,
   parseIntOrUndefined,
@@ -12,7 +20,16 @@ import { useAdminServices } from "@/hooks/admin/useAdminServices";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import { Feather } from "@/components/ui/theme-icons";
+import {
+  Check,
+  ChevronDown,
+  Clock,
+  Edit2,
+  Plus,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react-native";
 
 import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
 
@@ -22,7 +39,7 @@ interface Props {
   initialAction?: "createService" | null;
 }
 
-// --- Internal Components ---
+// --- Constants ---
 
 const SERVICE_TYPES = [
   { label: "1-to-1 session", value: "one_to_one" },
@@ -58,7 +75,9 @@ const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => {
   return { label: value, value };
 });
 
-const MINUTE_OPTIONS = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map((value) => ({
+const MINUTE_OPTIONS = [
+  "00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55",
+].map((value) => ({
   label: value,
   value,
 }));
@@ -81,6 +100,11 @@ function getNextSevenDays() {
   });
 }
 
+// --- Pastel card color cycling ---
+const CARD_COLORS = ["cardSage", "cardPeach", "cardLavender", "cardMint"] as const;
+
+// --- Internal Components ---
+
 function MultiSelect({
   label,
   values,
@@ -92,47 +116,91 @@ function MultiSelect({
   onSelect: (val: string) => void;
   options: { label: string; value: string }[];
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const [open, setOpen] = useState(false);
 
   const displayLabel = useMemo(() => {
     if (!values?.length) return "Select...";
     if (values.length === 1) {
-      const found = options.find(o => o.value === values[0]);
+      const found = options.find((o) => o.value === values[0]);
       return found ? found.label : values[0];
     }
     return `${values.length} selected`;
   }, [options, values]);
 
   return (
-    <View className="mb-6">
-      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
+    <View style={{ marginBottom: 24 }}>
+      <Text
+        style={{
+          fontSize: 11,
+          fontFamily: "Outfit-Bold",
+          color: p.textSecondary,
+          textTransform: "uppercase",
+          letterSpacing: 2,
+          marginBottom: 12,
+          marginLeft: 4,
+        }}
+      >
         {label}
       </Text>
       <TouchableOpacity
         onPress={() => setOpen(true)}
         activeOpacity={0.7}
-        className="rounded-[18px] border flex-row items-center justify-between px-5 h-14"
         style={{
-          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
-          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+          borderRadius: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 20,
+          height: 56,
+          backgroundColor: p.inputBg,
+          borderWidth: 1,
+          borderColor: p.inputBorder,
         }}
       >
-        <Text className="text-[16px] font-outfit text-app">{displayLabel}</Text>
-        <Feather name="chevron-down" size={20} color={colors.textSecondary} />
+        <Text style={{ fontSize: 16, fontFamily: "Outfit", color: p.textPrimary }}>
+          {displayLabel}
+        </Text>
+        <ChevronDown size={20} color={p.textSecondary} />
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade">
-        <Pressable 
-          className="flex-1 bg-black/60 items-center justify-center p-6"
+        <Pressable
           onPress={() => setOpen(false)}
+          style={{
+            flex: 1,
+            backgroundColor: p.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
         >
-          <View 
-            className="w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl"
-            style={{ backgroundColor: isDark ? "#161628" : "#FFFFFF" }}
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 380,
+              borderRadius: 28,
+              overflow: "hidden",
+              backgroundColor: p.cardWhite,
+              shadowColor: p.shadowMd, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 10, elevation: 3,
+            }}
           >
-            <View className="p-6 border-b border-app/5">
-              <Text className="text-xl font-clash font-bold text-app">{label}</Text>
+            <View
+              style={{
+                padding: 24,
+                borderBottomWidth: 1,
+                borderBottomColor: p.divider,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontFamily: "Outfit-Bold",
+                  color: p.textPrimary,
+                }}
+              >
+                {label}
+              </Text>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
               {options.map((opt, i) => {
@@ -140,26 +208,50 @@ function MultiSelect({
                 return (
                   <TouchableOpacity
                     key={i}
-                    onPress={() => {
-                      onSelect(opt.value);
+                    onPress={() => onSelect(opt.value)}
+                    style={{
+                      paddingHorizontal: 24,
+                      paddingVertical: 20,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderBottomWidth: 1,
+                      borderBottomColor: p.divider,
                     }}
-                    className="px-6 py-5 flex-row items-center justify-between border-b border-app/5"
                   >
-                    <Text 
-                      className={`text-[16px] ${isSelected ? 'font-outfit-bold text-accent' : 'font-outfit text-app'}`}
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontFamily: isSelected ? "Outfit-Bold" : "Outfit",
+                        color: isSelected ? p.accent : p.textPrimary,
+                      }}
                     >
                       {opt.label}
                     </Text>
-                    {isSelected && <Feather name="check" size={20} color={colors.accent} />}
+                    {isSelected && <Check size={20} color={p.accent} />}
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setOpen(false)}
-              className="p-6 bg-accent items-center justify-center"
+              style={{
+                padding: 24,
+                backgroundColor: p.buttonPrimary,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              <Text className="text-white font-outfit-bold uppercase tracking-wider">Done</Text>
+              <Text
+                style={{
+                  color: p.buttonPrimaryText,
+                  fontFamily: "Outfit-Bold",
+                  textTransform: "uppercase",
+                  letterSpacing: 1.5,
+                }}
+              >
+                Done
+              </Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -179,43 +271,87 @@ function Dropdown({
   onSelect: (val: string) => void;
   options: { label: string; value: string }[];
 }) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const [open, setOpen] = useState(false);
 
   const displayLabel = useMemo(() => {
-    const found = options.find(o => o.value === value);
+    const found = options.find((o) => o.value === value);
     return found ? found.label : value || "Select...";
   }, [options, value]);
 
   return (
-    <View className="mb-6">
-      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
+    <View style={{ marginBottom: 24 }}>
+      <Text
+        style={{
+          fontSize: 11,
+          fontFamily: "Outfit-Bold",
+          color: p.textSecondary,
+          textTransform: "uppercase",
+          letterSpacing: 2,
+          marginBottom: 12,
+          marginLeft: 4,
+        }}
+      >
         {label}
       </Text>
       <TouchableOpacity
         onPress={() => setOpen(true)}
         activeOpacity={0.7}
-        className="rounded-[18px] border flex-row items-center justify-between px-5 h-14"
         style={{
-          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
-          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+          borderRadius: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 20,
+          height: 56,
+          backgroundColor: p.inputBg,
+          borderWidth: 1,
+          borderColor: p.inputBorder,
         }}
       >
-        <Text className="text-[16px] font-outfit text-app">{displayLabel}</Text>
-        <Feather name="chevron-down" size={20} color={colors.textSecondary} />
+        <Text style={{ fontSize: 16, fontFamily: "Outfit", color: p.textPrimary }}>
+          {displayLabel}
+        </Text>
+        <ChevronDown size={20} color={p.textSecondary} />
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade">
-        <Pressable 
-          className="flex-1 bg-black/60 items-center justify-center p-6"
+        <Pressable
           onPress={() => setOpen(false)}
+          style={{
+            flex: 1,
+            backgroundColor: p.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
         >
-          <View 
-            className="w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl"
-            style={{ backgroundColor: isDark ? "#161628" : "#FFFFFF" }}
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 380,
+              borderRadius: 28,
+              overflow: "hidden",
+              backgroundColor: p.cardWhite,
+              shadowColor: p.shadowMd, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 1, shadowRadius: 10, elevation: 3,
+            }}
           >
-            <View className="p-6 border-b border-app/5">
-              <Text className="text-xl font-clash font-bold text-app">{label}</Text>
+            <View
+              style={{
+                padding: 24,
+                borderBottomWidth: 1,
+                borderBottomColor: p.divider,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontFamily: "Outfit-Bold",
+                  color: p.textPrimary,
+                }}
+              >
+                {label}
+              </Text>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
               {options.map((opt, i) => {
@@ -227,14 +363,26 @@ function Dropdown({
                       onSelect(opt.value);
                       setOpen(false);
                     }}
-                    className="px-6 py-5 flex-row items-center justify-between border-b border-app/5"
+                    style={{
+                      paddingHorizontal: 24,
+                      paddingVertical: 20,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderBottomWidth: 1,
+                      borderBottomColor: p.divider,
+                    }}
                   >
-                    <Text 
-                      className={`text-[16px] ${isSelected ? 'font-outfit-bold text-accent' : 'font-outfit text-app'}`}
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontFamily: isSelected ? "Outfit-Bold" : "Outfit",
+                        color: isSelected ? p.accent : p.textPrimary,
+                      }}
                     >
                       {opt.label}
                     </Text>
-                    {isSelected && <Feather name="check" size={20} color={colors.accent} />}
+                    {isSelected && <Check size={20} color={p.accent} />}
                   </TouchableOpacity>
                 );
               })}
@@ -246,56 +394,101 @@ function Dropdown({
   );
 }
 
-function ServiceActionButton({ 
-  label, 
-  onPress, 
-  tone = "accent", 
-  icon 
-}: { 
-  label: string; 
-  onPress: () => void; 
+function ServiceActionButton({
+  label,
+  onPress,
+  tone = "accent",
+  icon,
+}: {
+  label: string;
+  onPress: () => void;
   tone?: "accent" | "neutral" | "danger" | "success";
-  icon?: any;
+  icon?: React.ReactNode;
 }) {
-  const { colors, isDark } = useAppTheme();
-  
-  const bg = tone === "accent" ? colors.accent : 
-             tone === "success" ? "#22C55E" : 
-             tone === "danger" ? "#EF4444" : 
-             isDark ? "rgba(255,255,255,0.08)" : "#F1F5F9";
-             
-  const textColor = (tone === "neutral" && !isDark) ? "#0F172A" : "#FFFFFF";
+  const p = useAdminPastel();
+
+  const bg =
+    tone === "accent"
+      ? p.buttonPrimary
+      : tone === "success"
+        ? p.success
+        : tone === "danger"
+          ? p.danger
+          : p.inputBg;
+
+  const textColor =
+    tone === "accent"
+      ? p.buttonPrimaryText
+      : tone === "neutral"
+        ? p.textPrimary
+        : "#FFFFFF";
 
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.8}
-      className="h-12 px-6 rounded-2xl flex-row items-center justify-center gap-2 shadow-sm"
-      style={{ backgroundColor: bg }}
+      style={{
+        height: 48,
+        paddingHorizontal: 24,
+        borderRadius: 100,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        backgroundColor: bg,
+        shadowColor: p.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8, elevation: 2,
+      }}
     >
-      {icon && <Feather name={icon} size={16} color={textColor} />}
-      <Text className="text-[14px] font-outfit-bold uppercase tracking-wider" style={{ color: textColor }}>
+      {icon}
+      <Text
+        style={{
+          fontSize: 14,
+          fontFamily: "Outfit-Bold",
+          textTransform: "uppercase",
+          letterSpacing: 1.5,
+          color: textColor,
+        }}
+      >
         {label}
       </Text>
     </TouchableOpacity>
   );
 }
 
-function FormField({ label, value, onChangeText, placeholder, keyboardType = "default", multiline = false }: any) {
-  const { colors, isDark } = useAppTheme();
+function FormField({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType = "default",
+  multiline = false,
+}: any) {
+  const p = useAdminPastel();
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <View className="mb-6">
-      <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
+    <View style={{ marginBottom: 24 }}>
+      <Text
+        style={{
+          fontSize: 11,
+          fontFamily: "Outfit-Bold",
+          color: p.textSecondary,
+          textTransform: "uppercase",
+          letterSpacing: 2,
+          marginBottom: 12,
+          marginLeft: 4,
+        }}
+      >
         {label}
       </Text>
-      <View 
-        className="rounded-[18px] border px-5 justify-center"
+      <View
         style={{
-          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
-          borderColor: isFocused ? colors.accent : (isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)"),
+          borderRadius: 16,
+          paddingHorizontal: 20,
+          justifyContent: "center",
+          backgroundColor: p.inputBg,
           borderWidth: isFocused ? 2 : 1,
+          borderColor: isFocused ? p.accent : p.inputBorder,
           minHeight: multiline ? 120 : 62,
           paddingVertical: multiline ? 16 : 0,
         }}
@@ -304,14 +497,18 @@ function FormField({ label, value, onChangeText, placeholder, keyboardType = "de
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={colors.placeholder}
+          placeholderTextColor={p.textMuted}
           keyboardType={keyboardType}
           multiline={multiline}
           textAlignVertical={multiline ? "top" : "center"}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className="text-[16px] font-outfit text-app"
-          cursorColor={colors.accent}
+          style={{
+            fontSize: 16,
+            fontFamily: "Outfit",
+            color: p.textPrimary,
+          }}
+          cursorColor={p.accent}
         />
       </View>
     </View>
@@ -319,7 +516,7 @@ function FormField({ label, value, onChangeText, placeholder, keyboardType = "de
 }
 
 export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const servicesHook = useAdminServices(token, canLoad);
   const { teams, load: loadTeams } = useAdminTeams(token, canLoad);
@@ -331,7 +528,9 @@ export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
   const [serviceCreateDescription, setServiceCreateDescription] = useState("");
   const [serviceCreateCapacity, setServiceCreateCapacity] = useState("");
   const [serviceCreateIsBookable, setServiceCreateIsBookable] = useState(true);
-  const [serviceCreateSchedule, setServiceCreateSchedule] = useState<"one_time" | "permanent">("one_time");
+  const [serviceCreateSchedule, setServiceCreateSchedule] = useState<"one_time" | "permanent">(
+    "one_time",
+  );
   const [serviceCreateWeekday, setServiceCreateWeekday] = useState("1");
   const [serviceCreateWeekHour, setServiceCreateWeekHour] = useState("09");
   const [serviceCreateWeekMinute, setServiceCreateWeekMinute] = useState("00");
@@ -367,7 +566,7 @@ export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
   }, [initialAction]);
 
   const teamOptions = useMemo(() => {
-    return teams.map(t => ({ label: `Team: ${t.team}`, value: `team:${t.id}` }));
+    return teams.map((t) => ({ label: `Team: ${t.team}`, value: `team:${t.id}` }));
   }, [teams]);
 
   const combinedTargetOptions = useMemo(() => {
@@ -385,7 +584,9 @@ export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
     setServiceEditIsActive(svc.isActive !== false);
     setServiceEditCapacity(String(svc.capacity ?? ""));
     setServiceEditEligiblePlans(Array.isArray(svc.eligiblePlans) ? svc.eligiblePlans : []);
-    setServiceEditEligibleTargets(Array.isArray(svc.eligibleTargets) ? svc.eligibleTargets : []);
+    setServiceEditEligibleTargets(
+      Array.isArray(svc.eligibleTargets) ? svc.eligibleTargets : [],
+    );
   }, [serviceDetailOpenId, servicesHook.services]);
 
   const handleCreate = async () => {
@@ -472,129 +673,366 @@ export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
   };
 
   return (
-    <View className="px-6">
-      <View className="mb-8">
-        <Text className="text-2xl font-clash font-bold text-app mb-2">Services</Text>
-        <Text className="text-sm font-outfit text-textSecondary leading-relaxed mb-6">
+    <View style={{ paddingHorizontal: 24 }}>
+      {/* Header */}
+      <View style={{ marginBottom: 32 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontFamily: "Outfit-Bold",
+            color: p.textPrimary,
+            marginBottom: 8,
+          }}
+        >
+          Services
+        </Text>
+        <Text
+          style={{
+            fontSize: 14,
+            fontFamily: "Outfit",
+            color: p.textSecondary,
+            lineHeight: 22,
+            marginBottom: 24,
+          }}
+        >
           See every bookable session type, edit details, and control visibility.
         </Text>
-        <ServiceActionButton 
-          label="Add Service" 
-          onPress={() => setCreateOpen(true)} 
-          icon="plus" 
-          tone="accent" 
+        <ServiceActionButton
+          label="Add Service"
+          onPress={() => setCreateOpen(true)}
+          icon={<Plus size={16} color={p.buttonPrimaryText} />}
+          tone="accent"
         />
       </View>
 
+      {/* Service List */}
       {servicesHook.servicesLoading && servicesHook.services.length === 0 ? (
-        <View className="gap-4">
-          <Skeleton width="100%" height={100} borderRadius={24} />
-          <Skeleton width="100%" height={100} borderRadius={24} />
+        <View style={{ gap: 16 }}>
+          <Skeleton width="100%" height={100} borderRadius={28} />
+          <Skeleton width="100%" height={100} borderRadius={28} />
         </View>
       ) : (
-        <View className="gap-4 pb-20">
-          {servicesHook.services.map((s) => (
-            <View 
-              key={s.id}
-              className="rounded-[32px] border p-6"
-              style={{
-                backgroundColor: isDark ? colors.cardElevated : colors.card,
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-                ...Shadows.sm
-              }}
-            >
-              <View className="flex-row items-center justify-between mb-4">
-                <View className="flex-1 mr-4">
-                  <Text className="text-lg font-clash font-bold text-app" numberOfLines={1}>
-                    {s.name}
+        <View style={{ gap: 16, paddingBottom: 80 }}>
+          {servicesHook.services.map((s, idx) => {
+            const cardColorKey = CARD_COLORS[idx % CARD_COLORS.length];
+            const cardBg = p[cardColorKey] as string;
+
+            return (
+              <View
+                key={s.id}
+                style={{
+                  borderRadius: 28,
+                  padding: 24,
+                  backgroundColor: cardBg,
+                  shadowColor: p.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8, elevation: 2,
+                }}
+              >
+                {/* Top row: name + active toggle */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 16,
+                  }}
+                >
+                  <View style={{ flex: 1, marginRight: 16 }}>
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontSize: 18,
+                        fontFamily: "Outfit-Bold",
+                        color: p.textPrimary,
+                      }}
+                    >
+                      {s.name}
+                    </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        gap: 8,
+                        marginTop: 4,
+                      }}
+                    >
+                      {s.isBookable === false ? (
+                        <View
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 100,
+                            backgroundColor: p.warningSoft,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontFamily: "Outfit-Bold",
+                              color: p.warning,
+                              textTransform: "uppercase",
+                              letterSpacing: 1,
+                            }}
+                          >
+                            Non-bookable
+                          </Text>
+                        </View>
+                      ) : null}
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontFamily: "Outfit",
+                          color: p.textSecondary,
+                          textTransform: "uppercase",
+                          letterSpacing: 1,
+                        }}
+                      >
+                        {s.type ? s.type.replace(/_/g, " ") : "Schedule item"}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleToggleActive(s)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 100,
+                      backgroundColor:
+                        s.isActive !== false ? p.successSoft : p.inputBg,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontFamily: "Outfit-Bold",
+                        textTransform: "uppercase",
+                        letterSpacing: 2,
+                        color: s.isActive !== false ? p.success : p.textSecondary,
+                      }}
+                    >
+                      {s.isActive !== false ? "On" : "Off"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Description */}
+                {s.description ? (
+                  <Text
+                    numberOfLines={2}
+                    style={{
+                      fontSize: 14,
+                      fontFamily: "Outfit",
+                      color: p.textSecondary,
+                      marginBottom: 16,
+                      lineHeight: 22,
+                    }}
+                  >
+                    {s.description}
                   </Text>
-                  <View className="flex-row flex-wrap items-center gap-2 mt-1">
-                    {s.isBookable === false ? (
-                      <View className="px-2 py-1 rounded-lg bg-secondary/10 border border-app/10">
-                        <Text className="text-[10px] font-outfit-bold text-textSecondary uppercase tracking-wider">
-                          Non-bookable
-                        </Text>
-                      </View>
-                    ) : null}
-                    <Text className="text-xs font-outfit text-textSecondary uppercase tracking-wider">
-                      {s.type ? s.type.replace(/_/g, " ") : "Schedule item"}
+                ) : null}
+
+                {/* Info chips */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                    marginBottom: 20,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      backgroundColor: p.accentSoft,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 100,
+                    }}
+                  >
+                    <Clock size={12} color={p.accent} />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontFamily: "Outfit-Bold",
+                        color: p.textPrimary,
+                      }}
+                    >
+                      {s.durationMinutes}m
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      backgroundColor: p.accentSoft,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 100,
+                    }}
+                  >
+                    <Users size={12} color={p.accent} />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontFamily: "Outfit-Bold",
+                        color: p.textPrimary,
+                      }}
+                    >
+                      {s.totalSlots != null
+                        ? `${s.remainingTotalSlots ?? "—"} / ${s.totalSlots} slots`
+                        : s.capacity != null
+                          ? `${s.capacity} capacity`
+                          : "Unlimited"}
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity 
-                  onPress={() => handleToggleActive(s)}
-                  className={`px-3 py-1.5 rounded-full border ${s.isActive !== false ? 'bg-success/10 border-success/20' : 'bg-secondary/10 border-app/10'}`}
-                >
-                  <Text className={`text-[10px] font-outfit-bold uppercase tracking-widest ${s.isActive !== false ? 'text-success' : 'text-textSecondary'}`}>
-                    {s.isActive !== false ? 'On' : 'Off'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
 
-              {s.description ? (
-                <Text className="text-sm font-outfit text-textSecondary mb-4 leading-relaxed" numberOfLines={2}>
-                  {s.description}
+                {/* Target / Tier line */}
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    fontSize: 10,
+                    fontFamily: "Outfit",
+                    color: p.textMuted,
+                    textTransform: "uppercase",
+                    letterSpacing: 1,
+                    marginBottom: 20,
+                  }}
+                >
+                  Target:{" "}
+                  {s.eligibleTargets?.length ? s.eligibleTargets.join(", ") : "All"}{" "}
+                  {"·"} Tier:{" "}
+                  {s.eligiblePlans?.length
+                    ? s.eligiblePlans.join(", ")
+                    : s.programTier ?? "All"}
                 </Text>
-              ) : null}
 
-              <View className="flex-row items-center gap-4 mb-6">
-                <View className="flex-row items-center gap-1.5 bg-secondary/5 px-3 py-2 rounded-xl">
-                  <Feather name="clock" size={12} color={colors.accent} />
-                  <Text className="text-xs font-outfit-bold text-app">{s.durationMinutes}m</Text>
-                </View>
-                <View className="flex-row items-center gap-1.5 bg-secondary/5 px-3 py-2 rounded-xl">
-                  <Feather name="users" size={12} color={colors.accent} />
-                  <Text className="text-xs font-outfit-bold text-app">
-                    {s.totalSlots != null
-                      ? `${s.remainingTotalSlots ?? "—"} / ${s.totalSlots} slots`
-                      : s.capacity != null
-                        ? `${s.capacity} capacity`
-                        : "Unlimited"}
-                  </Text>
+                {/* Action buttons */}
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => setServiceDetailOpenId(s.id)}
+                    style={{
+                      flex: 1,
+                      height: 44,
+                      borderRadius: 100,
+                      backgroundColor: p.cardWhite,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "row",
+                      gap: 8,
+                    }}
+                  >
+                    <Edit2 size={14} color={p.textPrimary} />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontFamily: "Outfit-Bold",
+                        color: p.textPrimary,
+                        textTransform: "uppercase",
+                        letterSpacing: 1,
+                      }}
+                    >
+                      Edit
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => servicesHook.deleteServiceType(s.id)}
+                    style={{
+                      flex: 1,
+                      height: 44,
+                      borderRadius: 100,
+                      backgroundColor: p.dangerSoft,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "row",
+                      gap: 8,
+                    }}
+                  >
+                    <Trash2 size={14} color={p.danger} />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontFamily: "Outfit-Bold",
+                        color: p.danger,
+                        textTransform: "uppercase",
+                        letterSpacing: 1,
+                      }}
+                    >
+                      Delete
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-              <Text className="text-[10px] font-outfit text-textSecondary uppercase tracking-wider mb-5" numberOfLines={2}>
-                Target: {s.eligibleTargets?.length ? s.eligibleTargets.join(", ") : "All"} · Tier: {s.eligiblePlans?.length ? s.eligiblePlans.join(", ") : s.programTier ?? "All"}
-              </Text>
-
-              <View className="flex-row gap-3">
-                <TouchableOpacity 
-                  onPress={() => setServiceDetailOpenId(s.id)}
-                  className="flex-1 h-11 rounded-xl bg-secondary/10 items-center justify-center flex-row gap-2"
-                >
-                  <Feather name="edit-2" size={14} color={colors.text} />
-                  <Text className="text-xs font-outfit-bold text-app uppercase tracking-wider">Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => servicesHook.deleteServiceType(s.id)}
-                  className="flex-1 h-11 rounded-xl bg-red-500/10 items-center justify-center flex-row gap-2"
-                >
-                  <Feather name="trash-2" size={14} color="#EF4444" />
-                  <Text className="text-xs font-outfit-bold text-red-400 uppercase tracking-wider">Delete</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
-      {/* CREATE MODAL */}
+      {/* ========== CREATE MODAL ========== */}
       <Modal visible={createOpen} animationType="slide">
-        <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-          <View className="px-6 py-6 flex-row items-center justify-between border-b border-app/5">
-            <Text className="text-2xl font-clash font-bold text-app">New Service</Text>
+        <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
+          <View
+            style={{
+              paddingHorizontal: 24,
+              paddingVertical: 24,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderBottomWidth: 1,
+              borderBottomColor: p.divider,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 24,
+                fontFamily: "Outfit-Bold",
+                color: p.textPrimary,
+              }}
+            >
+              New Service
+            </Text>
             <TouchableOpacity onPress={() => setCreateOpen(false)}>
-              <Feather name="x" size={24} color={colors.text} />
+              <X size={24} color={p.textPrimary} />
             </TouchableOpacity>
           </View>
-          <ThemedScrollView className="p-6">
-            <FormField label="Service Name" value={serviceCreateName} onChangeText={setServiceCreateName} placeholder="e.g. 1:1 Session" />
-            <FormField label="Description" value={serviceCreateDescription} onChangeText={setServiceCreateDescription} placeholder="Describe the session..." multiline />
-            <View className="mb-6">
-              <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3 ml-1">
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 24 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <FormField
+              label="Service Name"
+              value={serviceCreateName}
+              onChangeText={setServiceCreateName}
+              placeholder="e.g. 1:1 Session"
+            />
+            <FormField
+              label="Description"
+              value={serviceCreateDescription}
+              onChangeText={setServiceCreateDescription}
+              placeholder="Describe the session..."
+              multiline
+            />
+
+            {/* Booking Mode */}
+            <View style={{ marginBottom: 24 }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: "Outfit-Bold",
+                  color: p.textSecondary,
+                  textTransform: "uppercase",
+                  letterSpacing: 2,
+                  marginBottom: 12,
+                  marginLeft: 4,
+                }}
+              >
                 Booking Mode
               </Text>
-              <View className="flex-row gap-3">
+              <View style={{ flexDirection: "row", gap: 12 }}>
                 {[
                   { label: "Bookable", value: true, detail: "Clients can request" },
                   { label: "Non-bookable", value: false, detail: "Visible only" },
@@ -604,14 +1042,34 @@ export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
                     <TouchableOpacity
                       key={item.label}
                       onPress={() => setServiceCreateIsBookable(item.value)}
-                      className="flex-1 rounded-[18px] border p-4"
                       style={{
-                        backgroundColor: active ? `${colors.accent}16` : isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
-                        borderColor: active ? `${colors.accent}45` : isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+                        flex: 1,
+                        borderRadius: 28,
+                        padding: 16,
+                        backgroundColor: active ? p.accentSoft : p.inputBg,
+                        borderWidth: 1,
+                        borderColor: active ? p.accent : p.inputBorder,
                       }}
                     >
-                      <Text className="text-[14px] font-outfit-bold text-app">{item.label}</Text>
-                      <Text className="text-[11px] font-outfit text-textSecondary mt-1">{item.detail}</Text>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontFamily: "Outfit-Bold",
+                          color: p.textPrimary,
+                        }}
+                      >
+                        {item.label}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontFamily: "Outfit",
+                          color: p.textSecondary,
+                          marginTop: 4,
+                        }}
+                      >
+                        {item.detail}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -619,18 +1077,53 @@ export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
             </View>
 
             {serviceCreateIsBookable ? (
-              <Dropdown label="Service Type" value={serviceCreateType} onSelect={setServiceCreateType} options={SERVICE_TYPES} />
+              <Dropdown
+                label="Service Type"
+                value={serviceCreateType}
+                onSelect={setServiceCreateType}
+                options={SERVICE_TYPES}
+              />
             ) : null}
-            <FormField label="Duration (Minutes)" value={serviceCreateDurationMinutes} onChangeText={setServiceCreateDurationMinutes} keyboardType="numeric" />
+            <FormField
+              label="Duration (Minutes)"
+              value={serviceCreateDurationMinutes}
+              onChangeText={setServiceCreateDurationMinutes}
+              keyboardType="numeric"
+            />
             {serviceCreateIsBookable ? (
-              <FormField label="Slots Available" value={serviceCreateCapacity} onChangeText={setServiceCreateCapacity} keyboardType="numeric" placeholder="Leave empty for unlimited" />
+              <FormField
+                label="Slots Available"
+                value={serviceCreateCapacity}
+                onChangeText={setServiceCreateCapacity}
+                keyboardType="numeric"
+                placeholder="Leave empty for unlimited"
+              />
             ) : null}
 
-            <View className="mb-6 rounded-[24px] border p-5" style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)", backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF" }}>
-              <Text className="text-[11px] font-outfit-bold text-textSecondary uppercase tracking-[2px] mb-3">
+            {/* Schedule section */}
+            <View
+              style={{
+                marginBottom: 24,
+                borderRadius: 28,
+                padding: 20,
+                backgroundColor: p.cardWhite,
+                borderWidth: 1,
+                borderColor: p.inputBorder,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: "Outfit-Bold",
+                  color: p.textSecondary,
+                  textTransform: "uppercase",
+                  letterSpacing: 2,
+                  marginBottom: 12,
+                }}
+              >
                 Schedule
               </Text>
-              <View className="flex-row gap-3 mb-5">
+              <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
                 {[
                   { label: "Temporary", value: "one_time" as const },
                   { label: "Permanent", value: "permanent" as const },
@@ -640,10 +1133,24 @@ export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
                     <TouchableOpacity
                       key={item.value}
                       onPress={() => setServiceCreateSchedule(item.value)}
-                      className="flex-1 h-11 rounded-2xl items-center justify-center"
-                      style={{ backgroundColor: active ? colors.accent : isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)" }}
+                      style={{
+                        flex: 1,
+                        height: 44,
+                        borderRadius: 100,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: active ? p.accent : p.inputBg,
+                      }}
                     >
-                      <Text className="text-xs font-outfit-bold uppercase tracking-wider" style={{ color: active ? colors.textInverse : colors.textSecondary }}>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontFamily: "Outfit-Bold",
+                          textTransform: "uppercase",
+                          letterSpacing: 1.5,
+                          color: active ? p.buttonPrimaryText : p.textSecondary,
+                        }}
+                      >
                         {item.label}
                       </Text>
                     </TouchableOpacity>
@@ -653,110 +1160,233 @@ export function AdminServicesSection({ token, canLoad, initialAction }: Props) {
 
               {serviceCreateSchedule === "permanent" ? (
                 <>
-                  <Dropdown label="Day of Week" value={serviceCreateWeekday} onSelect={setServiceCreateWeekday} options={WEEKDAY_OPTIONS} />
-                  <View className="flex-row gap-3">
-                    <View className="flex-1">
-                      <Dropdown label="Hour" value={serviceCreateWeekHour} onSelect={setServiceCreateWeekHour} options={HOUR_OPTIONS} />
+                  <Dropdown
+                    label="Day of Week"
+                    value={serviceCreateWeekday}
+                    onSelect={setServiceCreateWeekday}
+                    options={WEEKDAY_OPTIONS}
+                  />
+                  <View style={{ flexDirection: "row", gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Dropdown
+                        label="Hour"
+                        value={serviceCreateWeekHour}
+                        onSelect={setServiceCreateWeekHour}
+                        options={HOUR_OPTIONS}
+                      />
                     </View>
-                    <View className="flex-1">
-                      <Dropdown label="Minute" value={serviceCreateWeekMinute} onSelect={setServiceCreateWeekMinute} options={MINUTE_OPTIONS} />
+                    <View style={{ flex: 1 }}>
+                      <Dropdown
+                        label="Minute"
+                        value={serviceCreateWeekMinute}
+                        onSelect={setServiceCreateWeekMinute}
+                        options={MINUTE_OPTIONS}
+                      />
                     </View>
                   </View>
                 </>
               ) : (
                 <>
-                  <Dropdown label="Date" value={serviceCreateOneTimeDate} onSelect={setServiceCreateOneTimeDate} options={getNextSevenDays()} />
-                  <View className="flex-row gap-3">
-                    <View className="flex-1">
-                      <Dropdown label="Hour" value={serviceCreateOneTimeHour} onSelect={setServiceCreateOneTimeHour} options={HOUR_OPTIONS} />
+                  <Dropdown
+                    label="Date"
+                    value={serviceCreateOneTimeDate}
+                    onSelect={setServiceCreateOneTimeDate}
+                    options={getNextSevenDays()}
+                  />
+                  <View style={{ flexDirection: "row", gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Dropdown
+                        label="Hour"
+                        value={serviceCreateOneTimeHour}
+                        onSelect={setServiceCreateOneTimeHour}
+                        options={HOUR_OPTIONS}
+                      />
                     </View>
-                    <View className="flex-1">
-                      <Dropdown label="Minute" value={serviceCreateOneTimeMinute} onSelect={setServiceCreateOneTimeMinute} options={MINUTE_OPTIONS} />
+                    <View style={{ flex: 1 }}>
+                      <Dropdown
+                        label="Minute"
+                        value={serviceCreateOneTimeMinute}
+                        onSelect={setServiceCreateOneTimeMinute}
+                        options={MINUTE_OPTIONS}
+                      />
                     </View>
                   </View>
                 </>
               )}
             </View>
-            
-            <MultiSelect 
-              label="Eligible Tiers" 
-              values={serviceCreateEligiblePlans} 
+
+            <MultiSelect
+              label="Eligible Tiers"
+              values={serviceCreateEligiblePlans}
               onSelect={(val) => {
-                setServiceCreateEligiblePlans(prev => 
-                  prev.includes(val) ? prev.filter(p => p !== val) : [...prev, val]
+                setServiceCreateEligiblePlans((prev) =>
+                  prev.includes(val) ? prev.filter((x) => x !== val) : [...prev, val],
                 );
               }}
               options={PROGRAM_TIERS}
             />
 
-            <MultiSelect 
-              label="Target Audience" 
-              values={serviceCreateEligibleTargets} 
+            <MultiSelect
+              label="Target Audience"
+              values={serviceCreateEligibleTargets}
               onSelect={(val) => {
-                setServiceCreateEligibleTargets(prev => 
-                  prev.includes(val) ? prev.filter(p => p !== val) : [...prev, val]
+                setServiceCreateEligibleTargets((prev) =>
+                  prev.includes(val) ? prev.filter((x) => x !== val) : [...prev, val],
                 );
               }}
               options={combinedTargetOptions}
             />
-            
-            <View className="mt-4">
-              <ServiceActionButton label="Create Service" onPress={handleCreate} tone="accent" />
+
+            <View style={{ marginTop: 16 }}>
+              <ServiceActionButton
+                label="Create Service"
+                onPress={handleCreate}
+                tone="accent"
+              />
             </View>
-          </ThemedScrollView>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
 
-      {/* EDIT MODAL */}
+      {/* ========== EDIT MODAL ========== */}
       <Modal visible={serviceDetailOpenId !== null} animationType="slide">
-        <SafeAreaView className="flex-1 bg-app" edges={["top"]}>
-          <View className="px-6 py-6 flex-row items-center justify-between border-b border-app/5">
-            <Text className="text-2xl font-clash font-bold text-app">Edit Service</Text>
+        <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
+          <View
+            style={{
+              paddingHorizontal: 24,
+              paddingVertical: 24,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderBottomWidth: 1,
+              borderBottomColor: p.divider,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 24,
+                fontFamily: "Outfit-Bold",
+                color: p.textPrimary,
+              }}
+            >
+              Edit Service
+            </Text>
             <TouchableOpacity onPress={() => setServiceDetailOpenId(null)}>
-              <Feather name="x" size={24} color={colors.text} />
+              <X size={24} color={p.textPrimary} />
             </TouchableOpacity>
           </View>
-          <ThemedScrollView className="p-6">
-            <FormField label="Service Name" value={serviceEditName} onChangeText={setServiceEditName} />
-            <FormField label="Description" value={serviceEditDescription} onChangeText={setServiceEditDescription} placeholder="Describe the session..." multiline />
-            <Dropdown label="Service Type" value={serviceEditType} onSelect={setServiceEditType} options={SERVICE_TYPES} />
-            <FormField label="Duration (Minutes)" value={serviceEditDurationMinutes} onChangeText={setServiceEditDurationMinutes} keyboardType="numeric" />
-            <FormField label="Slots (Capacity)" value={serviceEditCapacity} onChangeText={setServiceEditCapacity} keyboardType="numeric" placeholder="Leave empty for unlimited" />
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 24 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <FormField
+              label="Service Name"
+              value={serviceEditName}
+              onChangeText={setServiceEditName}
+            />
+            <FormField
+              label="Description"
+              value={serviceEditDescription}
+              onChangeText={setServiceEditDescription}
+              placeholder="Describe the session..."
+              multiline
+            />
+            <Dropdown
+              label="Service Type"
+              value={serviceEditType}
+              onSelect={setServiceEditType}
+              options={SERVICE_TYPES}
+            />
+            <FormField
+              label="Duration (Minutes)"
+              value={serviceEditDurationMinutes}
+              onChangeText={setServiceEditDurationMinutes}
+              keyboardType="numeric"
+            />
+            <FormField
+              label="Slots (Capacity)"
+              value={serviceEditCapacity}
+              onChangeText={setServiceEditCapacity}
+              keyboardType="numeric"
+              placeholder="Leave empty for unlimited"
+            />
 
-            <MultiSelect 
-              label="Eligible Tiers" 
-              values={serviceEditEligiblePlans} 
+            <MultiSelect
+              label="Eligible Tiers"
+              values={serviceEditEligiblePlans}
               onSelect={(val) => {
-                setServiceEditEligiblePlans(prev => 
-                  prev.includes(val) ? prev.filter(p => p !== val) : [...prev, val]
+                setServiceEditEligiblePlans((prev) =>
+                  prev.includes(val) ? prev.filter((x) => x !== val) : [...prev, val],
                 );
               }}
               options={PROGRAM_TIERS}
             />
 
-            <MultiSelect 
-              label="Target Audience" 
-              values={serviceEditEligibleTargets} 
+            <MultiSelect
+              label="Target Audience"
+              values={serviceEditEligibleTargets}
               onSelect={(val) => {
-                setServiceEditEligibleTargets(prev => 
-                  prev.includes(val) ? prev.filter(p => p !== val) : [...prev, val]
+                setServiceEditEligibleTargets((prev) =>
+                  prev.includes(val) ? prev.filter((x) => x !== val) : [...prev, val],
                 );
               }}
               options={combinedTargetOptions}
             />
-            
-            <View className="flex-row items-center justify-between mb-8 p-4 rounded-2xl bg-secondary/5">
-              <Text className="font-outfit-bold text-app uppercase tracking-wider text-xs">Service Active</Text>
-              <TouchableOpacity 
-                onPress={() => setServiceEditIsActive(!serviceEditIsActive)}
-                className={`w-14 h-8 rounded-full items-center justify-center ${serviceEditIsActive ? 'bg-success' : 'bg-secondary/20'}`}
+
+            {/* Active toggle */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 32,
+                padding: 16,
+                borderRadius: 28,
+                backgroundColor: p.inputBg,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: "Outfit-Bold",
+                  color: p.textPrimary,
+                  textTransform: "uppercase",
+                  letterSpacing: 1.5,
+                  fontSize: 12,
+                }}
               >
-                <View className={`w-6 h-6 rounded-full bg-white shadow-sm self-${serviceEditIsActive ? 'end' : 'start'} mx-1`} />
+                Service Active
+              </Text>
+              <TouchableOpacity
+                onPress={() => setServiceEditIsActive(!serviceEditIsActive)}
+                style={{
+                  width: 56,
+                  height: 32,
+                  borderRadius: 100,
+                  justifyContent: "center",
+                  backgroundColor: serviceEditIsActive ? p.success : p.inputBorder,
+                  paddingHorizontal: 4,
+                }}
+              >
+                <View
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: "#FFFFFF",
+                    alignSelf: serviceEditIsActive ? "flex-end" : "flex-start",
+                    shadowColor: p.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8, elevation: 2,
+                  }}
+                />
               </TouchableOpacity>
             </View>
 
-            <ServiceActionButton label="Save Changes" onPress={handleUpdate} tone="accent" />
-          </ThemedScrollView>
+            <ServiceActionButton
+              label="Save Changes"
+              onPress={handleUpdate}
+              tone="accent"
+            />
+          </ScrollView>
         </SafeAreaView>
       </Modal>
     </View>

@@ -7,7 +7,6 @@ import {
 	Pressable,
 	View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { FlashList } from "@shopify/flash-list";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
@@ -112,6 +111,13 @@ const MessageListSection = React.memo(function MessageListSection({
 	const isGroupThread = useMemo(() => thread.id.startsWith("group:"), [thread.id]);
 	const { listRef, handleScroll, jumpTo, newIncomingCount, highlightedId } =
 		useChatScroll(messages, thread.id);
+
+	useEffect(() => {
+		if (!isKeyboardVisible) return;
+		requestAnimationFrame(() =>
+			listRef.current?.scrollToOffset({ offset: 0, animated: true }),
+		);
+	}, [isKeyboardVisible]);
 
 	const resolveReactionUserName = useCallback(
 		(userId: number) => {
@@ -267,7 +273,7 @@ const MessageListSection = React.memo(function MessageListSection({
 	);
 
 	return (
-		<>
+		<View style={{ flex: 1 }}>
 			<FlashList
 				ref={listRef}
 				data={reversed}
@@ -277,7 +283,7 @@ const MessageListSection = React.memo(function MessageListSection({
 				drawDistance={300}
 				keyboardShouldPersistTaps="handled"
 				keyboardDismissMode="interactive"
-				maintainVisibleContentPosition={{ startRenderingFromBottom: true, autoscrollToBottomThreshold: 60 }}
+				maintainVisibleContentPosition={{ startRenderingFromBottom: true, autoscrollToBottomThreshold: 80 }}
 				contentContainerStyle={{
 					paddingHorizontal: 12,
 					paddingTop: 56,
@@ -328,7 +334,7 @@ const MessageListSection = React.memo(function MessageListSection({
 					</View>
 				</Pressable>
 			)}
-		</>
+		</View>
 	);
 });
 
@@ -362,6 +368,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 	const { colors, isDark } = useAppTheme();
 	const insets = useAppSafeAreaInsets();
 	const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+	const [keyboardHeight, setKeyboardHeight] = useState(0);
 
 	const typingKey = thread.id.startsWith("group:")
 		? thread.id
@@ -378,11 +385,17 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 	useEffect(() => {
 		const show = Keyboard.addListener(
 			Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-			() => setIsKeyboardVisible(true),
+			(e) => {
+				setIsKeyboardVisible(true);
+				setKeyboardHeight(e.endCoordinates.height);
+			},
 		);
 		const hide = Keyboard.addListener(
 			Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-			() => setIsKeyboardVisible(false),
+			() => {
+				setIsKeyboardVisible(false);
+				setKeyboardHeight(0);
+			},
 		);
 		return () => {
 			show.remove();
@@ -391,11 +404,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 	}, []);
 
 	return (
-		<KeyboardAvoidingView
-			style={{ flex: 1, backgroundColor: colors.background }}
-			behavior={Platform.OS === "ios" ? "padding" : "height"}
-			keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 56 : 0}
-		>
+		<View style={{ flex: 1, backgroundColor: colors.background }}>
 			<MessageListSection
 				thread={thread}
 				messages={messages}
@@ -415,7 +424,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 				coachingContextLabel={coachingContextLabel}
 			/>
 
-			<View style={{ paddingBottom: composerDockGap }}>
+			<View style={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0 }}>
 				{replyTarget && (
 					<View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
 						<View
@@ -483,6 +492,6 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 					insets={insets}
 				/>
 			</View>
-		</KeyboardAvoidingView>
+		</View>
 	);
 });

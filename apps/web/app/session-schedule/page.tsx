@@ -12,7 +12,7 @@ import {
   useDisconnectAdminGoogleCalendarMutation,
   useGetAdminGoogleCalendarsQuery,
   useGetAdminGoogleCalendarConnectionQuery,
-  useGetAdminGoogleCalendarOAuthStartQuery,
+  useLazyGetAdminGoogleCalendarOAuthStartQuery,
   useGetAdminScheduledSessionsQuery,
   useGetAdminSessionTemplatesQuery,
   useSelectAdminGoogleCalendarMutation,
@@ -20,6 +20,7 @@ import {
   useGetUsersQuery,
   useMarkAdminSessionAttendanceMutation,
   useMaterializeAdminSessionTemplateMutation,
+  useGetAdminAttendanceStatsQuery,
 } from "../../lib/apiSlice";
 import { getOrCreateAdminSocket } from "../../lib/admin-socket";
 
@@ -80,6 +81,14 @@ export default function SessionSchedulePage() {
   const now = new Date();
   const [fromDate, setFromDate] = useState(toIsoDateInput(new Date(now.getFullYear(), now.getMonth(), 1)));
   const [toDate, setToDate] = useState(toIsoDateInput(new Date(now.getFullYear(), now.getMonth() + 2, 0)));
+  const [calendarNotice, setCalendarNotice] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("calendar");
+    if (status === "connected") return "Google Calendar connected successfully!";
+    if (status === "error") return "Failed to connect Google Calendar. Please try again.";
+    return null;
+  });
 
   const fromIso = new Date(`${fromDate}T00:00:00.000Z`).toISOString();
   const toIso = new Date(`${toDate}T23:59:59.999Z`).toISOString();
@@ -94,14 +103,15 @@ export default function SessionSchedulePage() {
   });
   const { data: teamsData } = useGetAdminTeamsQuery();
   const { data: googleConnection } = useGetAdminGoogleCalendarConnectionQuery();
+  const { data: attendanceStatsData } = useGetAdminAttendanceStatsQuery({ from: fromIso, to: toIso });
 
   const [createTemplate, { isLoading: creating }] = useCreateAdminSessionTemplateMutation();
   const [materializeTemplate, { isLoading: materializing }] = useMaterializeAdminSessionTemplateMutation();
   const [markAttendance, { isLoading: marking }] = useMarkAdminSessionAttendanceMutation();
   const [disconnectCalendar, { isLoading: disconnectingCalendar }] = useDisconnectAdminGoogleCalendarMutation();
   const [selectCalendar, { isLoading: selectingCalendar }] = useSelectAdminGoogleCalendarMutation();
-  const { data: oauthStartData, refetch: refetchOAuthStart, isFetching: startingOAuth } =
-    useGetAdminGoogleCalendarOAuthStartQuery();
+  const [triggerOAuthStart, { isFetching: startingOAuth }] =
+    useLazyGetAdminGoogleCalendarOAuthStartQuery();
   const { data: calendarListData, refetch: refetchCalendars, isFetching: loadingCalendars } =
     useGetAdminGoogleCalendarsQuery(undefined, { skip: !googleConnection?.connected || googleConnection?.mode !== "oauth" });
 
@@ -129,14 +139,13 @@ export default function SessionSchedulePage() {
   const [templateNotice, setTemplateNotice] = useState<string | null>(null);
 
   const eligibleUsers = useMemo(() => {
+    const athleteRoles = new Set(["athlete", "adult_athlete", "youth_athlete", "team_athlete", "guardian"]);
     return users.filter((u) => {
       const role = String((u as any).role ?? "").toLowerCase();
       const email = String((u as any).email ?? "").toLowerCase();
-      const athleteTeam = (u as any).athleteTeam;
-      const isAthleteRole = role === "athlete" || role === "adult_athlete";
+      const isEligible = athleteRoles.has(role);
       const isLocalSeedAthlete = email.endsWith("@athlete.local");
-      const isTeamAthlete = typeof athleteTeam === "string" && athleteTeam.trim().length > 0;
-      return isAthleteRole && !isLocalSeedAthlete && !isTeamAthlete;
+      return isEligible && !isLocalSeedAthlete;
     });
   }, [users]);
 
@@ -281,6 +290,13 @@ export default function SessionSchedulePage() {
             Connect your calendar once. Templates with Google sync enabled will create/update events automatically.
           </p>
 
+          {calendarNotice ? (
+            <div className={`rounded-md px-3 py-2 text-sm ${calendarNotice.includes("success") ? "bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300" : "bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300"}`}>
+              {calendarNotice}
+              <button type="button" className="ml-2 underline" onClick={() => { setCalendarNotice(null); window.history.replaceState({}, "", window.location.pathname); }}>Dismiss</button>
+            </div>
+          ) : null}
+
           {googleConnection?.connected ? (
             <div className="space-y-2 rounded-md border p-3 text-sm">
               <p><span className="font-medium">Status:</span> Connected</p>
@@ -338,7 +354,7 @@ export default function SessionSchedulePage() {
                   variant="outline"
                   disabled={startingOAuth}
                   onClick={async () => {
-                    const data = oauthStartData ?? (await refetchOAuthStart()).data;
+                    const { data } = await triggerOAuthStart();
                     if (data?.authUrl) window.location.href = data.authUrl;
                   }}
                 >
@@ -364,7 +380,7 @@ export default function SessionSchedulePage() {
               <Button
                 disabled={startingOAuth}
                 onClick={async () => {
-                  const data = oauthStartData ?? (await refetchOAuthStart()).data;
+                  const { data } = await triggerOAuthStart();
                   if (data?.authUrl) window.location.href = data.authUrl;
                 }}
               >
@@ -846,6 +862,58 @@ export default function SessionSchedulePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Attendance Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Per-athlete attendance stats for the selected date range. Sorted by lowest attendance first.
+          </p>
+          {!attendanceStatsData?.stats?.length ? (
+            <p className="text-sm text-muted-foreground">No attendance data for this date range.</p>
+          ) : (
+            <div className="overflow-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-left">
+                    <th className="px-3 py-2 font-medium">Athlete</th>
+                    <th className="px-3 py-2 font-medium text-center">Total</th>
+                    <th className="px-3 py-2 font-medium text-center">Attended</th>
+                    <th className="px-3 py-2 font-medium text-center">Missed</th>
+                    <th className="px-3 py-2 font-medium text-center">Unmarked</th>
+                    <th className="px-3 py-2 font-medium text-center">Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceStatsData.stats.map((s) => (
+                    <tr key={s.userId} className="border-b last:border-b-0 hover:bg-muted/20">
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{s.userName || "Unnamed"}</div>
+                        <div className="text-xs text-muted-foreground">{s.userEmail}</div>
+                      </td>
+                      <td className="px-3 py-2 text-center">{s.totalSessions}</td>
+                      <td className="px-3 py-2 text-center text-green-600">{s.attended}</td>
+                      <td className="px-3 py-2 text-center text-red-600">{s.missed}</td>
+                      <td className="px-3 py-2 text-center text-yellow-600">{s.unmarked}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          s.attendancePercent >= 80 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" :
+                          s.attendancePercent >= 50 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" :
+                          "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                        }`}>
+                          {s.attendancePercent}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </AdminShell>
   );
 }

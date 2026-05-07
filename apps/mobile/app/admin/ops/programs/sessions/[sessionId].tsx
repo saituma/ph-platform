@@ -1,21 +1,37 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Alert, Modal, Pressable, ScrollView, TouchableOpacity, View, ActivityIndicator, Platform } from "react-native";
+import { Alert, Modal, ScrollView, TouchableOpacity, View, ActivityIndicator, Platform } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
-import { ChevronLeft, Dumbbell, Plus, Trash2, Video, Film, X } from "lucide-react-native";
+import { Dumbbell, Plus, Trash2, Video, Film, X } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Text, TextInput } from "@/components/ScaledText";
+import { Text } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { AdminHeader, AdminScreen, AdminCard, AdminBadge, AdminEmptyState, AdminLoadingState, AdminIconButton } from "@/components/admin/AdminUI";
+import {
+  AdminScreen,
+  AdminHeader,
+  AdminBackButton,
+  AdminCard,
+  AdminButton,
+  AdminBadge,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminIconButton,
+  AdminModalContainer,
+  AdminModalTitle,
+  AdminFormField,
+  useAdminPastel,
+} from "@/components/admin/AdminUI";
+import type { AdminCardColor } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import { useAdminProgramBuilder } from "@/hooks/admin/useAdminProgramBuilder";
 import { apiRequest } from "@/lib/api";
 
+const CARD_COLORS: AdminCardColor[] = ["sage", "peach", "lavender", "mint", "pink", "yellow"];
+
 export default function AdminSessionDetailScreen() {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const params = useLocalSearchParams<{
@@ -169,9 +185,6 @@ export default function AdminSessionDetailScreen() {
     ]);
   };
 
-  const borderSoft = isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)";
-  const inputBg = isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)";
-
   return (
     <AdminScreen>
       <ThemedScrollView
@@ -184,15 +197,9 @@ export default function AdminSessionDetailScreen() {
           style={{ marginBottom: 18 }}
         >
           <AdminHeader
-            eyebrow={params.moduleTitle ?? "Module"}
             title={sessionTitle}
-            subtitle={`${sessionExercises.length} exercise${sessionExercises.length !== 1 ? "s" : ""}`}
-            tone="accent"
-            right={
-              <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 4 }}>
-                <ChevronLeft size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            }
+            subtitle={`${params.moduleTitle ?? "Module"} — ${sessionExercises.length} exercise${sessionExercises.length !== 1 ? "s" : ""}`}
+            right={<AdminBackButton onPress={() => router.back()} />}
           />
         </Animated.View>
 
@@ -200,24 +207,11 @@ export default function AdminSessionDetailScreen() {
           entering={reduceMotion ? undefined : FadeInDown.delay(120).duration(360).springify()}
           style={{ paddingHorizontal: 24, marginBottom: 16 }}
         >
-          <TouchableOpacity
+          <AdminButton
+            label="Add Exercise"
+            icon={Plus}
             onPress={() => { resetForm(); setModalOpen(true); }}
-            activeOpacity={0.8}
-            style={{
-              height: 44,
-              borderRadius: 14,
-              backgroundColor: colors.accent,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-            }}
-          >
-            <Plus size={16} color={colors.textInverse} strokeWidth={2.5} />
-            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase", color: colors.textInverse }}>
-              Add Exercise
-            </Text>
-          </TouchableOpacity>
+          />
         </Animated.View>
 
         {loading ? (
@@ -234,39 +228,39 @@ export default function AdminSessionDetailScreen() {
             style={{ paddingHorizontal: 24, gap: 10 }}
           >
             {sessionExercises.map((se, idx) => (
-              <AdminCard key={se.id}>
+              <AdminCard key={se.id} color={CARD_COLORS[idx % CARD_COLORS.length]}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
                   <View
                     style={{
                       width: 32,
                       height: 32,
                       borderRadius: 999,
-                      backgroundColor: isDark ? `${colors.accent}20` : `${colors.accent}14`,
+                      backgroundColor: p.accentSoft,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.accent }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.accent }}>
                       {idx + 1}
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: "Satoshi-Bold", fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>
+                    <Text style={{ fontFamily: "Satoshi-Bold", fontSize: 14, color: p.textPrimary }} numberOfLines={1}>
                       {se.exercise?.name ?? "Unknown"}
                     </Text>
                     <View style={{ flexDirection: "row", gap: 6, marginTop: 4 }}>
                       {se.exercise?.category ? <AdminBadge>{se.exercise.category}</AdminBadge> : null}
                       {se.exercise?.sets != null ? (
-                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: colors.textSecondary }}>{se.exercise.sets} sets</Text>
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary }}>{se.exercise.sets} sets</Text>
                       ) : null}
                       {se.exercise?.reps != null ? (
-                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: colors.textSecondary }}>{se.exercise.reps} reps</Text>
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary }}>{se.exercise.reps} reps</Text>
                       ) : null}
                     </View>
                   </View>
                   <AdminIconButton
                     icon={Trash2}
-                    tone="danger"
+                    variant="danger"
                     accessibilityLabel="Remove exercise"
                     onPress={() => handleRemove(se.id)}
                     disabled={isBusy}
@@ -279,181 +273,126 @@ export default function AdminSessionDetailScreen() {
       </ThemedScrollView>
 
       <Modal visible={modalOpen} transparent animationType="fade">
-        <Pressable
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "flex-end" }}
-          onPress={() => setModalOpen(false)}
-        >
-          <Pressable
-            style={{
-              width: "100%",
-              maxHeight: "85%",
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              padding: 24,
-              backgroundColor: isDark ? "hsl(220,10%,10%)" : "#FFFFFF",
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-            }}
-          >
-            <Text style={{ fontFamily: "Clash-Bold", fontSize: 20, color: colors.textPrimary, letterSpacing: -0.3, marginBottom: 14 }}>
-              Create Exercise
-            </Text>
+        <AdminModalContainer onClose={() => setModalOpen(false)} position="bottom">
+          <AdminModalTitle>Create Exercise</AdminModalTitle>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
-              <View style={{ gap: 12 }}>
-                <FormField label="Name *" value={name} onChangeText={setName} placeholder="e.g. Goblet Squat" borderSoft={borderSoft} inputBg={inputBg} colors={colors} autoFocus />
-                <FormField label="Category" value={category} onChangeText={setCategory} placeholder="e.g. Lower Body" borderSoft={borderSoft} inputBg={inputBg} colors={colors} />
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <FormField label="Sets" value={sets} onChangeText={setSets} placeholder="3" borderSoft={borderSoft} inputBg={inputBg} colors={colors} keyboardType="number-pad" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <FormField label="Reps" value={reps} onChangeText={setReps} placeholder="10" borderSoft={borderSoft} inputBg={inputBg} colors={colors} keyboardType="number-pad" />
-                  </View>
-                </View>
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <FormField label="Duration (sec)" value={duration} onChangeText={setDuration} placeholder="60" borderSoft={borderSoft} inputBg={inputBg} colors={colors} keyboardType="number-pad" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <FormField label="Rest (sec)" value={restSeconds} onChangeText={setRestSeconds} placeholder="30" borderSoft={borderSoft} inputBg={inputBg} colors={colors} keyboardType="number-pad" />
-                  </View>
-                </View>
-                <View>
-                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: colors.textSecondary, marginBottom: 6 }}>
-                    Video
-                  </Text>
-                  {videoUploading ? (
-                    <View style={{
-                      borderRadius: 16, borderWidth: 1, padding: 16, alignItems: "center", gap: 8,
-                      backgroundColor: inputBg, borderColor: borderSoft,
-                    }}>
-                      <ActivityIndicator color={colors.accent} />
-                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textSecondary }}>
-                        Uploading... {Math.round(videoProgress * 100)}%
-                      </Text>
-                      <View style={{ width: "100%", height: 4, borderRadius: 2, backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}>
-                        <View style={{ width: `${Math.round(videoProgress * 100)}%`, height: 4, borderRadius: 2, backgroundColor: colors.accent }} />
-                      </View>
-                    </View>
-                  ) : videoUrl ? (
-                    <View style={{
-                      borderRadius: 16, borderWidth: 1, padding: 12, gap: 8,
-                      backgroundColor: inputBg, borderColor: borderSoft,
-                    }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Film size={16} color={colors.accent} />
-                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
-                          Video uploaded
-                        </Text>
-                        <TouchableOpacity onPress={() => setVideoUrl("")} hitSlop={8}>
-                          <X size={16} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: "row", gap: 10 }}>
-                      <TouchableOpacity
-                        onPress={() => handlePickVideo(true)}
-                        style={{
-                          flex: 1, height: 48, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-                          borderWidth: 1, borderColor: borderSoft, backgroundColor: inputBg,
-                        }}
-                      >
-                        <Video size={16} color={colors.accent} />
-                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textPrimary }}>Record</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handlePickVideo(false)}
-                        style={{
-                          flex: 1, height: 48, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-                          borderWidth: 1, borderColor: borderSoft, backgroundColor: inputBg,
-                        }}
-                      >
-                        <Film size={16} color={colors.accent} />
-                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: colors.textPrimary }}>Choose</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-                <FormField label="Cues" value={cues} onChangeText={setCues} placeholder="Coaching cues" borderSoft={borderSoft} inputBg={inputBg} colors={colors} />
-                <FormField label="Notes" value={notes} onChangeText={setNotes} placeholder="Additional notes" borderSoft={borderSoft} inputBg={inputBg} colors={colors} />
+          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
+            <AdminFormField label="Name *" value={name} onChangeText={setName} placeholder="e.g. Goblet Squat" autoFocus />
+            <AdminFormField label="Category" value={category} onChangeText={setCategory} placeholder="e.g. Lower Body" />
+
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <AdminFormField label="Sets" value={sets} onChangeText={setSets} placeholder="3" keyboardType="number-pad" />
               </View>
-            </ScrollView>
-
-            <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
-              <TouchableOpacity
-                onPress={() => setModalOpen(false)}
-                style={{
-                  flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)",
-                }}
-              >
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textPrimary, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleCreate}
-                disabled={!name.trim() || isBusy || videoUploading}
-                style={{
-                  flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center",
-                  backgroundColor: colors.accent, opacity: isBusy || !name.trim() || videoUploading ? 0.6 : 1,
-                }}
-              >
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: colors.textInverse, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                  Create & Add
-                </Text>
-              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <AdminFormField label="Reps" value={reps} onChangeText={setReps} placeholder="10" keyboardType="number-pad" />
+              </View>
             </View>
-          </Pressable>
-        </Pressable>
+
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <AdminFormField label="Duration (sec)" value={duration} onChangeText={setDuration} placeholder="60" keyboardType="number-pad" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AdminFormField label="Rest (sec)" value={restSeconds} onChangeText={setRestSeconds} placeholder="30" keyboardType="number-pad" />
+              </View>
+            </View>
+
+            {/* Video Upload Section */}
+            <View style={{ marginBottom: 16 }}>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Bold",
+                  fontSize: 12,
+                  letterSpacing: 0.5,
+                  textTransform: "uppercase",
+                  color: p.textMuted,
+                  marginBottom: 8,
+                }}
+              >
+                Video
+              </Text>
+              {videoUploading ? (
+                <View
+                  style={{
+                    borderRadius: 20,
+                    padding: 16,
+                    alignItems: "center",
+                    gap: 8,
+                    backgroundColor: p.inputBg,
+                  }}
+                >
+                  <ActivityIndicator color={p.accent} />
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary }}>
+                    Uploading... {Math.round(videoProgress * 100)}%
+                  </Text>
+                  <View style={{ width: "100%", height: 4, borderRadius: 2, backgroundColor: p.inputBg }}>
+                    <View style={{ width: `${Math.round(videoProgress * 100)}%`, height: 4, borderRadius: 2, backgroundColor: p.accent }} />
+                  </View>
+                </View>
+              ) : videoUrl ? (
+                <View
+                  style={{
+                    borderRadius: 20,
+                    padding: 14,
+                    gap: 8,
+                    backgroundColor: p.inputBg,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Film size={16} color={p.accent} />
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textPrimary, flex: 1 }} numberOfLines={1}>
+                      Video uploaded
+                    </Text>
+                    <TouchableOpacity onPress={() => setVideoUrl("")} hitSlop={8}>
+                      <X size={16} color={p.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <AdminButton
+                    label="Record"
+                    icon={Video}
+                    variant="secondary"
+                    compact
+                    onPress={() => handlePickVideo(true)}
+                    style={{ flex: 1 }}
+                  />
+                  <AdminButton
+                    label="Choose"
+                    icon={Film}
+                    variant="secondary"
+                    compact
+                    onPress={() => handlePickVideo(false)}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+              )}
+            </View>
+
+            <AdminFormField label="Cues" value={cues} onChangeText={setCues} placeholder="Coaching cues" />
+            <AdminFormField label="Notes" value={notes} onChangeText={setNotes} placeholder="Additional notes" />
+          </ScrollView>
+
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+            <AdminButton
+              label="Cancel"
+              variant="ghost"
+              onPress={() => setModalOpen(false)}
+              style={{ flex: 1 }}
+            />
+            <AdminButton
+              label="Create & Add"
+              variant="primary"
+              onPress={handleCreate}
+              disabled={!name.trim() || isBusy || videoUploading}
+              loading={isBusy}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </AdminModalContainer>
       </Modal>
     </AdminScreen>
-  );
-}
-
-function FormField({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  borderSoft,
-  inputBg,
-  colors,
-  keyboardType,
-  autoFocus,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder: string;
-  borderSoft: string;
-  inputBg: string;
-  colors: any;
-  keyboardType?: "default" | "number-pad" | "url";
-  autoFocus?: boolean;
-}) {
-  return (
-    <View>
-      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: colors.textSecondary, marginBottom: 6 }}>
-        {label}
-      </Text>
-      <View style={{
-        borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, height: 48, justifyContent: "center",
-        backgroundColor: inputBg, borderColor: borderSoft,
-      }}>
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.placeholder}
-          style={{ fontFamily: "Outfit-Regular", fontSize: 15, color: colors.textPrimary }}
-          cursorColor={colors.accent}
-          keyboardType={keyboardType}
-          autoFocus={autoFocus}
-        />
-      </View>
-    </View>
   );
 }

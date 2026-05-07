@@ -10,27 +10,27 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import type { Region } from "react-native-maps";
 import * as Location from "expo-location";
 import { Stack, useRouter } from "expo-router";
-import { 
-  ChevronLeft, 
-  Play, 
-  MapPin, 
-  Target, 
-  Bell, 
+import {
+  ChevronLeft,
+  Play,
+  MapPin,
+  Target,
+  Bell,
   BellOff,
   Navigation,
   Map as MapIcon,
-  Trash2
+  Trash2,
 } from "lucide-react-native";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
-import { fonts, radius, spacing } from "@/constants/theme";
 import { TrackingMapView } from "@/components/tracking/TrackingMapView";
 import { MapStyleSwitcher } from "@/components/tracking/MapStyleSwitcher";
 import type { TrackingMapLayer, TrackingMapStyle, TrackingMapViewRef } from "@/components/tracking/trackingMapLayers";
 import { haversineDistance } from "@/lib/haversine";
 import { requestRunProgressNotificationPermission } from "@/lib/runProgressNotifications";
 import { useRunStore } from "../../../store/useRunStore";
+import { useAppTheme } from "@/app/theme/AppThemeProvider";
 
 type Destination = { latitude: number; longitude: number };
 
@@ -45,7 +45,8 @@ function parseMetersFromInput(raw: string): number | null {
 
 export default function RunSetupScreen() {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
+  const { colors } = useAppTheme();
   const mapRef = useRef<TrackingMapViewRef | null>(null);
 
   const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
@@ -173,12 +174,6 @@ export default function RunSetupScreen() {
     router.replace("/(tabs)/tracking/active-run" as any);
   }, [destination, goalText, notifEveryMeters, router]);
 
-  // Design Tokens
-  const glassBg = isDark ? "rgba(10,10,10,0.72)" : "rgba(255,255,255,0.85)";
-  const glassBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.10)";
-  const cardBg = isDark ? colors.cardElevated : colors.background;
-  const accentMuted = `${colors.accent}15`;
-
   return (
     <>
       <Stack.Screen
@@ -187,7 +182,7 @@ export default function RunSetupScreen() {
           presentation: "fullScreenModal",
         }}
       />
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, backgroundColor: p.pageBg }}>
         <TrackingMapView
           ref={mapRef}
           style={{ flex: 1 }}
@@ -206,7 +201,7 @@ export default function RunSetupScreen() {
             left: 0,
             right: 0,
             paddingTop: Platform.OS === "ios" ? 10 : 30,
-            paddingHorizontal: spacing.xl,
+            paddingHorizontal: 20,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -215,28 +210,24 @@ export default function RunSetupScreen() {
               style={({ pressed }) => ({
                 width: 44,
                 height: 44,
-                borderRadius: radius.pill,
-                backgroundColor: glassBg,
-                borderWidth: 1,
-                borderColor: glassBorder,
+                borderRadius: 100,
+                backgroundColor: p.cardWhite,
                 alignItems: "center",
                 justifyContent: "center",
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <ChevronLeft size={24} color={colors.textPrimary} strokeWidth={2.5} />
+              <ChevronLeft size={24} color={p.textPrimary} strokeWidth={2.5} />
             </Pressable>
 
-            <View style={{ 
-              backgroundColor: glassBg, 
-              paddingHorizontal: 20, 
-              paddingVertical: 8, 
-              borderRadius: radius.pill, 
-              borderWidth: 1, 
-              borderColor: glassBorder,
-              alignItems: "center" 
+            <View style={{
+              backgroundColor: p.cardWhite,
+              paddingHorizontal: 20,
+              paddingVertical: 8,
+              borderRadius: 100,
+              alignItems: "center",
             }}>
-              <Text style={{ fontFamily: fonts.accentBold, fontSize: 15, color: colors.textPrimary }}>RUN SETUP</Text>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>RUN SETUP</Text>
             </View>
 
             <Pressable
@@ -244,23 +235,16 @@ export default function RunSetupScreen() {
               style={({ pressed }) => ({
                 height: 44,
                 paddingHorizontal: 20,
-                borderRadius: radius.pill,
-                backgroundColor: colors.accent,
+                borderRadius: 100,
+                backgroundColor: p.accent,
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 8,
                 opacity: pressed ? 0.9 : 1,
-                ...(isDark ? {} : {
-                  shadowColor: colors.accent,
-                  shadowOpacity: 0.3,
-                  shadowRadius: 10,
-                  shadowOffset: { width: 0, height: 4 },
-                  elevation: 4
-                })
               })}
             >
-              <Play size={18} color="#FFF" fill="#FFF" />
-              <Text style={{ fontFamily: fonts.accentBold, fontSize: 14, color: "#FFF" }}>START</Text>
+              <Play size={18} color={p.buttonPrimaryText} fill={p.buttonPrimaryText} />
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.buttonPrimaryText }}>START</Text>
             </Pressable>
           </View>
         </View>
@@ -271,38 +255,36 @@ export default function RunSetupScreen() {
         >
           <View
             style={{
-              paddingHorizontal: spacing.xl,
+              paddingHorizontal: 20,
               paddingTop: 20,
               paddingBottom: Platform.OS === "ios" ? 34 : 24,
-              backgroundColor: glassBg,
-              borderTopWidth: 1,
-              borderTopColor: glassBorder,
-              borderTopLeftRadius: radius.xxl,
-              borderTopRightRadius: radius.xxl,
+              backgroundColor: p.cardWhite,
+              borderTopLeftRadius: 22,
+              borderTopRightRadius: 22,
             }}
           >
             {/* Configuration Panels */}
             <View style={{ gap: 16 }}>
               {/* Destination Section */}
-              <View style={{ backgroundColor: cardBg, borderRadius: radius.xl, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+              <View style={{ backgroundColor: p.inputBg, borderRadius: 22, padding: 16 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <MapPin size={16} color={colors.accent} strokeWidth={2.5} />
-                    <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 1.5 }}>DESTINATION</Text>
+                    <MapPin size={16} color={p.accent} strokeWidth={2.5} />
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textSecondary, letterSpacing: 1.5 }}>DESTINATION</Text>
                   </View>
                   {destination && (
                     <Pressable onPress={() => setDestination(null)} style={{ padding: 4 }}>
-                      <Trash2 size={16} color={colors.danger} />
+                      <Trash2 size={16} color={p.danger} />
                     </Pressable>
                   )}
                 </View>
 
                 {destination ? (
                   <View>
-                    <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.textPrimary }}>Target Location Set</Text>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>Target Location Set</Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                      <Navigation size={12} color={colors.textSecondary} />
-                      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSecondary }}>
+                      <Navigation size={12} color={p.textSecondary} />
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
                         {destinationDistanceMeters != null
                           ? `${(destinationDistanceMeters / 1000).toFixed(2)} km away`
                           : "Distance calculating..."}
@@ -311,8 +293,8 @@ export default function RunSetupScreen() {
                   </View>
                 ) : (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <MapIcon size={14} color={colors.textDim} />
-                    <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textDim }}>
+                    <MapIcon size={14} color={p.textMuted} />
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textMuted }}>
                       Optional. Tap map to set a finish line.
                     </Text>
                   </View>
@@ -323,10 +305,10 @@ export default function RunSetupScreen() {
               <View style={{ flexDirection: "row", gap: 12 }}>
                 {/* Goal Input */}
                 {!destination && (
-                  <View style={{ flex: 1.2, backgroundColor: cardBg, borderRadius: radius.xl, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+                  <View style={{ flex: 1.2, backgroundColor: p.inputBg, borderRadius: 22, padding: 16 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <Target size={16} color={colors.purple} strokeWidth={2.5} />
-                      <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary, letterSpacing: 1.5 }}>GOAL</Text>
+                      <Target size={16} color={p.accent} strokeWidth={2.5} />
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textSecondary, letterSpacing: 1.5 }}>GOAL</Text>
                     </View>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <TextInput
@@ -334,39 +316,37 @@ export default function RunSetupScreen() {
                         value={goalText}
                         onChangeText={setGoalText}
                         placeholder="0.0"
-                        placeholderTextColor={colors.placeholder}
+                        placeholderTextColor={p.textMuted}
                         style={{
                           flex: 1,
                           height: 32,
-                          color: colors.text,
-                          fontFamily: fonts.heroDisplay,
+                          color: p.textPrimary,
+                          fontFamily: "Outfit-Bold",
                           fontSize: 20,
                           padding: 0,
                         }}
                       />
-                      <Text style={{ fontFamily: fonts.labelMedium, color: colors.textDim }}>km</Text>
+                      <Text style={{ fontFamily: "Outfit-Regular", color: p.textMuted }}>km</Text>
                     </View>
                   </View>
                 )}
 
                 {/* Notification Toggle */}
-                <Pressable 
+                <Pressable
                   onPress={() => setNotifEnabled((v) => !v)}
-                  style={({ pressed }) => ({ 
-                    flex: 1, 
-                    backgroundColor: notifEnabled ? accentMuted : cardBg, 
-                    borderRadius: radius.xl, 
-                    padding: 16, 
-                    borderWidth: 1, 
-                    borderColor: notifEnabled ? colors.accent : colors.border,
-                    opacity: pressed ? 0.9 : 1
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    backgroundColor: notifEnabled ? p.accentSoft : p.inputBg,
+                    borderRadius: 22,
+                    padding: 16,
+                    opacity: pressed ? 0.9 : 1,
                   })}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                    {notifEnabled ? <Bell size={16} color={colors.accent} strokeWidth={2.5} /> : <BellOff size={16} color={colors.textDim} strokeWidth={2} />}
-                    <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: notifEnabled ? colors.accent : colors.textSecondary, letterSpacing: 1.5 }}>ALERTS</Text>
+                    {notifEnabled ? <Bell size={16} color={p.accent} strokeWidth={2.5} /> : <BellOff size={16} color={p.textMuted} strokeWidth={2} />}
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: notifEnabled ? p.accent : p.textSecondary, letterSpacing: 1.5 }}>ALERTS</Text>
                   </View>
-                  <Text style={{ fontFamily: fonts.accentBold, fontSize: 16, color: notifEnabled ? colors.accent : colors.textDim }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: notifEnabled ? p.accent : p.textMuted }}>
                     {notifEnabled ? notifEveryText : "OFF"}
                   </Text>
                 </Pressable>
@@ -382,19 +362,17 @@ export default function RunSetupScreen() {
                       style={({ pressed }) => ({
                         flex: 1,
                         height: 36,
-                        borderRadius: radius.lg,
-                        backgroundColor: notifEveryText === val ? colors.accent : cardBg,
-                        borderWidth: 1,
-                        borderColor: notifEveryText === val ? colors.accent : colors.border,
+                        borderRadius: 100,
+                        backgroundColor: notifEveryText === val ? p.accent : p.inputBg,
                         alignItems: "center",
                         justifyContent: "center",
                         opacity: pressed ? 0.8 : 1,
                       })}
                     >
                       <Text style={{
-                        fontFamily: fonts.bodyBold,
+                        fontFamily: "Outfit-Bold",
                         fontSize: 12,
-                        color: notifEveryText === val ? "#FFF" : colors.textSecondary
+                        color: notifEveryText === val ? p.buttonPrimaryText : p.textSecondary,
                       }}>
                         {val}
                       </Text>

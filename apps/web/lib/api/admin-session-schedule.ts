@@ -142,6 +142,33 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["ScheduledSessions"],
     }),
+    getAdminAttendanceStats: builder.query<
+      {
+        stats: Array<{
+          userId: number;
+          userName: string | null;
+          userEmail: string | null;
+          totalSessions: number;
+          attended: number;
+          missed: number;
+          unmarked: number;
+          attendancePercent: number;
+        }>;
+      },
+      { userId?: number; teamId?: number; from?: string; to?: string } | void
+    >({
+      query: (params) => {
+        if (!params) return "/admin/attendance-stats";
+        const query = new URLSearchParams();
+        if (params.userId) query.set("userId", String(params.userId));
+        if (params.teamId) query.set("teamId", String(params.teamId));
+        if (params.from) query.set("from", params.from);
+        if (params.to) query.set("to", params.to);
+        const qs = query.toString();
+        return qs ? `/admin/attendance-stats?${qs}` : "/admin/attendance-stats";
+      },
+      providesTags: ["ScheduledSessions"],
+    }),
   }),
   overrideExisting: false,
 });
@@ -149,6 +176,7 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
 export const {
   useGetAdminGoogleCalendarConnectionQuery,
   useGetAdminGoogleCalendarOAuthStartQuery,
+  useLazyGetAdminGoogleCalendarOAuthStartQuery,
   useGetAdminGoogleCalendarsQuery,
   useSelectAdminGoogleCalendarMutation,
   useConnectAdminGoogleCalendarMutation,
@@ -158,4 +186,5 @@ export const {
   useMaterializeAdminSessionTemplateMutation,
   useGetAdminScheduledSessionsQuery,
   useMarkAdminSessionAttendanceMutation,
+  useGetAdminAttendanceStatsQuery,
 } = adminSessionScheduleApi;

@@ -5,6 +5,7 @@ import {
   ScrollView,
   TextInput,
   Platform,
+  KeyboardAvoidingView,
   Switch,
   Alert,
   StyleSheet,
@@ -13,13 +14,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Ionicons } from "@expo/vector-icons";
+import { BarChart3, Calendar, Clock, Dumbbell, PlusCircle, Ruler, Scale, Trash2 } from "lucide-react-native";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
-import { fonts, radius, Shadows } from "@/constants/theme";
 import {
   initProgressDb,
   insertStrength,
@@ -50,7 +50,7 @@ import { useAppToast } from "@/hooks/useAppToast";
 type Tab = "strength" | "weight" | "measure";
 
 function parseIsoToLocalDate(iso: string): Date {
-  const parts = iso.split("-").map((p) => parseInt(p, 10));
+  const parts = iso.split("-").map((pt) => parseInt(pt, 10));
   if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return new Date();
   return new Date(parts[0], parts[1] - 1, parts[2]);
 }
@@ -116,7 +116,8 @@ function SparkBars({
 
 export default function ProgressScreen() {
   const insets = useAppSafeAreaInsets();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
+  const { isDark } = useAppTheme();
   const toast = useAppToast();
 
   const [tab, setTab] = useState<Tab>("strength");
@@ -152,10 +153,10 @@ export default function ProgressScreen() {
   useEffect(() => {
     load();
     void (async () => {
-      const p = await getProgressReminderPrefs();
-      setReminderOn(p.enabled);
+      const prefs = await getProgressReminderPrefs();
+      setReminderOn(prefs.enabled);
       const d = new Date();
-      d.setHours(p.hour, p.minute, 0, 0);
+      d.setHours(prefs.hour, prefs.minute, 0, 0);
       setReminderTime(d);
     })();
   }, [load]);
@@ -258,8 +259,15 @@ export default function ProgressScreen() {
     await syncProgressWeeklyReminder(next);
   };
 
-  const tabBtn = (key: Tab, label: string, icon: keyof typeof Ionicons.glyphMap) => {
+  const TAB_ICONS: Record<Tab, React.FC<any>> = {
+    strength: Dumbbell,
+    weight: Scale,
+    measure: Ruler,
+  };
+
+  const tabBtn = (key: Tab, label: string) => {
     const on = tab === key;
+    const Icon = TAB_ICONS[key];
     return (
       <Pressable
         onPress={() => {
@@ -273,16 +281,16 @@ export default function ProgressScreen() {
           justifyContent: "center",
           gap: 6,
           paddingVertical: 12,
-          borderRadius: radius.pill,
-          backgroundColor: on ? colors.accent : "transparent",
+          borderRadius: 100,
+          backgroundColor: on ? p.accent : "transparent",
         }}
       >
-        <Ionicons name={icon} size={18} color={on ? colors.textInverse : colors.textSecondary} />
+        <Icon size={18} color={on ? p.buttonPrimaryText : p.textSecondary} />
         <Text
           style={{
-            fontFamily: fonts.labelMedium,
+            fontFamily: "Outfit-Bold",
             fontSize: 12,
-            color: on ? colors.textInverse : colors.textSecondary,
+            color: on ? p.buttonPrimaryText : p.textSecondary,
           }}
         >
           {label}
@@ -291,95 +299,86 @@ export default function ProgressScreen() {
     );
   };
 
-  const glass = isDark ? "rgba(20,20,28,0.92)" : "#FFFFFF";
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <MoreStackHeader
         title="Progress"
         subtitle="Track strength, weight, and measurements — stored on this device for now."
       />
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <LinearGradient
-          colors={
-            isDark
-              ? ["rgba(34,197,94,0.18)", "transparent"]
-              : ["rgba(34,197,94,0.12)", "transparent"]
-          }
-          style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 }}
-        >
+      <View style={{ flex: 1, backgroundColor: p.pageBg }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16, backgroundColor: p.accentSoft }}>
           <Text
             style={{
-              fontFamily: fonts.bodyMedium,
+              fontFamily: "Outfit-Regular",
               fontSize: 14,
-              color: colors.textSecondary,
+              color: p.textSecondary,
               lineHeight: 20,
             }}
           >
             Track strength, weight, and measurements over time. Stored on this device for now — sync
             coming later.
           </Text>
-        </LinearGradient>
+        </View>
 
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
         <ScrollView
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingBottom: insets.bottom + 120,
           }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View
             style={{
               flexDirection: "row",
               padding: 4,
-              borderRadius: radius.pill,
-              backgroundColor: isDark ? colors.heroSurfaceMuted : colors.backgroundSecondary,
+              borderRadius: 100,
+              backgroundColor: p.inputBg,
               marginBottom: 20,
-              ...(!isDark ? Shadows.sm : {}),
+              marginTop: 16,
             }}
           >
-            {tabBtn("strength", "Strength", "barbell-outline")}
-            {tabBtn("weight", "Weight", "body-outline")}
-            {tabBtn("measure", "Body", "resize-outline")}
+            {tabBtn("strength", "Strength")}
+            {tabBtn("weight", "Weight")}
+            {tabBtn("measure", "Body")}
           </View>
 
           <View
             style={{
-              borderRadius: radius.xxl,
-              borderWidth: 1,
-              borderColor: colors.borderSubtle,
+              borderRadius: 22,
               padding: 16,
               marginBottom: 20,
-              backgroundColor: glass,
+              backgroundColor: p.cardWhite,
             }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-              <Text style={{ fontFamily: fonts.labelCaps, fontSize: 10, color: colors.textSecondary }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
                 LAST {tab === "strength" ? "LIFTS" : tab === "weight" ? "WEIGH-INS" : "MEASUREMENTS"}
               </Text>
-              <Ionicons name="analytics-outline" size={18} color={colors.accent} />
+              <BarChart3 size={18} color={p.accent} />
             </View>
             {tab === "strength" && strengthSeries.length > 0 ? (
               <SparkBars
                 values={strengthSeries}
-                color={colors.accent}
-                secondary={colors.accentLight}
+                color={p.accent}
+                secondary={p.accentSoft}
               />
             ) : tab === "weight" && weightSeries.length > 0 ? (
               <SparkBars
                 values={weightSeries}
-                color={colors.cyan}
-                secondary={isDark ? "rgba(34,211,238,0.35)" : "rgba(6,182,212,0.35)"}
+                color={p.info}
+                secondary={p.infoSoft}
               />
             ) : tab === "measure" && measureSeries.length > 0 ? (
               <SparkBars
                 values={measureSeries}
-                color={colors.purple}
-                secondary={isDark ? "rgba(167,139,250,0.4)" : "rgba(124,58,237,0.35)"}
+                color={p.warning}
+                secondary={p.warningSoft}
               />
             ) : (
               <View style={{ height: 72, justifyContent: "center", alignItems: "center" }}>
-                <Text style={{ fontFamily: fonts.bodyRegular, color: colors.textDim, fontSize: 13 }}>
+                <Text style={{ fontFamily: "Outfit-Regular", color: p.textMuted, fontSize: 13 }}>
                   Add entries to see your trend
                 </Text>
               </View>
@@ -388,20 +387,18 @@ export default function ProgressScreen() {
 
           <View
             style={{
-              borderRadius: radius.xl,
+              borderRadius: 22,
               padding: 16,
               marginBottom: 20,
-              backgroundColor: glass,
-              borderWidth: 1,
-              borderColor: colors.borderSubtle,
+              backgroundColor: p.cardWhite,
             }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: colors.textPrimary }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary }}>
                   Daily reminder
                 </Text>
-                <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, marginTop: 4 }}>
                   Gentle nudge to log progress (local only)
                 </Text>
               </View>
@@ -411,6 +408,9 @@ export default function ProgressScreen() {
                   setReminderOn(v);
                   void persistReminder(v);
                 }}
+                trackColor={{ false: p.divider, true: p.accent }}
+                thumbColor={reminderOn ? p.buttonPrimaryText : p.textMuted}
+                ios_backgroundColor={p.divider}
               />
             </View>
             {reminderOn ? (
@@ -424,12 +424,12 @@ export default function ProgressScreen() {
                   alignSelf: "flex-start",
                   paddingHorizontal: 14,
                   paddingVertical: 10,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.accentLight,
+                  borderRadius: 100,
+                  backgroundColor: p.accentSoft,
                 }}
               >
-                <Ionicons name="time-outline" size={18} color={colors.accent} />
-                <Text style={{ fontFamily: fonts.bodyMedium, color: colors.accent }}>
+                <Clock size={18} color={p.accent} />
+                <Text style={{ fontFamily: "Outfit-Regular", color: p.accent }}>
                   {reminderTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </Text>
               </Pressable>
@@ -452,11 +452,12 @@ export default function ProgressScreen() {
 
           <Text
             style={{
-              fontFamily: fonts.labelCaps,
+              fontFamily: "Outfit-Bold",
               fontSize: 11,
-              color: colors.textSecondary,
+              color: p.textMuted,
               marginBottom: 12,
               letterSpacing: 2,
+              textTransform: "uppercase",
             }}
           >
             RECENT
@@ -471,14 +472,14 @@ export default function ProgressScreen() {
                   alignItems: "center",
                   paddingVertical: 14,
                   borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: colors.borderSubtle,
+                  borderBottomColor: p.divider,
                 }}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.heading3, color: colors.textPrimary }}>{s.exercise_name}</Text>
-                  <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                    {s.date_iso} · {s.weight_kg} kg
-                    {s.reps != null ? ` · ${s.reps} reps` : ""}
+                  <Text style={{ fontFamily: "Outfit-Bold", color: p.textPrimary }}>{s.exercise_name}</Text>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, marginTop: 2 }}>
+                    {s.date_iso} - {s.weight_kg} kg
+                    {s.reps != null ? ` - ${s.reps} reps` : ""}
                   </Text>
                 </View>
                 <Pressable
@@ -496,7 +497,7 @@ export default function ProgressScreen() {
                     ]);
                   }}
                 >
-                  <Ionicons name="trash-outline" size={20} color={colors.textDim} />
+                  <Trash2 size={20} color={p.textMuted} />
                 </Pressable>
               </View>
             ))}
@@ -510,14 +511,14 @@ export default function ProgressScreen() {
                   alignItems: "center",
                   paddingVertical: 14,
                   borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: colors.borderSubtle,
+                  borderBottomColor: p.divider,
                 }}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.heroDisplay, fontSize: 22, color: colors.textPrimary }}>
-                    {w.weight_kg} <Text style={{ fontSize: 14, fontFamily: fonts.bodyMedium }}>kg</Text>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary }}>
+                    {w.weight_kg} <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular" }}>kg</Text>
                   </Text>
-                  <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary }}>{w.date_iso}</Text>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>{w.date_iso}</Text>
                 </View>
                 <Pressable
                   onPress={() => {
@@ -534,7 +535,7 @@ export default function ProgressScreen() {
                     ]);
                   }}
                 >
-                  <Ionicons name="trash-outline" size={20} color={colors.textDim} />
+                  <Trash2 size={20} color={p.textMuted} />
                 </Pressable>
               </View>
             ))}
@@ -548,13 +549,13 @@ export default function ProgressScreen() {
                   alignItems: "center",
                   paddingVertical: 14,
                   borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: colors.borderSubtle,
+                  borderBottomColor: p.divider,
                 }}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.heading3, color: colors.textPrimary }}>{m.label}</Text>
-                  <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                    {m.date_iso} · {m.value_cm} cm
+                  <Text style={{ fontFamily: "Outfit-Bold", color: p.textPrimary }}>{m.label}</Text>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, marginTop: 2 }}>
+                    {m.date_iso} - {m.value_cm} cm
                   </Text>
                 </View>
                 <Pressable
@@ -572,7 +573,7 @@ export default function ProgressScreen() {
                     ]);
                   }}
                 >
-                  <Ionicons name="trash-outline" size={20} color={colors.textDim} />
+                  <Trash2 size={20} color={p.textMuted} />
                 </Pressable>
               </View>
             ))}
@@ -580,11 +581,12 @@ export default function ProgressScreen() {
           {((tab === "strength" && strength.length === 0) ||
             (tab === "weight" && weights.length === 0) ||
             (tab === "measure" && measures.length === 0)) && (
-            <Text style={{ fontFamily: fonts.bodyRegular, color: colors.textDim, textAlign: "center", marginTop: 24 }}>
+            <Text style={{ fontFamily: "Outfit-Regular", color: p.textMuted, textAlign: "center", marginTop: 24 }}>
               No entries yet — tap Add below
             </Text>
           )}
         </ScrollView>
+        </KeyboardAvoidingView>
 
         <Pressable
           onPress={openAdd}
@@ -594,19 +596,16 @@ export default function ProgressScreen() {
             right: 20,
             bottom: insets.bottom + 16,
             height: 54,
-            borderRadius: radius.pill,
-            backgroundColor: colors.accent,
+            borderRadius: 100,
+            backgroundColor: p.accent,
             alignItems: "center",
             justifyContent: "center",
             flexDirection: "row",
             gap: 8,
-            ...(isDark ? {} : Shadows.md),
-            borderWidth: isDark ? 1 : 0,
-            borderColor: isDark ? "rgba(255,255,255,0.14)" : "transparent",
           }}
         >
-          <Ionicons name="add-circle-outline" size={22} color={colors.textInverse} />
-          <Text style={{ fontFamily: fonts.heading2, fontSize: 16, color: colors.textInverse }}>Add entry</Text>
+          <PlusCircle size={22} color={p.buttonPrimaryText} />
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.buttonPrimaryText }}>Add entry</Text>
         </Pressable>
 
         <AdaptiveSheet
@@ -616,7 +615,7 @@ export default function ProgressScreen() {
             Keyboard.dismiss();
             setModalOpen(false);
           }}
-          cardStyle={{ backgroundColor: colors.background }}
+          cardStyle={{ backgroundColor: p.pageBg }}
         >
                 <ScrollView
                   keyboardShouldPersistTaps="handled"
@@ -625,12 +624,12 @@ export default function ProgressScreen() {
                   nestedScrollEnabled
                   contentContainerStyle={{ paddingBottom: 28 }}
                 >
-                  <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderMid, alignSelf: "center", marginBottom: 16 }} />
-                  <Text style={{ fontFamily: fonts.heading2, fontSize: 20, color: colors.textPrimary, marginBottom: 16 }}>
+                  <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: p.divider, alignSelf: "center", marginBottom: 16 }} />
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary, marginBottom: 16 }}>
                     {tab === "strength" ? "Log lift" : tab === "weight" ? "Body weight" : "Measurement"}
                   </Text>
 
-                  <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 6 }}>DATE</Text>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textMuted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1.4 }}>DATE</Text>
                   <Pressable
                     onPress={() => {
                       Keyboard.dismiss();
@@ -640,19 +639,17 @@ export default function ProgressScreen() {
                       flexDirection: "row",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      borderWidth: 1,
-                      borderColor: colors.borderSubtle,
-                      borderRadius: radius.lg,
+                      borderRadius: 16,
                       paddingHorizontal: 14,
                       paddingVertical: 14,
                       marginBottom: showEntryDatePick && Platform.OS === "ios" ? 8 : 14,
-                      backgroundColor: isDark ? colors.surfaceHigh : colors.backgroundSecondary,
+                      backgroundColor: p.inputBg,
                     }}
                   >
-                    <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.textPrimary }}>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: p.textPrimary }}>
                       {formatIsoToDisplay(dateIso)}
                     </Text>
-                    <Ionicons name="calendar-outline" size={22} color={colors.accent} />
+                    <Calendar size={22} color={p.accent} />
                   </Pressable>
                   {showEntryDatePick ? (
                     <View style={{ marginBottom: 14 }}>
@@ -679,7 +676,7 @@ export default function ProgressScreen() {
                             paddingHorizontal: 12,
                           }}
                         >
-                          <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: colors.accent }}>Done</Text>
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.accent }}>Done</Text>
                         </Pressable>
                       ) : null}
                     </View>
@@ -687,70 +684,70 @@ export default function ProgressScreen() {
 
             {tab === "strength" ? (
               <>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 6 }}>EXERCISE</Text>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textMuted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1.4 }}>EXERCISE</Text>
                 <TextInput
                   value={exName}
                   onChangeText={setExName}
                   placeholder="e.g. Back squat"
-                  placeholderTextColor={colors.textDim}
+                  placeholderTextColor={p.textMuted}
                   style={{
-                    borderWidth: 1,
-                    borderColor: colors.borderSubtle,
-                    borderRadius: radius.lg,
+                    borderRadius: 16,
                     padding: 12,
-                    color: colors.textPrimary,
+                    color: p.textPrimary,
                     marginBottom: 12,
+                    backgroundColor: p.inputBg,
+                    fontFamily: "Outfit-Regular",
                   }}
                 />
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 6 }}>KG</Text>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textMuted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1.4 }}>KG</Text>
                     <TextInput
                       keyboardType="decimal-pad"
                       value={liftKg}
                       onChangeText={setLiftKg}
                       placeholder="80"
-                      placeholderTextColor={colors.textDim}
+                      placeholderTextColor={p.textMuted}
                       style={{
-                        borderWidth: 1,
-                        borderColor: colors.borderSubtle,
-                        borderRadius: radius.lg,
+                        borderRadius: 16,
                         padding: 12,
-                        color: colors.textPrimary,
+                        color: p.textPrimary,
+                        backgroundColor: p.inputBg,
+                        fontFamily: "Outfit-Regular",
                       }}
                     />
                   </View>
                   <View style={{ width: 72 }}>
-                    <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 6 }}>REPS</Text>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textMuted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1.4 }}>REPS</Text>
                     <TextInput
                       keyboardType="number-pad"
                       value={reps}
                       onChangeText={setReps}
                       placeholder="5"
-                      placeholderTextColor={colors.textDim}
+                      placeholderTextColor={p.textMuted}
                       style={{
-                        borderWidth: 1,
-                        borderColor: colors.borderSubtle,
-                        borderRadius: radius.lg,
+                        borderRadius: 16,
                         padding: 12,
-                        color: colors.textPrimary,
+                        color: p.textPrimary,
+                        backgroundColor: p.inputBg,
+                        fontFamily: "Outfit-Regular",
                       }}
                     />
                   </View>
                   <View style={{ width: 72 }}>
-                    <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 6 }}>SETS</Text>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textMuted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1.4 }}>SETS</Text>
                     <TextInput
                       keyboardType="number-pad"
                       value={sets}
                       onChangeText={setSets}
                       placeholder="3"
-                      placeholderTextColor={colors.textDim}
+                      placeholderTextColor={p.textMuted}
                       style={{
-                        borderWidth: 1,
-                        borderColor: colors.borderSubtle,
-                        borderRadius: radius.lg,
+                        borderRadius: 16,
                         padding: 12,
-                        color: colors.textPrimary,
+                        color: p.textPrimary,
+                        backgroundColor: p.inputBg,
+                        fontFamily: "Outfit-Regular",
                       }}
                     />
                   </View>
@@ -760,19 +757,19 @@ export default function ProgressScreen() {
 
             {tab === "weight" ? (
               <>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 6, marginTop: 4 }}>WEIGHT (KG)</Text>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textMuted, marginBottom: 6, marginTop: 4, textTransform: "uppercase", letterSpacing: 1.4 }}>WEIGHT (KG)</Text>
                 <TextInput
                   keyboardType="decimal-pad"
                   value={bwKg}
                   onChangeText={setBwKg}
                   placeholder="72.5"
-                  placeholderTextColor={colors.textDim}
+                  placeholderTextColor={p.textMuted}
                   style={{
-                    borderWidth: 1,
-                    borderColor: colors.borderSubtle,
-                    borderRadius: radius.lg,
+                    borderRadius: 16,
                     padding: 12,
-                    color: colors.textPrimary,
+                    color: p.textPrimary,
+                    backgroundColor: p.inputBg,
+                    fontFamily: "Outfit-Regular",
                   }}
                 />
               </>
@@ -780,32 +777,30 @@ export default function ProgressScreen() {
 
             {tab === "measure" ? (
               <>
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 8, marginTop: 4 }}>AREA</Text>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textMuted, marginBottom: 8, marginTop: 4, textTransform: "uppercase", letterSpacing: 1.4 }}>AREA</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
-                  {MEASURE_PRESETS.map((p) => (
+                  {MEASURE_PRESETS.map((preset) => (
                     <Pressable
-                      key={p.kind}
+                      key={preset.kind}
                       onPress={() => {
-                        setMeasKind(p.kind);
-                        if (p.kind !== "other") setMeasLabel("");
+                        setMeasKind(preset.kind);
+                        if (preset.kind !== "other") setMeasLabel("");
                       }}
                       style={{
                         paddingHorizontal: 14,
                         paddingVertical: 8,
-                        borderRadius: radius.pill,
-                        backgroundColor: measKind === p.kind ? colors.accent : colors.surfaceHigh,
-                        borderWidth: 1,
-                        borderColor: measKind === p.kind ? colors.accent : colors.borderSubtle,
+                        borderRadius: 100,
+                        backgroundColor: measKind === preset.kind ? p.accent : p.inputBg,
                       }}
                     >
                       <Text
                         style={{
-                          fontFamily: fonts.bodyMedium,
+                          fontFamily: "Outfit-Regular",
                           fontSize: 13,
-                          color: measKind === p.kind ? colors.textInverse : colors.textPrimary,
+                          color: measKind === preset.kind ? p.buttonPrimaryText : p.textPrimary,
                         }}
                       >
-                        {p.label}
+                        {preset.label}
                       </Text>
                     </Pressable>
                   ))}
@@ -815,50 +810,50 @@ export default function ProgressScreen() {
                     value={measLabel}
                     onChangeText={setMeasLabel}
                     placeholder="Label"
-                    placeholderTextColor={colors.textDim}
+                    placeholderTextColor={p.textMuted}
                     style={{
-                      borderWidth: 1,
-                      borderColor: colors.borderSubtle,
-                      borderRadius: radius.lg,
+                      borderRadius: 16,
                       padding: 12,
-                      color: colors.textPrimary,
+                      color: p.textPrimary,
                       marginBottom: 12,
+                      backgroundColor: p.inputBg,
+                      fontFamily: "Outfit-Regular",
                     }}
                   />
                 ) : null}
-                <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 6 }}>CM</Text>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textMuted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1.4 }}>CM</Text>
                 <TextInput
                   keyboardType="decimal-pad"
                   value={measCm}
                   onChangeText={setMeasCm}
                   placeholder="82"
-                  placeholderTextColor={colors.textDim}
+                  placeholderTextColor={p.textMuted}
                   style={{
-                    borderWidth: 1,
-                    borderColor: colors.borderSubtle,
-                    borderRadius: radius.lg,
+                    borderRadius: 16,
                     padding: 12,
-                    color: colors.textPrimary,
+                    color: p.textPrimary,
+                    backgroundColor: p.inputBg,
+                    fontFamily: "Outfit-Regular",
                   }}
                 />
               </>
             ) : null}
 
-            <Text style={{ fontFamily: fonts.labelMedium, fontSize: 11, color: colors.textSecondary, marginBottom: 6, marginTop: 12 }}>NOTES (OPTIONAL)</Text>
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textMuted, marginBottom: 6, marginTop: 12, textTransform: "uppercase", letterSpacing: 1.4 }}>NOTES (OPTIONAL)</Text>
             <TextInput
               value={notes}
               onChangeText={setNotes}
-              placeholder="How it felt…"
-              placeholderTextColor={colors.textDim}
+              placeholder="How it felt..."
+              placeholderTextColor={p.textMuted}
               multiline
               style={{
-                borderWidth: 1,
-                borderColor: colors.borderSubtle,
-                borderRadius: radius.lg,
+                borderRadius: 16,
                 padding: 12,
-                color: colors.textPrimary,
+                color: p.textPrimary,
                 minHeight: 72,
                 textAlignVertical: "top",
+                backgroundColor: p.inputBg,
+                fontFamily: "Outfit-Regular",
               }}
             />
 
@@ -871,14 +866,13 @@ export default function ProgressScreen() {
                 style={{
                   flex: 1,
                   height: 50,
-                  borderRadius: radius.pill,
-                  borderWidth: 1,
-                  borderColor: colors.borderSubtle,
+                  borderRadius: 100,
+                  backgroundColor: p.inputBg,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Text style={{ fontFamily: fonts.heading3, color: colors.textSecondary }}>Cancel</Text>
+                <Text style={{ fontFamily: "Outfit-Bold", color: p.textSecondary }}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -888,13 +882,13 @@ export default function ProgressScreen() {
                 style={{
                   flex: 1,
                   height: 50,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.accent,
+                  borderRadius: 100,
+                  backgroundColor: p.accent,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Text style={{ fontFamily: fonts.heading3, color: colors.textInverse }}>Save</Text>
+                <Text style={{ fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>Save</Text>
               </Pressable>
             </View>
                 </ScrollView>

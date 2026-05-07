@@ -492,6 +492,18 @@ function MessagingPageInner() {
     };
 
     on("message:new", (payload: any) => {
+      if (payload?.clientTraceId || payload?.serverReceivedAt) {
+        console.info("[RealtimeLatency] web.direct.socket_receive", {
+          clientTraceId: payload?.clientTraceId ?? null,
+          messageId: payload?.id ?? null,
+          socketConnected: socket.connected,
+          socketTransport: socket.io.engine.transport.name,
+          serverToClientElapsedMs:
+            typeof payload?.serverReceivedAt === "number"
+              ? Date.now() - payload.serverReceivedAt
+              : null,
+        });
+      }
       scheduleInboxRefetch(120);
       const senderId = Number(payload?.senderId ?? NaN);
       const receiverId = Number(payload?.receiverId ?? NaN);
@@ -552,6 +564,19 @@ function MessagingPageInner() {
     });
 
     on("group:message", (payload: any) => {
+      if (payload?.clientTraceId || payload?.serverReceivedAt) {
+        console.info("[RealtimeLatency] web.group.socket_receive", {
+          clientTraceId: payload?.clientTraceId ?? null,
+          messageId: payload?.id ?? null,
+          groupId: payload?.groupId ?? null,
+          socketConnected: socket.connected,
+          socketTransport: socket.io.engine.transport.name,
+          serverToClientElapsedMs:
+            typeof payload?.serverReceivedAt === "number"
+              ? Date.now() - payload.serverReceivedAt
+              : null,
+        });
+      }
       scheduleInboxRefetch(120);
       scheduleGroupRefetch(120);
       const groupId = Number(payload?.groupId ?? NaN);

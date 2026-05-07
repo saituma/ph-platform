@@ -1,9 +1,8 @@
 import React from "react";
-import { TouchableOpacity, View, TextInput } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Pressable, View, TextInput } from "react-native";
+import { Search, XCircle } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
-import { Shadows } from "@/constants/theme";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { POPULAR_SEARCHES } from "./constants";
 
 interface SearchHeaderProps {
@@ -12,68 +11,116 @@ interface SearchHeaderProps {
 }
 
 export function SearchHeader({ searchQuery, setSearchQuery }: SearchHeaderProps) {
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   return (
     <View
-      className="mb-8 overflow-hidden rounded-[30px] border p-5"
       style={{
-        backgroundColor: isDark ? colors.cardElevated : "#F7FFF9",
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
-        ...(isDark ? Shadows.none : Shadows.md),
+        marginBottom: 24,
+        overflow: "hidden",
+        borderRadius: 22,
+        padding: 20,
+        backgroundColor: p.cardSage,
       }}
     >
       <View
-        className="absolute -right-10 -top-8 h-24 w-24 rounded-full"
-        style={{ backgroundColor: isDark ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.12)" }}
+        style={{
+          position: "absolute",
+          right: -40,
+          top: -32,
+          height: 96,
+          width: 96,
+          borderRadius: 48,
+          backgroundColor: p.accentSoft,
+        }}
       />
       <View
-        className="absolute -bottom-8 left-8 h-20 w-20 rounded-full"
-        style={{ backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)" }}
+        style={{
+          position: "absolute",
+          bottom: -32,
+          left: 32,
+          height: 80,
+          width: 80,
+          borderRadius: 40,
+          backgroundColor: p.cardMint,
+        }}
       />
 
-      <View className="mb-5">
-        <Text className="text-3xl font-telma-bold text-app mb-2">How can we help?</Text>
-        <Text className="text-base font-outfit text-secondary leading-relaxed">
+      <View style={{ marginBottom: 20 }}>
+        <Text style={{ fontSize: 26, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8 }}>
+          How can we help?
+        </Text>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textMuted, lineHeight: 20 }}>
           Find quick answers, learn the best next step, and get the right details ready before you contact the team.
         </Text>
       </View>
 
-      <View className="flex-row items-center bg-input border border-app rounded-2xl px-4 py-3">
-        <Feather name="search" size={18} color={colors.textSecondary} style={{ marginRight: 12 }} />
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: p.inputBg,
+          borderRadius: 22,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        }}
+      >
+        <Search size={18} color={p.textSecondary} style={{ marginRight: 12 }} />
         <TextInput
           placeholder="Search help topics, schedules, notifications..."
-          className="flex-1 font-outfit text-app"
-          placeholderTextColor={colors.placeholder}
+          placeholderTextColor={p.textMuted}
           value={searchQuery}
           onChangeText={setSearchQuery}
+          style={{
+            flex: 1,
+            fontFamily: "Outfit-Regular",
+            fontSize: 14,
+            color: p.textPrimary,
+            padding: 0,
+          }}
         />
         {searchQuery ? (
-          <TouchableOpacity
+          <Pressable
             onPress={() => setSearchQuery("")}
-            className="ml-3 h-8 w-8 items-center justify-center rounded-full"
-            style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)" }}
+            style={{
+              marginLeft: 12,
+              height: 32,
+              width: 32,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 100,
+              backgroundColor: p.cardWhite,
+            }}
           >
-            <Feather name="x" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
+            <XCircle size={16} color={p.textSecondary} />
+          </Pressable>
         ) : null}
       </View>
 
-      <View className="mt-4 flex-row flex-wrap gap-2">
+      <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {POPULAR_SEARCHES.map((term) => (
-          <TouchableOpacity
+          <Pressable
             key={term}
             onPress={() => setSearchQuery(term)}
-            className="rounded-full border px-3 py-2"
             style={{
-              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.82)",
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+              borderRadius: 100,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              backgroundColor: p.cardWhite,
             }}
           >
-            <Text className="font-outfit text-xs font-bold uppercase tracking-[1.2px]" style={{ color: colors.textSecondary }}>
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: 1.2,
+                color: p.textSecondary,
+              }}
+            >
               {term}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
     </View>

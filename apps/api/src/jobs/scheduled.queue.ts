@@ -1,10 +1,10 @@
 import { Queue, Worker } from "bullmq";
-import { getRedisConnection } from "./connection";
+import { getRedisConnection, isRedisLimitError, onRedisLimitExceeded } from "./connection";
 import { logger } from "../lib/logger";
 
 const QUEUE_NAME = "scheduled-jobs";
 
-type ScheduledJobName = "nutrition-reminder" | "subscription-expiry";
+type ScheduledJobName = "nutrition-reminder" | "subscription-expiry" | "session-reminder";
 
 type ScheduledJob = {
   name: ScheduledJobName;
@@ -38,6 +38,10 @@ const handlers: Record<ScheduledJobName, () => Promise<unknown>> = {
     const { runSubscriptionExpirySweep } = await import("../services/subscription-expiry.service");
     return runSubscriptionExpirySweep();
   },
+  "session-reminder": async () => {
+    const { sendSessionReminders } = await import("../services/session-reminder.service");
+    return sendSessionReminders();
+  },
 };
 
 export async function startScheduledWorker(): Promise<void> {
@@ -66,7 +70,12 @@ export async function startScheduledWorker(): Promise<void> {
     },
   );
   _worker.on("error", (err) => {
+    if (isRedisLimitError(err)) return;
     logger.error({ err }, "Scheduled worker error");
+  });
+  onRedisLimitExceeded(() => {
+    logger.warn("Scheduled worker shutting down — Redis limit exceeded");
+    void stopScheduledWorker();
   });
 
   await queue.upsertJobScheduler(
@@ -81,8 +90,14 @@ export async function startScheduledWorker(): Promise<void> {
     { name: "subscription-expiry", data: { name: "subscription-expiry" } },
   );
 
+  await queue.upsertJobScheduler(
+    "session-reminder",
+    { every: 30 * 60_000 },
+    { name: "session-reminder", data: { name: "session-reminder" } },
+  );
+
   logger.info(
-    "[BullMQ] Scheduled jobs worker started (nutrition-reminder every 5m, subscription-expiry daily at 03:00)",
+    "[BullMQ] Scheduled jobs worker started (nutrition-reminder every 5m, subscription-expiry daily at 03:00, session-reminder every 30m)",
   );
 }
 

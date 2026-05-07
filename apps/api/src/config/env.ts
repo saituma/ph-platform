@@ -90,6 +90,11 @@ const optionalWhenScript = (messageWhenRequired: string) =>
 	  TURNSTILE_SECRET_KEY: z.string().optional(),
   TURNSTILE_SECRET_KEY_2: z.string().optional(),
   TURNSTILE_BYPASS: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CALENDAR_ID: z.string().optional(),
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
+  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: z.string().optional(),
 	});
 
 const parsed = envSchema.safeParse(process.env);
@@ -159,4 +164,9 @@ const scriptPlaceholder = "__ph_api_script_unused__";
 	  turnstileSecretKey: raw.TURNSTILE_SECRET_KEY ?? "",
   turnstileSecretKey2: raw.TURNSTILE_SECRET_KEY_2 ?? "",
   turnstileBypass: raw.TURNSTILE_BYPASS === "true",
+  googleOAuthClientId: raw.GOOGLE_OAUTH_CLIENT_ID ?? "",
+  googleOAuthClientSecret: raw.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
+  googleCalendarId: raw.GOOGLE_CALENDAR_ID ?? "",
+  googleServiceAccountEmail: raw.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "",
+  googleServiceAccountPrivateKey: raw.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "",
 	};

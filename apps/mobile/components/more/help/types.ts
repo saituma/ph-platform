@@ -1,17 +1,13 @@
-import { Feather } from "@expo/vector-icons";
-
-export type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
-
 export type HelpCategory = {
   id: string;
-  icon: FeatherIconName;
+  icon: string;
   label: string;
   description: string;
 };
 
 export type HelpArticle = {
   id: string;
-  icon: FeatherIconName;
+  icon: string;
   categoryId: string;
   categoryLabel: string;
   title: string;
@@ -24,7 +20,7 @@ export type HelpArticle = {
 
 export type QuickAction = {
   id: string;
-  icon: FeatherIconName;
+  icon: string;
   label: string;
   description: string;
   route: string;

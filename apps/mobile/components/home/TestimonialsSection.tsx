@@ -9,11 +9,10 @@ import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import { AppIcon } from "@/components/ui/app-icon";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
-import { radius, spacing } from "@/constants/theme";
 
 const AUTO_SCROLL_INTERVAL = 6000;
 
@@ -36,13 +35,11 @@ type TestimonialsSectionProps = {
 
 function TestimonialCard({
   item,
-  colors,
-  isDark,
+  p,
   cardWidth,
 }: {
   item: TestimonialItem;
-  colors: any;
-  isDark: boolean;
+  p: any;
   cardWidth: number;
 }) {
   const photo = item.photoUrl ?? item.photo ?? item.imageUrl ?? item.image ?? null;
@@ -53,43 +50,39 @@ function TestimonialCard({
     <View style={{ width: cardWidth, paddingHorizontal: 6 }}>
       <View
         style={{
-          minHeight: 206,
-          borderRadius: radius.xl,
-          padding: spacing.xl,
-          backgroundColor: isDark ? colors.card : "#FFFFFF",
-          borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(16,25,20,0.07)",
-          gap: spacing.lg,
+          minHeight: 200,
+          borderRadius: 22,
+          padding: 20,
+          backgroundColor: p.cardWhite,
+          gap: 16,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View
             style={{
-              width: 52,
-              height: 52,
-              borderRadius: 26,
+              width: 48,
+              height: 48,
+              borderRadius: 16,
               overflow: "hidden",
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: isDark ? colors.heroSurfaceMuted : colors.backgroundSecondary,
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(16,25,20,0.06)",
+              backgroundColor: p.cardMint,
             }}
           >
             {photo ? (
               <Image source={{ uri: photo }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
             ) : (
-              <AppIcon name="user" size={22} color={colors.accent} />
+              <AppIcon name="user" size={22} color={p.accent} />
             )}
           </View>
 
           <View style={{ flex: 1, gap: 2 }}>
             <Text
               style={{
-                fontFamily: "Satoshi-Bold",
+                fontFamily: "Outfit-Bold",
                 fontSize: 16,
                 lineHeight: 20,
-                color: colors.text,
+                color: p.textPrimary,
               }}
               numberOfLines={1}
             >
@@ -98,10 +91,10 @@ function TestimonialCard({
             {item.role ? (
               <Text
                 style={{
-                  fontFamily: "Satoshi-Medium",
+                  fontFamily: "Outfit-Regular",
                   fontSize: 13,
                   lineHeight: 17,
-                  color: colors.textSecondary,
+                  color: p.textMuted,
                 }}
                 numberOfLines={1}
               >
@@ -111,7 +104,7 @@ function TestimonialCard({
           </View>
         </View>
 
-        <View style={{ gap: spacing.md, flex: 1 }}>
+        <View style={{ gap: 12, flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             {[1, 2, 3, 4, 5].map((i) => (
               <View
@@ -120,12 +113,7 @@ function TestimonialCard({
                   width: 7,
                   height: 7,
                   borderRadius: 999,
-                  backgroundColor:
-                    i <= rating
-                      ? colors.accent
-                      : isDark
-                        ? "rgba(255,255,255,0.12)"
-                        : "rgba(16,25,20,0.10)",
+                  backgroundColor: i <= rating ? p.accent : p.accentSoft,
                 }}
               />
             ))}
@@ -133,10 +121,10 @@ function TestimonialCard({
 
           <Text
             style={{
-              fontFamily: "Satoshi-Medium",
-              fontSize: 16,
-              lineHeight: 24,
-              color: colors.text,
+              fontFamily: "Outfit-Regular",
+              fontSize: 15,
+              lineHeight: 23,
+              color: p.textSecondary,
             }}
             numberOfLines={5}
           >
@@ -150,7 +138,7 @@ function TestimonialCard({
 
 export const TestimonialsSection = React.memo(function TestimonialsSection({ items, loading }: TestimonialsSectionProps) {
   const { width: screenWidth } = useWindowDimensions();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
   const flatListRef = useRef<FlashListRef<TestimonialItem>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const isUserInteractingRef = useRef(false);
@@ -193,29 +181,21 @@ export const TestimonialsSection = React.memo(function TestimonialsSection({ ite
   }, [cardWidth]);
 
   const renderTestimonialItem = useCallback(({ item }: { item: TestimonialItem }) => (
-    <TestimonialCard item={item} colors={colors} isDark={isDark} cardWidth={cardWidth} />
-  ), [colors, isDark, cardWidth]);
+    <TestimonialCard item={item} p={p} cardWidth={cardWidth} />
+  ), [p, cardWidth]);
 
   if (!testimonials.length && !loading) return null;
 
   if (loading) {
     const skeletonCardW = screenWidth - 40;
     return (
-      <View style={{ gap: spacing.md }}>
-        <View style={{ paddingHorizontal: spacing.xl }}>
+      <View style={{ gap: 10 }}>
+        <View style={{ paddingHorizontal: 20 }}>
           <SkeletonBox width={140} height={20} borderRadius={4} />
         </View>
         {[0, 1].map((i) => (
-          <View
-            key={i}
-            style={{
-              width: skeletonCardW,
-              paddingHorizontal: 20,
-              gap: spacing.sm,
-              paddingVertical: spacing.md,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+          <View key={i} style={{ width: skeletonCardW, paddingHorizontal: 20, gap: 8, paddingVertical: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <SkeletonBox width={44} height={44} borderRadius={22} />
               <View style={{ gap: 6 }}>
                 <SkeletonBox width={120} height={15} borderRadius={4} />
@@ -231,33 +211,33 @@ export const TestimonialsSection = React.memo(function TestimonialsSection({ ite
   }
 
   return (
-    <View style={{ gap: spacing.md }}>
+    <View style={{ gap: 10 }}>
       <View
         style={{
-          paddingHorizontal: spacing.xl,
+          paddingHorizontal: 20,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: spacing.md,
+          gap: 12,
         }}
       >
         <View style={{ flex: 1, gap: 4 }}>
           <Text
             style={{
-              fontFamily: "Satoshi-Bold",
+              fontFamily: "Outfit-Bold",
               fontSize: 20,
               lineHeight: 24,
-              color: colors.text,
+              color: p.textPrimary,
             }}
           >
             Testimonials
           </Text>
           <Text
             style={{
-              fontFamily: "Satoshi-Medium",
+              fontFamily: "Outfit-Regular",
               fontSize: 13,
               lineHeight: 18,
-              color: colors.textSecondary,
+              color: p.textMuted,
             }}
           >
             What athletes are saying
@@ -270,8 +250,8 @@ export const TestimonialsSection = React.memo(function TestimonialsSection({ ite
               <DotIndicator
                 key={i}
                 isActive={activeIndex === i}
-                activeColor={colors.accent}
-                inactiveColor={isDark ? "rgba(255,255,255,0.16)" : "rgba(16,25,20,0.12)"}
+                activeColor={p.accent}
+                inactiveColor={p.accentSoft}
               />
             ))}
           </View>
@@ -290,12 +270,8 @@ export const TestimonialsSection = React.memo(function TestimonialsSection({ ite
         decelerationRate="fast"
         onScroll={onScroll}
         scrollEventThrottle={16}
-        onScrollBeginDrag={() => {
-          isUserInteractingRef.current = true;
-        }}
-        onScrollEndDrag={() => {
-          isUserInteractingRef.current = false;
-        }}
+        onScrollBeginDrag={() => { isUserInteractingRef.current = true; }}
+        onScrollEndDrag={() => { isUserInteractingRef.current = false; }}
       />
     </View>
   );

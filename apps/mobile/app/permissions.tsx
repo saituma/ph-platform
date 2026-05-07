@@ -1,9 +1,7 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
-import { Ionicons } from "@expo/vector-icons";
-import { fonts } from "@/constants/theme";
+import { Bell, Camera, MapPin, Shield, ChevronLeft } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -11,6 +9,7 @@ import { useRouter } from "expo-router";
 import { getNotifications } from "@/lib/notifications";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 
 type PermissionStatus = "granted" | "denied" | "undetermined";
 
@@ -18,7 +17,6 @@ const formatStatus = (status: PermissionStatus) =>
   status === "granted" ? "Granted" : status === "denied" ? "Denied" : "Not asked";
 
 export default function PermissionsScreen() {
-  const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -27,14 +25,18 @@ export default function PermissionsScreen() {
   const [notificationStatus, setNotificationStatus] = useState<PermissionStatus>("undetermined");
   const [notificationsSupported, setNotificationsSupported] = useState(true);
 
-  const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
-  const cardBorder = isDark
-    ? "rgba(255,255,255,0.08)"
-    : "rgba(15,23,42,0.06)";
-  const labelColor = isDark ? "hsl(220, 5%, 55%)" : "hsl(220, 5%, 45%)";
-  const textPrimary = isDark ? "hsl(220,5%,94%)" : "hsl(220,8%,10%)";
-  const successColor = isDark ? "hsl(155, 30%, 55%)" : "hsl(155, 40%, 38%)";
-  const warningColor = isDark ? "hsl(40, 35%, 60%)" : "hsl(40, 45%, 42%)";
+  const p = useAdminPastel();
+
+  const pageBg = p.pageBg;
+  const cardBg = p.cardSage;
+  const debugCardBg = p.cardPeach;
+  const textPrimary = p.textPrimary;
+  const textSecondary = p.textSecondary;
+  const accent = p.accent;
+  const successColor = p.success;
+  const warningColor = p.warning;
+  const cardRadius = 28;
+  const debugRowBg = p.cardLavender;
 
   const refreshStatuses = useCallback(async () => {
     const notifications = await getNotifications();
@@ -69,13 +71,11 @@ export default function PermissionsScreen() {
   };
 
   const isGranted = notificationStatus === "granted";
-  const statusBadgeBg = isGranted
-    ? isDark ? "hsla(155, 30%, 55%, 0.15)" : "hsla(155, 40%, 38%, 0.1)"
-    : isDark ? "hsla(40, 35%, 60%, 0.15)" : "hsla(40, 45%, 42%, 0.1)";
+  const statusBadgeBg = isGranted ? p.successSoft : p.warningSoft;
   const statusBadgeText = isGranted ? successColor : warningColor;
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: pageBg }}>
       <ThemedScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <MoreStackHeader
           title="Permissions"
@@ -88,14 +88,12 @@ export default function PermissionsScreen() {
           {/* Notification permission card */}
           <View
             style={{
-              borderRadius: 20,
-              borderWidth: 1,
+              borderRadius: cardRadius,
               overflow: "hidden",
               padding: 20,
               gap: 16,
               backgroundColor: cardBg,
-              borderColor: cardBorder,
-            }}
+                          }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
               <View
@@ -105,16 +103,16 @@ export default function PermissionsScreen() {
                   alignItems: "center",
                   justifyContent: "center",
                   borderRadius: 16,
-                  backgroundColor: isDark ? `${colors.accent}18` : `${colors.accent}12`,
+                  backgroundColor: p.accentSoft,
                 }}
               >
-                <Ionicons name="notifications-outline" size={22} color={colors.accent} />
+                <Bell size={22} color={accent} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
+                <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: textPrimary }}>
                   Notifications
                 </Text>
-                <Text style={{ fontSize: 12, fontFamily: "Outfit", color: labelColor, marginTop: 2 }}>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: textSecondary, marginTop: 2 }}>
                   {notificationsSupported
                     ? "Get alerts for messages and updates."
                     : "Push notifications need a development build (not Expo Go)."}
@@ -128,7 +126,7 @@ export default function PermissionsScreen() {
                   backgroundColor: statusBadgeBg,
                 }}
               >
-                <Text style={{ fontSize: 12, fontFamily: fonts.bodyBold, color: statusBadgeText }}>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: statusBadgeText }}>
                   {formatStatus(notificationStatus)}
                 </Text>
               </View>
@@ -140,15 +138,15 @@ export default function PermissionsScreen() {
                 style={({ pressed }) => ({
                   flex: 1,
                   height: 52,
-                  borderRadius: 16,
+                  borderRadius: 100,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: colors.accent,
+                  backgroundColor: p.buttonPrimary,
                   opacity: pressed ? 0.85 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 })}
               >
-                <Text style={{ color: "#fff", fontFamily: fonts.bodyBold, fontSize: 14 }}>
+                <Text style={{ color: p.buttonPrimaryText, fontFamily: "Outfit-Bold", fontSize: 14 }}>
                   Request Permission
                 </Text>
               </Pressable>
@@ -158,15 +156,15 @@ export default function PermissionsScreen() {
                 style={({ pressed }) => ({
                   flex: 1,
                   height: 52,
-                  borderRadius: 16,
+                  borderRadius: 100,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: colors.accent,
+                  backgroundColor: p.buttonPrimary,
                   opacity: pressed ? 0.85 : 1,
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 })}
               >
-                <Text style={{ color: "#fff", fontFamily: fonts.bodyBold, fontSize: 14 }}>
+                <Text style={{ color: p.buttonPrimaryText, fontFamily: "Outfit-Bold", fontSize: 14 }}>
                   Open Settings
                 </Text>
               </Pressable>
@@ -176,19 +174,20 @@ export default function PermissionsScreen() {
           {/* Push debug card */}
           <View
             style={{
-              borderRadius: 20,
-              borderWidth: 1,
+              borderRadius: cardRadius,
               overflow: "hidden",
               padding: 20,
               gap: 12,
-              backgroundColor: cardBg,
-              borderColor: cardBorder,
-            }}
+              backgroundColor: debugCardBg,
+                          }}
           >
-            <Text style={{ fontSize: 18, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
-              Push Debug
-            </Text>
-            <Text style={{ fontSize: 12, fontFamily: "Outfit", color: labelColor }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Shield size={20} color={accent} />
+              <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: textPrimary }}>
+                Push Debug
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: textSecondary }}>
               Current native build push status for this device.
             </Text>
             {([
@@ -207,27 +206,26 @@ export default function PermissionsScreen() {
               <View
                 key={label}
                 style={{
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: cardBorder,
+                  borderRadius: 22,
                   paddingHorizontal: 16,
                   paddingVertical: 12,
-                }}
+                  backgroundColor: debugRowBg,
+                                  }}
               >
                 <Text
                   style={{
                     fontSize: 11,
-                    fontFamily: fonts.bodyBold,
+                    fontFamily: "Outfit-Bold",
                     textTransform: "uppercase",
                     letterSpacing: 1.2,
-                    color: labelColor,
+                    color: textSecondary,
                   }}
                 >
                   {label}
                 </Text>
                 <Text
                   selectable
-                  style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit", color: textPrimary }}
+                  style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit-Regular", color: textPrimary }}
                 >
                   {value}
                 </Text>

@@ -6,7 +6,7 @@ import { env } from "../../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../../lib/mailer";
 import { createBookingActionToken } from "../../lib/booking-actions";
 import { ROLES_TRAINING_STAFF } from "../../lib/user-roles";
-import { pushQueue } from "../../jobs";
+import { createPushIntent } from "../outbox.service";
 import { getSocketServer } from "../../socket-hub";
 
 export async function notifyBookingRequested(input: {
@@ -76,7 +76,7 @@ export async function notifyBookingRequested(input: {
     link: "/schedule",
   });
 
-  void pushQueue.enqueue({ userId: guardian.userId, title: "Booking requested", body: `${input.serviceName} request submitted`, data: {
+  void createPushIntent({ userId: guardian.userId, title: "Booking requested", body: `${input.serviceName} request submitted`, data: {
     type: "booking",
     screen: "schedule",
     url: "/schedule",
@@ -102,23 +102,6 @@ export async function notifyBookingRequested(input: {
     const payload = { message: `New booking requested: ${input.serviceName}` };
     io.to(`user:${guardian.userId}`).emit("schedule:changed", payload);
     io.to("admin:all").emit("schedule:changed", payload);
-  }
-
-  if (env.pushWebhookUrl) {
-    try {
-      await fetch(env.pushWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: guardian.userId,
-          title: "Booking requested",
-          body: `${input.serviceName} request submitted`,
-          link: "/schedule",
-        }),
-      });
-    } catch (error) {
-      logger.error({ err: error }, "Failed to send push notification");
-    }
   }
 }
 
@@ -164,7 +147,7 @@ export async function notifyBookingCancelled(bookingId: number) {
     .where(inArray(userTable.role, ROLES_TRAINING_STAFF));
 
   for (const admin of adminUsers) {
-    void pushQueue.enqueue({
+    void createPushIntent({
       userId: admin.id,
       title: "Booking cancelled",
       body: `${athleteName} cancelled their ${serviceName} request`,

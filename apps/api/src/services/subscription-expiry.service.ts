@@ -3,7 +3,7 @@ import { and, eq, gt, inArray, isNotNull, isNull, lt, lte } from "drizzle-orm";
 import { db } from "../db";
 import { athleteTable, guardianTable, notificationTable, userTable } from "../db/schema";
 import { sendPlanExpiredEmail, sendPlanExpiringSoonEmail } from "../lib/mailer";
-import { pushQueue } from "../jobs";
+import { createPushIntent } from "./outbox.service";
 
 const PAID_TIERS = ["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const;
 
@@ -70,7 +70,7 @@ async function processExpiredPlans(now: Date) {
       link: "/plans",
       read: false,
     });
-    void pushQueue.enqueue({
+    void createPushIntent({
       userId: payerUserId,
       title: "Plan ended",
       body: "Your paid plan period has ended. Renew to keep messaging and bookings.",
@@ -118,7 +118,7 @@ async function processExpiringReminders(now: Date, horizon: Date) {
       athleteName: athlete.name,
       expiresAt: expires,
     });
-    void pushQueue.enqueue({
+    void createPushIntent({
       userId: payerUserId,
       title: "Plan renewing soon",
       body: `Your plan access ends ${expires.toLocaleDateString()}. Renew to avoid losing perks.`,

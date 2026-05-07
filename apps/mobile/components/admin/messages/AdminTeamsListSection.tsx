@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Search, RefreshCw, Users, User, Shield, ChevronRight, WifiOff } from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
+import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAdminTeams } from "@/hooks/admin/useAdminTeams";
 
 type Props = {
@@ -13,11 +13,11 @@ type Props = {
   canLoad: boolean;
 };
 
-const TEAM_ACCENT = "#34C759";
+const CARD_COLORS = ["cardSage", "cardPeach", "cardLavender", "cardMint"] as const;
 
 export function AdminTeamsListSection({ controller, canLoad }: Props) {
   const router = useRouter();
-  const { colors, isDark } = useAppTheme();
+  const p = useAdminPastel();
 
   const [query, setQuery] = useState("");
 
@@ -36,11 +36,6 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
     );
   }, [controller.teams, query]);
 
-  const inputBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)";
-  const inputBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
-  const cardBg = isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.025)";
-  const cardBorder = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)";
-
   return (
     <View style={{ gap: 14 }}>
       {/* ── Search + Refresh ─────────────────────────────────── */}
@@ -54,24 +49,24 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
             paddingHorizontal: 14,
             paddingVertical: 10,
             borderRadius: 16,
-            backgroundColor: inputBg,
+            backgroundColor: p.inputBg,
             borderWidth: 1,
-            borderColor: inputBorder,
+            borderColor: p.inputBorder,
           }}
         >
-          <Ionicons name="search" size={16} color={colors.textSecondary} />
+          <Search size={16} color={p.textSecondary} />
           <TextInput
             style={{
               flex: 1,
               fontFamily: "Outfit-Regular",
               fontSize: 14,
-              color: colors.textPrimary,
+              color: p.textPrimary,
               padding: 0,
             }}
             value={query}
             onChangeText={setQuery}
             placeholder="Search teams..."
-            placeholderTextColor={colors.placeholder}
+            placeholderTextColor={p.textMuted}
             returnKeyType="search"
           />
         </View>
@@ -83,17 +78,11 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
             justifyContent: "center",
             alignItems: "center",
             borderRadius: 16,
-            backgroundColor: isDark
-              ? `${TEAM_ACCENT}22`
-              : `${TEAM_ACCENT}14`,
-            borderWidth: 1,
-            borderColor: isDark
-              ? `${TEAM_ACCENT}40`
-              : `${TEAM_ACCENT}28`,
+            backgroundColor: p.accentSoft,
             opacity: pressed || controller.loading ? 0.7 : 1,
           })}
         >
-          <Ionicons name="refresh" size={18} color={TEAM_ACCENT} />
+          <RefreshCw size={18} color={p.accent} />
         </Pressable>
       </View>
 
@@ -112,12 +101,23 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
             gap: 10,
           }}
         >
-          <Ionicons name="cloud-offline-outline" size={28} color={colors.textSecondary} />
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: p.dangerSoft,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <WifiOff size={22} color={p.danger} />
+          </View>
           <Text
             style={{
               fontFamily: "Outfit-Medium",
               fontSize: 13,
-              color: colors.textSecondary,
+              color: p.textSecondary,
               textAlign: "center",
             }}
           >
@@ -137,20 +137,18 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
               width: 56,
               height: 56,
               borderRadius: 28,
-              backgroundColor: isDark
-                ? `${TEAM_ACCENT}1A`
-                : `${TEAM_ACCENT}14`,
+              backgroundColor: p.accentSoft,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Ionicons name="people" size={26} color={TEAM_ACCENT} />
+            <Users size={26} color={p.accent} />
           </View>
           <Text
             style={{
               fontFamily: "Outfit-Medium",
               fontSize: 14,
-              color: colors.textSecondary,
+              color: p.textSecondary,
               textAlign: "center",
             }}
           >
@@ -159,7 +157,7 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
         </View>
       ) : (
         <View style={{ gap: 10 }}>
-          {filtered.map((team) => {
+          {filtered.map((team, index) => {
             const initials =
               String(team.team ?? "")
                 .split(/\s+/)
@@ -170,6 +168,9 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
             const athleteCount = Number(team.memberCount) || 0;
             const guardianCount = Number(team.guardianCount) || 0;
             const peopleCount = athleteCount + guardianCount;
+            const cardColorKey = CARD_COLORS[index % CARD_COLORS.length];
+            const cardBg = p[cardColorKey];
+
             return (
               <Pressable
                 key={team.id ?? team.team}
@@ -180,50 +181,22 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 12,
-                  paddingLeft: 6,
-                  paddingRight: 14,
+                  paddingHorizontal: 14,
                   paddingVertical: 12,
-                  borderRadius: 18,
-                  backgroundColor: pressed
-                    ? isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(15,23,42,0.05)"
-                    : cardBg,
-                  borderWidth: 1,
-                  borderColor: pressed
-                    ? isDark
-                      ? `${TEAM_ACCENT}55`
-                      : `${TEAM_ACCENT}40`
-                    : cardBorder,
+                  borderRadius: 28,
+                  backgroundColor: cardBg,
                   overflow: "hidden",
-                  transform: [{ scale: pressed ? 0.997 : 1 }],
+                  opacity: pressed ? 0.85 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
                 })}
               >
-                {/* Accent strip */}
-                <View
-                  style={{
-                    width: 3,
-                    alignSelf: "stretch",
-                    borderRadius: 2,
-                    backgroundColor: TEAM_ACCENT,
-                    marginVertical: 2,
-                    marginLeft: 2,
-                  }}
-                />
-
                 {/* Avatar */}
                 <View
                   style={{
                     width: 46,
                     height: 46,
-                    borderRadius: 14,
-                    backgroundColor: isDark
-                      ? `${TEAM_ACCENT}26`
-                      : `${TEAM_ACCENT}18`,
-                    borderWidth: 1,
-                    borderColor: isDark
-                      ? `${TEAM_ACCENT}4D`
-                      : `${TEAM_ACCENT}33`,
+                    borderRadius: 16,
+                    backgroundColor: cardBg,
                     alignItems: "center",
                     justifyContent: "center",
                   }}
@@ -232,7 +205,7 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
                     style={{
                       fontFamily: "ClashDisplay-Bold",
                       fontSize: 15,
-                      color: TEAM_ACCENT,
+                      color: p.accent,
                       letterSpacing: 0.3,
                     }}
                   >
@@ -246,7 +219,7 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
                     style={{
                       fontFamily: "ClashDisplay-Bold",
                       fontSize: 15.5,
-                      color: colors.textPrimary,
+                      color: p.textPrimary,
                       letterSpacing: -0.2,
                     }}
                     numberOfLines={1}
@@ -268,22 +241,16 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
                         gap: 4,
                         paddingHorizontal: 7,
                         paddingVertical: 2,
-                        borderRadius: 999,
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(15,23,42,0.05)",
+                        borderRadius: 100,
+                        backgroundColor: p.inputBg,
                       }}
                     >
-                      <Ionicons
-                        name="person"
-                        size={10}
-                        color={colors.textSecondary}
-                      />
+                      <User size={10} color={p.textSecondary} />
                       <Text
                         style={{
                           fontFamily: "Outfit-SemiBold",
                           fontSize: 11.5,
-                          color: colors.textSecondary,
+                          color: p.textSecondary,
                         }}
                       >
                         {athleteCount} athlete{athleteCount === 1 ? "" : "s"}
@@ -297,22 +264,16 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
                           gap: 4,
                           paddingHorizontal: 7,
                           paddingVertical: 2,
-                          borderRadius: 999,
-                          backgroundColor: isDark
-                            ? "rgba(255,255,255,0.05)"
-                            : "rgba(15,23,42,0.05)",
+                          borderRadius: 100,
+                          backgroundColor: p.inputBg,
                         }}
                       >
-                        <Ionicons
-                          name="shield-checkmark"
-                          size={10}
-                          color={colors.textSecondary}
-                        />
+                        <Shield size={10} color={p.textSecondary} />
                         <Text
                           style={{
                             fontFamily: "Outfit-SemiBold",
                             fontSize: 11.5,
-                            color: colors.textSecondary,
+                            color: p.textSecondary,
                           }}
                         >
                           {guardianCount}
@@ -329,23 +290,17 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
                       minWidth: 30,
                       paddingHorizontal: 9,
                       paddingVertical: 4,
-                      borderRadius: 999,
+                      borderRadius: 100,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: isDark
-                        ? `${TEAM_ACCENT}1F`
-                        : `${TEAM_ACCENT}12`,
-                      borderWidth: 1,
-                      borderColor: isDark
-                        ? `${TEAM_ACCENT}33`
-                        : `${TEAM_ACCENT}22`,
+                      backgroundColor: p.accentSoft,
                     }}
                   >
                     <Text
                       style={{
                         fontFamily: "Outfit-Bold",
                         fontSize: 12,
-                        color: TEAM_ACCENT,
+                        color: p.accent,
                       }}
                     >
                       {peopleCount}
@@ -353,21 +308,15 @@ export function AdminTeamsListSection({ controller, canLoad }: Props) {
                   </View>
                   <View
                     style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.05)"
-                        : "rgba(15,23,42,0.05)",
+                      backgroundColor: p.inputBg,
                     }}
                   >
-                    <Ionicons
-                      name="chevron-forward"
-                      size={14}
-                      color={colors.textSecondary}
-                    />
+                    <ChevronRight size={14} color={p.textSecondary} />
                   </View>
                 </View>
               </Pressable>
