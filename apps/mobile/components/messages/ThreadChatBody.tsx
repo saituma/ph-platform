@@ -62,6 +62,7 @@ type ThreadChatBodyProps = {
 	onRemovePendingAttachment?: () => void;
 	isUploadingAttachment?: boolean;
 	coachingContextLabel?: string;
+	avoidKeyboardWithPadding?: boolean;
 };
 
 type MessageListSectionProps = {
@@ -365,6 +366,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 	onRemovePendingAttachment,
 	isUploadingAttachment,
 	coachingContextLabel,
+	avoidKeyboardWithPadding = true,
 }: ThreadChatBodyProps) {
 	const { colors, isDark } = useAppTheme();
 	const insets = useAppSafeAreaInsets();
@@ -425,7 +427,12 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 				coachingContextLabel={coachingContextLabel}
 			/>
 
-			<View style={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0 }}>
+			<View
+				style={{
+					paddingBottom:
+						avoidKeyboardWithPadding && keyboardHeight > 0 ? keyboardHeight : 0,
+				}}
+			>
 				{replyTarget && (
 					<View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
 						<View

@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import {
   useAdminPastel,
   AdminBadge,
@@ -63,7 +62,11 @@ import Animated, {
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
 
 const PASTEL_AVATAR_COLORS = [
@@ -89,7 +92,6 @@ export function AdminGroupSection({
   category,
 }: Props) {
   const p = useAdminPastel();
-  const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const { socket } = useSocket();
   const groupsHook = useAdminGroups(token, canLoad);
@@ -595,6 +597,7 @@ export function AdminGroupSection({
         }
         onRequestClose={() => groupsHook.setActiveGroupId(null)}
       >
+        <GestureHandlerRootView style={{ flex: 1 }}>
         <View
           style={{
             flex: 1,
@@ -978,6 +981,7 @@ export function AdminGroupSection({
             setGifPickerOpen(false);
           }}
         />
+        </GestureHandlerRootView>
       </Modal>
 
       {/* CREATE GROUP MODAL */}

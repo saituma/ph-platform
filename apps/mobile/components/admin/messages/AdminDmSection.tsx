@@ -10,7 +10,6 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import {
   AdminBadge,
   AdminEmptyState,
@@ -31,6 +30,7 @@ import {
 } from "@/types/admin-messages";
 import { useSocket } from "@/context/SocketContext";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
 import { GifPickerModal } from "@/components/messages/GifPickerModal";
@@ -70,7 +70,6 @@ export function AdminDmSection({
   myUserId,
   initialUserId,
 }: Props) {
-  const { colors } = useAppTheme();
   const p = useAdminPastel();
   const { socket } = useSocket();
   const dms = useAdminDms(token, canLoad);
@@ -701,8 +700,9 @@ export function AdminDmSection({
           setSearchOpen(false);
         }}
       >
+        <GestureHandlerRootView style={{ flex: 1 }}>
         <BottomSheetModalProvider>
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, backgroundColor: p.pageBg }}>
           {currentThread ? (
             <>
               <ThreadHeader
@@ -733,7 +733,7 @@ export function AdminDmSection({
                 isLoading={dms.threadsLoading}
                 isThreadLoading={dms.messagesLoading}
                 typingStatus={typingStatus}
-                textSecondaryColor={colors.textSecondary}
+                textSecondaryColor={p.textSecondary}
                 onDraftChange={setDraft}
                 onSend={handleSend}
                 onOpenComposerMenu={() => setComposerMenuOpen(true)}
@@ -744,6 +744,7 @@ export function AdminDmSection({
                 pendingAttachment={pendingAttachment}
                 onRemovePendingAttachment={handleRemovePendingAttachment}
                 isUploadingAttachment={isSending || isUploading}
+                avoidKeyboardWithPadding={false}
               />
               <ReactionPickerModal
                 reactionTarget={reactionTarget}
@@ -762,7 +763,7 @@ export function AdminDmSection({
             </>
           ) : (
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-              <ActivityIndicator size="large" color={colors.accent} />
+              <ActivityIndicator size="large" color={p.accent} />
             </View>
           )}
 
@@ -837,6 +838,7 @@ export function AdminDmSection({
         />
         </View>
         </BottomSheetModalProvider>
+        </GestureHandlerRootView>
       </Modal>
     </View>
   );

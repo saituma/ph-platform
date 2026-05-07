@@ -61,7 +61,7 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
           `/chat/groups/${groupId}/messages?limit=100`,
           { token: token!, skipCache: forceRefresh, forceRefresh, suppressStatusCodes: [401, 403] },
         );
-        const nextMessages = Array.isArray(res?.messages) ? [...res.messages].reverse() : [];
+        const nextMessages = Array.isArray(res?.messages) ? res.messages : [];
         setCachedAdminGroupMessages(groupId, nextMessages);
         setMessages(nextMessages);
       } catch (e) {

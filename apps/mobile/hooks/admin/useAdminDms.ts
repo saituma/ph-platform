@@ -58,7 +58,7 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
           `/admin/messages/${userId}?limit=50`,
           { token: token!, skipCache: forceRefresh, forceRefresh, suppressStatusCodes: [403] },
         );
-        const nextMessages = Array.isArray(res?.messages) ? [...res.messages].reverse() : [];
+        const nextMessages = Array.isArray(res?.messages) ? res.messages : [];
         setCachedAdminDmMessages(userId, nextMessages);
         setMessages(nextMessages);
         void apiRequest(`/admin/messages/${userId}/read`, {

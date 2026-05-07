@@ -104,7 +104,7 @@ async function prefetchAdminDmMessages(token: string, userId: number) {
     );
     setCachedAdminDmMessages(
       userId,
-      Array.isArray(res?.messages) ? [...res.messages].reverse() : [],
+      Array.isArray(res?.messages) ? res.messages : [],
     );
   } catch {
     // Prefetch is opportunistic; foreground open still handles errors.
@@ -127,7 +127,7 @@ async function prefetchAdminGroupMessages(token: string, groupId: number) {
     );
     setCachedAdminGroupMessages(
       groupId,
-      Array.isArray(res?.messages) ? [...res.messages].reverse() : [],
+      Array.isArray(res?.messages) ? res.messages : [],
     );
   } catch {
     // Prefetch is opportunistic; foreground open still handles errors.
