@@ -5,6 +5,14 @@ import { logger } from "../lib/logger";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { ProgramType, teamTable, trainingModuleSessionTable, trainingOtherType, trainingSessionBlockType } from "../db/schema";
+import { getSocketServer } from "../socket-hub";
+
+function emitContentChanged(audienceLabel?: string) {
+  const io = getSocketServer();
+  if (!io) return;
+  io.emit("program:changed", { audienceLabel: audienceLabel ?? null });
+}
+
 import {
   createTrainingAudience,
   createTrainingModule,
@@ -316,6 +324,7 @@ export async function createTrainingModuleHandler(req: Request, res: Response) {
     order: input.order ?? null,
     createdBy: req.user!.id,
   });
+  emitContentChanged(input.audienceLabel);
   return res.status(201).json({ item });
 }
 
@@ -330,6 +339,7 @@ export async function updateTrainingModuleHandler(req: Request, res: Response) {
   if (!item) {
     return res.status(404).json({ error: "Module not found" });
   }
+  emitContentChanged();
   return res.status(200).json({ item });
 }
 
@@ -370,12 +380,14 @@ export async function deleteTrainingModuleHandler(req: Request, res: Response) {
   if (!item) {
     return res.status(404).json({ error: "Module not found" });
   }
+  emitContentChanged();
   return res.status(200).json({ item });
 }
 
 export async function createTrainingSessionHandler(req: Request, res: Response) {
   const input = createSessionSchema.parse(req.body);
   const item = await createTrainingModuleSession(input);
+  emitContentChanged();
   return res.status(201).json({ item });
 }
 
@@ -391,6 +403,7 @@ export async function updateTrainingSessionHandler(req: Request, res: Response) 
   if (!item) {
     return res.status(404).json({ error: "Session not found" });
   }
+  emitContentChanged();
   return res.status(200).json({ item });
 }
 
@@ -411,6 +424,7 @@ export async function deleteTrainingSessionHandler(req: Request, res: Response) 
   if (!item) {
     return res.status(404).json({ error: "Session not found" });
   }
+  emitContentChanged();
   return res.status(200).json({ item });
 }
 
@@ -420,6 +434,7 @@ export async function createTrainingSessionItemHandler(req: Request, res: Respon
     ...input,
     createdBy: req.user!.id,
   });
+  emitContentChanged();
   return res.status(201).json({ item });
 }
 
@@ -433,6 +448,7 @@ export async function updateTrainingSessionItemHandler(req: Request, res: Respon
   if (!item) {
     return res.status(404).json({ error: "Session item not found" });
   }
+  emitContentChanged();
   return res.status(200).json({ item });
 }
 
@@ -442,6 +458,7 @@ export async function deleteTrainingSessionItemHandler(req: Request, res: Respon
   if (!item) {
     return res.status(404).json({ error: "Session item not found" });
   }
+  emitContentChanged();
   return res.status(200).json({ item });
 }
 
@@ -451,6 +468,7 @@ export async function createTrainingOtherContentHandler(req: Request, res: Respo
     ...input,
     createdBy: req.user!.id,
   });
+  emitContentChanged(input.audienceLabel);
   return res.status(201).json({ item });
 }
 
@@ -464,6 +482,7 @@ export async function updateTrainingOtherContentHandler(req: Request, res: Respo
   if (!item) {
     return res.status(404).json({ error: "Other content not found" });
   }
+  emitContentChanged();
   return res.status(200).json({ item });
 }
 
@@ -475,6 +494,7 @@ export async function updateTrainingOtherTypeSettingHandler(req: Request, res: R
     enabled: input.enabled,
     createdBy: req.user!.id,
   });
+  emitContentChanged(input.audienceLabel);
   return res.status(200).json({ item });
 }
 
@@ -484,6 +504,7 @@ export async function deleteTrainingOtherContentHandler(req: Request, res: Respo
   if (!item) {
     return res.status(404).json({ error: "Other content not found" });
   }
+  emitContentChanged();
   return res.status(200).json({ item });
 }
 

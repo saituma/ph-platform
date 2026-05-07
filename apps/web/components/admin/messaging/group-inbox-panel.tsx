@@ -57,7 +57,7 @@ export function GroupInboxPanel({
                     checked={selectedMemberIds.includes(user.id)}
                     onChange={() => onToggleMember(user.id)}
                   />
-                  {user.name || user.email}
+                  {user.name || (user as any).guardianEmail || user.email}
                 </label>
               ))}
           </div>

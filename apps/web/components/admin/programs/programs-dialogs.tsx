@@ -193,7 +193,7 @@ export function ProgramsDialogs({
                       .filter((user) => user.athleteId)
                       .map((user) => (
                         <SelectItem key={user.id} value={String(user.athleteId)}>
-                          {user.name || user.email}
+                          {user.name || (user as any).guardianEmail || user.email}
                         </SelectItem>
                       ))
                   )}

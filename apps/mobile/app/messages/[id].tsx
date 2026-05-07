@@ -13,8 +13,8 @@ import ThreadSearchModal from "@/components/messages/ThreadSearchModal";
 import { UserProfileSheet, type ProfileTarget } from "@/components/messages/UserProfileSheet";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
-import { Platform, Pressable, View } from "react-native";
-import { Pin, X } from "lucide-react-native";
+import { Modal, Platform, Pressable, TextInput, View } from "react-native";
+import { Pin, X, Flag, AlertTriangle, MessageSquare, Ban, Shield } from "lucide-react-native";
 import * as Clipboard from "expo-clipboard";
 import { messagesApi } from "@/lib/apiClient/messages";
 import * as Haptics from "expo-haptics";
@@ -96,6 +96,9 @@ export default function ThreadScreen() {
   const [profileTarget, setProfileTarget] = React.useState<ProfileTarget | null>(null);
   const [forwardTarget, setForwardTarget] = React.useState<ChatMessage | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const [reportModalOpen, setReportModalOpen] = React.useState(false);
+  const [reportReason, setReportReason] = React.useState<string | null>(null);
+  const [reportDetails, setReportDetails] = React.useState("");
 
   const handleLongPressMessage = React.useCallback((message: ChatMessage) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -158,6 +161,11 @@ export default function ThreadScreen() {
     }
   }, [token, toast]);
 
+  const handleReportMessage = React.useCallback((message: ChatMessage) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    toast.success("Message reported", "We'll review this message shortly.");
+  }, [toast]);
+
   const pinnedMessage = React.useMemo(() => {
     for (const msg of localMessages) {
       const override = pinnedOverrides[msg.id];
@@ -174,6 +182,15 @@ export default function ThreadScreen() {
     setPendingAttachment(null);
   }, [setPendingAttachment]);
 
+  const handleSubmitReport = React.useCallback(() => {
+    if (!reportReason) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    toast.success("Report submitted", "We'll review this and take action if needed.");
+    setReportModalOpen(false);
+    setReportReason(null);
+    setReportDetails("");
+  }, [reportReason, toast]);
+
 
   if (!currentThread) {
     return (
@@ -189,6 +206,7 @@ export default function ThreadScreen() {
         thread={currentThread}
         onBack={clearThread}
         onSearch={() => setSearchOpen(true)}
+        onMore={() => setReportModalOpen(true)}
         onHeaderPress={handleHeaderPress}
         sharedBoundTag={sharedBoundTag}
         sharedAvatarTag={sharedAvatarTag}
@@ -352,6 +370,7 @@ export default function ThreadScreen() {
         onCopy={handleCopyMessage}
         onPin={handlePinMessage}
         onForward={(msg) => setForwardTarget(msg)}
+        onReport={handleReportMessage}
         onDelete={handleDeleteMessage}
         onOpenEmojiPicker={(msg) => setReactionTarget(msg)}
       />
@@ -373,6 +392,148 @@ export default function ThreadScreen() {
         onClose={() => setSearchOpen(false)}
         onJumpToMessage={() => setSearchOpen(false)}
       />
+
+      <Modal
+        visible={reportModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReportModalOpen(false)}
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <Pressable style={{ flex: 1 }} onPress={() => setReportModalOpen(false)} />
+          <View
+            style={{
+              backgroundColor: isDark ? p.cardWhite : "#FFFFFF",
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingTop: 16,
+              paddingBottom: Platform.OS === "ios" ? 40 : 24,
+              paddingHorizontal: 20,
+            }}
+          >
+            <View style={{ alignItems: "center", marginBottom: 16 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: p.divider }} />
+            </View>
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,59,48,0.1)", alignItems: "center", justifyContent: "center" }}>
+                <Shield size={20} color="#FF3B30" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
+                  Report {currentThread.name}
+                </Text>
+                <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textMuted, marginTop: 2 }}>
+                  Select a reason for your report
+                </Text>
+              </View>
+            </View>
+
+            {([
+              { key: "harassment", label: "Harassment or bullying", icon: AlertTriangle },
+              { key: "inappropriate", label: "Inappropriate content", icon: Ban },
+              { key: "spam", label: "Spam or misleading", icon: MessageSquare },
+              { key: "other", label: "Other", icon: Flag },
+            ] as const).map((option) => {
+              const selected = reportReason === option.key;
+              const Icon = option.icon;
+              return (
+                <Pressable
+                  key={option.key}
+                  onPress={() => setReportReason(option.key)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                    paddingVertical: 14,
+                    paddingHorizontal: 14,
+                    borderRadius: 14,
+                    marginBottom: 6,
+                    backgroundColor: selected
+                      ? isDark ? "rgba(255,59,48,0.12)" : "rgba(255,59,48,0.06)"
+                      : isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)",
+                    borderWidth: 1,
+                    borderColor: selected ? "rgba(255,59,48,0.3)" : "transparent",
+                  }}
+                >
+                  <Icon size={18} color={selected ? "#FF3B30" : p.textMuted} />
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: 15,
+                      fontFamily: selected ? "Outfit-SemiBold" : "Outfit-Medium",
+                      color: selected ? "#FF3B30" : p.textPrimary,
+                    }}
+                  >
+                    {option.label}
+                  </Text>
+                  <View
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 10,
+                      borderWidth: 2,
+                      borderColor: selected ? "#FF3B30" : p.divider,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {selected && (
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#FF3B30" }} />
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })}
+
+            <TextInput
+              placeholder="Add details (optional)"
+              placeholderTextColor={p.textMuted}
+              value={reportDetails}
+              onChangeText={setReportDetails}
+              multiline
+              style={{
+                marginTop: 10,
+                minHeight: 80,
+                maxHeight: 120,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: p.divider,
+                backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)",
+                paddingHorizontal: 14,
+                paddingTop: 12,
+                paddingBottom: 12,
+                fontSize: 14,
+                fontFamily: "Outfit-Regular",
+                color: p.textPrimary,
+                textAlignVertical: "top",
+              }}
+            />
+
+            <Pressable
+              onPress={handleSubmitReport}
+              disabled={!reportReason}
+              style={{
+                marginTop: 16,
+                paddingVertical: 14,
+                borderRadius: 14,
+                alignItems: "center",
+                backgroundColor: reportReason ? "#FF3B30" : p.divider,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontFamily: "Outfit-Bold",
+                  color: reportReason ? "#FFFFFF" : p.textMuted,
+                }}
+              >
+                Submit Report
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

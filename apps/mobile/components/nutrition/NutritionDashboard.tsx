@@ -8,6 +8,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
+import { useActingUser } from "@/hooks/useActingUser";
 import { apiRequest } from "@/lib/api";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -61,7 +62,9 @@ export function NutritionDashboard() {
   const p = useAdminPastel();
   const router = useRouter();
   const profile = useAppSelector((s) => s.user.profile);
-  const { token, athleteUserId } = useAppSelector((s) => s.user);
+  const { token } = useAppSelector((s) => s.user);
+  const { actingUserId } = useActingUser();
+  const athleteUserId = actingUserId;
 
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const isToday = selectedDate === todayKey();

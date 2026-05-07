@@ -391,7 +391,7 @@ export function PendingApprovalsManager() {
                           <TableCell>
                             <div className="font-medium">{request.userName}</div>
                             <div className="text-xs text-muted-foreground">
-                              {request.userEmail}
+                              {request.userEmail?.endsWith("@athlete.local") ? "" : request.userEmail}
                             </div>
                           </TableCell>
                           <TableCell>

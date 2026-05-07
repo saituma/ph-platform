@@ -1,10 +1,10 @@
 import { useCallback } from "react";
-import { useToast } from "heroui-native";
+import { useToast } from "@/components/ui/toast";
 
 type ToastVariant = "default" | "success" | "warning" | "danger";
 
 export function useAppToast() {
-  const { toast } = useToast();
+  const toast = useToast();
 
   const show = useCallback(
     (
@@ -17,19 +17,20 @@ export function useAppToast() {
         onAction?: () => void;
       },
     ) => {
-      toast.show({
-        label,
+      const variant =
+        opts?.variant === "danger"
+          ? "error"
+          : opts?.variant === "default"
+            ? "info"
+            : (opts?.variant ?? "info");
+      toast.toast({
+        title: label,
         description: opts?.description,
-        variant: opts?.variant ?? "default",
-        duration: opts?.duration,
-        actionLabel: opts?.actionLabel,
-        onActionPress: opts?.onAction
-          ? ({ hide }) => {
-              opts.onAction!();
-              hide();
-            }
+        variant,
+        duration: opts?.duration === "persistent" ? 0 : (opts?.duration ?? 2000),
+        action: opts?.actionLabel
+          ? { label: opts.actionLabel, onPress: () => opts.onAction?.() }
           : undefined,
-        placement: "top",
       });
     },
     [toast],
@@ -37,26 +38,27 @@ export function useAppToast() {
 
   const success = useCallback(
     (label: string, description?: string) =>
-      show(label, { description, variant: "success" }),
-    [show],
+      toast.success(label, description),
+    [toast],
   );
 
   const error = useCallback(
     (label: string, description?: string) =>
-      show(label, { description, variant: "danger" }),
-    [show],
+      toast.error(label, description),
+    [toast],
   );
 
   const warning = useCallback(
     (label: string, description?: string) =>
-      show(label, { description, variant: "warning" }),
-    [show],
+      toast.warning(label, description),
+    [toast],
   );
 
   const info = useCallback(
-    (label: string, description?: string) => show(label, { description }),
-    [show],
+    (label: string, description?: string) =>
+      toast.info(label, description),
+    [toast],
   );
 
-  return { show, success, error, warning, info, hide: toast.hide };
+  return { show, success, error, warning, info, hide: toast.dismissAll };
 }

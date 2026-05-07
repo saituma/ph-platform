@@ -1,6 +1,6 @@
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
-import { ChevronLeft, Search } from "lucide-react-native";
+import { ChevronLeft, EllipsisVertical, Search } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -13,6 +13,7 @@ type ThreadHeaderProps = {
 	thread: MessageThread;
 	onBack: () => void;
 	onSearch?: () => void;
+	onMore?: () => void;
 	onHeaderPress?: () => void;
 	sharedBoundTag?: string;
 	sharedAvatarTag?: string;
@@ -31,6 +32,7 @@ export function ThreadHeader({
 	thread,
 	onBack,
 	onSearch,
+	onMore,
 	onHeaderPress,
 	sharedBoundTag,
 	sharedAvatarTag,
@@ -183,6 +185,26 @@ export function ThreadHeader({
 							]}
 						>
 							<Search size={18} color={p.textMuted} />
+						</Pressable>
+					)}
+					{onMore && (
+						<Pressable
+							onPress={() => {
+								Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+								onMore();
+							}}
+							hitSlop={12}
+							style={({ pressed }) => [
+								styles.iconButton,
+								{
+									backgroundColor: isDark
+										? "rgba(255,255,255,0.06)"
+										: "rgba(0,0,0,0.03)",
+									opacity: pressed ? 0.6 : 1,
+								},
+							]}
+						>
+							<EllipsisVertical size={18} color={p.textMuted} />
 						</Pressable>
 					)}
 				</Transition.View>

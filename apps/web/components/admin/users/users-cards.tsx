@@ -54,8 +54,8 @@ export function UsersCards({
               </div>
               <div>
                 <p className="font-semibold text-foreground">{user.name}</p>
-                {user.email && (
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                {(user.guardianEmail || user.email) && (
+                  <p className="text-xs text-muted-foreground">{user.guardianEmail || user.email}</p>
                 )}
               </div>
             </div>

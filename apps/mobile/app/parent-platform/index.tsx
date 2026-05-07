@@ -1,9 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View, useColorScheme } from "react-native";
 import { useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import { ArrowRight, BookOpen, ChevronRight, Lock } from "lucide-react-native";
+import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import {
+  ArrowRight,
+  BookOpen,
+  ChevronRight,
+  GraduationCap,
+  Heart,
+  Brain,
+  Shield,
+  Sparkles,
+} from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
@@ -13,18 +22,22 @@ import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useAppSelector } from "@/store/hooks";
 import { apiRequest } from "@/lib/api";
 import { setParentContentCache } from "@/lib/parentContentCache";
-import { canAccessTier, hasPremiumPlanFeatures } from "@/lib/planAccess";
-import { formatPlanList, getUnlockingPlanNames } from "@/lib/unlockPlans";
 import {
   PARENT_CATEGORIES,
   ParentCourseItem,
 } from "@/lib/parentPlatformConstants";
+import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
+
+const CATEGORY_COLORS = ["cardMint", "cardPeach", "cardLavender", "cardPink", "cardYellow", "cardSage"] as const;
+const CATEGORY_ICONS = [GraduationCap, Heart, Brain, Shield, Sparkles, BookOpen];
 
 export default function ParentPlatformScreen() {
-  const { token, programTier } = useAppSelector((s) => s.user);
+  const { token } = useAppSelector((s) => s.user);
   const router = useRouter();
   const { isSectionHidden } = useAgeExperience();
   const p = useAdminPastel();
+  const insets = useAppSafeAreaInsets();
+  const isDark = useColorScheme() === "dark";
 
   const [items, setItems] = useState<ParentCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,21 +65,8 @@ export default function ParentPlatformScreen() {
   }, [fetchCourses]);
 
   const featured = useMemo(() => items.slice(0, 3), [items]);
-  const hasPremiumAccess = hasPremiumPlanFeatures(programTier);
 
   const openCourse = (item: ParentCourseItem) => {
-    const canAccess = canAccessTier(programTier, item.programTier ?? null);
-    const isLocked = !canAccess && !item.isPreview;
-    if (isLocked) {
-      const plans = getUnlockingPlanNames(item.programTier ?? "PHP_Premium_Plus");
-      const list = formatPlanList(plans);
-      Alert.alert(
-        "Content locked",
-        list ? `Unlocks with: ${list}.` : "Not available for your account.",
-        [{ text: "OK" }],
-      );
-      return;
-    }
     setParentContentCache({
       id: Number(item.id),
       title: item.title,
@@ -90,95 +90,35 @@ export default function ParentPlatformScreen() {
     );
   }
 
-  if (!hasPremiumAccess) {
-    return (
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={{ backgroundColor: p.pageBg }}
-        contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
-      >
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 }}>
-          <View
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 18,
-              backgroundColor: p.accentSoft,
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 20,
-            }}
-          >
-            <Lock size={24} color={p.accent} />
-          </View>
-          <Text
-            style={{
-              fontFamily: "Outfit-Bold",
-              fontSize: 28,
-              color: p.textPrimary,
-              textAlign: "center",
-              marginBottom: 10,
-            }}
-          >
-            Parent Education
-          </Text>
-          <Text
-            style={{
-              fontFamily: "Outfit-Regular",
-              fontSize: 15,
-              color: p.textSecondary,
-              textAlign: "center",
-              lineHeight: 22,
-              maxWidth: 280,
-              marginBottom: 32,
-            }}
-          >
-            This section isn't available for your account yet. Check the Programs tab for more.
-          </Text>
-          <Pressable
-            onPress={() => router.push("/(tabs)/programs")}
-            style={({ pressed }) => ({
-              backgroundColor: p.accent,
-              paddingHorizontal: 28,
-              paddingVertical: 14,
-              borderRadius: 100,
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.buttonPrimaryText }}>
-              Open Programs
-            </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    );
-  }
-
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={{ backgroundColor: p.pageBg }}
       contentContainerStyle={{ paddingBottom: 60 }}
+      showsVerticalScrollIndicator={false}
     >
       {/* Hero */}
       <Animated.View
-        entering={FadeInDown.duration(380)}
-        style={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 28 }}
+        entering={FadeInDown.duration(400)}
+        style={{ paddingHorizontal: 24, paddingTop: insets.top + 20, paddingBottom: 28 }}
       >
-        <View
-          style={{
-            alignSelf: "flex-start",
-            backgroundColor: p.accentSoft,
-            borderRadius: 100,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            marginBottom: 14,
-          }}
-        >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 12,
+              backgroundColor: p.cardMint,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <GraduationCap size={18} color={p.accent} />
+          </View>
           <Text
             style={{
               fontFamily: "Outfit-Bold",
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: 1.4,
               textTransform: "uppercase",
               color: p.accent,
@@ -190,33 +130,47 @@ export default function ParentPlatformScreen() {
         <Text
           style={{
             fontFamily: "Outfit-Bold",
-            fontSize: 40,
+            fontSize: 34,
             color: p.textPrimary,
             letterSpacing: -0.5,
-            lineHeight: 46,
+            lineHeight: 40,
           }}
         >
           Parent Education
         </Text>
-        <Text
-          style={{
-            fontFamily: "Outfit-Regular",
-            fontSize: 15,
-            color: p.textSecondary,
-            marginTop: 10,
-            lineHeight: 22,
-          }}
-        >
-          Expert guidance to help you support your young athlete at home.
-        </Text>
+        <Animated.View entering={FadeIn.delay(300).duration(500)}>
+          <Text
+            style={{
+              fontFamily: "Outfit-Regular",
+              fontSize: 15,
+              color: p.textSecondary,
+              marginTop: 10,
+              lineHeight: 22,
+            }}
+          >
+            Expert guidance to help you support your young athlete at home.
+          </Text>
+        </Animated.View>
       </Animated.View>
 
       {/* Featured highlights */}
       <Animated.View
-        entering={FadeInDown.delay(80).duration(380)}
+        entering={FadeInDown.delay(100).duration(380)}
         style={{ paddingHorizontal: 24 }}
       >
-        <SectionLabel label="Featured" p={p} />
+        <Text
+          style={{
+            fontFamily: "Outfit-Bold",
+            fontSize: 10,
+            letterSpacing: 1.6,
+            textTransform: "uppercase",
+            color: p.textMuted,
+            marginBottom: 14,
+            marginLeft: 2,
+          }}
+        >
+          Featured
+        </Text>
         {isLoading ? (
           <View style={{ gap: 16 }}>
             {[1, 2, 3].map((i) => (
@@ -225,104 +179,114 @@ export default function ParentPlatformScreen() {
           </View>
         ) : (
           <View style={{ gap: 16 }}>
-            {featured.map((item) => {
-              const isLocked =
-                !canAccessTier(programTier, item.programTier ?? null) &&
-                !item.isPreview;
-              return (
+            {featured.map((item, idx) => (
+              <Animated.View
+                key={item.id}
+                entering={FadeInDown.delay(140 + idx * 80).duration(380)}
+              >
                 <FeaturedCard
-                  key={item.id}
                   item={item}
-                  isLocked={isLocked}
                   onPress={() => openCourse(item)}
                   p={p}
+                  cardBg={p[CATEGORY_COLORS[idx % CATEGORY_COLORS.length]]}
                 />
-              );
-            })}
+              </Animated.View>
+            ))}
           </View>
         )}
       </Animated.View>
 
       {/* Category grid */}
       <Animated.View
-        entering={FadeInDown.delay(160).duration(380)}
-        style={{ paddingHorizontal: 24, marginTop: 40 }}
+        entering={FadeInDown.delay(200).duration(380)}
+        style={{ paddingHorizontal: 24, marginTop: 36 }}
       >
-        <SectionLabel label="Browse by topic" p={p} />
-        <View style={{ gap: 12 }}>
-          {PARENT_CATEGORIES.map((cat) => {
+        <Text
+          style={{
+            fontFamily: "Outfit-Bold",
+            fontSize: 10,
+            letterSpacing: 1.6,
+            textTransform: "uppercase",
+            color: p.textMuted,
+            marginBottom: 14,
+            marginLeft: 2,
+          }}
+        >
+          Browse by topic
+        </Text>
+        <View style={{ gap: 10 }}>
+          {PARENT_CATEGORIES.map((cat, idx) => {
+            const IconComp = CATEGORY_ICONS[idx % CATEGORY_ICONS.length];
+            const cardColor = p[CATEGORY_COLORS[idx % CATEGORY_COLORS.length]];
             return (
-              <Pressable
+              <Animated.View
                 key={cat.id}
-                onPress={() =>
-                  router.push({ pathname: "/parent-platform/category/[id]", params: { id: cat.id } })
-                }
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.82 : 1,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                })}
+                entering={FadeInDown.delay(240 + idx * 50).duration(350)}
               >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 14,
-                    borderRadius: 22,
-                    paddingVertical: 14,
-                    paddingHorizontal: 16,
-                    backgroundColor: p.cardWhite,
-                  }}
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: "/parent-platform/category/[id]", params: { id: cat.id } })
+                  }
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.85 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                  })}
                 >
                   <View
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 14,
-                      backgroundColor: p.accentSoft,
+                      flexDirection: "row",
                       alignItems: "center",
-                      justifyContent: "center",
+                      gap: 14,
+                      borderRadius: 20,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      backgroundColor: p.cardWhite,
                     }}
                   >
-                    <BookOpen size={20} color={p.accent} />
+                    <View
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
+                        backgroundColor: cardColor,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <IconComp size={20} color={p.accent} />
+                    </View>
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontFamily: "Outfit-SemiBold",
+                        fontSize: 15,
+                        color: p.textPrimary,
+                        lineHeight: 20,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {cat.title}
+                    </Text>
+                    <View
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 10,
+                        backgroundColor: p.accentSoft,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <ChevronRight size={14} color={p.accent} />
+                    </View>
                   </View>
-                  <Text
-                    style={{
-                      flex: 1,
-                      fontFamily: "Outfit-Bold",
-                      fontSize: 14,
-                      color: p.textPrimary,
-                      lineHeight: 20,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {cat.title}
-                  </Text>
-                  <ChevronRight size={16} color={p.textSecondary} />
-                </View>
-              </Pressable>
+                </Pressable>
+              </Animated.View>
             );
           })}
         </View>
       </Animated.View>
     </ScrollView>
-  );
-}
-
-function SectionLabel({ label, p }: { label: string; p: ReturnType<typeof useAdminPastel> }) {
-  return (
-    <Text
-      style={{
-        fontFamily: "Outfit-Bold",
-        fontSize: 10,
-        letterSpacing: 1.6,
-        textTransform: "uppercase",
-        color: p.textMuted,
-        marginBottom: 16,
-        marginLeft: 2,
-      }}
-    >
-      {label}
-    </Text>
   );
 }
 
@@ -349,14 +313,14 @@ function AutoImage({
 
 function FeaturedCard({
   item,
-  isLocked,
   onPress,
   p,
+  cardBg,
 }: {
   item: ParentCourseItem;
-  isLocked: boolean;
   onPress: () => void;
   p: ReturnType<typeof useAdminPastel>;
+  cardBg: string;
 }) {
   return (
     <Pressable
@@ -364,7 +328,7 @@ function FeaturedCard({
       style={({ pressed }) => ({
         borderRadius: 22,
         overflow: "hidden",
-        opacity: isLocked ? 0.65 : pressed ? 0.92 : 1,
+        opacity: pressed ? 0.92 : 1,
         transform: [{ scale: pressed ? 0.985 : 1 }],
         backgroundColor: p.cardWhite,
       })}
@@ -375,13 +339,13 @@ function FeaturedCard({
         <View
           style={{
             width: "100%",
-            aspectRatio: 16 / 9,
-            backgroundColor: p.accentSoft,
+            aspectRatio: 2.2,
+            backgroundColor: cardBg,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <BookOpen size={32} color={p.accent} strokeWidth={1.5} />
+          <BookOpen size={36} color={p.accent} strokeWidth={1.5} />
         </View>
       )}
 
@@ -390,7 +354,7 @@ function FeaturedCard({
           <View
             style={{
               alignSelf: "flex-start",
-              backgroundColor: p.accentSoft,
+              backgroundColor: cardBg,
               borderRadius: 100,
               paddingHorizontal: 10,
               paddingVertical: 4,
@@ -414,10 +378,10 @@ function FeaturedCard({
         <Text
           style={{
             fontFamily: "Outfit-Bold",
-            fontSize: 22,
+            fontSize: 20,
             color: p.textPrimary,
-            lineHeight: 28,
-            marginBottom: 8,
+            lineHeight: 26,
+            marginBottom: 6,
           }}
           numberOfLines={2}
         >
@@ -440,45 +404,32 @@ function FeaturedCard({
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            marginTop: 16,
+            marginTop: 14,
           }}
         >
-          <Text
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: p.accent }} />
+            <Text
+              style={{
+                fontFamily: "Outfit-Medium",
+                fontSize: 12,
+                color: p.textMuted,
+              }}
+            >
+              {item.modules?.length ?? 0} modules
+            </Text>
+          </View>
+          <View
             style={{
-              fontFamily: "Outfit-Regular",
-              fontSize: 12,
-              color: p.textMuted,
-              textTransform: "uppercase",
-              letterSpacing: 1,
+              width: 30,
+              height: 30,
+              borderRadius: 10,
+              backgroundColor: p.accentSoft,
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            {item.modules?.length ?? 0} modules
-            {item.isPreview ? " · Preview" : ""}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            {isLocked ? (
-              <View
-                style={{
-                  backgroundColor: p.accentSoft,
-                  borderRadius: 100,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Bold",
-                    fontSize: 10,
-                    letterSpacing: 1.1,
-                    textTransform: "uppercase",
-                    color: p.textSecondary,
-                  }}
-                >
-                  Locked
-                </Text>
-              </View>
-            ) : null}
-            <ArrowRight size={16} color={p.accent} />
+            <ArrowRight size={14} color={p.accent} />
           </View>
         </View>
       </View>

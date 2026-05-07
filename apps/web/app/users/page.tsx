@@ -44,6 +44,7 @@ type AdminUser = {
   profilePicture?: string | null;
   programTier?: string | null;
   guardianProgramTier?: string | null;
+  guardianEmail?: string | null;
 };
 
 function getErrorMessage(err: unknown, fallback: string) {
@@ -187,7 +188,7 @@ function UsersPageContent() {
       const displayName = isGuardian
         ? (user.athleteName ?? user.name ?? user.email ?? `User ${user.id}`)
         : (user.name ?? user.athleteName ?? user.email ?? `User ${user.id}`);
-      const displayEmail = isGuardian ? undefined : (user.email ?? undefined);
+      const displayEmail = isGuardian ? undefined : (user.guardianEmail ?? user.email ?? undefined);
 
       return {
         id: user.id,

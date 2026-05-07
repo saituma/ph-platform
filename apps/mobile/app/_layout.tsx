@@ -8,6 +8,7 @@ import { InAppNotificationsProvider } from "@/context/InAppNotificationsContext"
 import { Stack, slideFromRight, Transition } from "@/components/navigation/TransitionStack";
 import { useRouter } from "expo-router";
 import { HeroAppProvider } from "@/components/ui/hero";
+import { ToastProvider } from "@/components/ui/toast";
 import { AuthPersist } from "@/store/AuthPersist";
 import { ReduxProvider } from "@/store/Provider";
 import React, {
@@ -136,6 +137,7 @@ function RootLayout() {
         QueryWrapper,
         AppThemeProvider,
         HeroAppProvider,
+        ToastProvider,
         AgeExperienceProvider,
         TabVisibilityProvider,
         RefreshProvider,

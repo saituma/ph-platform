@@ -888,7 +888,7 @@ export default function SessionSchedulePage() {
                     <tr key={s.userId} className="border-b last:border-b-0 hover:bg-muted/20">
                       <td className="px-3 py-2">
                         <div className="font-medium">{s.userName || "Unnamed"}</div>
-                        <div className="text-xs text-muted-foreground">{s.userEmail}</div>
+                        <div className="text-xs text-muted-foreground">{s.userEmail?.endsWith("@athlete.local") ? "" : s.userEmail}</div>
                       </td>
                       <td className="px-3 py-2 text-center">{s.totalSessions}</td>
                       <td className="px-3 py-2 text-center text-green-600">{s.attended}</td>

@@ -739,8 +739,9 @@ export default function NutritionAdminPage() {
     return filteredByType.filter((u) => {
       const name = String(u.name ?? "").toLowerCase();
       const email = String(u.email ?? "").toLowerCase();
+      const guardianEmail = String((u as any).guardianEmail ?? "").toLowerCase();
       const id = String(u.id ?? "").toLowerCase();
-      return name.includes(q) || email.includes(q) || id.includes(q);
+      return name.includes(q) || email.includes(q) || guardianEmail.includes(q) || id.includes(q);
     });
   }, [athleteQuery, showAdult, showYouth, users]);
 
@@ -806,7 +807,7 @@ export default function NutritionAdminPage() {
                   >
                     <div className="font-semibold">{user.name}</div>
                     <div className="text-xs opacity-80">
-                      {user.email || user.role}
+                      {(user as any).guardianEmail || user.email || user.role}
                     </div>
                   </button>
                 ))}

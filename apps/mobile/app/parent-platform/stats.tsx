@@ -8,7 +8,18 @@ import React, {
 import { Image, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Lock, User } from "lucide-react-native";
+import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import {
+  ArrowLeft,
+  User,
+  Calendar,
+  MessageCircle,
+  Video,
+  Trophy,
+  Activity,
+  TrendingUp,
+  BarChart3,
+} from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
 import { AgeGate } from "@/components/AgeGate";
@@ -17,8 +28,6 @@ import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setManagedAthletes } from "@/store/slices/userSlice";
 import { apiRequest } from "@/lib/api";
-import { tierRank } from "@/lib/planAccess";
-import { formatPlanList, getUnlockingPlanNames } from "@/lib/unlockPlans";
 import { runWhenIdle } from "@/lib/scheduling/idle";
 
 export default function AthleteStatsScreen() {
@@ -26,8 +35,7 @@ export default function AthleteStatsScreen() {
   const dispatch = useAppDispatch();
   const { isSectionHidden } = useAgeExperience();
   const p = useAdminPastel();
-  const { token, programTier, managedAthletes, profile } =
-    useAppSelector((state) => state.user);
+  const { token, managedAthletes, profile } = useAppSelector((state) => state.user);
   const [isLoading, setIsLoading] = useState(true);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -45,21 +53,11 @@ export default function AthleteStatsScreen() {
       sessionCompletionRate: number;
     };
   }>({
-    summary: {
-      sessionsCompleted: 0,
-      coachFeedback: 0,
-      videosReviewed: 0,
-    },
+    summary: { sessionsCompleted: 0, coachFeedback: 0, videosReviewed: 0 },
     weeklyLoad: [],
     progressTrend: [],
-    feedback: {
-      videoFeedbackRate: 0,
-      coachReplyRate: 0,
-      sessionCompletionRate: 0,
-    },
+    feedback: { videoFeedbackRate: 0, coachReplyRate: 0, sessionCompletionRate: 0 },
   });
-
-  const hasPremiumAccess = tierRank(programTier) >= tierRank("PHP_Premium_Plus");
 
   const loadAthletes = useCallback(async () => {
     if (!token) return;
@@ -76,8 +74,7 @@ export default function AthleteStatsScreen() {
           profilePicture?: string | null;
         }[];
       }>("/onboarding/athletes", { token });
-      const athleteList = data.athletes ?? [];
-      dispatch(setManagedAthletes(athleteList));
+      dispatch(setManagedAthletes(data.athletes ?? []));
     } catch {
       dispatch(setManagedAthletes([]));
     } finally {
@@ -87,17 +84,18 @@ export default function AthleteStatsScreen() {
 
   const selectedAthlete = managedAthletes[0] ?? null;
 
-  const summaryStats = useMemo(() => {
-    return [
-      {
-        label: "Training Days",
-        value: selectedAthlete?.trainingPerWeek ?? "—",
-      },
-      { label: "Sessions Completed", value: stats.summary.sessionsCompleted },
-      { label: "Coach Feedback", value: stats.summary.coachFeedback },
-      { label: "Videos Reviewed", value: stats.summary.videosReviewed },
-    ];
-  }, [selectedAthlete?.trainingPerWeek, stats.summary]);
+  const summaryCards = useMemo(() => [
+    { label: "Training Days", value: selectedAthlete?.trainingPerWeek ?? "—", icon: Calendar, color: "cardMint" as const },
+    { label: "Sessions", value: stats.summary.sessionsCompleted, icon: Trophy, color: "cardYellow" as const },
+    { label: "Coach Notes", value: stats.summary.coachFeedback, icon: MessageCircle, color: "cardPeach" as const },
+    { label: "Videos", value: stats.summary.videosReviewed, icon: Video, color: "cardLavender" as const },
+  ], [selectedAthlete?.trainingPerWeek, stats.summary]);
+
+  const feedbackItems = useMemo(() => [
+    { label: "Video Feedback", value: stats.feedback.videoFeedbackRate, color: "cardMint" as const },
+    { label: "Coach Replies", value: stats.feedback.coachReplyRate, color: "cardPeach" as const },
+    { label: "Completion", value: stats.feedback.sessionCompletionRate, color: "cardYellow" as const },
+  ], [stats.feedback]);
 
   const loadStats = useCallback(async () => {
     if (!token || !selectedAthlete) return;
@@ -120,18 +118,17 @@ export default function AthleteStatsScreen() {
     };
     const currentWeekStart = startOfWeek(now);
     const weekMs = 7 * 24 * 60 * 60 * 1000;
-    const buildWeekBuckets = (count: number) => {
-      return Array.from({ length: count }).map((_, idx) => {
+    const buildWeekBuckets = (count: number) =>
+      Array.from({ length: count }).map((_, idx) => {
         const date = new Date(currentWeekStart);
         date.setDate(date.getDate() - (count - 1 - idx) * 7);
         return date;
       });
-    };
     const weekStarts = buildWeekBuckets(6);
     const loadWeekStarts = buildWeekBuckets(5);
     const resolveWeekIndex = (value: Date, buckets: Date[]) => {
-      const weekStart = startOfWeek(value);
-      const diff = currentWeekStart.getTime() - weekStart.getTime();
+      const ws = startOfWeek(value);
+      const diff = currentWeekStart.getTime() - ws.getTime();
       const indexFromCurrent = Math.floor(diff / weekMs);
       const idx = buckets.length - 1 - indexFromCurrent;
       return idx >= 0 && idx < buckets.length ? idx : null;
@@ -141,9 +138,7 @@ export default function AthleteStatsScreen() {
       const [bookingsData, videosData, messagesData] = await Promise.all([
         apiRequest<{ items: any[] }>("/bookings", { token }),
         apiRequest<{ items: any[] }>("/videos", { token }),
-        apiRequest<{ messages: any[]; coach?: { id?: number } }>("/messages", {
-          token,
-        }),
+        apiRequest<{ messages: any[]; coach?: { id?: number } }>("/messages", { token }),
       ]);
 
       const bookings = bookingsData.items ?? [];
@@ -154,23 +149,19 @@ export default function AthleteStatsScreen() {
       const bookingsForAthlete = selectedAthlete.id
         ? bookings.filter((item) => item.athleteId === selectedAthlete.id)
         : bookings;
-      const totalBookings = bookingsForAthlete.length;
       const completedBookings = bookingsForAthlete.filter((item) => {
         const startsAt = toDate(item.startsAt);
         return startsAt ? startsAt.getTime() <= now.getTime() : false;
       });
 
-      const reviewedVideos = videos.filter((item) =>
-        Boolean(item.feedback),
-      ).length;
+      const reviewedVideos = videos.filter((item) => Boolean(item.feedback)).length;
       const totalVideos = videos.length;
+      const totalBookings = bookingsForAthlete.length;
 
       const guardianUserId = Number(profile.id);
       const hasGuardianId = Number.isFinite(guardianUserId);
       const coachMessages = hasGuardianId
-        ? messages.filter(
-            (msg) => msg.senderId && msg.senderId !== guardianUserId,
-          ).length
+        ? messages.filter((msg) => msg.senderId && msg.senderId !== guardianUserId).length
         : coachId
           ? messages.filter((msg) => msg.senderId === coachId).length
           : messages.filter((msg) => Boolean(msg.senderId)).length;
@@ -187,14 +178,12 @@ export default function AthleteStatsScreen() {
         const progressIndex = resolveWeekIndex(startsAt, weekStarts);
         if (progressIndex !== null) progressCounts[progressIndex] += 1;
       });
-
       videos.forEach((item) => {
         const createdAt = toDate(item.createdAt);
         if (!createdAt) return;
         const progressIndex = resolveWeekIndex(createdAt, weekStarts);
         if (progressIndex !== null) progressCounts[progressIndex] += 1;
       });
-
       messages.forEach((item) => {
         const createdAt = toDate(item.createdAt);
         if (!createdAt) return;
@@ -206,30 +195,19 @@ export default function AthleteStatsScreen() {
       const weeklyLoad = weeklyLoadCounts.map((count) =>
         Math.min(100, Math.round((count / expectedPerWeek) * 100)),
       );
-
       const maxProgress = Math.max(1, ...progressCounts);
       const progressTrend = progressCounts.map((count) =>
         Math.min(100, Math.round((count / maxProgress) * 100)),
       );
 
       setStats({
-        summary: {
-          sessionsCompleted: completedBookings.length,
-          coachFeedback: coachMessages,
-          videosReviewed: reviewedVideos,
-        },
+        summary: { sessionsCompleted: completedBookings.length, coachFeedback: coachMessages, videosReviewed: reviewedVideos },
         weeklyLoad,
         progressTrend,
         feedback: {
-          videoFeedbackRate: totalVideos
-            ? Math.round((reviewedVideos / totalVideos) * 100)
-            : 0,
-          coachReplyRate: totalMessages
-            ? Math.round((coachMessages / totalMessages) * 100)
-            : 0,
-          sessionCompletionRate: totalBookings
-            ? Math.round((completedBookings.length / totalBookings) * 100)
-            : 0,
+          videoFeedbackRate: totalVideos ? Math.round((reviewedVideos / totalVideos) * 100) : 0,
+          coachReplyRate: totalMessages ? Math.round((coachMessages / totalMessages) * 100) : 0,
+          sessionCompletionRate: totalBookings ? Math.round((completedBookings.length / totalBookings) * 100) : 0,
         },
       });
     } catch (err: any) {
@@ -241,26 +219,14 @@ export default function AthleteStatsScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const task = runWhenIdle(() => {
-      if (!mounted) return;
-      void loadAthletes();
-    });
-    return () => {
-      mounted = false;
-      task?.cancel?.();
-    };
+    const task = runWhenIdle(() => { if (mounted) void loadAthletes(); });
+    return () => { mounted = false; task?.cancel?.(); };
   }, [loadAthletes]);
 
   useEffect(() => {
     let active = true;
-    const task = runWhenIdle(() => {
-      if (!active) return;
-      void loadStats();
-    });
-    return () => {
-      active = false;
-      task?.cancel?.();
-    };
+    const task = runWhenIdle(() => { if (active) void loadStats(); });
+    return () => { active = false; task?.cancel?.(); };
   }, [loadStats]);
 
   if (isSectionHidden("parentPlatform")) {
@@ -272,56 +238,24 @@ export default function AthleteStatsScreen() {
     );
   }
 
-  if (!hasPremiumAccess) {
-    const unlockingPlans = getUnlockingPlanNames("PHP_Premium_Plus");
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
-        <ScrollView
-          contentContainerStyle={{
-            paddingHorizontal: 24,
-            paddingTop: 24,
-            paddingBottom: 40,
-          }}
-        >
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8 }}>
-              Athlete Stats
-            </Text>
-            <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24 }}>
-              This dashboard isn't available for your account yet.
-            </Text>
-          </View>
-          <View style={{ borderRadius: 22, backgroundColor: p.cardLavender, padding: 20 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <Lock size={16} color={p.textSecondary} />
-              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textSecondary, textTransform: "uppercase", letterSpacing: 1.4 }}>
-                Expanded access
-              </Text>
-            </View>
-            <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8 }}>
-              Athlete analytics
-            </Text>
-            <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24 }}>
-              {unlockingPlans.length
-                ? `May be available with: ${formatPlanList(unlockingPlans)}.`
-                : "Ask your coach if you need access."}
-            </Text>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: 24,
-          paddingTop: 24,
-          paddingBottom: 40,
-        }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        {/* Header */}
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 24,
+            paddingTop: 16,
+            paddingBottom: 12,
+          }}
+        >
           <TouchableOpacity
             onPress={() => router.replace("/parent-platform")}
             style={{
@@ -330,197 +264,202 @@ export default function AthleteStatsScreen() {
               alignItems: "center",
               justifyContent: "center",
               backgroundColor: p.cardWhite,
-              borderRadius: 16,
+              borderRadius: 14,
             }}
           >
-            <ArrowLeft size={20} color={p.textSecondary} />
+            <ArrowLeft size={18} color={p.textSecondary} />
           </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
+          <Text style={{ fontSize: 16, fontFamily: "Outfit-SemiBold", color: p.textPrimary }}>
             Athlete Stats
           </Text>
           <View style={{ width: 40 }} />
-        </View>
+        </Animated.View>
 
-        {isLoading ? (
-          <View style={{ gap: 12 }}>
-            {[1, 2, 3].map((row) => (
-              <View
-                key={row}
-                style={{ borderRadius: 22, backgroundColor: p.inputBg, paddingHorizontal: 16, paddingVertical: 12 }}
-              >
-                <View style={{ height: 16, width: 128, borderRadius: 100, backgroundColor: p.divider }} />
-                <View style={{ height: 12, width: "100%", borderRadius: 100, backgroundColor: p.divider, marginTop: 8 }} />
-              </View>
-            ))}
-          </View>
-        ) : (
-          <>
-            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20, marginBottom: 24 }}>
-              <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
-                Selected Athlete
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12 }}>
-                {selectedAthlete?.profilePicture ? (
-                  <Image
-                    source={{ uri: selectedAthlete.profilePicture }}
-                    style={{ width: 56, height: 56, borderRadius: 16 }}
-                  />
-                ) : (
-                  <View style={{ height: 56, width: 56, borderRadius: 16, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
-                    <User size={20} color={p.textSecondary} />
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
-                    {selectedAthlete?.name ?? "Athlete"}
-                  </Text>
-                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                    {selectedAthlete?.team ?? "Team not set"} -{" "}
-                    {selectedAthlete?.age ?? "—"} yrs
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ gap: 16, marginBottom: 24 }}>
-              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
-                Overview
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-                {summaryStats.map((stat) => (
-                  <View
-                    key={stat.label}
-                    style={{ width: "48%", borderRadius: 16, backgroundColor: p.cardWhite, paddingHorizontal: 16, paddingVertical: 16 }}
-                  >
-                    <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.2 }}>
-                      {stat.label}
-                    </Text>
-                    <Text style={{ fontSize: 24, fontFamily: "Outfit-Bold", color: p.textPrimary, marginTop: 8 }}>
-                      {stat.value}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {isStatsLoading ? (
-              <View style={{ gap: 12, marginBottom: 24 }}>
-                {[1, 2].map((row) => (
-                  <View
-                    key={`stat-skel-${row}`}
-                    style={{ borderRadius: 22, backgroundColor: p.inputBg, paddingHorizontal: 16, paddingVertical: 12 }}
-                  >
-                    <View style={{ height: 16, width: 128, borderRadius: 100, backgroundColor: p.divider }} />
-                    <View style={{ height: 12, width: "100%", borderRadius: 100, backgroundColor: p.divider, marginTop: 8 }} />
-                  </View>
-                ))}
-              </View>
-            ) : statsError ? (
-              <View style={{ borderRadius: 22, backgroundColor: p.cardPeach, padding: 16, marginBottom: 24 }}>
-                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                  {statsError}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20, marginBottom: 24 }}>
-              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 12 }}>
-                Weekly Load
-              </Text>
-              {(stats.weeklyLoad.length
-                ? stats.weeklyLoad
-                : [0, 0, 0, 0, 0]
-              ).map((value, index) => (
-                <View key={`bar-${index}`} style={{ marginBottom: 12 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                      Week {index + 1}
-                    </Text>
-                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                      {value}%
-                    </Text>
-                  </View>
-                  <View style={{ height: 8, borderRadius: 100, backgroundColor: p.divider, overflow: "hidden" }}>
-                    <View
-                      style={{ width: `${value}%`, height: 8, borderRadius: 100, backgroundColor: p.accent }}
-                    />
-                  </View>
+        <View style={{ paddingHorizontal: 24 }}>
+          {isLoading ? (
+            <View style={{ gap: 14 }}>
+              {[1, 2, 3].map((row) => (
+                <View key={row} style={{ borderRadius: 20, backgroundColor: p.cardWhite, padding: 20 }}>
+                  <View style={{ height: 14, width: 120, borderRadius: 100, backgroundColor: p.inputBg }} />
+                  <View style={{ height: 12, width: "100%", borderRadius: 100, backgroundColor: p.inputBg, marginTop: 12 }} />
                 </View>
               ))}
             </View>
-
-            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20, marginBottom: 24 }}>
-              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 12 }}>
-                Progress Trend
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 96 }}>
-                {(stats.progressTrend.length
-                  ? stats.progressTrend
-                  : [0, 0, 0, 0, 0, 0]
-                ).map((value, index) => (
-                  <View key={`trend-${index}`} style={{ alignItems: "center", flex: 1 }}>
-                    <View style={{ height: 80, width: 8, borderRadius: 100, backgroundColor: p.divider, overflow: "hidden", justifyContent: "flex-end" }}>
-                      <View
-                        style={{ height: `${value}%`, width: 8, borderRadius: 100, backgroundColor: p.accent }}
-                      />
-                    </View>
-                  </View>
-                ))}
-              </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
-                {["W1", "W2", "W3", "W4", "W5", "W6"].map((label) => (
-                  <Text
-                    key={label}
-                    style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.textMuted }}
-                  >
-                    {label}
+          ) : (
+            <View style={{ gap: 16 }}>
+              {/* Athlete card */}
+              <Animated.View entering={FadeInDown.duration(380)}>
+                <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20 }}>
+                  <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 14 }}>
+                    Selected Athlete
                   </Text>
-                ))}
-              </View>
-            </View>
-
-            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20 }}>
-              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 12 }}>
-                Feedback Summary
-              </Text>
-              <View style={{ gap: 8 }}>
-                {[
-                  {
-                    label: "Video Feedback Rate",
-                    value: stats.feedback.videoFeedbackRate,
-                  },
-                  {
-                    label: "Coach Reply Rate",
-                    value: stats.feedback.coachReplyRate,
-                  },
-                  {
-                    label: "Session Completion",
-                    value: stats.feedback.sessionCompletionRate,
-                  },
-                ].map((item) => (
-                  <View
-                    key={item.label}
-                    style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
-                  >
-                    <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
-                      {item.label}
-                    </Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <View style={{ height: 8, width: 96, borderRadius: 100, backgroundColor: p.divider, overflow: "hidden" }}>
-                        <View
-                          style={{ width: `${item.value}%`, height: 8, borderRadius: 100, backgroundColor: p.accent }}
-                        />
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                    {selectedAthlete?.profilePicture ? (
+                      <Image
+                        source={{ uri: selectedAthlete.profilePicture }}
+                        style={{ width: 52, height: 52, borderRadius: 16 }}
+                      />
+                    ) : (
+                      <View style={{ height: 52, width: 52, borderRadius: 16, backgroundColor: p.cardMint, alignItems: "center", justifyContent: "center" }}>
+                        <User size={22} color={p.accent} />
                       </View>
-                      <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                        {item.value}%
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
+                        {selectedAthlete?.name ?? "Athlete"}
+                      </Text>
+                      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 2 }}>
+                        {selectedAthlete?.team ?? "Team not set"} · {selectedAthlete?.age ?? "—"} yrs
                       </Text>
                     </View>
                   </View>
-                ))}
-              </View>
+                </View>
+              </Animated.View>
+
+              {/* Summary grid */}
+              <Animated.View entering={FadeInDown.delay(80).duration(380)}>
+                <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 12, marginLeft: 2 }}>
+                  Overview
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                  {summaryCards.map((card, idx) => {
+                    const IconComp = card.icon;
+                    return (
+                      <Animated.View
+                        key={card.label}
+                        entering={FadeInDown.delay(120 + idx * 50).duration(350)}
+                        style={{ width: "48%" }}
+                      >
+                        <View style={{ borderRadius: 18, backgroundColor: p.cardWhite, padding: 16, gap: 10 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: p[card.color], alignItems: "center", justifyContent: "center" }}>
+                              <IconComp size={15} color={p.accent} />
+                            </View>
+                            <Text style={{ fontSize: 11, fontFamily: "Outfit-Medium", color: p.textMuted, textTransform: "uppercase", letterSpacing: 0.8, flex: 1 }} numberOfLines={1}>
+                              {card.label}
+                            </Text>
+                          </View>
+                          <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.5 }}>
+                            {card.value}
+                          </Text>
+                        </View>
+                      </Animated.View>
+                    );
+                  })}
+                </View>
+              </Animated.View>
+
+              {isStatsLoading ? (
+                <View style={{ gap: 12 }}>
+                  {[1, 2].map((row) => (
+                    <View key={`skel-${row}`} style={{ borderRadius: 20, backgroundColor: p.cardWhite, padding: 20 }}>
+                      <View style={{ height: 14, width: 120, borderRadius: 100, backgroundColor: p.inputBg }} />
+                      <View style={{ height: 12, width: "100%", borderRadius: 100, backgroundColor: p.inputBg, marginTop: 12 }} />
+                    </View>
+                  ))}
+                </View>
+              ) : statsError ? (
+                <View style={{ borderRadius: 20, backgroundColor: p.cardPeach, padding: 18 }}>
+                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                    {statsError}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Weekly Load */}
+              <Animated.View entering={FadeInDown.delay(200).duration(380)}>
+                <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20, gap: 14 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: p.cardYellow, alignItems: "center", justifyContent: "center" }}>
+                      <Activity size={14} color={p.accent} />
+                    </View>
+                    <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
+                      Weekly Load
+                    </Text>
+                  </View>
+                  {(stats.weeklyLoad.length ? stats.weeklyLoad : [0, 0, 0, 0, 0]).map((value, index) => (
+                    <View key={`bar-${index}`} style={{ gap: 4 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <Text style={{ fontSize: 12, fontFamily: "Outfit-Medium", color: p.textSecondary }}>
+                          Week {index + 1}
+                        </Text>
+                        <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
+                          {value}%
+                        </Text>
+                      </View>
+                      <View style={{ height: 8, borderRadius: 100, backgroundColor: p.inputBg, overflow: "hidden" }}>
+                        <View style={{ width: `${value}%`, height: 8, borderRadius: 100, backgroundColor: p.accent }} />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </Animated.View>
+
+              {/* Progress Trend */}
+              <Animated.View entering={FadeInDown.delay(280).duration(380)}>
+                <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: p.cardMint, alignItems: "center", justifyContent: "center" }}>
+                      <TrendingUp size={14} color={p.accent} />
+                    </View>
+                    <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
+                      Progress Trend
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 100, gap: 6 }}>
+                    {(stats.progressTrend.length ? stats.progressTrend : [0, 0, 0, 0, 0, 0]).map((value, index) => {
+                      const colors = [p.cardMint, p.cardPeach, p.cardLavender, p.cardYellow, p.cardPink, p.cardSage];
+                      return (
+                        <View key={`trend-${index}`} style={{ alignItems: "center", flex: 1, gap: 4 }}>
+                          <Text style={{ fontSize: 9, fontFamily: "Outfit-Bold", color: p.textMuted }}>
+                            {value > 0 ? `${value}%` : ""}
+                          </Text>
+                          <View style={{ height: 80, width: 14, borderRadius: 7, backgroundColor: p.inputBg, overflow: "hidden", justifyContent: "flex-end" }}>
+                            <View style={{ height: `${Math.max(value, 4)}%`, width: 14, borderRadius: 7, backgroundColor: value > 0 ? p.accent : colors[index] }} />
+                          </View>
+                          <Text style={{ fontSize: 10, fontFamily: "Outfit-Medium", color: p.textMuted }}>
+                            W{index + 1}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              </Animated.View>
+
+              {/* Feedback Summary */}
+              <Animated.View entering={FadeInDown.delay(360).duration(380)}>
+                <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: p.cardPeach, alignItems: "center", justifyContent: "center" }}>
+                      <BarChart3 size={14} color={p.accent} />
+                    </View>
+                    <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
+                      Feedback Summary
+                    </Text>
+                  </View>
+                  <View style={{ gap: 14 }}>
+                    {feedbackItems.map((item) => (
+                      <View key={item.label} style={{ gap: 6 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={{ fontSize: 14, fontFamily: "Outfit-Medium", color: p.textPrimary }}>
+                            {item.label}
+                          </Text>
+                          <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.accent }}>
+                            {item.value}%
+                          </Text>
+                        </View>
+                        <View style={{ height: 8, borderRadius: 100, backgroundColor: p.inputBg, overflow: "hidden" }}>
+                          <View style={{ width: `${item.value}%`, height: 8, borderRadius: 100, backgroundColor: p.accent }} />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </Animated.View>
             </View>
-          </>
-        )}
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

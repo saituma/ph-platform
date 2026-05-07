@@ -4,7 +4,16 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
-import { ArrowLeft, BookOpen } from "lucide-react-native";
+import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import {
+  ArrowLeft,
+  BookOpen,
+  FileText,
+  Film,
+  ImageIcon,
+  ExternalLink,
+  ChevronRight,
+} from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -14,7 +23,8 @@ import { useAppSelector } from "@/store/hooks";
 import { isYoutubeUrl, VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { AgeGate } from "@/components/AgeGate";
-import { MarkdownText } from "@/components/ui/MarkdownText";
+
+const MODULE_COLORS = ["cardMint", "cardPeach", "cardLavender", "cardPink", "cardYellow", "cardSage"] as const;
 
 function AutoImage({
   uri,
@@ -61,6 +71,15 @@ type ParentCourseItem = {
   isPreview?: boolean;
 };
 
+function getModuleIcon(type: string) {
+  switch (type) {
+    case "video": return Film;
+    case "pdf": return FileText;
+    case "faq": return BookOpen;
+    default: return BookOpen;
+  }
+}
+
 export default function ParentCourseDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const idValue = Array.isArray(id) ? id[0] : id;
@@ -77,11 +96,8 @@ export default function ParentCourseDetail() {
   );
   const [isLoading, setIsLoading] = useState(!cached);
 
-  const lockedTitle = "Parent platform locked";
-  const lockedMessage = "Parent education content is restricted for this age.";
-
   if (isSectionHidden("parentPlatform")) {
-    return <AgeGate title={lockedTitle} message={lockedMessage} />;
+    return <AgeGate title="Parent platform locked" message="Parent education content is restricted for this age." />;
   }
 
   const modules = useMemo(() => {
@@ -102,24 +118,18 @@ export default function ParentCourseDetail() {
           `/content/parent-courses/${idValue}`,
           { token },
         );
-        if (mounted) {
-          setItem(data.item ?? null);
-        }
+        if (mounted) setItem(data.item ?? null);
       } catch {
         if (mounted) setItem(null);
       } finally {
         if (mounted) setIsLoading(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [idValue, token]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      setIsLoading(false);
-    }, 3000);
+    const timeout = setTimeout(() => setIsLoading(false), 3000);
     return () => clearTimeout(timeout);
   }, []);
 
@@ -150,19 +160,24 @@ export default function ParentCourseDetail() {
     (/\.(jpg|jpeg|png|gif|webp|heic|avif|bmp)(\?|#|$)/i.test(url) ||
       url.startsWith("data:image/"));
 
-  const isLocked = false;
-  const hasParentProgramAccess = true;
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: 24,
-          paddingTop: 24,
-          paddingBottom: 40,
-        }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        {/* Header */}
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 24,
+            paddingTop: 16,
+            paddingBottom: 12,
+          }}
+        >
           <TouchableOpacity
             onPress={() => router.replace("/parent-platform")}
             style={{
@@ -171,167 +186,216 @@ export default function ParentCourseDetail() {
               alignItems: "center",
               justifyContent: "center",
               backgroundColor: p.cardWhite,
-              borderRadius: 16,
+              borderRadius: 14,
             }}
           >
-            <ArrowLeft size={20} color={p.textSecondary} />
+            <ArrowLeft size={18} color={p.textSecondary} />
           </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
-            Parent Course
+          <Text style={{ fontSize: 16, fontFamily: "Outfit-SemiBold", color: p.textPrimary }}>
+            Course
           </Text>
           <View style={{ width: 40 }} />
-        </View>
+        </Animated.View>
 
         {isLoading ? (
-          <View style={{ gap: 12 }}>
+          <View style={{ paddingHorizontal: 24, gap: 14 }}>
             {[1, 2, 3].map((row) => (
               <View
                 key={row}
                 style={{
                   borderRadius: 22,
-                  backgroundColor: p.inputBg,
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
+                  backgroundColor: p.cardWhite,
+                  padding: 20,
                 }}
               >
-                <View style={{ height: 16, width: 160, borderRadius: 100, backgroundColor: p.divider }} />
-                <View style={{ height: 12, width: "100%", borderRadius: 100, backgroundColor: p.divider, marginTop: 12 }} />
-                <View style={{ height: 12, width: "66%", borderRadius: 100, backgroundColor: p.divider, marginTop: 12 }} />
+                <View style={{ height: 14, width: 140, borderRadius: 100, backgroundColor: p.inputBg }} />
+                <View style={{ height: 12, width: "100%", borderRadius: 100, backgroundColor: p.inputBg, marginTop: 14 }} />
+                <View style={{ height: 12, width: "60%", borderRadius: 100, backgroundColor: p.inputBg, marginTop: 10 }} />
               </View>
             ))}
           </View>
         ) : item ? (
-          <View style={{ gap: 24 }}>
-            <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 24, paddingVertical: 20 }}>
-              {item.coverImage ? (
-                <AutoImage uri={item.coverImage} borderRadius={16} style={{ marginBottom: 16 }} />
-              ) : null}
-              <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                {item.category ? (
-                  <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 100, backgroundColor: p.accentSoft }}>
-                    <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.accent, textTransform: "uppercase", letterSpacing: 1.2 }}>
-                      {item.category}
+          <View style={{ gap: 16 }}>
+            {/* Cover + info card */}
+            <Animated.View entering={FadeInDown.duration(380)} style={{ paddingHorizontal: 24 }}>
+              <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, overflow: "hidden" }}>
+                {item.coverImage ? (
+                  <AutoImage uri={item.coverImage} />
+                ) : (
+                  <View style={{ width: "100%", aspectRatio: 2.2, backgroundColor: p.cardMint, alignItems: "center", justifyContent: "center" }}>
+                    <BookOpen size={40} color={p.accent} strokeWidth={1.5} />
+                  </View>
+                )}
+                <View style={{ padding: 20, gap: 12 }}>
+                  {item.category ? (
+                    <View style={{ alignSelf: "flex-start", backgroundColor: p.cardMint, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4 }}>
+                      <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.accent, textTransform: "uppercase", letterSpacing: 1.2 }}>
+                        {item.category}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Text style={{ fontSize: 26, fontFamily: "Outfit-Bold", color: p.textPrimary, lineHeight: 32 }}>
+                    {item.title}
+                  </Text>
+                  <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 23 }}>
+                    {item.summary}
+                  </Text>
+                  {item.description ? (
+                    <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 23 }}>
+                      {item.description}
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: p.accent }} />
+                    <Text style={{ fontFamily: "Outfit-Medium", fontSize: 12, color: p.textMuted }}>
+                      {modules.length} module{modules.length !== 1 ? "s" : ""}
                     </Text>
                   </View>
-                ) : null}
+                </View>
               </View>
-              <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
-                {item.title}
-              </Text>
-              <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24, marginTop: 12 }}>
-                {item.summary}
-              </Text>
-              {item.description ? (
-                <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24, marginTop: 12 }}>
-                  {item.description}
-                </Text>
-              ) : null}
-            </View>
+            </Animated.View>
 
-            <View style={{ gap: 12 }}>
-              <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
-                Course Modules
-              </Text>
+            {/* Modules */}
+            <View style={{ paddingHorizontal: 24, gap: 12 }}>
+              <Animated.View entering={FadeInDown.delay(100).duration(350)}>
+                <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", letterSpacing: 1.6, textTransform: "uppercase", color: p.textMuted, marginLeft: 2, marginBottom: 4 }}>
+                  Modules
+                </Text>
+              </Animated.View>
               {modules.length ? (
-                modules.map((module) => (
-                  <View
-                    key={module.id}
-                    style={{ borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 20, paddingVertical: 16 }}
-                  >
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <View style={{ height: 36, width: 36, borderRadius: 12, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
-                          <BookOpen size={16} color={p.textSecondary} />
-                        </View>
-                        <View>
-                          <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
-                            {module.title}
-                          </Text>
-                          <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.2 }}>
-                            {module.type}
-                            {module.preview ? " - Preview" : ""}
-                          </Text>
-                        </View>
-                      </View>
-                      {(module.type === "pdf" || isPdfUrl(module.mediaUrl)) &&
-                      module.mediaUrl ? (
-                        <TouchableOpacity
-                          onPress={() => openDocument(module.mediaUrl)}
-                          style={{ borderRadius: 100, backgroundColor: p.accent, paddingHorizontal: 16, paddingVertical: 8 }}
-                        >
-                          <Text style={{ color: p.buttonPrimaryText, fontSize: 12, fontFamily: "Outfit-Bold" }}>
-                            Open PDF
-                          </Text>
-                        </TouchableOpacity>
-                      ) : module.mediaUrl &&
-                        !isImageUrl(module.mediaUrl) &&
-                        !isVideoUrl(module.mediaUrl) &&
-                        !isYoutubeUrl(module.mediaUrl) ? (
-                        <TouchableOpacity
-                          onPress={() => openMedia(module.mediaUrl)}
-                          style={{ borderRadius: 100, backgroundColor: p.accent, paddingHorizontal: 16, paddingVertical: 8 }}
-                        >
-                          <Text style={{ color: p.buttonPrimaryText, fontSize: 12, fontFamily: "Outfit-Bold" }}>
-                            Open File
-                          </Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                    {(module.type === "video" ||
-                      isYoutubeUrl(module.mediaUrl) ||
-                      isVideoUrl(module.mediaUrl)) &&
-                    module.mediaUrl ? (
-                      <View style={{ marginTop: 12 }}>
-                        {isYoutubeUrl(module.mediaUrl) ? (
-                          <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-                            <VideoPlayer
-                              uri={module.mediaUrl}
-                              ignoreTabFocus
-                            />
+                modules.map((module, idx) => {
+                  const ModIcon = getModuleIcon(module.type);
+                  const colorKey = MODULE_COLORS[idx % MODULE_COLORS.length];
+                  return (
+                    <Animated.View
+                      key={module.id}
+                      entering={FadeInDown.delay(140 + idx * 60).duration(350)}
+                    >
+                      <View
+                        style={{ borderRadius: 20, backgroundColor: p.cardWhite, padding: 18, gap: 12 }}
+                      >
+                        {/* Module header */}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                          <View
+                            style={{
+                              height: 40,
+                              width: 40,
+                              borderRadius: 13,
+                              backgroundColor: p[colorKey],
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <ModIcon size={18} color={p.accent} />
                           </View>
-                        ) : isImageDataUrl(module.mediaUrl) ? (
-                          <View style={{ borderRadius: 16, backgroundColor: p.inputBg, paddingHorizontal: 16, paddingVertical: 16 }}>
-                            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                              Video file not detected. Please upload an .mp4
-                              or YouTube link.
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
+                              {module.title}
+                            </Text>
+                            <Text style={{ fontSize: 10, fontFamily: "Outfit-Medium", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1 }}>
+                              {module.type}
                             </Text>
                           </View>
-                        ) : (
-                          <VideoPlayer
-                            uri={module.mediaUrl}
-                            title={module.title}
-                            useVideoResolution
-                            ignoreTabFocus
-                          />
-                        )}
+                          {(module.type === "pdf" || isPdfUrl(module.mediaUrl)) && module.mediaUrl ? (
+                            <TouchableOpacity
+                              onPress={() => openDocument(module.mediaUrl)}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 5,
+                                borderRadius: 100,
+                                backgroundColor: p.accentSoft,
+                                paddingHorizontal: 14,
+                                paddingVertical: 8,
+                              }}
+                            >
+                              <ExternalLink size={12} color={p.accent} />
+                              <Text style={{ color: p.accent, fontSize: 12, fontFamily: "Outfit-Bold" }}>
+                                PDF
+                              </Text>
+                            </TouchableOpacity>
+                          ) : module.mediaUrl &&
+                            !isImageUrl(module.mediaUrl) &&
+                            !isVideoUrl(module.mediaUrl) &&
+                            !isYoutubeUrl(module.mediaUrl) ? (
+                            <TouchableOpacity
+                              onPress={() => openMedia(module.mediaUrl)}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 5,
+                                borderRadius: 100,
+                                backgroundColor: p.accentSoft,
+                                paddingHorizontal: 14,
+                                paddingVertical: 8,
+                              }}
+                            >
+                              <ExternalLink size={12} color={p.accent} />
+                              <Text style={{ color: p.accent, fontSize: 12, fontFamily: "Outfit-Bold" }}>
+                                Open
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+
+                        {/* Video */}
+                        {(module.type === "video" ||
+                          isYoutubeUrl(module.mediaUrl) ||
+                          isVideoUrl(module.mediaUrl)) &&
+                        module.mediaUrl ? (
+                          <View style={{ borderRadius: 16, overflow: "hidden", backgroundColor: p.inputBg }}>
+                            {isYoutubeUrl(module.mediaUrl) ? (
+                              <VideoPlayer uri={module.mediaUrl} ignoreTabFocus />
+                            ) : isImageDataUrl(module.mediaUrl) ? (
+                              <View style={{ padding: 16 }}>
+                                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                                  Video file not detected. Please upload an .mp4 or YouTube link.
+                                </Text>
+                              </View>
+                            ) : (
+                              <VideoPlayer uri={module.mediaUrl} title={module.title} useVideoResolution ignoreTabFocus />
+                            )}
+                          </View>
+                        ) : null}
+
+                        {/* Image */}
+                        {isImageUrl(module.mediaUrl) ? (
+                          <View style={{ borderRadius: 16, overflow: "hidden" }}>
+                            <AutoImage uri={module.mediaUrl!} borderRadius={16} />
+                          </View>
+                        ) : null}
+
+                        {/* Content text */}
+                        {module.content ? (
+                          <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 23 }}>
+                            {module.content}
+                          </Text>
+                        ) : null}
                       </View>
-                    ) : null}
-                    {isImageUrl(module.mediaUrl) ? (
-                      <View style={{ marginTop: 12, borderRadius: 16, overflow: "hidden" }}>
-                        <AutoImage uri={module.mediaUrl!} borderRadius={16} />
-                      </View>
-                    ) : null}
-                    {module.content ? (
-                      <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 24, marginTop: 12 }}>
-                        {module.content}
-                      </Text>
-                    ) : null}
-                  </View>
-                ))
+                    </Animated.View>
+                  );
+                })
               ) : (
-                <View style={{ borderRadius: 22, borderWidth: 1, borderStyle: "dashed", borderColor: p.divider, padding: 16 }}>
-                  <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                    No modules available.
+                <View style={{ borderRadius: 20, borderWidth: 1, borderStyle: "dashed", borderColor: p.divider, padding: 20, alignItems: "center", gap: 8 }}>
+                  <BookOpen size={24} color={p.textMuted} />
+                  <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                    No modules available yet.
                   </Text>
                 </View>
               )}
             </View>
           </View>
         ) : (
-          <View style={{ borderRadius: 22, borderWidth: 1, borderStyle: "dashed", borderColor: p.divider, padding: 16 }}>
-            <Text style={{ fontSize: 16, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-              Course not found.
-            </Text>
+          <View style={{ paddingHorizontal: 24 }}>
+            <View style={{ borderRadius: 20, backgroundColor: p.cardPeach, padding: 24, alignItems: "center", gap: 10 }}>
+              <BookOpen size={28} color={p.textMuted} />
+              <Text style={{ fontSize: 16, fontFamily: "Outfit-SemiBold", color: p.textPrimary }}>
+                Course not found
+              </Text>
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
+                This course may have been removed or is no longer available.
+              </Text>
+            </View>
           </View>
         )}
       </ScrollView>

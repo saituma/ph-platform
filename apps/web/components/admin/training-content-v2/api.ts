@@ -124,22 +124,54 @@ function getCsrfToken() {
   );
 }
 
+const requestCache = new Map<string, { data: unknown; ts: number }>();
+const CACHE_TTL_MS = 10_000;
+const inflightRequests = new Map<string, Promise<unknown>>();
+
 export async function trainingContentRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${TRAINING_CONTENT_V2_API_BASE}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(getCsrfToken() ? { "x-csrf-token": getCsrfToken() } : {}),
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  });
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.error ?? "Request failed");
+  const isGet = !init?.method || init.method === "GET";
+  const cacheKey = `${TRAINING_CONTENT_V2_API_BASE}${path}`;
+
+  if (isGet) {
+    const cached = requestCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+      return cached.data as T;
+    }
+    const inflight = inflightRequests.get(cacheKey);
+    if (inflight) return inflight as Promise<T>;
   }
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+
+  const doFetch = async (): Promise<T> => {
+    const response = await fetch(cacheKey, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(getCsrfToken() ? { "x-csrf-token": getCsrfToken() } : {}),
+        ...(init?.headers ?? {}),
+      },
+      ...init,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.error ?? "Request failed");
+    }
+    if (response.status === 204) return undefined as T;
+    const data = await response.json() as T;
+    if (isGet) {
+      requestCache.set(cacheKey, { data, ts: Date.now() });
+    }
+    return data;
+  };
+
+  if (isGet) {
+    const promise = doFetch().finally(() => inflightRequests.delete(cacheKey));
+    inflightRequests.set(cacheKey, promise);
+    return promise;
+  }
+
+  const result = await doFetch();
+  requestCache.clear();
+  return result;
 }
 
 export function normalizeAudienceLabelInput(input: string) {

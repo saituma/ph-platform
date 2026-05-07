@@ -154,6 +154,13 @@ export async function listAttendanceForAdmin(input: { from: Date; to: Date }) {
       team: athleteTable.team,
       userName: userTable.name,
       userEmail: userTable.email,
+      guardianEmail: sql<string | null>`(
+        SELECT gu."email" FROM "users" gu
+        INNER JOIN "guardians" g ON g."userId" = gu."id"
+        WHERE g."id" = ${athleteTable.guardianId}
+        AND gu."isDeleted" = false
+        LIMIT 1
+      )`.as("guardian_email"),
     })
     .from(athleteTable)
     .leftJoin(userTable, eq(userTable.id, athleteTable.userId));
@@ -190,7 +197,7 @@ export async function listAttendanceForAdmin(input: { from: Date; to: Date }) {
         athleteName: athlete.athleteName,
         team: athlete.team,
         userName: athlete.userName,
-        userEmail: athlete.userEmail,
+        userEmail: athlete.guardianEmail || athlete.userEmail,
         status: completed ? "present" : "absent",
       });
     }

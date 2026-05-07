@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useAppSelector } from "@/store/hooks";
+import { useActingUser } from "@/hooks/useActingUser";
 import { apiRequest } from "@/lib/api";
 import { useSocket } from "@/context/SocketContext";
 import type { DailyNutrition, MealItem, MealSlotData, MealSlotName } from "./types";
@@ -75,7 +76,8 @@ async function fireLocalNotification(title: string, body: string, data?: Record<
 }
 
 export function useNutritionDay(dateKey?: string) {
-  const { token, athleteUserId } = useAppSelector((s) => s.user);
+  const { token } = useAppSelector((s) => s.user);
+  const { actingUserId: athleteUserId } = useActingUser();
   const { socket } = useSocket();
   const today = dateKey || new Date().toISOString().slice(0, 10);
 

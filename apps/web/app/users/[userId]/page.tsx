@@ -117,6 +117,7 @@ type AdminUserRow = {
   athleteName?: string | null;
   programTier?: string | null;
   guardianProgramTier?: string | null;
+  guardianEmail?: string | null;
 };
 
 type BillingRequest = {
@@ -646,7 +647,7 @@ export default function UserDetailPage() {
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground/60 hover:text-primary transition-colors cursor-pointer group/mail">
                     <Mail className="h-4 w-4" />
-                    <span className="text-xs font-bold font-mono underline-offset-4 group-hover/mail:underline">{rawUser?.email}</span>
+                    <span className="text-xs font-bold font-mono underline-offset-4 group-hover/mail:underline">{rawUser?.guardianEmail || rawUser?.email}</span>
                   </div>
                 </div>
               </div>

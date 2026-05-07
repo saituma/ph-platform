@@ -409,6 +409,14 @@ export async function listAdminScheduledSessions(input: { from?: Date; to?: Date
       markedAt: sessionAttendanceTable.markedAt,
       userName: userTable.name,
       userEmail: userTable.email,
+      guardianEmail: sql<string | null>`(
+        SELECT gu."email" FROM "users" gu
+        INNER JOIN "guardians" g ON g."userId" = gu."id"
+        INNER JOIN "athletes" a ON a."guardianId" = g."id"
+        WHERE a."userId" = ${sessionAttendanceTable.userId}
+        AND gu."isDeleted" = false
+        LIMIT 1
+      )`.as("guardian_email"),
     })
     .from(sessionAttendanceTable)
     .innerJoin(userTable, eq(sessionAttendanceTable.userId, userTable.id))
@@ -428,7 +436,10 @@ export async function listAdminScheduledSessions(input: { from?: Date; to?: Date
 
   return baseRows.map((s) => ({
     ...s,
-    attendees: bySession.get(s.id) ?? [],
+    attendees: (bySession.get(s.id) ?? []).map((a) => ({
+      ...a,
+      userEmail: a.guardianEmail || a.userEmail,
+    })),
   }));
 }
 
@@ -517,11 +528,21 @@ export async function getAttendanceStats(input: {
   if (input.from) conditions.push(gte(scheduledSessionTable.startsAt, input.from));
   if (input.to) conditions.push(lte(scheduledSessionTable.startsAt, input.to));
 
+  const guardianEmailExpr = sql<string | null>`(
+    SELECT gu."email" FROM "users" gu
+    INNER JOIN "guardians" g ON g."userId" = gu."id"
+    INNER JOIN "athletes" a ON a."guardianId" = g."id"
+    WHERE a."userId" = ${sessionAttendanceTable.userId}
+    AND gu."isDeleted" = false
+    LIMIT 1
+  )`.as("guardian_email");
+
   const rows = await db
     .select({
       userId: sessionAttendanceTable.userId,
       userName: userTable.name,
       userEmail: userTable.email,
+      guardianEmail: guardianEmailExpr,
       totalSessions: drizzleCount(sessionAttendanceTable.id),
       attended: sql<number>`count(*) filter (where ${sessionAttendanceTable.status} = 'attended')`.as("attended"),
       missed: sql<number>`count(*) filter (where ${sessionAttendanceTable.status} = 'missed')`.as("missed"),
@@ -531,7 +552,7 @@ export async function getAttendanceStats(input: {
     .innerJoin(scheduledSessionTable, eq(sessionAttendanceTable.scheduledSessionId, scheduledSessionTable.id))
     .innerJoin(userTable, eq(sessionAttendanceTable.userId, userTable.id))
     .where(conditions.length ? and(...conditions) : undefined)
-    .groupBy(sessionAttendanceTable.userId, userTable.name, userTable.email)
+    .groupBy(sessionAttendanceTable.userId, userTable.name, userTable.email, guardianEmailExpr)
     .orderBy(
       asc(
         sql`case when count(*) = 0 then 0 else round(count(*) filter (where ${sessionAttendanceTable.status} = 'attended') * 100.0 / count(*)) end`,
@@ -541,7 +562,7 @@ export async function getAttendanceStats(input: {
   return rows.map((r) => ({
     userId: r.userId,
     userName: r.userName,
-    userEmail: r.userEmail,
+    userEmail: r.guardianEmail || r.userEmail,
     totalSessions: Number(r.totalSessions),
     attended: Number(r.attended),
     missed: Number(r.missed),

@@ -17,6 +17,7 @@ export type UserRow = {
   id: number;
   name: string;
   email?: string;
+  guardianEmail?: string | null;
   isBlocked?: boolean;
   athleteType: "Youth" | "Adult";
   age?: number | null;
@@ -166,9 +167,9 @@ export function UsersTable({
                           <p className="text-sm font-medium text-foreground truncate">
                             {user.name}
                           </p>
-                          {user.email && (
+                          {(user.guardianEmail || user.email) && (
                             <p className="text-xs text-muted-foreground truncate max-w-[180px]">
-                              {user.email}
+                              {user.guardianEmail || user.email}
                             </p>
                           )}
                         </div>
