@@ -1009,6 +1009,13 @@
       "when": 1778355600000,
       "tag": "0143_wellbeing_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1778356200000,
+      "tag": "0144_fix_wellbeing_columns",
+      "breakpoints": true
     }
   ]
 }
