@@ -60,10 +60,10 @@ import { useStreakStore } from "@/lib/streakStore";
 const AVATAR_SIZE = 88;
 const AVATAR_RING_SIZE = AVATAR_SIZE + 8;
 const BANNER_HEIGHT = 140;
-const PASTEL_GREEN = "#E8F5E9";
-const PASTEL_GREEN_TEXT = "#2E7D32";
-const PASTEL_LIME = "#F1F8E9";
-const PASTEL_LIME_TEXT = "#33691E";
+const PASTEL_GREEN = "#2F9F3D";
+const PASTEL_GREEN_TEXT = "#FFFFFF";
+const PASTEL_LIME = "#2F9F3D";
+const PASTEL_LIME_TEXT = "#FFFFFF";
 
 function formatExperienceLabel(cfg: {
   title?: string | null;
@@ -637,7 +637,12 @@ function MenuItem({
   p: AdminPastelColors;
   index: number;
 }) {
-  const bg = index % 2 === 0 ? p.cardWhite : p.cardSage;
+  const isGreen = index % 2 !== 0;
+  const bg = isGreen ? p.cardSage : p.cardWhite;
+  const txtPrimary = isGreen ? "#FFFFFF" : p.textPrimary;
+  const txtSecondary = isGreen ? "rgba(255,255,255,0.75)" : p.textSecondary;
+  const iconBg = isGreen ? "rgba(255,255,255,0.2)" : p.accentSoft;
+  const iconColor = isGreen ? "#FFFFFF" : p.accent;
 
   return (
     <Pressable
@@ -666,10 +671,10 @@ function MenuItem({
               borderRadius: 16,
               borderCurve: "continuous",
               marginRight: 16,
-              backgroundColor: p.accentSoft,
+              backgroundColor: iconBg,
             }}
           >
-            <Icon size={22} color={p.accent} />
+            <Icon size={22} color={iconColor} />
           </View>
           <View style={{ flex: 1, marginRight: 12 }}>
             <Text
@@ -677,7 +682,7 @@ function MenuItem({
               style={{
                 fontFamily: "Outfit-Bold",
                 fontSize: 16,
-                color: p.textPrimary,
+                color: txtPrimary,
               }}
             >
               {label}
@@ -688,7 +693,7 @@ function MenuItem({
                 style={{
                   fontFamily: "Outfit-Regular",
                   fontSize: 13,
-                  color: p.textSecondary,
+                  color: txtSecondary,
                   marginTop: 2,
                 }}
               >
@@ -696,7 +701,7 @@ function MenuItem({
               </Text>
             ) : null}
           </View>
-          <ChevronRight size={18} color={p.textMuted} />
+          <ChevronRight size={18} color={txtSecondary} />
         </View>
       </View>
     </Pressable>

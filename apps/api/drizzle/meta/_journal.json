@@ -981,6 +981,20 @@
       "when": 1778243229895,
       "tag": "0139_broad_vindicator",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1778258248447,
+      "tag": "0140_messy_serpent_society",
+      "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1778264465000,
+      "tag": "0141_lean_stranger",
+      "breakpoints": true
     }
   ]
 }

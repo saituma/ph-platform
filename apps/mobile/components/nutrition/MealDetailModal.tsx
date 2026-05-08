@@ -74,9 +74,6 @@ export function MealDetailModal({
   const estCarbs = Math.round(totalCalories * 0.45 / 4);
   const estProtein = Math.round(totalCalories * 0.25 / 4);
   const estFats = Math.round(totalCalories * 0.30 / 9);
-  const carbsKcal = estCarbs * 4;
-  const proteinKcal = estProtein * 4;
-  const fatsKcal = estFats * 9;
 
   if (!slot) return null;
 
@@ -290,12 +287,11 @@ export function MealDetailModal({
                 {items.length > 0 ? (
                   <MacroBreakdownTable
                     rows={[
-                      { label: "Carbs", grams: estCarbs, kcal: carbsKcal },
-                      { label: "Protein", grams: estProtein, kcal: proteinKcal },
-                      { label: "Fats", grams: estFats, kcal: fatsKcal },
+                      { label: "Carbs", grams: estCarbs },
+                      { label: "Protein", grams: estProtein },
+                      { label: "Fats", grams: estFats },
                     ]}
                     totalGrams={estCarbs + estProtein + estFats}
-                    totalKcal={totalCalories}
                   />
                 ) : null}
               </View>

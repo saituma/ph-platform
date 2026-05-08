@@ -23,8 +23,8 @@ export type DailyNutrition = {
   burnedCalories: number;
   meals: Record<MealSlotName, MealSlotData>;
   macros: {
-    carbs: { grams: number; kcal: number };
-    protein: { grams: number; kcal: number };
-    fats: { grams: number; kcal: number };
+    carbs: { grams: number };
+    protein: { grams: number };
+    fats: { grams: number };
   };
 };

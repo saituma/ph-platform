@@ -40,6 +40,7 @@ import { SkeletonHomeScreen } from "@/components/ui/legacy-skeleton";
 import { useWatchHistoryStore } from "@/lib/mmkv";
 import { getWeeklySummaries } from "@/lib/sqliteRuns";
 import { useAdminPastel } from "@/components/admin/AdminUI";
+import { Colors } from "@/constants/theme";
 
 import { AdminStorySection } from "@/components/home/AdminStorySection";
 import { IntroVideoSection } from "@/components/home/IntroVideoSection";
@@ -144,27 +145,29 @@ function GlassPill({
   label,
   delay: pillDelay,
   reduceMotion,
+  isDark,
 }: {
   icon: React.ReactNode;
   value: string;
   label: string;
   delay: number;
   reduceMotion: boolean | null;
+  isDark: boolean;
 }) {
   return (
     <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(pillDelay).duration(500).springify().damping(16)}>
-      <BlurView intensity={40} tint="dark" style={s.glassPill}>
+      <BlurView intensity={40} tint={isDark ? "dark" : "light"} style={[s.glassPill, !isDark && { borderColor: "rgba(0,0,0,0.08)" }]}>
         <View style={s.glassPillInner}>
           {icon}
-          <Text style={s.glassPillValue}>{value}</Text>
-          <Text style={s.glassPillLabel}>{label}</Text>
+          <Text style={[s.glassPillValue, { color: isDark ? "#FFFFFF" : "#0C0A09" }]}>{value}</Text>
+          <Text style={[s.glassPillLabel, { color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.5)" }]}>{label}</Text>
         </View>
       </BlurView>
     </Animated.View>
   );
 }
 
-// ── Dark stat card ──
+// ── Stat card ──
 function StatCard({
   icon,
   label,
@@ -175,6 +178,7 @@ function StatCard({
   onPress,
   reduceMotion,
   half,
+  isDark,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -185,6 +189,7 @@ function StatCard({
   onPress?: () => void;
   reduceMotion: boolean | null;
   half?: boolean;
+  isDark: boolean;
 }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -199,14 +204,17 @@ function StatCard({
         onPressIn={() => { scale.value = withSpring(0.96, { damping: 15, stiffness: 350 }); }}
         onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 200 }); }}
       >
-        <Animated.View style={[s.statCardInner, animStyle]}>
+        <Animated.View style={[s.statCardInner, {
+          backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+        }, animStyle]}>
           <View style={s.statCardHeader}>
             {icon}
-            <Text style={s.statCardLabel}>{label}</Text>
+            <Text style={[s.statCardLabel, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.5)" }]}>{label}</Text>
           </View>
           <View style={s.statCardValueRow}>
             <Text style={[s.statCardValue, { color: accentColor }]}>{value}</Text>
-            {unit ? <Text style={s.statCardUnit}>{unit}</Text> : null}
+            {unit ? <Text style={[s.statCardUnit, { color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.4)" }]}>{unit}</Text> : null}
           </View>
         </Animated.View>
       </Pressable>
@@ -217,6 +225,7 @@ function StatCard({
 const HomeScreen = memo(function HomeScreen() {
   const p = useAdminPastel();
   const isDark = useColorScheme() === "dark";
+  const t = isDark ? Colors.dark : Colors.light;
   const insets = useAppSafeAreaInsets();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
@@ -365,7 +374,7 @@ const HomeScreen = memo(function HomeScreen() {
 
   if (isLoading) {
     return (
-      <View style={[s.screen, { backgroundColor: "#0C0A09", paddingTop: insets.top }]}>
+      <View style={[s.screen, { backgroundColor: isDark ? "#000000" : p.pageBg, paddingTop: insets.top }]}>
         <SkeletonHomeScreen />
       </View>
     );
@@ -374,22 +383,28 @@ const HomeScreen = memo(function HomeScreen() {
   const totalDist = stats?.totalDistance ?? 0;
   const totalTime = stats?.totalTime ?? 0;
   const numRuns = stats?.numRuns ?? 0;
-  const accentLime = isDark ? "#9EF700" : "#9EF700";
+  const accentLime = t.accent;
+
+  const heroGradientMid = isDark ? "rgba(0,0,0,0.6)" : "rgba(244,250,242,0.6)";
+  const heroGradientEnd = isDark ? "#000000" : p.pageBg;
+  const heroTextColor = isDark ? "#FFFFFF" : p.textPrimary;
+  const heroSubColor = isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.55)";
+  const pillIconColor = isDark ? "#FFFFFF" : p.textPrimary;
 
   return (
-    <View style={s.screen}>
+    <View style={[s.screen, { backgroundColor: isDark ? "#000000" : p.pageBg }]}>
       <Animated.ScrollView
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={accentLime} />}
-        style={{ backgroundColor: isDark ? "#0C0A09" : p.pageBg }}
+        style={{ backgroundColor: isDark ? "#000000" : p.pageBg }}
       >
         {/* ── Hero with background image ── */}
         <View style={[s.hero, { height: HERO_HEIGHT + insets.top }]}>
           <Image source={HOME_BG} style={s.heroBgImage} resizeMode="cover" />
           <LinearGradient
-            colors={["transparent", "rgba(12,10,9,0.6)", isDark ? "#0C0A09" : p.pageBg]}
+            colors={["transparent", heroGradientMid, heroGradientEnd]}
             locations={[0.3, 0.7, 1]}
             style={s.heroGradient}
           />
@@ -399,10 +414,13 @@ const HomeScreen = memo(function HomeScreen() {
             <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(100).duration(400)} style={s.topBar}>
               <View style={s.topBarLeft}>
                 {profilePic ? (
-                  <Image source={{ uri: profilePic }} style={s.avatar} />
+                  <Image source={{ uri: profilePic }} style={[s.avatar, { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)" }]} />
                 ) : (
-                  <View style={[s.avatar, s.avatarPlaceholder]}>
-                    <Text style={s.avatarInitial}>{firstName[0]}</Text>
+                  <View style={[s.avatar, s.avatarPlaceholder, {
+                    borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                  }]}>
+                    <Text style={[s.avatarInitial, { color: heroTextColor }]}>{firstName[0]}</Text>
                   </View>
                 )}
               </View>
@@ -413,9 +431,11 @@ const HomeScreen = memo(function HomeScreen() {
                     <Text style={s.streakText}>{streak}</Text>
                   </Animated.View>
                 )}
-                <Pressable onPress={navigateToNotifications} style={s.bellBtn}>
-                  <Bell size={18} color="#FFFFFF" />
-                  <View style={[s.bellDot, { backgroundColor: accentLime }]} />
+                <Pressable onPress={navigateToNotifications} style={[s.bellBtn, {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                }]}>
+                  <Bell size={18} color={heroTextColor} />
+                  <View style={[s.bellDot, { backgroundColor: accentLime, borderColor: isDark ? "#000000" : p.pageBg }]} />
                 </Pressable>
               </View>
             </Animated.View>
@@ -424,13 +444,13 @@ const HomeScreen = memo(function HomeScreen() {
             <View style={s.greetingWrap}>
               <Animated.Text
                 entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(500)}
-                style={s.greetingSmall}
+                style={[s.greetingSmall, { color: heroSubColor }]}
               >
                 {greeting}
               </Animated.Text>
               <Animated.Text
                 entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(500)}
-                style={s.greetingName}
+                style={[s.greetingName, { color: heroTextColor }]}
               >
                 {firstName}!
               </Animated.Text>
@@ -440,25 +460,27 @@ const HomeScreen = memo(function HomeScreen() {
             {showTracking && (
               <View style={s.glassPillsWrap}>
                 <GlassPill
-                  icon={<PersonStanding size={14} color="#FFFFFF" />}
+                  icon={<PersonStanding size={14} color={pillIconColor} />}
                   value={formatCompact(Math.round(totalDist / 0.7))}
                   label="Steps"
                   delay={500}
                   reduceMotion={reduceMotion}
+                  isDark={isDark}
                 />
                 <GlassPill
-                  icon={<Activity size={14} color="#FFFFFF" />}
+                  icon={<Activity size={14} color={pillIconColor} />}
                   value={formatCompact(numRuns * 180)}
                   label="Calories"
                   delay={650}
                   reduceMotion={reduceMotion}
+                  isDark={isDark}
                 />
               </View>
             )}
           </View>
         </View>
 
-        <View style={[s.content, { backgroundColor: isDark ? "#0C0A09" : p.pageBg }]}>
+        <View style={[s.content, { backgroundColor: isDark ? "#000000" : p.pageBg }]}>
           {/* Stat cards grid */}
           {showTracking && (
             <View style={s.statsGrid}>
@@ -472,6 +494,7 @@ const HomeScreen = memo(function HomeScreen() {
                 onPress={navigateToTracking2}
                 reduceMotion={reduceMotion}
                 half
+                isDark={isDark}
               />
               <StatCard
                 icon={<Timer size={14} color="#FFB020" />}
@@ -482,6 +505,7 @@ const HomeScreen = memo(function HomeScreen() {
                 onPress={navigateToProgress}
                 reduceMotion={reduceMotion}
                 half
+                isDark={isDark}
               />
               <StatCard
                 icon={<Zap size={14} color="#FF6B6B" />}
@@ -492,6 +516,7 @@ const HomeScreen = memo(function HomeScreen() {
                 onPress={navigateToSchedule}
                 reduceMotion={reduceMotion}
                 half
+                isDark={isDark}
               />
               <StatCard
                 icon={<PersonStanding size={14} color="#7ABCD4" />}
@@ -502,6 +527,7 @@ const HomeScreen = memo(function HomeScreen() {
                 onPress={navigateToTracking2}
                 reduceMotion={reduceMotion}
                 half
+                isDark={isDark}
               />
             </View>
           )}
@@ -546,7 +572,7 @@ const HomeScreen = memo(function HomeScreen() {
 export default HomeScreen;
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#0C0A09" },
+  screen: { flex: 1 },
 
   // ── Hero ──
   hero: {
@@ -589,17 +615,14 @@ const s = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.2)",
   },
   avatarPlaceholder: {
-    backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
   },
   avatarInitial: {
     fontFamily: "Outfit-Bold",
     fontSize: 18,
-    color: "#FFFFFF",
   },
   streakBadge: {
     flexDirection: "row",
@@ -621,7 +644,6 @@ const s = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -633,7 +655,6 @@ const s = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: "#0C0A09",
   },
 
   // ── Greeting ──
@@ -643,12 +664,10 @@ const s = StyleSheet.create({
   greetingSmall: {
     fontFamily: "Outfit-Regular",
     fontSize: 16,
-    color: "rgba(255,255,255,0.6)",
   },
   greetingName: {
     fontFamily: "Outfit-Bold",
     fontSize: 42,
-    color: "#FFFFFF",
     letterSpacing: -1,
     lineHeight: 48,
   },
@@ -675,12 +694,10 @@ const s = StyleSheet.create({
   glassPillValue: {
     fontFamily: "Outfit-Bold",
     fontSize: 15,
-    color: "#FFFFFF",
   },
   glassPillLabel: {
     fontFamily: "Outfit-Regular",
     fontSize: 12,
-    color: "rgba(255,255,255,0.55)",
   },
 
   // ── Content ──
@@ -694,9 +711,7 @@ const s = StyleSheet.create({
     width: "100%",
     borderRadius: 24,
     padding: 22,
-    backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
   },
   cardBadgeRow: { flexDirection: "row" },
   badge: {
@@ -711,32 +726,27 @@ const s = StyleSheet.create({
   summaryTitle: {
     fontFamily: "Outfit-Bold",
     fontSize: 18,
-    color: "#FFFFFF",
     lineHeight: 24,
     marginTop: 8,
   },
   summaryBigNum: {
     fontFamily: "Outfit-Bold",
     fontSize: 44,
-    color: "#FFFFFF",
     letterSpacing: -1.5,
     lineHeight: 48,
   },
   summaryUnit: {
     fontFamily: "Outfit-Medium",
     fontSize: 16,
-    color: "rgba(255,255,255,0.4)",
     paddingBottom: 7,
   },
   summarySubtext: {
     fontFamily: "Outfit-Regular",
     fontSize: 13,
-    color: "rgba(255,255,255,0.4)",
   },
   progressTrack: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.1)",
   },
   progressFill: {
     height: 4,
@@ -745,7 +755,6 @@ const s = StyleSheet.create({
   progressText: {
     fontFamily: "Outfit-Regular",
     fontSize: 11,
-    color: "rgba(255,255,255,0.4)",
     marginTop: 4,
   },
   ctaButton: {
@@ -771,9 +780,7 @@ const s = StyleSheet.create({
     width: "100%",
   },
   statCardInner: {
-    backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 20,
     padding: 16,
     gap: 10,
@@ -786,7 +793,6 @@ const s = StyleSheet.create({
   statCardLabel: {
     fontFamily: "Outfit-Medium",
     fontSize: 12,
-    color: "rgba(255,255,255,0.45)",
     letterSpacing: 0.3,
   },
   statCardValueRow: {
@@ -802,6 +808,5 @@ const s = StyleSheet.create({
   statCardUnit: {
     fontFamily: "Outfit-Regular",
     fontSize: 13,
-    color: "rgba(255,255,255,0.35)",
   },
 });

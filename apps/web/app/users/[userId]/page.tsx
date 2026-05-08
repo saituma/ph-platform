@@ -37,6 +37,11 @@ import {
   Hash,
   Camera,
   UploadCloud,
+  BarChart3,
+  Moon,
+  Apple,
+  Footprints,
+  Heart,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import {
@@ -785,6 +790,36 @@ export default function UserDetailPage() {
               <Button variant="outline" className="w-full h-12 rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 group" render={<Link href="/messaging" />}>
                 <Mail className="h-4 w-4 mr-3 text-primary group-hover:scale-110 transition-transform" />
                 <span className="text-[11px] font-black uppercase tracking-widest">Intercept Messaging</span>
+              </Button>
+            </GlassCard>
+
+            <GlassCard container className="p-8! border-primary/20 group/data">
+              <SectionHeader title="Athlete Intelligence" subtitle="Full Data Profile" icon={BarChart3} />
+              <p className="text-xs text-muted-foreground/60 mb-6 leading-relaxed">
+                Full athlete intelligence — sleep, nutrition, food diary, runs, training logs, video feedback, bookings, goals, and more.
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {[
+                  { icon: Moon, label: "Sleep", color: "bg-blue-500/10 text-blue-500" },
+                  { icon: Apple, label: "Nutrition", color: "bg-green-500/10 text-green-500" },
+                  { icon: Footprints, label: "Runs", color: "bg-emerald-500/10 text-emerald-500" },
+                  { icon: Heart, label: "Wellness", color: "bg-red-500/10 text-red-500" },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                    <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", item.color)}>
+                      <item.icon className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+              <Button
+                className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-primary/20 group"
+                render={<Link href={`/users/${userId}/data`} />}
+              >
+                <BarChart3 className="h-4 w-4 mr-3 group-hover:scale-110 transition-transform" />
+                See User Data
+                <ChevronRight className="h-4 w-4 ml-auto" />
               </Button>
             </GlassCard>
 

@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import {
   Alert,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,12 +19,11 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   Clock,
   Calendar,
-  Zap,
+  ChevronLeft,
+  ChevronRight,
   MapPin,
   Video,
   Plus,
-  ChevronUp,
-  ChevronDown,
   Users,
   Repeat,
   Store,
@@ -39,6 +39,7 @@ import {
   CalendarCheck,
   CalendarClock,
   History,
+  X,
 } from "lucide-react-native";
 import Animated, {
   FadeIn,
@@ -75,13 +76,9 @@ const SCHEDULE_BG = require("@/assets/images/schedule-bg.png");
 const { height: SCREEN_H } = Dimensions.get("window");
 const HERO_H = SCREEN_H * 0.38;
 
-const PASTEL_GREEN = "#E8F5E9";
-const PASTEL_GREEN_TEXT = "#2E7D32";
-const PASTEL_GREEN_SOFT = "rgba(46,125,50,0.12)";
-const PASTEL_LIME = "#F1F8E9";
-const PASTEL_LIME_TEXT = "#33691E";
-const PASTEL_SAGE = "#E0F2E9";
-const PASTEL_SAGE_TEXT = "#1B5E20";
+const PASTEL_GREEN_TEXT = "#FFFFFF";
+const PASTEL_SAGE_TEXT = "#FFFFFF";
+const PASTEL_LIME_TEXT = "#FFFFFF";
 
 // ── Pure helpers ──────────────────────────────────────────────────────
 
@@ -162,26 +159,6 @@ const SectionLabel = memo(function SectionLabel({
           </Text>
         </View>
       )}
-    </View>
-  );
-});
-
-// ── Date group header ────────────────────────────────────────────────
-
-const DateGroup = memo(function DateGroup({ dateKey }: { dateKey: string }) {
-  const p = useAdminPastel();
-  const isToday = dateKey === todayKey();
-  return (
-    <View style={s.dateGroup}>
-      <Text style={{
-        fontSize: 12,
-        letterSpacing: 0.3,
-        fontFamily: isToday ? "Outfit-Bold" : "Outfit-Regular",
-        color: isToday ? p.accent : p.textSecondary,
-      }}>
-        {relativeDate(dateKey)}
-      </Text>
-      <View style={{ flex: 1, height: 1, backgroundColor: p.divider }} />
     </View>
   );
 });
@@ -416,47 +393,6 @@ const InlineEmpty = memo(function InlineEmpty({ message }: { message: string }) 
   );
 });
 
-// ── Past section toggle ──────────────────────────────────────────────
-
-const PastToggle = memo(function PastToggle({
-  count, open, onToggle,
-}: { count: number; open: boolean; onToggle: () => void }) {
-  const p = useAdminPastel();
-  const toggleScale = useSharedValue(1);
-  const toggleAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: toggleScale.value }] }));
-  const toggleTap = useMemo(() => Gesture.Tap()
-    .onBegin(() => {
-      'worklet';
-      toggleScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
-      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    })
-    .onFinalize(() => {
-      'worklet';
-      toggleScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
-    })
-    .onEnd(() => {
-      'worklet';
-      runOnJS(onToggle)();
-    }), [onToggle, toggleScale]);
-  return (
-    <GestureDetector gesture={toggleTap}>
-      <Animated.View
-        style={[{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 10, marginBottom: 4, alignSelf: "flex-start" }, toggleAnimStyle]}
-        accessibilityRole="button"
-      >
-        <Clock size={14} color={p.textMuted} />
-        <Text style={{ fontSize: 13, color: p.textMuted, fontFamily: "Outfit-Regular" }}>
-          {open ? "Hide" : `Show ${count} past session${count !== 1 ? "s" : ""}`}
-        </Text>
-        {open
-          ? <ChevronUp size={14} color={p.textMuted} />
-          : <ChevronDown size={14} color={p.textMuted} />
-        }
-      </Animated.View>
-    </GestureDetector>
-  );
-});
-
 // ── Stats bar ────────────────────────────────────────────────────────
 
 const StatsBar = memo(function StatsBar({
@@ -505,8 +441,8 @@ const TeamBanner = memo(function TeamBanner() {
       borderRadius: 12,
       backgroundColor: p.cardMint,
     }}>
-      <Users size={15} color={p.accent} />
-      <Text style={{ fontSize: 13, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
+      <Users size={15} color="#FFFFFF" />
+      <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", fontFamily: "Outfit-Regular" }}>
         Your coach manages your schedule
       </Text>
     </View>
@@ -670,6 +606,259 @@ const ServicesPanel = memo(function ServicesPanel({ bookable, nonBookable, onBoo
   );
 });
 
+// ── Week day strip ──────────────────────────────────────────────────
+
+function getWeekDays() {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+
+  const days: { key: string; label: string; date: number; isToday: boolean }[] = [];
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    days.push({
+      key: formatDateKey(d),
+      label: labels[i],
+      date: d.getDate(),
+      isToday: formatDateKey(d) === formatDateKey(today),
+    });
+  }
+  return days;
+}
+
+const WeekStrip = memo(function WeekStrip({
+  selectedKey,
+  onSelect,
+  eventDateKeys,
+}: {
+  selectedKey: string;
+  onSelect: (key: string) => void;
+  eventDateKeys: Set<string>;
+}) {
+  const p = useAdminPastel();
+  const reduceMotion = useReducedMotion();
+  const days = useMemo(() => getWeekDays(), []);
+
+  return (
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeInDown.delay(140).duration(300).springify()}
+      style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 12 }}
+    >
+      {days.map((day) => {
+        const isSelected = day.key === selectedKey;
+        const hasEvent = eventDateKeys.has(day.key);
+        return (
+          <Pressable
+            key={day.key}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onSelect(day.key);
+            }}
+            style={{ alignItems: "center", gap: 4 }}
+          >
+            <Text style={{
+              fontFamily: "Outfit-Regular",
+              fontSize: 11,
+              color: isSelected ? p.accent : p.textMuted,
+              letterSpacing: 0.3,
+            }}>
+              {day.label}
+            </Text>
+            <View style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isSelected ? p.accent : "transparent",
+            }}>
+              <Text style={{
+                fontFamily: isSelected ? "Outfit-Bold" : "Outfit-Medium",
+                fontSize: 16,
+                color: isSelected ? p.buttonPrimaryText : p.textPrimary,
+              }}>
+                {day.date}
+              </Text>
+            </View>
+            {hasEvent && !isSelected && (
+              <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: p.accent }} />
+            )}
+            {(!hasEvent || isSelected) && (
+              <View style={{ width: 5, height: 5 }} />
+            )}
+          </Pressable>
+        );
+      })}
+    </Animated.View>
+  );
+});
+
+// ── Floating calendar modal ─────────────────────────────────────────
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const DAY_HEADERS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+function getCalendarGrid(year: number, month: number) {
+  const firstDay = new Date(year, month, 1);
+  let startOffset = (firstDay.getDay() + 6) % 7; // Mon=0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+const FloatingCalendar = memo(function FloatingCalendar({
+  visible,
+  onClose,
+  onSelect,
+  selectedKey,
+  eventDateKeys,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (key: string) => void;
+  selectedKey: string;
+  eventDateKeys: Set<string>;
+}) {
+  const p = useAdminPastel();
+  const today = useMemo(() => new Date(), []);
+  const todayStr = useMemo(() => formatDateKey(today), [today]);
+
+  const selectedDate = useMemo(() => parseDateKey(selectedKey), [selectedKey]);
+  const [viewYear, setViewYear] = useState(selectedDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(selectedDate.getMonth());
+
+  const cells = useMemo(() => getCalendarGrid(viewYear, viewMonth), [viewYear, viewMonth]);
+
+  const prevMonth = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setViewMonth((m) => {
+      if (m === 0) { setViewYear((y) => y - 1); return 11; }
+      return m - 1;
+    });
+  }, []);
+
+  const nextMonth = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setViewMonth((m) => {
+      if (m === 11) { setViewYear((y) => y + 1); return 0; }
+      return m + 1;
+    });
+  }, []);
+
+  const goToToday = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setViewYear(today.getFullYear());
+    setViewMonth(today.getMonth());
+    onSelect(todayStr);
+    onClose();
+  }, [today, todayStr, onSelect, onClose]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }} onPress={onClose}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={{
+          width: 320,
+          borderRadius: 24,
+          backgroundColor: p.cardWhite,
+          padding: 20,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.15,
+          shadowRadius: 24,
+          elevation: 10,
+        }}>
+          {/* Header */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <Pressable onPress={prevMonth} hitSlop={12} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: p.accentSoft }}>
+              <ChevronLeft size={18} color={p.textPrimary} />
+            </Pressable>
+            <Pressable onPress={goToToday}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary }}>
+                {MONTH_NAMES[viewMonth]} {viewYear}
+              </Text>
+            </Pressable>
+            <Pressable onPress={nextMonth} hitSlop={12} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: p.accentSoft }}>
+              <ChevronRight size={18} color={p.textPrimary} />
+            </Pressable>
+          </View>
+
+          {/* Day headers */}
+          <View style={{ flexDirection: "row" }}>
+            {DAY_HEADERS.map((d) => (
+              <View key={d} style={{ flex: 1, alignItems: "center", paddingBottom: 8 }}>
+                <Text style={{ fontFamily: "Outfit-Medium", fontSize: 11, color: p.textMuted }}>{d}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Day grid */}
+          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+            {cells.map((day, idx) => {
+              if (day == null) return <View key={`e${idx}`} style={{ width: "14.28%", height: 40 }} />;
+              const key = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+              const isSelected = key === selectedKey;
+              const isToday = key === todayStr;
+              const hasEvent = eventDateKeys.has(key);
+
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onSelect(key);
+                    onClose();
+                  }}
+                  style={{ width: "14.28%", height: 40, alignItems: "center", justifyContent: "center" }}
+                >
+                  <View style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: isSelected ? p.accent : "transparent",
+                    borderWidth: isToday && !isSelected ? 1.5 : 0,
+                    borderColor: isToday ? p.accent : "transparent",
+                  }}>
+                    <Text style={{
+                      fontFamily: isSelected || isToday ? "Outfit-Bold" : "Outfit-Regular",
+                      fontSize: 14,
+                      color: isSelected ? p.buttonPrimaryText : isToday ? p.accent : p.textPrimary,
+                    }}>
+                      {day}
+                    </Text>
+                  </View>
+                  {hasEvent && !isSelected && (
+                    <View style={{ position: "absolute", bottom: 2, width: 4, height: 4, borderRadius: 2, backgroundColor: p.accent }} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Close / today button */}
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 16 }}>
+            <Pressable onPress={goToToday} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 100, backgroundColor: p.accentSoft }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.accent }}>Today</Text>
+            </Pressable>
+            <Pressable onPress={onClose} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 100, backgroundColor: p.accentSoft }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textSecondary }}>Close</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+});
+
 // ── Main screen ──────────────────────────────────────────────────────
 
 export default memo(function ScheduleScreen() {
@@ -704,7 +893,8 @@ export default memo(function ScheduleScreen() {
 
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingServiceId, setBookingServiceId] = useState<number | null>(null);
-  const [pastOpen, setPastOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(() => todayKey());
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Invalidate stale schedule queries on tab focus so useScheduleData refetches
   useFocusEffect(
@@ -787,16 +977,23 @@ export default memo(function ScheduleScreen() {
     return { upcoming, requests, past };
   }, [events, nowMs, todKey]);
 
-  // Group upcoming by dateKey
-  const upcomingGroups = useMemo(() => {
-    const map = new Map<string, ScheduleEvent[]>();
-    for (const e of upcoming) {
-      const arr = map.get(e.dateKey) ?? [];
-      arr.push(e);
-      map.set(e.dateKey, arr);
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [upcoming]);
+  const eventDateKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const e of events) keys.add(e.dateKey);
+    return keys;
+  }, [events]);
+
+  const selectedDayEvents = useMemo(() => {
+    return events.filter((e) => {
+      const status = e.status?.toLowerCase();
+      if (status === "declined" || status === "cancelled" || status === "pending") return false;
+      return e.dateKey === selectedDay;
+    }).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  }, [events, selectedDay]);
+
+  const selectedDayRequests = useMemo(() => {
+    return requests.filter((e) => e.dateKey === selectedDay);
+  }, [requests, selectedDay]);
 
   // ── Attendance check-in ──────────────────────────────────────
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
@@ -1026,6 +1223,71 @@ export default memo(function ScheduleScreen() {
           )}
         </View>
 
+        {/* ── Week day strip + calendar icon ── */}
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View style={{ flex: 1 }}>
+            <WeekStrip
+              selectedKey={selectedDay}
+              onSelect={setSelectedDay}
+              eventDateKeys={eventDateKeys}
+            />
+          </View>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setCalendarOpen(true);
+            }}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 16,
+              backgroundColor: p.accentSoft,
+            }}
+          >
+            <Calendar size={18} color={p.accent} />
+          </Pressable>
+        </View>
+
+        {/* ── Selected day's sessions ── */}
+        <View style={{ paddingHorizontal: 20, paddingBottom: 4 }}>
+          <SectionLabel
+            icon={CalendarCheck}
+            label={selectedDay === todKey ? "Today" : relativeDate(selectedDay)}
+            count={selectedDayEvents.length}
+            accent={p.accent}
+          />
+          {selectedDayEvents.length === 0 ? (
+            <InlineEmpty message={selectedDay === todKey ? "Nothing scheduled today." : "No sessions on this day."} />
+          ) : (
+            selectedDayEvents.map((evt, i) => {
+              const isProgram = evt.id.startsWith("program-");
+              const card = (
+                <SessionCard
+                  key={evt.id}
+                  event={evt}
+                  index={i}
+                  isToday={selectedDay === todKey}
+                  onCheckIn={selectedDay === todKey && evt.tag === "Scheduled" && (!evt.attendanceStatus || evt.attendanceStatus === "unmarked")
+                    ? () => checkIn(evt.id)
+                    : undefined}
+                />
+              );
+              if (isProgram) {
+                const programId = evt.id.replace("program-", "");
+                return (
+                  <Pressable key={evt.id} onPress={() => router.push(`/programs/assigned/${programId}` as any)}>
+                    {card}
+                  </Pressable>
+                );
+              }
+              return card;
+            })
+          )}
+        </View>
+
         {/* ── Team banner ── */}
         {!canBook && (
           <View style={{ paddingTop: 12 }}>
@@ -1045,106 +1307,15 @@ export default memo(function ScheduleScreen() {
           </View>
         )}
 
-        {/* ── Sessions list ── */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-
-        {/* ════ UPCOMING ════ */}
-        <SectionLabel
-          icon={Zap}
-          label="Upcoming"
-          count={upcoming.length}
-          accent={p.success}
-        />
-
-        {upcomingGroups.length === 0 ? (
-          <InlineEmpty
-            message={canBook
-              ? "No upcoming sessions — book one below."
-              : "No upcoming sessions yet."}
-          />
-        ) : (
-          upcomingGroups.map(([dateKey, group]) => {
-            const groupIsToday = dateKey === todKey;
-            return (
-              <View key={dateKey}>
-                <DateGroup dateKey={dateKey} />
-                {group.map((evt, i) => {
-                  const isProgram = evt.id.startsWith("program-");
-                  const card = (
-                    <SessionCard
-                      key={evt.id}
-                      event={evt}
-                      index={i}
-                      isToday={groupIsToday}
-                      onCheckIn={groupIsToday && evt.tag === "Scheduled" && (!evt.attendanceStatus || evt.attendanceStatus === "unmarked")
-                        ? () => checkIn(evt.id)
-                        : undefined}
-                    />
-                  );
-                  if (isProgram) {
-                    const programId = evt.id.replace("program-", "");
-                    return (
-                      <Pressable key={evt.id} onPress={() => router.push(`/programs/assigned/${programId}` as any)}>
-                        {card}
-                      </Pressable>
-                    );
-                  }
-                  return card;
-                })}
-              </View>
-            );
-          })
-        )}
-
-        {/* ════ REQUESTS ════ */}
-        <View style={{ height: 24 }} />
-        <SectionLabel
-          icon={Timer}
-          label="Requests"
-          count={requests.length}
-          accent={p.warning}
-        />
-
-        {requests.length === 0 ? (
-          <InlineEmpty
-            message={canBook
-              ? "No pending requests."
-              : "No booking requests."}
-          />
-        ) : (
-          requests.map((evt, i) => (
-            <View key={evt.id}>
-              {/* Show the requested date above each request */}
-              <DateGroup dateKey={evt.dateKey} />
-              <SessionCard
-                event={evt}
-                index={i}
-                onCancel={() => cancelBooking(evt.id)}
-              />
-            </View>
-          ))
-        )}
-
-        {/* ════ PAST ════ */}
-        {past.length > 0 && (
-          <>
-            <View style={{ height: 24 }} />
-            <PastToggle
-              count={past.length}
-              open={pastOpen}
-              onToggle={() => { setPastOpen((v) => !v); }}
-            />
-            {pastOpen && past.map((evt, i) => (
-              <View key={evt.id}>
-                {(i === 0 || past[i - 1].dateKey !== evt.dateKey) && (
-                  <DateGroup dateKey={evt.dateKey} />
-                )}
-                <SessionCard event={evt} index={i} />
-              </View>
+        {/* ── Pending requests for selected day ── */}
+        {selectedDayRequests.length > 0 && (
+          <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+            <SectionLabel icon={Timer} label="Pending" count={selectedDayRequests.length} accent={p.warning} />
+            {selectedDayRequests.map((evt, i) => (
+              <SessionCard key={evt.id} event={evt} index={i} onCancel={() => cancelBooking(evt.id)} />
             ))}
-          </>
+          </View>
         )}
-        </View>
       </ScrollView>
 
       {/* ── FAB ── */}
@@ -1178,6 +1349,15 @@ export default memo(function ScheduleScreen() {
         </GestureDetector>
       )}
 
+      {/* ── Floating calendar ── */}
+      <FloatingCalendar
+        visible={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        onSelect={setSelectedDay}
+        selectedKey={selectedDay}
+        eventDateKeys={eventDateKeys}
+      />
+
       {/* ── Booking modal ── */}
       <BookingModal
         visible={bookingOpen}
@@ -1198,7 +1378,6 @@ export default memo(function ScheduleScreen() {
 
 const s = StyleSheet.create({
   sectionLabel: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 12 },
-  dateGroup:    { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 4 },
   statsBar:     { flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 },
   statChip:     { flexDirection: "row", alignItems: "center", gap: 5 },
 });

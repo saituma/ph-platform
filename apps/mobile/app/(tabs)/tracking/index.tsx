@@ -341,16 +341,16 @@ export default function TrackingHomeScreen() {
   const bentoGap = 10;
   const bentoHalf = (screenWidth - spacing.xl * 2 - bentoGap) / 2;
 
-  const PASTEL_MINT = "#E8F5E9";
-  const PASTEL_MINT_TEXT = "#2E7D32";
-  const PASTEL_PEACH = "#F1F8E9";
-  const PASTEL_PEACH_TEXT = "#33691E";
-  const PASTEL_LAVENDER = "#E0F2E9";
-  const PASTEL_LAVENDER_TEXT = "#1B5E20";
-  const PASTEL_SKY = "#DCEDC8";
-  const PASTEL_SKY_TEXT = "#2E7D32";
-  const PASTEL_ROSE = "#C8E6C9";
-  const PASTEL_ROSE_TEXT = "#1B5E20";
+  const PASTEL_MINT = "#2F9F3D";
+  const PASTEL_MINT_TEXT = "#FFFFFF";
+  const PASTEL_PEACH = "#2F9F3D";
+  const PASTEL_PEACH_TEXT = "#FFFFFF";
+  const PASTEL_LAVENDER = "#2F9F3D";
+  const PASTEL_LAVENDER_TEXT = "#FFFFFF";
+  const PASTEL_SKY = "#2F9F3D";
+  const PASTEL_SKY_TEXT = "#FFFFFF";
+  const PASTEL_ROSE = "#2F9F3D";
+  const PASTEL_ROSE_TEXT = "#FFFFFF";
 
   return (
     <>

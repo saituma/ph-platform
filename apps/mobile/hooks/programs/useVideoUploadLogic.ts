@@ -50,11 +50,12 @@ export function useVideoUploadLogic(token: string | null, athleteUserId: string 
     video: SelectedVideo;
     notes?: string;
     sectionContentId?: number | null;
+    sessionExerciseId?: number | null;
     onProgress: (progress: number) => void;
   }) => {
     if (!token) throw new Error("Not authenticated");
 
-    const { video, notes, sectionContentId, onProgress } = params;
+    const { video, notes, sectionContentId, sessionExerciseId, onProgress } = params;
     setIsUploading(true);
     setUploadPhase("presign");
     setStatus(`Preparing upload (${formatMb(video.sizeBytes)})...`);
@@ -69,7 +70,7 @@ export function useVideoUploadLogic(token: string | null, athleteUserId: string 
         token,
         headers,
         body: {
-          folder: "video-uploads",
+          folder: "training-videos",
           fileName: video.fileName,
           contentType: video.contentType,
           sizeBytes: video.sizeBytes,
@@ -101,6 +102,7 @@ export function useVideoUploadLogic(token: string | null, athleteUserId: string 
           videoUrl: presign.publicUrl,
           notes: notes || undefined,
           programSectionContentId: sectionContentId ?? undefined,
+          sessionExerciseId: sessionExerciseId ?? undefined,
         },
       });
       onProgress(1);

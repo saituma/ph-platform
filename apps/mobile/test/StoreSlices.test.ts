@@ -18,7 +18,7 @@ describe("Redux Store Slices", () => {
     test("TC-ST001: setCredentials updates state correctly", () => {
       const payload = {
         token: "test-token",
-        profile: { id: "1", name: "User", email: "u@e.com", avatar: null },
+        profile: { id: "1", name: "User", email: "u@e.com", avatar: null, coverImage: null },
         refreshToken: "ref-token",
       };
       const state = userReducer(initialState, setCredentials(payload));

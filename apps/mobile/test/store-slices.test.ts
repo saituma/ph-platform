@@ -23,7 +23,7 @@ describe("mobile slices", () => {
   it("updates user slice state and resets on logout", () => {
     let state = userReducer(
       undefined,
-      setCredentials({ token: "token-1", profile: { id: "1", name: "Coach", email: "coach@test.com", avatar: null } }),
+      setCredentials({ token: "token-1", profile: { id: "1", name: "Coach", email: "coach@test.com", avatar: null, coverImage: null } }),
     );
 
     state = userReducer(state, updateProfile({ name: "Coach Updated" }));

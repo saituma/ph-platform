@@ -17,7 +17,7 @@ import Animated, {
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import MapView, { Polyline } from "react-native-maps";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Sharing from "expo-sharing";
@@ -159,6 +159,7 @@ export function RunShareCard({
   const [facing, setFacing] = useState<"front" | "back">("back");
   const [teamPosted, setTeamPosted] = useState(false);
 
+  const [cameraReady, setCameraReady] = useState(false);
   const [mapSnapshotUri, setMapSnapshotUri] = useState<string | null>(null);
   const [mapSnapshotLoading, setMapSnapshotLoading] = useState(false);
   const hiddenMapRef = useRef<MapView>(null);
@@ -287,6 +288,22 @@ export function RunShareCard({
   };
 
 
+  const [cameraMounted, setCameraMounted] = useState(false);
+
+  // Delay camera mount on iOS so the Modal animation finishes first
+  React.useEffect(() => {
+    if (!visible || phase !== "camera") {
+      setCameraMounted(false);
+      setCameraReady(false);
+      return;
+    }
+    if (Platform.OS === "ios") {
+      const t = setTimeout(() => setCameraMounted(true), 400);
+      return () => clearTimeout(t);
+    }
+    setCameraMounted(true);
+  }, [visible, phase]);
+
   const handleClose = () => {
     Haptics.selectionAsync();
     onClose();
@@ -312,8 +329,10 @@ export function RunShareCard({
         ? await captureRef(targetRef, { format: "jpg", quality: 0.92 })
         : (phase === "map" ? mapSnapshotUri : photoUri);
 
+      const textFallback = `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance`;
+
       if (!compositeUri) {
-        await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
+        await Share.share({ message: textFallback }).catch(() => {});
         return;
       }
       if (Platform.OS === "ios") {
@@ -321,9 +340,12 @@ export function RunShareCard({
       } else {
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {
-          await Sharing.shareAsync(compositeUri).catch(() => {});
+          await Sharing.shareAsync(compositeUri, {
+            mimeType: "image/jpeg",
+            dialogTitle: "Share your run",
+          });
         } else {
-          await Share.share({ message: `🏃 ${distLabel} km · ${paceMinPerKm}/km · ${timeLabel}\n\nPH Performance` }).catch(() => {});
+          await Share.share({ message: textFallback }).catch(() => {});
         }
       }
     } catch (e) {
@@ -409,7 +431,7 @@ export function RunShareCard({
 
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
-      <View style={styles.root}>
+      <GestureHandlerRootView style={styles.root}>
 
         {/* Hidden off-screen MapView — generates the snapshot */}
         {routeRegion && !mapSnapshotUri && (
@@ -440,11 +462,16 @@ export function RunShareCard({
         {phase === "camera" ? (
           /* ── Camera phase: live viewfinder + overlay (not captured) ── */
           <>
-            <CameraView
-              ref={cameraRef}
-              style={StyleSheet.absoluteFillObject}
-              facing={facing}
-            />
+            {cameraMounted ? (
+              <CameraView
+                ref={cameraRef}
+                style={StyleSheet.absoluteFillObject}
+                facing={facing}
+                onCameraReady={() => setCameraReady(true)}
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#000" }]} />
+            )}
             <View style={styles.vignetteTop} />
             <View style={styles.vignetteBottom} />
             {StatsOverlay}
@@ -533,8 +560,8 @@ export function RunShareCard({
             <>
               <Pressable
                 onPress={handleCapture}
-                disabled={capturing}
-                style={({ pressed }) => [styles.shutterOuter, capturing && { opacity: 0.6 }, pressed && { transform: [{ scale: 0.95 }] }]}
+                disabled={capturing || !cameraReady}
+                style={({ pressed }) => [styles.shutterOuter, (capturing || !cameraReady) && { opacity: 0.6 }, pressed && { transform: [{ scale: 0.95 }] }]}
               >
                 <View style={styles.shutterInner} />
               </Pressable>
@@ -587,7 +614,7 @@ export function RunShareCard({
           )}
         </View>
 
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

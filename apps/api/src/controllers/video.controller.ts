@@ -29,6 +29,7 @@ const createSchema = z.object({
   videoUrl: z.string().url(),
   notes: z.string().optional(),
   programSectionContentId: z.number().int().min(1).optional(),
+  sessionExerciseId: z.number().int().min(1).optional(),
 });
 
 const reviewSchema = z.object({
@@ -122,14 +123,24 @@ export async function createVideo(req: Request, res: Response) {
   if (!(await athleteHasFeature(athlete.id, "video_upload"))) {
     return res.status(403).json({ error: "Video uploads are not included in your plan." });
   }
+  if (input.sessionExerciseId) {
+    const item = await createVideoUpload({
+      athleteId: athlete.id,
+      videoUrl: input.videoUrl,
+      notes: input.notes,
+      programSectionContentId: null,
+      trainingSessionItemId: null,
+      sessionExerciseId: input.sessionExerciseId,
+    });
+    return res.status(201).json({ item });
+  }
+
   if (!input.programSectionContentId) {
     return res.status(400).json({ error: "Training section is required for video uploads." });
   }
 
   const contentId = input.programSectionContentId;
 
-  // For training-content-v2 module sessions, the client sends the training session item id.
-  // For legacy plans, the client sends the program section content id.
   const sessionItem = await getTrainingSessionItemById(contentId);
   if (sessionItem) {
     if (!sessionItem.allowVideoUpload) {

@@ -18,6 +18,7 @@ export const SESSION_KEYS = {
   name: "profileName",
   email: "profileEmail",
   avatar: "profileAvatar",
+  coverImage: "profileCoverImage",
 } as const;
 
 export type StoredProfile = {
@@ -25,6 +26,7 @@ export type StoredProfile = {
   name: string | null;
   email: string | null;
   avatar: string | null;
+  coverImage: string | null;
 };
 
 export type HydratedSession = {
@@ -44,13 +46,14 @@ function isValidString(value: string | null | undefined): value is string {
 
 /** Read all auth credentials from SecureStore in one call. */
 export async function hydrateFromStorage(): Promise<HydratedSession> {
-  const [rawToken, rawRefresh, id, name, email, avatar] = await Promise.all([
+  const [rawToken, rawRefresh, id, name, email, avatar, coverImage] = await Promise.all([
     SecureStore.getItemAsync(SESSION_KEYS.token),
     SecureStore.getItemAsync(SESSION_KEYS.refreshToken),
     SecureStore.getItemAsync(SESSION_KEYS.id),
     SecureStore.getItemAsync(SESSION_KEYS.name),
     SecureStore.getItemAsync(SESSION_KEYS.email),
     SecureStore.getItemAsync(SESSION_KEYS.avatar),
+    SecureStore.getItemAsync(SESSION_KEYS.coverImage),
   ]);
 
   return {
@@ -61,6 +64,7 @@ export async function hydrateFromStorage(): Promise<HydratedSession> {
       name: name ?? null,
       email: email ?? null,
       avatar: avatar ?? null,
+      coverImage: coverImage ?? null,
     },
   };
 }
@@ -92,6 +96,7 @@ export async function persistCredentials(creds: {
     SecureStore.setItemAsync(SESSION_KEYS.name, creds.profile.name ?? ""),
     SecureStore.setItemAsync(SESSION_KEYS.email, creds.profile.email ?? ""),
     SecureStore.setItemAsync(SESSION_KEYS.avatar, creds.profile.avatar ?? ""),
+    SecureStore.setItemAsync(SESSION_KEYS.coverImage, creds.profile.coverImage ?? ""),
   ]);
 
   store.dispatch(

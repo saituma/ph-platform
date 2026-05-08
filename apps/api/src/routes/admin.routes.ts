@@ -114,6 +114,7 @@ router.patch("/admin/session-exercises/:id", AdminProgramBuilderController.updat
 router.patch("/admin/sessions/:sessionId/exercises/reorder", AdminProgramBuilderController.reorderSessionExercises);
 
 // Adult Athletes & Program Assignments
+router.get("/admin/scheduled-assignments", AdminProgramBuilderController.listScheduledAssignments);
 router.get("/admin/adult-athletes", AdminProgramBuilderController.listAdultAthletes);
 router.get("/admin/adult-athletes/:athleteId", AdminProgramBuilderController.getAthleteDetail);
 router.post("/admin/programs/:programId/assignments", AdminProgramBuilderController.assignProgram);

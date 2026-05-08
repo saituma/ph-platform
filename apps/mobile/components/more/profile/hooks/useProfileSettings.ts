@@ -28,6 +28,7 @@ export function useProfileSettings() {
   const pushRegistration = useAppSelector((state) => state.app.pushRegistration);
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [pendingAvatarUri, setPendingAvatarUriRaw] = useState<string | null>(null);
   const [pendingAvatarSizeBytes, setPendingAvatarSizeBytes] = useState<number | null>(null);
   const [pendingAvatarMimeType, setPendingAvatarMimeType] = useState<string | null>(null);
@@ -189,6 +190,50 @@ export function useProfileSettings() {
     }
   };
 
+  const handlePickCoverImage = async () => {
+    if (!token || isUploadingCover) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [16, 9],
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType || "image/jpeg";
+    let sizeBytes = asset.fileSize ?? 0;
+    try {
+      const info = await FileSystem.getInfoAsync(asset.uri);
+      const fsSize = info.exists ? (info.size ?? 0) : 0;
+      sizeBytes = fsSize || sizeBytes;
+    } catch {
+      // ignore
+    }
+    if (!sizeBytes || !Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+      sizeBytes = 512000;
+    }
+
+    setIsUploadingCover(true);
+    try {
+      const publicUrl = await uploadAvatar(asset.uri, { sizeBytes: Math.trunc(sizeBytes), contentType: mimeType });
+      const response = await apiRequest<{ user: { coverImage?: string | null } }>("/auth/me", {
+        method: "PATCH",
+        token,
+        body: { coverImage: publicUrl },
+      });
+      dispatch(updateProfile({ coverImage: response.user.coverImage ?? publicUrl }));
+    } catch (error) {
+      console.warn("Failed to update cover image", error);
+      const message = error instanceof Error ? error.message : "Upload failed.";
+      Alert.alert("Upload Failed", message);
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!token || isSaving) return;
     setIsSaving(true);
@@ -233,12 +278,14 @@ export function useProfileSettings() {
     email,
     pushToken,
     isUploadingAvatar,
+    isUploadingCover,
     pendingAvatarUri,
     setPendingAvatarUri,
     isSendingTestPush,
     isSaving,
     handlePickAvatar,
     handleConfirmAvatar,
+    handlePickCoverImage,
     handleSave,
     handleTestPush,
   };

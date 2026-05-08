@@ -98,10 +98,6 @@ export default function AssignedSessionDetailScreen() {
   const handleUploadSelectedVideo = useCallback(
     async (exerciseId: number, selected: SelectedVideo, sectionContentId?: number | null) => {
       if (isUploading) return;
-      if (!sectionContentId || !Number.isFinite(sectionContentId) || sectionContentId <= 0) {
-        Alert.alert("Upload unavailable", "This exercise is missing its training section id, so the video cannot be linked yet.");
-        return;
-      }
 
       try {
         setUploadStateByExId((prev) => ({
@@ -112,6 +108,7 @@ export default function AssignedSessionDetailScreen() {
         await uploadVideo({
           video: selected,
           sectionContentId: sectionContentId ?? undefined,
+          sessionExerciseId: exerciseId,
           onProgress: (ratio) => {
             setUploadStateByExId((prev) => ({
               ...prev,

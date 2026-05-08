@@ -41,8 +41,8 @@ export default function PrivacySecurityScreen() {
   const [deleteBusy, setDeleteBusy] = useState(false);
 
   const pageBg = p.pageBg;
-  const textPrimary = p.textPrimary;
-  const textSecondary = p.textSecondary;
+  const textPrimary = "#FFFFFF";
+  const textSecondary = "rgba(255,255,255,0.75)";
   const accent = p.accent;
   const danger = p.danger;
   const cardRadius = 28;

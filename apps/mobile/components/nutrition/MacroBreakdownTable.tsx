@@ -6,16 +6,14 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 type MacroRow = {
   label: string;
   grams: number;
-  kcal: number;
 };
 
 type MacroBreakdownTableProps = {
   rows: MacroRow[];
   totalGrams: number;
-  totalKcal: number;
 };
 
-export function MacroBreakdownTable({ rows, totalGrams, totalKcal }: MacroBreakdownTableProps) {
+export function MacroBreakdownTable({ rows, totalGrams }: MacroBreakdownTableProps) {
   const p = useAdminPastel();
 
   return (
@@ -33,11 +31,8 @@ export function MacroBreakdownTable({ rows, totalGrams, totalKcal }: MacroBreakd
             <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary, flex: 1 }}>
               {row.label}
             </Text>
-            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted, width: 60, textAlign: "right" }}>
-              {row.grams}g
-            </Text>
             <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary, width: 70, textAlign: "right" }}>
-              {row.kcal} kcal
+              {row.grams}g
             </Text>
           </View>
           {idx < rows.length - 1 ? (
@@ -59,11 +54,8 @@ export function MacroBreakdownTable({ rows, totalGrams, totalKcal }: MacroBreakd
         <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary, flex: 1 }}>
           Total
         </Text>
-        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textMuted, width: 60, textAlign: "right" }}>
-          {totalGrams} g
-        </Text>
         <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary, width: 70, textAlign: "right" }}>
-          {totalKcal} kcal
+          {totalGrams}g
         </Text>
       </View>
     </View>

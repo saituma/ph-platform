@@ -1,0 +1,2 @@
+ALTER TABLE "video_uploads" ADD COLUMN "session_exercise_id" integer;--> statement-breakpoint
+ALTER TABLE "video_uploads" ADD CONSTRAINT "video_uploads_session_exercise_id_session_exercises_id_fk" FOREIGN KEY ("session_exercise_id") REFERENCES "public"."session_exercises"("id") ON DELETE no action ON UPDATE no action;

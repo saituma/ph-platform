@@ -208,6 +208,7 @@ export function AuthPersist() {
             email?: string | null;
             role?: string | null;
             profilePicture?: string | null;
+            coverImage?: string | null;
             programTier?: string | null;
             messagingAccessTiers?: string[];
             capabilities?: AppCapabilities | null;
@@ -277,6 +278,7 @@ export function AuthPersist() {
             name: me.user.name ?? null,
             email: me.user.email ?? null,
             avatar: me.user.profilePicture ?? null,
+            coverImage: me.user.coverImage ?? null,
           }),
         );
         if (__DEV__ && me.user.debugProgramAccess) {

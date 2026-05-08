@@ -19,6 +19,7 @@ import {
   useGetUsersQuery,
   useUpdateBookingStatusMutation,
 } from "@/lib/apiSlice";
+import { useGetScheduledAssignmentsQuery } from "@/lib/api/programs";
 
 type BookingItem = {
   id: number;
@@ -99,6 +100,10 @@ export default function BookingsPage() {
   const { data: usersData } = useGetUsersQuery();
   const [updateBookingStatus, { isLoading: isUpdatingBooking }] =
     useUpdateBookingStatusMutation();
+  const {
+    data: scheduledData,
+    isLoading: scheduledLoading,
+  } = useGetScheduledAssignmentsQuery();
   const isLoading = bookingsLoading || servicesLoading;
 
   const bookings = useMemo<BookingItem[]>(() => {
@@ -191,7 +196,74 @@ export default function BookingsPage() {
             />
           </CardContent>
         </Card>
-        <Card className="lg:col-start-2">
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              title="Scheduled Programs"
+              description="Programs assigned to athletes with a scheduled start date."
+            />
+          </CardHeader>
+          <CardContent>
+            {scheduledLoading ? (
+              <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
+                Loading scheduled programs...
+              </div>
+            ) : !scheduledData?.items?.length ? (
+              <div className="rounded-2xl border border-dashed border-border bg-secondary/40 p-6 text-center text-sm text-muted-foreground">
+                No scheduled programs.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {scheduledData.items.map((item) => {
+                  const date = new Date(item.scheduledDate);
+                  const now = new Date();
+                  const isToday = date.toDateString() === now.toDateString();
+                  const isPast = date < now && !isToday;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-2xl border border-border p-4 ${isPast ? "bg-secondary/20 opacity-60" : isToday ? "bg-primary/5 border-primary/30" : "bg-secondary/20"}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {item.programName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.athleteName} &bull;{" "}
+                            {date.toLocaleDateString([], {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isToday && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                              Today
+                            </span>
+                          )}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              item.status === "active"
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : "bg-secondary text-muted-foreground"
+                            }`}
+                          >
+                            {item.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
           <CardHeader>
             <SectionHeader
               title="Book for a client"

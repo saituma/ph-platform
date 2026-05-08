@@ -18,8 +18,8 @@ export default function AboutScreen() {
 
   const cardBg = p.cardSage;
   const versionCardBg = p.cardMint;
-  const labelColor = p.textSecondary;
-  const textPrimary = p.textPrimary;
+  const labelColor = "rgba(255,255,255,0.75)";
+  const textPrimary = "#FFFFFF";
   const accent = p.accent;
   const accentSoft = p.accentSoft;
   const mutedFill = p.inputBg;

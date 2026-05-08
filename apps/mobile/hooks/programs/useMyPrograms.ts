@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { apiRequest } from "@/lib/api";
+import { useSocket } from "@/context/SocketContext";
 
 export type AssignedProgram = {
   id: number;
@@ -66,6 +67,7 @@ export function useMyPrograms(token: string | null, autoFetch = false) {
   const [isLoading, setIsLoading] = useState(autoFetch && !!token);
   const [error, setError] = useState<string | null>(null);
   const hasFetched = useRef(false);
+  const { socket } = useSocket();
 
   const loadPrograms = useCallback(
     async (force = false) => {
@@ -93,6 +95,17 @@ export function useMyPrograms(token: string | null, autoFetch = false) {
       loadPrograms();
     }
   }, [autoFetch, token, loadPrograms]);
+
+  useEffect(() => {
+    if (!socket || !token) return;
+    const refresh = () => { loadPrograms(true); };
+    socket.on("program:changed", refresh);
+    socket.on("program:assigned", refresh);
+    return () => {
+      socket.off("program:changed", refresh);
+      socket.off("program:assigned", refresh);
+    };
+  }, [socket, token, loadPrograms]);
 
   return { programs, isLoading, error, loadPrograms };
 }

@@ -120,6 +120,7 @@ export async function createVideoUpload(input: {
   notes?: string | null;
   programSectionContentId?: number | null;
   trainingSessionItemId?: number | null;
+  sessionExerciseId?: number | null;
 }) {
   const result = await db
     .insert(videoUploadTable)
@@ -127,6 +128,7 @@ export async function createVideoUpload(input: {
       athleteId: input.athleteId,
       programSectionContentId: input.programSectionContentId ?? null,
       trainingSessionItemId: input.trainingSessionItemId ?? null,
+      sessionExerciseId: input.sessionExerciseId ?? null,
       videoUrl: input.videoUrl,
       notes: input.notes ?? null,
     })

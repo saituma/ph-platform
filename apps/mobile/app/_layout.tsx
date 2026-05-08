@@ -3,6 +3,7 @@ import { AgeExperienceProvider } from "@/context/AgeExperienceContext";
 import { FontScaleProvider } from "@/context/FontScaleContext";
 import { RefreshProvider } from "@/context/RefreshContext";
 import { SocketProvider } from "@/context/SocketContext";
+import { useSocketQueryRefresh } from "@/hooks/useSocketQueryRefresh";
 import { TabVisibilityProvider } from "@/context/TabVisibilityContext";
 import { InAppNotificationsProvider } from "@/context/InAppNotificationsContext";
 import { Stack, slideFromRight, Transition } from "@/components/navigation/TransitionStack";
@@ -109,6 +110,11 @@ function StartupSplashController() {
   return null;
 }
 
+function SocketQueryBridge() {
+  useSocketQueryRefresh();
+  return null;
+}
+
 function RootLayout() {
   useEffect(() => {
     void runStartupSelfTest();
@@ -146,6 +152,7 @@ function RootLayout() {
       ]}
     >
       <RootErrorBoundary>
+      <SocketQueryBridge />
       <View style={{ flex: 1 }}>
         <AuthPersist />
         <StartupSplashController />

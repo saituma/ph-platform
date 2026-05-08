@@ -184,6 +184,24 @@ const programsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["ProgramBuilder"],
     }),
+    getScheduledAssignments: builder.query<
+      {
+        items: {
+          id: number;
+          athleteId: number;
+          athleteName: string;
+          programId: number;
+          programName: string;
+          programType: string | null;
+          status: string;
+          scheduledDate: string;
+        }[];
+      },
+      void
+    >({
+      query: () => "/admin/scheduled-assignments",
+      providesTags: ["ProgramBuilder"],
+    }),
     getAdultAthletes: builder.query<{ athletes: any[] }, void>({
       query: () => "/admin/adult-athletes",
       providesTags: ["ProgramBuilder", "Users"],
@@ -299,6 +317,7 @@ export const {
   useUpdateSessionExerciseMutation,
   useAddSessionExerciseMutation,
   useDeleteSessionExerciseMutation,
+  useGetScheduledAssignmentsQuery,
   useGetAdultAthletesQuery,
   useGetAthleteDetailQuery,
   useAssignProgramToAthleteMutation,

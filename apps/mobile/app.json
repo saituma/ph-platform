@@ -168,7 +168,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "PH Performance uses your camera to record training videos and take progress photos."
+          "cameraPermission": "PH Performance uses your camera to record training videos and take progress photos.",
+          "microphonePermission": "PH Performance needs microphone access to record training videos with audio."
         }
       ],
       "./plugins/withSSLPinning",

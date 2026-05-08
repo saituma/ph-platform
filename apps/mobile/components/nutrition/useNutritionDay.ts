@@ -153,9 +153,9 @@ export function useNutritionDay(dateKey?: string) {
         burnedCalories: 0,
         meals,
         macros: {
-          carbs: { grams: carbsG, kcal: carbsG * 4 },
-          protein: { grams: proteinG, kcal: proteinG * 4 },
-          fats: { grams: fatsG, kcal: fatsG * 9 },
+          carbs: { grams: carbsG },
+          protein: { grams: proteinG },
+          fats: { grams: fatsG },
         },
       });
     } catch {

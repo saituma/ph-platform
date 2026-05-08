@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   athleteTable,
@@ -390,6 +390,25 @@ export async function updateAssignment(assignmentId: number, data: { scheduledDa
     .returning();
 
   return result[0] ?? null;
+}
+
+export async function listScheduledAssignments() {
+  return db
+    .select({
+      id: programAssignmentTable.id,
+      athleteId: programAssignmentTable.athleteId,
+      athleteName: athleteTable.name,
+      programId: programAssignmentTable.programId,
+      programName: programTable.name,
+      programType: programTable.type,
+      status: programAssignmentTable.status,
+      scheduledDate: programAssignmentTable.scheduledDate,
+    })
+    .from(programAssignmentTable)
+    .innerJoin(programTable, eq(programTable.id, programAssignmentTable.programId))
+    .innerJoin(athleteTable, eq(athleteTable.id, programAssignmentTable.athleteId))
+    .where(isNotNull(programAssignmentTable.scheduledDate))
+    .orderBy(asc(programAssignmentTable.scheduledDate));
 }
 
 export async function getAthleteDetail(athleteId: number) {

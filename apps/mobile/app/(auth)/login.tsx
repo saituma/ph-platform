@@ -118,6 +118,7 @@ export default function LoginScreen() {
           email: string;
           role?: string | null;
           profilePicture?: string | null;
+          coverImage?: string | null;
           programTier?: string | null;
           messagingAccessTiers?: string[];
           capabilities?: AppCapabilities | null;
@@ -155,6 +156,7 @@ export default function LoginScreen() {
             name: me.user.name,
             email: me.user.email,
             avatar: me.user.profilePicture ?? null,
+            coverImage: me.user.coverImage ?? null,
           },
         }),
       );

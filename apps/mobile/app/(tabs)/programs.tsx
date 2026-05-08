@@ -46,11 +46,11 @@ const PROGRAMS_BG = require("@/assets/images/programs-bg.png");
 const { height: SCREEN_H } = Dimensions.get("window");
 const HERO_H = SCREEN_H * 0.38;
 
-const PASTEL_GREEN = "#E8F5E9";
-const PASTEL_GREEN_TEXT = "#2E7D32";
-const PASTEL_GREEN_SOFT = "rgba(46,125,50,0.12)";
-const PASTEL_LIME = "#F1F8E9";
-const PASTEL_LIME_TEXT = "#33691E";
+const PASTEL_GREEN = "#2F9F3D";
+const PASTEL_GREEN_TEXT = "#FFFFFF";
+const PASTEL_GREEN_SOFT = "rgba(47,159,61,0.18)";
+const PASTEL_LIME = "#2F9F3D";
+const PASTEL_LIME_TEXT = "#FFFFFF";
 
 const MODULE_CARD_COLORS = ["cardSage", "cardMint", "cardPeach", "cardLavender"] as const;
 
@@ -197,6 +197,9 @@ const ProgramContent = memo(function ProgramContent({
           : FadeInDown.delay(Math.min(modIdx, 8) * 40).springify().damping(15);
         const cardColorKey = MODULE_CARD_COLORS[modIdx % MODULE_CARD_COLORS.length];
         const cardBg = p[cardColorKey] as string;
+        const isGreenCard = cardColorKey !== "cardPeach";
+        const cardText = isGreenCard ? "#FFFFFF" : p.textPrimary;
+        const cardSubText = isGreenCard ? "rgba(255,255,255,0.75)" : p.textSecondary;
         return (
           <Animated.View key={mod.id} entering={entering}>
             <Pressable
@@ -225,12 +228,12 @@ const ProgramContent = memo(function ProgramContent({
                         width: 44,
                         height: 44,
                         borderRadius: 14,
-                        backgroundColor: p.accentSoft,
+                        backgroundColor: isGreenCard ? "rgba(255,255,255,0.2)" : p.accentSoft,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.accent }}>
+                      <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: isGreenCard ? "#FFFFFF" : p.accent }}>
                         {mod.order}
                       </Text>
                     </View>
@@ -241,7 +244,7 @@ const ProgramContent = memo(function ProgramContent({
                       style={{
                         fontSize: 17,
                         fontFamily: "Outfit-Bold",
-                        color: p.textPrimary,
+                        color: cardText,
                         letterSpacing: -0.2,
                       }}
                       numberOfLines={1}
@@ -249,12 +252,12 @@ const ProgramContent = memo(function ProgramContent({
                       {mod.title}
                     </Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                      <Layers size={13} color={p.textSecondary} />
+                      <Layers size={13} color={cardSubText} />
                       <Text
                         style={{
                           fontSize: 13,
                           fontFamily: "Outfit-Regular",
-                          color: p.textSecondary,
+                          color: cardSubText,
                         }}
                       >
                         {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
@@ -268,12 +271,12 @@ const ProgramContent = memo(function ProgramContent({
                         width: 32,
                         height: 32,
                         borderRadius: 10,
-                        backgroundColor: p.accentSoft,
+                        backgroundColor: isGreenCard ? "rgba(255,255,255,0.2)" : p.accentSoft,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <ChevronRight size={16} color={p.textSecondary} />
+                      <ChevronRight size={16} color={cardText} />
                     </View>
                   </View>
                 </View>

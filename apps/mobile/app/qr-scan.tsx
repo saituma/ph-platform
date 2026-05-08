@@ -34,7 +34,7 @@ interface ScanResult {
 export default function QRScanScreen() {
   const router = useRouter();
   const p = useAdminPastel();
-  const token = useAppSelector((s) => s.auth?.accessToken ?? null);
+  const token = useAppSelector((s) => s.user.token);
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState<ScanState>("idle");

@@ -30,8 +30,8 @@ export default function PermissionsScreen() {
   const pageBg = p.pageBg;
   const cardBg = p.cardSage;
   const debugCardBg = p.cardPeach;
-  const textPrimary = p.textPrimary;
-  const textSecondary = p.textSecondary;
+  const textPrimary = "#FFFFFF";
+  const textSecondary = "rgba(255,255,255,0.75)";
   const accent = p.accent;
   const successColor = p.success;
   const warningColor = p.warning;

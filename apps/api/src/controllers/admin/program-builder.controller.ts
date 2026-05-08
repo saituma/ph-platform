@@ -254,6 +254,11 @@ export async function updateAssignment(req: Request, res: Response) {
   return res.status(200).json({ assignment });
 }
 
+export async function listScheduledAssignments(_req: Request, res: Response) {
+  const items = await ProgramBuilderService.listScheduledAssignments();
+  return res.status(200).json({ items });
+}
+
 export async function getAthleteDetail(req: Request, res: Response) {
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
   try {
