@@ -1,6 +1,12 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Error Pages", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("ph-cookie-consent", "accepted");
+    });
+  });
+
   test("404 page shows for unknown routes", async ({ page }) => {
     await page.goto("/this-page-does-not-exist");
     await expect(page.getByText("404")).toBeVisible();

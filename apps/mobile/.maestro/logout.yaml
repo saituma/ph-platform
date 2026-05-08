@@ -1,0 +1,45 @@
+appId: com.phperformance.app
+tags:
+  - auth
+  - critical
+name: "Logout Flow"
+---
+
+# ── Logout Flow ──────────────────────────────────────────────────────────
+# Tests that a user can successfully log out and return to the login screen.
+
+- runFlow: login.yaml
+
+# Navigate to More tab
+- tapOn:
+    text: "More"
+
+# Find and tap logout/sign out
+- scrollUntilVisible:
+    element:
+      text: "Sign Out|Log Out|Logout"
+    direction: DOWN
+    timeout: 10000
+
+- tapOn:
+    text: "Sign Out"
+    optional: true
+- tapOn:
+    text: "Log Out"
+    optional: true
+- tapOn:
+    text: "Logout"
+    optional: true
+
+# Confirm logout if dialog appears
+- tapOn:
+    text: "Confirm"
+    optional: true
+- tapOn:
+    text: "Yes"
+    optional: true
+
+# Verify we're back at the login screen
+- extendedWaitUntil:
+    visible: "Welcome back|Sign In"
+    timeout: 10000

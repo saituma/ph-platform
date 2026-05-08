@@ -29,10 +29,10 @@ describe("programMapper", () => {
       expect(result.tabs).toEqual(["Modules"]);
     });
 
-    it("should preserve existing tabs", () => {
+    it("should preserve existing tabs and prepend Modules", () => {
       const response = { tabs: ["Custom"] };
       const result = mapTeamWorkspace(response as any);
-      expect(result.tabs).toEqual(["Custom"]);
+      expect(result.tabs).toEqual(["Modules", "Custom"]);
     });
   });
 

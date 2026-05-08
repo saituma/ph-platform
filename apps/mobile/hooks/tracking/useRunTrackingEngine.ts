@@ -94,8 +94,9 @@ export function useRunTrackingEngine(
       }
       watchRef.current = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 1000,
+          accuracy: Location.Accuracy.High,
+          timeInterval: 2000,
+          distanceInterval: 3,
         },
         (loc) => {
           const lat = loc?.coords?.latitude;
@@ -258,54 +259,54 @@ export function useRunTrackingEngine(
     const AUTO_PAUSE_GRACE_MS = 25000;       // 25s grace after manual resume
     const AUTO_RESUME_SPEED_THRESHOLD = 2.0; // m/s (~7.2 km/h) — clear sustained motion
 
+    let tickCount = 0;
     const timer = setInterval(() => {
+      tickCount++;
       const store = useRunStore.getState();
       tick();
 
-      // --- Auto-pause logic ---
-      // Skip auto-pause/resume entirely if the user touched the map within the last 6s.
-      // This prevents the spurious "auto-paused" while the user is exploring the map.
-      const recentMapInteraction =
-        Date.now() - lastMapInteractionRef.current < 6000;
+      // --- Auto-pause logic (every 3s to save CPU) ---
+      if (tickCount % 3 === 0) {
+        const recentMapInteraction =
+          Date.now() - lastMapInteractionRef.current < 6000;
 
-      if (
-        autoPauseEnabledRef.current &&
-        store.status === "running" &&
-        store.getIsWarmedUp() &&
-        !recentMapInteraction
-      ) {
-        const now = Date.now();
-        // Grace window after manual resume — gives the user time to actually start moving.
-        const inGracePeriod = store.lastManualResumeAt != null && (now - store.lastManualResumeAt) < AUTO_PAUSE_GRACE_MS;
-        if (!inGracePeriod) {
-          const speed = lastSpeedRef.current;
-          if (speed < AUTO_PAUSE_SPEED_THRESHOLD) {
-            if (!store.autoPauseStillSince) {
-              store.setAutoPauseStillSince(now);
-            } else if (now - store.autoPauseStillSince >= AUTO_PAUSE_DELAY_MS) {
-              store.pauseRun();
-              store.setAutoPaused(true);
-              if (audioCuesEnabledRef.current) announceAutoPause(true);
-              triggerGoalFeedback("Auto-paused", "Stopped moving — run paused");
+        if (
+          autoPauseEnabledRef.current &&
+          store.status === "running" &&
+          store.getIsWarmedUp() &&
+          !recentMapInteraction
+        ) {
+          const now = Date.now();
+          const inGracePeriod = store.lastManualResumeAt != null && (now - store.lastManualResumeAt) < AUTO_PAUSE_GRACE_MS;
+          if (!inGracePeriod) {
+            const speed = lastSpeedRef.current;
+            if (speed < AUTO_PAUSE_SPEED_THRESHOLD) {
+              if (!store.autoPauseStillSince) {
+                store.setAutoPauseStillSince(now);
+              } else if (now - store.autoPauseStillSince >= AUTO_PAUSE_DELAY_MS) {
+                store.pauseRun();
+                store.setAutoPaused(true);
+                if (audioCuesEnabledRef.current) announceAutoPause(true);
+                triggerGoalFeedback("Auto-paused", "Stopped moving — run paused");
+              }
+            } else {
+              store.setAutoPauseStillSince(null);
             }
-          } else {
-            store.setAutoPauseStillSince(null);
           }
         }
-      }
-      // Auto-resume when moving again — also blocked while the map is being interacted with.
-      if (
-        autoPauseEnabledRef.current &&
-        store.isAutoPaused &&
-        store.status === "paused" &&
-        !recentMapInteraction
-      ) {
-        if (lastSpeedRef.current >= AUTO_RESUME_SPEED_THRESHOLD) {
-          store.resumeRun();
-          store.setAutoPaused(false);
-          store.setAutoPauseStillSince(null);
-          if (audioCuesEnabledRef.current) announceAutoPause(false);
-          triggerGoalFeedback("Resumed", "Movement detected — run resumed");
+        if (
+          autoPauseEnabledRef.current &&
+          store.isAutoPaused &&
+          store.status === "paused" &&
+          !recentMapInteraction
+        ) {
+          if (lastSpeedRef.current >= AUTO_RESUME_SPEED_THRESHOLD) {
+            store.resumeRun();
+            store.setAutoPaused(false);
+            store.setAutoPauseStillSince(null);
+            if (audioCuesEnabledRef.current) announceAutoPause(false);
+            triggerGoalFeedback("Resumed", "Movement detected — run resumed");
+          }
         }
       }
 
@@ -321,34 +322,35 @@ export function useRunTrackingEngine(
         }
       }
 
-      // --- Goal / destination proximity / auto-reroute (was a useEffect) ---
-      const ds = useRunStore.getState();
-      const destinationThresholdMeters = 40;
-      if (ds.goalKm && !ds.goalReached && ds.distanceMeters >= ds.goalKm * 1000) {
-        ds.markGoalReached();
-        triggerGoalFeedback("Goal reached", "Goal reached!");
-      }
-      if (ds.destination && !ds.destinationReached && ds.liveCoordinate) {
-        const dist = haversineDistance(
-          ds.liveCoordinate.latitude,
-          ds.liveCoordinate.longitude,
-          ds.destination.latitude,
-          ds.destination.longitude,
-        );
-        if (dist <= destinationThresholdMeters) {
-          ds.markDestinationReached();
-          triggerGoalFeedback("Destination reached", "Destination reached!");
+      // --- Goal / destination proximity / auto-reroute (every 3s) ---
+      if (tickCount % 3 === 0) {
+        const ds = useRunStore.getState();
+        const destinationThresholdMeters = 40;
+        if (ds.goalKm && !ds.goalReached && ds.distanceMeters >= ds.goalKm * 1000) {
+          ds.markGoalReached();
+          triggerGoalFeedback("Goal reached", "Goal reached!");
         }
-        // Auto-reroute when user deviates (only when OSRM preference is on)
-        if (osrmRoutingEnabledRef.current && routePolylineRef.current && routePolylineRef.current.length > 0 && !isFetchingRouteRef.current) {
-          const nowReroute = Date.now();
-          let minDistance = Infinity;
-          for (const pt of routePolylineRef.current) {
-            const d = haversineDistance(ds.liveCoordinate.latitude, ds.liveCoordinate.longitude, pt.latitude, pt.longitude);
-            if (d < minDistance) minDistance = d;
+        if (ds.destination && !ds.destinationReached && ds.liveCoordinate) {
+          const dist = haversineDistance(
+            ds.liveCoordinate.latitude,
+            ds.liveCoordinate.longitude,
+            ds.destination.latitude,
+            ds.destination.longitude,
+          );
+          if (dist <= destinationThresholdMeters) {
+            ds.markDestinationReached();
+            triggerGoalFeedback("Destination reached", "Destination reached!");
           }
-          if (minDistance > 200 && (nowReroute - lastRouteFetchTime.current >= 30000)) {
-            fetchRoute(ds.liveCoordinate.latitude, ds.liveCoordinate.longitude, ds.destination.latitude, ds.destination.longitude);
+          if (osrmRoutingEnabledRef.current && routePolylineRef.current && routePolylineRef.current.length > 0 && !isFetchingRouteRef.current) {
+            const nowReroute = Date.now();
+            let minDistance = Infinity;
+            for (const pt of routePolylineRef.current) {
+              const d = haversineDistance(ds.liveCoordinate.latitude, ds.liveCoordinate.longitude, pt.latitude, pt.longitude);
+              if (d < minDistance) minDistance = d;
+            }
+            if (minDistance > 200 && (nowReroute - lastRouteFetchTime.current >= 30000)) {
+              fetchRoute(ds.liveCoordinate.latitude, ds.liveCoordinate.longitude, ds.destination.latitude, ds.destination.longitude);
+            }
           }
         }
       }

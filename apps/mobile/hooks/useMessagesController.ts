@@ -701,7 +701,7 @@ export function useMessagesController(options?: {
     const id = setInterval(() => {
       if (socket?.connected) return;
       void threadsQuery.refetch();
-    }, 10000);
+    }, 30000);
     return () => clearInterval(id);
   }, [token, threadId, socket?.connected, threadsQuery.refetch]);
 
@@ -781,7 +781,7 @@ export function useMessagesController(options?: {
       } else {
         void threadsQuery.refetch();
       }
-    }, 12000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [currentThread?.id, loadGroupMessages, threadsQuery.refetch, socket?.connected]);
 

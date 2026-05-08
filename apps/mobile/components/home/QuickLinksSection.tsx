@@ -37,7 +37,7 @@ function getLinksForRole(appRole: AppRole | null): QuickLink[] {
       return [
         { label: "Programs", icon: "programs", route: "/(tabs)/programs" },
         { label: "Nutrition", icon: "tracking", route: "/nutrition" },
-        { label: "Progress", icon: "stats", route: "/progress" },
+        { label: "Sleep", icon: "sleep", route: "/sleep" },
         { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
       ];
     case "youth_athlete":

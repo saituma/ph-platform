@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
+import { SignJWT, jwtVerify } from "jose";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "../config/env";
+import { db } from "../db";
+import { scheduledSessionTable } from "../db/schema";
 import { logger } from "../lib/logger";
 import { isTrainingStaff } from "../lib/user-roles";
 import {
@@ -277,4 +281,71 @@ export async function getAttendanceStatsAdmin(req: Request, res: Response) {
     to: query.to ? new Date(query.to) : undefined,
   });
   return res.status(200).json({ stats });
+}
+
+const generateQrTokenSchema = z.object({ sessionId: z.number().int().min(1) });
+
+export async function generateQrToken(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+
+  const { sessionId } = generateQrTokenSchema.parse(req.body);
+
+  const [session] = await db
+    .select({ id: scheduledSessionTable.id })
+    .from(scheduledSessionTable)
+    .where(eq(scheduledSessionTable.id, sessionId))
+    .limit(1);
+
+  if (!session) return res.status(404).json({ error: "Session not found" });
+
+  const secret = new TextEncoder().encode(env.jwtSecret);
+  const token = await new SignJWT({ sessionId, purpose: "attendance-qr" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("15m")
+    .sign(secret);
+
+  return res.status(200).json({
+    token,
+    expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+  });
+}
+
+const scanQrTokenSchema = z.object({ token: z.string().min(1) });
+
+export async function scanQrToken(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const { token } = scanQrTokenSchema.parse(req.body);
+
+  let payload: Awaited<ReturnType<typeof jwtVerify>>["payload"];
+  try {
+    const secret = new TextEncoder().encode(env.jwtSecret);
+    const verified = await jwtVerify(token, secret);
+    payload = verified.payload;
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired QR token" });
+  }
+
+  if (payload.purpose !== "attendance-qr" || typeof payload.sessionId !== "number") {
+    return res.status(400).json({ error: "Invalid QR token payload" });
+  }
+
+  try {
+    const result = await checkInMySession({ scheduledSessionId: payload.sessionId, userId: req.user.id });
+    void notifyAttendanceUpdated({
+      scheduledSessionId: payload.sessionId,
+      userIds: [req.user.id],
+      message: "Session attendance marked via QR.",
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "SESSION_ASSIGNMENT_NOT_FOUND") {
+      return res.status(404).json({ error: "Session assignment not found" });
+    }
+    if (error instanceof Error && error.message === "SESSION_NOT_ATTENDABLE_TODAY") {
+      return res.status(403).json({ error: "Session can only be attended on its scheduled day" });
+    }
+    throw error;
+  }
 }

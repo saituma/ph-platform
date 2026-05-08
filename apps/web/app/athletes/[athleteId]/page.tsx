@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Calendar, ChevronRight, Dumbbell, Play, Plus, Trophy, User, Utensils, Video, X } from "lucide-react";
+import { Calendar, ChevronRight, Dumbbell, Moon, Play, Plus, Trophy, User, Utensils, Video, X } from "lucide-react";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { SectionHeader } from "../../../components/admin/section-header";
@@ -31,6 +31,7 @@ import {
   useUnassignProgramMutation,
   useUpdateProgramAssignmentMutation,
 } from "../../../lib/apiSlice";
+import { SleepLogsSection } from "../../../components/admin/SleepLogsSection";
 
 export default function AthleteDetailPage() {
   const params = useParams();
@@ -431,6 +432,11 @@ export default function AthleteDetailPage() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Sleep Tracking */}
+        {athlete?.userId && (
+          <SleepLogsSection userId={athlete.userId} />
         )}
       </div>
 

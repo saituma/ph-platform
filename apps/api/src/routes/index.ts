@@ -34,6 +34,7 @@ import portalRoutes from "./portal.routes";
 import enquiryRoutes from "./enquiry.routes";
 import attendanceRoutes from "./attendance.routes";
 import sessionScheduleRoutes from "./session-schedule.routes";
+import sleepRoutes from "./sleep.routes";
 
 const router = Router();
 
@@ -71,5 +72,6 @@ router.use(portalRoutes);
 router.use(enquiryRoutes);
 router.use(attendanceRoutes);
 router.use(sessionScheduleRoutes);
+router.use(sleepRoutes);
 
 export default router;

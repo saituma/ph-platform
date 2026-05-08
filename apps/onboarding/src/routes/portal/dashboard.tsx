@@ -2,12 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	Activity,
+	ArrowRight,
 	Bell,
 	Calendar,
 	Clock,
 	CreditCard,
 	Dumbbell,
 	ExternalLink,
+	Megaphone,
 	MessageSquare,
 	Shield,
 	UserPlus,
@@ -32,7 +34,9 @@ import {
 } from "@/lib/portal-access";
 import { usePortal } from "@/portal/PortalContext";
 import { fetchHomeContent, homeQueryKeys } from "@/services/homeService";
-import { fetchBookings, type ScheduleEvent } from "@/services/scheduleService";
+import { fetchInbox } from "@/services/messagesService";
+import { fetchMyAssignedPrograms } from "@/services/programsService";
+import { fetchBookings, fetchScheduledPrograms, type ScheduleEvent } from "@/services/scheduleService";
 import { settingsService } from "@/services/settingsService";
 import { fetchTeamRoster } from "@/services/teamRosterService";
 
@@ -586,12 +590,22 @@ function StatCard({ label, value, sub, icon }: {
 	);
 }
 
-function QuickAction({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+function QuickAction({ to, icon, label, badge }: { to: string; icon: React.ReactNode; label: string; badge?: number }) {
 	return (
 		<Link
 			to={to}
-			className="flex flex-col items-center gap-2 p-4 border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.12] transition-all duration-200 group/action"
+			className="relative flex flex-col items-center gap-2 p-4 border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.12] transition-all duration-200 group/action"
 		>
+			{badge != null && badge > 0 && (
+				<motion.span
+					initial={{ scale: 0 }}
+					animate={{ scale: 1 }}
+					transition={{ type: "spring", stiffness: 300, damping: 15 }}
+					className="absolute top-2 right-2 h-4 min-w-4 px-1 flex items-center justify-center bg-primary text-primary-foreground font-mono text-[9px] font-bold"
+				>
+					{badge > 99 ? "99+" : badge}
+				</motion.span>
+			)}
 			<motion.div
 				whileHover={{ scale: 1.1 }}
 				whileTap={{ scale: 0.95 }}
@@ -655,7 +669,68 @@ function AthleteDashboard({
 	feedData: any;
 	feedLoading: boolean;
 }) {
-	void token;
+	const { data: bookings = [] } = useQuery({
+		queryKey: ["schedule", "bookings", token],
+		queryFn: () => fetchBookings(token!),
+		enabled: !!token,
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const { data: scheduledPrograms = [] } = useQuery({
+		queryKey: ["schedule", "programs"],
+		queryFn: () => fetchScheduledPrograms(),
+		enabled: !!token,
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const { data: inboxData } = useQuery({
+		queryKey: ["inbox", token],
+		queryFn: () => fetchInbox(token!),
+		enabled: !!token,
+		staleTime: 1000 * 60 * 2,
+	});
+
+	const { data: assignedPrograms } = useQuery({
+		queryKey: ["assignedPrograms", token],
+		queryFn: () => fetchMyAssignedPrograms(token!),
+		enabled: !!token,
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const { data: announcementsData } = useQuery({
+		queryKey: ["announcements"],
+		queryFn: () => settingsService.getAnnouncements(),
+		enabled: !!token,
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const { data: notificationsData } = useQuery({
+		queryKey: ["notifications"],
+		queryFn: () => settingsService.getNotifications(),
+		enabled: !!token,
+		staleTime: 1000 * 60 * 2,
+	});
+
+	const upcomingBookings = bookings
+		.filter((b) => new Date(b.startsAt) >= new Date() && b.status !== "cancelled")
+		.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+		.slice(0, 3);
+
+	const upcomingScheduled = scheduledPrograms
+		.filter((s) => new Date(s.startsAt) >= new Date())
+		.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+		.slice(0, 3);
+
+	const allUpcoming = [...upcomingBookings, ...upcomingScheduled]
+		.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+		.slice(0, 4);
+
+	const unreadThreads = (inboxData?.threads ?? []).filter((t) => t.unread > 0);
+	const totalUnread = unreadThreads.reduce((sum, t) => sum + t.unread, 0);
+
+	const announcements = (announcementsData?.items ?? []).slice(0, 2);
+	const unreadNotifications = (notificationsData?.items ?? []).filter((n) => !n.read).slice(0, 5);
+
 	const rosterTeamPlan = user.team?.id ? getCoachTeamPortalPlanSummary(user) : null;
 	const displayName = user.athleteName || user.name || "Athlete";
 	const athletePlanLabel =
@@ -877,11 +952,287 @@ function AthleteDashboard({
 			</div>
 
 			{/* Quick Actions */}
-			<StaggerList className="grid grid-cols-2 md:grid-cols-3 gap-3">
+			<StaggerList className="grid grid-cols-2 md:grid-cols-4 gap-3">
 				<StaggerItem><QuickAction to="/portal/programs" icon={<Dumbbell className="h-4 w-4" />} label="Programs" /></StaggerItem>
 				<StaggerItem><QuickAction to="/portal/schedule" icon={<Calendar className="h-4 w-4" />} label="Schedule" /></StaggerItem>
-				<StaggerItem><QuickAction to="/portal/messages" icon={<MessageSquare className="h-4 w-4" />} label="Messages" /></StaggerItem>
+				<StaggerItem><QuickAction to="/portal/messages" icon={<MessageSquare className="h-4 w-4" />} label="Messages" badge={totalUnread || undefined} /></StaggerItem>
+				<StaggerItem><QuickAction to="/portal/nutrition" icon={<Utensils className="h-4 w-4" />} label="Nutrition" /></StaggerItem>
 			</StaggerList>
+
+			{/* Announcements Banner */}
+			{announcements.length > 0 && (
+				<motion.div
+					variants={fadeUp}
+					initial="hidden"
+					animate="visible"
+					transition={{ delay: 0.2 }}
+					className="space-y-3"
+				>
+					{announcements.map((a: any) => (
+						<motion.div
+							key={a.id}
+							whileHover={{ x: 2 }}
+							transition={{ duration: 0.15 }}
+							className="flex items-start gap-4 p-5 border border-primary/10 bg-primary/[0.02] hover:border-primary/20 transition-colors duration-200"
+						>
+							<div className="mt-0.5 h-8 w-8 flex items-center justify-center bg-primary/10 shrink-0">
+								<Megaphone className="h-4 w-4 text-primary" />
+							</div>
+							<div className="min-w-0 flex-1">
+								<p className="text-sm font-medium text-foreground">{a.title || "Announcement"}</p>
+								<p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{a.content || a.message || a.body}</p>
+								{a.createdAt && (
+									<p className="font-mono text-[10px] text-foreground/30 uppercase tracking-wider mt-2">
+										{formatRelativeDate(a.createdAt)}
+									</p>
+								)}
+							</div>
+						</motion.div>
+					))}
+				</motion.div>
+			)}
+
+			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+				<div className="lg:col-span-2 space-y-6">
+					{/* Upcoming Schedule */}
+					<motion.section
+						variants={fadeUp}
+						initial="hidden"
+						animate="visible"
+						transition={{ delay: 0.25 }}
+						className="border border-foreground/[0.06] p-6 space-y-4"
+					>
+						<div className="flex items-center justify-between">
+							<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">Upcoming Schedule</h2>
+							<Link to="/portal/schedule" className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 hover:text-foreground transition-colors inline-flex items-center gap-1">
+								View all <ArrowRight className="h-3 w-3" />
+							</Link>
+						</div>
+						{allUpcoming.length > 0 ? (
+							<StaggerList className="space-y-2">
+								{allUpcoming.map((b) => (
+									<StaggerItem key={b.id}><BookingRow booking={b} /></StaggerItem>
+								))}
+							</StaggerList>
+						) : (
+							<div className="py-8 text-center">
+								<Calendar className="h-6 w-6 mx-auto mb-2 text-foreground/20" />
+								<p className="text-sm text-muted-foreground">No upcoming sessions.</p>
+								<Link to="/portal/schedule" className="inline-block font-mono text-[10px] uppercase tracking-wider text-foreground/40 hover:text-foreground mt-2 transition-colors">
+									Book a session
+								</Link>
+							</div>
+						)}
+					</motion.section>
+
+					{/* Assigned Programs */}
+					{assignedPrograms && assignedPrograms.length > 0 && (
+						<motion.section
+							variants={fadeUp}
+							initial="hidden"
+							animate="visible"
+							transition={{ delay: 0.3 }}
+							className="border border-foreground/[0.06] p-6 space-y-4"
+						>
+							<div className="flex items-center justify-between">
+								<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">My Programs</h2>
+								<Link to="/portal/programs" className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 hover:text-foreground transition-colors inline-flex items-center gap-1">
+									View all <ArrowRight className="h-3 w-3" />
+								</Link>
+							</div>
+							<StaggerList className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								{assignedPrograms.slice(0, 4).map((p: any) => (
+									<StaggerItem key={p.id || p.programId}>
+										<Link
+											to="/portal/programs/assigned/$programId"
+											params={{ programId: String(p.programId ?? p.id) }}
+											className="block"
+										>
+											<motion.div
+												whileHover={{ y: -2 }}
+												transition={{ duration: 0.2 }}
+												className="border border-foreground/[0.06] p-4 hover:border-foreground/[0.12] hover:bg-foreground/[0.015] transition-all duration-200 group/program"
+											>
+												<div className="flex items-start gap-3">
+													<div className="h-9 w-9 bg-foreground/[0.06] flex items-center justify-center shrink-0 group-hover/program:bg-primary/10 transition-colors duration-200">
+														<Dumbbell className="h-4 w-4 text-foreground/40 group-hover/program:text-primary transition-colors duration-200" />
+													</div>
+													<div className="min-w-0 flex-1">
+														<p className="text-sm font-medium truncate">{p.name || p.programName || "Program"}</p>
+														{p.sessionsCompleted != null && p.totalSessions != null && (
+															<div className="mt-2 space-y-1">
+																<div className="flex justify-between text-[10px] font-mono uppercase tracking-wider text-foreground/40">
+																	<span>Progress</span>
+																	<span>{p.sessionsCompleted}/{p.totalSessions}</span>
+																</div>
+																<div className="h-1 w-full bg-foreground/[0.06] overflow-hidden">
+																	<motion.div
+																		initial={{ width: 0 }}
+																		animate={{ width: `${p.totalSessions > 0 ? (p.sessionsCompleted / p.totalSessions) * 100 : 0}%` }}
+																		transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+																		className="h-full bg-primary/60"
+																	/>
+																</div>
+															</div>
+														)}
+													</div>
+												</div>
+											</motion.div>
+										</Link>
+									</StaggerItem>
+								))}
+							</StaggerList>
+						</motion.section>
+					)}
+				</div>
+
+				{/* Right Sidebar */}
+				<motion.div
+					initial="hidden"
+					animate="visible"
+					variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 0.3 } } }}
+					className="space-y-6"
+				>
+					{/* Unread Messages */}
+					<motion.div variants={staggerItem} className="border border-foreground/[0.06] p-6 space-y-4 hover:border-foreground/[0.1] transition-colors duration-300">
+						<div className="flex items-center justify-between">
+							<h3 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Messages</h3>
+							{totalUnread > 0 && (
+								<motion.span
+									initial={{ scale: 0 }}
+									animate={{ scale: 1 }}
+									transition={{ type: "spring", stiffness: 300, damping: 15 }}
+									className="h-5 min-w-5 px-1.5 flex items-center justify-center bg-primary text-primary-foreground font-mono text-[10px] font-bold"
+								>
+									{totalUnread}
+								</motion.span>
+							)}
+						</div>
+						{unreadThreads.length > 0 ? (
+							<StaggerList className="space-y-2">
+								{unreadThreads.slice(0, 4).map((thread) => (
+									<StaggerItem key={thread.id}>
+										<Link to="/portal/messages" className="block">
+											<motion.div
+												whileHover={{ x: 2 }}
+												transition={{ duration: 0.15 }}
+												className="flex items-center gap-3 py-2 group/thread hover:bg-foreground/[0.015] px-2 -mx-2 transition-colors duration-200"
+											>
+												<div className="h-7 w-7 bg-foreground/10 flex items-center justify-center text-[10px] font-mono text-foreground/60 shrink-0 group-hover/thread:bg-primary/10 group-hover/thread:text-primary transition-colors duration-200">
+													{thread.name?.slice(0, 2).toUpperCase() || "?"}
+												</div>
+												<div className="min-w-0 flex-1">
+													<p className="text-sm font-medium truncate">{thread.name}</p>
+													<p className="text-xs text-muted-foreground truncate">{thread.preview}</p>
+												</div>
+												{thread.unread > 0 && (
+													<span className="h-4 min-w-4 px-1 flex items-center justify-center bg-primary/10 text-primary font-mono text-[9px] font-bold shrink-0">
+														{thread.unread}
+													</span>
+												)}
+											</motion.div>
+										</Link>
+									</StaggerItem>
+								))}
+							</StaggerList>
+						) : (
+							<div className="py-4 text-center">
+								<MessageSquare className="h-5 w-5 mx-auto mb-2 text-foreground/20" />
+								<p className="text-xs text-muted-foreground">All caught up</p>
+							</div>
+						)}
+						<Link
+							to="/portal/messages"
+							className="block w-full text-center py-2 text-sm font-medium border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.12] transition-all duration-200"
+						>
+							Open Messages
+						</Link>
+					</motion.div>
+
+					{/* Notifications */}
+					<motion.div variants={staggerItem} className="border border-foreground/[0.06] p-6 space-y-4 hover:border-foreground/[0.1] transition-colors duration-300">
+						<div className="flex items-center justify-between">
+							<h3 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Notifications</h3>
+							{unreadNotifications.length > 0 && (
+								<motion.div
+									animate={{ scale: [1, 1.3, 1] }}
+									transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+									className="h-1.5 w-1.5 rounded-full bg-primary"
+								/>
+							)}
+						</div>
+						{unreadNotifications.length > 0 ? (
+							<StaggerList className="space-y-2">
+								{unreadNotifications.map((n) => (
+									<StaggerItem key={n.id}>
+										<motion.div
+											whileHover={{ x: 2 }}
+											transition={{ duration: 0.15 }}
+											className="flex items-start gap-3 py-2 hover:bg-foreground/[0.015] px-2 -mx-2 transition-colors duration-200"
+										>
+											<div className="mt-0.5 h-5 w-5 flex items-center justify-center text-foreground/30 shrink-0">
+												<Bell className="h-3.5 w-3.5" />
+											</div>
+											<div className="min-w-0 flex-1">
+												<p className="text-xs text-foreground leading-relaxed">{n.content}</p>
+												<p className="font-mono text-[10px] text-foreground/30 uppercase tracking-wider mt-1">
+													{formatRelativeDate(n.createdAt)}
+												</p>
+											</div>
+										</motion.div>
+									</StaggerItem>
+								))}
+							</StaggerList>
+						) : (
+							<div className="py-4 text-center">
+								<Bell className="h-5 w-5 mx-auto mb-2 text-foreground/20" />
+								<p className="text-xs text-muted-foreground">No new notifications</p>
+							</div>
+						)}
+						<Link
+							to="/portal/notifications"
+							className="block font-mono text-[10px] uppercase tracking-wider text-foreground/40 hover:text-foreground text-center transition-colors"
+						>
+							View all notifications
+						</Link>
+					</motion.div>
+
+					{/* Quick Stats */}
+					<motion.div variants={staggerItem} className="border border-foreground/[0.06] p-6 space-y-4 hover:border-foreground/[0.1] transition-colors duration-300">
+						<h3 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">At a Glance</h3>
+						<div className="space-y-3">
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-2 text-sm text-muted-foreground">
+									<Dumbbell className="h-3.5 w-3.5" />
+									<span>Programs</span>
+								</div>
+								<span className="text-sm font-medium">{assignedPrograms?.length ?? 0}</span>
+							</div>
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-2 text-sm text-muted-foreground">
+									<Calendar className="h-3.5 w-3.5" />
+									<span>Upcoming</span>
+								</div>
+								<span className="text-sm font-medium">{allUpcoming.length}</span>
+							</div>
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-2 text-sm text-muted-foreground">
+									<MessageSquare className="h-3.5 w-3.5" />
+									<span>Unread</span>
+								</div>
+								<span className="text-sm font-medium">{totalUnread}</span>
+							</div>
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-2 text-sm text-muted-foreground">
+									<Bell className="h-3.5 w-3.5" />
+									<span>Alerts</span>
+								</div>
+								<span className="text-sm font-medium">{unreadNotifications.length}</span>
+							</div>
+						</div>
+					</motion.div>
+				</motion.div>
+			</div>
 
 			{/* Activity Feed */}
 			<motion.div

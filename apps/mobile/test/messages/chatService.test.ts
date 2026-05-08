@@ -12,13 +12,15 @@ describe("chatService", () => {
     jest.clearAllMocks();
   });
 
-  it("fetchInbox should call apiRequest for messages and groups", async () => {
+  it("fetchInbox should call apiRequest for messages inbox", async () => {
     (apiRequest as jest.Mock).mockResolvedValue({ status: "fulfilled", value: {} });
 
     await chatService.fetchInbox(token);
 
-    expect(apiRequest).toHaveBeenCalledWith("/messages", expect.any(Object));
-    expect(apiRequest).toHaveBeenCalledWith("/chat/groups", expect.any(Object));
+    expect(apiRequest).toHaveBeenCalledWith("/messages/inbox", expect.objectContaining({
+      token: "test-token",
+      suppressStatusCodes: [401, 403],
+    }));
   });
 
   it("sendDirectMessage should call apiRequest with POST and body", async () => {

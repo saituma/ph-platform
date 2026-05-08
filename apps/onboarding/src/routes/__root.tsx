@@ -118,6 +118,7 @@ function RootLayout() {
 	}, []);
 
 	const marketingPages = [
+		"/",
 		"/about",
 		"/features",
 		"/services",
@@ -127,7 +128,8 @@ function RootLayout() {
 		"/education-faq",
 		"/terms-privacy",
 	];
-	const showChrome = marketingPages.includes(pathname);
+	const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+	const showChrome = marketingPages.includes(normalizedPath);
 
 	return (
 		<QueryClientProvider client={queryClient}>

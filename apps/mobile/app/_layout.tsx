@@ -270,7 +270,9 @@ function RootLayout() {
                   }
             }
           />
+          <Stack.Screen name="qr-scan" options={{ headerShown: false, presentation: "fullScreenModal" }} />
           <Stack.Screen name="active-run" options={{ headerShown: false }} />
+          <Stack.Screen name="sleep" options={{ headerShown: false }} />
           {/* Standalone route (same pattern as nutrition.tsx) — explicit screen helps blank-stack registration */}
           <Stack.Screen name="progress" options={{ headerShown: false }} />
         </Stack>

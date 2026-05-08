@@ -1,6 +1,6 @@
 ---
 name: expo-native-ui
-description: Build with native platform UI — SwiftUI components, Jetpack Compose Material 3, native tabs, glass effects, SF Symbols, native controls. Use when building screens that should look 100% platform-native.
+description: Build with native platform UI — SwiftUI, Jetpack Compose, native tabs, glass effects, SF Symbols. Use when screens should look 100% platform-native.
 user-invokable: true
 args:
   - name: component

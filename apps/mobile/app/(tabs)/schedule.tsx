@@ -31,6 +31,7 @@ import {
   Heart,
   CheckCircle2,
   XCircle,
+  ScanLine,
 } from "lucide-react-native";
 import Animated, {
   FadeInDown,
@@ -859,9 +860,18 @@ export default memo(function ScheduleScreen() {
 
       {/* ── Header ── */}
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 }}>
-        <Text style={{ fontSize: 28, letterSpacing: -0.5, color: p.textPrimary, fontFamily: "Outfit-Bold" }}>
-          Schedule
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontSize: 28, letterSpacing: -0.5, color: p.textPrimary, fontFamily: "Outfit-Bold" }}>
+            Schedule
+          </Text>
+          <Pressable
+            onPress={() => router.push("/qr-scan")}
+            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: p.inputBg, alignItems: "center", justifyContent: "center" }}
+            hitSlop={8}
+          >
+            <ScanLine size={20} color={p.textSecondary} />
+          </Pressable>
+        </View>
         <StatsBar upcoming={upcoming.length} pending={requests.length} />
       </View>
 

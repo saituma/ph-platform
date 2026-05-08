@@ -142,6 +142,16 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["ScheduledSessions"],
     }),
+    generateAttendanceQr: builder.mutation<
+      { token: string; expiresAt: string },
+      { sessionId: number }
+    >({
+      query: ({ sessionId }) => ({
+        url: "/admin/scheduled-sessions/attendance/qr/generate",
+        method: "POST",
+        body: { sessionId },
+      }),
+    }),
     getAdminAttendanceStats: builder.query<
       {
         stats: Array<{
@@ -186,5 +196,6 @@ export const {
   useMaterializeAdminSessionTemplateMutation,
   useGetAdminScheduledSessionsQuery,
   useMarkAdminSessionAttendanceMutation,
+  useGenerateAttendanceQrMutation,
   useGetAdminAttendanceStatsQuery,
 } = adminSessionScheduleApi;

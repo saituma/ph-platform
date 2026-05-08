@@ -23,7 +23,6 @@ const NAV_LINKS = [
 	{ label: "Services", href: "/services" },
 	{ label: "App", href: "/app-download" },
 	{ label: "Results", href: "/gallery" },
-	{ label: "Blog", href: "/blog" },
 	{ label: "Contact", href: "/contact" },
 ];
 
@@ -135,16 +134,10 @@ export default function Header() {
 					{/* Logo */}
 					<Link to="/" className="flex items-center gap-2 shrink-0">
 						<img
-							src="/ph-logo.png"
-							alt=""
-							aria-hidden="true"
-							className="w-[34px] h-[34px] rounded object-cover"
+							src="/logo.png"
+							alt="PH Performance"
+							className="w-20 h-20 rounded object-cover"
 						/>
-						<span className="text-white text-[15px] tracking-wide">
-							<span className="font-black italic">P</span>
-							<span className="font-black italic text-[#8aff00]">H</span>
-							<span className="font-light ml-1 tracking-[0.18em] text-[12px]">PERFORMANCE</span>
-						</span>
 					</Link>
 
 					{/* Desktop nav links */}
@@ -173,57 +166,70 @@ export default function Header() {
 						{isPending ? (
 							<div className="h-7 w-7 rounded-full bg-white/10 animate-pulse" />
 						) : sessionUser ? (
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<button
-										type="button"
-										className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] hover:bg-white/5 transition-colors cursor-pointer"
-									>
-										<Avatar className="h-6 w-6">
-											<AvatarImage src={sessionUser.image || ""} alt={sessionUser.name || "User"} />
-											<AvatarFallback className="bg-white/10 text-white text-[10px] font-medium">
-												{sessionUser.name?.split(" ").map((n) => n[0]).join("") || "U"}
-											</AvatarFallback>
-										</Avatar>
-										<span className="text-[12px] font-medium uppercase tracking-[0.12em] text-white/60">
-											{sessionUser.name?.split(" ")[0]}
+							<div className="flex items-center gap-3">
+								<Link
+									to="/portal/dashboard"
+									className="border border-[#8aff00] rounded-[4px] px-5 py-2.5 hover:bg-[#8aff00]/5 transition-all flex items-center gap-3"
+								>
+									<span className="w-[7px] h-[7px] rounded-full bg-[#8aff00] shrink-0" />
+									<div className="text-left">
+										<span className="block text-[11px] font-bold tracking-[0.08em] uppercase leading-tight text-[#8aff00]">
+											GO TO DASHBOARD
 										</span>
-									</button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent className="w-56 mt-1 bg-[#111] border-white/10" align="end" forceMount>
-									<DropdownMenuLabel className="font-normal p-3">
-										<div className="flex flex-col space-y-1">
-											<p className="text-sm font-medium leading-none text-white">{sessionUser.name}</p>
-											<p className="text-xs leading-none text-white/40 truncate">{sessionUser.email}</p>
-										</div>
-									</DropdownMenuLabel>
-									<DropdownMenuSeparator className="bg-white/10" />
-									<div className="p-1">
-										<DropdownMenuItem asChild className="px-3 py-2 text-sm cursor-pointer gap-2 text-white/70 hover:text-white focus:bg-white/5 focus:text-white">
-											<Link to="/portal/dashboard">
-												<Layout weight="bold" size={16} />
-												Dashboard
-											</Link>
-										</DropdownMenuItem>
-										<DropdownMenuItem asChild className="px-3 py-2 text-sm cursor-pointer gap-2 text-white/70 hover:text-white focus:bg-white/5 focus:text-white">
-											<Link to="/portal/profile">
-												<UserIcon weight="bold" size={16} />
-												Profile
-											</Link>
-										</DropdownMenuItem>
+										<span className="block text-[9px] font-normal text-white/40 tracking-wide mt-[2px]">
+											Learn more
+										</span>
 									</div>
-									<DropdownMenuSeparator className="bg-white/10" />
-									<div className="p-1">
-										<DropdownMenuItem
-											onClick={handleSignOut}
-											className="px-3 py-2 text-sm text-red-400 cursor-pointer gap-2 focus:bg-white/5 focus:text-red-400"
+								</Link>
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<button
+											type="button"
+											className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] hover:bg-white/5 transition-colors cursor-pointer"
 										>
-											<SignOut weight="bold" size={16} />
-											Sign Out
-										</DropdownMenuItem>
-									</div>
-								</DropdownMenuContent>
-							</DropdownMenu>
+											<Avatar className="h-7 w-7">
+												<AvatarImage src={sessionUser.image || ""} alt={sessionUser.name || "User"} />
+												<AvatarFallback className="bg-white/10 text-white text-[10px] font-medium">
+													{sessionUser.name?.split(" ").map((n) => n[0]).join("") || "U"}
+												</AvatarFallback>
+											</Avatar>
+										</button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent className="w-56 mt-1 bg-[#111] border-white/10" align="end" forceMount>
+										<DropdownMenuLabel className="font-normal p-3">
+											<div className="flex flex-col space-y-1">
+												<p className="text-sm font-medium leading-none text-white">{sessionUser.name}</p>
+												<p className="text-xs leading-none text-white/40 truncate">{sessionUser.email}</p>
+											</div>
+										</DropdownMenuLabel>
+										<DropdownMenuSeparator className="bg-white/10" />
+										<div className="p-1">
+											<DropdownMenuItem asChild className="px-3 py-2 text-sm cursor-pointer gap-2 text-white/70 hover:text-white focus:bg-white/5 focus:text-white">
+												<Link to="/portal/dashboard">
+													<Layout weight="bold" size={16} />
+													Dashboard
+												</Link>
+											</DropdownMenuItem>
+											<DropdownMenuItem asChild className="px-3 py-2 text-sm cursor-pointer gap-2 text-white/70 hover:text-white focus:bg-white/5 focus:text-white">
+												<Link to="/portal/profile">
+													<UserIcon weight="bold" size={16} />
+													Profile
+												</Link>
+											</DropdownMenuItem>
+										</div>
+										<DropdownMenuSeparator className="bg-white/10" />
+										<div className="p-1">
+											<DropdownMenuItem
+												onClick={handleSignOut}
+												className="px-3 py-2 text-sm text-red-400 cursor-pointer gap-2 focus:bg-white/5 focus:text-red-400"
+											>
+												<SignOut weight="bold" size={16} />
+												Sign Out
+											</DropdownMenuItem>
+										</div>
+									</DropdownMenuContent>
+								</DropdownMenu>
+							</div>
 						) : (
 							<button
 								type="button"
@@ -283,23 +289,32 @@ export default function Header() {
 							))}
 
 							{!isPending && sessionUser ? (
-								<div className="mt-3 flex items-center justify-between">
-									<div className="flex items-center gap-2">
-										<Avatar className="h-6 w-6">
-											<AvatarImage src={sessionUser.image || ""} alt={sessionUser.name || "User"} />
-											<AvatarFallback className="bg-white/10 text-white text-[10px]">
-												{sessionUser.name?.split(" ").map((n) => n[0]).join("") || "U"}
-											</AvatarFallback>
-										</Avatar>
-										<span className="text-[12px] text-white/60 uppercase tracking-wider">{sessionUser.name?.split(" ")[0]}</span>
-									</div>
-									<button
-										type="button"
-										onClick={() => { setMobileMenuOpen(false); handleSignOut(); }}
-										className="text-[11px] text-red-400 uppercase tracking-wider"
+								<div className="mt-3 space-y-3">
+									<Link
+										to="/portal/dashboard"
+										onClick={() => setMobileMenuOpen(false)}
+										className="w-full flex items-center justify-center gap-2 border border-[#8aff00] text-[#8aff00] rounded-[4px] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em]"
 									>
-										Sign Out
-									</button>
+										GO TO DASHBOARD
+									</Link>
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-2">
+											<Avatar className="h-6 w-6">
+												<AvatarImage src={sessionUser.image || ""} alt={sessionUser.name || "User"} />
+												<AvatarFallback className="bg-white/10 text-white text-[10px]">
+													{sessionUser.name?.split(" ").map((n) => n[0]).join("") || "U"}
+												</AvatarFallback>
+											</Avatar>
+											<span className="text-[12px] text-white/60 uppercase tracking-wider">{sessionUser.name?.split(" ")[0]}</span>
+										</div>
+										<button
+											type="button"
+											onClick={() => { setMobileMenuOpen(false); handleSignOut(); }}
+											className="text-[11px] text-red-400 uppercase tracking-wider"
+										>
+											Sign Out
+										</button>
+									</div>
 								</div>
 							) : (
 								<button

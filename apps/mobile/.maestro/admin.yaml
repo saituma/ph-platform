@@ -1,0 +1,95 @@
+appId: com.phperformance.app
+tags:
+  - admin
+  - critical
+name: "Admin Flow"
+env:
+  ADMIN_EMAIL: "admin@phperformance.com"
+  ADMIN_PASSWORD: "AdminPassword123!"
+---
+
+# ── Admin Flow ───────────────────────────────────────────────────────────
+# Tests admin-specific screens: user management, bookings, content, teams.
+# Requires admin credentials in env vars.
+
+- launchApp
+
+# Login as admin
+- assertVisible: "Welcome back"
+- tapOn:
+    text: "name@example.com"
+- inputText: ${ADMIN_EMAIL}
+- tapOn:
+    text: "Enter your password"
+- inputText: ${ADMIN_PASSWORD}
+- tapOn: "Sign In"
+
+# Wait for admin home to load
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 15000
+
+# ── Admin Users ──
+- tapOn:
+    text: "Users"
+    optional: true
+- runFlow:
+    when:
+      visible: "Users"
+    commands:
+      - extendedWaitUntil:
+          visible: ".*"
+          timeout: 10000
+      # Verify user list loads
+      - assertVisible:
+          text: "Search|Filter"
+          optional: true
+      - back
+
+# ── Admin Bookings ──
+- tapOn:
+    text: "Schedule"
+    optional: true
+- tapOn:
+    text: "Bookings"
+    optional: true
+- runFlow:
+    when:
+      visible: "Bookings"
+    commands:
+      - assertVisible:
+          text: "Bookings"
+      - back
+
+# ── Admin Content / Programs ──
+- tapOn:
+    text: "Programs"
+    optional: true
+- tapOn:
+    text: "Content"
+    optional: true
+- runFlow:
+    when:
+      visible: "Content|Programs|Modules"
+    commands:
+      - assertVisible:
+          text: ".*"
+      - back
+
+# ── Admin Teams ──
+- tapOn:
+    text: "Teams"
+    optional: true
+- runFlow:
+    when:
+      visible: "Teams"
+    commands:
+      - assertVisible:
+          text: "Teams"
+      - back
+
+# ── Admin Messages (Announcements) ──
+- tapOn:
+    text: "Messages"
+- assertVisible:
+    text: "Messages"

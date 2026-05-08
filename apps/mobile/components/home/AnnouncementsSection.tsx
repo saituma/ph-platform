@@ -18,7 +18,7 @@ import { MarkdownText } from "@/components/ui/MarkdownText";
 import { isYoutubeUrl, VideoPlayer, YouTubeEmbed } from "@/components/media/VideoPlayer";
 import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
 
-const AUTO_SCROLL_INTERVAL = 6000;
+const AUTO_SCROLL_INTERVAL = 15000;
 
 export type AnnouncementItem = {
   id: string;

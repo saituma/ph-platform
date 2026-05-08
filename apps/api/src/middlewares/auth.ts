@@ -55,6 +55,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     let user = userId
       ? await cache.getOrSet(cacheKeys.authUser(Number(userId)), 300, () => getUserById(Number(userId)))
       : await getUserByCognitoSub(sub!);
+    if (!user && userId) {
+      void cache.del(cacheKeys.authUser(Number(userId)));
+      return res.status(401).json({ error: "Unauthorized" });
+    }
     if (!user) {
       if (!email) {
         if (!allowBypass) {

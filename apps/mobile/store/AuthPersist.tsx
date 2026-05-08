@@ -371,7 +371,7 @@ export function AuthPersist() {
 
     const capabilityPoll = setInterval(() => {
       void syncProfile();
-    }, 120_000);
+    }, 300_000);
 
     return () => {
       active = false;
@@ -390,13 +390,8 @@ export function AuthPersist() {
       void registerDevicePushToken({ token, dispatch });
     }, 2500);
 
-    const interval = setInterval(() => {
-      void registerDevicePushToken({ token, dispatch });
-    }, 90_000);
-
     return () => {
       clearTimeout(delayed);
-      clearInterval(interval);
     };
   }, [
     hydrated,

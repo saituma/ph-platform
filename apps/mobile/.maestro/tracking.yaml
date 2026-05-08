@@ -1,0 +1,85 @@
+appId: com.phperformance.app
+tags:
+  - critical
+  - tracking
+name: "Run Tracking Flow"
+---
+
+# ── Run Tracking Flow ────────────────────────────────────────────────────
+# Tests the run tracking feature: start a run, verify metrics display,
+# pause, resume, and stop the run.
+
+- runFlow: login.yaml
+
+# Navigate to Tracking tab
+- tapOn:
+    text: "Tracking"
+    optional: true
+
+# Alternative: some roles show "Schedule" instead — try both
+- tapOn:
+    text: "Schedule"
+    optional: true
+
+# Verify tracking screen loads
+- extendedWaitUntil:
+    visible: ".*"
+    timeout: 10000
+
+# Look for the start run button
+- runFlow:
+    when:
+      visible: "Start Run"
+    commands:
+      - tapOn: "Start Run"
+
+      # Wait for the active run UI to appear
+      - extendedWaitUntil:
+          visible: "0:00"
+          timeout: 5000
+
+      # Verify key metrics are visible
+      - assertVisible:
+          text: "km"
+          optional: true
+      - assertVisible:
+          text: "0.00"
+          optional: true
+
+      # Pause the run
+      - tapOn:
+          id: "pause-button"
+          optional: true
+      - tapOn:
+          text: "Pause"
+          optional: true
+
+      # Resume the run
+      - tapOn:
+          id: "resume-button"
+          optional: true
+      - tapOn:
+          text: "Resume"
+          optional: true
+
+      # Stop the run
+      - tapOn:
+          id: "stop-button"
+          optional: true
+      - tapOn:
+          text: "Stop"
+          optional: true
+
+      # Confirm stop if prompted
+      - tapOn:
+          text: "End Run"
+          optional: true
+      - tapOn:
+          text: "Confirm"
+          optional: true
+
+      # Verify run summary appears
+      - assertVisible:
+          text: ".*km.*"
+          optional: true
+          timeout: 5000

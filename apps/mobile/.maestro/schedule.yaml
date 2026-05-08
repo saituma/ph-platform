@@ -1,0 +1,55 @@
+appId: com.phperformance.app
+tags:
+  - critical
+  - schedule
+name: "Schedule & Bookings Flow"
+---
+
+# ── Schedule & Bookings Flow ─────────────────────────────────────────────
+# Navigates to Schedule, verifies calendar renders, and attempts to view
+# or create a booking.
+
+- runFlow: login.yaml
+
+# Navigate to Schedule tab
+- tapOn:
+    text: "Schedule"
+
+# Wait for schedule screen to load
+- extendedWaitUntil:
+    visible: "Schedule"
+    timeout: 10000
+
+# Verify calendar grid is visible (month/day headers)
+- assertVisible:
+    text: "Mon|Tue|Wed|Thu|Fri|Sat|Sun"
+    optional: true
+
+# Tap today's date or a visible date cell
+- tapOn:
+    text: "\\d+"
+    index: 10
+    optional: true
+
+# Check if any events are shown
+- runFlow:
+    when:
+      visible: "No events"
+    commands:
+      - assertVisible: "No events"
+
+# Try to book a session if the button exists
+- runFlow:
+    when:
+      visible: "Book"
+    commands:
+      - tapOn: "Book"
+      - extendedWaitUntil:
+          visible: ".*"
+          timeout: 5000
+      # Verify booking modal/screen loaded
+      - assertVisible:
+          text: "Select|Service|Time|Available"
+          optional: true
+      # Go back without completing
+      - back

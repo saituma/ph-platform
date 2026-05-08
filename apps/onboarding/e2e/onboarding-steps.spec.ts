@@ -8,6 +8,7 @@ function seedSession(opts: {
   return async ({ page }: { page: any }) => {
     await page.addInitScript(
       (o: typeof opts) => {
+        localStorage.setItem("ph-cookie-consent", "accepted");
         if (o.email) localStorage.setItem("pending_email", o.email);
         if (o.userType) localStorage.setItem("user_type", o.userType);
         if (o.token) localStorage.setItem("ph_auth_token", o.token);
@@ -25,6 +26,14 @@ function seedSession(opts: {
         }),
       }),
     );
+
+    await page.route("**/api/app/set-token", (route: any) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      }),
+    );
   };
 }
 
@@ -32,7 +41,8 @@ test.describe("Onboarding Step 1 — Account Setup", () => {
   test.beforeEach(
     seedSession({
       email: "test@example.com",
-      token: "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.fake",
+      token:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTksInN1YiI6IjEifQ.test",
     }),
   );
 
@@ -69,11 +79,13 @@ test.describe("Onboarding Step 1 — Account Setup", () => {
     await page.goto("/onboarding/step-1");
     await page.getByRole("button", { name: /youth athlete/i }).click();
 
-    const showBtn = page.getByRole("button", { name: /show password$/i });
+    const showBtn = page
+      .getByRole("button", { name: /show password$/i })
+      .first();
     await expect(showBtn).toBeVisible();
     await showBtn.click();
     await expect(
-      page.getByRole("button", { name: /hide password$/i }),
+      page.getByRole("button", { name: /hide password$/i }).first(),
     ).toBeVisible();
   });
 
@@ -110,7 +122,9 @@ test.describe("Onboarding Step 1 — Account Setup", () => {
     await page.getByRole("button", { name: /adult athlete/i }).click();
     await page.getByLabel("Create Password").fill("Str0ng!Pass");
     await page.getByLabel("Confirm Password").fill("Different1!");
-    await expect(page.getByText(/passwords do not match/i)).toBeVisible();
+    await expect(page.getByText(/passwords do not match/i)).toBeVisible({
+      timeout: 5000,
+    });
   });
 });
 
@@ -119,7 +133,8 @@ test.describe("Onboarding Step 2 — Basic Information", () => {
     seedSession({
       email: "test@example.com",
       userType: "adult",
-      token: "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.fake",
+      token:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTksInN1YiI6IjEifQ.test",
     }),
   );
 
@@ -131,8 +146,12 @@ test.describe("Onboarding Step 2 — Basic Information", () => {
 
   test("back button navigates to step-1", async ({ page }) => {
     await page.goto("/onboarding/step-2");
-    await page.getByRole("button", { name: /back/i }).click();
-    await expect(page).toHaveURL(/\/onboarding\/step-1/);
+    const backBtn = page.getByRole("button", { name: /back/i });
+    await expect(backBtn).toBeVisible({ timeout: 10000 });
+    await backBtn.click();
+    await expect(page).toHaveURL(/\/onboarding\/step-1/, {
+      timeout: 10000,
+    });
   });
 });
 
@@ -141,7 +160,8 @@ test.describe("Onboarding Step 2 — Youth", () => {
     seedSession({
       email: "test@example.com",
       userType: "youth",
-      token: "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.fake",
+      token:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTksInN1YiI6IjEifQ.test",
     }),
   );
 
@@ -159,7 +179,8 @@ test.describe("Onboarding Step 2 — Team", () => {
     seedSession({
       email: "test@example.com",
       userType: "team",
-      token: "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.fake",
+      token:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTksInN1YiI6IjEifQ.test",
     }),
   );
 
@@ -176,12 +197,10 @@ test.describe("Onboarding Step 2 — Team", () => {
     await expect(page.getByText("Youth Team")).toBeVisible();
     await expect(page.getByText("Adult Team")).toBeVisible();
 
-    // Youth team should show age range fields
     await page.getByText("Youth Team").click();
     await expect(page.getByLabel(/min age/i)).toBeVisible();
     await expect(page.getByLabel(/max age/i)).toBeVisible();
 
-    // Adult team hides age range
     await page.getByText("Adult Team").click();
     await expect(page.getByLabel(/min age/i)).not.toBeVisible();
   });
@@ -192,7 +211,8 @@ test.describe("Onboarding Step 3 — Training & Goals", () => {
     seedSession({
       email: "test@example.com",
       userType: "adult",
-      token: "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.fake",
+      token:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTksInN1YiI6IjEifQ.test",
     }),
   );
 

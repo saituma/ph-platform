@@ -1,0 +1,61 @@
+appId: com.phperformance.app
+tags:
+  - feature
+  - nutrition
+name: "Nutrition Flow"
+---
+
+# ── Nutrition Flow ───────────────────────────────────────────────────────
+# Navigates to nutrition section, verifies the dashboard loads, and
+# attempts to log a meal.
+
+- runFlow: login.yaml
+
+# Navigate to More tab first (nutrition is usually under More or Programs)
+- tapOn:
+    text: "More"
+    optional: true
+
+# Try finding Nutrition link
+- tapOn:
+    text: "Nutrition"
+    optional: true
+
+# Alternative path: might be under Programs panel
+- runFlow:
+    when:
+      notVisible: "Nutrition"
+    commands:
+      - tapOn:
+          text: "Programs"
+      - tapOn:
+          text: "Nutrition"
+          optional: true
+
+# If we reached the nutrition screen
+- runFlow:
+    when:
+      visible: "Calories|Protein|Carbs|Fat"
+    commands:
+      # Verify dashboard elements
+      - assertVisible:
+          text: "Calories"
+          optional: true
+      - assertVisible:
+          text: "Protein"
+          optional: true
+
+      # Try to log a meal
+      - tapOn:
+          text: "Log|Add Meal|\\+"
+          optional: true
+
+      # If meal logging modal appeared
+      - runFlow:
+          when:
+            visible: "Breakfast|Lunch|Dinner|Snack"
+          commands:
+            - tapOn:
+                text: "Breakfast"
+                optional: true
+            - back

@@ -16,6 +16,7 @@ import {
   Menu,
   MessageCircle,
   MessageCircleMore,
+  Moon,
   Play,
   RefreshCw,
   Route,
@@ -51,7 +52,8 @@ export type AppIconName =
   | "roster"
   | "user"
   | "heart"
-  | "heart-filled";
+  | "heart-filled"
+  | "sleep";
 
 type AppIconProps = {
   name: AppIconName;
@@ -88,6 +90,7 @@ const IOS_SYMBOLS: Record<AppIconName, SymbolViewProps["name"]> = {
   tracking: "figure.run",
   roster: "person.2",
   user: "person.crop.circle",
+  sleep: "moon.fill",
 };
 
 const ANDROID_ICONS: Record<AppIconName, LucideIcon> = {
@@ -116,6 +119,7 @@ const ANDROID_ICONS: Record<AppIconName, LucideIcon> = {
   tracking: Route,
   roster: Users,
   user: UserRound,
+  sleep: Moon,
 };
 
 export function AppIcon({

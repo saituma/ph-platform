@@ -1,6 +1,12 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Registration Flow", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("ph-cookie-consent", "accepted");
+    });
+  });
+
   test("register page renders with email input and submit button", async ({
     page,
   }) => {
@@ -17,8 +23,14 @@ test.describe("Registration Flow", () => {
     await page.goto("/register");
     const emailInput = page.getByPlaceholder(/email/i).first();
     await emailInput.fill("notanemail");
+    // Bypass HTML5 type=email validation so the form submits and Zod validates
+    await page.evaluate(() => {
+      document.querySelector("form")?.setAttribute("novalidate", "");
+    });
     await page.getByRole("button", { name: /get started/i }).click();
-    await expect(page.getByText(/valid email/i)).toBeVisible();
+    await expect(page.getByText(/valid email/i)).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("shows duplicate account toast on 409", async ({ page }) => {
@@ -84,6 +96,8 @@ test.describe("Registration Flow", () => {
 
   test("preserves referral code from URL", async ({ page }) => {
     await page.goto("/register?ref=COACH123");
+    // Wait for React to hydrate and the useState initializer to run
+    await expect(page.getByPlaceholder(/email/i).first()).toBeVisible();
     const stored = await page.evaluate(() =>
       localStorage.getItem("pending_referral"),
     );
@@ -92,7 +106,11 @@ test.describe("Registration Flow", () => {
 
   test("sign in link navigates to login", async ({ page }) => {
     await page.goto("/register");
-    await page.getByText(/sign in/i).first().click();
+    await page
+      .locator("a")
+      .filter({ hasText: /sign in/i })
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/login/);
   });
 });

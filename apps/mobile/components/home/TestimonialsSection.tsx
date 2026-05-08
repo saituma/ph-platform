@@ -14,7 +14,7 @@ import { Text } from "@/components/ScaledText";
 import { AppIcon } from "@/components/ui/app-icon";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 
-const AUTO_SCROLL_INTERVAL = 6000;
+const AUTO_SCROLL_INTERVAL = 15000;
 
 type TestimonialItem = {
   id: string;

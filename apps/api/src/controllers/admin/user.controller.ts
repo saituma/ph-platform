@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { logger } from "../../lib/logger";
+import { cache, cacheKeys } from "../../lib/cache";
 import {
   listUsers,
   setUserBlocked,
@@ -124,12 +125,16 @@ export async function blockUser(req: Request, res: Response) {
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
+  void cache.del(cacheKeys.authUser(userId));
+  void cache.del(cacheKeys.userProfile(userId));
   return res.status(200).json({ user });
 }
 
 export async function deleteUser(req: Request, res: Response) {
   const userId = z.coerce.number().int().min(1).parse(req.params.userId);
   try {
+    void cache.del(cacheKeys.authUser(userId));
+    void cache.del(cacheKeys.userProfile(userId));
     const user = await softDeleteUser(userId);
     if (!user) {
       return res.status(404).json({ error: "User not found" });

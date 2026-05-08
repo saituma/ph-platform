@@ -13,3 +13,7 @@ tags:
 env:
   TEST_EMAIL: "test@phperformance.com"
   TEST_PASSWORD: "TestPassword123!"
+  ADMIN_EMAIL: "admin@phperformance.com"
+  ADMIN_PASSWORD: "AdminPassword123!"
+  TEAM_MANAGER_EMAIL: "teammanager@phperformance.com"
+  TEAM_MANAGER_PASSWORD: "TeamManager123!"

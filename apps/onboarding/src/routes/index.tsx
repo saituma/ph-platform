@@ -1,19 +1,15 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
     Users,
     Dumbbell,
     Zap,
     ShieldCheck,
-    Phone,
     User,
     Monitor,
     ArrowRight,
     Check,
-    Menu,
-    X,
 } from "lucide-react";
-import { useState } from "react";
 import { MagneticText } from "@/components/ui/morphing-cursor";
 import VaporizeTextCycle, { Tag } from "@/components/ui/vapour-text-effect";
 import { CinematicFooter } from "@/components/ui/motion-footer";
@@ -129,15 +125,6 @@ export const Route = createFileRoute("/")({
     component: LandingPage,
 });
 
-const NAV_LINKS = [
-    { label: "Home", href: "/", isRoute: true },
-    { label: "About", href: "/about", isRoute: true },
-    { label: "Services", href: "/services", isRoute: true },
-    { label: "App", href: "/app-download", isRoute: true },
-    { label: "Results", href: "/gallery", isRoute: true },
-    { label: "Contact", href: "/contact", isRoute: true },
-];
-
 const SERVICE_ICONS = [
     { icon: Users, label: "1-1 & Small Group\nCoaching" },
     { icon: Dumbbell, label: "Strength &\nConditioning" },
@@ -197,137 +184,8 @@ const APP_FEATURES_RIGHT = [
 ];
 
 function LandingPage() {
-    const navigate = useNavigate();
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
     return (
         <div className="relative min-h-dvh bg-[#0a0a0a] text-white overflow-x-hidden landing-page">
-            {/* ━━━ Navigation ━━━ */}
-            <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-sm">
-                <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-10 flex items-center justify-between h-16">
-                    {/* Logo */}
-                    <Link to="/" className="flex items-center gap-2 shrink-0">
-                        <img
-                            src="/logo.png"
-                            alt="PH Performance"
-                            className="w-20 h-20 rounded object-cover"
-                        />
-                    </Link>
-
-                    {/* Desktop nav links */}
-                    <div className="hidden lg:flex items-center">
-                        {NAV_LINKS.map((link) => {
-                            const cls = `relative px-[18px] py-2 text-[12px] font-medium tracking-[0.16em] uppercase transition-colors ${link.label === "Home"
-                                    ? "text-[#8aff00]"
-                                    : "text-white/50 hover:text-white"
-                                }`;
-                            const underline = link.label === "Home" && (
-                                <span className="absolute bottom-0 left-[18px] right-[18px] h-[2px] bg-[#8aff00]" />
-                            );
-                            if (link.isRoute) {
-                                return (
-                                    <Link key={link.label} to={link.href} className={cls}>
-                                        {link.label}
-                                        {underline}
-                                    </Link>
-                                );
-                            }
-                            return (
-                                <a
-                                    key={link.label}
-                                    href={link.href}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        document
-                                            .querySelector(link.href)
-                                            ?.scrollIntoView({ behavior: "smooth" });
-                                    }}
-                                    className={cls}
-                                >
-                                    {link.label}
-                                    {underline}
-                                </a>
-                            );
-                        })}
-                    </div>
-
-                    {/* Desktop CTA button */}
-                    <div className="hidden lg:flex">
-                        <button
-                            type="button"
-                            onClick={() => navigate({ to: "/register" })}
-                            className="border border-[#8aff00] rounded-[4px] px-5 py-2.5 hover:bg-[#8aff00]/5 transition-all flex items-center gap-3"
-                        >
-                            <span className="w-[7px] h-[7px] rounded-full bg-[#8aff00] shrink-0" />
-                            <div className="text-left">
-                                <span className="block text-[11px] font-bold tracking-[0.08em] uppercase leading-tight text-[#8aff00]">
-                                    SIGN UP TO APP NOW
-                                </span>
-                                <span className="block text-[9px] font-normal text-white/40 tracking-wide mt-[2px]">
-                                    Start your journey today
-                                </span>
-                            </div>
-                        </button>
-                    </div>
-
-                    {/* Mobile hamburger */}
-                    <button
-                        type="button"
-                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="lg:hidden text-white p-2"
-                    >
-                        {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-                    </button>
-                </div>
-
-                {/* Mobile menu */}
-                {mobileMenuOpen && (
-                    <div className="lg:hidden bg-[#0a0a0a] border-t border-white/5 px-5 pb-4">
-                        {NAV_LINKS.map((link) => {
-                            if (link.isRoute) {
-                                return (
-                                    <Link
-                                        key={link.label}
-                                        to={link.href}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className="block py-3 text-[12px] font-medium uppercase tracking-[0.14em] text-white/50 hover:text-white border-b border-white/5"
-                                    >
-                                        {link.label}
-                                    </Link>
-                                );
-                            }
-                            return (
-                                <a
-                                    key={link.label}
-                                    href={link.href}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        setMobileMenuOpen(false);
-                                        document
-                                            .querySelector(link.href)
-                                            ?.scrollIntoView({ behavior: "smooth" });
-                                    }}
-                                    className="block py-3 text-[12px] font-medium uppercase tracking-[0.14em] text-white/50 hover:text-white border-b border-white/5"
-                                >
-                                    {link.label}
-                                </a>
-                            );
-                        })}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setMobileMenuOpen(false);
-                                navigate({ to: "/register" });
-                            }}
-                            className="w-full mt-3 border border-[#8aff00] text-[#8aff00] rounded-[4px] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em]"
-                        >
-                            SIGN UP TO APP NOW
-                        </button>
-                    </div>
-                )}
-            </nav>
-
-            <main>
                 {/* ━━━ Hero Section ━━━ */}
                 <section className="relative pt-16 h-dvh overflow-hidden">
                     {/* Background */}
@@ -406,14 +264,13 @@ function LandingPage() {
                                             transition={{ duration: 0.4, delay: 0.4 }}
                                             className="flex flex-wrap items-center gap-4 mt-8"
                                         >
-                                            <button
-                                                type="button"
-                                                onClick={() => navigate({ to: "/register" })}
+                                            <Link
+                                                to="/portal/dashboard"
                                                 className="inline-flex items-center gap-2.5 px-7 py-[13px] bg-[#8aff00] text-black text-[11px] font-bold uppercase tracking-[0.14em] hover:bg-[#9fff33] transition-colors"
                                             >
-                                                <Phone size={14} strokeWidth={2.5} />
-                                                SIGN UP TO APP
-                                            </button>
+                                                <ArrowRight size={14} strokeWidth={2.5} />
+                                                GO TO DASHBOARD
+                                            </Link>
                                             <a
                                                 href="#services"
                                                 className="inline-flex items-center gap-2 px-7 py-[13px] border border-white/30 text-white text-[11px] font-bold uppercase tracking-[0.14em] hover:border-white/50 hover:bg-white/5 transition-all"
@@ -690,7 +547,6 @@ function LandingPage() {
 
                 {/* ━━━ Cinematic Footer ━━━ */}
                 <CinematicFooter />
-            </main>
         </div>
     );
 }

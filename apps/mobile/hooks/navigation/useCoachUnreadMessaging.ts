@@ -71,7 +71,7 @@ export function useCoachUnreadMessaging(token: string | null, enabled: boolean) 
     }, { delayMs: 8_000 });
     const timer = setInterval(() => {
       if (active) syncAdminUnread();
-    }, 60000);
+    }, 180000);
 
     return () => {
       active = false;

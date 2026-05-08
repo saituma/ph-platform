@@ -61,7 +61,7 @@ export function useUnreadMessaging(token: string | null, enabled: boolean, userI
     // for missed events (transient disconnects).
     const timer = setInterval(() => {
       if (active) syncUnread();
-    }, 60000);
+    }, 180000);
 
     return () => {
       active = false;

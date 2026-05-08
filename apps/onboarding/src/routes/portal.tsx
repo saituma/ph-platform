@@ -4,8 +4,15 @@ import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
 import { clearAuthToken, getAuthHeaders } from "@/lib/client-storage";
 import { config } from "@/lib/config";
+import {
+	motion,
+	AnimatePresence,
+	StaggerList,
+	StaggerItem,
+} from "@/lib/motion";
 import { hasActivePortalSubscription } from "@/lib/portal-access";
 import { isPortalCoachLikeRole } from "@/lib/portal-roles";
+import { PORTAL_UNAUTHORIZED_ERROR } from "@/portal/portal-errors";
 import { PortalProvider, usePortal } from "@/portal/PortalContext";
 import { PortalSocketProvider } from "@/portal/PortalSocketContext";
 
@@ -40,17 +47,38 @@ function PortalInner() {
 
 	// 401 from server → token is bad → go to login
 	useEffect(() => {
-		if (error === "PORTAL_UNAUTHORIZED") {
+		if (error === PORTAL_UNAUTHORIZED_ERROR) {
 			void clearAuthToken();
 			navigate({ to: "/login", replace: true });
 		}
 	}, [error, navigate]);
 
-	// Still loading user data → spinner
 	if (loading) {
 		return (
 			<div className="flex h-screen items-center justify-center">
-				<div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground animate-spin mx-auto" />
+				<motion.div
+					initial={{ opacity: 0, scale: 0.8 }}
+					animate={{ opacity: 1, scale: 1 }}
+					transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+					className="flex flex-col items-center gap-4"
+				>
+					<div className="relative w-10 h-10">
+						<motion.div
+							className="absolute inset-0 border-2 border-foreground/10 rounded-full"
+							animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.1, 0.3] }}
+							transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+						/>
+						<div className="absolute inset-0 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+					</div>
+					<motion.p
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						transition={{ delay: 0.4, duration: 0.3 }}
+						className="font-mono text-[10px] uppercase tracking-wider text-foreground/30"
+					>
+						Loading
+					</motion.p>
+				</motion.div>
 			</div>
 		);
 	}
@@ -58,18 +86,33 @@ function PortalInner() {
 	if (error || !user) {
 		return (
 			<div className="flex h-screen items-center justify-center px-4">
-				<div className="text-center space-y-4">
+				<motion.div
+					initial={{ opacity: 0, y: 16 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
+					className="text-center space-y-4"
+				>
+					<motion.div
+						initial={{ scale: 0 }}
+						animate={{ scale: 1 }}
+						transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 15 }}
+						className="w-12 h-12 mx-auto border border-destructive/20 flex items-center justify-center"
+					>
+						<span className="text-destructive text-lg">!</span>
+					</motion.div>
 					<p className="text-sm text-muted-foreground">
 						{error || "Something went wrong loading your account."}
 					</p>
-					<button
+					<motion.button
 						type="button"
 						onClick={() => void refresh()}
+						whileHover={{ scale: 1.02 }}
+						whileTap={{ scale: 0.97 }}
 						className="bg-primary text-primary-foreground px-6 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
 					>
 						Retry
-					</button>
-				</div>
+					</motion.button>
+				</motion.div>
 			</div>
 		);
 	}
@@ -283,49 +326,112 @@ function OnboardingGate({
 
 	return (
 		<div className="min-h-screen flex items-center justify-center px-4 py-12">
-			<div className="w-full max-w-xl border border-foreground/[0.06] p-8">
-				<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+			<motion.div
+				initial={{ opacity: 0, y: 24 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+				className="w-full max-w-xl border border-foreground/[0.06] p-8 overflow-hidden"
+			>
+				<motion.p
+					initial={{ opacity: 0, x: -12 }}
+					animate={{ opacity: 1, x: 0 }}
+					transition={{ delay: 0.15, duration: 0.35 }}
+					className="font-mono text-[10px] uppercase tracking-wider text-foreground/40"
+				>
 					Action Required
-				</p>
-				<h1 className="mt-3 text-2xl md:text-3xl font-medium tracking-tight text-foreground">
+				</motion.p>
+				<motion.h1
+					initial={{ opacity: 0, y: 12 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ delay: 0.25, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+					className="mt-3 text-2xl md:text-3xl font-medium tracking-tight text-foreground"
+				>
 					{inReview ? "You Are In Review" : "Finish Onboarding"}
-				</h1>
-				<p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+				</motion.h1>
+				<motion.p
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					transition={{ delay: 0.35, duration: 0.4 }}
+					className="mt-2 text-sm text-muted-foreground leading-relaxed"
+				>
 					{inReview
 						? "Your payment is confirmed and awaiting coach/admin approval. You will get access as soon as review is complete."
 						: isTeam
 							? "Add your team details and choose a plan to unlock Programs, Schedule, and Messages."
 							: "Complete onboarding and choose a plan to unlock Programs, Schedule, and Messages."}
-				</p>
-				{onboardingIncomplete && missing.length > 0 && (
-					<div className="mt-6 space-y-2">
-						<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
-							Missing
-						</p>
-						<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-							{missing.map((item) => (
-								<div
-									key={item}
-									className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3 text-sm font-medium text-foreground"
-								>
-									{item}
-								</div>
-							))}
-						</div>
-					</div>
+				</motion.p>
+
+				<AnimatePresence mode="wait">
+					{onboardingIncomplete && missing.length > 0 && (
+						<motion.div
+							key="missing"
+							initial={{ opacity: 0, height: 0 }}
+							animate={{ opacity: 1, height: "auto" }}
+							exit={{ opacity: 0, height: 0 }}
+							transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+							className="mt-6 space-y-2"
+						>
+							<motion.p
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								transition={{ delay: 0.45 }}
+								className="font-mono text-[10px] uppercase tracking-wider text-foreground/40"
+							>
+								Missing
+							</motion.p>
+							<StaggerList className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+								{missing.map((item) => (
+									<StaggerItem key={item}>
+										<motion.div
+											whileHover={{ x: 4, backgroundColor: "rgba(var(--foreground-rgb, 0 0 0) / 0.04)" }}
+											transition={{ duration: 0.2 }}
+											className="border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3 text-sm font-medium text-foreground cursor-default"
+										>
+											{item}
+										</motion.div>
+									</StaggerItem>
+								))}
+							</StaggerList>
+						</motion.div>
+					)}
+
+					{!onboardingIncomplete && needsPlan && (
+						<motion.div
+							key="plan"
+							initial={{ opacity: 0, y: 8 }}
+							animate={{ opacity: 1, y: 0 }}
+							exit={{ opacity: 0, y: -8 }}
+							transition={{ delay: 0.4, duration: 0.35 }}
+							className="mt-6 border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3 text-sm text-muted-foreground"
+						>
+							{inReview
+								? "Payment received. Approval pending."
+								: "No active subscription found. Choose a plan to continue."}
+						</motion.div>
+					)}
+				</AnimatePresence>
+
+				{inReview && (
+					<motion.div
+						initial={{ scaleX: 0 }}
+						animate={{ scaleX: 1 }}
+						transition={{ delay: 0.5, duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+						className="mt-6 h-px bg-foreground/10 origin-left"
+					/>
 				)}
-				{!onboardingIncomplete && needsPlan && (
-					<div className="mt-6 border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3 text-sm text-muted-foreground">
-						{inReview
-							? "Payment received. Approval pending."
-							: "No active subscription found. Choose a plan to continue."}
-					</div>
-				)}
-				<div className="mt-8 flex flex-col sm:flex-row gap-3">
-					<button
+
+				<motion.div
+					initial={{ opacity: 0, y: 12 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ delay: 0.5, duration: 0.4 }}
+					className="mt-8 flex flex-col sm:flex-row gap-3"
+				>
+					<motion.button
 						type="button"
 						onClick={primaryAction}
-						className="flex-1 inline-flex items-center justify-center bg-primary text-primary-foreground px-5 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all"
+						whileHover={inReview ? {} : { scale: 1.02 }}
+						whileTap={inReview ? {} : { scale: 0.97 }}
+						className="flex-1 inline-flex items-center justify-center bg-primary text-primary-foreground px-5 py-2.5 font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-colors"
 						disabled={inReview}
 					>
 						{inReview
@@ -333,8 +439,8 @@ function OnboardingGate({
 							: onboardingIncomplete
 								? `Continue Step ${nextStep}`
 								: "Choose a Plan"}
-					</button>
-					<button
+					</motion.button>
+					<motion.button
 						type="button"
 						onClick={() => {
 							void clearAuthToken();
@@ -342,12 +448,14 @@ function OnboardingGate({
 							localStorage.removeItem("pending_email");
 							navigate({ to: "/login" });
 						}}
-						className="flex-1 inline-flex items-center justify-center border border-foreground/[0.06] px-5 py-2.5 font-mono text-xs uppercase tracking-wider text-foreground/60 hover:text-foreground hover:bg-foreground/[0.02] transition-all"
+						whileHover={{ scale: 1.02 }}
+						whileTap={{ scale: 0.97 }}
+						className="flex-1 inline-flex items-center justify-center border border-foreground/[0.06] px-5 py-2.5 font-mono text-xs uppercase tracking-wider text-foreground/60 hover:text-foreground hover:bg-foreground/[0.02] transition-colors"
 					>
 						Log Out
-					</button>
-				</div>
-			</div>
+					</motion.button>
+				</motion.div>
+			</motion.div>
 		</div>
 	);
 }

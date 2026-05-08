@@ -426,6 +426,7 @@ export const apiSlice = createApi({
     "CalendarConnection",
     "SessionTemplates",
     "ScheduledSessions",
+    "SleepLogs",
   ],
   endpoints: () => ({}),
 });

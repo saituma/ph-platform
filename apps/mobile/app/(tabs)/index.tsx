@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useEffect, useRef } from "react";
+import React, { memo, useCallback, useMemo, useEffect, useRef, useState } from "react";
 import {
   RefreshControl,
   StyleSheet,
@@ -39,6 +39,8 @@ import { AdminStorySection } from "@/components/home/AdminStorySection";
 import { IntroVideoSection } from "@/components/home/IntroVideoSection";
 import { QuickLinksSection } from "@/components/home/QuickLinksSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
+import { StreakModal } from "@/components/home/StreakModal";
+import { useStreakStore } from "@/lib/streakStore";
 import { useHomeContent } from "@/hooks/home/useHomeContent";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { useRunStore } from "@/store/useRunStore";
@@ -152,6 +154,15 @@ const HomeScreen = memo(function HomeScreen() {
 
   const greeting = useMemo(() => getGreeting(), []);
   const motivation = useMemo(() => getDailyMotivation(), []);
+
+  const shouldShowStreak = useStreakStore((s) => s.shouldShowStreak);
+  const [streakVisible, setStreakVisible] = useState(false);
+  useEffect(() => {
+    if (bootstrapReady && shouldShowStreak()) {
+      const timer = setTimeout(() => setStreakVisible(true), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [bootstrapReady]);
 
   useFocusEffect(
     useCallback(() => {
@@ -420,6 +431,12 @@ const HomeScreen = memo(function HomeScreen() {
           </Animated.View>
         </View>
       </Animated.ScrollView>
+
+      <StreakModal
+        visible={streakVisible}
+        onClose={() => setStreakVisible(false)}
+        firstName={firstName}
+      />
     </View>
   );
 });

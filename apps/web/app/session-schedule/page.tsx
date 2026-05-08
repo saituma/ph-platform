@@ -22,8 +22,10 @@ import {
   useMaterializeAdminSessionTemplateMutation,
   useGetAdminAttendanceStatsQuery,
 } from "../../lib/apiSlice";
+import { QrCode } from "lucide-react";
 import { getOrCreateAdminSocket } from "../../lib/admin-socket";
 import type { ScheduledSessionAdminRecord } from "../../lib/api/admin-session-schedule";
+import { AttendanceQrDialog } from "../../components/admin/AttendanceQrDialog";
 
 function toIsoDateInput(d: Date) {
   const y = d.getFullYear();
@@ -510,6 +512,9 @@ export default function SessionSchedulePage() {
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [templateNotice, setTemplateNotice] = useState<string | null>(null);
+  const [qrSessionId, setQrSessionId] = useState<number | null>(null);
+  const [qrSessionName, setQrSessionName] = useState("");
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
 
   const eligibleUsers = useMemo(() => {
     const athleteRoles = new Set(["athlete", "adult_athlete", "youth_athlete", "team_athlete", "guardian"]);
@@ -1181,11 +1186,28 @@ export default function SessionSchedulePage() {
             ) : (
               selectedDateSessions.map((s) => (
                 <div key={s.id} className="space-y-2 rounded-lg border p-3">
-                  <p className="font-medium">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {typeLabel(s.type)} • {new Date(s.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} -{" "}
-                    {new Date(s.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{s.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {typeLabel(s.type)} • {new Date(s.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} -{" "}
+                        {new Date(s.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 gap-1.5"
+                      onClick={() => {
+                        setQrSessionId(s.id);
+                        setQrSessionName(s.name);
+                        setQrDialogOpen(true);
+                      }}
+                    >
+                      <QrCode className="h-4 w-4" />
+                      QR Code
+                    </Button>
+                  </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {s.attendees?.length ?? 0} assigned users
                   </p>
@@ -1291,6 +1313,14 @@ export default function SessionSchedulePage() {
           )}
         </CardContent>
       </Card>
+      {qrSessionId !== null && (
+        <AttendanceQrDialog
+          sessionId={qrSessionId}
+          sessionName={qrSessionName}
+          open={qrDialogOpen}
+          onOpenChange={setQrDialogOpen}
+        />
+      )}
     </AdminShell>
   );
 }

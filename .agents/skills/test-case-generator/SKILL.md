@@ -1,6 +1,6 @@
 ---
 name: test-case-generator
-description: Generates structured, requirement-driven test cases from PRDs, user stories, or code to ensure comprehensive QA coverage. Use when creating test plans, identifying edge cases, or generating Jest/Playwright test suites for API, web, or mobile apps.
+description: Generate structured test cases from PRDs, user stories, or code. Use when creating test plans, edge cases, or Jest/Playwright suites.
 ---
 
 # Test Case Generator

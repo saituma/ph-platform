@@ -140,7 +140,7 @@ export function BuiltinCamera({
           // no-op: camera may already be stopping.
         }
       }
-    }, 250);
+    }, 1000);
   }, [maxDurationSeconds]);
 
   const stopTimer = useCallback(() => {

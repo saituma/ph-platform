@@ -1,0 +1,29 @@
+appId: com.phperformance.app
+tags:
+  - feature
+  - deeplinks
+name: "Deep Link Handling"
+---
+
+# ── Deep Link Handling ───────────────────────────────────────────────────
+# Tests that the app handles deep links / push notification navigation.
+
+- runFlow: login.yaml
+
+# Test navigation to messages via deep link pattern
+- openLink: "phperformance://messages"
+- extendedWaitUntil:
+    visible: "Messages"
+    timeout: 10000
+
+# Test navigation to programs
+- openLink: "phperformance://programs"
+- extendedWaitUntil:
+    visible: "Programs"
+    timeout: 10000
+
+# Test navigation to schedule
+- openLink: "phperformance://schedule"
+- extendedWaitUntil:
+    visible: "Schedule"
+    timeout: 10000

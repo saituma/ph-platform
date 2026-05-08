@@ -1616,6 +1616,38 @@ export const nutritionLogsTable = pgTable(
   }),
 );
 
+export const sleepLogsTable = pgTable(
+  "sleep_logs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    dateKey: varchar({ length: 10 }).notNull(),
+    totalMinutes: integer().notNull().default(0),
+    bedTime: varchar({ length: 5 }),
+    wakeTime: varchar({ length: 5 }),
+    quality: integer(),
+    deepMinutes: integer(),
+    lightMinutes: integer(),
+    remMinutes: integer(),
+    awakeMinutes: integer(),
+    notes: text(),
+    coachFeedback: text(),
+    coachId: integer().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userDateUnique: uniqueIndex("sleep_logs_user_date_unique").on(
+      table.userId,
+      table.dateKey,
+    ),
+    userIdx: index("sleep_logs_user_idx").on(table.userId),
+    dateIdx: index("sleep_logs_date_idx").on(table.dateKey),
+  }),
+);
+
 export const socialPrivacySettingsTable = pgTable(
   "social_privacy_settings",
   {

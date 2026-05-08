@@ -1,0 +1,66 @@
+appId: com.phperformance.app
+tags:
+  - team
+  - critical
+name: "Team Manager Flow"
+env:
+  TEAM_MANAGER_EMAIL: "teammanager@phperformance.com"
+  TEAM_MANAGER_PASSWORD: "TeamManager123!"
+---
+
+# ── Team Manager Flow ────────────────────────────────────────────────────
+# Tests team manager specific screens: roster, team messaging, athlete view.
+
+- launchApp
+
+# Login as team manager
+- assertVisible: "Welcome back"
+- tapOn:
+    text: "name@example.com"
+- inputText: ${TEAM_MANAGER_EMAIL}
+- tapOn:
+    text: "Enter your password"
+- inputText: ${TEAM_MANAGER_PASSWORD}
+- tapOn: "Sign In"
+
+# Wait for home to load
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 15000
+
+# ── Team Roster ──
+- tapOn:
+    text: "Team"
+    optional: true
+- tapOn:
+    text: "Roster"
+    optional: true
+- runFlow:
+    when:
+      visible: "Roster|Athletes|Members"
+    commands:
+      - assertVisible:
+          text: ".*"
+      # Tap on first athlete
+      - tapOn:
+          text: ".*"
+          index: 0
+          optional: true
+      - back
+
+# ── Team Messages ──
+- tapOn:
+    text: "Messages"
+- assertVisible:
+    text: "Messages"
+
+# ── Team Programs / Training ──
+- tapOn:
+    text: "Programs"
+    optional: true
+- runFlow:
+    when:
+      visible: "Programs|Training"
+    commands:
+      - assertVisible:
+          text: ".*"

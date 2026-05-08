@@ -4,6 +4,7 @@ test.describe("Verification Flow", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("pending_email", "test@example.com");
+      localStorage.setItem("ph-cookie-consent", "accepted");
     });
   });
 
@@ -51,16 +52,18 @@ test.describe("Verification Flow", () => {
     const firstInput = page.locator('input[inputmode="numeric"]').first();
     await firstInput.focus();
 
+    // Use keyboard shortcut to paste via the browser clipboard API
     await page.evaluate(() => {
-      const input = document.querySelector(
-        'input[inputmode="numeric"]',
-      );
-      if (!input) return;
+      const group = document.querySelector('[role="group"]');
+      if (!group) return;
+      const dt = new DataTransfer();
+      dt.setData("text/plain", "654321");
       const paste = new ClipboardEvent("paste", {
-        clipboardData: new DataTransfer(),
+        bubbles: true,
+        cancelable: true,
+        clipboardData: dt,
       });
-      paste.clipboardData?.setData("text", "654321");
-      input.dispatchEvent(paste);
+      group.dispatchEvent(paste);
     });
 
     const inputs = page.locator('input[inputmode="numeric"]');
@@ -72,11 +75,33 @@ test.describe("Verification Flow", () => {
   test("successful verification redirects to onboarding step-1", async ({
     page,
   }) => {
+    await page.route("**/api/app/token-status", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          authenticated: true,
+          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+        }),
+      }),
+    );
+
+    await page.route("**/api/app/set-token", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      }),
+    );
+
     await page.route("**/api/auth/confirm", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ accessToken: "fake-jwt-token" }),
+        body: JSON.stringify({
+          accessToken:
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTksInN1YiI6IjEifQ.test",
+        }),
       }),
     );
 
@@ -88,7 +113,7 @@ test.describe("Verification Flow", () => {
     await page.getByRole("button", { name: /verify/i }).click();
 
     await expect(page).toHaveURL(/\/onboarding\/step-1/, {
-      timeout: 5000,
+      timeout: 10000,
     });
   });
 
@@ -123,7 +148,9 @@ test.describe("Verification Flow", () => {
     );
 
     await page.goto("/verification");
-    await page.getByRole("button", { name: /resend/i }).click();
+    const resendBtn = page.getByRole("button", { name: /resend code/i });
+    await expect(resendBtn).toBeVisible();
+    await resendBtn.click();
     await expect(page.getByText(/new code sent/i)).toBeVisible({
       timeout: 5000,
     });

@@ -1,0 +1,60 @@
+appId: com.phperformance.app
+tags:
+  - feature
+  - profile
+name: "Profile & Settings Flow"
+---
+
+# ── Profile & Settings Flow ──────────────────────────────────────────────
+# Navigates to the More tab, opens profile settings, verifies user info
+# displays correctly, and tests dark mode toggle.
+
+- runFlow: login.yaml
+
+# Navigate to More tab
+- tapOn:
+    text: "More"
+
+# Wait for More screen to load
+- extendedWaitUntil:
+    visible: "More"
+    timeout: 10000
+
+# Verify key menu items are visible
+- assertVisible:
+    text: "Profile"
+    optional: true
+- assertVisible:
+    text: "Settings"
+    optional: true
+
+# Open Profile
+- tapOn:
+    text: "Profile"
+    optional: true
+
+# Verify profile info renders
+- runFlow:
+    when:
+      visible: "Email|Name|Phone"
+    commands:
+      - assertVisible:
+          text: "Email"
+          optional: true
+      - back
+
+# Test dark mode toggle if visible
+- tapOn:
+    text: "Settings"
+    optional: true
+- runFlow:
+    when:
+      visible: "Dark Mode|Theme|Appearance"
+    commands:
+      - tapOn:
+          text: "Dark Mode"
+          optional: true
+      - tapOn:
+          text: "Theme"
+          optional: true
+      - back

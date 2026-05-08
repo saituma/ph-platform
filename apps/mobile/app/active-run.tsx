@@ -191,7 +191,7 @@ export default function ActiveRunScreen() {
     if (status !== "running") return;
     const interval = setInterval(() => {
       void refreshRunNotification();
-    }, 5000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [status]);
 

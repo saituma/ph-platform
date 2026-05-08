@@ -27,6 +27,15 @@ pnpm test:e2e:login
 pnpm test:e2e:navigation
 pnpm test:e2e:messaging
 pnpm test:e2e:programs
+pnpm test:e2e:tracking
+pnpm test:e2e:schedule
+pnpm test:e2e:nutrition
+pnpm test:e2e:admin
+pnpm test:e2e:team-manager
+
+# Run by tag
+maestro test .maestro/ --include-tags critical
+maestro test .maestro/ --include-tags admin
 
 # Or directly via maestro CLI
 maestro test .maestro/login.yaml
@@ -34,12 +43,20 @@ maestro test .maestro/login.yaml
 
 ## Test Flows
 
-| Flow              | File              | Description                                      |
-|-------------------|-------------------|--------------------------------------------------|
-| Login             | `login.yaml`      | Sign in with email/password, verify home loads   |
-| Tab Navigation    | `navigation.yaml` | Tap each tab, verify screens render              |
-| Messaging         | `messaging.yaml`  | Open conversation, send message, verify delivery |
-| Programs          | `programs.yaml`   | Open programs tab, view a program, navigate back |
+| Flow              | File                | Description                                          |
+|-------------------|---------------------|------------------------------------------------------|
+| Login             | `login.yaml`        | Sign in with email/password, verify home loads       |
+| Logout            | `logout.yaml`       | Sign out and verify return to login screen           |
+| Tab Navigation    | `navigation.yaml`   | Tap each tab, verify screens render                  |
+| Messaging         | `messaging.yaml`    | Open conversation, send message, verify delivery     |
+| Programs          | `programs.yaml`     | Open programs tab, view a program, navigate back     |
+| Run Tracking      | `tracking.yaml`     | Start, pause, resume, stop a run; verify metrics     |
+| Schedule          | `schedule.yaml`     | View calendar, check events, attempt booking         |
+| Nutrition         | `nutrition.yaml`    | View nutrition dashboard, attempt meal logging       |
+| Profile           | `profile.yaml`      | View profile settings, test theme toggle             |
+| Admin             | `admin.yaml`        | Admin-specific: users, bookings, content, teams      |
+| Team Manager      | `team-manager.yaml` | Team manager: roster, team messages, training        |
+| Deep Links        | `deep-links.yaml`   | Verify deep link navigation to key screens           |
 
 ## Configuration
 

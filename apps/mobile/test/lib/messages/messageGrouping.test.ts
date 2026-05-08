@@ -29,10 +29,10 @@ describe("getDateLabel", () => {
 });
 
 describe("computeGroupingMap", () => {
-  const msg = (id: number, from: string, createdAt: string) => ({
+  const msg = (id: number, from: string, createdAt: string, senderId?: number) => ({
     id,
     from,
-    senderId: id,
+    senderId: senderId ?? 100,
     createdAt,
     time: createdAt,
     text: "",
