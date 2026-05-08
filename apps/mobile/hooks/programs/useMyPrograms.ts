@@ -194,9 +194,11 @@ export function useMySessionExercises(token: string | null) {
     };
     socket.on("program:changed", refresh);
     socket.on("program:session:coach-response", refresh);
+    socket.on("video:reviewed", refresh);
     return () => {
       socket.off("program:changed", refresh);
       socket.off("program:session:coach-response", refresh);
+      socket.off("video:reviewed", refresh);
     };
   }, [socket, token, loadExercises]);
 

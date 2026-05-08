@@ -11,6 +11,7 @@ import {
   programTable,
   sessionExerciseTable,
   sessionTable,
+  videoUploadTable,
 } from "../db/schema";
 import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
 import { getAthleteForUser } from "./user.service";
@@ -243,7 +244,7 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
     }
   }
 
-  return db
+  const rows = await db
     .select({
       id: sessionExerciseTable.id,
       sessionId: sessionExerciseTable.sessionId,
@@ -270,6 +271,51 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
     .innerJoin(exerciseTable, eq(exerciseTable.id, sessionExerciseTable.exerciseId))
     .where(eq(sessionExerciseTable.sessionId, sessionId))
     .orderBy(asc(sessionExerciseTable.order));
+
+  if (!rows.length) return rows;
+
+  const exerciseIds = rows.map((r) => r.id);
+  const uploads = await db
+    .select({
+      id: videoUploadTable.id,
+      sessionExerciseId: videoUploadTable.sessionExerciseId,
+      videoUrl: videoUploadTable.videoUrl,
+      feedback: videoUploadTable.feedback,
+      coachVideoUrl: videoUploadTable.coachVideoUrl,
+      reviewedAt: videoUploadTable.reviewedAt,
+      createdAt: videoUploadTable.createdAt,
+    })
+    .from(videoUploadTable)
+    .where(
+      and(
+        eq(videoUploadTable.athleteId, athlete.id),
+        inArray(videoUploadTable.sessionExerciseId, exerciseIds),
+      ),
+    )
+    .orderBy(desc(videoUploadTable.createdAt));
+
+  const uploadByExercise = new Map<number, (typeof uploads)[number]>();
+  for (const u of uploads) {
+    if (u.sessionExerciseId != null && !uploadByExercise.has(u.sessionExerciseId)) {
+      uploadByExercise.set(u.sessionExerciseId, u);
+    }
+  }
+
+  return rows.map((row) => {
+    const upload = uploadByExercise.get(row.id);
+    return {
+      ...row,
+      videoUpload: upload
+        ? {
+            id: upload.id,
+            videoUrl: upload.videoUrl,
+            feedback: upload.feedback,
+            coachVideoUrl: upload.coachVideoUrl,
+            reviewedAt: upload.reviewedAt ? upload.reviewedAt.toISOString() : null,
+          }
+        : null,
+    };
+  });
 }
 
 export async function completeMySession(

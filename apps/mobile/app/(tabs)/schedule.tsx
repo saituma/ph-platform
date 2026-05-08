@@ -874,7 +874,7 @@ export default memo(function ScheduleScreen() {
   const profilePic = profile?.avatar ?? null;
   const { width: screenWidth } = Dimensions.get("window");
   const reduceMotion = useReducedMotion();
-  const { effectiveProfileId } = useActingUser();
+  const { effectiveProfileId, actingHeaders } = useActingUser();
   const canBook = capabilities?.coachBooking === true;
   const userTeamId = authTeamMembership?.teamId ?? null;
   const userAthleteType = useMemo(() => {
@@ -910,7 +910,7 @@ export default memo(function ScheduleScreen() {
 
   // ── Data ──────────────────────────────────────────────────────
   const { events, eventsLoading, services, servicesLoading, servicesError,
-          refreshEvents, refreshServices } = useScheduleData(token, effectiveProfileId, isFocused);
+          refreshEvents, refreshServices } = useScheduleData(token, effectiveProfileId, isFocused, actingHeaders);
 
   const bookingServices = useMemo(() => {
     const base = capabilities?.semiPrivateBooking

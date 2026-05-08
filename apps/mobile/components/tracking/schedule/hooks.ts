@@ -31,15 +31,15 @@ function mapScheduledProgramsToEvents(programs: any[]): ScheduleEvent[] {
     });
 }
 
-export function useScheduleData(token: string | null, profileId: number, isFocused: boolean) {
+export function useScheduleData(token: string | null, profileId: number, isFocused: boolean, actingHeaders?: Record<string, string>) {
   const eventsQuery = useQuery({
     queryKey: queryKeys.bookings.all(profileId),
     queryFn: async () => {
       try {
-        const data = await apiRequest<{ sessions: any[] }>("/sessions/my", { token });
+        const data = await apiRequest<{ sessions: any[] }>("/sessions/my", { token, headers: actingHeaders });
         return mapScheduledSessionsToEvents(data.sessions ?? []);
       } catch {
-        const data = await apiRequest<{ items: any[] }>("/bookings", { token });
+        const data = await apiRequest<{ items: any[] }>("/bookings", { token, headers: actingHeaders });
         return mapBookingsToEvents(data.items ?? []);
       }
     },
@@ -51,7 +51,7 @@ export function useScheduleData(token: string | null, profileId: number, isFocus
   const programsQuery = useQuery({
     queryKey: ["programs", "scheduled", profileId] as const,
     queryFn: async () => {
-      const data = await apiRequest<{ programs: any[] }>("/programs/my-assigned", { token });
+      const data = await apiRequest<{ programs: any[] }>("/programs/my-assigned", { token, headers: actingHeaders });
       return mapScheduledProgramsToEvents(data.programs ?? []);
     },
     enabled: !!token && isFocused,
@@ -66,6 +66,7 @@ export function useScheduleData(token: string | null, profileId: number, isFocus
         "/bookings/services?includeLocked=true&omitWithoutBookableSlots=true",
         {
           token,
+          headers: actingHeaders,
           timeoutMs: 6000,
         },
       );

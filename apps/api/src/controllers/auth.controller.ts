@@ -482,7 +482,13 @@ export async function getMe(req: Request, res: Response) {
     );
   }
 
-  return res.status(200).json({ user: payload });
+  return res.status(200).json({
+    user: {
+      ...payload,
+      profilePicture: normalizeStoredMediaUrl(payload.profilePicture ?? null),
+      coverImage: normalizeStoredMediaUrl(payload.coverImage ?? null),
+    },
+  });
 }
 
 export async function deleteAccount(req: Request, res: Response) {
