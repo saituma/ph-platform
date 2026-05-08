@@ -5,6 +5,9 @@ import {
   View,
   Dimensions,
   useColorScheme,
+  Image,
+  ImageBackground,
+  Pressable,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useRouter } from "expo-router";
@@ -14,6 +17,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import Animated, {
   FadeInDown,
   FadeIn,
+  FadeInRight,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -25,7 +29,9 @@ import Animated, {
   withTiming,
   interpolateColor,
 } from "react-native-reanimated";
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
@@ -54,16 +60,21 @@ import {
   Route,
   Zap,
   ChevronRight,
-  Sun,
-  Moon,
-  CloudSun,
+  Bell,
+  PersonStanding,
+  Activity,
 } from "lucide-react-native";
 
-function getGreeting(): { text: string; period: "morning" | "afternoon" | "evening" } {
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+const HERO_HEIGHT = SCREEN_H * 0.52;
+
+const HOME_BG = require("@/assets/images/home-bg.png");
+
+function getGreeting(): string {
   const h = new Date().getHours();
-  if (h < 12) return { text: "Good morning", period: "morning" };
-  if (h < 17) return { text: "Good afternoon", period: "afternoon" };
-  return { text: "Good evening", period: "evening" };
+  if (h < 12) return "Good morning,";
+  if (h < 17) return "Good afternoon,";
+  return "Good evening,";
 }
 
 type IntroAudience = "team" | "youth" | "adult";
@@ -97,6 +108,11 @@ function formatTime(sec: number): string {
   return hrs >= 1 ? `${hrs.toFixed(1)}h` : `${Math.round(sec / 60)}m`;
 }
 
+function formatCompact(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return String(n);
+}
+
 const MOTIVATIONAL = [
   "Every rep counts. Keep pushing.",
   "Champions are built in the off-season.",
@@ -121,6 +137,83 @@ function useWeeklyStats(userId: string | null) {
   });
 }
 
+// ── Glass stat pill (floating on hero image) ──
+function GlassPill({
+  icon,
+  value,
+  label,
+  delay: pillDelay,
+  reduceMotion,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  label: string;
+  delay: number;
+  reduceMotion: boolean | null;
+}) {
+  return (
+    <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(pillDelay).duration(500).springify().damping(16)}>
+      <BlurView intensity={40} tint="dark" style={s.glassPill}>
+        <View style={s.glassPillInner}>
+          {icon}
+          <Text style={s.glassPillValue}>{value}</Text>
+          <Text style={s.glassPillLabel}>{label}</Text>
+        </View>
+      </BlurView>
+    </Animated.View>
+  );
+}
+
+// ── Dark stat card ──
+function StatCard({
+  icon,
+  label,
+  value,
+  unit,
+  accentColor,
+  delay: cardDelay,
+  onPress,
+  reduceMotion,
+  half,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  unit?: string;
+  accentColor: string;
+  delay: number;
+  onPress?: () => void;
+  reduceMotion: boolean | null;
+  half?: boolean;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeInDown.delay(cardDelay).duration(400).springify().damping(16)}
+      style={[half ? s.statCardHalf : s.statCardFull]}
+    >
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => { scale.value = withSpring(0.96, { damping: 15, stiffness: 350 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 200 }); }}
+      >
+        <Animated.View style={[s.statCardInner, animStyle]}>
+          <View style={s.statCardHeader}>
+            {icon}
+            <Text style={s.statCardLabel}>{label}</Text>
+          </View>
+          <View style={s.statCardValueRow}>
+            <Text style={[s.statCardValue, { color: accentColor }]}>{value}</Text>
+            {unit ? <Text style={s.statCardUnit}>{unit}</Text> : null}
+          </View>
+        </Animated.View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 const HomeScreen = memo(function HomeScreen() {
   const p = useAdminPastel();
   const isDark = useColorScheme() === "dark";
@@ -135,6 +228,7 @@ const HomeScreen = memo(function HomeScreen() {
   const appRole = useAppSelector((s) => s.user.appRole);
   const bootstrapReady = useAppSelector(selectBootstrapReady);
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
+  const profilePic = profile?.avatar ?? null;
 
   const { homeContent, isLoading: homeLoading, load: reloadHomeContent } = useHomeContent(token, bootstrapReady);
   const userId = profile?.id ?? null;
@@ -154,6 +248,7 @@ const HomeScreen = memo(function HomeScreen() {
 
   const greeting = useMemo(() => getGreeting(), []);
   const motivation = useMemo(() => getDailyMotivation(), []);
+  const streak = useStreakStore((s) => s.currentStreak);
 
   const shouldShowStreak = useStreakStore((s) => s.shouldShowStreak);
   const [streakVisible, setStreakVisible] = useState(false);
@@ -217,6 +312,21 @@ const HomeScreen = memo(function HomeScreen() {
     router.push("/progress" as any);
   }, [router]);
 
+  const navigateToTracking2 = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/(tabs)/tracking" as any);
+  }, [router]);
+
+  const navigateToSchedule = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/(tabs)/schedule" as any);
+  }, [router]);
+
+  const navigateToNotifications = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/notifications" as any);
+  }, [router]);
+
   // CTA button animation
   const ctaScale = useSharedValue(1);
   const ctaStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
@@ -255,7 +365,7 @@ const HomeScreen = memo(function HomeScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.screen, { backgroundColor: p.pageBg, paddingTop: insets.top }]}>
+      <View style={[s.screen, { backgroundColor: "#0C0A09", paddingTop: insets.top }]}>
         <SkeletonHomeScreen />
       </View>
     );
@@ -264,153 +374,145 @@ const HomeScreen = memo(function HomeScreen() {
   const totalDist = stats?.totalDistance ?? 0;
   const totalTime = stats?.totalTime ?? 0;
   const numRuns = stats?.numRuns ?? 0;
-  const GreetingIcon = greeting.period === "morning" ? Sun : greeting.period === "afternoon" ? CloudSun : Moon;
+  const accentLime = isDark ? "#9EF700" : "#9EF700";
 
   return (
-    <View style={[styles.screen, { backgroundColor: p.pageBg }]}>
+    <View style={s.screen}>
       <Animated.ScrollView
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={p.accent} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={accentLime} />}
+        style={{ backgroundColor: isDark ? "#0C0A09" : p.pageBg }}
       >
-        {/* Hero */}
-        <View style={[styles.heroContainer, { paddingTop: insets.top + 20, paddingBottom: 32 }]}>
-          <View style={styles.heroInner}>
-            <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(80).duration(500)} style={styles.greetingRow}>
-              <GreetingIcon size={18} color={p.accent} />
-              <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 15, color: p.textSecondary, letterSpacing: 0.2 }}>
-                {greeting.text}
-              </Text>
+        {/* ── Hero with background image ── */}
+        <View style={[s.hero, { height: HERO_HEIGHT + insets.top }]}>
+          <Image source={HOME_BG} style={s.heroBgImage} resizeMode="cover" />
+          <LinearGradient
+            colors={["transparent", "rgba(12,10,9,0.6)", isDark ? "#0C0A09" : p.pageBg]}
+            locations={[0.3, 0.7, 1]}
+            style={s.heroGradient}
+          />
+
+          <View style={[s.heroContent, { paddingTop: insets.top + 12 }]}>
+            {/* Top bar: avatar + streak + bell */}
+            <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(100).duration(400)} style={s.topBar}>
+              <View style={s.topBarLeft}>
+                {profilePic ? (
+                  <Image source={{ uri: profilePic }} style={s.avatar} />
+                ) : (
+                  <View style={[s.avatar, s.avatarPlaceholder]}>
+                    <Text style={s.avatarInitial}>{firstName[0]}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={s.topBarRight}>
+                {streak > 0 && (
+                  <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(400)} style={s.streakBadge}>
+                    <Flame size={13} color="#FF9500" fill="#FF9500" />
+                    <Text style={s.streakText}>{streak}</Text>
+                  </Animated.View>
+                )}
+                <Pressable onPress={navigateToNotifications} style={s.bellBtn}>
+                  <Bell size={18} color="#FFFFFF" />
+                  <View style={[s.bellDot, { backgroundColor: accentLime }]} />
+                </Pressable>
+              </View>
             </Animated.View>
-            <Animated.Text
-              entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(500)}
-              style={{ fontFamily: "Outfit-Bold", fontSize: 30, color: p.textPrimary, letterSpacing: -0.5 }}
-            >
-              {firstName}
-            </Animated.Text>
-            <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(600)}>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textMuted, marginTop: 6, fontStyle: "italic" }}>
-                {motivation}
-              </Text>
-            </Animated.View>
+
+            {/* Greeting */}
+            <View style={s.greetingWrap}>
+              <Animated.Text
+                entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(500)}
+                style={s.greetingSmall}
+              >
+                {greeting}
+              </Animated.Text>
+              <Animated.Text
+                entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(500)}
+                style={s.greetingName}
+              >
+                {firstName}!
+              </Animated.Text>
+            </View>
+
+            {/* Floating glass pills */}
+            {showTracking && (
+              <View style={s.glassPillsWrap}>
+                <GlassPill
+                  icon={<PersonStanding size={14} color="#FFFFFF" />}
+                  value={formatCompact(Math.round(totalDist / 0.7))}
+                  label="Steps"
+                  delay={500}
+                  reduceMotion={reduceMotion}
+                />
+                <GlassPill
+                  icon={<Activity size={14} color="#FFFFFF" />}
+                  value={formatCompact(numRuns * 180)}
+                  label="Calories"
+                  delay={650}
+                  reduceMotion={reduceMotion}
+                />
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={styles.content}>
-          {/* Weekly summary card */}
+        <View style={[s.content, { backgroundColor: isDark ? "#0C0A09" : p.pageBg }]}>
+          {/* Stat cards grid */}
           {showTracking && (
-            <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(100).duration(400)} style={{ marginTop: -16 }}>
-              <View style={[styles.summaryCard, { backgroundColor: p.cardWhite, shadowColor: p.shadow }]}>
-                {watchHistory.length > 0 ? (
-                  <>
-                    <View style={styles.cardBadgeRow}>
-                      <View style={[styles.badge, { backgroundColor: p.accentSoft }]}>
-                        <Play size={10} color={p.accent} />
-                        <Text style={[styles.badgeText, { color: p.accent }]}>CONTINUE</Text>
-                      </View>
-                    </View>
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, lineHeight: 24, marginTop: 8 }} numberOfLines={2}>
-                      {watchHistory[0].title}
-                    </Text>
-                    {watchHistory[0].thumbnail && (
-                      <View style={{ marginTop: 14 }}>
-                        <View style={{ height: 4, borderRadius: 2, backgroundColor: p.inputBg }}>
-                          <View style={{ height: 4, borderRadius: 2, backgroundColor: p.accent, width: `${Math.round(watchHistory[0].progress * 100)}%` }} />
-                        </View>
-                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, marginTop: 4 }}>
-                          {Math.round(watchHistory[0].progress * 100)}% complete
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.cardBadgeRow}>
-                      <View style={[styles.badge, { backgroundColor: p.accentSoft }]}>
-                        <Flame size={10} color={p.accent} />
-                        <Text style={[styles.badgeText, { color: p.accent }]}>THIS WEEK</Text>
-                      </View>
-                    </View>
-                    <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4, marginTop: 8 }}>
-                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 44, color: p.textPrimary, letterSpacing: -1.5, lineHeight: 48 }}>
-                        {formatKm(totalDist)}
-                      </Text>
-                      <Text style={{ fontFamily: "Outfit-Medium", fontSize: 16, color: p.textMuted, paddingBottom: 7 }}>km</Text>
-                    </View>
-                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textMuted }}>
-                      total distance
-                    </Text>
-                  </>
-                )}
-
-                {/* CTA Button */}
-                <GestureDetector gesture={ctaTap}>
-                  <Animated.View style={[ctaStyle, { marginTop: 18 }]} accessibilityRole="button">
-                    <View style={[styles.ctaButton, { backgroundColor: p.accent }]}>
-                      {isRunActive ? (
-                        <Animated.View style={[pulseStyle, { flexDirection: "row", alignItems: "center", gap: 8 }]}>
-                          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: p.buttonPrimaryText }} />
-                          <Text style={[styles.ctaText, { color: p.buttonPrimaryText }]}>Running now</Text>
-                        </Animated.View>
-                      ) : (
-                        <>
-                          <Play size={15} color={p.buttonPrimaryText} fill={p.buttonPrimaryText} />
-                          <Text style={[styles.ctaText, { color: p.buttonPrimaryText }]}>
-                            {watchHistory.length > 0 ? "Resume watching" : "Start session"}
-                          </Text>
-                        </>
-                      )}
-                    </View>
-                  </Animated.View>
-                </GestureDetector>
-              </View>
-            </Animated.View>
-          )}
-
-          {/* Stat pills */}
-          {showTracking && (
-            <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(350).springify()} style={styles.statsRow}>
-              <StatPill
-                icon={<Route size={14} color={p.accent} />}
+            <View style={s.statsGrid}>
+              <StatCard
+                icon={<Route size={14} color={accentLime} />}
+                label="Distance"
                 value={formatKm(totalDist)}
                 unit="km"
-                label="Distance"
-                bg={p.cardMint}
-                p={p}
-                onPress={navigateToProgress}
+                accentColor={accentLime}
+                delay={200}
+                onPress={navigateToTracking2}
                 reduceMotion={reduceMotion}
+                half
               />
-              <StatPill
-                icon={<Timer size={14} color={isDark ? p.warning : "#C48520"} />}
+              <StatCard
+                icon={<Timer size={14} color="#FFB020" />}
+                label="Active Min"
                 value={formatTime(totalTime)}
-                unit=""
-                label="Time"
-                bg={p.cardYellow}
-                p={p}
+                accentColor="#FFB020"
+                delay={280}
                 onPress={navigateToProgress}
                 reduceMotion={reduceMotion}
+                half
               />
-              <StatPill
-                icon={<Zap size={14} color={isDark ? p.danger : "#C04E50"} />}
-                value={String(numRuns)}
-                unit=""
+              <StatCard
+                icon={<Zap size={14} color="#FF6B6B" />}
                 label="Sessions"
-                bg={p.cardPink}
-                p={p}
-                onPress={navigateToProgress}
+                value={String(numRuns)}
+                accentColor="#FF6B6B"
+                delay={360}
+                onPress={navigateToSchedule}
                 reduceMotion={reduceMotion}
+                half
               />
-            </Animated.View>
+              <StatCard
+                icon={<PersonStanding size={14} color="#7ABCD4" />}
+                label="Daily Steps"
+                value={formatCompact(Math.round(totalDist / 0.7))}
+                accentColor="#7ABCD4"
+                delay={440}
+                onPress={navigateToTracking2}
+                reduceMotion={reduceMotion}
+                half
+              />
+            </View>
           )}
 
           {/* Quick links */}
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(240).duration(300).springify()}>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(500).duration(300).springify()}>
             <QuickLinksSection appRole={appRole} />
           </Animated.View>
 
           {/* Intro video */}
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(300).springify()}>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(560).duration(300).springify()}>
             <IntroVideoSection
               introVideoUrl={pickIntroVideoForRole(homeContent?.introVideos, homeContent?.introVideoUrl, audienceFromAppRole(appRole))}
               posterUrl={homeContent?.heroImageUrl}
@@ -421,12 +523,12 @@ const HomeScreen = memo(function HomeScreen() {
           </Animated.View>
 
           {/* Coach story */}
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(360).duration(300).springify()}>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(620).duration(300).springify()}>
             <AdminStorySection story={homeContent?.adminStory} photoUrl={homeContent?.professionalPhoto} loading={homeContentLoading} />
           </Animated.View>
 
           {/* Testimonials */}
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(420).duration(300).springify()}>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(680).duration(300).springify()}>
             <TestimonialsSection items={homeContent?.testimonials} loading={homeContentLoading} />
           </Animated.View>
         </View>
@@ -443,78 +545,158 @@ const HomeScreen = memo(function HomeScreen() {
 
 export default HomeScreen;
 
-const StatPill = React.memo(function StatPill({
-  icon,
-  value,
-  unit,
-  label,
-  bg,
-  p,
-  onPress,
-  reduceMotion,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  unit: string;
-  label: string;
-  bg: string;
-  p: any;
-  onPress: () => void;
-  reduceMotion: boolean | null;
-}) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const tap = useMemo(() => Gesture.Tap()
-    .onBegin(() => {
-      "worklet";
-      scale.value = withSpring(0.95, { damping: 15, stiffness: 400, mass: 0.3 });
-      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    })
-    .onFinalize(() => {
-      "worklet";
-      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
-    })
-    .onEnd(() => {
-      "worklet";
-      runOnJS(onPress)();
-    }), [onPress]);
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: "#0C0A09" },
 
-  return (
-    <GestureDetector gesture={tap}>
-      <Animated.View style={[animStyle, { flex: 1 }]}>
-        <View style={[styles.statPill, { backgroundColor: bg }]}>
-          <View style={styles.statPillIconRow}>
-            {icon}
-            <Text style={{ fontFamily: "Outfit-Medium", fontSize: 10, letterSpacing: 0.8, textTransform: "uppercase", color: p.textMuted }}>
-              {label}
-            </Text>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
-            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, letterSpacing: -0.5, color: p.textPrimary }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-              {value}
-            </Text>
-            {unit ? <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>{unit}</Text> : null}
-          </View>
-        </View>
-      </Animated.View>
-    </GestureDetector>
-  );
-});
+  // ── Hero ──
+  hero: {
+    width: "100%",
+    position: "relative",
+    overflow: "hidden",
+  },
+  heroBgImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+  },
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroContent: {
+    flex: 1,
+    paddingHorizontal: 22,
+    justifyContent: "space-between",
+    paddingBottom: 30,
+  },
 
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  heroContainer: { width: "100%", paddingHorizontal: 22 },
-  heroInner: { gap: 2 },
-  greetingRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 },
-  content: { paddingHorizontal: 20, gap: 14 },
+  // ── Top bar ──
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  topBarLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  topBarRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  avatarPlaceholder: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 18,
+    color: "#FFFFFF",
+  },
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255,149,0,0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: "rgba(255,149,0,0.25)",
+  },
+  streakText: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 14,
+    color: "#FF9500",
+  },
+  bellBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellDot: {
+    position: "absolute",
+    top: 10,
+    right: 11,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: "#0C0A09",
+  },
+
+  // ── Greeting ──
+  greetingWrap: {
+    marginTop: 20,
+  },
+  greetingSmall: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 16,
+    color: "rgba(255,255,255,0.6)",
+  },
+  greetingName: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 42,
+    color: "#FFFFFF",
+    letterSpacing: -1,
+    lineHeight: 48,
+  },
+
+  // ── Glass pills ──
+  glassPillsWrap: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 12,
+  },
+  glassPill: {
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  glassPillInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  glassPillValue: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 15,
+    color: "#FFFFFF",
+  },
+  glassPillLabel: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.55)",
+  },
+
+  // ── Content ──
+  content: {
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+
+  // ── Summary card ──
   summaryCard: {
     width: "100%",
     borderRadius: 24,
     padding: 22,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 4,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   cardBadgeRow: { flexDirection: "row" },
   badge: {
@@ -526,6 +708,46 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   badgeText: { fontFamily: "Outfit-Bold", fontSize: 10, letterSpacing: 1.2 },
+  summaryTitle: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 18,
+    color: "#FFFFFF",
+    lineHeight: 24,
+    marginTop: 8,
+  },
+  summaryBigNum: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 44,
+    color: "#FFFFFF",
+    letterSpacing: -1.5,
+    lineHeight: 48,
+  },
+  summaryUnit: {
+    fontFamily: "Outfit-Medium",
+    fontSize: 16,
+    color: "rgba(255,255,255,0.4)",
+    paddingBottom: 7,
+  },
+  summarySubtext: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.4)",
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  progressFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+  progressText: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 4,
+  },
   ctaButton: {
     height: 48,
     borderRadius: 100,
@@ -535,11 +757,51 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   ctaText: { fontFamily: "Outfit-Bold", fontSize: 15 },
-  statsRow: { flexDirection: "row", gap: 8 },
-  statPill: {
-    borderRadius: 18,
-    padding: 14,
-    gap: 8,
+
+  // ── Stat cards ──
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
   },
-  statPillIconRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  statCardHalf: {
+    width: (SCREEN_W - 50) / 2,
+  },
+  statCardFull: {
+    width: "100%",
+  },
+  statCardInner: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    borderRadius: 20,
+    padding: 16,
+    gap: 10,
+  },
+  statCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statCardLabel: {
+    fontFamily: "Outfit-Medium",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.45)",
+    letterSpacing: 0.3,
+  },
+  statCardValueRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 3,
+  },
+  statCardValue: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 28,
+    letterSpacing: -0.5,
+  },
+  statCardUnit: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.35)",
+  },
 });

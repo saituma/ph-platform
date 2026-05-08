@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, View, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View, Image as RNImage, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
 import { SkeletonTrackingSocialScreen } from "@/components/ui/legacy-skeleton";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import Animated, {
+  FadeIn,
   FadeInDown,
+  FadeInRight,
   useSharedValue,
   useAnimatedStyle,
   useAnimatedReaction,
@@ -15,6 +17,8 @@ import Animated, {
   Easing,
   runOnJS,
 } from "react-native-reanimated";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -69,7 +73,16 @@ import {
   Trophy,
   Settings,
   MapPin,
+  Flame,
+  Bell,
+  Route,
+  Timer,
 } from "lucide-react-native";
+import { useStreakStore } from "@/lib/streakStore";
+
+const TRACKING_BG = require("@/assets/images/trakcing-bg.png");
+const { height: SCREEN_H } = Dimensions.get("window");
+const HERO_H = SCREEN_H * 0.44;
 
 const SPORT_CATEGORIES: { label: string; icon: string; sports: string[] }[] = [
   { label: "Foot Sports", icon: "shoe-sneaker", sports: ["run", "trail_run", "walk", "hike", "virtual_run", "treadmill"] },
@@ -130,6 +143,10 @@ export default function TrackingHomeScreen() {
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
   const token = useAppSelector((s) => s.user.token);
+  const profile = useAppSelector((s) => s.user.profile);
+  const streak = useStreakStore((s) => s.currentStreak);
+  const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
+  const profilePic = profile?.avatar ?? null;
 
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [weeklyStats, setWeeklyStats] = useState(() => getWeeklySummaries(new Date(), userId));
@@ -321,6 +338,20 @@ export default function TrackingHomeScreen() {
     );
   }
 
+  const bentoGap = 10;
+  const bentoHalf = (screenWidth - spacing.xl * 2 - bentoGap) / 2;
+
+  const PASTEL_MINT = "#E8F5E9";
+  const PASTEL_MINT_TEXT = "#2E7D32";
+  const PASTEL_PEACH = "#F1F8E9";
+  const PASTEL_PEACH_TEXT = "#33691E";
+  const PASTEL_LAVENDER = "#E0F2E9";
+  const PASTEL_LAVENDER_TEXT = "#1B5E20";
+  const PASTEL_SKY = "#DCEDC8";
+  const PASTEL_SKY_TEXT = "#2E7D32";
+  const PASTEL_ROSE = "#C8E6C9";
+  const PASTEL_ROSE_TEXT = "#1B5E20";
+
   return (
     <>
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
@@ -337,28 +368,104 @@ export default function TrackingHomeScreen() {
           />
         }
       >
-        <View style={{ paddingHorizontal: spacing.xl }}>
+        {/* ── Hero Header ── */}
+        <View style={{ height: HERO_H + insets.top, overflow: "hidden" }}>
+          <RNImage source={TRACKING_BG} style={{ position: "absolute", width: "100%", height: "100%", resizeMode: "cover" }} />
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.45)", p.pageBg]}
+            locations={[0.25, 0.65, 1]}
+            style={{ position: "absolute", width: "100%", height: "100%" }}
+          />
+
+          <View style={{ flex: 1, paddingTop: insets.top + 12, paddingHorizontal: spacing.xl, justifyContent: "space-between" }}>
+            {/* Top bar */}
+            <Animated.View entering={FadeIn.delay(100).duration(400)} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                {profilePic ? (
+                  <RNImage source={{ uri: profilePic }} style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
+                ) : (
+                  <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: "#fff" }}>{firstName[0]}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {streak > 0 && (
+                  <Animated.View entering={FadeIn.delay(400).duration(400)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(255,255,255,0.12)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
+                    <Flame size={13} color="#FF9500" fill="#FF9500" />
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: "#fff" }}>{streak}</Text>
+                  </Animated.View>
+                )}
+                <Pressable onPress={() => router.push("/notifications" as any)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
+                  <Bell size={18} color="#fff" />
+                  <View style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: 4, backgroundColor: p.accent }} />
+                </Pressable>
+              </View>
+            </Animated.View>
+
+            {/* Hero text */}
+            <View style={{ gap: 6, paddingBottom: 20 }}>
+              <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: "rgba(255,255,255,0.7)" }}>
+                Your Training
+              </Animated.Text>
+              <Animated.Text entering={FadeInDown.delay(300).duration(500)} style={{ fontFamily: "Outfit-Bold", fontSize: 38, color: "#fff", letterSpacing: -1.5, lineHeight: 42 }}>
+                Dashboard
+              </Animated.Text>
+
+              {/* Glass stat pills */}
+              <Animated.View entering={FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                    <Route size={14} color={p.accent} />
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
+                      {(weeklyStats.totalDistance / 1000).toFixed(1)}
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>km</Text>
+                  </View>
+                </BlurView>
+                <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                    <Timer size={14} color={p.accent} />
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
+                      {weeklyTime.h}h {weeklyTime.m}m
+                    </Text>
+                  </View>
+                </BlurView>
+                <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                    <Zap size={14} color={p.accent} />
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
+                      {weeklyStats.numRuns}
+                    </Text>
+                  </View>
+                </BlurView>
+              </Animated.View>
+            </View>
+          </View>
+        </View>
+
+        {/* Tab switcher */}
+        <View style={{ paddingHorizontal: spacing.xl, paddingTop: 16 }}>
           <TrackingHeaderTabs
             active="running"
             colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
             isDark={isDark}
-            topInset={insets.top}
+            topInset={0}
             paddingHorizontal={0}
             showTeamTab={showTeamTab}
           />
-
           <ActiveRunBanner />
         </View>
 
-        <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: 12 }}>
+        <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: 14 }}>
 
           {/* ── Training Goals ── */}
           {goals.length > 0 && (
             <View style={{ gap: 8 }}>
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary, paddingHorizontal: 4 }}>
-                Training Goals
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, letterSpacing: 0.8, color: p.textMuted, textTransform: "uppercase", paddingHorizontal: 4 }}>
+                Goals
               </Text>
-              {goals.map((goal) => {
+              {goals.map((goal, gi) => {
                 const unitLabel = goal.unit === "custom" ? (goal.customUnit ?? "") : goal.unit;
                 const dueLabel = goal.dueDate
                   ? `Due ${new Date(goal.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
@@ -384,7 +491,8 @@ export default function TrackingHomeScreen() {
                 const hasMeasurableProgress = goal.unit === "km" || goal.unit === "min" || goal.unit === "sec";
                 const pct = hasMeasurableProgress ? Math.min(1, progress / goal.targetValue) : null;
                 const done = pct != null && pct >= 1;
-                const barColor = done ? p.success : p.accent;
+                const barColor = done ? PASTEL_MINT_TEXT : p.accent;
+                const cardBg = done ? PASTEL_MINT : p.cardWhite;
 
                 const progressLabel = hasMeasurableProgress
                   ? goal.unit === "km"
@@ -394,257 +502,367 @@ export default function TrackingHomeScreen() {
                     : `${Math.round(progress)} / ${goal.targetValue} sec`
                   : null;
 
+                const RING_SIZE = 90;
+                const RING_STROKE = 7;
+                const ringRadius = (RING_SIZE - RING_STROKE) / 2;
+                const ringCircumference = 2 * Math.PI * ringRadius;
+                const ringOffset = pct != null ? ringCircumference * (1 - pct) : ringCircumference;
+                const ringTrackColor = done ? "rgba(46,125,50,0.15)" : p.accentSoft;
+
                 return (
-                  <View
+                  <Animated.View
                     key={goal.id}
+                    entering={FadeInDown.delay(gi * 60).springify().damping(18)}
                     style={{
-                      backgroundColor: p.cardWhite,
-                      borderRadius: 22,
-                      padding: 16,
-                      gap: 10,
+                      backgroundColor: cardBg,
+                      borderRadius: 28,
+                      padding: 20,
+                      alignItems: "center",
+                      gap: 14,
                     }}
                   >
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <View style={{ flex: 1, marginRight: 8, gap: 2 }}>
-                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
-                          {goal.title}
-                        </Text>
-                        {goal.description ? (
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
-                            {goal.description}
+                    <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: "center", justifyContent: "center" }}>
+                      <Svg width={RING_SIZE} height={RING_SIZE}>
+                        <Circle
+                          cx={RING_SIZE / 2}
+                          cy={RING_SIZE / 2}
+                          r={ringRadius}
+                          stroke={ringTrackColor}
+                          strokeWidth={RING_STROKE}
+                          fill="none"
+                        />
+                        {pct != null && (
+                          <Circle
+                            cx={RING_SIZE / 2}
+                            cy={RING_SIZE / 2}
+                            r={ringRadius}
+                            stroke={barColor}
+                            strokeWidth={RING_STROKE}
+                            fill="none"
+                            strokeDasharray={ringCircumference}
+                            strokeDashoffset={ringOffset}
+                            strokeLinecap="round"
+                            rotation={-90}
+                            origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+                          />
+                        )}
+                      </Svg>
+                      <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
+                        {done ? (
+                          <CheckCircle size={32} color={PASTEL_MINT_TEXT} />
+                        ) : pct != null ? (
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: barColor, letterSpacing: -0.5 }}>
+                            {Math.round(pct * 100)}%
                           </Text>
                         ) : null}
                       </View>
-                      <View style={{ alignItems: "flex-end", gap: 2 }}>
-                        {done ? (
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                            <CheckCircle size={15} color={p.success} />
-                            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.success }}>Done</Text>
-                          </View>
-                        ) : (
-                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: barColor }}>
-                            {goal.targetValue} {unitLabel}
-                          </Text>
-                        )}
-                        {dueLabel && (
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
-                            {dueLabel}
-                          </Text>
-                        )}
-                      </View>
                     </View>
 
-                    {pct != null && (
-                      <View style={{ gap: 5 }}>
-                        <View style={{ height: 7, borderRadius: 4, backgroundColor: p.accentSoft, overflow: "hidden" }}>
-                          <View style={{ height: "100%", width: `${Math.round(pct * 100)}%`, borderRadius: 4, backgroundColor: barColor }} />
-                        </View>
-                        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
-                            {progressLabel}
-                          </Text>
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
-                            {Math.round(pct * 100)}%
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-
-                    {goal.coachName && (
-                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
-                        by {goal.coachName}
+                    <View style={{ alignItems: "center", gap: 4 }}>
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, letterSpacing: -0.4, textAlign: "center" }}>
+                        {goal.title}
                       </Text>
+                      {goal.description ? (
+                        <Text numberOfLines={2} style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, textAlign: "center" }}>
+                          {goal.description}
+                        </Text>
+                      ) : null}
+                      {progressLabel ? (
+                        <Text style={{ fontFamily: "Outfit-Medium", fontSize: 13, color: barColor, marginTop: 2 }}>
+                          {progressLabel}
+                        </Text>
+                      ) : null}
+                      {!done && (
+                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: barColor, letterSpacing: -0.5, marginTop: 2 }}>
+                          {goal.targetValue} {unitLabel}
+                        </Text>
+                      )}
+                      {done && (
+                        <View style={{ backgroundColor: "rgba(46,125,50,0.12)", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 100, marginTop: 4 }}>
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: PASTEL_MINT_TEXT }}>Completed</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {(dueLabel || goal.coachName) && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                      {dueLabel && (
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
+                          {dueLabel}
+                        </Text>
+                      )}
+                      {goal.coachName && (
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
+                          by {goal.coachName}
+                        </Text>
+                      )}
+                    </View>
                     )}
-                  </View>
+                  </Animated.View>
                 );
               })}
             </View>
           )}
 
-          {/* ── This Week hero card ── */}
+          {/* ── Bento Hero: Distance (full width, tall) ── */}
           <Animated.View
-            entering={FadeInDown.delay(0).springify().damping(15)}
+            entering={FadeInDown.delay(0).springify().damping(18)}
             style={{
-              backgroundColor: p.cardWhite,
-              borderRadius: 22,
-              padding: 20,
-              gap: 16,
+              backgroundColor: PASTEL_MINT,
+              borderRadius: 28,
+              padding: 24,
+              gap: 8,
             }}
           >
-            {/* Label row */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <Text
                 style={{
                   fontFamily: "Outfit-Bold",
                   fontSize: 11,
-                  letterSpacing: 1.2,
-                  color: p.textMuted,
+                  letterSpacing: 1.4,
+                  color: PASTEL_MINT_TEXT,
                   textTransform: "uppercase",
+                  opacity: 0.7,
                 }}
               >
                 This Week
               </Text>
-              <Text
-                style={{
-                  fontFamily: "Outfit-Regular",
-                  fontSize: 12,
-                  color: p.textSecondary,
-                }}
-              >
-                {weeklyRunCountLabel}
-              </Text>
+              <View style={{ backgroundColor: "rgba(46,125,50,0.12)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: PASTEL_MINT_TEXT }}>
+                  {weeklyRunCountLabel}
+                </Text>
+              </View>
             </View>
 
-            {/* Big number */}
-            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
               <AnimatedStat
                 value={weeklyStats.totalDistance / 1000}
                 decimals={1}
                 style={{
                   fontFamily: "Outfit-Bold",
-                  fontSize: 52,
-                  lineHeight: 52,
-                  color: p.textPrimary,
-                  letterSpacing: -1,
+                  fontSize: 64,
+                  lineHeight: 68,
+                  color: PASTEL_MINT_TEXT,
+                  letterSpacing: -2,
                 }}
               />
               <Text
                 style={{
-                  fontFamily: "Outfit-Regular",
-                  fontSize: 20,
-                  color: p.textSecondary,
-                  paddingBottom: 8,
+                  fontFamily: "Outfit-Medium",
+                  fontSize: 22,
+                  color: PASTEL_MINT_TEXT,
+                  opacity: 0.6,
+                  paddingBottom: 12,
                 }}
               >
                 km
               </Text>
             </View>
 
-            {/* Metrics row */}
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <MetricTile
-                label="Time"
-                value={`${weeklyTime.h}h ${weeklyTime.m}m`}
-                bg={p.inputBg}
-                accent={p.accent}
-                textPrimary={p.textPrimary}
-              />
-              <MetricTile
-                label="Avg / run"
-                value={`${averageRunDistanceKm} km`}
-                bg={p.inputBg}
-                accent={p.accent}
-                textPrimary={p.textPrimary}
-              />
-              <MetricTile
-                label="Status"
-                value={weeklyStats.numRuns > 0 ? "Active" : "Ready"}
-                bg={p.inputBg}
-                accent={p.accent}
-                textPrimary={p.textPrimary}
-                valueIsAccent
-              />
-            </View>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: PASTEL_MINT_TEXT, opacity: 0.6 }}>
+              total distance covered
+            </Text>
           </Animated.View>
 
-          {/* ── Weekly distance chart ── */}
+          {/* ── Bento Row: Time + Avg (two halves) ── */}
+          <View style={{ flexDirection: "row", gap: bentoGap }}>
+            <Animated.View
+              entering={FadeInDown.delay(60).springify().damping(18)}
+              style={{
+                width: bentoHalf,
+                backgroundColor: PASTEL_PEACH,
+                borderRadius: 24,
+                padding: 18,
+                gap: 6,
+                justifyContent: "space-between",
+              }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(51,105,30,0.12)", alignItems: "center", justifyContent: "center" }}>
+                <Clock size={18} color={PASTEL_PEACH_TEXT} />
+              </View>
+              <View style={{ gap: 2, marginTop: 8 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_PEACH_TEXT, letterSpacing: -1 }}>
+                  {weeklyTime.h}h {weeklyTime.m}m
+                </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_PEACH_TEXT, opacity: 0.6 }}>
+                  Time
+                </Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(120).springify().damping(18)}
+              style={{
+                width: bentoHalf,
+                backgroundColor: PASTEL_LAVENDER,
+                borderRadius: 24,
+                padding: 18,
+                gap: 6,
+                justifyContent: "space-between",
+              }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(27,94,32,0.12)", alignItems: "center", justifyContent: "center" }}>
+                <Gauge size={18} color={PASTEL_LAVENDER_TEXT} />
+              </View>
+              <View style={{ gap: 2, marginTop: 8 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_LAVENDER_TEXT, letterSpacing: -1 }}>
+                  {averageRunDistanceKm}
+                </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_LAVENDER_TEXT, opacity: 0.6 }}>
+                  km / run avg
+                </Text>
+              </View>
+            </Animated.View>
+          </View>
+
+          {/* ── Bento Row: Status + Runs count ── */}
+          <View style={{ flexDirection: "row", gap: bentoGap }}>
+            <Animated.View
+              entering={FadeInDown.delay(180).springify().damping(18)}
+              style={{
+                flex: 2,
+                backgroundColor: PASTEL_SKY,
+                borderRadius: 24,
+                padding: 18,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(46,125,50,0.12)", alignItems: "center", justifyContent: "center" }}>
+                <Zap size={22} color={PASTEL_SKY_TEXT} />
+              </View>
+              <View style={{ gap: 2 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: PASTEL_SKY_TEXT, letterSpacing: -0.5 }}>
+                  {weeklyStats.numRuns > 0 ? "Active" : "Ready"}
+                </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_SKY_TEXT, opacity: 0.6 }}>
+                  Status
+                </Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(240).springify().damping(18)}
+              style={{
+                flex: 1,
+                backgroundColor: PASTEL_ROSE,
+                borderRadius: 24,
+                padding: 18,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+              }}
+            >
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 32, color: PASTEL_ROSE_TEXT, letterSpacing: -1 }}>
+                {weeklyStats.numRuns}
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_ROSE_TEXT, opacity: 0.6 }}>
+                runs
+              </Text>
+            </Animated.View>
+          </View>
+
+          {/* ── Weekly Distance Chart (bento card) ── */}
           <Animated.View
-            entering={FadeInDown.delay(50).springify().damping(15)}
+            entering={FadeInDown.delay(300).springify().damping(18)}
             style={{
               backgroundColor: p.cardWhite,
-              borderRadius: 22,
-              padding: 20,
-              gap: 12,
+              borderRadius: 28,
+              padding: 22,
+              gap: 14,
             }}
           >
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <View style={{ gap: 2 }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>
-                  Weekly distance
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, letterSpacing: -0.5 }}>
+                  Weekly Distance
                 </Text>
                 <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
                   Last 12 weeks
                 </Text>
               </View>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
-                {lastRunLabel}
-              </Text>
+              <View style={{ backgroundColor: p.accentSoft, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}>
+                  {lastRunLabel}
+                </Text>
+              </View>
             </View>
             <LineChart
-              width={Math.max(260, screenWidth - spacing.xl * 2 - 40)}
-              height={96}
+              width={Math.max(260, screenWidth - spacing.xl * 2 - 44)}
+              height={110}
               points={last12WeeksKm}
               color={p.accent}
               gridColor={p.divider}
             />
           </Animated.View>
 
-          {/* ── Progress shortcut ── */}
-          <Pressable
-            onPress={() => router.push("/progress" as any)}
-            style={({ pressed }) => ({
-              backgroundColor: p.cardWhite,
-              borderRadius: 22,
-              padding: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              opacity: pressed ? 0.75 : 1,
-              transform: [{ scale: pressed ? 0.99 : 1 }],
-            })}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <View
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  backgroundColor: p.accentSoft,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <TrendingUp size={19} color={p.accent} />
+          {/* ── Progress Shortcut (bento link card) ── */}
+          <Animated.View entering={FadeInDown.delay(360).springify().damping(18)}>
+            <Pressable
+              onPress={() => router.push("/progress" as any)}
+              style={({ pressed }) => ({
+                backgroundColor: PASTEL_LAVENDER,
+                borderRadius: 24,
+                padding: 18,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    backgroundColor: "rgba(27,94,32,0.12)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <TrendingUp size={20} color={PASTEL_LAVENDER_TEXT} />
+                </View>
+                <View style={{ gap: 2 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: PASTEL_LAVENDER_TEXT, letterSpacing: -0.3 }}>
+                    Progress Tracking
+                  </Text>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_LAVENDER_TEXT, opacity: 0.6 }}>
+                    Strength · Weight · Body
+                  </Text>
+                </View>
               </View>
-              <View style={{ gap: 2 }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
-                  Progress Tracking
-                </Text>
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
-                  Strength · Weight · Body
-                </Text>
-              </View>
-            </View>
-            <ChevronRight size={17} color={p.textMuted} />
-          </Pressable>
+              <ChevronRight size={18} color={PASTEL_LAVENDER_TEXT} />
+            </Pressable>
+          </Animated.View>
 
-          {/* ── Recent runs (categorized) ── */}
-          {capabilities?.runTracking !== false && <View style={{ gap: 8 }}>
+          {/* ── Activities (categorized runs) ── */}
+          {capabilities?.runTracking !== false && <View style={{ gap: 10 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, letterSpacing: 0.8, color: p.textMuted, textTransform: "uppercase" }}>
                 Activities
               </Text>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
-                {runs.length} total
-              </Text>
+              <View style={{ backgroundColor: p.accentSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}>
+                  {runs.length} total
+                </Text>
+              </View>
             </View>
 
             {runs.length === 0 ? (
               <TrackingEmptyState onStartRun={handleStartRun} p={p} />
             ) : hasCategorized ? (
-              /* ── Multi-sport: show by category ── */
-              <View style={{ gap: 12 }}>
+              <View style={{ gap: 14 }}>
                 {categorizedRuns.map((section) => (
-                  <View key={section.label} style={{ gap: 6 }}>
-                    {/* Section header */}
+                  <View key={section.label} style={{ gap: 8 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
                       <Zap size={14} color={p.accent} />
                       <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, letterSpacing: 0.8, color: p.textMuted, textTransform: "uppercase" }}>
                         {section.label}
                       </Text>
                     </View>
-                    {/* Runs card */}
-                    <View style={{ backgroundColor: p.cardWhite, borderRadius: 22, overflow: "hidden" }}>
+                    <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, overflow: "hidden" }}>
                       {section.data.slice(0, 5).map((run, idx) => (
                         <RunRow
                           key={run.id}
@@ -661,8 +879,7 @@ export default function TrackingHomeScreen() {
                 ))}
               </View>
             ) : (
-              /* ── Single sport: plain list ── */
-              <View style={{ backgroundColor: p.cardWhite, borderRadius: 22, overflow: "hidden" }}>
+              <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, overflow: "hidden" }}>
                 {runs.slice(0, 6).map((run, idx) => (
                   <RunRow
                     key={run.id}
@@ -701,6 +918,11 @@ export default function TrackingHomeScreen() {
               backgroundColor: p.accent,
               alignItems: "center",
               justifyContent: "center",
+              shadowColor: p.accent,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.35,
+              shadowRadius: 12,
+              elevation: 8,
             }]}
             accessibilityRole="button"
             accessibilityLabel="Start run"

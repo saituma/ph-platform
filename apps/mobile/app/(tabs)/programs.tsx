@@ -5,21 +5,28 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  Image as RNImage,
+  Dimensions,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { AlertCircle, ChevronRight, Dumbbell, Layers } from "lucide-react-native";
+import { AlertCircle, ChevronRight, Dumbbell, Layers, Flame, Bell, BookOpen, Library } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import Animated, {
+  FadeIn,
   FadeInDown,
+  FadeInRight,
   withSpring,
   useSharedValue,
   useAnimatedStyle,
   useReducedMotion,
   runOnJS,
 } from "react-native-reanimated";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
+import { useStreakStore } from "@/lib/streakStore";
 
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
@@ -34,6 +41,16 @@ import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
 import { TeamProgramView } from "@/components/programs/TeamProgramView";
 import { hasAssignedTeam } from "@/lib/teamMembership";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
+
+const PROGRAMS_BG = require("@/assets/images/programs-bg.png");
+const { height: SCREEN_H } = Dimensions.get("window");
+const HERO_H = SCREEN_H * 0.38;
+
+const PASTEL_GREEN = "#E8F5E9";
+const PASTEL_GREEN_TEXT = "#2E7D32";
+const PASTEL_GREEN_SOFT = "rgba(46,125,50,0.12)";
+const PASTEL_LIME = "#F1F8E9";
+const PASTEL_LIME_TEXT = "#33691E";
 
 const MODULE_CARD_COLORS = ["cardSage", "cardMint", "cardPeach", "cardLavender"] as const;
 
@@ -415,47 +432,17 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     );
   }
 
+  const reduceMotion = useReducedMotion();
+  const streak = useStreakStore((ss) => ss.currentStreak);
+  const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
+  const profilePic = profile?.avatar ?? null;
+  const totalModules = programs.reduce((sum, prog) => sum + (prog.moduleCount ?? 0), 0);
+
   return (
-    <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
-      {/* ── Header ── */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12, marginBottom: 10 }}>
-        <Text style={{ fontSize: 24, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
-          My Programs
-        </Text>
-      </View>
-      <View style={{ height: 14 }} />
-
-      {/* ── Continue Watching ── */}
-      {watchHistory.length > 0 ? (
-        <View style={{ marginBottom: 8 }}>
-          <Text
-            style={{
-              fontSize: 17,
-              fontFamily: "Outfit-Bold",
-              color: p.textPrimary,
-              letterSpacing: -0.2,
-              paddingHorizontal: 20,
-              marginBottom: 12,
-              marginTop: 12,
-            }}
-          >
-            Continue watching
-          </Text>
-          <FlashList
-            data={watchHistory}
-            renderItem={renderWatchItem}
-            horizontal
-            keyExtractor={watchKeyExtractor}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={watchListContentStyle}
-            ItemSeparatorComponent={WatchListSeparator}
-          />
-        </View>
-      ) : null}
-
-      {/* ── Loading / Empty ── */}
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
+      {/* ── Loading / Error states (no hero) ── */}
       {programsLoading && programs.length === 0 ? (
-        <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: 12 }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 60, gap: 12 }}>
           {Array.from({ length: 3 }).map((_, i) => (
             <SkeletonBox key={`skeleton-${i}`} width="100%" height={90} borderRadius={24} />
           ))}
@@ -482,8 +469,139 @@ const ProgramsScreen = memo(function ProgramsScreen() {
         </View>
       ) : (
         <>
+          {/* ── Hero Header ── */}
+          <View style={{ height: HERO_H + insets.top, overflow: "hidden" }}>
+            <RNImage source={PROGRAMS_BG} style={{ position: "absolute", width: "100%", height: "100%", resizeMode: "cover" }} />
+            <LinearGradient
+              colors={["transparent", "rgba(0,0,0,0.45)", p.pageBg]}
+              locations={[0.25, 0.65, 1]}
+              style={{ position: "absolute", width: "100%", height: "100%" }}
+            />
+
+            <View style={{ flex: 1, paddingTop: insets.top + 12, paddingHorizontal: 20, justifyContent: "space-between" }}>
+              {/* Top bar */}
+              <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(100).duration(400)} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  {profilePic ? (
+                    <RNImage source={{ uri: profilePic }} style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
+                  ) : (
+                    <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: "#fff" }}>{firstName[0]}</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  {streak > 0 && (
+                    <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(400)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(255,255,255,0.12)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
+                      <Flame size={13} color="#FF9500" fill="#FF9500" />
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: "#fff" }}>{streak}</Text>
+                    </Animated.View>
+                  )}
+                  <Pressable onPress={() => router.push("/notifications" as any)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
+                    <Bell size={18} color="#fff" />
+                    <View style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: 4, backgroundColor: p.accent }} />
+                  </Pressable>
+                </View>
+              </Animated.View>
+
+              {/* Hero text */}
+              <View style={{ gap: 6, paddingBottom: 20 }}>
+                <Animated.Text entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(500)} style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: "rgba(255,255,255,0.7)" }}>
+                  Your
+                </Animated.Text>
+                <Animated.Text entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(500)} style={{ fontFamily: "Outfit-Bold", fontSize: 38, color: "#fff", letterSpacing: -1.5, lineHeight: 42 }}>
+                  Programs
+                </Animated.Text>
+
+                {/* Glass stat pills */}
+                <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                  <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                      <BookOpen size={14} color={p.accent} />
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{programs.length}</Text>
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+                        {programs.length === 1 ? "program" : "programs"}
+                      </Text>
+                    </View>
+                  </BlurView>
+                  {totalModules > 0 && (
+                    <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                        <Library size={14} color={p.accent} />
+                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{totalModules}</Text>
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>modules</Text>
+                      </View>
+                    </BlurView>
+                  )}
+                </Animated.View>
+              </View>
+            </View>
+          </View>
+
+          {/* ── Bento Stats ── */}
+          <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: 10 }}>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Animated.View
+                entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
+                style={{ flex: 2, backgroundColor: PASTEL_GREEN, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+              >
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: PASTEL_GREEN_SOFT, alignItems: "center", justifyContent: "center" }}>
+                  <BookOpen size={22} color={PASTEL_GREEN_TEXT} />
+                </View>
+                <View style={{ gap: 2 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: PASTEL_GREEN_TEXT, letterSpacing: -0.5 }}>
+                    {programs.length}
+                  </Text>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_GREEN_TEXT, opacity: 0.6 }}>
+                    {programs.length === 1 ? "Program" : "Programs"}
+                  </Text>
+                </View>
+              </Animated.View>
+
+              <Animated.View
+                entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
+                style={{ flex: 1, backgroundColor: PASTEL_LIME, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
+              >
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_LIME_TEXT, letterSpacing: -1 }}>
+                  {totalModules}
+                </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_LIME_TEXT, opacity: 0.6 }}>
+                  Modules
+                </Text>
+              </Animated.View>
+            </View>
+          </View>
+
+          {/* ── Continue Watching ── */}
+          {watchHistory.length > 0 ? (
+            <View style={{ marginTop: 16, marginBottom: 8 }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: "Outfit-Bold",
+                  letterSpacing: 0.8,
+                  color: p.textMuted,
+                  textTransform: "uppercase",
+                  paddingHorizontal: 20,
+                  marginBottom: 12,
+                }}
+              >
+                Continue Watching
+              </Text>
+              <FlashList
+                data={watchHistory}
+                renderItem={renderWatchItem}
+                horizontal
+                keyExtractor={watchKeyExtractor}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={watchListContentStyle}
+                ItemSeparatorComponent={WatchListSeparator}
+              />
+            </View>
+          ) : null}
+
           {/* ── Program Tabs ── */}
-          <View style={{ borderBottomWidth: 1, borderBottomColor: p.divider, flexDirection: "row" }}>
+          <View style={{ borderBottomWidth: 1, borderBottomColor: p.divider, flexDirection: "row", marginTop: watchHistory.length > 0 ? 0 : 16 }}>
             <ScrollView
               horizontal
               nestedScrollEnabled

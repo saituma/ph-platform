@@ -16,7 +16,7 @@ export const Route = createFileRoute("/register")({
 			{
 				name: "description",
 				content:
-					"Create your PH Performance account. Start your free 14-day trial — no credit card required.",
+					"Create your PH Performance account. Create your account and start training with PH Performance.",
 			},
 			{ name: "robots", content: "noindex, follow" },
 		],
@@ -150,7 +150,7 @@ const handleSignIn = () => {
 		<div className="relative">
 			<SignUpPage
 				title={<span className="font-light text-foreground tracking-tighter">Get Started</span>}
-				description="Create your PH Performance account. Start your free 14-day trial — no credit card required."
+				description="Create your PH Performance account. Create your account and start training with PH Performance."
 				heroImageSrc="/landing/piers.png"
 				testimonials={testimonials}
 				onSignUp={handleSignUp}

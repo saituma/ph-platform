@@ -82,7 +82,7 @@ export const DEFAULT_PORTAL_CONFIG: PortalConfig = {
 			{ value: "4.9★", label: "Rating" },
 		],
 		emailPlaceholder: "Enter your email",
-		emailCtaLabel: "Join Free",
+		emailCtaLabel: "Join Now",
 		mobileScreenshotUrl: "",
 	},
 	ceoIntro: {

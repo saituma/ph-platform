@@ -36,6 +36,7 @@ import {
   ChevronRight,
   Plus,
   ArrowLeft,
+  Flame,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Path, G } from "react-native-svg";
@@ -410,6 +411,32 @@ function TipRow({
   );
 }
 
+// ── Streak badge ──
+function StreakBadge() {
+  const streak = useStreakStore((s) => s.currentStreak);
+  const scale = useSharedValue(0.5);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    scale.value = withDelay(600, withSpring(1, { damping: 10, stiffness: 250 }));
+    opacity.value = withDelay(500, withTiming(1, { duration: 300 }));
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  if (streak < 1) return null;
+
+  return (
+    <Animated.View style={[styles.streakBadge, animStyle]}>
+      <Flame size={14} color="#FF9500" fill="#FF9500" />
+      <Text style={styles.streakText}>{streak}</Text>
+    </Animated.View>
+  );
+}
+
 export const SleepDashboard = React.memo(function SleepDashboard() {
   const p = useAdminPastel();
   const isDark = useColorScheme() === "dark";
@@ -518,13 +545,16 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
                 <ArrowLeft size={22} color={heroText} />
               </View>
             </ScalePressable>
-            <ScalePressable
-              onPress={openSheet}
-              activeScale={0.85}
-              style={[styles.addBtn, { backgroundColor: "rgba(255,255,255,0.12)" }]}
-            >
-              <Plus size={18} color={heroText} />
-            </ScalePressable>
+            <View style={styles.heroHeaderRight}>
+              <StreakBadge />
+              <ScalePressable
+                onPress={openSheet}
+                activeScale={0.85}
+                style={[styles.addBtn, { backgroundColor: "rgba(255,255,255,0.12)" }]}
+              >
+                <Plus size={18} color={heroText} />
+              </ScalePressable>
+            </View>
           </View>
 
           <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(200).duration(400)}>
@@ -754,6 +784,27 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
+  },
+  heroHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255,149,0,0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: "rgba(255,149,0,0.25)",
+  },
+  streakText: {
+    fontFamily: fonts.statNumber,
+    fontSize: 15,
+    color: "#FF9500",
   },
   addBtn: {
     width: 36,

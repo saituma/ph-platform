@@ -77,7 +77,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
               {children}
 
               <button type="submit" className="animate-element animate-delay-500 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-                Get Started Free
+                Get Started
               </button>
             </form>
 

@@ -11,6 +11,8 @@ import {
   View,
   StyleSheet,
   Linking,
+  Image as RNImage,
+  Dimensions,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
@@ -32,16 +34,26 @@ import {
   CheckCircle2,
   XCircle,
   ScanLine,
+  Flame,
+  Bell,
+  CalendarCheck,
+  CalendarClock,
+  History,
 } from "lucide-react-native";
 import Animated, {
+  FadeIn,
   FadeInDown,
+  FadeInRight,
   withSpring,
   useSharedValue,
   useAnimatedStyle,
   useReducedMotion,
   runOnJS,
 } from "react-native-reanimated";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { useStreakStore } from "@/lib/streakStore";
 
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
@@ -58,6 +70,18 @@ import { useAppToast } from "@/hooks/useAppToast";
 import type { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
 import type { AdminPastelColors } from "@/constants/theme";
+
+const SCHEDULE_BG = require("@/assets/images/schedule-bg.png");
+const { height: SCREEN_H } = Dimensions.get("window");
+const HERO_H = SCREEN_H * 0.38;
+
+const PASTEL_GREEN = "#E8F5E9";
+const PASTEL_GREEN_TEXT = "#2E7D32";
+const PASTEL_GREEN_SOFT = "rgba(46,125,50,0.12)";
+const PASTEL_LIME = "#F1F8E9";
+const PASTEL_LIME_TEXT = "#33691E";
+const PASTEL_SAGE = "#E0F2E9";
+const PASTEL_SAGE_TEXT = "#1B5E20";
 
 // ── Pure helpers ──────────────────────────────────────────────────────
 
@@ -658,6 +682,12 @@ export default memo(function ScheduleScreen() {
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
+  const profile = useAppSelector((s) => s.user.profile);
+  const streak = useStreakStore((ss) => ss.currentStreak);
+  const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
+  const profilePic = profile?.avatar ?? null;
+  const { width: screenWidth } = Dimensions.get("window");
+  const reduceMotion = useReducedMotion();
   const { effectiveProfileId } = useActingUser();
   const canBook = capabilities?.coachBooking === true;
   const userTeamId = authTeamMembership?.teamId ?? null;
@@ -854,45 +884,14 @@ export default memo(function ScheduleScreen() {
   }
 
   const fabBottom = 20 + insets.bottom + 56; // 56 = TAB_HEIGHT
+  const bentoGap = 10;
+  const bentoHalf = (screenWidth - 40 - bentoGap) / 2;
 
   return (
-    <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
-
-      {/* ── Header ── */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontSize: 28, letterSpacing: -0.5, color: p.textPrimary, fontFamily: "Outfit-Bold" }}>
-            Schedule
-          </Text>
-          <Pressable
-            onPress={() => router.push("/qr-scan")}
-            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: p.inputBg, alignItems: "center", justifyContent: "center" }}
-            hitSlop={8}
-          >
-            <ScanLine size={20} color={p.textSecondary} />
-          </Pressable>
-        </View>
-        <StatsBar upcoming={upcoming.length} pending={requests.length} />
-      </View>
-
-      {/* ── Team banner ── */}
-      {!canBook && <TeamBanner />}
-
-      {/* ── Pinned services ── */}
-      {(bookableServices.length > 0 || nonBookableServices.length > 0) && (
-        <ServicesPanel
-          bookable={bookableServices}
-          nonBookable={nonBookableServices}
-          onBook={openBookingForService}
-          p={p}
-        />
-      )}
-
-      {/* ── Main scroll ── */}
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingHorizontal: 20,
           paddingBottom: fabBottom + (canBook ? 72 : 24),
         }}
         showsVerticalScrollIndicator={false}
@@ -904,6 +903,150 @@ export default memo(function ScheduleScreen() {
           />
         }
       >
+        {/* ── Hero Header ── */}
+        <View style={{ height: HERO_H + insets.top, overflow: "hidden" }}>
+          <RNImage source={SCHEDULE_BG} style={{ position: "absolute", width: "100%", height: "100%", resizeMode: "cover" }} />
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.45)", p.pageBg]}
+            locations={[0.25, 0.65, 1]}
+            style={{ position: "absolute", width: "100%", height: "100%" }}
+          />
+
+          <View style={{ flex: 1, paddingTop: insets.top + 12, paddingHorizontal: 20, justifyContent: "space-between" }}>
+            {/* Top bar */}
+            <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(100).duration(400)} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                {profilePic ? (
+                  <RNImage source={{ uri: profilePic }} style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
+                ) : (
+                  <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: "#fff" }}>{firstName[0]}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {streak > 0 && (
+                  <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(400)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(255,255,255,0.12)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
+                    <Flame size={13} color="#FF9500" fill="#FF9500" />
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: "#fff" }}>{streak}</Text>
+                  </Animated.View>
+                )}
+                <Pressable onPress={() => router.push("/qr-scan")} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
+                  <ScanLine size={18} color="#fff" />
+                </Pressable>
+                <Pressable onPress={() => router.push("/notifications" as any)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
+                  <Bell size={18} color="#fff" />
+                  <View style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: 4, backgroundColor: p.accent }} />
+                </Pressable>
+              </View>
+            </Animated.View>
+
+            {/* Hero text */}
+            <View style={{ gap: 6, paddingBottom: 20 }}>
+              <Animated.Text entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(500)} style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: "rgba(255,255,255,0.7)" }}>
+                Your
+              </Animated.Text>
+              <Animated.Text entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(500)} style={{ fontFamily: "Outfit-Bold", fontSize: 38, color: "#fff", letterSpacing: -1.5, lineHeight: 42 }}>
+                Schedule
+              </Animated.Text>
+
+              {/* Glass stat pills */}
+              <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                    <CalendarCheck size={14} color={p.accent} />
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{upcoming.length}</Text>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>upcoming</Text>
+                  </View>
+                </BlurView>
+                {requests.length > 0 && (
+                  <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                      <CalendarClock size={14} color="#FFAB40" />
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{requests.length}</Text>
+                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>pending</Text>
+                    </View>
+                  </BlurView>
+                )}
+              </Animated.View>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Bento Stats ── */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: bentoGap }}>
+          <View style={{ flexDirection: "row", gap: bentoGap }}>
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
+              style={{ flex: 2, backgroundColor: PASTEL_GREEN, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+            >
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: PASTEL_GREEN_SOFT, alignItems: "center", justifyContent: "center" }}>
+                <CalendarCheck size={22} color={PASTEL_GREEN_TEXT} />
+              </View>
+              <View style={{ gap: 2 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: PASTEL_GREEN_TEXT, letterSpacing: -0.5 }}>
+                  {upcoming.length}
+                </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_GREEN_TEXT, opacity: 0.6 }}>
+                  Upcoming
+                </Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
+              style={{ flex: 1, backgroundColor: PASTEL_LIME, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
+            >
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_LIME_TEXT, letterSpacing: -1 }}>
+                {requests.length}
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_LIME_TEXT, opacity: 0.6 }}>
+                Pending
+              </Text>
+            </Animated.View>
+          </View>
+
+          {past.length > 0 && (
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInDown.delay(120).springify().damping(18)}
+              style={{ backgroundColor: PASTEL_SAGE, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: "rgba(27,94,32,0.12)", alignItems: "center", justifyContent: "center" }}>
+                <History size={20} color={PASTEL_SAGE_TEXT} />
+              </View>
+              <View style={{ gap: 2 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: PASTEL_SAGE_TEXT, letterSpacing: -0.3 }}>
+                  {past.length} Past Sessions
+                </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_SAGE_TEXT, opacity: 0.6 }}>
+                  Your training history
+                </Text>
+              </View>
+            </Animated.View>
+          )}
+        </View>
+
+        {/* ── Team banner ── */}
+        {!canBook && (
+          <View style={{ paddingTop: 12 }}>
+            <TeamBanner />
+          </View>
+        )}
+
+        {/* ── Pinned services ── */}
+        {(bookableServices.length > 0 || nonBookableServices.length > 0) && (
+          <View style={{ paddingTop: 12 }}>
+            <ServicesPanel
+              bookable={bookableServices}
+              nonBookable={nonBookableServices}
+              onBook={openBookingForService}
+              p={p}
+            />
+          </View>
+        )}
+
+        {/* ── Sessions list ── */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
 
         {/* ════ UPCOMING ════ */}
         <SectionLabel
@@ -1001,6 +1144,7 @@ export default memo(function ScheduleScreen() {
             ))}
           </>
         )}
+        </View>
       </ScrollView>
 
       {/* ── FAB ── */}
