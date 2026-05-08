@@ -7,6 +7,7 @@ import {
   View,
   Image as RNImage,
   Dimensions,
+  useColorScheme,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
@@ -46,11 +47,6 @@ const PROGRAMS_BG = require("@/assets/images/programs-bg.png");
 const { height: SCREEN_H } = Dimensions.get("window");
 const HERO_H = SCREEN_H * 0.38;
 
-const PASTEL_GREEN = "#2F9F3D";
-const PASTEL_GREEN_TEXT = "#FFFFFF";
-const PASTEL_GREEN_SOFT = "rgba(47,159,61,0.18)";
-const PASTEL_LIME = "#2F9F3D";
-const PASTEL_LIME_TEXT = "#FFFFFF";
 
 const MODULE_CARD_COLORS = ["cardSage", "cardMint", "cardPeach", "cardLavender"] as const;
 
@@ -144,6 +140,7 @@ const ProgramContent = memo(function ProgramContent({
 }) {
   const p = useAdminPastel();
   const router = useRouter();
+  const isDark = useColorScheme() === "dark";
   const { program, isLoading, error, loadProgram } = useMyProgramDetail(token);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -197,9 +194,8 @@ const ProgramContent = memo(function ProgramContent({
           : FadeInDown.delay(Math.min(modIdx, 8) * 40).springify().damping(15);
         const cardColorKey = MODULE_CARD_COLORS[modIdx % MODULE_CARD_COLORS.length];
         const cardBg = p[cardColorKey] as string;
-        const isGreenCard = cardColorKey !== "cardPeach";
-        const cardText = isGreenCard ? "#FFFFFF" : p.textPrimary;
-        const cardSubText = isGreenCard ? "rgba(255,255,255,0.75)" : p.textSecondary;
+        const cardText = isDark ? "#1A1A1A" : "#FFFFFF";
+        const cardSubText = isDark ? "#555555" : "rgba(255,255,255,0.75)";
         return (
           <Animated.View key={mod.id} entering={entering}>
             <Pressable
@@ -228,12 +224,12 @@ const ProgramContent = memo(function ProgramContent({
                         width: 44,
                         height: 44,
                         borderRadius: 14,
-                        backgroundColor: isGreenCard ? "rgba(255,255,255,0.2)" : p.accentSoft,
+                        backgroundColor: p.accentSoft,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: isGreenCard ? "#FFFFFF" : p.accent }}>
+                      <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: cardText }}>
                         {mod.order}
                       </Text>
                     </View>
@@ -271,7 +267,7 @@ const ProgramContent = memo(function ProgramContent({
                         width: 32,
                         height: 32,
                         borderRadius: 10,
-                        backgroundColor: isGreenCard ? "rgba(255,255,255,0.2)" : p.accentSoft,
+                        backgroundColor: p.accentSoft,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
@@ -546,16 +542,16 @@ const ProgramsScreen = memo(function ProgramsScreen() {
             <View style={{ flexDirection: "row", gap: 10 }}>
               <Animated.View
                 entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
-                style={{ flex: 2, backgroundColor: PASTEL_GREEN, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+                style={{ flex: 2, backgroundColor: p.accent, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
               >
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: PASTEL_GREEN_SOFT, alignItems: "center", justifyContent: "center" }}>
-                  <BookOpen size={22} color={PASTEL_GREEN_TEXT} />
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+                  <BookOpen size={22} color={p.buttonPrimaryText} />
                 </View>
                 <View style={{ gap: 2 }}>
-                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: PASTEL_GREEN_TEXT, letterSpacing: -0.5 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: p.buttonPrimaryText, letterSpacing: -0.5 }}>
                     {programs.length}
                   </Text>
-                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_GREEN_TEXT, opacity: 0.6 }}>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.buttonPrimaryText, opacity: 0.6 }}>
                     {programs.length === 1 ? "Program" : "Programs"}
                   </Text>
                 </View>
@@ -563,12 +559,12 @@ const ProgramsScreen = memo(function ProgramsScreen() {
 
               <Animated.View
                 entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
-                style={{ flex: 1, backgroundColor: PASTEL_LIME, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
+                style={{ flex: 1, backgroundColor: p.accent, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
               >
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_LIME_TEXT, letterSpacing: -1 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.buttonPrimaryText, letterSpacing: -1 }}>
                   {totalModules}
                 </Text>
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_LIME_TEXT, opacity: 0.6 }}>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.buttonPrimaryText, opacity: 0.6 }}>
                   Modules
                 </Text>
               </Animated.View>

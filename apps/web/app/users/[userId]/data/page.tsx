@@ -712,10 +712,42 @@ function NutritionLogCard({ log }: { log: any }) {
 
 // ========== PERFORMANCE TAB ==========
 
+const SPORT_LABELS: Record<string, string> = {
+  run: "Run",
+  trail_run: "Trail Run",
+  walk: "Walk",
+  hike: "Hike",
+  virtual_run: "Virtual Run",
+  treadmill: "Treadmill",
+  ride: "Ride",
+  virtual_ride: "Virtual Ride",
+  e_bike: "E-Bike",
+  mountain_bike: "Mountain Bike",
+  swim: "Swim",
+  open_water_swim: "Open Water Swim",
+};
+
+function sportLabel(sport: string | null | undefined): string {
+  if (!sport) return "Run";
+  return SPORT_LABELS[sport] ?? sport.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function PerformanceTab({ userId, from }: { userId: number; from: string }) {
   const { data, isLoading } = useGetAdminRunTrackingQuery({ userId, from, limit: 100 }, { skip: !userId });
-  const runs = data?.items ?? [];
+  const allRuns = data?.items ?? [];
   const summary = data?.summary;
+  const [sportFilter, setSportFilter] = useState<string>("all");
+
+  const availableSports = useMemo(() => {
+    const sports = new Set<string>();
+    allRuns.forEach((r) => { if (r.sport) sports.add(r.sport); });
+    return Array.from(sports).sort();
+  }, [allRuns]);
+
+  const runs = useMemo(
+    () => sportFilter === "all" ? allRuns : allRuns.filter((r) => (r.sport || "run") === sportFilter),
+    [allRuns, sportFilter],
+  );
 
   if (isLoading) return <LoadingSkeleton />;
 
@@ -747,6 +779,38 @@ function PerformanceTab({ userId, from }: { userId: number; from: string }) {
       {/* Run list */}
       <GlassCard>
         <SectionTitle icon={Footprints} title="Run History" subtitle="Tracked runs and activities" count={runs.length} />
+
+        {/* Sport filter */}
+        {availableSports.length > 0 && (
+          <div className="flex gap-2 flex-wrap mb-5">
+            <Button
+              size="sm"
+              variant={sportFilter === "all" ? "default" : "outline"}
+              className={cn(
+                "rounded-xl text-[10px] font-black uppercase tracking-widest",
+                sportFilter !== "all" && "border-white/10 bg-white/5 hover:bg-white/10"
+              )}
+              onClick={() => setSportFilter("all")}
+            >
+              All
+            </Button>
+            {availableSports.map((sport) => (
+              <Button
+                key={sport}
+                size="sm"
+                variant={sportFilter === sport ? "default" : "outline"}
+                className={cn(
+                  "rounded-xl text-[10px] font-black uppercase tracking-widest",
+                  sportFilter !== sport && "border-white/10 bg-white/5 hover:bg-white/10"
+                )}
+                onClick={() => setSportFilter(sport)}
+              >
+                {sportLabel(sport)}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {runs.length === 0 ? (
           <EmptyState icon={Footprints} text="No runs tracked" />
         ) : (
@@ -773,8 +837,13 @@ function RunCard({ run }: { run: any }) {
               <Footprints className="h-4 w-4 text-emerald-500" />
             </div>
             <div>
-              <p className="text-sm font-bold text-foreground">
+              <p className="text-sm font-bold text-foreground flex items-center gap-2">
                 {new Date(run.date).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                {run.sport && run.sport !== "run" && (
+                  <Badge variant="outline" className="text-[8px] font-bold uppercase tracking-widest py-0">
+                    {sportLabel(run.sport)}
+                  </Badge>
+                )}
               </p>
               <p className="text-[10px] text-muted-foreground/60 font-mono">
                 {(run.distanceMeters / 1000).toFixed(2)} km • {formatDuration(run.durationSeconds)}

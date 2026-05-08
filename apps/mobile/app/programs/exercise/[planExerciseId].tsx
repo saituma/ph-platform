@@ -11,7 +11,7 @@ import {
   Pressable,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useLocalSearchParams,
   useRouter,
@@ -199,6 +199,7 @@ export default function PremiumExerciseDetailScreen() {
   );
 
   const p = useAdminPastel();
+  const insets = useSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
   const [item, setItem] = useState<PremiumExerciseDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -327,9 +328,10 @@ export default function PremiumExerciseDetailScreen() {
       `/programs/exercise/${targetId}?sessionIds=${encodeURIComponent(sessionExerciseIds.join(","))}&index=${targetIndex}` as RelativePathString,
     [sessionExerciseIds],
   );
+  const footerHeight = 80 + Math.max(insets.bottom, 12);
   const contentContainerStyle = useMemo(
-    () => ({ paddingBottom: hasSessionNavigation ? 136 : 40 }),
-    [hasSessionNavigation],
+    () => ({ paddingBottom: hasSessionNavigation ? footerHeight + 16 : 40 }),
+    [hasSessionNavigation, footerHeight],
   );
 
   const DetailCard = useCallback(
@@ -417,6 +419,7 @@ export default function PremiumExerciseDetailScreen() {
         <ThemedScrollView
           onRefresh={() => load(true)}
           contentContainerStyle={contentContainerStyle}
+          style={{ backgroundColor: p.pageBg }}
         >
           <View style={{ paddingHorizontal: 24, paddingTop: 24 }}>
             {/* Hero header */}
@@ -669,10 +672,10 @@ export default function PremiumExerciseDetailScreen() {
         {hasSessionNavigation ? (
           <View
             style={{
-              position: "absolute", left: 24, right: 24, bottom: 20,
+              position: "absolute", left: 0, right: 0, bottom: 0,
               flexDirection: "row", alignItems: "center", gap: 12,
-              borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16,
-              backgroundColor: p.cardWhite,
+              paddingHorizontal: 24, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 12),
+              backgroundColor: p.pageBg,
             }}
           >
             <Pressable

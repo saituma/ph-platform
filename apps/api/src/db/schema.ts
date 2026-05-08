@@ -1488,6 +1488,7 @@ export const runLogTable = pgTable(
     effortLevel: integer(),
     feelTags: jsonb(),
     notes: text(),
+    sport: varchar({ length: 40 }),
     visibility: varchar({ length: 20 }).notNull().default("public"), // 'public' | 'private'
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),

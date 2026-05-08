@@ -15,6 +15,7 @@ const runPayloadSchema = z.object({
   effortLevel: z.number().int().min(0).max(10).nullable().optional(),
   feelTags: z.any().optional(),
   notes: z.string().max(500).nullable().optional(),
+  sport: z.string().max(40).nullable().optional(),
 });
 
 const syncBodySchema = z.object({

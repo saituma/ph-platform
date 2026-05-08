@@ -26,6 +26,10 @@ export function useSocketQueryRefresh() {
       queryClient.invalidateQueries({ queryKey: ["programs", "scheduled"] });
     };
 
+    const invalidateTracking = () => {
+      queryClient.invalidateQueries({ queryKey: ["tracking"] });
+    };
+
     socket.on("program:changed", invalidatePrograms);
     socket.on("program:assigned", invalidatePrograms);
     socket.on("program:session:submitted", invalidatePrograms);
@@ -33,6 +37,9 @@ export function useSocketQueryRefresh() {
     socket.on("video:reviewed", invalidatePrograms);
 
     socket.on("schedule:changed", invalidateSchedule);
+    socket.on("schedule:attendance:changed", invalidateSchedule);
+
+    socket.on("tracking:goals:changed", invalidateTracking);
 
     return () => {
       socket.off("program:changed", invalidatePrograms);
@@ -41,6 +48,8 @@ export function useSocketQueryRefresh() {
       socket.off("program:session:coach-response", invalidatePrograms);
       socket.off("video:reviewed", invalidatePrograms);
       socket.off("schedule:changed", invalidateSchedule);
+      socket.off("schedule:attendance:changed", invalidateSchedule);
+      socket.off("tracking:goals:changed", invalidateTracking);
     };
   }, [socket, queryClient]);
 }

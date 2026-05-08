@@ -52,6 +52,7 @@ import {
 import { fetchTeamLocations, type UserLocation } from "@/services/tracking/locationService";
 import { relativeTime } from "@/lib/tracking/relativeTime";
 import { apiRequest } from "@/lib/api";
+import { useSocket } from "@/context/SocketContext";
 import { useSafePathname } from "@/hooks/navigation/useSafeExpoRouter";
 import TrackingSocialScreen from "./social";
 import {
@@ -164,13 +165,21 @@ export default function TrackingHomeScreen() {
   };
   const [goals, setGoals] = useState<TrackingGoal[]>([]);
 
-  useFocusEffect(
-    useCallback(() => {
-      apiRequest<{ goals: TrackingGoal[] }>("/tracking/goals")
-        .then((r) => setGoals(r.goals))
-        .catch(() => {});
-    }, []),
-  );
+  const { socket } = useSocket();
+
+  const refreshGoals = useCallback(() => {
+    apiRequest<{ goals: TrackingGoal[] }>("/tracking/goals")
+      .then((r) => setGoals(r.goals))
+      .catch(() => {});
+  }, []);
+
+  useFocusEffect(refreshGoals);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("tracking:goals:changed", refreshGoals);
+    return () => { socket.off("tracking:goals:changed", refreshGoals); };
+  }, [socket, refreshGoals]);
 
   const fabScale = useSharedValue(1);
   const fabAnimatedStyle = useAnimatedStyle(() => ({
@@ -341,16 +350,16 @@ export default function TrackingHomeScreen() {
   const bentoGap = 10;
   const bentoHalf = (screenWidth - spacing.xl * 2 - bentoGap) / 2;
 
-  const PASTEL_MINT = "#2F9F3D";
-  const PASTEL_MINT_TEXT = "#FFFFFF";
-  const PASTEL_PEACH = "#2F9F3D";
-  const PASTEL_PEACH_TEXT = "#FFFFFF";
-  const PASTEL_LAVENDER = "#2F9F3D";
-  const PASTEL_LAVENDER_TEXT = "#FFFFFF";
-  const PASTEL_SKY = "#2F9F3D";
-  const PASTEL_SKY_TEXT = "#FFFFFF";
-  const PASTEL_ROSE = "#2F9F3D";
-  const PASTEL_ROSE_TEXT = "#FFFFFF";
+  const PASTEL_MINT = p.accent;
+  const PASTEL_MINT_TEXT = p.buttonPrimaryText;
+  const PASTEL_PEACH = p.accent;
+  const PASTEL_PEACH_TEXT = p.buttonPrimaryText;
+  const PASTEL_LAVENDER = p.accent;
+  const PASTEL_LAVENDER_TEXT = p.buttonPrimaryText;
+  const PASTEL_SKY = p.accent;
+  const PASTEL_SKY_TEXT = p.buttonPrimaryText;
+  const PASTEL_ROSE = p.accent;
+  const PASTEL_ROSE_TEXT = p.buttonPrimaryText;
 
   return (
     <>
@@ -944,8 +953,6 @@ export default function TrackingHomeScreen() {
         store.setDestination(null);
         store.setGoalKm(null);
         store.setProgressNotifyEveryMeters(null);
-        store.startRun();
-        store.pauseRun();
         router.push("/active-run" as any);
       }}
       onClose={() => setSportSheetOpen(false)}

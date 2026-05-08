@@ -119,10 +119,13 @@ export function useMyProgramDetail(token: string | null) {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { socket } = useSocket();
+  const programIdRef = useRef<number | null>(null);
 
   const loadProgram = useCallback(
     async (programId: number, force = false) => {
       if (!token) return;
+      programIdRef.current = programId;
       setIsLoading(true);
       setError(null);
       try {
@@ -140,6 +143,19 @@ export function useMyProgramDetail(token: string | null) {
     [token],
   );
 
+  useEffect(() => {
+    if (!socket || !token) return;
+    const refresh = () => {
+      if (programIdRef.current) loadProgram(programIdRef.current, true);
+    };
+    socket.on("program:changed", refresh);
+    socket.on("program:assigned", refresh);
+    return () => {
+      socket.off("program:changed", refresh);
+      socket.off("program:assigned", refresh);
+    };
+  }, [socket, token, loadProgram]);
+
   return { program, isLoading, error, loadProgram };
 }
 
@@ -147,10 +163,13 @@ export function useMySessionExercises(token: string | null) {
   const [exercises, setExercises] = useState<SessionExercise[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { socket } = useSocket();
+  const sessionIdRef = useRef<number | null>(null);
 
   const loadExercises = useCallback(
     async (sessionId: number, force = false) => {
       if (!token) return;
+      sessionIdRef.current = sessionId;
       setIsLoading(true);
       setError(null);
       try {
@@ -167,6 +186,19 @@ export function useMySessionExercises(token: string | null) {
     },
     [token],
   );
+
+  useEffect(() => {
+    if (!socket || !token) return;
+    const refresh = () => {
+      if (sessionIdRef.current) loadExercises(sessionIdRef.current, true);
+    };
+    socket.on("program:changed", refresh);
+    socket.on("program:session:coach-response", refresh);
+    return () => {
+      socket.off("program:changed", refresh);
+      socket.off("program:session:coach-response", refresh);
+    };
+  }, [socket, token, loadExercises]);
 
   return { exercises, isLoading, error, loadExercises };
 }

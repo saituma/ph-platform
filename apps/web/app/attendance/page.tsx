@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminShell } from "@/components/admin/shell";
 import { SectionHeader } from "@/components/admin/section-header";
+import { getOrCreateAdminSocket } from "../../lib/admin-socket";
 
 type AttendanceItem = {
   date: string;
@@ -19,14 +20,20 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function tomorrowKey() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AttendancePage() {
   const [from, setFrom] = useState(todayKey());
-  const [to, setTo] = useState(todayKey());
+  const [to, setTo] = useState(tomorrowKey());
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<AttendanceItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -41,12 +48,24 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [from, to]);
 
   useEffect(() => {
     void fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchData]);
+
+  useEffect(() => {
+    const socket = getOrCreateAdminSocket();
+    const refresh = () => {
+      void fetchData();
+    };
+    socket.on("schedule:attendance:changed", refresh);
+    socket.on("schedule:changed", refresh);
+    return () => {
+      socket.off("schedule:attendance:changed", refresh);
+      socket.off("schedule:changed", refresh);
+    };
+  }, [fetchData]);
 
   const summary = useMemo(() => {
     const present = items.filter((item) => item.status === "present").length;

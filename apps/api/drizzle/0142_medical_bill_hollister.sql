@@ -1,0 +1,1 @@
+ALTER TABLE "run_logs" ADD COLUMN "sport" varchar(40);

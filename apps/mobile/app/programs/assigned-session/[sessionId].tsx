@@ -23,7 +23,7 @@ import {
   MessageCircle,
   Video,
 } from "lucide-react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -70,6 +70,7 @@ export default function AssignedSessionDetailScreen() {
   }>();
   const token = useAppSelector((s) => s.user.token);
   const p = useAdminPastel();
+  const insets = useSafeAreaInsets();
 
   const sessionIdNum = useMemo(() => {
     const n = Number(sessionId);
@@ -369,14 +370,15 @@ export default function AssignedSessionDetailScreen() {
               bottom: 0, left: 0, right: 0,
               paddingHorizontal: 16,
               paddingTop: 12,
-              paddingBottom: 36,
+              paddingBottom: Math.max(insets.bottom, 16),
+              backgroundColor: p.pageBg,
             }}
           >
             <LinearGradient
               colors={[
-                "rgba(255,255,255,0)",
-                "rgba(255,255,255,0.95)",
-                "#fff",
+                p.pageBg + "00",
+                p.pageBg + "F2",
+                p.pageBg,
               ]}
               style={{ position: "absolute", top: -32, left: 0, right: 0, bottom: 0 }}
               pointerEvents="none"
@@ -481,6 +483,7 @@ function ExerciseCard({
 
   const hasRest = ex.exercise.restSeconds && ex.exercise.restSeconds > 0;
   const hasVideo = !!ex.exercise.videoUrl;
+  const hasUploadedVideo = !!ex.videoUpload?.videoUrl;
   const hasCoachNotes = !!ex.coachingNotes;
   const hasProgression = !!ex.progressionNotes;
   const hasRegression = !!ex.regressionNotes;
@@ -566,15 +569,10 @@ function ExerciseCard({
         ) : null}
       </View>
 
-      {/* Video Section */}
+      {/* Demo Video */}
       {hasVideo ? (
         <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-          <View
-            style={{
-              borderRadius: 14,
-              overflow: "hidden",
-            }}
-          >
+          <View style={{ borderRadius: 14, overflow: "hidden" }}>
             <VideoPlayer
               uri={ex.exercise.videoUrl!}
               height={200}
@@ -585,151 +583,193 @@ function ExerciseCard({
               ignoreTabFocus
             />
           </View>
+        </View>
+      ) : null}
 
+      {/* Athlete's Uploaded Video */}
+      {hasUploadedVideo ? (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
           <View
             style={{
-              marginTop: 8,
               borderRadius: 14,
-              backgroundColor: p.inputBg,
-              padding: 12,
+              overflow: "hidden",
+              backgroundColor: p.accentSoft,
             }}
           >
-            <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textMuted, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>
-              Upload Your Video
-            </Text>
-            {uploadState?.progress != null && uploadState.progress < 1 ? (
-              <View
-                style={{
-                  height: 42,
-                  borderRadius: 14,
-                  backgroundColor: p.cardWhite,
-                  overflow: "hidden",
-                  justifyContent: "center",
-                }}
-              >
-                <View
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: `${Math.round(uploadState.progress * 100)}%` as any,
-                    backgroundColor: p.accentSoft,
-                    borderRadius: 14,
-                  }}
-                />
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                  <ActivityIndicator size="small" color={p.accent} />
-                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.accent }}>
-                    {uploadState.statusText || `Uploading ${Math.round(uploadState.progress * 100)}%...`}
-                  </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: 12, paddingBottom: 8 }}>
+              <Video size={14} color={p.accent} />
+              <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.accent, textTransform: "uppercase", letterSpacing: 0.8 }}>
+                Your Submission
+              </Text>
+              {ex.videoUpload?.reviewedAt ? (
+                <View style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100, backgroundColor: p.successSoft }}>
+                  <CheckCircle size={10} color={p.success} />
+                  <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.success }}>Reviewed</Text>
                 </View>
+              ) : (
+                <View style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100, backgroundColor: p.warningSoft }}>
+                  <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.warning }}>Pending</Text>
+                </View>
+              )}
+            </View>
+            <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+              <View style={{ borderRadius: 10, overflow: "hidden" }}>
+                <VideoPlayer
+                  uri={ex.videoUpload!.videoUrl}
+                  height={180}
+                  hideTopChrome
+                  ignoreTabFocus
+                />
               </View>
-            ) : uploadState?.progress === 1 ? (
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Upload Section */}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+        <View
+          style={{
+            borderRadius: 14,
+            backgroundColor: p.inputBg,
+            padding: 12,
+          }}
+        >
+          <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.textMuted, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>
+            {hasUploadedVideo ? "Re-upload Video" : "Upload Your Video"}
+          </Text>
+          {uploadState?.progress != null && uploadState.progress < 1 ? (
+            <View
+              style={{
+                height: 42,
+                borderRadius: 14,
+                backgroundColor: p.cardWhite,
+                overflow: "hidden",
+                justifyContent: "center",
+              }}
+            >
               <View
                 style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: `${Math.round(uploadState.progress * 100)}%` as any,
+                  backgroundColor: p.accentSoft,
+                  borderRadius: 14,
+                }}
+              />
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <ActivityIndicator size="small" color={p.accent} />
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.accent }}>
+                  {uploadState.statusText || `Uploading ${Math.round(uploadState.progress * 100)}%...`}
+                </Text>
+              </View>
+            </View>
+          ) : uploadState?.progress === 1 ? (
+            <View
+              style={{
+                height: 42,
+                borderRadius: 14,
+                backgroundColor: p.successSoft,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <CheckCircle size={15} color={p.success} />
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.success }}>
+                Uploaded!
+              </Text>
+            </View>
+          ) : (
+            <View style={{ gap: 8, position: "relative" }}>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setIsSourceMenuOpen((v) => !v);
+                }}
+                disabled={isUploading}
+                style={({ pressed }) => ({
                   height: 42,
                   borderRadius: 14,
-                  backgroundColor: p.successSoft,
+                  borderWidth: 1,
+                  borderColor: p.divider,
+                  borderStyle: "dashed" as const,
+                  backgroundColor: p.cardWhite,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                }}
+                  opacity: isUploading ? 0.4 : pressed ? 0.6 : 1,
+                })}
               >
-                <CheckCircle size={15} color={p.success} />
-                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.success }}>
-                  Uploaded!
+                <CloudUpload size={15} color={p.textMuted} />
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted }}>
+                  Choose Source
                 </Text>
-              </View>
-            ) : (
-              <View style={{ gap: 8, position: "relative" }}>
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setIsSourceMenuOpen((v) => !v);
-                  }}
-                  disabled={isUploading}
-                  style={({ pressed }) => ({
-                    height: 42,
-                    borderRadius: 14,
-                    borderWidth: 1,
-                    borderColor: p.divider,
-                    borderStyle: "dashed" as const,
-                    backgroundColor: p.cardWhite,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    opacity: isUploading ? 0.4 : pressed ? 0.6 : 1,
-                  })}
-                >
-                  <CloudUpload size={15} color={p.textMuted} />
-                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textMuted }}>
-                    Choose Source
-                  </Text>
-                </Pressable>
+              </Pressable>
 
-                {isSourceMenuOpen ? (
-                  <View
-                    style={{
-                      position: "absolute",
-                      bottom: 48,
-                      left: 0,
-                      right: 0,
-                      zIndex: 30,
-                      borderRadius: 14,
-                      backgroundColor: p.cardWhite,
-                      overflow: "hidden",
+              {isSourceMenuOpen ? (
+                <View
+                  style={{
+                    position: "absolute",
+                    bottom: 48,
+                    left: 0,
+                    right: 0,
+                    zIndex: 30,
+                    borderRadius: 14,
+                    backgroundColor: p.cardWhite,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setIsSourceMenuOpen(false);
+                      setTimeout(() => onUploadPress("camera", resolvedSectionContentId), 50);
                     }}
+                    style={({ pressed }) => ({
+                      minHeight: 42,
+                      paddingHorizontal: 14,
+                      justifyContent: "center",
+                      backgroundColor: pressed ? p.accentSoft : "transparent",
+                    })}
                   >
-                    <Pressable
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setIsSourceMenuOpen(false);
-                        setTimeout(() => onUploadPress("camera", resolvedSectionContentId), 50);
-                      }}
-                      style={({ pressed }) => ({
-                        minHeight: 42,
-                        paddingHorizontal: 14,
-                        justifyContent: "center",
-                        backgroundColor: pressed ? p.accentSoft : "transparent",
-                      })}
-                    >
-                      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
-                        Record Video
-                      </Text>
-                    </Pressable>
-                    <View style={{ height: 1, backgroundColor: p.divider }} />
-                    <Pressable
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setIsSourceMenuOpen(false);
-                        setTimeout(() => onUploadPress("library", resolvedSectionContentId), 50);
-                      }}
-                      style={({ pressed }) => ({
-                        minHeight: 42,
-                        paddingHorizontal: 14,
-                        justifyContent: "center",
-                        backgroundColor: pressed ? p.accentSoft : "transparent",
-                      })}
-                    >
-                      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
-                        Choose from Library
-                      </Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-              </View>
-            )}
-          </View>
-          {uploadState?.error ? (
-            <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.danger, marginTop: 4, textAlign: "center" }}>
-              {uploadState.error}
-            </Text>
-          ) : null}
+                    <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
+                      Record Video
+                    </Text>
+                  </Pressable>
+                  <View style={{ height: 1, backgroundColor: p.divider }} />
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setIsSourceMenuOpen(false);
+                      setTimeout(() => onUploadPress("library", resolvedSectionContentId), 50);
+                    }}
+                    style={({ pressed }) => ({
+                      minHeight: 42,
+                      paddingHorizontal: 14,
+                      justifyContent: "center",
+                      backgroundColor: pressed ? p.accentSoft : "transparent",
+                    })}
+                  >
+                    <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
+                      Choose from Library
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          )}
         </View>
-      ) : null}
+        {uploadState?.error ? (
+          <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.danger, marginTop: 4, textAlign: "center" }}>
+            {uploadState.error}
+          </Text>
+        ) : null}
+      </View>
 
       {/* Details Section */}
       {hasTextDetails ? (

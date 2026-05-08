@@ -40,7 +40,7 @@ export default function QRScanScreen() {
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const hasScanned = useRef(false);
+  const processingRef = useRef(false);
 
   // Auto-navigate back on success after 2s
   useEffect(() => {
@@ -54,16 +54,18 @@ export default function QRScanScreen() {
 
   const handleBarCodeScanned = useCallback(
     async ({ data }: { data: string }) => {
-      if (hasScanned.current || scanState === "scanning") return;
-      hasScanned.current = true;
+      if (processingRef.current) return;
+      processingRef.current = true;
       setScanState("scanning");
 
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         const { apiRequest } = await import("@/lib/api");
         const response = await apiRequest<{
-          success: boolean;
+          ok: boolean;
+          attendanceStatus?: string;
           sessionName?: string;
+          checkInAt?: string;
           message?: string;
         }>("/sessions/attendance/qr/scan", {
           method: "POST",
@@ -74,24 +76,33 @@ export default function QRScanScreen() {
         setScanState("success");
         setResult({
           sessionName: response.sessionName,
-          message: response.message,
+          message: response.message ?? "Attendance marked successfully",
         });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (err: any) {
         setScanState("error");
-        const msg =
-          err?.message ||
-          err?.data?.message ||
-          "Could not check in. Please try again.";
+        const raw = err?.message || err?.data?.message || "";
+        let msg = "Could not check in. Please try again.";
+        if (raw.includes("assignment not found") || raw.includes("SESSION_ASSIGNMENT_NOT_FOUND")) {
+          msg = "This session is not assigned to you. Please check with your coach.";
+        } else if (raw.includes("attended on its scheduled day") || raw.includes("SESSION_NOT_ATTENDABLE_TODAY")) {
+          msg = "This session is not scheduled for today. You can only check in on the session day.";
+        } else if (raw.includes("expired") || raw.includes("Invalid")) {
+          msg = "This QR code has expired or is invalid. Ask your coach to generate a new one.";
+        } else if (raw.includes("401") || raw.includes("Unauthorized")) {
+          msg = "You need to be logged in to check in. Please log in and try again.";
+        } else if (raw) {
+          msg = raw;
+        }
         setErrorMessage(msg);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     },
-    [scanState, token],
+    [token],
   );
 
   const handleRetry = useCallback(() => {
-    hasScanned.current = false;
+    processingRef.current = false;
     setScanState("idle");
     setResult(null);
     setErrorMessage("");
@@ -158,9 +169,7 @@ export default function QRScanScreen() {
           style={StyleSheet.absoluteFill}
           facing="back"
           barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-          onBarcodeScanned={
-            scanState === "idle" ? handleBarCodeScanned : undefined
-          }
+          onBarcodeScanned={handleBarCodeScanned}
         />
       )}
 

@@ -60,6 +60,7 @@ export async function listRunTrackingForAdmin(input?: {
       effortLevel: runLogTable.effortLevel,
       feelTags: runLogTable.feelTags,
       notes: runLogTable.notes,
+      sport: runLogTable.sport,
       visibility: runLogTable.visibility,
       coordinates: runLogTable.coordinates,
       updatedAt: runLogTable.updatedAt,

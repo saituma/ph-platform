@@ -15,6 +15,7 @@ interface RunPayload {
   effortLevel?: number | null;
   feelTags?: unknown | null;
   notes?: string | null;
+  sport?: string | null;
 }
 
 export async function upsertRuns(userId: number, runs: RunPayload[]) {
@@ -36,6 +37,7 @@ export async function upsertRuns(userId: number, runs: RunPayload[]) {
       effortLevel: run.effortLevel ?? null,
       feelTags: run.feelTags ?? null,
       notes: run.notes ?? null,
+      sport: run.sport ?? null,
     };
 
     await db
@@ -54,6 +56,7 @@ export async function upsertRuns(userId: number, runs: RunPayload[]) {
           effortLevel: values.effortLevel,
           feelTags: values.feelTags,
           notes: values.notes,
+          sport: values.sport,
           updatedAt: new Date(),
         },
       });

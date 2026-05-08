@@ -5,7 +5,12 @@ import * as Crypto from "expo-crypto";
 import { EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveRunRecord } from "@/lib/sqliteRuns";
 import { estimateCalories } from "@/lib/tracking/runUtils";
 import { pushRunsToCloud } from "@/lib/runSync";
-import { announceRunComplete } from "@/lib/tracking/audioCues";
+import {
+  announceRunComplete,
+  announceRunStarted,
+  announceManualPause,
+  announceManualResume,
+} from "@/lib/tracking/audioCues";
 import { RunShareCard } from "@/components/tracking/RunShareCard";
 import { useAppSelector } from "@/store/hooks";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -358,14 +363,18 @@ export default function ActiveRunScreen() {
   const handlePrimaryPress = () => {
     if (status === "running") {
       pauseRun();
+      if (audioCuesEnabled) announceManualPause();
       return;
     }
     if (status === "paused") {
       resumeRun();
+      if (audioCuesEnabled) announceManualResume();
       return;
     }
     if (status === "idle") {
-      setStartSheetOpen(true);
+      hasStartedRef.current = true;
+      startRun();
+      if (audioCuesEnabled) announceRunStarted();
       return;
     }
   };
@@ -627,6 +636,7 @@ export default function ActiveRunScreen() {
           setStartSheetOpen(false);
           hasStartedRef.current = true;
           startRun();
+          if (audioCuesEnabled) announceRunStarted();
         }}
         onClose={() => setStartSheetOpen(false)}
         colors={colors}

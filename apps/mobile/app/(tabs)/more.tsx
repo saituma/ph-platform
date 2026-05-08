@@ -60,10 +60,6 @@ import { useStreakStore } from "@/lib/streakStore";
 const AVATAR_SIZE = 88;
 const AVATAR_RING_SIZE = AVATAR_SIZE + 8;
 const BANNER_HEIGHT = 140;
-const PASTEL_GREEN = "#2F9F3D";
-const PASTEL_GREEN_TEXT = "#FFFFFF";
-const PASTEL_LIME = "#2F9F3D";
-const PASTEL_LIME_TEXT = "#FFFFFF";
 
 function formatExperienceLabel(cfg: {
   title?: string | null;
@@ -322,33 +318,6 @@ export default function MoreScreen() {
               )}
             </View>
 
-            {/* Bento stats row */}
-            {!isLoading && (
-              <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingBottom: 18 }}>
-                <Animated.View
-                  entering={FadeInDown.delay(0).springify().damping(18)}
-                  style={{ flex: 1, backgroundColor: PASTEL_GREEN, borderRadius: 20, padding: 16, alignItems: "center", gap: 4 }}
-                >
-                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: PASTEL_GREEN_TEXT, letterSpacing: -0.5 }}>
-                    {formatAccessTierLabel(programTier)}
-                  </Text>
-                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_GREEN_TEXT, opacity: 0.6 }}>
-                    Access
-                  </Text>
-                </Animated.View>
-                <Animated.View
-                  entering={FadeInDown.delay(60).springify().damping(18)}
-                  style={{ flex: 1, backgroundColor: PASTEL_LIME, borderRadius: 20, padding: 16, alignItems: "center", gap: 4 }}
-                >
-                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: PASTEL_LIME_TEXT, letterSpacing: -0.5 }}>
-                    {isAuthenticated && ageExperienceLoading ? "…" : experienceLabel}
-                  </Text>
-                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_LIME_TEXT, opacity: 0.6 }}>
-                    Experience
-                  </Text>
-                </Animated.View>
-              </View>
-            )}
           </View>
         </View>
 
@@ -637,13 +606,6 @@ function MenuItem({
   p: AdminPastelColors;
   index: number;
 }) {
-  const isGreen = index % 2 !== 0;
-  const bg = isGreen ? p.cardSage : p.cardWhite;
-  const txtPrimary = isGreen ? "#FFFFFF" : p.textPrimary;
-  const txtSecondary = isGreen ? "rgba(255,255,255,0.75)" : p.textSecondary;
-  const iconBg = isGreen ? "rgba(255,255,255,0.2)" : p.accentSoft;
-  const iconColor = isGreen ? "#FFFFFF" : p.accent;
-
   return (
     <Pressable
       onPress={onPress}
@@ -658,7 +620,7 @@ function MenuItem({
           paddingVertical: 18,
           borderRadius: 20,
           borderCurve: "continuous",
-          backgroundColor: bg,
+          backgroundColor: p.cardWhite,
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -671,10 +633,10 @@ function MenuItem({
               borderRadius: 16,
               borderCurve: "continuous",
               marginRight: 16,
-              backgroundColor: iconBg,
+              backgroundColor: p.accentSoft,
             }}
           >
-            <Icon size={22} color={iconColor} />
+            <Icon size={22} color={p.accent} />
           </View>
           <View style={{ flex: 1, marginRight: 12 }}>
             <Text
@@ -682,7 +644,7 @@ function MenuItem({
               style={{
                 fontFamily: "Outfit-Bold",
                 fontSize: 16,
-                color: txtPrimary,
+                color: p.textPrimary,
               }}
             >
               {label}
@@ -693,7 +655,7 @@ function MenuItem({
                 style={{
                   fontFamily: "Outfit-Regular",
                   fontSize: 13,
-                  color: txtSecondary,
+                  color: p.textSecondary,
                   marginTop: 2,
                 }}
               >
@@ -701,7 +663,7 @@ function MenuItem({
               </Text>
             ) : null}
           </View>
-          <ChevronRight size={18} color={txtSecondary} />
+          <ChevronRight size={18} color={p.textMuted} />
         </View>
       </View>
     </Pressable>

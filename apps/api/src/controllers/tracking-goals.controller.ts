@@ -5,6 +5,7 @@ import { getAthleteForUser } from "../services/user.service";
 import { db } from "../db";
 import { athleteTable, userTable } from "../db/schema";
 import { eq, and, asc } from "drizzle-orm";
+import { getSocketServer } from "../socket-hub";
 
 const createSchema = z.object({
   title: z.string().min(1).max(255),
@@ -35,6 +36,8 @@ export async function createGoal(req: Request, res: Response) {
       ...parsed.data,
       coachId: req.user!.id,
     });
+    const io = getSocketServer();
+    if (io) io.emit("tracking:goals:changed", { action: "created" });
     return res.status(201).json({ goal });
   } catch (err) {
     if (err instanceof GoalService.GoalLimitError) {
@@ -55,6 +58,8 @@ export async function updateGoal(req: Request, res: Response) {
   }).parse(req.body);
   const goal = await GoalService.updateGoal(id, data);
   if (!goal) return res.status(404).json({ error: "Goal not found" });
+  const io = getSocketServer();
+  if (io) io.emit("tracking:goals:changed", { action: "updated" });
   return res.status(200).json({ goal });
 }
 
@@ -62,6 +67,8 @@ export async function deleteGoal(req: Request, res: Response) {
   const id = z.coerce.number().int().min(1).parse(req.params.id);
   const goal = await GoalService.deleteGoal(id);
   if (!goal) return res.status(404).json({ error: "Goal not found" });
+  const io = getSocketServer();
+  if (io) io.emit("tracking:goals:changed", { action: "deleted" });
   return res.status(200).json({ goal });
 }
 

@@ -53,6 +53,39 @@ export function announceAutoPause(paused: boolean) {
   }).catch(() => {});
 }
 
+export function announceRunStarted() {
+  getSpeech().then((speech) => {
+    if (!speech) return;
+    speech.speak("Run started", {
+      language: "en-US",
+      pitch: 1.1,
+      rate: 1.05,
+    });
+  }).catch(() => {});
+}
+
+export function announceManualPause() {
+  getSpeech().then((speech) => {
+    if (!speech) return;
+    speech.speak("Paused", {
+      language: "en-US",
+      pitch: 1.0,
+      rate: 1.05,
+    });
+  }).catch(() => {});
+}
+
+export function announceManualResume() {
+  getSpeech().then((speech) => {
+    if (!speech) return;
+    speech.speak("Resumed", {
+      language: "en-US",
+      pitch: 1.1,
+      rate: 1.05,
+    });
+  }).catch(() => {});
+}
+
 export function announceRunComplete(distanceMeters: number, elapsedSeconds: number) {
   const km = (distanceMeters / 1000).toFixed(2);
   const duration = formatDurationClock(elapsedSeconds);

@@ -158,6 +158,7 @@ export type AdminRunTrackingRow = {
   effortLevel?: number | null;
   feelTags?: unknown;
   notes?: string | null;
+  sport?: string | null;
   visibility?: string | null;
   coordinates?: unknown;
 };

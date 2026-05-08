@@ -64,6 +64,7 @@ export async function pushRunsToCloud(): Promise<void> {
           r.effort_level != null && r.effort_level >= 0 ? r.effort_level : null,
         feelTags: safeJsonParse(r.feel_tags),
         notes: r.notes || null,
+        sport: r.sport || null,
       }));
 
       const result = await apiRequest<{ synced: string[] }>("/runs/sync", {

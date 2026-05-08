@@ -405,18 +405,22 @@ export function AuthPersist() {
     pushRegistration.support,
   ]);
 
-  // ── Persist token changes to SecureStore ─────────────────────────────────────
+  // ── Persist credentials + profile to SecureStore ─────────────────────────────
+  const lastSavedProfile = useRef<string | null>(null);
   useEffect(() => {
     if (!hydrated) return;
     (async () => {
       if (isAuthenticated && token) {
-        const tokenUnchanged =
+        const profileJson = JSON.stringify(profile);
+        const nothingChanged =
           lastSavedToken.current === token &&
-          lastSavedRefreshToken.current === (refreshToken ?? null);
-        if (!tokenUnchanged) {
+          lastSavedRefreshToken.current === (refreshToken ?? null) &&
+          lastSavedProfile.current === profileJson;
+        if (!nothingChanged) {
           await persistCredentials({ token, refreshToken: refreshToken ?? null, profile });
           lastSavedToken.current = token;
           lastSavedRefreshToken.current = refreshToken ?? null;
+          lastSavedProfile.current = profileJson;
         }
       } else {
         Sentry.setUser(null);
@@ -425,6 +429,7 @@ export function AuthPersist() {
         clearApiCache();
         lastSavedToken.current = null;
         lastSavedRefreshToken.current = null;
+        lastSavedProfile.current = null;
       }
     })();
   }, [hydrated, isAuthenticated, token, refreshToken, profile]);

@@ -48,16 +48,15 @@ const AVATAR_SIZE = 100;
 const AVATAR_RING = AVATAR_SIZE + 10;
 const CARD_R = 24;
 
-const PASTEL_MINT = "#2F9F3D";
-const PASTEL_MINT_TEXT = "#FFFFFF";
-const PASTEL_LIME = "#2F9F3D";
-const PASTEL_LIME_TEXT = "#FFFFFF";
-const PASTEL_SAGE = "#2F9F3D";
-
 export default function ProfileSettingsScreen() {
   const { isSectionHidden } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const p = useAdminPastel();
+  const PASTEL_MINT = p.accent;
+  const PASTEL_MINT_TEXT = p.buttonPrimaryText;
+  const PASTEL_LIME = p.accent;
+  const PASTEL_LIME_TEXT = p.buttonPrimaryText;
+  const PASTEL_SAGE = p.accent;
   const router = useRouter();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
 

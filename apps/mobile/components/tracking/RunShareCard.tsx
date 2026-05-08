@@ -15,9 +15,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  runOnJS,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import MapView, { Polyline } from "react-native-maps";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Sharing from "expo-sharing";
@@ -202,45 +201,12 @@ export function RunShareCard({
     }, 1800); // give tiles time to load
   }, [mapSnapshotUri, routeRegion]);
 
-  const scaleShutter = useSharedValue(1);
   const scaleShare = useSharedValue(1);
 
-  const shutterStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleShutter.value }],
-  }));
   const shareStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleShare.value }],
   }));
 
-  const shutterTap = Gesture.Tap()
-    .onBegin(() => {
-      'worklet';
-      scaleShutter.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
-      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    })
-    .onFinalize(() => {
-      'worklet';
-      scaleShutter.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
-    })
-    .onEnd(() => {
-      'worklet';
-      runOnJS(handleCaptureFromGesture)();
-    });
-
-  const shareTap = Gesture.Tap()
-    .onBegin(() => {
-      'worklet';
-      scaleShare.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
-      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    })
-    .onFinalize(() => {
-      'worklet';
-      scaleShare.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
-    })
-    .onEnd(() => {
-      'worklet';
-      runOnJS(handleShareFromGesture)();
-    });
 
   const distLabel = formatDistanceKm(distanceMeters, 2);
   const timeLabel = formatTimeDisplay(elapsedSeconds);
@@ -309,10 +275,6 @@ export function RunShareCard({
     onClose();
   };
 
-  const handleCaptureFromGesture = () => {
-    handleCapture();
-  };
-
   const handleShareFromGesture = async () => {
     if (sharing) return;
     setSharing(true);
@@ -359,7 +321,7 @@ export function RunShareCard({
   const StatsOverlay = (
     <>
       {/* Floating stats */}
-      <View style={styles.statsWrap}>
+      <View pointerEvents="none" style={styles.statsWrap}>
         <View style={styles.statBlock}>
           <Text style={styles.statLabel}>Distance</Text>
           <View style={styles.statValueRow}>
@@ -383,13 +345,13 @@ export function RunShareCard({
       </View>
 
       {/* Branding — anchored at fixed bottom so route never overlaps it */}
-      <View style={styles.brandWrap}>
+      <View pointerEvents="none" style={styles.brandWrap}>
         <Text style={styles.brandName}>PH PERFORMANCE</Text>
       </View>
 
       {/* Route path — above brand, pure RN Views, always captured on Android + iOS */}
       {routePts.length > 1 && (
-        <View style={styles.routeWrap}>
+        <View pointerEvents="none" style={styles.routeWrap}>
           {/* glow layer */}
           <RouteLines pts={routePts} color={`${GREEN}38`} width={7} />
           {/* solid line */}
@@ -481,6 +443,7 @@ export function RunShareCard({
           <View
             ref={mapPreviewRef}
             collapsable={false}
+            pointerEvents="box-none"
             style={StyleSheet.absoluteFillObject}
           >
             {mapSnapshotUri ? (
@@ -494,8 +457,8 @@ export function RunShareCard({
                 <ActivityIndicator color={GREEN} size="large" />
               </View>
             )}
-            <View style={styles.vignetteTop} />
-            <View style={styles.vignetteBottom} />
+            <View pointerEvents="none" style={styles.vignetteTop} />
+            <View pointerEvents="none" style={styles.vignetteBottom} />
             {StatsOverlay}
           </View>
         ) : (
@@ -504,6 +467,7 @@ export function RunShareCard({
           <View
             ref={previewRef}
             collapsable={false}
+            pointerEvents="box-none"
             style={StyleSheet.absoluteFillObject}
           >
             {photoUri && (
@@ -513,8 +477,8 @@ export function RunShareCard({
                 resizeMode="cover"
               />
             )}
-            <View style={styles.vignetteTop} />
-            <View style={styles.vignetteBottom} />
+            <View pointerEvents="none" style={styles.vignetteTop} />
+            <View pointerEvents="none" style={styles.vignetteBottom} />
             {StatsOverlay}
           </View>
         )}
@@ -572,7 +536,17 @@ export function RunShareCard({
           ) : (
             /* ── Preview / Map: share + retake ── */
             <>
-              <GestureDetector gesture={shareTap}>
+              <Pressable
+                onPressIn={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  scaleShare.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+                }}
+                onPressOut={() => {
+                  scaleShare.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+                }}
+                onPress={handleShareFromGesture}
+                disabled={sharing}
+              >
                 <Animated.View style={[shareStyle, styles.shareWrap]}>
                   <View style={[styles.shareBtn, sharing && { opacity: 0.7 }]}>
                     <Share2 size={20} color="#0a0a0a" strokeWidth={2.5} />
@@ -584,7 +558,7 @@ export function RunShareCard({
                     )}
                   </View>
                 </Animated.View>
-              </GestureDetector>
+              </Pressable>
 
               {isTeamMember && (
                 <View style={styles.teamHint}>

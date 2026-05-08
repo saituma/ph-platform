@@ -26,7 +26,7 @@ const router = Router();
 
 router.get("/sessions/my", requireAuth, listMySessions);
 router.post("/sessions/:sessionId/check-in", requireAuth, rateLimiters.api, checkInSession);
-router.post("/admin/scheduled-sessions/attendance/qr/generate", requireAuth, requireRole(["admin"]), rateLimiters.api, generateQrToken);
+router.post("/admin/scheduled-sessions/attendance/qr/generate", requireAuth, requireRole(["coach", "admin", "superAdmin"]), rateLimiters.api, generateQrToken);
 router.post("/sessions/attendance/qr/scan", requireAuth, rateLimiters.api, scanQrToken);
 
 router.get("/admin/session-templates", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listTemplatesAdmin);
