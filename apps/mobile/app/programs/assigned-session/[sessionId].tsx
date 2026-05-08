@@ -24,7 +24,7 @@ import {
   Video,
 } from "lucide-react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, ZoomIn, useReducedMotion } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -88,6 +88,8 @@ export default function AssignedSessionDetailScreen() {
     status: uploadStatus,
   } = useVideoUploadLogic(token, athleteUserId);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [sessionFinished, setSessionFinished] = useState(false);
+  const [finishNextLabel, setFinishNextLabel] = useState<string | null>(null);
   const [activeVideoId, setActiveVideoId] = useState<number | null>(null);
   const [recorderVisible, setRecorderVisible] = useState(false);
   const [recordingExerciseId, setRecordingExerciseId] = useState<number | null>(null);
@@ -127,6 +129,8 @@ export default function AssignedSessionDetailScreen() {
           [exerciseId]: { progress: 1, error: null, statusText: "Uploaded!" },
         }));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        if (sessionIdNum) loadExercises(sessionIdNum, true);
 
         setTimeout(() => {
           setUploadStateByExId((prev) => {
@@ -221,28 +225,29 @@ export default function AssignedSessionDetailScreen() {
   }, [sessionIdNum, loadExercises]);
 
   const handleFinish = useCallback(async () => {
-    if (!sessionIdNum) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (!sessionIdNum || sessionFinished) return;
     const result = await completeSession(sessionIdNum);
     if (!result) {
       Alert.alert("Error", "Could not complete session. Please try again.");
       return;
     }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setSessionFinished(true);
     if (result.nextSession) {
       const label = result.nextSession.title || `Session ${result.nextSession.sessionNumber}`;
-      router.replace(
-        `/programs/assigned-session/${result.nextSession.id}?title=${encodeURIComponent(label)}&programId=${programIdParam ?? ""}&moduleId=${moduleIdParam ?? ""}` as any,
-      );
-    } else if (programIdParam && moduleIdParam) {
-      Alert.alert("Module Complete", "You've finished all sessions in this module!", [
-        { text: "Back to Module", onPress: () => router.back() },
-      ]);
+      setFinishNextLabel(label);
+      setTimeout(() => {
+        router.replace(
+          `/programs/assigned-session/${result.nextSession!.id}?title=${encodeURIComponent(label)}&programId=${programIdParam ?? ""}&moduleId=${moduleIdParam ?? ""}` as any,
+        );
+      }, 2500);
     } else {
-      Alert.alert("Session Complete", "Great work!", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      setTimeout(() => {
+        if (router.canGoBack()) router.back();
+        else router.replace("/(tabs)/programs" as any);
+      }, 2500);
     }
-  }, [sessionIdNum, completeSession, programIdParam, moduleIdParam, router]);
+  }, [sessionIdNum, sessionFinished, completeSession, programIdParam, moduleIdParam, router]);
 
   const exerciseCount = exercises.length;
   const totalSets = exercises.reduce((sum, ex) => sum + (ex.exercise.sets ?? 0), 0);
@@ -384,10 +389,10 @@ export default function AssignedSessionDetailScreen() {
               pointerEvents="none"
             />
             <Pressable
-              onPress={handleFinish}
+              onPress={sessionFinished ? () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/programs" as any)) : handleFinish}
               disabled={isCompleting}
               style={({ pressed }) => ({
-                backgroundColor: p.accent,
+                backgroundColor: sessionFinished ? "#22c55e" : p.accent,
                 borderRadius: 100,
                 paddingVertical: 15,
                 alignItems: "center",
@@ -400,6 +405,13 @@ export default function AssignedSessionDetailScreen() {
             >
               {isCompleting ? (
                 <ActivityIndicator size="small" color={p.buttonPrimaryText} />
+              ) : sessionFinished ? (
+                <>
+                  <CheckCircle size={20} color="#fff" />
+                  <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: "#fff", letterSpacing: -0.2 }}>
+                    Session Finished
+                  </Text>
+                </>
               ) : (
                 <>
                   <CheckCircle size={20} color={p.buttonPrimaryText} />
@@ -412,6 +424,40 @@ export default function AssignedSessionDetailScreen() {
           </View>
         </>
       )}
+
+      {/* Session Finished Overlay */}
+      {sessionFinished && (
+        <Animated.View
+          entering={FadeIn.duration(250)}
+          style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+          }}
+        >
+          <Animated.View entering={ZoomIn.springify().damping(12)} style={{ alignItems: "center" }}>
+            <View
+              style={{
+                width: 96, height: 96, borderRadius: 48,
+                backgroundColor: "rgba(34,197,94,0.15)",
+                alignItems: "center", justifyContent: "center", marginBottom: 20,
+              }}
+            >
+              <CheckCircle size={52} color="#22c55e" strokeWidth={1.8} />
+            </View>
+            <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: "#22c55e", letterSpacing: -0.5 }}>
+              Session Finished!
+            </Text>
+            <Text style={{ fontSize: 15, fontFamily: "Satoshi-Regular", color: "rgba(255,255,255,0.6)", marginTop: 8, textAlign: "center" }}>
+              {finishNextLabel ? `Next up: ${finishNextLabel}` : "Great work!"}
+            </Text>
+          </Animated.View>
+        </Animated.View>
+      )}
+
       <BuiltinCamera
         visible={recorderVisible}
         maxDurationSeconds={VIDEO_MAX_DURATION_SECONDS}

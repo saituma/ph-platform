@@ -3,7 +3,8 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useRefreshContext } from "@/context/RefreshContext";
 import { apiRequest } from "@/lib/api";
-import { useAppSelector } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { updateProfile } from "@/store/slices/userSlice";
 
 import React from "react";
 import {
@@ -58,6 +59,7 @@ export default function ProfileSettingsScreen() {
   const PASTEL_LIME_TEXT = p.buttonPrimaryText;
   const PASTEL_SAGE = p.accent;
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
 
   const {
@@ -105,6 +107,14 @@ export default function ProfileSettingsScreen() {
       });
       if (me.user) {
         if (me.user.name) setName(me.user.name);
+        dispatch(
+          updateProfile({
+            name: me.user.name ?? null,
+            email: me.user.email ?? null,
+            avatar: me.user.profilePicture ?? null,
+            coverImage: me.user.coverImage ?? null,
+          }),
+        );
       }
     } catch {
       /* keep existing profile */

@@ -66,7 +66,7 @@ export function mapScheduledSessionsToEvents(items: any[]): ScheduleEvent[] {
       const dayId = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dayIndex] ?? "mon";
       const dateKey = formatDateKey(startsAt);
       const status = String(item.status ?? "Upcoming").toLowerCase();
-      const normalizedStatus = status === "upcoming" ? "confirmed" : status === "completed" ? "confirmed" : "declined";
+      const normalizedStatus = status === "declined" || status === "cancelled" ? "declined" : "confirmed";
       return {
         id: String(item.sessionId),
         dayId,

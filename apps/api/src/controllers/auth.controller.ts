@@ -376,17 +376,19 @@ export async function getMe(req: Request, res: Response) {
   const user = req.user!;
 
   const payload = await cache.getOrSet(cacheKeys.userProfile(user.id), 60, async () => {
-    const [athleteData, messagingAccessTiers] = await Promise.all([
+    const [dbUser, athleteData, messagingAccessTiers] = await Promise.all([
+      getUserById(user.id),
       getOnboardingByUser(user.id),
       getMessagingAccessTiers(),
     ]);
 
+    const fullUser = dbUser ?? user;
     const athlete = athleteData as any;
-    const isCoachRole = isTrainingStaff(user.role);
+    const isCoachRole = isTrainingStaff(fullUser.role);
 
     const coachManagedTeam = isCoachRole
       ? await withTeamPlanTier(
-          (await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.adminId, user.id)).limit(1))[0] ?? null,
+          (await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.adminId, fullUser.id)).limit(1))[0] ?? null,
         )
       : null;
 
@@ -394,7 +396,7 @@ export async function getMe(req: Request, res: Response) {
       ? coachManagedTeam
       : await withTeamPlanTier(await resolveAthleteTeamForMe(athlete));
     const teamTierFallback = teamForUser?.planTier ?? null;
-    const guardianTier = user.role === "guardian" ? (athlete?.guardianProgramTier ?? null) : null;
+    const guardianTier = fullUser.role === "guardian" ? (athlete?.guardianProgramTier ?? null) : null;
     const programTier = guardianTier ?? athlete?.currentProgramTier ?? teamTierFallback;
     const tierSource =
       guardianTier != null
@@ -408,7 +410,7 @@ export async function getMe(req: Request, res: Response) {
       ? await getFeaturesForAthlete(Number(athlete.id))
       : featuresForTier(programTier ?? null);
     const capabilities = buildAppCapabilities({
-      role: user.role,
+      role: fullUser.role,
       programTier,
       messagingAccessTiers,
       athleteType: athlete?.athleteType ?? null,
@@ -419,9 +421,9 @@ export async function getMe(req: Request, res: Response) {
     });
 
     return {
-      ...user,
+      ...fullUser,
       ...athlete,
-      id: user.id,
+      id: fullUser.id,
       team: teamForUser ?? athlete?.team ?? null,
       programTier,
       debugProgramAccess: {
@@ -454,9 +456,9 @@ export async function getMe(req: Request, res: Response) {
       capabilities,
       planFeatures: Array.from(planFeatures),
       messagingAccessTiers,
-      role: user.role,
-      email: user.email,
-      name: user.name && user.name !== "User" ? user.name : (athlete?.name ?? coachManagedTeam?.name ?? user.name),
+      role: fullUser.role,
+      email: fullUser.email,
+      name: fullUser.name && fullUser.name !== "User" ? fullUser.name : (athlete?.name ?? coachManagedTeam?.name ?? fullUser.name),
     };
   });
 

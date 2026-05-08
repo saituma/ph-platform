@@ -31,6 +31,8 @@ interface ScanResult {
   message?: string;
 }
 
+const BARCODE_SETTINGS = { barcodeTypes: ["qr"] as ("qr")[] };
+
 export default function QRScanScreen() {
   const router = useRouter();
   const p = useAdminPastel();
@@ -38,9 +40,17 @@ export default function QRScanScreen() {
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState<ScanState>("idle");
+  const [scannerReady, setScannerReady] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const processingRef = useRef(false);
+
+  useEffect(() => {
+    if (permission?.granted) {
+      const timer = setTimeout(() => setScannerReady(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [permission?.granted]);
 
   // Auto-navigate back on success after 2s
   useEffect(() => {
@@ -101,11 +111,16 @@ export default function QRScanScreen() {
     [token],
   );
 
+  const [cameraKey, setCameraKey] = useState(0);
+
   const handleRetry = useCallback(() => {
     processingRef.current = false;
     setScanState("idle");
+    setScannerReady(false);
     setResult(null);
     setErrorMessage("");
+    setCameraKey((k) => k + 1);
+    setTimeout(() => setScannerReady(true), 800);
   }, []);
 
   // ── Permission not yet determined ──
@@ -166,10 +181,11 @@ export default function QRScanScreen() {
     <View style={[styles.container, { backgroundColor: "#000" }]}>
       {scanState !== "success" && (
         <CameraView
+          key={cameraKey}
           style={StyleSheet.absoluteFill}
           facing="back"
-          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-          onBarcodeScanned={handleBarCodeScanned}
+          barcodeScannerSettings={BARCODE_SETTINGS}
+          onBarcodeScanned={scannerReady ? handleBarCodeScanned : undefined}
         />
       )}
 

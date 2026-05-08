@@ -35,13 +35,12 @@ export function useScheduleData(token: string | null, profileId: number, isFocus
   const eventsQuery = useQuery({
     queryKey: queryKeys.bookings.all(profileId),
     queryFn: async () => {
-      try {
-        const data = await apiRequest<{ sessions: any[] }>("/sessions/my", { token, headers: actingHeaders });
-        return mapScheduledSessionsToEvents(data.sessions ?? []);
-      } catch {
-        const data = await apiRequest<{ items: any[] }>("/bookings", { token, headers: actingHeaders });
-        return mapBookingsToEvents(data.items ?? []);
-      }
+      const data = await apiRequest<{ sessions: any[] }>("/sessions/my", {
+        token,
+        headers: actingHeaders,
+        skipCache: true,
+      });
+      return mapScheduledSessionsToEvents(data.sessions ?? []);
     },
     enabled: !!token && isFocused,
     staleTime: 2 * 60 * 1000,
