@@ -1,9 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
-import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Linking, Pressable, StyleSheet, View } from "react-native";
+import { Image, Linking, Pressable, StyleSheet, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Sun, Moon, Eye, EyeOff } from "lucide-react-native";
@@ -38,9 +37,7 @@ import { resolveAppRole } from "../../lib/appRole";
 import { markLoginFresh } from "../../store/AuthPersist";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const LOGIN_VIDEO_SOURCE: number | null = require("../../assets/videos/login-bg.mp4") as number;
-
-const HAS_VIDEO = LOGIN_VIDEO_SOURCE !== null;
+const LOGIN_BG = require("@/assets/images/home-bg.png");
 
 const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
@@ -58,24 +55,8 @@ export default function LoginScreen() {
   const p = useAdminPastel();
   const dispatch = useAppDispatch();
 
-  const player = useVideoPlayer(LOGIN_VIDEO_SOURCE, (pl) => {
-    pl.loop = true;
-    pl.muted = true;
-    if (HAS_VIDEO) pl.play();
-  });
-
-  useEffect(() => {
-    if (!HAS_VIDEO) return;
-    const sub = player.addListener("statusChange", ({ status, error }) => {
-      if (status === "error") {
-        console.warn("[LoginScreen] video bg error:", error?.message);
-      }
-    });
-    return () => sub.remove();
-  }, [player]);
-
-  const headingColor = HAS_VIDEO ? "rgba(255,255,255,0.95)" : p.textPrimary;
-  const subtitleColor = HAS_VIDEO ? "rgba(255,255,255,0.62)" : p.textMuted;
+  const headingColor = "rgba(255,255,255,0.95)";
+  const subtitleColor = "rgba(255,255,255,0.62)";
   const inputColor = p.textPrimary;
 
   const {
@@ -192,30 +173,21 @@ export default function LoginScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
-      {HAS_VIDEO && (
-        <>
-          <VideoView
-            player={player}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            nativeControls={false}
-          />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.52)" }]} />
-        </>
-      )}
+      <Image source={LOGIN_BG} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.52)" }]} />
 
       <SafeAreaView style={{ flex: 1, backgroundColor: "transparent" }}>
         <View style={{ paddingHorizontal: 16, paddingTop: 4, alignItems: "flex-end" }}>
           <Pressable
             onPress={toggleColorScheme}
-            style={{ padding: 10, borderRadius: 100, backgroundColor: HAS_VIDEO ? "rgba(255,255,255,0.12)" : p.cardMint }}
+            style={{ padding: 10, borderRadius: 100, backgroundColor: "rgba(255,255,255,0.12)" }}
             accessibilityRole="button"
             accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
           >
             {isDark ? (
-              <Sun size={20} color={HAS_VIDEO ? "rgba(255,255,255,0.70)" : p.accent} strokeWidth={2} />
+              <Sun size={20} color={"rgba(255,255,255,0.70)"} strokeWidth={2} />
             ) : (
-              <Moon size={20} color={HAS_VIDEO ? "rgba(255,255,255,0.70)" : p.accent} strokeWidth={2} />
+              <Moon size={20} color={"rgba(255,255,255,0.70)"} strokeWidth={2} />
             )}
           </Pressable>
         </View>

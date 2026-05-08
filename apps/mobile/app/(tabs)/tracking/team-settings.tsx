@@ -156,7 +156,9 @@ export default function TeamSettingsScreen() {
 
         <View
           style={{
-            backgroundColor: p.cardMint,
+            backgroundColor: "transparent",
+            borderWidth: 1.5,
+            borderColor: p.accent,
             borderRadius: 22,
             padding: 20,
             gap: 8,

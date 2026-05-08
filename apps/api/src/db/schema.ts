@@ -1651,6 +1651,33 @@ export const sleepLogsTable = pgTable(
   }),
 );
 
+export const wellbeingLogsTable = pgTable(
+  "wellbeing_logs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    dateKey: varchar({ length: 10 }).notNull(),
+    mood: integer().notNull(),
+    energy: integer().notNull(),
+    pain: integer().notNull(),
+    notes: text(),
+    coachFeedback: text(),
+    coachId: integer().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userDateUnique: uniqueIndex("wellbeing_logs_user_date_unique").on(
+      table.userId,
+      table.dateKey,
+    ),
+    userIdx: index("wellbeing_logs_user_idx").on(table.userId),
+    dateIdx: index("wellbeing_logs_date_idx").on(table.dateKey),
+  }),
+);
+
 export const socialPrivacySettingsTable = pgTable(
   "social_privacy_settings",
   {

@@ -2488,7 +2488,9 @@ function TeamStatsBanner({
     <View
       style={{
         borderRadius: 22,
-        backgroundColor: p.cardSage,
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        borderColor: p.accent,
         padding: 18,
         gap: 14,
       }}

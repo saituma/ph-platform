@@ -36,6 +36,9 @@ import {
   CheckCircle2,
   XCircle,
   ClockIcon,
+  HeartPulse,
+  Smile,
+  AlertTriangle,
 } from "lucide-react";
 import { AdminShell } from "../../../../components/admin/shell";
 import { Button } from "../../../../components/ui/button";
@@ -66,6 +69,11 @@ import {
 import {
   useGetBookingsQuery,
 } from "../../../../lib/api/bookings";
+import {
+  useGetWellbeingLogsQuery,
+  useReviewWellbeingLogMutation,
+  type WellbeingLogRecord,
+} from "../../../../lib/api/wellbeing";
 import {
   useGetUsersQuery,
   useGetUserProgramSectionCompletionsQuery,
@@ -158,7 +166,7 @@ const StatCard = ({ label, value, icon: Icon, color }: { label: string; value: s
 
 // ---- Tabs ----
 
-type TabKey = "sleep" | "nutrition" | "performance" | "training" | "videos" | "bookings";
+type TabKey = "sleep" | "wellbeing" | "nutrition" | "performance" | "training" | "videos" | "bookings";
 
 export default function UserDataPage() {
   const params = useParams();
@@ -178,6 +186,7 @@ export default function UserDataPage() {
 
   const tabs: { key: TabKey; label: string; icon: any }[] = [
     { key: "sleep", label: "Sleep", icon: Moon },
+    { key: "wellbeing", label: "Wellbeing", icon: HeartPulse },
     { key: "nutrition", label: "Nutrition", icon: Apple },
     { key: "performance", label: "Runs & Activity", icon: Footprints },
     { key: "training", label: "Training Logs", icon: Dumbbell },
@@ -242,6 +251,7 @@ export default function UserDataPage() {
 
         {/* Tab content */}
         {isValid && tab === "sleep" && <SleepTab userId={userId} from={from} range={range} />}
+        {isValid && tab === "wellbeing" && <WellbeingTab userId={userId} from={from} range={range} />}
         {isValid && tab === "nutrition" && <NutritionTab userId={userId} from={from} range={range} displayName={displayName} />}
         {isValid && tab === "performance" && <PerformanceTab userId={userId} from={from} />}
         {isValid && tab === "training" && <TrainingTab userId={userId} from={from} />}
@@ -418,6 +428,189 @@ function SleepLogCard({ log }: { log: SleepLogRecord }) {
                 </Button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ========== WELLBEING TAB ==========
+
+const MOOD_LABELS = ["", "Very Low", "Low", "Okay", "Good", "Great"];
+const ENERGY_LABELS = ["", "Exhausted", "Tired", "Normal", "Energized", "Peak"];
+const PAIN_LABELS = ["", "None", "Mild", "Moderate", "High", "Severe"];
+
+function wellbeingColor(value: number, type: "mood" | "energy" | "pain"): string {
+  if (type === "pain") return value >= 4 ? "text-red-500" : value >= 3 ? "text-amber-500" : "text-emerald-500";
+  return value <= 2 ? "text-red-500" : value === 3 ? "text-amber-500" : "text-emerald-500";
+}
+
+function WellbeingTab({ userId, from, range }: { userId: number; from: string; range: string }) {
+  const { data, isLoading } = useGetWellbeingLogsQuery({ userId, from, limit: 90 }, { skip: !userId });
+  const logs = data?.logs ?? [];
+
+  const avgMood = useMemo(() => {
+    if (!logs.length) return null;
+    return (logs.reduce((s, l) => s + l.mood, 0) / logs.length).toFixed(1);
+  }, [logs]);
+
+  const avgEnergy = useMemo(() => {
+    if (!logs.length) return null;
+    return (logs.reduce((s, l) => s + l.energy, 0) / logs.length).toFixed(1);
+  }, [logs]);
+
+  const avgPain = useMemo(() => {
+    if (!logs.length) return null;
+    return (logs.reduce((s, l) => s + l.pain, 0) / logs.length).toFixed(1);
+  }, [logs]);
+
+  if (isLoading) return <LoadingSkeleton />;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Avg Mood" value={avgMood ? `${avgMood}/5` : "—"} icon={Smile} color="bg-amber-500/10 text-amber-500" />
+        <StatCard label="Avg Energy" value={avgEnergy ? `${avgEnergy}/5` : "—"} icon={Zap} color="bg-emerald-500/10 text-emerald-500" />
+        <StatCard label="Avg Pain" value={avgPain ? `${avgPain}/5` : "—"} icon={AlertTriangle} color="bg-red-500/10 text-red-500" />
+        <StatCard label="Total Logs" value={logs.length} icon={HeartPulse} color="bg-primary/10 text-primary" />
+      </div>
+
+      {logs.length > 0 && (
+        <GlassCard>
+          <SectionTitle icon={TrendingUp} title="Wellbeing Trend" subtitle={`Last ${range} days`} count={logs.length} />
+          <div className="space-y-2">
+            {logs.slice(0, 14).map((log) => (
+              <div key={log.id} className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground w-16 shrink-0 font-mono">
+                  {log.dateKey.slice(5)}
+                </span>
+                <div className="flex gap-3 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <Smile className="h-3.5 w-3.5 text-amber-500" />
+                    <div className="w-16 h-4 bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-amber-500" style={{ width: `${(log.mood / 5) * 100}%` }} />
+                    </div>
+                    <span className="text-xs font-bold w-4 text-amber-500">{log.mood}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-emerald-500" />
+                    <div className="w-16 h-4 bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${(log.energy / 5) * 100}%` }} />
+                    </div>
+                    <span className="text-xs font-bold w-4 text-emerald-500">{log.energy}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                    <div className="w-16 h-4 bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-red-500" style={{ width: `${(log.pain / 5) * 100}%` }} />
+                    </div>
+                    <span className="text-xs font-bold w-4 text-red-500">{log.pain}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
+
+      <GlassCard>
+        <SectionTitle icon={HeartPulse} title="Wellbeing Logs" subtitle="Daily check-ins with mood, energy, and pain" />
+        {logs.length === 0 ? (
+          <EmptyState icon={HeartPulse} text="No wellbeing logs recorded" />
+        ) : (
+          <div className="space-y-3">
+            {logs.slice(0, 30).map((log) => (
+              <WellbeingLogCard key={log.id} log={log} />
+            ))}
+          </div>
+        )}
+      </GlassCard>
+    </div>
+  );
+}
+
+function WellbeingLogCard({ log }: { log: WellbeingLogRecord }) {
+  const [expanded, setExpanded] = useState(false);
+  const [feedback, setFeedback] = useState(log.coachFeedback ?? "");
+  const [reviewLog, { isLoading: isSending }] = useReviewWellbeingLogMutation();
+
+  return (
+    <div className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+      <button
+        className="w-full flex items-center gap-4 p-4 text-left hover:bg-white/[0.02] transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+          <HeartPulse className="h-5 w-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-foreground">{log.dateKey}</p>
+          <div className="flex gap-3 mt-1">
+            <span className={cn("text-xs font-bold", wellbeingColor(log.mood, "mood"))}>
+              Mood {log.mood}/5
+            </span>
+            <span className={cn("text-xs font-bold", wellbeingColor(log.energy, "energy"))}>
+              Energy {log.energy}/5
+            </span>
+            <span className={cn("text-xs font-bold", wellbeingColor(log.pain, "pain"))}>
+              Pain {log.pain}/5
+            </span>
+          </div>
+        </div>
+        {log.coachFeedback && (
+          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-primary/30 text-primary">
+            Reviewed
+          </Badge>
+        )}
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-white/5 p-4 space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-xl bg-amber-500/5 border border-amber-500/10 p-3 text-center">
+              <Smile className="h-5 w-5 text-amber-500 mx-auto mb-1" />
+              <p className="text-lg font-black text-amber-500">{log.mood}/5</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">{MOOD_LABELS[log.mood]}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/10 p-3 text-center">
+              <Zap className="h-5 w-5 text-emerald-500 mx-auto mb-1" />
+              <p className="text-lg font-black text-emerald-500">{log.energy}/5</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">{ENERGY_LABELS[log.energy]}</p>
+            </div>
+            <div className="rounded-xl bg-red-500/5 border border-red-500/10 p-3 text-center">
+              <AlertTriangle className="h-5 w-5 text-red-500 mx-auto mb-1" />
+              <p className="text-lg font-black text-red-500">{log.pain}/5</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">{PAIN_LABELS[log.pain]}</p>
+            </div>
+          </div>
+
+          {log.notes && (
+            <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1">Notes</p>
+              <p className="text-sm text-foreground/80">{log.notes}</p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Coach Feedback</p>
+            <textarea
+              className="w-full rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-foreground placeholder-muted-foreground/40 resize-none focus:outline-none focus:ring-1 focus:ring-primary/50"
+              rows={2}
+              placeholder="Write feedback for this athlete..."
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+            />
+            <Button
+              size="sm"
+              className="gap-1.5 rounded-xl"
+              disabled={!feedback.trim() || isSending}
+              onClick={() => reviewLog({ logId: log.id, feedback: feedback.trim() })}
+            >
+              <Send className="h-3.5 w-3.5" />
+              {isSending ? "Sending..." : "Send Feedback"}
+            </Button>
           </div>
         </div>
       )}

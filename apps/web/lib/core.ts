@@ -428,6 +428,7 @@ export const apiSlice = createApi({
     "SessionTemplates",
     "ScheduledSessions",
     "SleepLogs",
+    "WellbeingLogs",
   ],
   endpoints: () => ({}),
 });

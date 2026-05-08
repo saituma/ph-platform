@@ -11,6 +11,7 @@ import {
   CirclePlus,
   Ellipsis,
   Heart,
+  HeartPulse,
   House,
   Image as ImageIcon,
   Menu,
@@ -53,6 +54,7 @@ export type AppIconName =
   | "user"
   | "heart"
   | "heart-filled"
+  | "wellbeing"
   | "sleep";
 
 type AppIconProps = {
@@ -73,6 +75,7 @@ const IOS_SYMBOLS: Record<AppIconName, SymbolViewProps["name"]> = {
   "chevron-right": "chevron.right",
   heart: "heart",
   "heart-filled": "heart.fill",
+  wellbeing: "waveform.path.ecg",
   home: "house",
   "home-filled": "house.fill",
   image: "photo",
@@ -102,6 +105,7 @@ const ANDROID_ICONS: Record<AppIconName, LucideIcon> = {
   "chevron-right": ChevronRight,
   heart: Heart,
   "heart-filled": Heart,
+  wellbeing: HeartPulse,
   home: House,
   "home-filled": House,
   image: ImageIcon,

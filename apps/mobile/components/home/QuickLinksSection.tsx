@@ -36,7 +36,7 @@ function getLinksForRole(appRole: AppRole | null): QuickLink[] {
     case "team":
       return [
         { label: "Programs", icon: "programs", route: "/(tabs)/programs" },
-        { label: "Nutrition", icon: "tracking", route: "/nutrition" },
+        { label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" },
         { label: "Progress", icon: "stats", route: "/progress" },
         { label: "Sleep", icon: "sleep", route: "/sleep" },
         { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
@@ -46,7 +46,8 @@ function getLinksForRole(appRole: AppRole | null): QuickLink[] {
     case "youth_athlete_team_guardian":
       return [
         { label: "Programs", icon: "programs", route: "/(tabs)/programs" },
-        { label: "Nutrition", icon: "tracking", route: "/nutrition" },
+        { label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" },
+        { label: "Sleep", icon: "sleep", route: "/sleep" },
         { label: "Parent", icon: "parents", route: "/parent-platform" },
         { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
       ];

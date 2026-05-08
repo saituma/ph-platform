@@ -192,9 +192,12 @@ export function NutritionDashboard() {
         {/* Hero section */}
         <View
           style={{
-            backgroundColor: p.cardSage,
+            backgroundColor: p.pageBg,
             borderBottomLeftRadius: 32,
             borderBottomRightRadius: 32,
+            borderWidth: 1.5,
+            borderTopWidth: 0,
+            borderColor: p.accent,
             paddingHorizontal: 24,
             paddingTop: 8,
             paddingBottom: 32,

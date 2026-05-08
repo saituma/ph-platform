@@ -35,6 +35,7 @@ import enquiryRoutes from "./enquiry.routes";
 import attendanceRoutes from "./attendance.routes";
 import sessionScheduleRoutes from "./session-schedule.routes";
 import sleepRoutes from "./sleep.routes";
+import wellbeingRoutes from "./wellbeing.routes";
 
 const router = Router();
 
@@ -73,5 +74,6 @@ router.use(enquiryRoutes);
 router.use(attendanceRoutes);
 router.use(sessionScheduleRoutes);
 router.use(sleepRoutes);
+router.use(wellbeingRoutes);
 
 export default router;

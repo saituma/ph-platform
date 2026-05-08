@@ -192,10 +192,9 @@ const ProgramContent = memo(function ProgramContent({
         const entering = reduceMotion
           ? undefined
           : FadeInDown.delay(Math.min(modIdx, 8) * 40).springify().damping(15);
-        const cardColorKey = MODULE_CARD_COLORS[modIdx % MODULE_CARD_COLORS.length];
-        const cardBg = p[cardColorKey] as string;
-        const cardText = isDark ? "#1A1A1A" : "#FFFFFF";
-        const cardSubText = isDark ? "#555555" : "rgba(255,255,255,0.75)";
+        const cardBg = "transparent";
+        const cardText = p.textPrimary;
+        const cardSubText = p.textSecondary;
         return (
           <Animated.View key={mod.id} entering={entering}>
             <Pressable
@@ -212,6 +211,8 @@ const ProgramContent = memo(function ProgramContent({
                 style={{
                   borderRadius: 22,
                   backgroundColor: cardBg,
+                  borderWidth: 1.5,
+                  borderColor: p.accent,
                   overflow: "hidden",
                 }}
               >
@@ -542,16 +543,16 @@ const ProgramsScreen = memo(function ProgramsScreen() {
             <View style={{ flexDirection: "row", gap: 10 }}>
               <Animated.View
                 entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
-                style={{ flex: 2, backgroundColor: p.accent, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+                style={{ flex: 2, backgroundColor: "transparent", borderWidth: 1.5, borderColor: p.accent, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
               >
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
-                  <BookOpen size={22} color={p.buttonPrimaryText} />
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+                  <BookOpen size={22} color={p.accent} />
                 </View>
                 <View style={{ gap: 2 }}>
-                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: p.buttonPrimaryText, letterSpacing: -0.5 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: p.textPrimary, letterSpacing: -0.5 }}>
                     {programs.length}
                   </Text>
-                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.buttonPrimaryText, opacity: 0.6 }}>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, opacity: 0.6 }}>
                     {programs.length === 1 ? "Program" : "Programs"}
                   </Text>
                 </View>
@@ -559,12 +560,12 @@ const ProgramsScreen = memo(function ProgramsScreen() {
 
               <Animated.View
                 entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
-                style={{ flex: 1, backgroundColor: p.accent, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
+                style={{ flex: 1, backgroundColor: "transparent", borderWidth: 1.5, borderColor: p.accent, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
               >
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.buttonPrimaryText, letterSpacing: -1 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.textPrimary, letterSpacing: -1 }}>
                   {totalModules}
                 </Text>
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.buttonPrimaryText, opacity: 0.6 }}>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, opacity: 0.6 }}>
                   Modules
                 </Text>
               </Animated.View>

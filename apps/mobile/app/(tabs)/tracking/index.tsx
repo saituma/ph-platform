@@ -350,16 +350,17 @@ export default function TrackingHomeScreen() {
   const bentoGap = 10;
   const bentoHalf = (screenWidth - spacing.xl * 2 - bentoGap) / 2;
 
-  const PASTEL_MINT = p.accent;
-  const PASTEL_MINT_TEXT = p.buttonPrimaryText;
-  const PASTEL_PEACH = p.accent;
-  const PASTEL_PEACH_TEXT = p.buttonPrimaryText;
-  const PASTEL_LAVENDER = p.accent;
-  const PASTEL_LAVENDER_TEXT = p.buttonPrimaryText;
-  const PASTEL_SKY = p.accent;
-  const PASTEL_SKY_TEXT = p.buttonPrimaryText;
-  const PASTEL_ROSE = p.accent;
-  const PASTEL_ROSE_TEXT = p.buttonPrimaryText;
+  const PASTEL_MINT = "transparent";
+  const PASTEL_MINT_TEXT = p.textPrimary;
+  const PASTEL_PEACH = "transparent";
+  const PASTEL_PEACH_TEXT = p.textPrimary;
+  const PASTEL_LAVENDER = "transparent";
+  const PASTEL_LAVENDER_TEXT = p.textPrimary;
+  const PASTEL_SKY = "transparent";
+  const PASTEL_SKY_TEXT = p.textPrimary;
+  const PASTEL_ROSE = "transparent";
+  const PASTEL_ROSE_TEXT = p.textPrimary;
+  const BENTO_BORDER = { borderWidth: 1.5, borderColor: p.accent } as const;
 
   return (
     <>
@@ -500,8 +501,8 @@ export default function TrackingHomeScreen() {
                 const hasMeasurableProgress = goal.unit === "km" || goal.unit === "min" || goal.unit === "sec";
                 const pct = hasMeasurableProgress ? Math.min(1, progress / goal.targetValue) : null;
                 const done = pct != null && pct >= 1;
-                const barColor = done ? PASTEL_MINT_TEXT : p.accent;
-                const cardBg = done ? PASTEL_MINT : p.cardWhite;
+                const barColor = done ? p.accent : p.accent;
+                const cardBg = done ? "transparent" : p.cardWhite;
 
                 const progressLabel = hasMeasurableProgress
                   ? goal.unit === "km"
@@ -528,6 +529,7 @@ export default function TrackingHomeScreen() {
                       padding: 20,
                       alignItems: "center",
                       gap: 14,
+                      ...(done ? BENTO_BORDER : {}),
                     }}
                   >
                     <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: "center", justifyContent: "center" }}>
@@ -621,6 +623,7 @@ export default function TrackingHomeScreen() {
               borderRadius: 28,
               padding: 24,
               gap: 8,
+              ...BENTO_BORDER,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -684,6 +687,7 @@ export default function TrackingHomeScreen() {
                 padding: 18,
                 gap: 6,
                 justifyContent: "space-between",
+                ...BENTO_BORDER,
               }}
             >
               <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(51,105,30,0.12)", alignItems: "center", justifyContent: "center" }}>
@@ -708,6 +712,7 @@ export default function TrackingHomeScreen() {
                 padding: 18,
                 gap: 6,
                 justifyContent: "space-between",
+                ...BENTO_BORDER,
               }}
             >
               <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(27,94,32,0.12)", alignItems: "center", justifyContent: "center" }}>
@@ -736,6 +741,7 @@ export default function TrackingHomeScreen() {
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 14,
+                ...BENTO_BORDER,
               }}
             >
               <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(46,125,50,0.12)", alignItems: "center", justifyContent: "center" }}>
@@ -761,6 +767,7 @@ export default function TrackingHomeScreen() {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 4,
+                ...BENTO_BORDER,
               }}
             >
               <Text style={{ fontFamily: "Outfit-Bold", fontSize: 32, color: PASTEL_ROSE_TEXT, letterSpacing: -1 }}>
@@ -818,6 +825,7 @@ export default function TrackingHomeScreen() {
                 alignItems: "center",
                 justifyContent: "space-between",
                 transform: [{ scale: pressed ? 0.98 : 1 }],
+                ...BENTO_BORDER,
               })}
             >
               <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>

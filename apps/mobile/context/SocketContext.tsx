@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import { io, Socket } from "socket.io-client";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { Sentry } from "@/lib/sentry";
@@ -73,9 +74,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     const newSocket: Socket = io(socketUrl, {
       auth: { token },
-      transports: ["websocket"],
+      transports: ["polling", "websocket"],
+      upgrade: true,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 2000,
       reconnectionDelayMax: 30000,
       randomizationFactor: 0.5,
@@ -101,20 +103,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       dispatch(socketDisconnected(String(reason)));
       console.info("[RealtimeLatency] mobile.socket.disconnect", {
         reason: String(reason),
-        transport: newSocket.io.engine.transport.name,
+        transport: newSocket.io.engine?.transport?.name,
       });
     });
 
     newSocket.on("connect_error", (error) => {
       connectErrorCountRef.current += 1;
       dispatch(socketConnectError());
-      Sentry.addBreadcrumb({ category: "socket", message: `connect_error #${connectErrorCountRef.current}`, level: "warning", data: { message: error.message } });
+      const inForeground = AppState.currentState === "active";
+      Sentry.addBreadcrumb({ category: "socket", message: `connect_error #${connectErrorCountRef.current}`, level: "warning", data: { message: error.message, inForeground } });
       console.warn("[RealtimeLatency] mobile.socket.connect_error", {
         attempts: connectErrorCountRef.current,
         message: error.message,
-        transport: newSocket.io.engine.transport.name,
+        transport: newSocket.io.engine?.transport?.name,
+        inForeground,
       });
-      if (connectErrorCountRef.current >= 5) {
+      if (connectErrorCountRef.current >= 5 && inForeground) {
         Sentry.captureException(error, {
           tags: { "socket.attempts": connectErrorCountRef.current },
         });
@@ -244,6 +248,21 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       dispatch(socketReset());
     };
   }, [token, bootstrapReady, dispatch]);
+
+  // ── Disconnect on background, reconnect on foreground ──────────────────────
+  useEffect(() => {
+    const handleAppState = (next: AppStateStatus) => {
+      const s = socketRef.current;
+      if (!s) return;
+      if (next === "active") {
+        if (!s.connected) s.connect();
+      } else {
+        if (s.connected) s.disconnect();
+      }
+    };
+    const sub = AppState.addEventListener("change", handleAppState);
+    return () => sub.remove();
+  }, []);
 
   // Re-emit acting:join when the acting user changes after initial connect.
   // Intentionally omit connection state from React — triggering setIsConnected
