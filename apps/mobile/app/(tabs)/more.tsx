@@ -9,8 +9,9 @@ import { apiRequest } from "@/lib/api";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, Dimensions } from "react-native";
 import { Image } from "expo-image";
+import Svg, { Circle as SvgCircle } from "react-native-svg";
 import {
   User,
   Bell,
@@ -29,6 +30,7 @@ import {
   BookOpen,
   Apple,
   Activity,
+  Flame,
 } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -47,10 +49,21 @@ import {
 } from "@/lib/planAccess";
 import Animated, {
   Easing,
+  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
+import { useStreakStore } from "@/lib/streakStore";
+
+const AVATAR_SIZE = 88;
+const AVATAR_RING_SIZE = AVATAR_SIZE + 8;
+const BANNER_HEIGHT = 140;
+const PASTEL_GREEN = "#E8F5E9";
+const PASTEL_GREEN_TEXT = "#2E7D32";
+const PASTEL_LIME = "#F1F8E9";
+const PASTEL_LIME_TEXT = "#33691E";
 
 function formatExperienceLabel(cfg: {
   title?: string | null;
@@ -132,6 +145,7 @@ export default function MoreScreen() {
               name?: string | null;
               email?: string | null;
               profilePicture?: string | null;
+              coverImage?: string | null;
               capabilities?: AppCapabilities | null;
               planFeatures?: string[];
               programTier?: string | null;
@@ -148,6 +162,7 @@ export default function MoreScreen() {
                 name: me.user.name ?? null,
                 email: me.user.email ?? null,
                 avatar: me.user.profilePicture ?? null,
+                coverImage: me.user.coverImage ?? null,
               }),
             );
             dispatch(setCapabilities(me.user.capabilities ?? null));
@@ -181,8 +196,13 @@ export default function MoreScreen() {
   const insets = useAppSafeAreaInsets();
   const tabBarOverlayHeightEstimate = 86 + Math.max(insets.bottom, 12);
 
+  const streak = useStreakStore((ss) => ss.currentStreak);
+
   /* Build menu items with index for alternating colors */
   let menuIndex = 0;
+
+  const ringRadius = (AVATAR_RING_SIZE - 4) / 2;
+  const ringCircumference = 2 * Math.PI * ringRadius;
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
@@ -195,191 +215,139 @@ export default function MoreScreen() {
           paddingBottom: tabBarOverlayHeightEstimate + 24,
         }}
       >
-        {/* Header */}
-        <View
-          style={{
-            width: "100%",
-            paddingHorizontal: 24,
-            paddingTop: 28,
-            paddingBottom: 20,
-          }}
-        >
-          <Text
-            numberOfLines={1}
-            style={{
-              fontSize: 32,
-              fontFamily: "Outfit-Bold",
-              color: p.textPrimary,
-              letterSpacing: -0.5,
-            }}
-          >
-            More
-          </Text>
-        </View>
-
-        {/* Profile Card */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
+        {/* ── Profile Card (screenshot style) ── */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, marginBottom: 24 }}>
           <View
             style={{
               overflow: "hidden",
               borderRadius: 28,
               borderCurve: "continuous",
-              padding: 24,
-              backgroundColor: p.cardSage,
+              backgroundColor: p.cardWhite,
             }}
           >
-            <View
-              style={{
-                position: "absolute",
-                right: -28,
-                top: -28,
-                height: 100,
-                width: 100,
-                borderRadius: 50,
-                backgroundColor: p.accentSoft,
-              }}
-            />
+            {/* Banner */}
+            <View style={{ height: BANNER_HEIGHT, overflow: "hidden" }}>
+              {profile.coverImage ? (
+                <Image
+                  source={{ uri: profile.coverImage }}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                />
+              ) : (
+                <LinearGradient
+                  colors={[p.accentSoft, p.accent]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ width: "100%", height: "100%", opacity: 0.4 }}
+                />
+              )}
+            </View>
 
-            {isLoading ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
-                <Skeleton circle width={60} height={60} />
-                <View style={{ flex: 1, gap: 8 }}>
-                  <Skeleton width="60%" height={22} />
-                  <Skeleton width="40%" height={14} />
-                </View>
+            {/* Avatar overlapping banner */}
+            <View style={{ alignItems: "center", marginTop: -(AVATAR_SIZE / 2) }}>
+              <View style={{ width: AVATAR_RING_SIZE, height: AVATAR_RING_SIZE, alignItems: "center", justifyContent: "center" }}>
+                {/* Progress ring around avatar */}
+                <Svg width={AVATAR_RING_SIZE} height={AVATAR_RING_SIZE} style={{ position: "absolute" }}>
+                  <SvgCircle
+                    cx={AVATAR_RING_SIZE / 2}
+                    cy={AVATAR_RING_SIZE / 2}
+                    r={ringRadius}
+                    stroke={p.accentSoft}
+                    strokeWidth={3}
+                    fill="none"
+                  />
+                  <SvgCircle
+                    cx={AVATAR_RING_SIZE / 2}
+                    cy={AVATAR_RING_SIZE / 2}
+                    r={ringRadius}
+                    stroke={p.accent}
+                    strokeWidth={3}
+                    fill="none"
+                    strokeDasharray={ringCircumference}
+                    strokeDashoffset={ringCircumference * 0.25}
+                    strokeLinecap="round"
+                    rotation={-90}
+                    origin={`${AVATAR_RING_SIZE / 2}, ${AVATAR_RING_SIZE / 2}`}
+                  />
+                </Svg>
+
+                {isLoading ? (
+                  <Skeleton circle width={AVATAR_SIZE} height={AVATAR_SIZE} />
+                ) : profile.avatar ? (
+                  <View style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, overflow: "hidden", borderWidth: 3, borderColor: p.cardWhite }}>
+                    <Image
+                      source={{ uri: profile.avatar }}
+                      style={{ width: "100%", height: "100%" }}
+                      contentFit="cover"
+                    />
+                  </View>
+                ) : (
+                  <View style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: p.inputBg, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: p.cardWhite }}>
+                    <User size={36} color={p.accent} />
+                  </View>
+                )}
               </View>
-            ) : (
-              <>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 20 }}>
-                  {profile.avatar ? (
-                    <View
-                      style={{
-                        height: 60,
-                        width: 60,
-                        borderRadius: 20,
-                        borderCurve: "continuous",
-                        overflow: "hidden",
-                        borderWidth: 1,
-                        borderColor: p.divider,
-                      }}
-                    >
-                      <Image
-                        source={{ uri: profile.avatar }}
-                        style={{ width: 60, height: 60 }}
-                        contentFit="cover"
-                      />
-                    </View>
-                  ) : (
-                    <View
-                      style={{
-                        height: 60,
-                        width: 60,
-                        borderRadius: 20,
-                        borderCurve: "continuous",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: p.inputBg,
-                        borderWidth: 1,
-                        borderColor: p.divider,
-                      }}
-                    >
-                      <User size={26} color={p.accent} />
-                    </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontSize: 20,
-                        fontFamily: "Outfit-Bold",
-                        color: p.textPrimary,
-                        lineHeight: 24,
-                      }}
-                    >
-                      {profile.name || "Profile"}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontFamily: "Outfit-Regular",
-                        fontSize: 14,
-                        color: p.textSecondary,
-                        marginTop: 4,
-                      }}
-                    >
-                      {profile.email ||
-                        (isAuthenticated ? "Email unavailable" : "Not signed in")}
-                    </Text>
-                  </View>
-                </View>
 
-                <View style={{ gap: 12 }}>
-                  <View
-                    style={{
-                      borderRadius: 16,
-                      borderCurve: "continuous",
-                      paddingHorizontal: 20,
-                      paddingVertical: 18,
-                      backgroundColor: p.inputBg,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        fontFamily: "Outfit-Bold",
-                        textTransform: "uppercase",
-                        letterSpacing: 1.2,
-                        color: p.textMuted,
-                      }}
-                    >
-                      Access
-                    </Text>
-                    <Text
-                      style={{
-                        marginTop: 6,
-                        fontSize: 17,
-                        fontFamily: "Outfit-Bold",
-                        color: p.textPrimary,
-                      }}
-                    >
-                      {formatAccessTierLabel(programTier)}
-                    </Text>
-                  </View>
-                  <View
-                    style={{
-                      borderRadius: 16,
-                      borderCurve: "continuous",
-                      paddingHorizontal: 20,
-                      paddingVertical: 18,
-                      backgroundColor: p.inputBg,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        fontFamily: "Outfit-Bold",
-                        textTransform: "uppercase",
-                        letterSpacing: 1.2,
-                        color: p.textMuted,
-                      }}
-                    >
-                      Experience
-                    </Text>
-                    <Text
-                      style={{
-                        marginTop: 6,
-                        fontSize: 17,
-                        fontFamily: "Outfit-Bold",
-                        color: p.textPrimary,
-                      }}
-                    >
-                      {isAuthenticated && ageExperienceLoading
-                        ? "…"
-                        : experienceLabel}
-                    </Text>
-                  </View>
+              {/* Streak badge */}
+              {streak > 0 && (
+                <View style={{ position: "absolute", top: AVATAR_SIZE / 2 + 6, right: "50%", marginRight: -(AVATAR_RING_SIZE / 2) - 4, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: p.cardWhite, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
+                  <Flame size={12} color="#FF9500" fill="#FF9500" />
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.textPrimary }}>{streak}</Text>
                 </View>
-              </>
+              )}
+            </View>
+
+            {/* Name + Email */}
+            <View style={{ alignItems: "center", paddingHorizontal: 24, paddingTop: 12, paddingBottom: 20 }}>
+              {isLoading ? (
+                <View style={{ alignItems: "center", gap: 8 }}>
+                  <Skeleton width={160} height={22} />
+                  <Skeleton width={120} height={14} />
+                </View>
+              ) : (
+                <>
+                  <Text
+                    numberOfLines={1}
+                    style={{ fontSize: 22, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.5 }}
+                  >
+                    {profile.name || "Profile"}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary, marginTop: 4 }}
+                  >
+                    {profile.email || (isAuthenticated ? "Email unavailable" : "Not signed in")}
+                  </Text>
+                </>
+              )}
+            </View>
+
+            {/* Bento stats row */}
+            {!isLoading && (
+              <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingBottom: 18 }}>
+                <Animated.View
+                  entering={FadeInDown.delay(0).springify().damping(18)}
+                  style={{ flex: 1, backgroundColor: PASTEL_GREEN, borderRadius: 20, padding: 16, alignItems: "center", gap: 4 }}
+                >
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: PASTEL_GREEN_TEXT, letterSpacing: -0.5 }}>
+                    {formatAccessTierLabel(programTier)}
+                  </Text>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_GREEN_TEXT, opacity: 0.6 }}>
+                    Access
+                  </Text>
+                </Animated.View>
+                <Animated.View
+                  entering={FadeInDown.delay(60).springify().damping(18)}
+                  style={{ flex: 1, backgroundColor: PASTEL_LIME, borderRadius: 20, padding: 16, alignItems: "center", gap: 4 }}
+                >
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: PASTEL_LIME_TEXT, letterSpacing: -0.5 }}>
+                    {isAuthenticated && ageExperienceLoading ? "…" : experienceLabel}
+                  </Text>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_LIME_TEXT, opacity: 0.6 }}>
+                    Experience
+                  </Text>
+                </Animated.View>
+              </View>
             )}
           </View>
         </View>

@@ -6,6 +6,7 @@ interface UserProfile {
   name: string | null;
   email: string | null;
   avatar: string | null;
+  coverImage: string | null;
 }
 
 export type ManagedAthlete = {
@@ -95,6 +96,7 @@ const initialState: UserState = {
     name: null,
     email: null,
     avatar: null,
+    coverImage: null,
   },
   apiUserRole: null,
   isLoading: false,

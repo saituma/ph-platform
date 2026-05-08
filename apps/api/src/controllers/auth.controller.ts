@@ -195,6 +195,7 @@ const updateMeSchema = z
   .object({
     name: z.string().min(1).optional(),
     profilePicture: z.string().url().nullable().optional(),
+    coverImage: z.string().url().nullable().optional(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "No fields to update",
@@ -322,6 +323,7 @@ export async function getSessionCompat(req: Request, res: Response) {
         email: user.email,
         name: user.name,
         image: normalizeStoredMediaUrl(user.profilePicture ?? null),
+        coverImage: normalizeStoredMediaUrl(user.coverImage ?? null),
         role: user.role,
       },
     });
@@ -517,6 +519,7 @@ export async function updateMe(req: Request, res: Response) {
       name: updated.name,
       sub: updated.cognitoSub,
       profilePicture: normalizeStoredMediaUrl(updated.profilePicture ?? null),
+      coverImage: normalizeStoredMediaUrl(updated.coverImage ?? null),
     },
   });
 }

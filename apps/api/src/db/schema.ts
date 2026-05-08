@@ -123,6 +123,7 @@ export const userTable = pgTable("users", {
   // Unique constraint enforced via partial index in migration 0136 (active users only).
   role: Role().default("guardian").notNull(),
   profilePicture: text(),
+  coverImage: text(),
   passwordHash: varchar({ length: 255 }),
   passwordSalt: varchar({ length: 255 }),
   emailVerified: boolean().notNull().default(false),

@@ -123,12 +123,13 @@ export async function updateUserRole(userId: number, role: UserRole) {
   return result[0] ?? null;
 }
 
-export async function updateUserProfile(userId: number, input: { name?: string; profilePicture?: string | null }) {
+export async function updateUserProfile(userId: number, input: { name?: string; profilePicture?: string | null; coverImage?: string | null }) {
   const result = await db
     .update(userTable)
     .set({
       ...(input.name !== undefined ? { name: input.name } : {}),
       ...(input.profilePicture !== undefined ? { profilePicture: input.profilePicture } : {}),
+      ...(input.coverImage !== undefined ? { coverImage: input.coverImage } : {}),
       updatedAt: new Date(),
     })
     .where(and(eq(userTable.id, userId), eq(userTable.isDeleted, false)))
