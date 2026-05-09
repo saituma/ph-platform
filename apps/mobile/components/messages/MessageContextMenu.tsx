@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { Reply, Forward, Copy, Pin, Plus, Smile, Trash, Flag } from "lucide-react-native";
+import { Reply, Forward, Copy, Pin, Plus, Smile, Trash, Flag, Ban } from "lucide-react-native";
 import React from "react";
 import { Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
@@ -18,6 +18,7 @@ const ACTION_ICONS: Record<string, React.FC<any>> = {
 	pin: Pin,
 	delete: Trash,
 	report: Flag,
+	block: Ban,
 };
 
 type Action = {
@@ -37,6 +38,7 @@ type Props = {
 	onPin?: (message: ChatMessage) => void;
 	onDelete?: (message: ChatMessage) => void;
 	onReport?: (message: ChatMessage) => void;
+	onBlock?: (message: ChatMessage) => void;
 	onOpenEmojiPicker?: (message: ChatMessage) => void;
 };
 
@@ -51,6 +53,7 @@ export function MessageContextMenu({
 	onPin,
 	onDelete,
 	onReport,
+	onBlock,
 	onOpenEmojiPicker,
 }: Props) {
 	const p = useAdminPastel();
@@ -67,6 +70,9 @@ export function MessageContextMenu({
 		...(!isOwn && onReport
 			? [{ key: "report", label: "Report", destructive: true } as Action]
 			: []),
+		...(!isOwn && onBlock
+			? [{ key: "block", label: "Block user", destructive: true } as Action]
+			: []),
 		...(onDelete
 			? [{ key: "delete", label: "Delete", destructive: true } as Action]
 			: []),
@@ -80,6 +86,7 @@ export function MessageContextMenu({
 			case "forward": onForward?.(message); break;
 			case "pin": onPin?.(message); break;
 			case "report": onReport?.(message); break;
+			case "block": onBlock?.(message); break;
 			case "delete": onDelete?.(message); break;
 		}
 		onClose();

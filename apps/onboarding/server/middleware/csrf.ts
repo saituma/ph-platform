@@ -36,12 +36,15 @@ export default function csrf(event: {
 
   const cookies = parseCookies(req.headers.cookie);
 
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const maxAge = 30 * 24 * 60 * 60;
+
   // Ensure the CSRF cookie exists — set it if missing
   if (!cookies[CSRF_COOKIE_NAME]) {
     const token = randomBytes(32).toString("hex");
     res.appendHeader(
       "Set-Cookie",
-      `${CSRF_COOKIE_NAME}=${token}; Path=/; SameSite=Lax; Secure`,
+      `${CSRF_COOKIE_NAME}=${token}; Path=/; SameSite=Lax; Max-Age=${maxAge}${secure}`,
     );
     cookies[CSRF_COOKIE_NAME] = token;
   }
@@ -58,5 +61,6 @@ export default function csrf(event: {
     res.statusCode = 403;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ error: "CSRF token mismatch" }));
+    return;
   }
 }

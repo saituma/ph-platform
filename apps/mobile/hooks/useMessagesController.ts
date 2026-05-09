@@ -323,7 +323,7 @@ export function useMessagesController(options?: {
         const clientId = `client-${Date.now()}`;
         const clientSentAt = Date.now();
         const clientTraceId = `${clientId}-group`;
-        console.info("[RealtimeLatency] mobile.group.before_send", {
+        if (__DEV__) console.info("[RealtimeLatency] mobile.group.before_send", {
           clientTraceId,
           clientId,
           groupId,
@@ -388,7 +388,7 @@ export function useMessagesController(options?: {
             } as any,
             { token, headers: actingHeaders },
           );
-          console.info("[RealtimeLatency] mobile.group.http_response", {
+          if (__DEV__) console.info("[RealtimeLatency] mobile.group.http_response", {
             clientTraceId,
             clientId,
             messageId: created?.message?.id ?? null,
@@ -465,7 +465,7 @@ export function useMessagesController(options?: {
       const clientId = `client-${Date.now()}`;
       const clientSentAt = Date.now();
       const clientTraceId = `${clientId}-direct`;
-      console.info("[RealtimeLatency] mobile.direct.before_send", {
+      if (__DEV__) console.info("[RealtimeLatency] mobile.direct.before_send", {
         clientTraceId,
         clientId,
         toUserId,
@@ -527,7 +527,7 @@ export function useMessagesController(options?: {
           },
           { token, headers: actingHeaders },
         );
-        console.info("[RealtimeLatency] mobile.direct.http_response", {
+        if (__DEV__) console.info("[RealtimeLatency] mobile.direct.http_response", {
           clientTraceId,
           clientId,
           messageId: created?.message?.id ?? null,

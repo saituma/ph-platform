@@ -71,6 +71,11 @@ export const messagesApi = {
     return apiRequest("/messages/forward", { ...options, method: "POST", body });
   },
 
+  /** Block a user — they will no longer appear in inbox or be able to message. */
+  blockUser(userId: number, options: RequestBase) {
+    return apiRequest(`/users/${userId}/block`, { ...options, method: "POST" });
+  },
+
   /** Report a DM message for moderation. */
   reportMessage(
     messageId: number,

@@ -26,16 +26,19 @@ export async function setAuthToken(token: string): Promise<void> {
 
 	// Mirror auth token into an httpOnly cookie session for reload/restart persistence.
 	try {
-		const maxAgeSeconds = getSessionMaxAgeSeconds(token);
-		const response = await postAuthToken(token, maxAgeSeconds);
-		if (response.ok || response.status !== 403) return;
-
-		// First protected POST can race a missing CSRF cookie. Seed it, then retry once.
+		// Seed the CSRF cookie first so the POST doesn't race a missing token.
 		await fetch("/api/app/token-status", {
 			method: "GET",
 			credentials: "include",
 			cache: "no-store",
 		});
+
+		const maxAgeSeconds = getSessionMaxAgeSeconds(token);
+		const response = await postAuthToken(token, maxAgeSeconds);
+		if (response.ok) return;
+
+		// Retry once — the GET above should have seeded the CSRF cookie, but
+		// some browsers delay cookie visibility for the current document.
 		await postAuthToken(token, maxAgeSeconds);
 	} catch {
 		// Best-effort only; local token still allows authenticated API calls.

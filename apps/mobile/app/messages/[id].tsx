@@ -168,6 +168,17 @@ export default function ThreadScreen() {
     setReportModalOpen(true);
   }, []);
 
+  const handleBlockUser = React.useCallback(async (message: ChatMessage) => {
+    if (!token || !message.senderId) return;
+    try {
+      await messagesApi.blockUser(Number(message.senderId), { token });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      toast.success("User blocked", "You won't see messages from this person.");
+    } catch {
+      toast.error("Could not block user", "Please try again.");
+    }
+  }, [token, toast]);
+
   const pinnedMessage = React.useMemo(() => {
     for (const msg of localMessages) {
       const override = pinnedOverrides[msg.id];
@@ -387,6 +398,7 @@ export default function ThreadScreen() {
         onPin={handlePinMessage}
         onForward={(msg) => setForwardTarget(msg)}
         onReport={handleReportMessage}
+        onBlock={handleBlockUser}
         onDelete={handleDeleteMessage}
         onOpenEmojiPicker={(msg) => setReactionTarget(msg)}
       />

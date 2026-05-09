@@ -32,11 +32,20 @@ export async function fetchPortalUser(_token?: string): Promise<PortalUser> {
 	const localToken = getClientAuthToken();
 	const baseUrl = localToken ? config.api.baseUrl.replace(/\/+$/, "") : "";
 	const path = localToken ? "/api/auth/me" : "/api/app/auth/me";
-	const res = await fetchWithRetry(`${baseUrl}${path}`, {
+	let res = await fetchWithRetry(`${baseUrl}${path}`, {
 		credentials: "include",
 		cache: "no-store",
 		headers: getAuthHeaders(),
 	});
+
+	// If the direct API call failed with 401 but we have a cookie-based session,
+	// fall back to the local proxy which reads the httpOnly cookie.
+	if (res.status === 401 && localToken) {
+		res = await fetchWithRetry("/api/app/auth/me", {
+			credentials: "include",
+			cache: "no-store",
+		});
+	}
 
 	if (res.status === 401) {
 		throw new Error(PORTAL_UNAUTHORIZED_ERROR);

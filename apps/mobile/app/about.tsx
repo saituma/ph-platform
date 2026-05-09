@@ -8,7 +8,9 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Constants from "expo-constants";
 import React, { useMemo } from "react";
 import { Linking, Pressable, View } from "react-native";
-import { Info, Globe, Code, Heart, ChevronLeft } from "lucide-react-native";
+import { Info, Globe, Code, Heart, ChevronLeft, Mail } from "lucide-react-native";
+
+const SUPPORT_EMAIL = "support@phperformance.uk";
 
 const INSTAGRAM_URL = "https://www.instagram.com/ph.perform/";
 
@@ -214,6 +216,51 @@ export default function AboutScreen() {
               </Text>
               <Text style={{ fontSize: 13, fontFamily: "Outfit", marginTop: 2, color: labelColor }}>
                 @ph.perform — updates, drills, and community
+              </Text>
+            </View>
+            <ChevronLeft
+              size={17}
+              color={p.textMuted}
+              style={{ transform: [{ rotate: "180deg" }] }}
+            />
+          </View>
+        </Pressable>
+
+        <Pressable
+          onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+          accessibilityRole="link"
+          accessibilityLabel="Email PH Performance support"
+          style={{ marginBottom: 16 }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 16,
+              borderRadius: radius,
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              backgroundColor: cardBg,
+            }}
+          >
+            <View
+              style={{
+                height: 48,
+                width: 48,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: accentSoft,
+              }}
+            >
+              <Mail size={24} color={accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontFamily: "ClashDisplay-Bold", color: textPrimary }}>
+                Support
+              </Text>
+              <Text style={{ fontSize: 13, fontFamily: "Outfit", marginTop: 2, color: labelColor }}>
+                {SUPPORT_EMAIL}
               </Text>
             </View>
             <ChevronLeft
