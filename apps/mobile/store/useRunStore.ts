@@ -35,7 +35,8 @@ interface RunStore {
   nextProgressNotifyAtMeters: number | null;
   warmupUntil: number | null;
   currentRunId: string | null;
-  shareLiveLocationEnabled: boolean;
+  shareCurrentLocation: boolean;
+  shareRouteTrail: boolean;
   /** Auto-pause: paused automatically when user stops moving. */
   isAutoPaused: boolean;
   /** Timestamp when speed last dropped below auto-pause threshold. */
@@ -65,7 +66,8 @@ interface RunStore {
   markGoalReached: () => void;
   markDestinationReached: () => void;
   getIsWarmedUp: () => boolean;
-  setShareLiveLocationEnabled: (enabled: boolean) => void;
+  setShareCurrentLocation: (enabled: boolean) => void;
+  setShareRouteTrail: (enabled: boolean) => void;
   setAutoPaused: (paused: boolean) => void;
   setAutoPauseStillSince: (ts: number | null) => void;
   setAudioCuesEnabled: (enabled: boolean) => void;
@@ -93,7 +95,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
   nextProgressNotifyAtMeters: null,
   warmupUntil: null,
   currentRunId: null,
-  shareLiveLocationEnabled: false,
+  shareCurrentLocation: false,
+  shareRouteTrail: false,
   isAutoPaused: false,
   autoPauseStillSince: null,
   lastManualResumeAt: null,
@@ -170,7 +173,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
       nextProgressNotifyAtMeters: null,
       warmupUntil: null,
       currentRunId: null,
-      shareLiveLocationEnabled: false,
+      shareCurrentLocation: false,
+      shareRouteTrail: false,
       isAutoPaused: false,
       autoPauseStillSince: null,
       lastManualResumeAt: null,
@@ -275,7 +279,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
     return Date.now() >= warmupUntil;
   },
 
-  setShareLiveLocationEnabled: (enabled) => set({ shareLiveLocationEnabled: enabled }),
+  setShareCurrentLocation: (enabled) => set({ shareCurrentLocation: enabled }),
+  setShareRouteTrail: (enabled) => set({ shareRouteTrail: enabled }),
 
   setAutoPaused: (paused) => set({ isAutoPaused: paused }),
   setAutoPauseStillSince: (ts) => set({ autoPauseStillSince: ts }),

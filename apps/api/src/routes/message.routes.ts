@@ -8,6 +8,7 @@ import {
   listMessages,
   markRead,
   pinMessage,
+  reportMessage,
   searchMessages,
   sendMessageToCoach,
   toggleReaction,
@@ -23,6 +24,7 @@ router.post("/messages/read", requireAuth, markRead);
 router.put("/messages/:messageId/reactions", requireAuth, toggleReaction);
 router.put("/messages/:messageId/pin", requireAuth, pinMessage);
 router.post("/messages/forward", requireAuth, forwardMessage);
+router.post("/messages/:messageId/report", requireAuth, reportMessage);
 router.delete("/messages/:messageId", requireAuth, deleteMessage);
 
 export default router;

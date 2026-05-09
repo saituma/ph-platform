@@ -70,7 +70,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     const addCoordinate = useRunStore.getState().addCoordinate;
     const tick = useRunStore.getState().tick;
     const consumeProgressMilestones = useRunStore.getState().consumeProgressMilestones;
-    const { shareLiveLocationEnabled } = useRunStore.getState();
+    const { shareCurrentLocation, shareRouteTrail } = useRunStore.getState();
 
     let changed = false;
     let latestCoord: { latitude: number; longitude: number; accuracy: number | null } | null = null;
@@ -105,16 +105,18 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
       // Send live location if enabled and enough time has passed
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       const coordSnapshot = latestCoord as { latitude: number; longitude: number; accuracy: number | null } | null;
-      if (shareLiveLocationEnabled && coordSnapshot) {
+      if (shareCurrentLocation && coordSnapshot) {
         const now = Date.now();
         if (now - lastLocationSentAt > LOCATION_SEND_INTERVAL_MS) {
           const token = store.getState().user.token;
           if (token) {
             lastLocationSentAt = now;
             const { coordinates } = useRunStore.getState();
-            const thinned = thinRoutePointsForDisplay(coordinates, 30)
-              .slice(-50)
-              .map((c) => ({ lat: c.latitude, lng: c.longitude }));
+            const thinned = shareRouteTrail
+              ? thinRoutePointsForDisplay(coordinates, 30)
+                  .slice(-50)
+                  .map((c) => ({ lat: c.latitude, lng: c.longitude }))
+              : [];
             void sendLiveLocation(token, {
               latitude: coordSnapshot.latitude,
               longitude: coordSnapshot.longitude,

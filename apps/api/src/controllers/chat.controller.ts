@@ -14,7 +14,7 @@ import {
 } from "../services/chat.service";
 import { toggleGroupMessageReaction } from "../services/reaction.service";
 import { db } from "../db";
-import { chatGroupMessageTable } from "../db/schema";
+import { auditLogsTable, chatGroupMessageTable } from "../db/schema";
 import { and, desc, eq, ilike } from "drizzle-orm";
 import { createRealtimeTrace, logRealtimeLatency } from "../lib/realtime-latency";
 
@@ -188,6 +188,53 @@ export async function markGroupChatRead(req: Request, res: Response) {
   if (!updated) {
     return res.status(404).json({ error: "Membership not found" });
   }
+  return res.status(200).json({ ok: true });
+}
+
+// ── Report Group Message ───────────────────────────────────────────────
+
+const reportGroupMessageSchema = z.object({
+  reason: z.string().trim().min(1).max(200),
+  details: z.string().trim().max(500).optional(),
+});
+
+export async function reportGroupMessage(req: Request, res: Response) {
+  const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
+  const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
+  const userId = req.user!.id;
+
+  const allowed = await isGroupMember(groupId, userId);
+  if (!allowed) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const parsed = reportGroupMessageSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid payload" });
+  }
+
+  const [msg] = await db
+    .select({ id: chatGroupMessageTable.id })
+    .from(chatGroupMessageTable)
+    .where(
+      and(
+        eq(chatGroupMessageTable.id, messageId),
+        eq(chatGroupMessageTable.groupId, groupId),
+      ),
+    )
+    .limit(1);
+
+  if (!msg) {
+    return res.status(404).json({ error: "Message not found" });
+  }
+
+  await db.insert(auditLogsTable).values({
+    performedBy: userId,
+    action: `group_message_reported:${parsed.data.reason}`,
+    targetTable: "chat_group_messages",
+    targetId: messageId,
+  });
+
   return res.status(200).json({ ok: true });
 }
 

@@ -29,6 +29,7 @@ export function ActiveRunSheet({
   mainTabBarOverlap,
   onPrimaryPress: _onPrimaryPress,
   onShareLiveLocation,
+  onShareRouteTrail,
   onFinishRun,
   onIndexChange,
   autoPauseEnabled,
@@ -44,6 +45,7 @@ export function ActiveRunSheet({
   mainTabBarOverlap: number;
   onPrimaryPress: () => void;
   onShareLiveLocation: () => void;
+  onShareRouteTrail: () => void;
   onFinishRun: () => void;
   onIndexChange?: (index: ActiveRunSheetIndex) => void;
   autoPauseEnabled: boolean;
@@ -53,7 +55,8 @@ export function ActiveRunSheet({
 }) {
   const snapPoints = useMemo(() => ["50%", "80%"] as const, []);
   const [trackLaps, setTrackLaps] = useState(false);
-  const shareLiveLocationEnabled = useRunStore((s) => s.shareLiveLocationEnabled);
+  const shareCurrentLocation = useRunStore((s) => s.shareCurrentLocation);
+  const shareRouteTrail = useRunStore((s) => s.shareRouteTrail);
   const animatedSheetIndex = useSharedValue<number>(index >= 0 ? index : -1);
 
   // Design tokens — robis principles: tinted not pure, low saturation
@@ -181,13 +184,34 @@ export function ActiveRunSheet({
               }}
             >
               <ToggleRow
-                icon={shareLiveLocationEnabled ? "share-social" : "share-social-outline"}
+                icon={shareCurrentLocation ? "share-social" : "share-social-outline"}
                 title="Share live location"
                 subtitle="Let teammates see you on the map"
-                value={shareLiveLocationEnabled}
+                value={shareCurrentLocation}
                 onToggle={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onShareLiveLocation();
+                }}
+                isDark={isDark}
+                accent={colors.accent}
+              />
+
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: cardBorder,
+                  marginHorizontal: 12,
+                }}
+              />
+
+              <ToggleRow
+                icon={shareRouteTrail ? "trail-sign" : "trail-sign-outline"}
+                title="Share route trail"
+                subtitle="Show your GPS path to teammates"
+                value={shareRouteTrail}
+                onToggle={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onShareRouteTrail();
                 }}
                 isDark={isDark}
                 accent={colors.accent}

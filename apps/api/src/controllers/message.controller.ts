@@ -15,7 +15,7 @@ import { listGroupsForUser } from "../services/chat.service";
 import { listMessageThreadsAdmin } from "../services/admin/message.service";
 import { db } from "../db";
 import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { messageTable, userTable } from "../db/schema";
+import { auditLogsTable, messageTable, userTable } from "../db/schema";
 import { toggleDirectMessageReaction } from "../services/reaction.service";
 import { publicDisplayName } from "../lib/display-name";
 import { isTrainingStaff } from "../lib/user-roles";
@@ -614,6 +614,46 @@ export async function pinMessage(req: Request, res: Response) {
     .where(eq(messageTable.id, messageId));
 
   return res.status(200).json({ pinned: nowPinned });
+}
+
+// ── Report DM Message ──────────────────────────────────────────────────
+
+const reportMessageSchema = z.object({
+  reason: z.string().trim().min(1).max(200),
+  details: z.string().trim().max(500).optional(),
+});
+
+export async function reportMessage(req: Request, res: Response) {
+  const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
+  const userId = req.user!.id;
+  const parsed = reportMessageSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid payload" });
+  }
+
+  const [msg] = await db
+    .select({ id: messageTable.id, senderId: messageTable.senderId, receiverId: messageTable.receiverId })
+    .from(messageTable)
+    .where(
+      and(
+        eq(messageTable.id, messageId),
+        or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId)),
+      ),
+    )
+    .limit(1);
+
+  if (!msg) {
+    return res.status(404).json({ error: "Message not found" });
+  }
+
+  await db.insert(auditLogsTable).values({
+    performedBy: userId,
+    action: `dm_message_reported:${parsed.data.reason}`,
+    targetTable: "messages",
+    targetId: messageId,
+  });
+
+  return res.status(200).json({ ok: true });
 }
 
 // ── Message Forward ─────────────────────────────────────────────────────

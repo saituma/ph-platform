@@ -578,8 +578,13 @@ export default function ActiveRunScreen() {
           mainTabBarOverlap={bottomSafeInset}
           onPrimaryPress={handlePrimaryPress}
           onShareLiveLocation={() => {
-            const current = useRunStore.getState().shareLiveLocationEnabled;
-            useRunStore.getState().setShareLiveLocationEnabled(!current);
+            const current = useRunStore.getState().shareCurrentLocation;
+            useRunStore.getState().setShareCurrentLocation(!current);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }}
+          onShareRouteTrail={() => {
+            const current = useRunStore.getState().shareRouteTrail;
+            useRunStore.getState().setShareRouteTrail(!current);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           }}
           onFinishRun={handleFinishRun}

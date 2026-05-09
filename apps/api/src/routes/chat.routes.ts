@@ -8,6 +8,7 @@ import {
   listGroupChatMessages,
   listGroups,
   listMembers,
+  reportGroupMessage,
   searchGroupMessages,
   sendGroupChatMessage,
   toggleGroupReaction,
@@ -26,6 +27,7 @@ router.get("/chat/groups/:groupId/messages", requireAuth, listGroupChatMessages)
 router.post("/chat/groups/:groupId/messages", requireAuth, sendGroupChatMessage);
 router.post("/chat/groups/:groupId/read", requireAuth, markGroupChatRead);
 router.put("/chat/groups/:groupId/messages/:messageId/reactions", requireAuth, toggleGroupReaction);
+router.post("/chat/groups/:groupId/messages/:messageId/report", requireAuth, reportGroupMessage);
 router.delete("/chat/groups/:groupId/messages/:messageId", requireAuth, deleteGroupChatMessage);
 
 export default router;

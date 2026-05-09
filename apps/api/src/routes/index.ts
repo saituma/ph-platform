@@ -38,6 +38,7 @@ import sleepRoutes from "./sleep.routes";
 import wellbeingRoutes from "./wellbeing.routes";
 import betaTesterRoutes from "./beta-tester.routes";
 import foodDiaryRoutes from "./food-diary.routes";
+import usersRoutes from "./users.routes";
 
 const router = Router();
 
@@ -79,5 +80,6 @@ router.use(sleepRoutes);
 router.use(wellbeingRoutes);
 router.use(betaTesterRoutes);
 router.use(foodDiaryRoutes);
+router.use(usersRoutes);
 
 export default router;
