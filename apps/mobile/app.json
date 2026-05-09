@@ -94,6 +94,9 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "compileSdk": 35,
+      "targetSdkVersion": 35,
+      "minSdkVersion": 24,
       "package": "com.phperformance.uk",
       "intentFilters": [
         {
@@ -145,7 +148,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "17.0"
           }
         }
       ],

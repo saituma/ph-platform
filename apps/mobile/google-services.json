@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "398980678558",
-    "project_id": "ph-platform",
-    "storage_bucket": "ph-platform.firebasestorage.app"
+    "project_number": "1098215005560",
+    "project_id": "ph-perfomance",
+    "storage_bucket": "ph-perfomance.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:398980678558:android:b69e0d0b2a3bd39985cc8f",
+        "mobilesdk_app_id": "1:1098215005560:android:ff835b6bca470d89ccbc8d",
         "android_client_info": {
-          "package_name": "com.clientreachai.phperformance"
+          "package_name": "com.phperformance.uk"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDMyVqRYUgmM-9kL_lA_Fk1FcUbieXY7Nw"
+          "current_key": "AIzaSyBO9ayfoQEmSCR8QG5WpCLeLWVyiF0Zm1s"
         }
       ],
       "services": {

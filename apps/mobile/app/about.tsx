@@ -85,7 +85,7 @@ export default function AboutScreen() {
             </View>
           </View>
           <Text style={{ fontSize: 28, fontFamily: "TelmaBold", textAlign: "center", color: textPrimary }}>
-            PHP Coaching
+            PH Performance
           </Text>
           <View
             style={{
