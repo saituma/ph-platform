@@ -30,6 +30,7 @@ type InboxScreenProps = {
   ) => void;
   variant?: "default" | "team";
   showEmptySections?: boolean;
+  headerContent?: React.ReactNode;
 };
 
 type InboxFilter = "all" | "unread";
@@ -55,7 +56,7 @@ const FilterPill = function FilterPill({
       style={({ pressed }: { pressed: boolean }) => [
         styles.filterPill,
         {
-          backgroundColor: active ? p.accent : p.cardSage,
+          backgroundColor: active ? p.accent : p.inputBg,
           transform: [{ scale: pressed ? 0.95 : 1 }],
         },
       ]}
@@ -105,7 +106,7 @@ const InboxEmptyState = function InboxEmptyState() {
       <View
         style={[
           styles.emptyIconContainer,
-          { backgroundColor: p.cardMint },
+          { backgroundColor: p.accentSoft },
         ]}
       >
         <MessageSquare size={48} color={p.accent} strokeWidth={1.5} />
@@ -143,6 +144,7 @@ function InboxScreenBase({
   openingThreadId,
   onRefresh,
   onOpenThread,
+  headerContent,
 }: InboxScreenProps) {
   const p = useAdminPastel();
 
@@ -196,6 +198,59 @@ function InboxScreenBase({
     [typingStatus, openingThreadId, onOpenThread],
   );
 
+  const listHeader = React.useMemo(
+    () => (
+      <View>
+        {headerContent}
+        <View style={styles.headerBlock}>
+          <View style={styles.searchWrap}>
+            <View
+              style={[
+                styles.searchInner,
+                { backgroundColor: p.inputBg },
+              ]}
+            >
+              <Search size={18} color={p.textMuted} strokeWidth={2} />
+              <TextInput
+                placeholder="Search conversations..."
+                placeholderTextColor={p.textMuted}
+                value={searchText}
+                onChangeText={setSearchText}
+                style={[
+                  styles.searchInput,
+                  { fontFamily: "Outfit-Regular", color: p.textPrimary },
+                ]}
+                returnKeyType="search"
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+              />
+              {searchText.length > 0 && Platform.OS === "android" && (
+                <Pressable onPress={clearSearch} style={styles.clearBtn}>
+                  <XCircle size={18} color={p.textMuted} strokeWidth={2} />
+                </Pressable>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.filterTabs}>
+            <FilterPill
+              label="All Messages"
+              active={activeFilter === "all"}
+              onPress={() => setActiveFilter("all")}
+            />
+            <FilterPill
+              label="Unread"
+              active={activeFilter === "unread"}
+              onPress={() => setActiveFilter("unread")}
+              count={unreadThreadsCount}
+            />
+          </View>
+        </View>
+      </View>
+    ),
+    [headerContent, p, searchText, setSearchText, clearSearch, activeFilter, unreadThreadsCount],
+  );
+
   if (isLoading) {
     return (
       <View style={[styles.screen, { backgroundColor: p.pageBg }]}>
@@ -206,56 +261,12 @@ function InboxScreenBase({
 
   return (
     <View style={[styles.screen, { backgroundColor: p.pageBg }]}>
-      <Animated.View entering={FadeIn.duration(200)} style={styles.headerBlock}>
-        <View style={styles.searchWrap}>
-          <View
-            style={[
-              styles.searchInner,
-              { backgroundColor: p.inputBg },
-            ]}
-          >
-            <Search size={18} color={p.textMuted} strokeWidth={2} />
-            <TextInput
-              placeholder="Search conversations..."
-              placeholderTextColor={p.textMuted}
-              value={searchText}
-              onChangeText={setSearchText}
-              style={[
-                styles.searchInput,
-                { fontFamily: "Outfit-Regular", color: p.textPrimary },
-              ]}
-              returnKeyType="search"
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
-            {searchText.length > 0 && Platform.OS === "android" && (
-               <Pressable onPress={clearSearch} style={styles.clearBtn}>
-                 <XCircle size={18} color={p.textMuted} strokeWidth={2} />
-               </Pressable>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.filterTabs}>
-          <FilterPill
-            label="All Messages"
-            active={activeFilter === "all"}
-            onPress={() => setActiveFilter("all")}
-          />
-          <FilterPill
-            label="Unread"
-            active={activeFilter === "unread"}
-            onPress={() => setActiveFilter("unread")}
-            count={unreadThreadsCount}
-          />
-        </View>
-      </Animated.View>
-
       {listData.length > 0 ? (
         <FlashList
           data={listData}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={listHeader}
           style={{ width: "100%" }}
           contentContainerStyle={{
             width: "100%",
@@ -273,7 +284,10 @@ function InboxScreenBase({
           ItemSeparatorComponent={undefined}
         />
       ) : (
-        <InboxEmptyState />
+        <>
+          {listHeader}
+          <InboxEmptyState />
+        </>
       )}
     </View>
   );
@@ -287,7 +301,7 @@ const styles = StyleSheet.create({
   },
   headerBlock: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 10,
   },
   searchWrap: {

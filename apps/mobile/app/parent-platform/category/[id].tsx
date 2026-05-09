@@ -111,7 +111,7 @@ export default function ParentCategoryScreen() {
                 width: 56,
                 height: 56,
                 borderRadius: 18,
-                backgroundColor: p.cardMint,
+                backgroundColor: p.accentSoft,
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -191,7 +191,7 @@ function CourseCard({
             style={{
               width: "100%",
               aspectRatio: 2.2,
-              backgroundColor: cardBg,
+              backgroundColor: p.accentSoft,
               alignItems: "center",
               justifyContent: "center",
             }}

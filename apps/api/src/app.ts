@@ -72,6 +72,9 @@ export function createApp() {
   // Vite dev (onboarding / web)
   addOrigin("http://localhost:5173");
   addOrigin("http://127.0.0.1:5173");
+  // Parent portal (apps/parent)
+  addOrigin("http://localhost:5174");
+  addOrigin("http://127.0.0.1:5174");
 
   (env.corsOrigins ?? "")
     .split(",")

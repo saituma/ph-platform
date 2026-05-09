@@ -222,7 +222,7 @@ export default function ParentCourseDetail() {
                 {item.coverImage ? (
                   <AutoImage uri={item.coverImage} />
                 ) : (
-                  <View style={{ width: "100%", aspectRatio: 2.2, backgroundColor: p.cardMint, alignItems: "center", justifyContent: "center" }}>
+                  <View style={{ width: "100%", aspectRatio: 2.2, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
                     <BookOpen size={40} color={p.accent} strokeWidth={1.5} />
                   </View>
                 )}

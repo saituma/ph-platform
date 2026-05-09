@@ -396,6 +396,69 @@ export function AdminUserDetailModal({
             )}
           </View>
 
+          {/* Streak Card */}
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 16,
+              color: p.textPrimary,
+              marginBottom: 8,
+            }}
+          >
+            Activity Streak
+          </Text>
+          <View
+            style={{
+              backgroundColor: p.accentSoft,
+              borderRadius: 28,
+              padding: 20,
+              marginBottom: 24,
+            }}
+          >
+            {user?.streakCurrent != null ? (
+              <>
+                <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
+                  <View style={{ flex: 1, backgroundColor: p.cardWhite, borderRadius: 18, padding: 14, alignItems: "center" }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: p.accent }}>
+                      {user.streakCurrent ?? 0}
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, marginTop: 2 }}>
+                      Current Streak
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: p.cardWhite, borderRadius: 18, padding: 14, alignItems: "center" }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: p.accent }}>
+                      {user.streakLongest ?? 0}
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, marginTop: 2 }}>
+                      Best Streak
+                    </Text>
+                  </View>
+                </View>
+                <InfoRow label="Total Days" value={`${user.streakTotalDays ?? 0}`} p={p} />
+                <InfoRow label="Total Sessions" value={`${user.streakTotalSessions ?? 0}`} p={p} />
+                <InfoRow label="Total Minutes" value={`${user.streakTotalMinutes ?? 0} min`} p={p} />
+                <InfoRow
+                  label="Last Activity"
+                  value={user.streakLastActivity ?? "—"}
+                  p={p}
+                />
+                {user.streakUpdatedAt ? (
+                  <InfoRow
+                    label="Synced"
+                    value={new Date(user.streakUpdatedAt).toLocaleDateString()}
+                    p={p}
+                    small
+                  />
+                ) : null}
+              </>
+            ) : (
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, fontStyle: "italic" }}>
+                No streak data yet — user hasn't synced activity.
+              </Text>
+            )}
+          </View>
+
           {/* Password Settings */}
           <Text
             style={{

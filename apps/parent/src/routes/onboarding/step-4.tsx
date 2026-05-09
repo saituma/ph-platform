@@ -1,8 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
-import { toast } from "sonner";
-import { api } from "#/lib/api-client";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/onboarding/step-4")({
@@ -26,49 +24,12 @@ function Step4() {
 	const navigate = useNavigate();
 	const [frequency, setFrequency] = useState<string | null>(null);
 	const [method, setMethod] = useState<string | null>(null);
-	const [isLoading, setIsLoading] = useState(false);
-
 	const canContinue = frequency && method;
 
-	const handleFinish = async () => {
-		if (!canContinue || isLoading) return;
-		setIsLoading(true);
-
-		try {
-			const childData = JSON.parse(localStorage.getItem("ph_parent_ob_child") ?? "{}");
-			const expectations = JSON.parse(localStorage.getItem("ph_parent_ob_expectations") ?? "[]");
-
-			if (childData.childName) {
-				await api.post("/api/portal/guardian/children", {
-					name: childData.childName,
-					age: childData.age ? Number(childData.age) : undefined,
-					athleteType: childData.athleteType ?? "youth",
-					sport: childData.sport ?? undefined,
-				}).catch(() => null);
-			}
-
-			await api.patch("/api/portal/me", {
-				onboardingComplete: true,
-				preferences: {
-					updateFrequency: frequency,
-					contactMethod: method,
-					expectations,
-				},
-			}).catch(() => null);
-
-			localStorage.setItem("ph_parent_onboarding_done", "1");
-			localStorage.removeItem("ph_parent_ob_child");
-			localStorage.removeItem("ph_parent_ob_expectations");
-			localStorage.removeItem("ph_parent_ob_password_done");
-
-			navigate({ to: "/onboarding/success" });
-		} catch (err) {
-			toast.error("Something went wrong", {
-				description: err instanceof Error ? err.message : "Please try again.",
-			});
-		} finally {
-			setIsLoading(false);
-		}
+	const handleContinue = () => {
+		if (!canContinue) return;
+		localStorage.setItem("ph_parent_ob_comms", JSON.stringify({ frequency, method }));
+		navigate({ to: "/onboarding/step-5" });
 	};
 
 	return (
@@ -157,18 +118,16 @@ function Step4() {
 				</button>
 				<button
 					type="button"
-					onClick={handleFinish}
-					disabled={!canContinue || isLoading}
+					onClick={handleContinue}
+					disabled={!canContinue}
 					className={cn(
 						"flex-1 flex items-center justify-center gap-2 py-3 px-5 font-bold text-xs uppercase tracking-widest transition-all",
-						canContinue && !isLoading
+						canContinue
 							? "bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98]"
 							: "bg-muted text-muted-foreground cursor-not-allowed",
 					)}
 				>
-					{isLoading
-						? <><Loader2 size={13} className="animate-spin" /> Finishing…</>
-						: <><ArrowRight size={13} /> Finish setup</>}
+					<ArrowRight size={13} /> Continue
 				</button>
 			</div>
 		</div>

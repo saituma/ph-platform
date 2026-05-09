@@ -25,6 +25,7 @@ import {
   videoUploadTable,
   foodDiaryTable,
   physioRefferalsTable,
+  userStreakTable,
 } from "../../db/schema";
 
 import { sendAdminPasswordResetEmail, sendAdminWelcomeCredentialsEmail } from "../../lib/mailer";
@@ -323,11 +324,19 @@ export async function getUserSummaryById(
         )
       `.as("onboarding_completed"),
       guardianProgramTier: guardianTable.currentProgramTier,
+      streakCurrent: userStreakTable.currentStreak,
+      streakLongest: userStreakTable.longestStreak,
+      streakTotalDays: userStreakTable.totalDays,
+      streakTotalSessions: userStreakTable.totalSessions,
+      streakTotalMinutes: userStreakTable.totalMinutes,
+      streakLastActivity: userStreakTable.lastActivityDate,
+      streakUpdatedAt: userStreakTable.updatedAt,
     })
     .from(userTable)
     .leftJoin(athleteTable, eq(athleteTable.userId, userTable.id))
     .leftJoin(guardianTable, eq(guardianTable.userId, userTable.id))
     .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+    .leftJoin(userStreakTable, eq(userStreakTable.userId, userTable.id))
     .where(and(...filterConditions))
     .limit(1);
 

@@ -149,6 +149,19 @@ export const userTable = pgTable("users", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+export const userStreakTable = pgTable("user_streaks", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }).unique(),
+  currentStreak: integer("current_streak").notNull().default(0),
+  longestStreak: integer("longest_streak").notNull().default(0),
+  totalDays: integer("total_days").notNull().default(0),
+  totalSessions: integer("total_sessions").notNull().default(0),
+  totalMinutes: integer("total_minutes").notNull().default(0),
+  completedDates: jsonb("completed_dates").$type<string[]>().notNull().default([]),
+  lastActivityDate: varchar("last_activity_date", { length: 10 }),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
 export const userDeviceTokensTable = pgTable(
   "user_device_tokens",
   {
@@ -1945,3 +1958,21 @@ export const notificationOutboxTable = pgTable(
     index("notification_outbox_drain_idx").on(t.status, t.nextRunAt),
   ],
 );
+
+// ── Guardian feedback (parent → coach thread, separate from regular messages) ──
+export const guardianFeedbackTable = pgTable("guardian_feedback", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  guardianUserId: integer("guardian_user_id").notNull().references(() => userTable.id, { onDelete: "cascade" }),
+  subject: varchar({ length: 255 }).notNull(),
+  status: varchar({ length: 20 }).notNull().default("open"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [index("guardian_feedback_user_idx").on(t.guardianUserId)]);
+
+export const guardianFeedbackReplyTable = pgTable("guardian_feedback_reply", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  feedbackId: integer("feedback_id").notNull().references(() => guardianFeedbackTable.id, { onDelete: "cascade" }),
+  senderId: integer("sender_id").notNull().references(() => userTable.id, { onDelete: "cascade" }),
+  content: text().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [index("guardian_feedback_reply_feedback_idx").on(t.feedbackId)]);

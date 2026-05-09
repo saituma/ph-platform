@@ -1,220 +1,179 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, CheckCircle, Clock, AlertCircle, ExternalLink } from "lucide-react";
+import { CreditCard, Calendar, Layers, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { api } from "#/lib/api-client";
 import { queryKeys } from "#/lib/query-keys";
-import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/_app/billing")({
 	component: BillingPage,
 });
 
-type BillingStatus = {
-	plan?: { id: string; name: string; price: number; interval: string } | null;
-	status: "active" | "past_due" | "cancelled" | "trialing" | null;
-	currentPeriodEnd?: string | null;
-	cancelAtPeriodEnd?: boolean;
+type ChildBilling = {
+	id: number;
+	name: string;
+	currentProgramTier: string | null;
+	planExpiresAt: string | null;
+	plan: {
+		id: number;
+		name: string;
+		tier: string | null;
+		displayPrice: string;
+		monthlyPrice: string | null;
+		yearlyPrice: string | null;
+		billingInterval: string;
+		features: string[] | null;
+	} | null;
 };
 
-type Invoice = {
-	id: string;
-	amount: number;
-	currency: string;
-	status: "paid" | "open" | "void" | "uncollectible";
-	createdAt: string;
-	invoiceUrl?: string | null;
-};
-
-type Plans = {
-	plans: Array<{ id: string; name: string; price: number; interval: string; features: string[] }>;
+type GuardianBilling = {
+	children: ChildBilling[];
 };
 
 function BillingPage() {
-	const { data: billing, isLoading: billingLoading } = useQuery<BillingStatus>({
+	const { data, isLoading } = useQuery<GuardianBilling>({
 		queryKey: queryKeys.billing,
-		queryFn: () => api.get<BillingStatus>("/api/billing/status"),
+		queryFn: () => api.get<GuardianBilling>("/api/portal/guardian/billing-status"),
+		staleTime: 1000 * 60 * 5,
 	});
 
-	const { data: invoicesData, isLoading: invoicesLoading } = useQuery<{ invoices: Invoice[] }>({
-		queryKey: queryKeys.billingInvoices,
-		queryFn: () => api.get<{ invoices: Invoice[] }>("/api/billing/invoices"),
-	});
-
-	const { data: plansData } = useQuery<Plans>({
-		queryKey: queryKeys.billingPlans,
-		queryFn: () => api.get<Plans>("/api/billing/plans"),
-	});
-
-	const statusConfig = {
-		active:    { label: "Active",    icon: CheckCircle,  cls: "text-primary border-primary/30 bg-primary/5" },
-		trialing:  { label: "Trial",     icon: Clock,        cls: "text-blue-600 border-blue-200 bg-blue-50" },
-		past_due:  { label: "Past due",  icon: AlertCircle,  cls: "text-amber-600 border-amber-200 bg-amber-50" },
-		cancelled: { label: "Cancelled", icon: AlertCircle,  cls: "text-red-600 border-red-200 bg-red-50" },
-	};
-
-	const currentStatus = billing?.status ? statusConfig[billing.status] : null;
-
-	const handleCheckout = async (planId: string) => {
-		try {
-			const res = await api.post<{ url: string }>("/api/billing/checkout", { planId });
-			if (res.url) window.location.href = res.url;
-		} catch {
-			// handled upstream
-		}
-	};
+	const children = data?.children ?? [];
+	const activeChildren = children.filter((c) => c.plan || c.currentProgramTier);
+	const inactiveChildren = children.filter((c) => !c.plan && !c.currentProgramTier);
+	const hasActivePlan = activeChildren.length > 0;
 
 	return (
 		<div className="p-6 max-w-2xl mx-auto space-y-8">
 			<div className="space-y-1">
 				<p className="label-mono">Account</p>
 				<h1 className="text-2xl font-black uppercase tracking-tight text-foreground">Billing</h1>
-				<p className="text-muted-foreground text-sm">Manage your subscription and payment history</p>
+				<p className="text-muted-foreground text-sm">Your child's current plan and subscription details</p>
 			</div>
 
-			{/* Current plan */}
-			<div className="bento-card p-5">
-				<div className="flex items-center justify-between mb-4">
-					<h2 className="label-mono">Current Plan</h2>
-					<CreditCard size={15} className="text-muted-foreground" />
+			{isLoading ? (
+				<div className="space-y-3">
+					{[1, 2].map((i) => (
+						<div key={i} className="bento-card p-5 animate-pulse">
+							<div className="h-4 bg-muted w-1/3 mb-2" />
+							<div className="h-3 bg-muted w-1/4" />
+						</div>
+					))}
 				</div>
-
-				{billingLoading ? (
-					<div className="animate-pulse space-y-2">
-						<div className="h-5 bg-muted w-1/3" />
-						<div className="h-4 bg-muted w-1/4" />
-					</div>
-				) : billing?.plan ? (
-					<div className="space-y-3">
-						<div className="flex items-center gap-3">
-							<div>
-								<div className="font-black text-foreground uppercase tracking-wide">{billing.plan.name}</div>
-								<div className="text-sm text-muted-foreground font-mono">
-									£{(billing.plan.price / 100).toFixed(2)}/{billing.plan.interval}
+			) : !hasActivePlan ? (
+				<div className="bento-card p-8 text-center space-y-2">
+					<CreditCard size={32} className="mx-auto text-muted-foreground/20 mb-3" />
+					<p className="font-black text-foreground uppercase tracking-wide text-sm">No active plan</p>
+					<p className="text-xs text-muted-foreground font-mono max-w-xs mx-auto">
+						Your child's plan is managed by your coach or admin. Contact them to get started.
+					</p>
+				</div>
+			) : (
+				<div className="space-y-4">
+					{activeChildren.map((child) => (
+						<div key={child.id} className="bento-card p-5 space-y-4">
+							{/* Child header */}
+							<div className="flex items-center gap-3">
+								<div className="w-9 h-9 bg-primary/10 flex items-center justify-center flex-shrink-0">
+									<span className="text-primary font-black text-sm">{child.name.charAt(0)}</span>
 								</div>
-							</div>
-							{currentStatus && (
-								<span className={cn(
-									"ml-auto px-2.5 py-1 border text-xs font-mono uppercase tracking-wider flex items-center gap-1.5",
-									currentStatus.cls,
-								)}>
-									<currentStatus.icon size={11} />
-									{currentStatus.label}
+								<div>
+									<div className="font-black text-sm uppercase tracking-tight text-foreground">{child.name}</div>
+									<span className="label-mono">Active subscription</span>
+								</div>
+								<span className="ml-auto px-2.5 py-1 bg-primary/5 text-primary border border-primary/20 text-xs font-mono uppercase tracking-wider">
+									Active
 								</span>
+							</div>
+
+							<div className="h-px bg-border" />
+
+							{/* Plan details */}
+							<div className="grid grid-cols-2 gap-4">
+								<div className="space-y-1">
+									<div className="flex items-center gap-1.5">
+										<CreditCard size={11} className="text-muted-foreground/50" />
+										<span className="label-mono">Plan</span>
+									</div>
+									<div className="font-black text-foreground uppercase tracking-tight text-sm">
+										{child.plan?.name ?? child.currentProgramTier ?? "—"}
+									</div>
+								</div>
+
+								<div className="space-y-1">
+									<div className="flex items-center gap-1.5">
+										<Layers size={11} className="text-muted-foreground/50" />
+										<span className="label-mono">Tier</span>
+									</div>
+									<div className="font-bold text-foreground text-sm">
+										{child.currentProgramTier ?? child.plan?.tier ?? "—"}
+									</div>
+								</div>
+
+								{child.plan && (
+									<div className="space-y-1">
+										<div className="flex items-center gap-1.5">
+											<CreditCard size={11} className="text-muted-foreground/50" />
+											<span className="label-mono">Price</span>
+										</div>
+										<div className="font-mono text-sm text-foreground">
+											{child.plan.monthlyPrice ?? child.plan.displayPrice}
+											{child.plan.billingInterval ? `/${child.plan.billingInterval}` : ""}
+										</div>
+									</div>
+								)}
+
+								{child.planExpiresAt && (
+									<div className="space-y-1">
+										<div className="flex items-center gap-1.5">
+											<Calendar size={11} className="text-muted-foreground/50" />
+											<span className="label-mono">Renews</span>
+										</div>
+										<div className="font-mono text-sm text-foreground">
+											{format(new Date(child.planExpiresAt), "MMM d, yyyy")}
+										</div>
+									</div>
+								)}
+							</div>
+
+							{/* Features */}
+							{child.plan?.features && child.plan.features.length > 0 && (
+								<>
+									<div className="h-px bg-border" />
+									<div className="space-y-1.5">
+										<span className="label-mono">Includes</span>
+										<div className="grid grid-cols-2 gap-1">
+											{child.plan.features.map((f) => (
+												<div key={f} className="flex items-center gap-1.5">
+													<CheckCircle size={10} className="text-primary flex-shrink-0" />
+													<span className="text-xs text-muted-foreground font-mono">{f}</span>
+												</div>
+											))}
+										</div>
+									</div>
+								</>
 							)}
 						</div>
-						{billing.currentPeriodEnd && (
-							<p className="text-xs text-muted-foreground font-mono">
-								{billing.cancelAtPeriodEnd ? "Cancels" : "Renews"} on{" "}
-								{format(new Date(billing.currentPeriodEnd), "MMMM d, yyyy")}
-							</p>
-						)}
-					</div>
-				) : (
-					<div className="text-sm text-muted-foreground font-mono">No active plan</div>
-				)}
-			</div>
-
-			{/* Available plans */}
-			{plansData?.plans && plansData.plans.length > 0 && (
-				<div className="space-y-3">
-					<h2 className="label-mono">Available Plans</h2>
-					<div className="grid gap-3 sm:grid-cols-2">
-						{plansData.plans.map((plan) => {
-							const isCurrent = billing?.plan?.id === plan.id;
-							return (
-								<div
-									key={plan.id}
-									className={cn(
-										"bento-card p-4",
-										isCurrent && "border-primary",
-									)}
-								>
-									<div className="flex items-start justify-between gap-2 mb-3">
-										<div>
-											<div className="font-black text-sm text-foreground uppercase tracking-wide">{plan.name}</div>
-											<div className="text-xs text-muted-foreground font-mono">
-												£{(plan.price / 100).toFixed(2)}/{plan.interval}
-											</div>
-										</div>
-										{isCurrent && (
-											<span className="px-2 py-0.5 text-xs font-mono bg-primary/5 text-primary border border-primary/20">
-												Current
-											</span>
-										)}
-									</div>
-									{plan.features?.length > 0 && (
-										<ul className="space-y-1 mb-3">
-											{plan.features.slice(0, 3).map((f) => (
-												<li key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-													<CheckCircle size={10} className="text-primary flex-shrink-0" />
-													{f}
-												</li>
-											))}
-										</ul>
-									)}
-									{!isCurrent && (
-										<button
-											type="button"
-											onClick={() => handleCheckout(plan.id)}
-											className="w-full py-2 px-3 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
-										>
-											Subscribe
-										</button>
-									)}
-								</div>
-							);
-						})}
-					</div>
+					))}
 				</div>
 			)}
 
-			{/* Payment history */}
-			<div className="space-y-3">
-				<h2 className="label-mono">Payment History</h2>
-				{invoicesLoading ? (
-					<div className="space-y-2">
-						{[1, 2].map((i) => <div key={i} className="h-14 bg-muted animate-pulse" />)}
-					</div>
-				) : invoicesData?.invoices?.length ? (
-					<div className="divide-y divide-border border border-border overflow-hidden">
-						{invoicesData.invoices.map((invoice) => (
-							<div key={invoice.id} className="flex items-center gap-3 px-4 py-3 bg-card">
-								<div className="flex-1 min-w-0">
-									<div className="text-sm font-bold text-foreground">
-										{invoice.currency.toUpperCase()} {(invoice.amount / 100).toFixed(2)}
-									</div>
-									<div className="text-xs text-muted-foreground font-mono">
-										{format(new Date(invoice.createdAt), "MMM d, yyyy")}
-									</div>
-								</div>
-								<span className={cn(
-									"px-2 py-0.5 text-xs font-mono border",
-									invoice.status === "paid"
-										? "bg-primary/5 text-primary border-primary/20"
-										: "bg-amber-50 text-amber-700 border-amber-200",
-								)}>
-									{invoice.status}
-								</span>
-								{invoice.invoiceUrl && (
-									<a
-										href={invoice.invoiceUrl}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-muted-foreground hover:text-foreground transition-colors"
-									>
-										<ExternalLink size={13} />
-									</a>
-								)}
+			{/* Children without a plan */}
+			{!isLoading && inactiveChildren.length > 0 && (
+				<div className="space-y-2">
+					<h2 className="label-mono">No plan assigned</h2>
+					{inactiveChildren.map((child) => (
+						<div key={child.id} className="bento-card p-4 flex items-center gap-3">
+							<div className="w-8 h-8 bg-muted flex items-center justify-center flex-shrink-0">
+								<span className="text-muted-foreground font-black text-xs">{child.name.charAt(0)}</span>
 							</div>
-						))}
-					</div>
-				) : (
-					<div className="bento-card p-6 text-center">
-						<p className="text-sm text-muted-foreground font-mono">No payment history yet</p>
-					</div>
-				)}
-			</div>
+							<div>
+								<div className="text-sm font-bold text-foreground">{child.name}</div>
+								<div className="label-mono">Contact your coach to assign a plan</div>
+							</div>
+						</div>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

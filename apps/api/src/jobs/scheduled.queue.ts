@@ -4,7 +4,7 @@ import { logger } from "../lib/logger";
 
 const QUEUE_NAME = "scheduled-jobs";
 
-type ScheduledJobName = "nutrition-reminder" | "subscription-expiry" | "session-reminder";
+type ScheduledJobName = "nutrition-reminder" | "subscription-expiry" | "session-reminder" | "streak-reminder";
 
 type ScheduledJob = {
   name: ScheduledJobName;
@@ -41,6 +41,10 @@ const handlers: Record<ScheduledJobName, () => Promise<unknown>> = {
   "session-reminder": async () => {
     const { sendSessionReminders } = await import("../services/session-reminder.service");
     return sendSessionReminders();
+  },
+  "streak-reminder": async () => {
+    const { runStreakReminderSweep } = await import("../services/streak-reminder.service");
+    return runStreakReminderSweep();
   },
 };
 
@@ -96,8 +100,14 @@ export async function startScheduledWorker(): Promise<void> {
     { name: "session-reminder", data: { name: "session-reminder" } },
   );
 
+  await queue.upsertJobScheduler(
+    "streak-reminder",
+    { pattern: "0 20 * * *" },
+    { name: "streak-reminder", data: { name: "streak-reminder" } },
+  );
+
   logger.info(
-    "[BullMQ] Scheduled jobs worker started (nutrition-reminder every 5m, subscription-expiry daily at 03:00, session-reminder every 30m)",
+    "[BullMQ] Scheduled jobs worker started (nutrition-reminder every 5m, subscription-expiry daily at 03:00, session-reminder every 30m, streak-reminder daily at 20:00 UTC)",
   );
 }
 

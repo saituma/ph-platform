@@ -143,7 +143,7 @@ export const StoriesRow = React.memo(function StoriesRow({ stories }: Props) {
 const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 12,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 4,
     gap: 4,
   },

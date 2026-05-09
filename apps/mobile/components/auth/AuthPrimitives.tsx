@@ -27,6 +27,7 @@ type AuthFieldRowProps = {
   label: string;
   error?: string;
   isLast?: boolean;
+  onDark?: boolean;
   trailing?: ReactNode;
   children: ReactNode;
 };
@@ -110,22 +111,24 @@ export function AuthFieldRow({
   label,
   error,
   isLast = false,
+  onDark = false,
   trailing,
   children,
 }: AuthFieldRowProps) {
   const p = useAdminPastel();
-  const tint = error ? "#E53935" : p.textMuted;
+  const tint = error
+    ? "#E53935"
+    : onDark
+      ? "rgba(255,255,255,0.50)"
+      : p.textMuted;
+  const iconBg = onDark ? "rgba(255,255,255,0.10)" : p.accentSoft;
+  const separatorColor = onDark ? "rgba(255,255,255,0.08)" : p.inputBorder;
   const IconComponent = LUCIDE_ICONS[icon];
 
   return (
     <View accessibilityLabel={label} accessibilityRole="text">
       <View style={styles.row}>
-        <View
-          style={[
-            styles.iconWrap,
-            { backgroundColor: p.cardMint },
-          ]}
-        >
+        <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
           {IconComponent ? (
             <IconComponent size={17} color={tint} strokeWidth={2} />
           ) : null}
@@ -146,12 +149,7 @@ export function AuthFieldRow({
         {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
       </View>
       {!isLast ? (
-        <View
-          style={[
-            styles.separator,
-            { backgroundColor: p.inputBorder },
-          ]}
-        />
+        <View style={[styles.separator, { backgroundColor: separatorColor }]} />
       ) : null}
       {error ? (
         <Text

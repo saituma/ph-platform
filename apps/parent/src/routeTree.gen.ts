@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OnboardingSuccessRouteImport } from './routes/onboarding/success'
+import { Route as OnboardingStep5RouteImport } from './routes/onboarding/step-5'
 import { Route as OnboardingStep4RouteImport } from './routes/onboarding/step-4'
 import { Route as OnboardingStep3RouteImport } from './routes/onboarding/step-3'
 import { Route as OnboardingStep2RouteImport } from './routes/onboarding/step-2'
@@ -24,7 +25,6 @@ import { Route as AppMessagesRouteImport } from './routes/_app/messages'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppBillingRouteImport } from './routes/_app/billing'
 import { Route as AppChildrenIndexRouteImport } from './routes/_app/children/index'
-import { Route as AppChildrenAddRouteImport } from './routes/_app/children/add'
 import { Route as AppChildrenAthleteIdRouteImport } from './routes/_app/children/$athleteId'
 
 const RegisterRoute = RegisterRouteImport.update({
@@ -54,6 +54,11 @@ const IndexRoute = IndexRouteImport.update({
 const OnboardingSuccessRoute = OnboardingSuccessRouteImport.update({
   id: '/success',
   path: '/success',
+  getParentRoute: () => OnboardingRoute,
+} as any)
+const OnboardingStep5Route = OnboardingStep5RouteImport.update({
+  id: '/step-5',
+  path: '/step-5',
   getParentRoute: () => OnboardingRoute,
 } as any)
 const OnboardingStep4Route = OnboardingStep4RouteImport.update({
@@ -101,11 +106,6 @@ const AppChildrenIndexRoute = AppChildrenIndexRouteImport.update({
   path: '/children/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppChildrenAddRoute = AppChildrenAddRouteImport.update({
-  id: '/children/add',
-  path: '/children/add',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppChildrenAthleteIdRoute = AppChildrenAthleteIdRouteImport.update({
   id: '/children/$athleteId',
   path: '/children/$athleteId',
@@ -125,9 +125,9 @@ export interface FileRoutesByFullPath {
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
   '/onboarding/step-4': typeof OnboardingStep4Route
+  '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/children/$athleteId': typeof AppChildrenAthleteIdRoute
-  '/children/add': typeof AppChildrenAddRoute
   '/children/': typeof AppChildrenIndexRoute
 }
 export interface FileRoutesByTo {
@@ -143,9 +143,9 @@ export interface FileRoutesByTo {
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
   '/onboarding/step-4': typeof OnboardingStep4Route
+  '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/children/$athleteId': typeof AppChildrenAthleteIdRoute
-  '/children/add': typeof AppChildrenAddRoute
   '/children': typeof AppChildrenIndexRoute
 }
 export interface FileRoutesById {
@@ -163,9 +163,9 @@ export interface FileRoutesById {
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
   '/onboarding/step-4': typeof OnboardingStep4Route
+  '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/_app/children/$athleteId': typeof AppChildrenAthleteIdRoute
-  '/_app/children/add': typeof AppChildrenAddRoute
   '/_app/children/': typeof AppChildrenIndexRoute
 }
 export interface FileRouteTypes {
@@ -183,9 +183,9 @@ export interface FileRouteTypes {
     | '/onboarding/step-2'
     | '/onboarding/step-3'
     | '/onboarding/step-4'
+    | '/onboarding/step-5'
     | '/onboarding/success'
     | '/children/$athleteId'
-    | '/children/add'
     | '/children/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -201,9 +201,9 @@ export interface FileRouteTypes {
     | '/onboarding/step-2'
     | '/onboarding/step-3'
     | '/onboarding/step-4'
+    | '/onboarding/step-5'
     | '/onboarding/success'
     | '/children/$athleteId'
-    | '/children/add'
     | '/children'
   id:
     | '__root__'
@@ -220,9 +220,9 @@ export interface FileRouteTypes {
     | '/onboarding/step-2'
     | '/onboarding/step-3'
     | '/onboarding/step-4'
+    | '/onboarding/step-5'
     | '/onboarding/success'
     | '/_app/children/$athleteId'
-    | '/_app/children/add'
     | '/_app/children/'
   fileRoutesById: FileRoutesById
 }
@@ -276,6 +276,13 @@ declare module '@tanstack/react-router' {
       path: '/success'
       fullPath: '/onboarding/success'
       preLoaderRoute: typeof OnboardingSuccessRouteImport
+      parentRoute: typeof OnboardingRoute
+    }
+    '/onboarding/step-5': {
+      id: '/onboarding/step-5'
+      path: '/step-5'
+      fullPath: '/onboarding/step-5'
+      preLoaderRoute: typeof OnboardingStep5RouteImport
       parentRoute: typeof OnboardingRoute
     }
     '/onboarding/step-4': {
@@ -341,13 +348,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChildrenIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/children/add': {
-      id: '/_app/children/add'
-      path: '/children/add'
-      fullPath: '/children/add'
-      preLoaderRoute: typeof AppChildrenAddRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/children/$athleteId': {
       id: '/_app/children/$athleteId'
       path: '/children/$athleteId'
@@ -364,7 +364,6 @@ interface AppRouteChildren {
   AppMessagesRoute: typeof AppMessagesRoute
   AppProfileRoute: typeof AppProfileRoute
   AppChildrenAthleteIdRoute: typeof AppChildrenAthleteIdRoute
-  AppChildrenAddRoute: typeof AppChildrenAddRoute
   AppChildrenIndexRoute: typeof AppChildrenIndexRoute
 }
 
@@ -374,7 +373,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppMessagesRoute: AppMessagesRoute,
   AppProfileRoute: AppProfileRoute,
   AppChildrenAthleteIdRoute: AppChildrenAthleteIdRoute,
-  AppChildrenAddRoute: AppChildrenAddRoute,
   AppChildrenIndexRoute: AppChildrenIndexRoute,
 }
 
@@ -385,6 +383,7 @@ interface OnboardingRouteChildren {
   OnboardingStep2Route: typeof OnboardingStep2Route
   OnboardingStep3Route: typeof OnboardingStep3Route
   OnboardingStep4Route: typeof OnboardingStep4Route
+  OnboardingStep5Route: typeof OnboardingStep5Route
   OnboardingSuccessRoute: typeof OnboardingSuccessRoute
 }
 
@@ -393,6 +392,7 @@ const OnboardingRouteChildren: OnboardingRouteChildren = {
   OnboardingStep2Route: OnboardingStep2Route,
   OnboardingStep3Route: OnboardingStep3Route,
   OnboardingStep4Route: OnboardingStep4Route,
+  OnboardingStep5Route: OnboardingStep5Route,
   OnboardingSuccessRoute: OnboardingSuccessRoute,
 }
 

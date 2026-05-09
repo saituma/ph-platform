@@ -5,6 +5,8 @@ import { Controller, useForm } from "react-hook-form";
 import { Image, Linking, Pressable, StyleSheet, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
+import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { Sun, Moon, Eye, EyeOff } from "lucide-react-native";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
@@ -17,7 +19,6 @@ import { useAppDispatch } from "../../store/hooks";
 import { Text, TextInput } from "../../components/ScaledText";
 import {
   AuthFieldRow,
-  AuthFormGroup,
   AuthPrimaryButton,
 } from "../../components/auth/AuthPrimitives";
 import {
@@ -38,6 +39,8 @@ import { markLoginFresh } from "../../store/AuthPersist";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const LOGIN_BG = require("@/assets/images/home-bg.png");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const APP_ICON = require("@/assets/images/splash-icon.png");
 
 const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
@@ -54,10 +57,6 @@ export default function LoginScreen() {
   const { isDark, toggleColorScheme } = useAppTheme();
   const p = useAdminPastel();
   const dispatch = useAppDispatch();
-
-  const headingColor = "rgba(255,255,255,0.95)";
-  const subtitleColor = "rgba(255,255,255,0.62)";
-  const inputColor = p.textPrimary;
 
   const {
     control,
@@ -172,189 +171,302 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
+    <View style={{ flex: 1 }}>
+      {/* Background */}
       <Image source={LOGIN_BG} style={StyleSheet.absoluteFill} resizeMode="cover" />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.52)" }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.58)" }]} />
 
       <SafeAreaView style={{ flex: 1, backgroundColor: "transparent" }}>
-        <View style={{ paddingHorizontal: 16, paddingTop: 4, alignItems: "flex-end" }}>
+        {/* Theme toggle */}
+        <View style={styles.topBar}>
           <Pressable
             onPress={toggleColorScheme}
-            style={{ padding: 10, borderRadius: 100, backgroundColor: "rgba(255,255,255,0.12)" }}
+            style={styles.themeToggle}
             accessibilityRole="button"
             accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
           >
             {isDark ? (
-              <Sun size={20} color={"rgba(255,255,255,0.70)"} strokeWidth={2} />
+              <Sun size={18} color="rgba(255,255,255,0.65)" strokeWidth={2} />
             ) : (
-              <Moon size={20} color={"rgba(255,255,255,0.70)"} strokeWidth={2} />
+              <Moon size={18} color="rgba(255,255,255,0.65)" strokeWidth={2} />
             )}
           </Pressable>
         </View>
 
         <KeyboardAwareScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "center",
-            paddingHorizontal: 20,
-            paddingBottom: 32,
-            paddingTop: 8,
-          }}
+          contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           enableOnAndroid
           showsVerticalScrollIndicator={false}
         >
-          <View style={{ gap: 10, marginBottom: 28 }}>
-            <Text
-              style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 34,
-                lineHeight: 38,
-                letterSpacing: -0.7,
-                color: headingColor,
-              }}
-            >
-              Welcome back
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Outfit-Regular",
-                fontSize: 16,
-                lineHeight: 24,
-                color: subtitleColor,
-                maxWidth: 360,
-              }}
-            >
-              Sign in to keep your training progress, coach feedback, and schedule in sync.
-            </Text>
-          </View>
+          {/* Logo + Branding */}
+          <Animated.View entering={FadeInDown.duration(500).springify().damping(18)} style={styles.brandArea}>
+            <View style={styles.logoRing}>
+              <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+              <Image source={APP_ICON} style={styles.logoImage} resizeMode="contain" />
+            </View>
+            <Animated.View entering={FadeIn.delay(200).duration(400)}>
+              <Text style={styles.brandName}>PH Performance</Text>
+            </Animated.View>
+          </Animated.View>
 
-          <View style={{ gap: 16, marginBottom: 20 }}>
-            <AuthFormGroup>
-              <AuthFieldRow icon="mail" label="Email" error={errors.email?.message}>
-                <Controller
-                  control={control}
-                  name="email"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      style={{ fontFamily: "Outfit-Regular", fontSize: 17, lineHeight: 22, paddingVertical: 0, color: inputColor }}
-                      placeholder="name@example.com"
-                      placeholderTextColor={p.textMuted}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                      autoCorrect={false}
-                      textContentType="emailAddress"
-                      autoComplete="email"
-                    />
-                  )}
-                />
-              </AuthFieldRow>
+          {/* Form card */}
+          <Animated.View
+            entering={FadeInDown.delay(120).duration(480).springify().damping(18)}
+            style={styles.card}
+          >
+            <BlurView intensity={18} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={styles.cardInner}>
+              {/* Heading */}
+              <View style={{ marginBottom: 22 }}>
+                <Text style={styles.heading}>Welcome back</Text>
+                <Text style={styles.subheading}>
+                  Sign in to access your training, schedule, and coach feedback.
+                </Text>
+              </View>
 
-              <AuthFieldRow
-                icon="lock"
-                label="Password"
-                error={errors.password?.message}
-                isLast
-                trailing={
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
-                    hitSlop={10}
-                    onPress={() => setShowPassword((v) => !v)}
-                  >
-                    {showPassword ? (
-                      <Eye size={18} color={p.textMuted} strokeWidth={2} />
-                    ) : (
-                      <EyeOff size={18} color={p.textMuted} strokeWidth={2} />
+              {/* Fields */}
+              <View style={styles.fieldsContainer}>
+                <AuthFieldRow icon="mail" label="Email" error={errors.email?.message}>
+                  <Controller
+                    control={control}
+                    name="email"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="name@example.com"
+                        placeholderTextColor="rgba(47,159,61,0.38)"
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        value={value}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        autoCorrect={false}
+                        textContentType="emailAddress"
+                        autoComplete="email"
+                      />
                     )}
-                  </Pressable>
-                }
-              >
-                <Controller
-                  control={control}
-                  name="password"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      style={{ fontFamily: "Outfit-Regular", fontSize: 17, lineHeight: 22, paddingVertical: 0, color: inputColor }}
-                      placeholder="Enter your password"
-                      placeholderTextColor={p.textMuted}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      textContentType="password"
-                      autoComplete="current-password"
-                    />
-                  )}
+                  />
+                </AuthFieldRow>
+
+                <AuthFieldRow
+                  icon="lock"
+                  label="Password"
+                  error={errors.password?.message}
+                  isLast
+                  trailing={
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                      hitSlop={10}
+                      onPress={() => setShowPassword((v) => !v)}
+                    >
+                      {showPassword ? (
+                        <Eye size={18} color="rgba(47,159,61,0.55)" strokeWidth={2} />
+                      ) : (
+                        <EyeOff size={18} color="rgba(47,159,61,0.55)" strokeWidth={2} />
+                      )}
+                    </Pressable>
+                  }
+                >
+                  <Controller
+                    control={control}
+                    name="password"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter your password"
+                        placeholderTextColor="rgba(47,159,61,0.38)"
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        value={value}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        textContentType="password"
+                        autoComplete="current-password"
+                      />
+                    )}
+                  />
+                </AuthFieldRow>
+              </View>
+
+              {/* Forgot password */}
+              <View style={{ alignItems: "flex-end", marginTop: 12, marginBottom: 4 }}>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel="Forgot Password"
+                  onPress={() => router.push("/forgot" as any)}
+                >
+                  <Text style={styles.forgotText}>Forgot Password?</Text>
+                </Pressable>
+              </View>
+
+              {/* Error */}
+              {formError ? (
+                <Animated.View entering={FadeInDown.duration(300)} style={styles.errorBox}>
+                  <Text style={styles.errorText}>{formError}</Text>
+                </Animated.View>
+              ) : null}
+
+              {/* Sign in button */}
+              <View style={{ marginTop: 20 }}>
+                <AuthPrimaryButton
+                  onPress={handleSubmit(onSubmit)}
+                  isBusy={isSubmitting}
+                  label="Sign In"
+                  busyLabel="Signing In..."
                 />
-              </AuthFieldRow>
-            </AuthFormGroup>
-          </View>
+              </View>
 
-          <View style={{ alignItems: "flex-end", marginBottom: 24 }}>
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel="Forgot Password"
-              onPress={() => router.push("/forgot")}
-            >
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.accent }}>
-                Forgot Password?
-              </Text>
-            </Pressable>
-          </View>
-
-          {formError ? (
-            <Text
-              style={{
-                fontFamily: "Outfit-Regular",
-                fontSize: 14,
-                color: "#E53935",
-                marginBottom: 16,
-              }}
-            >
-              {formError}
-            </Text>
-          ) : null}
-
-          <AuthPrimaryButton
-            onPress={handleSubmit(onSubmit)}
-            isBusy={isSubmitting}
-            label="Sign In"
-            busyLabel="Signing In..."
-          />
-
-          <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: subtitleColor }}>
-              Don&apos;t have an account?
-            </Text>
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel="Register"
-              onPress={() => {
-                const url =
-                  (process.env.EXPO_PUBLIC_ONBOARDING_URL ?? "").trim() ||
-                  "https://ph-platform-onboarding.vercel.app/";
-                void Linking.openURL(url);
-              }}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 7,
-                borderRadius: 100,
-                backgroundColor: p.accent,
-              }}
-            >
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.buttonPrimaryText, letterSpacing: 0.3 }}>
-                Register
-              </Text>
-            </Pressable>
-          </View>
+              {/* Register row */}
+              <View style={styles.registerRow}>
+                <Text style={styles.registerText}>Don&apos;t have an account?</Text>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel="Register"
+                  onPress={() => {
+                    const url =
+                      (process.env.EXPO_PUBLIC_ONBOARDING_URL ?? "").trim() ||
+                      "https://ph-platform-onboarding.vercel.app/";
+                    void Linking.openURL(url);
+                  }}
+                  style={styles.registerBtn}
+                >
+                  <Text style={styles.registerBtnText}>Register</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Animated.View>
         </KeyboardAwareScrollView>
       </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  topBar: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    alignItems: "flex-end",
+  },
+  themeToggle: {
+    padding: 9,
+    borderRadius: 100,
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+    gap: 28,
+  },
+  brandArea: {
+    alignItems: "center",
+    gap: 16,
+  },
+  logoRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 26,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  logoImage: {
+    width: 60,
+    height: 60,
+  },
+  brandName: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 22,
+    color: "rgba(255,255,255,0.92)",
+    letterSpacing: -0.4,
+  },
+  card: {
+    borderRadius: 28,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  cardInner: {
+    padding: 24,
+  },
+  heading: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 28,
+    letterSpacing: -0.6,
+    color: "rgba(255,255,255,0.95)",
+    marginBottom: 6,
+  },
+  subheading: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 14,
+    lineHeight: 20,
+    color: "rgba(255,255,255,0.50)",
+  },
+  fieldsContainer: {
+    borderRadius: 18,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.30)",
+  },
+  input: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 16,
+    lineHeight: 22,
+    paddingVertical: 0,
+    color: "#2F9F3D",
+  },
+  forgotText: {
+    fontFamily: "Outfit-SemiBold",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.55)",
+  },
+  errorBox: {
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(229,57,53,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(229,57,53,0.30)",
+  },
+  errorText: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 13,
+    color: "#FF6B6B",
+  },
+  registerRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+  },
+  registerText: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.45)",
+  },
+  registerBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 100,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+  registerBtnText: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.82)",
+    letterSpacing: 0.2,
+  },
+});

@@ -300,7 +300,7 @@ export default function AthleteStatsScreen() {
                         style={{ width: 52, height: 52, borderRadius: 16 }}
                       />
                     ) : (
-                      <View style={{ height: 52, width: 52, borderRadius: 16, backgroundColor: p.cardMint, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ height: 52, width: 52, borderRadius: 16, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
                         <User size={22} color={p.accent} />
                       </View>
                     )}
@@ -332,7 +332,7 @@ export default function AthleteStatsScreen() {
                       >
                         <View style={{ borderRadius: 18, backgroundColor: p.cardWhite, padding: 16, gap: 10 }}>
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: p[card.color], alignItems: "center", justifyContent: "center" }}>
+                            <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
                               <IconComp size={15} color={p.accent} />
                             </View>
                             <Text style={{ fontSize: 11, fontFamily: "Outfit-Medium", color: p.textMuted, textTransform: "uppercase", letterSpacing: 0.8, flex: 1 }} numberOfLines={1}>
@@ -370,7 +370,7 @@ export default function AthleteStatsScreen() {
               <Animated.View entering={FadeInDown.delay(200).duration(380)}>
                 <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20, gap: 14 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: p.cardYellow, alignItems: "center", justifyContent: "center" }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
                       <Activity size={14} color={p.accent} />
                     </View>
                     <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
@@ -399,7 +399,7 @@ export default function AthleteStatsScreen() {
               <Animated.View entering={FadeInDown.delay(280).duration(380)}>
                 <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 20 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                    <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: p.cardMint, alignItems: "center", justifyContent: "center" }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
                       <TrendingUp size={14} color={p.accent} />
                     </View>
                     <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.4 }}>
@@ -408,14 +408,13 @@ export default function AthleteStatsScreen() {
                   </View>
                   <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 100, gap: 6 }}>
                     {(stats.progressTrend.length ? stats.progressTrend : [0, 0, 0, 0, 0, 0]).map((value, index) => {
-                      const colors = [p.cardMint, p.cardPeach, p.cardLavender, p.cardYellow, p.cardPink, p.cardSage];
                       return (
                         <View key={`trend-${index}`} style={{ alignItems: "center", flex: 1, gap: 4 }}>
                           <Text style={{ fontSize: 9, fontFamily: "Outfit-Bold", color: p.textMuted }}>
                             {value > 0 ? `${value}%` : ""}
                           </Text>
                           <View style={{ height: 80, width: 14, borderRadius: 7, backgroundColor: p.inputBg, overflow: "hidden", justifyContent: "flex-end" }}>
-                            <View style={{ height: `${Math.max(value, 4)}%`, width: 14, borderRadius: 7, backgroundColor: value > 0 ? p.accent : colors[index] }} />
+                            <View style={{ height: `${Math.max(value, 4)}%`, width: 14, borderRadius: 7, backgroundColor: value > 0 ? p.accent : p.accentSoft }} />
                           </View>
                           <Text style={{ fontSize: 10, fontFamily: "Outfit-Medium", color: p.textMuted }}>
                             W{index + 1}

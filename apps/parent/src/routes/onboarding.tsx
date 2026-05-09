@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { Sun, Moon } from "lucide-react";
 import { getTokenStatus } from "#/lib/client-storage";
 import { cn } from "#/lib/utils";
+import { useTheme } from "#/routes/__root";
 
 export const Route = createFileRoute("/onboarding")({
 	beforeLoad: async () => {
@@ -14,7 +16,7 @@ const STEPS = [
 	{ n: 1, label: "Password" },
 	{ n: 2, label: "Your child" },
 	{ n: 3, label: "Expectations" },
-	{ n: 4, label: "Communication" },
+	{ n: 4, label: "How you found us" },
 ];
 
 function OnboardingLayout() {
@@ -22,6 +24,7 @@ function OnboardingLayout() {
 	const stepMatch = pathname.match(/\/onboarding\/step-(\d+)/);
 	const current = stepMatch ? Number(stepMatch[1]) : null;
 	const isSuccess = pathname.includes("/onboarding/success");
+	const { theme, toggle } = useTheme();
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -68,9 +71,19 @@ function OnboardingLayout() {
 						</div>
 					)}
 
-					<span className="label-mono text-white/30">
-						{current && !isSuccess ? `${current} / ${STEPS.length}` : ""}
-					</span>
+					<div className="flex items-center gap-3">
+						<span className="label-mono text-white/30">
+							{current && !isSuccess ? `${current} / ${STEPS.length}` : ""}
+						</span>
+						<button
+							type="button"
+							onClick={toggle}
+							title="Toggle theme"
+							className="text-white/40 hover:text-white/80 transition-colors"
+						>
+							{theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+						</button>
+					</div>
 				</div>
 
 				{/* Progress bar */}

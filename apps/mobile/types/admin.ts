@@ -15,6 +15,13 @@ export type AdminUser = {
   programTier?: string | null;
   onboardingCompleted?: boolean | null;
   guardianProgramTier?: string | null;
+  streakCurrent?: number | null;
+  streakLongest?: number | null;
+  streakTotalDays?: number | null;
+  streakTotalSessions?: number | null;
+  streakTotalMinutes?: number | null;
+  streakLastActivity?: string | null;
+  streakUpdatedAt?: string | null;
 };
 
 export type UserOnboardingPayload = {

@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Users, ArrowRight, Trophy, Activity } from "lucide-react";
+import { Users, ArrowRight, Trophy, Activity } from "lucide-react";
 import { api } from "#/lib/api-client";
 import { queryKeys } from "#/lib/query-keys";
 import { cn } from "#/lib/utils";
@@ -40,14 +40,7 @@ function ChildrenPage() {
 					<h1 className="text-2xl font-black uppercase tracking-tight text-foreground">My Children</h1>
 					<p className="text-muted-foreground text-sm">Monitor and manage your child athletes</p>
 				</div>
-				<button
-					type="button"
-					onClick={() => navigate({ to: "/children/add" })}
-					className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
-				>
-					<Plus size={13} /> Add child
-				</button>
-			</div>
+				</div>
 
 			{isLoading ? (
 				<div className="space-y-3">
@@ -66,17 +59,10 @@ function ChildrenPage() {
 			) : children.length === 0 ? (
 				<div className="border border-dashed border-border p-14 text-center">
 					<Users size={40} className="mx-auto text-muted-foreground/20 mb-4" />
-					<p className="text-base font-black text-foreground uppercase tracking-wide mb-1">No children yet</p>
-					<p className="text-sm text-muted-foreground mb-6 max-w-xs mx-auto font-mono">
-						Add your child's profile to start tracking their training and performance
+					<p className="text-base font-black text-foreground uppercase tracking-wide mb-1">No children linked</p>
+					<p className="text-sm text-muted-foreground max-w-xs mx-auto font-mono">
+						Your child's profile will appear here once their account is set up by your coach or admin.
 					</p>
-					<button
-						type="button"
-						onClick={() => navigate({ to: "/children/add" })}
-						className="px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
-					>
-						Add your first child
-					</button>
 				</div>
 			) : (
 				<div className="space-y-3">

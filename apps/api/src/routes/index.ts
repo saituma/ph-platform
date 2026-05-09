@@ -31,6 +31,8 @@ import teamRosterRoutes from "./team-roster.routes";
 import activityRoutes from "./activity.routes";
 import referralRoutes from "./referral.routes";
 import portalRoutes from "./portal.routes";
+import appSessionRoutes from "./app-session.routes";
+import guardianPortalRoutes from "./guardian-portal.routes";
 import enquiryRoutes from "./enquiry.routes";
 import attendanceRoutes from "./attendance.routes";
 import sessionScheduleRoutes from "./session-schedule.routes";
@@ -39,6 +41,7 @@ import wellbeingRoutes from "./wellbeing.routes";
 import betaTesterRoutes from "./beta-tester.routes";
 import foodDiaryRoutes from "./food-diary.routes";
 import usersRoutes from "./users.routes";
+import streakRoutes from "./streak.routes";
 
 const router = Router();
 
@@ -73,6 +76,8 @@ router.use(teamRosterRoutes);
 router.use(activityRoutes);
 router.use(referralRoutes);
 router.use(portalRoutes);
+router.use(appSessionRoutes);
+router.use(guardianPortalRoutes);
 router.use(enquiryRoutes);
 router.use(attendanceRoutes);
 router.use(sessionScheduleRoutes);
@@ -81,5 +86,6 @@ router.use(wellbeingRoutes);
 router.use(betaTesterRoutes);
 router.use(foodDiaryRoutes);
 router.use(usersRoutes);
+router.use(streakRoutes);
 
 export default router;

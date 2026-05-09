@@ -40,6 +40,7 @@ import {
   type SessionExercise,
 } from "@/hooks/programs/useMyPrograms";
 import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
+import { useStreakStore } from "@/lib/streakStore";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import type { SelectedVideo } from "@/types/video-upload";
@@ -232,6 +233,8 @@ export default function AssignedSessionDetailScreen() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    useStreakStore.getState().recordSession(0);
+    if (token) void useStreakStore.getState().syncToServer(token);
     setSessionFinished(true);
     if (result.nextSession) {
       const label = result.nextSession.title || `Session ${result.nextSession.sessionNumber}`;

@@ -1179,7 +1179,7 @@ function TrackingEmptyState({
 
       <Animated.View entering={FadeInDown.delay(80).duration(500).springify()} style={{ alignItems: "center", gap: 8 }}>
         <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary, textAlign: "center" }}>
-          Your first run awaits
+          Ready to run?
         </Text>
         <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary, textAlign: "center", lineHeight: 20, maxWidth: 220 }}>
           Hit start and we'll track every step of the way
@@ -1198,7 +1198,7 @@ function TrackingEmptyState({
             }]}
           >
             <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.buttonPrimaryText }}>
-              Start your first run
+              Start running
             </Text>
           </Animated.View>
         </GestureDetector>

@@ -432,9 +432,9 @@ const HomeScreen = memo(function HomeScreen() {
                   </Animated.View>
                 )}
                 <Pressable onPress={navigateToNotifications} style={[s.bellBtn, {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.12)",
                 }]}>
-                  <Bell size={18} color={heroTextColor} />
+                  <Bell size={18} color={isDark ? "#FFFFFF" : "#1A1A1A"} />
                   <View style={[s.bellDot, { backgroundColor: accentLime, borderColor: isDark ? "#000000" : p.pageBg }]} />
                 </Pressable>
               </View>
@@ -456,27 +456,6 @@ const HomeScreen = memo(function HomeScreen() {
               </Animated.Text>
             </View>
 
-            {/* Floating glass pills */}
-            {showTracking && (
-              <View style={s.glassPillsWrap}>
-                <GlassPill
-                  icon={<PersonStanding size={14} color={pillIconColor} />}
-                  value={formatCompact(Math.round(totalDist / 0.7))}
-                  label="Steps"
-                  delay={500}
-                  reduceMotion={reduceMotion}
-                  isDark={isDark}
-                />
-                <GlassPill
-                  icon={<Activity size={14} color={pillIconColor} />}
-                  value={formatCompact(numRuns * 180)}
-                  label="Calories"
-                  delay={650}
-                  reduceMotion={reduceMotion}
-                  isDark={isDark}
-                />
-              </View>
-            )}
           </View>
         </View>
 
@@ -514,17 +493,6 @@ const HomeScreen = memo(function HomeScreen() {
                 accentColor="#FF6B6B"
                 delay={360}
                 onPress={navigateToSchedule}
-                reduceMotion={reduceMotion}
-                half
-                isDark={isDark}
-              />
-              <StatCard
-                icon={<PersonStanding size={14} color="#7ABCD4" />}
-                label="Daily Steps"
-                value={formatCompact(Math.round(totalDist / 0.7))}
-                accentColor="#7ABCD4"
-                delay={440}
-                onPress={navigateToTracking2}
                 reduceMotion={reduceMotion}
                 half
                 isDark={isDark}

@@ -40,7 +40,7 @@ import { useWatchHistoryStore, type WatchEntry } from "@/lib/mmkv";
 import { useMyPrograms, useMyProgramDetail } from "@/hooks/programs/useMyPrograms";
 import { useTeamWorkspace } from "@/hooks/programs/useTeamWorkspace";
 import { TeamProgramView } from "@/components/programs/TeamProgramView";
-import { hasAssignedTeam } from "@/lib/teamMembership";
+import { hasAssignedTeam, hasOrgTeamMembership } from "@/lib/teamMembership";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 
 const PROGRAMS_BG = require("@/assets/images/programs-bg.png");
@@ -309,6 +309,8 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   const profile = useAppSelector((s) => s.user.profile);
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
+  const appRole = useAppSelector((s) => s.user.appRole);
+  const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
 
   const activeAthlete = useMemo(() => {
     return (
@@ -318,8 +320,19 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     );
   }, [athleteUserId, managedAthletes]);
 
-  const isTeamMode = hasAssignedTeam(activeAthlete?.team);
-  const isYouth = (activeAthlete?.age ?? 0) > 0 && (activeAthlete?.age ?? 99) < 18;
+  const isTeamMode =
+    hasAssignedTeam(activeAthlete?.team) ||
+    hasOrgTeamMembership(authTeamMembership ?? undefined) ||
+    appRole === "adult_athlete_team" ||
+    appRole === "team" ||
+    appRole === "team_manager" ||
+    appRole === "youth_athlete_team_guardian";
+
+  const isYouth =
+    ((activeAthlete?.age ?? 0) > 0 && (activeAthlete?.age ?? 99) < 18) ||
+    appRole === "youth_athlete" ||
+    appRole === "youth_athlete_guardian_only";
+
   const useAgeBasedContent = isTeamMode || isYouth;
 
   const {

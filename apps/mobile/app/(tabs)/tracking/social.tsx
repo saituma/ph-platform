@@ -857,45 +857,6 @@ export default function TrackingSocialScreen() {
         />
       ) : null}
 
-      {/* ── Floating Run button ── */}
-      <View
-        style={{
-          position: "absolute",
-          bottom: trackingScrollBottomPad(insets) + spacing.md,
-          left: spacing.xl,
-          right: spacing.xl,
-          zIndex: 99,
-        }}
-      >
-        <Pressable
-          onPress={handleStartRun}
-          style={({ pressed }) => ({
-            width: "100%",
-            height: 56,
-            borderRadius: 100,
-            backgroundColor: pressed ? p.accent : p.buttonPrimary,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-            opacity: pressed ? 0.9 : 1,
-          })}
-          accessibilityRole="button"
-          accessibilityLabel="Run"
-        >
-          <Play size={20} color={p.buttonPrimaryText} />
-          <Text
-            style={{
-              fontFamily: "Outfit-Bold",
-              fontSize: 18,
-              color: p.buttonPrimaryText,
-            }}
-          >
-            Run
-          </Text>
-        </Pressable>
-      </View>
     </View>
   );
 }

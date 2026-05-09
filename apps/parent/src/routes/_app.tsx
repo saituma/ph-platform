@@ -11,12 +11,15 @@ import {
 	Menu,
 	X,
 	ChevronRight,
+	Sun,
+	Moon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "#/lib/api-client";
 import { clearAuthToken, getTokenStatus } from "#/lib/client-storage";
 import { queryKeys } from "#/lib/query-keys";
 import { cn } from "#/lib/utils";
+import { useTheme } from "#/routes/__root";
 
 export const Route = createFileRoute("/_app")({
 	beforeLoad: async () => {
@@ -49,6 +52,7 @@ function AppLayout() {
 	const queryClient = useQueryClient();
 	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const pathname = window.location.pathname;
+	const { theme, toggle } = useTheme();
 
 	const { data: me } = useQuery<Me>({
 		queryKey: queryKeys.me,
@@ -89,13 +93,23 @@ function AppLayout() {
 						</div>
 						<span className="font-semibold text-sidebar-foreground text-sm">Parent Portal</span>
 					</div>
-					<button
-						type="button"
-						onClick={() => setSidebarOpen(false)}
-						className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
-					>
-						<X size={18} />
-					</button>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={toggle}
+							title="Toggle theme"
+							className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
+						>
+							{theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+						</button>
+						<button
+							type="button"
+							onClick={() => setSidebarOpen(false)}
+							className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
+						>
+							<X size={18} />
+						</button>
+					</div>
 				</div>
 
 				{/* Navigation */}
@@ -161,7 +175,15 @@ function AppLayout() {
 					>
 						<Menu size={20} />
 					</button>
-					<span className="font-semibold text-sm">PH Parent Portal</span>
+					<span className="font-semibold text-sm flex-1">PH Parent Portal</span>
+					<button
+						type="button"
+						onClick={toggle}
+						title="Toggle theme"
+						className="text-foreground/50 hover:text-foreground transition-colors"
+					>
+						{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+					</button>
 				</header>
 
 				<main className="flex-1 overflow-y-auto">

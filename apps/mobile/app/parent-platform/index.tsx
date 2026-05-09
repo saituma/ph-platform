@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, View, useColorScheme } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
@@ -37,8 +37,6 @@ export default function ParentPlatformScreen() {
   const { isSectionHidden } = useAgeExperience();
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
-  const isDark = useColorScheme() === "dark";
-
   const [items, setItems] = useState<ParentCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -108,7 +106,7 @@ export default function ParentPlatformScreen() {
               width: 36,
               height: 36,
               borderRadius: 12,
-              backgroundColor: p.cardMint,
+              backgroundColor: p.accentSoft,
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -248,7 +246,7 @@ export default function ParentPlatformScreen() {
                         width: 44,
                         height: 44,
                         borderRadius: 14,
-                        backgroundColor: cardColor,
+                        backgroundColor: p.accentSoft,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
@@ -340,7 +338,7 @@ function FeaturedCard({
           style={{
             width: "100%",
             aspectRatio: 2.2,
-            backgroundColor: cardBg,
+            backgroundColor: p.accentSoft,
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -354,7 +352,7 @@ function FeaturedCard({
           <View
             style={{
               alignSelf: "flex-start",
-              backgroundColor: cardBg,
+              backgroundColor: p.accentSoft,
               borderRadius: 100,
               paddingHorizontal: 10,
               paddingVertical: 4,

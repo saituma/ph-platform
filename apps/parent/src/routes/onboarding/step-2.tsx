@@ -1,35 +1,39 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowLeft, ArrowRight, Users, User } from "lucide-react";
-import { cn } from "#/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, ArrowRight, Users, User, Trophy, Calendar, Layers } from "lucide-react";
+import { api } from "#/lib/api-client";
 
 export const Route = createFileRoute("/onboarding/step-2")({
 	component: Step2,
 });
 
-const SPORTS = [
-	{ id: "football", emoji: "⚽", label: "Football" },
-	{ id: "athletics", emoji: "🏃", label: "Athletics" },
-	{ id: "swimming", emoji: "🏊", label: "Swimming" },
-	{ id: "rugby", emoji: "🏉", label: "Rugby" },
-	{ id: "basketball", emoji: "🏀", label: "Basketball" },
-	{ id: "other", emoji: "🎯", label: "Other" },
-];
+type Child = {
+	id: number;
+	name: string;
+	age: number;
+	athleteType: string;
+	team: { name: string } | null;
+	currentProgramTier: string | null;
+	currentPlanId: string | null;
+	performanceGoals: string | null;
+};
+
+type GuardianChildren = {
+	id: string | null;
+	children: Child[];
+};
 
 function Step2() {
 	const navigate = useNavigate();
-	const [childName, setChildName] = useState("");
-	const [age, setAge] = useState("");
-	const [athleteType, setAthleteType] = useState<"youth" | "adult" | null>(null);
-	const [sport, setSport] = useState<string | null>(null);
 
-	const canContinue = childName.trim().length >= 2 && athleteType && age;
+	const { data, isLoading, isError } = useQuery<GuardianChildren>({
+		queryKey: ["guardian-children"],
+		queryFn: () => api.get<GuardianChildren>("/api/portal/guardian/children"),
+		staleTime: 1000 * 60 * 5,
+	});
 
-	const handleContinue = () => {
-		if (!canContinue) return;
-		localStorage.setItem("ph_parent_ob_child", JSON.stringify({ childName, age, athleteType, sport }));
-		navigate({ to: "/onboarding/step-3" });
-	};
+	const children = data?.children ?? [];
+	const child = children[0] ?? null;
 
 	return (
 		<div className="space-y-8 animate-fade-in-up">
@@ -42,111 +46,112 @@ function Step2() {
 					<span className="label-mono">Step 2</span>
 				</div>
 				<h1 className="text-3xl font-black uppercase tracking-tight text-foreground">
-					About your<br />
-					<span style={{ color: "var(--acid)" }}>child</span>
+					Your <span style={{ color: "var(--acid)" }}>child's</span><br />
+					profile
 				</h1>
 				<p className="text-muted-foreground text-sm">
-					Tell us about the athlete you're supporting
+					Here's the athlete profile linked to your account
 				</p>
 			</div>
 
-			{/* Card */}
-			<div className="bento-card p-6 space-y-5">
-				{/* Name */}
-				<div className="space-y-2">
-					<label className="label-mono">Child's name</label>
-					<input
-						type="text"
-						value={childName}
-						onChange={(e) => setChildName(e.target.value)}
-						placeholder="Alex Smith"
-						className="w-full px-3.5 py-2.5 border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring transition-all"
-					/>
+			{isLoading && (
+				<div className="bento-card p-8 flex items-center justify-center">
+					<div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
 				</div>
+			)}
 
-				{/* Age */}
-				<div className="space-y-2">
-					<label className="label-mono">Age</label>
-					<input
-						type="number"
-						min={4}
-						max={40}
-						value={age}
-						onChange={(e) => setAge(e.target.value)}
-						placeholder="15"
-						className="w-full px-3.5 py-2.5 border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring transition-all"
-					/>
+			{isError && (
+				<div className="bento-card p-6 border-destructive/40">
+					<p className="text-sm text-destructive">Could not load profile. Please continue and we'll sync shortly.</p>
 				</div>
+			)}
 
-				{/* Athlete type */}
-				<div className="space-y-2">
-					<label className="label-mono">Athlete type</label>
-					<div className="grid grid-cols-2 gap-3">
-						{([
-							{ id: "youth", icon: User, title: "Youth", desc: "Under 18" },
-							{ id: "adult", icon: Users, title: "Adult", desc: "18 and over" },
-						] as const).map(({ id, icon: Icon, title, desc }) => (
-							<button
-								key={id}
-								type="button"
-								onClick={() => setAthleteType(id)}
-								className={cn(
-									"flex items-center gap-3 p-4 border-2 text-left transition-all duration-200",
-									athleteType === id
-										? "border-primary bg-primary/5"
-										: "border-border hover:border-primary/40",
-								)}
-							>
-								<div className={cn(
-									"w-9 h-9 flex items-center justify-center flex-shrink-0",
-									athleteType === id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-								)}>
-									<Icon size={16} />
-								</div>
-								<div>
-									<div className={cn(
-										"text-sm font-bold uppercase tracking-wide",
-										athleteType === id ? "text-primary" : "text-foreground",
-									)}>
-										{title}
-									</div>
-									<div className="text-xs text-muted-foreground font-mono">{desc}</div>
-								</div>
-							</button>
-						))}
-					</div>
-				</div>
-
-				{/* Sport bento grid */}
-				<div className="space-y-2">
-					<label className="label-mono">
-						Primary sport <span className="text-muted-foreground/60 font-normal normal-case tracking-normal">(optional)</span>
-					</label>
-					<div className="grid grid-cols-3 gap-2">
-						{SPORTS.map(({ id, emoji, label }) => (
-							<button
-								key={id}
-								type="button"
-								onClick={() => setSport(sport === id ? null : id)}
-								className={cn(
-									"flex flex-col items-center gap-2 py-3 px-2 border-2 transition-all duration-200 text-center",
-									sport === id
-										? "border-primary bg-primary/5"
-										: "border-border hover:border-primary/30",
-								)}
-							>
-								<span className="text-xl">{emoji}</span>
-								<span className={cn(
-									"text-xs font-mono uppercase tracking-wide",
-									sport === id ? "text-primary" : "text-foreground/60",
-								)}>
-									{label}
+			{!isLoading && !isError && child && (
+				<div className="bento-card p-6 space-y-5">
+					{/* Avatar + name */}
+					<div className="flex items-center gap-4">
+						<div className="w-14 h-14 bg-primary/10 flex items-center justify-center flex-shrink-0">
+							<span className="text-primary font-black text-xl">
+								{child.name.charAt(0).toUpperCase()}
+							</span>
+						</div>
+						<div className="min-w-0">
+							<span className="label-mono mb-1 block">Name</span>
+							<div className="text-lg font-black uppercase tracking-tight text-foreground truncate">{child.name}</div>
+							<div className="flex items-center gap-2 mt-0.5">
+								<span className="label-mono">
+									{child.athleteType === "youth" ? "Youth athlete" : "Adult athlete"}
 								</span>
-							</button>
-						))}
+								{child.team && (
+									<>
+										<span className="text-muted-foreground/40">·</span>
+										<span className="label-mono">{child.team.name}</span>
+									</>
+								)}
+							</div>
+						</div>
 					</div>
+
+					<div className="h-px bg-border" />
+
+					{/* Stats row */}
+					<div className="grid grid-cols-3 gap-3">
+						<div className="space-y-1">
+							<div className="flex items-center gap-1.5">
+								<Calendar size={11} className="text-muted-foreground/50" />
+								<span className="label-mono">Age</span>
+							</div>
+							<div className="text-2xl font-black text-foreground">{child.age || "—"}</div>
+						</div>
+
+						<div className="space-y-1">
+							<div className="flex items-center gap-1.5">
+								{child.athleteType === "youth" ? (
+									<User size={11} className="text-muted-foreground/50" />
+								) : (
+									<Users size={11} className="text-muted-foreground/50" />
+								)}
+								<span className="label-mono">Type</span>
+							</div>
+							<div className="text-sm font-bold uppercase tracking-tight text-foreground capitalize">
+								{child.athleteType ?? "—"}
+							</div>
+						</div>
+
+						<div className="space-y-1">
+							<div className="flex items-center gap-1.5">
+								<Layers size={11} className="text-muted-foreground/50" />
+								<span className="label-mono">Tier</span>
+							</div>
+							<div className="text-sm font-bold uppercase tracking-tight text-foreground">
+								{child.currentProgramTier ?? "—"}
+							</div>
+						</div>
+					</div>
+
+					{child.performanceGoals && (
+						<>
+							<div className="h-px bg-border" />
+							<div className="space-y-1.5">
+								<div className="flex items-center gap-1.5">
+									<Trophy size={11} className="text-muted-foreground/50" />
+									<span className="label-mono">Performance goals</span>
+								</div>
+								<p className="text-sm text-foreground/80 leading-relaxed">{child.performanceGoals}</p>
+							</div>
+						</>
+					)}
 				</div>
-			</div>
+			)}
+
+			{!isLoading && !isError && !child && (
+				<div className="bento-card p-6 space-y-2">
+					<p className="label-mono text-muted-foreground">No athlete linked</p>
+					<p className="text-sm text-muted-foreground leading-relaxed">
+						Your child's profile will appear here once their account is set up by your coach or admin.
+					</p>
+				</div>
+			)}
 
 			<div className="flex gap-3">
 				<button
@@ -158,14 +163,9 @@ function Step2() {
 				</button>
 				<button
 					type="button"
-					onClick={handleContinue}
-					disabled={!canContinue}
-					className={cn(
-						"flex-1 flex items-center justify-center gap-2 py-3 px-5 font-bold text-xs uppercase tracking-widest transition-all",
-						canContinue
-							? "bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98]"
-							: "bg-muted text-muted-foreground cursor-not-allowed",
-					)}
+					onClick={() => navigate({ to: "/onboarding/step-3" })}
+					disabled={isLoading}
+					className="flex-1 flex items-center justify-center gap-2 py-3 px-5 font-bold text-xs uppercase tracking-widest transition-all bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					<ArrowRight size={13} /> Continue
 				</button>

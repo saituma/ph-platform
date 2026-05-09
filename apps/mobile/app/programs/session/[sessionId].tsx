@@ -37,6 +37,7 @@ import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import { useVideoHistory } from "@/hooks/programs/useVideoHistory";
 import { BuiltinCamera } from "@/components/media/BuiltinCamera";
 import { showNativeActionMenu } from "@/components/native/NativeActionMenu";
+import { useStreakStore } from "@/lib/streakStore";
 import {
   finishTrainingContentV2Session,
   FinishTrainingSessionWorkoutLog,
@@ -577,6 +578,8 @@ export default function ProgramSessionDetailScreen() {
       setFinishError(null);
       try {
         await finishTrainingContentV2Session(token, sessionIdNum, workoutLog);
+        useStreakStore.getState().recordSession(0);
+        void useStreakStore.getState().syncToServer(token);
         const updated = await load(true);
         const sessionTitle = session?.title ?? "Your session";
         const hasWorkoutLog =

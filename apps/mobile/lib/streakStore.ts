@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { apiRequest } from "./api";
 
 export interface StreakState {
   currentStreak: number;
@@ -13,6 +14,7 @@ export interface StreakState {
   lastShownDate: string | null;
 
   recordSession: (durationMinutes: number) => void;
+  syncToServer: (token: string) => Promise<void>;
   markShown: () => void;
   shouldShowStreak: () => boolean;
   getWeekDays: () => WeekDay[];
@@ -111,6 +113,27 @@ export const useStreakStore = create<StreakState>()(
             lastSessionDate: key,
           };
         });
+      },
+
+      syncToServer: async (token: string) => {
+        const state = get();
+        try {
+          await apiRequest("/streaks/sync", {
+            method: "POST",
+            token,
+            body: {
+              currentStreak: state.currentStreak,
+              longestStreak: state.longestStreak,
+              totalDays: state.totalDays,
+              totalSessions: state.totalSessions,
+              totalMinutes: state.totalMinutes,
+              completedDates: state.completedDates,
+              lastActivityDate: state.lastSessionDate,
+            },
+          });
+        } catch {
+          // fire-and-forget — local state is authoritative
+        }
       },
 
       markShown: () => {

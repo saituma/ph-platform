@@ -444,18 +444,22 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const profile = useAppSelector((s) => s.user.profile);
+  const token = useAppSelector((s) => s.user.token);
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
 
   const [filter, setFilter] = useState<TimeFilter>("month");
   const { logs, todayLog, loading, refetch, saveLog } = useSleepData(filter);
   const sheetRef = useRef<BottomSheetModal>(null);
 
-  const heroBg = isDark ? "#142A22" : "#2C3E2E";
-  const heroText = "#FFFFFF";
+  const heroBg = isDark ? "#000000" : p.pageBg;
+  const heroText = isDark ? "#FFFFFF" : p.textPrimary;
+  const heroSubtext = isDark ? "rgba(255,255,255,0.6)" : p.textMuted;
+  const heroBtnBg = isDark ? "rgba(255,255,255,0.12)" : p.inputBg;
+  const heroCtaBg = isDark ? "rgba(255,255,255,0.15)" : p.inputBg;
   const coreColor = isDark ? "#9EF700" : "#2F9F3D";
   const remColor = isDark ? "#FFB020" : "#E8970A";
   const postColor = isDark ? "#7ABCD4" : "#5B8FA6";
-  const trackColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)";
+  const trackColor = isDark ? "rgba(255,255,255,0.08)" : p.divider;
 
   const totalMin = todayLog?.totalMinutes ?? 0;
   const coreMin = todayLog?.deepMinutes ?? Math.round(totalMin * 0.55);
@@ -500,6 +504,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
       const log = await saveLog(input);
       if (log) {
         useStreakStore.getState().recordSession(input.totalMinutes / 60);
+        if (token) void useStreakStore.getState().syncToServer(token);
       }
     },
     [saveLog],
@@ -550,7 +555,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
               <ScalePressable
                 onPress={openSheet}
                 activeScale={0.85}
-                style={[styles.addBtn, { backgroundColor: "rgba(255,255,255,0.12)" }]}
+                style={[styles.addBtn, { backgroundColor: heroBtnBg }]}
               >
                 <Plus size={18} color={heroText} />
               </ScalePressable>
@@ -558,14 +563,14 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
           </View>
 
           <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(200).duration(400)}>
-            <Text style={styles.heroLabel}>You Slept for</Text>
+            <Text style={[styles.heroLabel, { color: heroSubtext }]}>You Slept for</Text>
           </Animated.View>
 
           <CountingNumber
             value={totalMin}
             suffix="h"
-            style={styles.heroNumber}
-            suffixStyle={styles.heroUnit}
+            style={[styles.heroNumber, { color: heroText }]}
+            suffixStyle={[styles.heroUnit, { color: heroSubtext }]}
             delay={300}
             duration={1400}
           />
@@ -579,7 +584,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
               centerText={totalMin > 0 ? formatHoursDecimal(totalMin) : "—"}
               centerSubtext="hours"
               centerTextColor={heroText}
-              centerSubtextColor="rgba(255,255,255,0.6)"
+              centerSubtextColor={heroSubtext}
               trackColor={trackColor}
               animate={!reduceMotion}
             />
@@ -593,7 +598,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
               label="Core"
               value={formatHours(coreMin)}
               textColor={heroText}
-              subtextColor="rgba(255,255,255,0.6)"
+              subtextColor={heroSubtext}
               delay={800}
             />
             <StageStatPill
@@ -602,7 +607,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
               label="REM"
               value={formatHours(remMin)}
               textColor={heroText}
-              subtextColor="rgba(255,255,255,0.6)"
+              subtextColor={heroSubtext}
               delay={950}
             />
             <StageStatPill
@@ -611,14 +616,14 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
               label="Light"
               value={formatHours(lightMin)}
               textColor={heroText}
-              subtextColor="rgba(255,255,255,0.6)"
+              subtextColor={heroSubtext}
               delay={1100}
             />
           </View>
 
           {/* CTA */}
           <ScalePressable onPress={openSheet} activeScale={0.95}>
-            <Animated.View style={[styles.ctaBtn, { backgroundColor: "rgba(255,255,255,0.15)" }, ctaAnimStyle]}>
+            <Animated.View style={[styles.ctaBtn, { backgroundColor: heroCtaBg }, ctaAnimStyle]}>
               <Text style={[styles.ctaBtnText, { color: heroText }]}>
                 {todayLog ? "Update Today's Log" : "Log Tonight's Sleep"}
               </Text>

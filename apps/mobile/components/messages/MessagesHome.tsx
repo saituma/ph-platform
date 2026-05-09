@@ -224,7 +224,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 			<View
 				style={[
 					styles.switcherWrap,
-					{ backgroundColor: p.cardSage },
+					{ backgroundColor: p.inputBg },
 				]}
 			>
 				{filterItems.map((item) => {
@@ -261,72 +261,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 				})}
 			</View>
 
-			{stories.length > 0 && <StoriesRow stories={stories} />}
-
-			{!announcementsLoading && announcementsMeta && (
-				<View style={styles.announcementWrapper}>
-					<Pressable
-						onPress={handleOpenAnnouncements}
-						style={[
-							styles.announcementBtn,
-							{ backgroundColor: p.cardWhite },
-						]}
-					>
-						<View style={styles.announcementLeft}>
-							<View
-								style={[
-									styles.announcementIcon,
-									{ backgroundColor: p.accentSoft },
-								]}
-							>
-								<Megaphone size={22} color={p.accent} strokeWidth={2} />
-							</View>
-							<View style={styles.announcementContent}>
-								<Text
-									style={{
-										fontFamily: "Outfit-Bold",
-										fontSize: 16,
-										letterSpacing: -0.3,
-										color: p.textPrimary,
-									}}
-									numberOfLines={1}
-								>
-									{announcementsMeta.title}
-								</Text>
-								<Text
-									style={{
-										fontFamily: "Outfit-Regular",
-										fontSize: 13,
-										color: p.textMuted,
-									}}
-									numberOfLines={1}
-								>
-									{announcementsMeta.snippet}
-								</Text>
-							</View>
-						</View>
-					</Pressable>
-					{announcementsMeta.count > 0 && (
-						<View
-							style={[
-								styles.announcementBadge,
-								{ backgroundColor: p.accent },
-							]}
-						>
-							<Text
-								style={{
-									fontFamily: "Outfit-Bold",
-									fontSize: 12,
-									color: p.buttonPrimaryText,
-								}}
-							>
-								{announcementsMeta.count}
-							</Text>
-						</View>
-					)}
-				</View>
-			)}
-
 			<InboxScreen
 				threads={inboxThreads}
 				typingStatus={typingStatus}
@@ -336,6 +270,74 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 				onOpenThread={openThread}
 				variant={mode === "team" ? "team" : "default"}
 				showEmptySections={mode === "team"}
+				headerContent={
+					<>
+						{stories.length > 0 && <StoriesRow stories={stories} />}
+						{!announcementsLoading && announcementsMeta && (
+							<View style={styles.announcementWrapper}>
+								<Pressable
+									onPress={handleOpenAnnouncements}
+									style={[
+										styles.announcementBtn,
+										{ backgroundColor: p.cardWhite },
+									]}
+								>
+									<View style={styles.announcementLeft}>
+										<View
+											style={[
+												styles.announcementIcon,
+												{ backgroundColor: p.accentSoft },
+											]}
+										>
+											<Megaphone size={22} color={p.accent} strokeWidth={2} />
+										</View>
+										<View style={styles.announcementContent}>
+											<Text
+												style={{
+													fontFamily: "Outfit-Bold",
+													fontSize: 16,
+													letterSpacing: -0.3,
+													color: p.textPrimary,
+												}}
+												numberOfLines={1}
+											>
+												{announcementsMeta.title}
+											</Text>
+											<Text
+												style={{
+													fontFamily: "Outfit-Regular",
+													fontSize: 13,
+													color: p.textMuted,
+												}}
+												numberOfLines={1}
+											>
+												{announcementsMeta.snippet}
+											</Text>
+										</View>
+									</View>
+								</Pressable>
+								{announcementsMeta.count > 0 && (
+									<View
+										style={[
+											styles.announcementBadge,
+											{ backgroundColor: p.accent },
+										]}
+									>
+										<Text
+											style={{
+												fontFamily: "Outfit-Bold",
+												fontSize: 12,
+												color: p.buttonPrimaryText,
+											}}
+										>
+											{announcementsMeta.count}
+										</Text>
+									</View>
+								)}
+							</View>
+						)}
+					</>
+				}
 			/>
 		</SafeAreaView>
 	);
@@ -365,7 +367,8 @@ const styles = StyleSheet.create({
 	},
 	switcherWrap: {
 		marginHorizontal: 16,
-		marginVertical: 12,
+		marginTop: 12,
+		marginBottom: 6,
 		padding: 4,
 		borderRadius: 22,
 		flexDirection: "row",

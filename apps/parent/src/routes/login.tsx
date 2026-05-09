@@ -3,7 +3,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
-import { config } from "#/lib/config";
 import { csrfFetch } from "#/lib/csrf";
 import { isTokenExpired } from "#/lib/token-expiry";
 import { setAuthToken, getTokenStatus } from "#/lib/client-storage";
@@ -58,7 +57,7 @@ export default function LoginPage() {
 
 		setIsLoading(true);
 		try {
-			const res = await csrfFetch(`${config.api.baseUrl}/api/auth/login`, {
+			const res = await csrfFetch(`/api/auth/login`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email, password }),
@@ -71,7 +70,15 @@ export default function LoginPage() {
 			if (isTokenExpired(data.accessToken))
 				throw new Error("Token expired — check server JWT settings.");
 
-			const role: string = data.user?.role ?? data.role ?? "";
+			// Decode role from JWT payload (login response doesn't include a user object)
+			const jwtPayload = (() => {
+				try {
+					const part = data.accessToken.split(".")[1] ?? "";
+					const padded = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(part.length + ((4 - (part.length % 4)) % 4), "=");
+					return JSON.parse(atob(padded)) as Record<string, unknown>;
+				} catch { return {}; }
+			})();
+			const role: string = (jwtPayload.role as string) ?? data.user?.role ?? data.role ?? "";
 
 			if (role !== "guardian") {
 				const hint = ROLE_ERRORS[role];
