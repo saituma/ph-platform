@@ -4,6 +4,7 @@ import { shallowEqual } from "react-redux";
 import { useAppSelector } from "@/store/hooks";
 import { isAdminRole } from "@/lib/isAdminRole";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
+import { PlanExpiredBanner } from "@/components/PlanExpiredBanner";
 
 import { AdminLayout } from "@/roles/admin/AdminLayout";
 import { AdultLayout } from "@/roles/adult/AdultLayout";
@@ -89,7 +90,12 @@ function TabLayout() {
     return <YouthLayout />;
   };
 
-  return <View style={containerStyle}>{renderRoleLayout()}</View>;
+  return (
+    <View style={containerStyle}>
+      <PlanExpiredBanner />
+      {renderRoleLayout()}
+    </View>
+  );
 }
 
 export default TabLayout;

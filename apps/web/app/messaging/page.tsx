@@ -2046,15 +2046,16 @@ function MessagingPageInner() {
                       {storyMediaType === "video" ? (
                         <video
                           src={storyMediaUrl.trim()}
-                          className="w-full h-32 object-cover"
+                          className="w-full max-h-[400px] object-contain bg-black/5"
                           muted
                           playsInline
+                          controls
                         />
                       ) : (
                         <img
                           src={storyMediaUrl.trim()}
                           alt="Preview"
-                          className="w-full h-32 object-cover"
+                          className="w-full max-h-[400px] object-contain bg-black/5"
                         />
                       )}
                     </div>

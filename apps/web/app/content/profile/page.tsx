@@ -205,7 +205,7 @@ export default function ContentProfilePage() {
                     <img
                       src={homeProfessionalPhoto}
                       alt="Professional photo preview"
-                      className="h-56 w-full object-cover"
+                      className="w-full max-h-[500px] object-contain"
                       loading="lazy"
                     />
                   </div>
