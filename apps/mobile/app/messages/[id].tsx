@@ -99,6 +99,7 @@ export default function ThreadScreen() {
   const [reportModalOpen, setReportModalOpen] = React.useState(false);
   const [reportReason, setReportReason] = React.useState<string | null>(null);
   const [reportDetails, setReportDetails] = React.useState("");
+  const [reportTarget, setReportTarget] = React.useState<ChatMessage | null>(null);
 
   const handleLongPressMessage = React.useCallback((message: ChatMessage) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -163,8 +164,9 @@ export default function ThreadScreen() {
 
   const handleReportMessage = React.useCallback((message: ChatMessage) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    toast.success("Message reported", "We'll review this message shortly.");
-  }, [toast]);
+    setReportTarget(message);
+    setReportModalOpen(true);
+  }, []);
 
   const pinnedMessage = React.useMemo(() => {
     for (const msg of localMessages) {
@@ -182,14 +184,28 @@ export default function ThreadScreen() {
     setPendingAttachment(null);
   }, [setPendingAttachment]);
 
-  const handleSubmitReport = React.useCallback(() => {
-    if (!reportReason) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    toast.success("Report submitted", "We'll review this and take action if needed.");
+  const handleSubmitReport = React.useCallback(async () => {
+    if (!reportReason || !reportTarget) return;
+    const isGroup = currentThread?.id.startsWith("group:");
+    const body = { reason: reportReason, details: reportDetails || undefined };
+    try {
+      if (isGroup) {
+        const groupId = Number(currentThread!.id.replace("group:", ""));
+        const messageId = Number(reportTarget.id);
+        await messagesApi.groups.reportMessage(groupId, messageId, body, { token });
+      } else {
+        await messagesApi.reportMessage(Number(reportTarget.id), body, { token });
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      toast.success("Report submitted", "We'll review this and take action if needed.");
+    } catch {
+      toast.error("Report failed", "Please try again.");
+    }
     setReportModalOpen(false);
+    setReportTarget(null);
     setReportReason(null);
     setReportDetails("");
-  }, [reportReason, toast]);
+  }, [reportReason, reportTarget, reportDetails, currentThread, token, toast]);
 
 
   if (!currentThread) {

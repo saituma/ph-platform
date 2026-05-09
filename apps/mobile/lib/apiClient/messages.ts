@@ -71,6 +71,15 @@ export const messagesApi = {
     return apiRequest("/messages/forward", { ...options, method: "POST", body });
   },
 
+  /** Report a DM message for moderation. */
+  reportMessage(
+    messageId: number,
+    body: { reason: string; details?: string },
+    options: RequestBase,
+  ) {
+    return apiRequest(`/messages/${messageId}/report`, { ...options, method: "POST", body });
+  },
+
   inbox: {
     /** Unified inbox (threads + groups). */
     list(options: RequestBase & { forceRefresh?: boolean }) {
@@ -108,6 +117,20 @@ export const messagesApi = {
         ...options,
         method: "PUT",
         body: { emoji },
+      });
+    },
+
+    /** Report a group message for moderation. */
+    reportMessage(
+      groupId: number,
+      messageId: number,
+      body: { reason: string; details?: string },
+      options: RequestBase,
+    ) {
+      return apiRequest(`/chat/groups/${groupId}/messages/${messageId}/report`, {
+        ...options,
+        method: "POST",
+        body,
       });
     },
 

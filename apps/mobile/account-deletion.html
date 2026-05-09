@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete Your Account — PH Performance</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0b;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .card {
+      background: #111113;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 40px 36px;
+      max-width: 520px;
+      width: 100%;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: #c8f135;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #0a0a0b;
+      font-size: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.2px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+    }
+
+    .intro {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #94a3b8;
+      margin-bottom: 24px;
+    }
+
+    .info-box {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 28px;
+    }
+
+    .info-box p {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #94a3b8;
+    }
+
+    .info-box p + p {
+      margin-top: 8px;
+    }
+
+    .info-box strong {
+      color: #cbd5e1;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 7px;
+    }
+
+    input[type="text"],
+    input[type="email"] {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 13px 16px;
+      font-size: 15px;
+      color: #e2e8f0;
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 18px;
+      -webkit-appearance: none;
+    }
+
+    input[type="text"]:focus,
+    input[type="email"]:focus {
+      border-color: rgba(200,241,53,0.5);
+    }
+
+    input::placeholder {
+      color: #475569;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 15px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-top: 4px;
+    }
+
+    button[type="submit"]:hover { opacity: 0.88; }
+    button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .confirmation {
+      display: none;
+      text-align: center;
+      padding: 24px 0 8px;
+    }
+
+    .confirmation .check {
+      width: 56px;
+      height: 56px;
+      background: rgba(200,241,53,0.12);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 26px;
+    }
+
+    .confirmation h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .confirmation p {
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .error-msg {
+      display: none;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #fca5a5;
+      margin-top: 12px;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #475569;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 28px 20px; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">PH</div>
+      <span class="logo-name">PH Performance</span>
+    </div>
+
+    <h1>Delete Your Account</h1>
+    <p class="intro">
+      Submit this form to permanently delete your PH Performance account.
+      Requests are processed within 30 days.
+    </p>
+
+    <div class="info-box">
+      <p><strong>What will be deleted:</strong> your account, login credentials, personal profile, and all identifiable information.</p>
+      <p><strong>What may be retained:</strong> anonymised training data may be kept for team records under legitimate interest. It cannot be linked back to you.</p>
+    </div>
+
+    <form id="deletion-form">
+      <label for="full-name">Full Name</label>
+      <input type="text" id="full-name" name="fullName" placeholder="Your full name" required autocomplete="name" />
+
+      <label for="email">Email Address</label>
+      <input type="email" id="email" name="email" placeholder="The email on your account" required autocomplete="email" />
+
+      <button type="submit" id="submit-btn">Request Account Deletion</button>
+      <div class="error-msg" id="error-msg">Something went wrong. Please try again or email us at support@phperformance.uk</div>
+    </form>
+
+    <div class="confirmation" id="confirmation">
+      <div class="check">✓</div>
+      <h2>Request submitted</h2>
+      <p>We've received your deletion request and will process it within 30 days. You'll receive a confirmation email at the address you provided.</p>
+    </div>
+
+    <footer>© 2026 PH Performance. All rights reserved.</footer>
+  </div>
+
+  <script>
+    document.getElementById('deletion-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      const errorMsg = document.getElementById('error-msg');
+      errorMsg.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+
+      const fullName = document.getElementById('full-name').value.trim();
+      const email = document.getElementById('email').value.trim();
+
+      try {
+        const res = await fetch('/api/account-deletion-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fullName, email }),
+        });
+
+        if (!res.ok) throw new Error('Server error');
+
+        document.getElementById('deletion-form').style.display = 'none';
+        document.getElementById('confirmation').style.display = 'block';
+      } catch {
+        errorMsg.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Request Account Deletion';
+      }
+    });
+  </script>
+</body>
+</html>
