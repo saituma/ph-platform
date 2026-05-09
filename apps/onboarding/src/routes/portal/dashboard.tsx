@@ -5,10 +5,12 @@ import {
 	ArrowRight,
 	Bell,
 	Calendar,
+	CheckCircle2,
 	Clock,
 	CreditCard,
 	Dumbbell,
 	ExternalLink,
+	FlaskConical,
 	Megaphone,
 	MessageSquare,
 	Shield,
@@ -39,6 +41,8 @@ import { fetchMyAssignedPrograms } from "@/services/programsService";
 import { fetchBookings, fetchScheduledPrograms, type ScheduleEvent } from "@/services/scheduleService";
 import { settingsService } from "@/services/settingsService";
 import { fetchTeamRoster } from "@/services/teamRosterService";
+import { StoriesRow } from "@/components/StoriesRow";
+import { BetaTesterForm } from "@/components/BetaTesterForm";
 
 export const homeKeys = homeQueryKeys;
 
@@ -358,6 +362,8 @@ function CoachDashboard({
 					{homeContent?.description || "Manage your squad, programs, and schedule from one place."}
 				</motion.p>
 			</motion.div>
+
+			<StoriesRow />
 
 			{/* Stat Cards */}
 			<StaggerList className="grid grid-cols-2 md:grid-cols-4 border border-foreground/[0.06] divide-x divide-y md:divide-y-0 divide-foreground/[0.06]">
@@ -895,6 +901,10 @@ function AthleteDashboard({
 					</div>
 				)}
 			</motion.div>
+
+			<StoriesRow />
+
+			<BetaTesterForm userEmail={user.email} userName={user.athleteName || user.name || undefined} />
 
 			{/* Plan row */}
 			<div className="grid grid-cols-1 gap-6">

@@ -429,6 +429,8 @@ export const apiSlice = createApi({
     "ScheduledSessions",
     "SleepLogs",
     "WellbeingLogs",
+    "Stories",
+    "BetaTesters",
   ],
   endpoints: () => ({}),
 });

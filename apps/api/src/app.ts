@@ -86,8 +86,8 @@ export function createApp() {
         if (allowedOrigins.has("*")) return callback(null, true);
         if (originAllowed(origin)) return callback(null, true);
 
-        // Final fallback for any localhost variation
-        if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+        // Final fallback for any localhost variation (non-production only)
+        if (env.nodeEnv !== "production" && (origin.includes("localhost") || origin.includes("127.0.0.1"))) {
           return callback(null, true);
         }
 

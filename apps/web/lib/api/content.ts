@@ -123,6 +123,31 @@ const contentApi = apiSlice.injectEndpoints({
         `/program-section-content?sectionType=${encodeURIComponent(sectionType)}`,
       providesTags: ["Content"],
     }),
+    getStories: builder.query<
+      { items: Array<{ id: number; title: string; mediaUrl: string; mediaType: "image" | "video"; badge?: string | null; order: number; isActive: boolean; createdAt: string }> },
+      void
+    >({
+      query: () => "/content/stories",
+      providesTags: ["Stories"],
+    }),
+    createStory: builder.mutation<
+      { item: any },
+      { title: string; mediaUrl: string; mediaType: "image" | "video"; badge?: string | null }
+    >({
+      query: (body) => ({
+        url: "/content/stories",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Stories"],
+    }),
+    deleteStory: builder.mutation<{ ok: boolean }, { storyId: number }>({
+      query: ({ storyId }) => ({
+        url: `/content/stories/${storyId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Stories"],
+    }),
   }),
   overrideExisting: false,
 });
@@ -146,4 +171,7 @@ export const {
   useCreateContentMutation,
   useDeleteContentMutation,
   useGetProgramSectionContentQuery,
+  useGetStoriesQuery,
+  useCreateStoryMutation,
+  useDeleteStoryMutation,
 } = contentApi;

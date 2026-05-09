@@ -36,7 +36,7 @@ export async function markNotificationRead(req: Request, res: Response) {
   const updated = await db
     .update(notificationTable)
     .set({ read: true })
-    .where(eq(notificationTable.id, input.notificationId))
+    .where(and(eq(notificationTable.id, input.notificationId), eq(notificationTable.userId, req.user!.id)))
     .returning();
   if (!updated[0]) {
     return res.status(404).json({ error: "Notification not found" });

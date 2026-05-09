@@ -34,8 +34,9 @@ export async function teamPostsList(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
     const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
-    const limit = req.query.limit ? Number(req.query.limit) : 20;
-    const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
+    const limit = Math.max(1, Math.min(Number(req.query.limit) || 20, 100));
+    const cursorRaw = Number(req.query.cursor);
+    const cursor = Number.isFinite(cursorRaw) && cursorRaw > 0 ? cursorRaw : undefined;
     const out = await listSocialPosts({
       limit,
       cursor,
@@ -116,15 +117,19 @@ export async function teamPostCommentsCreate(req: Request, res: Response) {
     await assertTeamMemberSocial(req.user.id, req.user.role);
     const postId = Number(req.params.postId);
     if (!Number.isFinite(postId)) return res.status(400).json({ error: "Invalid postId" });
-    const { content, parentId } = req.body;
-    if (!content || typeof content !== "string") {
-      return res.status(400).json({ error: "Content is required" });
+    const commentSchema = z.object({
+      content: z.string().trim().min(1).max(2000),
+      parentId: z.number().int().min(1).optional(),
+    });
+    const parsed = commentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid comment", details: parsed.error.flatten() });
     }
     const item = await createPostComment({
       userId: req.user.id,
       postId,
-      content,
-      parentId: parentId ? Number(parentId) : null,
+      content: parsed.data.content,
+      parentId: parsed.data.parentId ?? null,
     });
     return res.status(200).json({ item });
   } catch (err) {

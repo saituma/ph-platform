@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { z } from "zod";
 import { sql, eq, and, ne } from "drizzle-orm";
 import { db } from "../db";
 import { userTable, Role, auditLogsTable, athleteTable, teamTable, subscriptionRequestTable } from "../db/schema";
@@ -58,7 +59,7 @@ export async function listAdmins(req: Request, res: Response, next: NextFunction
  */
 export async function updateUserRole(req: Request, res: Response, next: NextFunction) {
   try {
-    const { userId } = req.params;
+    const id = z.coerce.number().int().min(1).parse(req.params.userId);
     const { role } = req.body;
 
     if (!role || !Role.enumValues.includes(role)) {
@@ -68,7 +69,7 @@ export async function updateUserRole(req: Request, res: Response, next: NextFunc
     const updated = await db
       .update(userTable)
       .set({ role, updatedAt: new Date() })
-      .where(eq(userTable.id, Number(userId)))
+      .where(eq(userTable.id, id))
       .returning();
 
     if (!updated[0]) {
@@ -78,9 +79,9 @@ export async function updateUserRole(req: Request, res: Response, next: NextFunc
     // Log the action
     await db.insert(auditLogsTable).values({
       performedBy: (req as any).user.id,
-      action: `Updated user ${userId} role to ${role}`,
+      action: `Updated user ${id} role to ${role}`,
       targetTable: "users",
-      targetId: Number(userId),
+      targetId: id,
     });
 
     res.json(updated[0]);

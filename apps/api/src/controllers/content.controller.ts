@@ -24,6 +24,9 @@ import {
   listStoriesForUser,
   listStoriesAdmin,
   replaceStories,
+  markStoryViewed,
+  createSingleStory,
+  deleteSingleStory,
   getGalleryItems,
 } from "../services/content.service";
 import { ProgramType, contentType } from "../db/schema";
@@ -295,8 +298,8 @@ export async function listAnnouncementsContent(_req: Request, res: Response) {
   return res.status(200).json({ items });
 }
 
-export async function listStories(_req: Request, res: Response) {
-  const items = await listStoriesForUser();
+export async function listStories(req: Request, res: Response) {
+  const items = await listStoriesForUser(req.user!.id);
   return res.status(200).json({ items });
 }
 
@@ -309,6 +312,31 @@ export async function replaceStoriesHandler(req: Request, res: Response) {
   const input = storiesReplaceSchema.parse(req.body);
   const items = await replaceStories(input.stories, req.user!.id);
   return res.status(200).json({ items });
+}
+
+export async function viewStoryHandler(req: Request, res: Response) {
+  const storyId = Number(req.params.storyId);
+  if (!Number.isFinite(storyId)) {
+    return res.status(400).json({ error: "Invalid story ID" });
+  }
+  await markStoryViewed(storyId, req.user!.id);
+  return res.status(200).json({ ok: true });
+}
+
+export async function createStoryHandler(req: Request, res: Response) {
+  const input = storyInputSchema.parse(req.body);
+  const item = await createSingleStory(input, req.user!.id);
+  return res.status(201).json({ item });
+}
+
+export async function deleteStoryHandler(req: Request, res: Response) {
+  const storyId = Number(req.params.storyId);
+  if (!Number.isFinite(storyId)) {
+    return res.status(400).json({ error: "Invalid story ID" });
+  }
+  const deleted = await deleteSingleStory(storyId);
+  if (!deleted) return res.status(404).json({ error: "Story not found" });
+  return res.status(200).json({ ok: true });
 }
 
 export async function listLegalContentPublic(_req: Request, res: Response) {

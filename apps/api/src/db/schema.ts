@@ -800,6 +800,25 @@ export const storyTable = pgTable(
   }),
 );
 
+export const storyViewTable = pgTable(
+  "story_views",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    storyId: integer()
+      .notNull()
+      .references(() => storyTable.id, { onDelete: "cascade" }),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    viewedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueView: unique("story_views_unique").on(table.storyId, table.userId),
+    storyIdx: index("story_views_story_idx").on(table.storyId),
+    userIdx: index("story_views_user_idx").on(table.userId),
+  }),
+);
+
 export const sessionExerciseTable = pgTable("session_exercises", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   sessionId: integer()
@@ -1885,6 +1904,23 @@ export const enquiryTable = pgTable(
     statusIdx: index("enquiries_status_idx").on(table.status),
     serviceIdx: index("enquiries_service_idx").on(table.interestedIn),
     createdAtIdx: index("enquiries_created_at_idx").on(table.createdAt),
+  }),
+);
+
+// ── Beta tester signups ─────────────────────────────────────────────
+export const betaTesterTable = pgTable(
+  "beta_testers",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    name: varchar({ length: 255 }).notNull(),
+    email: varchar({ length: 255 }).notNull(),
+    phone: varchar({ length: 50 }),
+    reason: text(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    emailIdx: index("beta_testers_email_idx").on(table.email),
+    createdAtIdx: index("beta_testers_created_at_idx").on(table.createdAt),
   }),
 );
 

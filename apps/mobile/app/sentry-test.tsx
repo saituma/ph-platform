@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useState } from "react";
+import { Redirect } from "expo-router";
 import { Sentry } from "@/lib/sentry";
 
 /**
@@ -12,6 +13,7 @@ import { Sentry } from "@/lib/sentry";
  * Each button corresponds to a different code path Sentry handles.
  */
 export default function SentryTestScreen() {
+  if (!__DEV__) return <Redirect href="/(tabs)" />;
   const [log, setLog] = useState<string[]>([]);
   const append = (s: string) =>
     setLog((prev) => [`${new Date().toLocaleTimeString()}  ${s}`, ...prev].slice(0, 30));

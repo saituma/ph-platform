@@ -1,8 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 type ApiCacheEntry = { data: any; savedAt: number };
 const apiCache = new Map<string, ApiCacheEntry>();
-const ASYNC_CACHE_KEY = "ph_api_cache_v2";
 
 export const hashString = (value: string) => {
   let hash = 5381;
@@ -12,48 +9,14 @@ export const hashString = (value: string) => {
   return (hash >>> 0).toString(16);
 };
 
-export const hydrateCache = () =>
-  Promise.resolve(AsyncStorage?.getItem?.(ASYNC_CACHE_KEY))
-    .then((stored: string | null | undefined) => {
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored) as Record<string, any>;
-          const now = Date.now();
-          for (const [key, value] of Object.entries(parsed)) {
-            if (!value || typeof value !== "object") continue;
-            const legacyExpiry =
-              typeof value.expiry === "number" ? value.expiry : null;
-            if (legacyExpiry !== null && legacyExpiry < now) continue;
-            const data = "data" in value ? value.data : value;
-            const savedAt =
-              typeof value.savedAt === "number" ? value.savedAt : now;
-            apiCache.set(key, { data, savedAt });
-          }
-        } catch {
-          // ignore parsing errors
-        }
-      }
-    })
-    .catch(() => {});
+/** No-op — cache is in-memory only (no disk persistence for security). */
+export const hydrateCache = () => Promise.resolve();
 
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
-
-function doPersist() {
-  persistTimer = null;
-  const obj = Object.fromEntries(apiCache.entries());
-  Promise.resolve(
-    AsyncStorage?.setItem?.(ASYNC_CACHE_KEY, JSON.stringify(obj)),
-  ).catch(() => {});
-}
-
-export function persistCache() {
-  if (persistTimer) return;
-  persistTimer = setTimeout(doPersist, 5000);
-}
+/** No-op — cache is in-memory only (no disk persistence for security). */
+export function persistCache() {}
 
 export function clearApiCache() {
   apiCache.clear();
-  Promise.resolve(AsyncStorage?.removeItem?.(ASYNC_CACHE_KEY)).catch(() => {});
 }
 
 export function getCachedData<T>(cacheKey: string, ttlMs: number): T | null {

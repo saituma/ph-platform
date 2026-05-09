@@ -51,6 +51,38 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import type { Request, Response, NextFunction } from "express";
 
+function parseWindowMs(window: `${number} ${"s" | "m" | "h" | "d"}`): number {
+  const match = window.match(/^(\d+)\s*(s|m|h|d)$/);
+  if (!match) return 60_000;
+  const value = Number(match[1]);
+  const unit = match[2];
+  switch (unit) {
+    case "s": return value * 1_000;
+    case "m": return value * 60_000;
+    case "h": return value * 3_600_000;
+    case "d": return value * 86_400_000;
+    default: return 60_000;
+  }
+}
+
+/** Simple in-memory rate limiter used when Redis is not configured. */
+class InMemoryRateLimiter {
+  private store = new Map<string, { count: number; resetAt: number }>();
+  constructor(private maxRequests: number, private windowMs: number) {}
+
+  limit(key: string): { success: boolean; limit: number; remaining: number; reset: number } {
+    const now = Date.now();
+    const entry = this.store.get(key);
+    if (!entry || now >= entry.resetAt) {
+      this.store.set(key, { count: 1, resetAt: now + this.windowMs });
+      return { success: true, limit: this.maxRequests, remaining: this.maxRequests - 1, reset: now + this.windowMs };
+    }
+    entry.count++;
+    const remaining = Math.max(0, this.maxRequests - entry.count);
+    return { success: entry.count <= this.maxRequests, limit: this.maxRequests, remaining, reset: entry.resetAt };
+  }
+}
+
 function createRatelimit(requests: number, window: `${number} ${"s" | "m" | "h" | "d"}`): Ratelimit | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -78,14 +110,28 @@ export function redisRateLimit(
   prefix = "rl",
 ) {
   const limiter = createRatelimit(requests, window);
+  const memoryLimiter = limiter ? null : new InMemoryRateLimiter(requests, parseWindowMs(window));
 
   return async (req: Request, res: Response, next: NextFunction) => {
-    if (!limiter) {
-      // Redis not configured — allow all requests (degrade gracefully)
-      return next();
-    }
     const ip = getClientIp(req);
     const key = `${prefix}:${ip}`;
+
+    if (!limiter) {
+      // Redis not configured — use in-memory rate limiter
+      const result = memoryLimiter!.limit(key);
+      res.setHeader("X-RateLimit-Limit", result.limit);
+      res.setHeader("X-RateLimit-Remaining", result.remaining);
+      res.setHeader("X-RateLimit-Reset", result.reset);
+      if (!result.success) {
+        res.status(429).json({
+          error: "Too many requests",
+          retryAfter: Math.ceil((result.reset - Date.now()) / 1000),
+        });
+        return;
+      }
+      return next();
+    }
+
     try {
       const { success, limit, remaining, reset } = await limiter.limit(key);
       res.setHeader("X-RateLimit-Limit", limit);

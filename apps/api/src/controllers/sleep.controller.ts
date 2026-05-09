@@ -111,6 +111,7 @@ export async function listSleepLogs(req: Request, res: Response) {
     }
 
     const limitRaw = req.query.limit ? Number(req.query.limit) : 50;
+    const limit = Math.max(1, Math.min(200, Number(limitRaw) || 50));
     const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
     const from = typeof req.query.from === "string" ? req.query.from : undefined;
     const to = typeof req.query.to === "string" ? req.query.to : undefined;
@@ -126,7 +127,7 @@ export async function listSleepLogs(req: Request, res: Response) {
       .from(sleepLogsTable)
       .where(and(...whereClauses))
       .orderBy(desc(sleepLogsTable.dateKey))
-      .limit(limitRaw);
+      .limit(limit);
 
     return res.status(200).json({ logs });
   } catch (error: unknown) {

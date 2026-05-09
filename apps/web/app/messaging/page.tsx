@@ -1,7 +1,7 @@
 "use client";
 
 import { skipToken } from "@reduxjs/toolkit/query";
-import { BarChart3, MessageCircle, Megaphone, Users2 } from "lucide-react";
+import { BarChart3, Camera, Film, MessageCircle, Megaphone, Trash2, Users2 } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Socket } from "socket.io-client";
@@ -71,6 +71,9 @@ import {
   useToggleChatGroupMessageReactionMutation,
   useToggleMessageReactionMutation,
   useUpdateContentMutation,
+  useGetStoriesQuery,
+  useCreateStoryMutation,
+  useDeleteStoryMutation,
 } from "@/lib/apiSlice";
 import { getOrCreateAdminSocket } from "@/lib/admin-socket";
 import { toast } from "../../lib/toast";
@@ -292,6 +295,11 @@ function MessagingPageInner() {
   const [deleteAnnouncementTarget, setDeleteAnnouncementTarget] =
     useState<AnnouncementItem | null>(null);
 
+  const [storyTitle, setStoryTitle] = useState("");
+  const [storyMediaUrl, setStoryMediaUrl] = useState("");
+  const [storyMediaType, setStoryMediaType] = useState<"image" | "video">("image");
+  const [storyBadge, setStoryBadge] = useState("");
+
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupCategory, setNewGroupCategory] = useState<
@@ -333,6 +341,9 @@ function MessagingPageInner() {
 
   const { data: announcementsData, refetch: refetchAnnouncements } =
     useGetAnnouncementsQuery();
+  const { data: storiesData, refetch: refetchStories } = useGetStoriesQuery();
+  const [createStory, { isLoading: isCreatingStory }] = useCreateStoryMutation();
+  const [deleteStory] = useDeleteStoryMutation();
   const { data: adminProfileData } = useGetAdminProfileQuery();
   const { data: inboxData, refetch: refetchInbox } = useGetMessagingInboxQuery({
     limit: 300,
@@ -973,6 +984,40 @@ function MessagingPageInner() {
     () => (announcementsData?.items as AnnouncementItem[] | undefined) ?? [],
     [announcementsData],
   );
+
+  const storyItems = useMemo(
+    () => storiesData?.items ?? [],
+    [storiesData],
+  );
+
+  const handleCreateStory = async () => {
+    if (!storyTitle.trim() || !storyMediaUrl.trim()) return;
+    try {
+      await createStory({
+        title: storyTitle.trim(),
+        mediaUrl: storyMediaUrl.trim(),
+        mediaType: storyMediaType,
+        badge: storyBadge.trim() || null,
+      }).unwrap();
+      setStoryTitle("");
+      setStoryMediaUrl("");
+      setStoryMediaType("image");
+      setStoryBadge("");
+      toast.success("Story published");
+    } catch {
+      toast.error("Failed to publish story");
+    }
+  };
+
+  const handleDeleteStory = async (storyId: number, title: string) => {
+    if (!confirm(`Delete story "${title}"?`)) return;
+    try {
+      await deleteStory({ storyId }).unwrap();
+      toast.success("Story deleted");
+    } catch {
+      toast.error("Failed to delete story");
+    }
+  };
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
@@ -1885,6 +1930,115 @@ function MessagingPageInner() {
         </div>
 
         <TabsContent value="announcement">
+          {/* Stories Section */}
+          <Card className="mb-6">
+            <CardHeader>
+              <SectionHeader
+                title="Stories"
+                description="Share images or videos that athletes see at the top of their feed."
+              />
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3">
+                  <Input
+                    placeholder="Story title"
+                    value={storyTitle}
+                    onChange={(e) => setStoryTitle(e.target.value.slice(0, 80))}
+                    maxLength={80}
+                  />
+                  <Input
+                    placeholder="Media URL (image or video)"
+                    value={storyMediaUrl}
+                    onChange={(e) => setStoryMediaUrl(e.target.value)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">Type:</p>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant={storyMediaType === "image" ? "default" : "outline"}
+                        onClick={() => setStoryMediaType("image")}
+                      >
+                        <Camera className="h-3.5 w-3.5 mr-1" /> Image
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={storyMediaType === "video" ? "default" : "outline"}
+                        onClick={() => setStoryMediaType("video")}
+                      >
+                        <Film className="h-3.5 w-3.5 mr-1" /> Video
+                      </Button>
+                    </div>
+                  </div>
+                  <Input
+                    placeholder='Badge (optional, e.g. "NEW")'
+                    value={storyBadge}
+                    onChange={(e) => setStoryBadge(e.target.value.slice(0, 20))}
+                    maxLength={20}
+                  />
+                  {storyMediaUrl.trim() && (
+                    <div className="rounded-lg overflow-hidden border">
+                      <img
+                        src={storyMediaUrl.trim()}
+                        alt="Preview"
+                        className="w-full h-32 object-cover"
+                      />
+                    </div>
+                  )}
+                  <Button
+                    onClick={() => void handleCreateStory()}
+                    disabled={isCreatingStory || !storyTitle.trim() || !storyMediaUrl.trim()}
+                  >
+                    {isCreatingStory ? "Publishing..." : "Publish Story"}
+                  </Button>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-2">Active Stories</p>
+                  {storyItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No stories yet.</p>
+                  ) : (
+                    <ScrollArea className="h-[260px] pr-2">
+                      <div className="space-y-2">
+                        {storyItems.map((story) => (
+                          <div
+                            key={story.id}
+                            className="flex items-center gap-3 rounded-lg border p-2"
+                          >
+                            <img
+                              src={story.mediaUrl}
+                              alt={story.title}
+                              className="w-12 h-12 rounded-md object-cover shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{story.title}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                {story.mediaType === "video" && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Video</Badge>
+                                )}
+                                {story.badge && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{story.badge}</Badge>
+                                )}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive shrink-0"
+                              onClick={() => void handleDeleteStory(story.id, story.title)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid gap-6 lg:grid-cols-[1.05fr_1.4fr]">
             <Card>
               <CardHeader>

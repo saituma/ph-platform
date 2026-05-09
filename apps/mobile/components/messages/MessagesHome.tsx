@@ -5,10 +5,12 @@ import { Megaphone } from "lucide-react-native";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { AgeGate } from "@/components/AgeGate";
 import { InboxScreen } from "@/components/messages/InboxScreen";
+import { StoriesRow } from "@/components/messages/StoriesRow";
 import { Text } from "@/components/ScaledText";
 import { useAgeExperience } from "@/context/AgeExperienceContext";
 import { useSafeRouter } from "@/hooks/navigation/useSafeExpoRouter";
 import { useMessagesController } from "@/hooks/useMessagesController";
+import { useStories } from "@/hooks/useStories";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 
@@ -40,6 +42,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 	const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
 	const { isSectionHidden } = useAgeExperience();
 
+	const { data: stories = [] } = useStories();
 	const router = useSafeRouter();
 	const isMessagesSurface = true;
 	const {
@@ -257,6 +260,8 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 					);
 				})}
 			</View>
+
+			{stories.length > 0 && <StoriesRow stories={stories} />}
 
 			{!announcementsLoading && announcementsMeta && (
 				<View style={styles.announcementWrapper}>

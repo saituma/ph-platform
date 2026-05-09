@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { logger } from "../lib/logger";
@@ -10,6 +10,7 @@ import {
   parentCourseTable,
   ProgramType,
   storyTable,
+  storyViewTable,
   userTable,
 } from "../db/schema";
 import { createPushIntent } from "./outbox.service";
@@ -212,12 +213,72 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
   }
 }
 
-export async function listStoriesForUser() {
-  return db
-    .select()
+export async function listStoriesForUser(userId: number) {
+  const rows = await db
+    .select({
+      id: storyTable.id,
+      title: storyTable.title,
+      mediaUrl: storyTable.mediaUrl,
+      mediaType: storyTable.mediaType,
+      badge: storyTable.badge,
+      order: storyTable.order,
+      isActive: storyTable.isActive,
+      createdAt: storyTable.createdAt,
+      updatedAt: storyTable.updatedAt,
+      viewedAt: storyViewTable.viewedAt,
+    })
     .from(storyTable)
+    .leftJoin(
+      storyViewTable,
+      and(
+        eq(storyViewTable.storyId, storyTable.id),
+        eq(storyViewTable.userId, userId),
+      ),
+    )
     .where(eq(storyTable.isActive, true))
     .orderBy(asc(storyTable.order), desc(storyTable.updatedAt));
+
+  return rows.map((r) => ({
+    ...r,
+    viewed: !!r.viewedAt,
+    viewedAt: undefined,
+  }));
+}
+
+export async function markStoryViewed(storyId: number, userId: number) {
+  await db
+    .insert(storyViewTable)
+    .values({ storyId, userId })
+    .onConflictDoNothing();
+}
+
+export async function createSingleStory(input: StoryInput, userId: number) {
+  const maxOrder = await db
+    .select({ max: sql<number>`coalesce(max(${storyTable.order}), -1)` })
+    .from(storyTable);
+  const nextOrder = (maxOrder[0]?.max ?? -1) + 1;
+
+  const [inserted] = await db
+    .insert(storyTable)
+    .values({
+      title: input.title.trim(),
+      mediaUrl: input.mediaUrl.trim(),
+      mediaType: input.mediaType,
+      badge: input.badge?.trim() || null,
+      order: Number.isFinite(input.order) ? Number(input.order) : nextOrder,
+      isActive: input.isActive ?? true,
+      createdBy: userId,
+    })
+    .returning();
+  return inserted;
+}
+
+export async function deleteSingleStory(storyId: number) {
+  const [deleted] = await db
+    .delete(storyTable)
+    .where(eq(storyTable.id, storyId))
+    .returning({ id: storyTable.id });
+  return deleted ?? null;
 }
 
 export async function listStoriesAdmin() {

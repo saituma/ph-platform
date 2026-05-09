@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1098215005560",
+    "project_id": "ph-perfomance",
+    "storage_bucket": "ph-perfomance.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1098215005560:android:ff835b6bca470d89ccbc8d",
+        "android_client_info": {
+          "package_name": "com.phperformance.uk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBO9ayfoQEmSCR8QG5WpCLeLWVyiF0Zm1s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

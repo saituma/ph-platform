@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto, { randomInt } from "crypto";
 
 import { db } from "../db";
 import { userTable } from "../db/schema";
@@ -85,6 +85,9 @@ export async function confirmForgotPasswordLocal(input: { email: string; code: s
   if (!user.emailVerified) {
     throw { status: 403, message: "User is not confirmed. Please verify your email." };
   }
+  if ((user.verificationAttempts ?? 0) >= 5) {
+    throw { status: 429, message: "Too many verification attempts. Please request a new code." };
+  }
   if (!user.verificationCode || !user.verificationExpiresAt) {
     throw { status: 400, message: "Verification code not found." };
   }
@@ -126,7 +129,7 @@ export function verifyLocalPassword(password: string, hash: string | null, salt:
 }
 
 function generateOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 999999).toString();
 }
 
 export async function registerLocal(input: { email: string; password: string; name: string }) {
@@ -235,6 +238,9 @@ export async function confirmLocal(input: { email: string; code: string; referra
       expiresIn: "30d",
     });
     return { ok: true, accessToken: token, tokenType: "Bearer" };
+  }
+  if ((user.verificationAttempts ?? 0) >= 5) {
+    throw { status: 429, message: "Too many verification attempts. Please request a new code." };
   }
   if (!user.verificationCode || !user.verificationExpiresAt) {
     throw { status: 400, message: "Verification code not found." };

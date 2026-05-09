@@ -62,8 +62,27 @@ async function verifyUploadToken(token: string): Promise<UploadTokenClaims> {
   return { key, contentType, sizeBytes };
 }
 
+const ALLOWED_FOLDERS = [
+  "profile-photos",
+  "training-videos",
+  "chat-media",
+  "food-diary",
+  "gallery",
+  "content",
+  "stories",
+  "teams",
+  "programs",
+  "announcements",
+  "exercises",
+] as const;
+
 export async function createMediaUploadUrl(req: Request, res: Response) {
   const input = uploadSchema.parse(req.body);
+  const safeFolder = input.folder.replace(/[\/\\\.]+/g, "");
+  if (!ALLOWED_FOLDERS.includes(safeFolder as any)) {
+    return res.status(400).json({ error: "Invalid upload folder" });
+  }
+  input.folder = safeFolder;
   const folderLower = input.folder.toLowerCase();
   const contentTypeLower = input.contentType.toLowerCase();
   const isVideo =

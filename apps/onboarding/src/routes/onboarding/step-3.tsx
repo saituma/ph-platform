@@ -104,6 +104,32 @@ function OnboardingStep3() {
 				navigate({ to: "/" });
 				return;
 			}
+
+			// Verify step-2 data exists on the server (name/birthDate must be set)
+			try {
+				const baseUrl = config.api.baseUrl;
+				const res = await fetch(`${baseUrl}/api/auth/me`, {
+					credentials: "include",
+					headers: getAuthHeaders(),
+				});
+				if (res.ok) {
+					const data = await res.json().catch(() => ({}));
+					const user = (data as any)?.user;
+					if (user && !user.name && !user.guardianName) {
+						if (!cancelled) {
+							toast.error("Please complete step 2 first", {
+								description: "Basic information is required before setting goals.",
+							});
+							navigate({ to: "/onboarding/step-2" });
+							return;
+						}
+					}
+				}
+			} catch {
+				// Best effort — allow through if server check fails
+			}
+
+			if (cancelled) return;
 			setIsValidating(false);
 		}
 		void check();

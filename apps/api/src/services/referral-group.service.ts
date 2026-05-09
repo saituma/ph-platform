@@ -42,7 +42,7 @@ async function ensureReferralGroupTables() {
 
 export async function listReferralGroups() {
   await ensureReferralGroupTables();
-  const groups = await db.select().from(referralGroupTable);
+  const groups = await db.select().from(referralGroupTable).limit(500);
 
   if (!groups.length) return [];
 

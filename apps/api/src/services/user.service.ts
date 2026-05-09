@@ -26,7 +26,30 @@ export async function getUserById(id: number) {
     "getUserById",
     async () => {
       const users = await db
-        .select()
+        .select({
+          id: userTable.id,
+          cognitoSub: userTable.cognitoSub,
+          name: userTable.name,
+          email: userTable.email,
+          role: userTable.role,
+          profilePicture: userTable.profilePicture,
+          coverImage: userTable.coverImage,
+          emailVerified: userTable.emailVerified,
+          isBlocked: userTable.isBlocked,
+          isDeleted: userTable.isDeleted,
+          tokenVersion: userTable.tokenVersion,
+          expoPushToken: userTable.expoPushToken,
+          devicePushToken: userTable.devicePushToken,
+          devicePushTokenType: userTable.devicePushTokenType,
+          nutritionReminderEnabled: userTable.nutritionReminderEnabled,
+          nutritionReminderTimeLocal: userTable.nutritionReminderTimeLocal,
+          nutritionReminderTimezone: userTable.nutritionReminderTimezone,
+          lastNutritionReminderDateKey: userTable.lastNutritionReminderDateKey,
+          lastNutritionReminderSentAt: userTable.lastNutritionReminderSentAt,
+          lastSeenAt: userTable.lastSeenAt,
+          createdAt: userTable.createdAt,
+          updatedAt: userTable.updatedAt,
+        })
         .from(userTable)
         .where(and(eq(userTable.id, id), eq(userTable.isDeleted, false)))
         .limit(1);

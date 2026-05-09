@@ -15,3 +15,4 @@ export * from "./api/physio";
 export * from "./api/media";
 export * from "./api/session-schedule";
 export * from "./api/admin-session-schedule";
+export * from "./api/beta-testers";

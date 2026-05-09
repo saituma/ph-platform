@@ -1,12 +1,19 @@
 import { isTokenExpired } from "./token-expiry";
 
 const AUTH_TOKEN_KEY = "ph_auth_token";
+// TODO: 30-day session with no idle timeout. Add idle timeout (e.g. 30 min inactivity) post-launch.
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const CSRF_COOKIE_NAME = "__csrf";
 
 /**
  * Client-only onboarding stores the API access token in browser storage and
  * sends it to apps/api with Authorization headers.
+ *
+ * SECURITY NOTE: Storing JWT in localStorage is a known XSS risk. The primary
+ * auth token is also mirrored into an httpOnly cookie via setAuthToken().
+ * A future iteration should remove localStorage usage entirely and rely solely
+ * on httpOnly cookies. For now, clearAuthToken() ensures localStorage is cleaned
+ * on logout to limit exposure.
  */
 export function getClientAuthToken(): string | null {
 	if (typeof window === "undefined") return null;

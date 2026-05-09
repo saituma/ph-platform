@@ -26,6 +26,9 @@ import {
   getParentCourseAiInsightController,
   getContentAiInsightController,
   replaceStoriesHandler,
+  viewStoryHandler,
+  createStoryHandler,
+  deleteStoryHandler,
   listGalleryItems,
   listTestimonials,
 } from "../controllers/content.controller";
@@ -37,8 +40,11 @@ router.get("/content/parent-platform", requireAuth, listParentContent);
 router.get("/content/legal", requireAuth, listLegalContent);
 router.get("/content/announcements", requireAuth, listAnnouncementsContent);
 router.get("/stories", requireAuth, listStories);
+router.post("/stories/:storyId/view", requireAuth, viewStoryHandler);
 router.get("/content/stories", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listStoriesForAdmin);
+router.post("/content/stories", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createStoryHandler);
 router.put("/content/stories", requireAuth, requireRole(["coach", "admin", "superAdmin"]), replaceStoriesHandler);
+router.delete("/content/stories/:storyId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), deleteStoryHandler);
 router.get("/content/legal/public", listLegalContentPublic);
 router.get("/content/gallery", listGalleryItems);
 router.post("/content/testimonials/submit", requireAuth, submitTestimonial);

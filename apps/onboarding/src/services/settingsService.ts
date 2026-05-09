@@ -156,6 +156,13 @@ export const settingsService = {
 	updateNutritionReminderSettings: (data: any) =>
 		apiRequest("/nutrition/reminder-settings", { method: "PUT", body: data }),
 
+	// Stories
+	getStories: () =>
+		apiRequest<{ items: Array<{ id: number; title: string; mediaUrl: string; mediaType: "image" | "video"; badge?: string | null; viewed: boolean; createdAt: string }> }>("/stories"),
+
+	markStoryViewed: (storyId: number) =>
+		apiRequest<{ ok: boolean }>(`/stories/${storyId}/view`, { method: "POST" }),
+
 	// Activity feed
 	getActivityFeed: (params?: { limit?: number; offset?: number }) => {
 		const qs = new URLSearchParams({
@@ -222,6 +229,10 @@ export const settingsService = {
 
 	submitTestimonial: (data: { quote: string; rating: number; photoUrl?: string }) =>
 		apiRequest("/content/testimonials/submit", { method: "POST", body: data }),
+
+	// Beta tester
+	submitBetaTester: (data: { name: string; email: string; phone?: string; reason?: string }) =>
+		apiRequest<{ ok: boolean }>("/beta-testers", { method: "POST", body: data }),
 
 	// Media
 	presignUpload: (data: { folder: string; fileName: string; contentType: string; sizeBytes: number }) =>

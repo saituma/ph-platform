@@ -108,6 +108,14 @@ if (!parsed.success) {
 
 const raw = parsed.data;
 
+if (raw.NODE_ENV === "production" && !raw.STRIPE_WEBHOOK_SECRET) {
+  console.warn("CRITICAL: STRIPE_WEBHOOK_SECRET is not set in production. Webhook verification will fail.");
+}
+
+if (raw.NODE_ENV === "production" && raw.ALLOW_EXPIRED_TOKENS === "true") {
+  throw new Error("ALLOW_EXPIRED_TOKENS must not be enabled in production.");
+}
+
 const scriptPlaceholder = "__ph_api_script_unused__";
 
 	export const env = {

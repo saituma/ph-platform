@@ -4,6 +4,7 @@ type RoleType = "Guardian" | "Athlete";
 
 interface RoleState {
   role: RoleType;
+  // TODO: guardianPin is stored in plaintext in Redux (in-memory only). Consider hashing post-launch.
   guardianPin: string | null;
 }
 

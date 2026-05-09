@@ -36,6 +36,8 @@ import attendanceRoutes from "./attendance.routes";
 import sessionScheduleRoutes from "./session-schedule.routes";
 import sleepRoutes from "./sleep.routes";
 import wellbeingRoutes from "./wellbeing.routes";
+import betaTesterRoutes from "./beta-tester.routes";
+import foodDiaryRoutes from "./food-diary.routes";
 
 const router = Router();
 
@@ -75,5 +77,7 @@ router.use(attendanceRoutes);
 router.use(sessionScheduleRoutes);
 router.use(sleepRoutes);
 router.use(wellbeingRoutes);
+router.use(betaTesterRoutes);
+router.use(foodDiaryRoutes);
 
 export default router;

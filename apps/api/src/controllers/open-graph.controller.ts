@@ -4,7 +4,10 @@ import { z } from "zod";
 import { fetchOpenGraph } from "../services/open-graph.service";
 
 const querySchema = z.object({
-  url: z.string().min(1).max(2048),
+  url: z.string().url().max(2048).refine(
+    (val) => val.startsWith("http://") || val.startsWith("https://"),
+    { message: "Only HTTP(S) URLs are allowed" },
+  ),
 });
 
 export async function getOpenGraph(req: Request, res: Response) {

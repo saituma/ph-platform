@@ -37,6 +37,7 @@ function PortalInner() {
 	const navigate = useNavigate();
 	const { user, loading, error, refresh } = usePortal();
 
+	// TODO: Add email verification enforcement before granting portal access (post-launch).
 	// PortalContext loading=false + no user + no error means no auth cookie
 	useEffect(() => {
 		if (loading) return;

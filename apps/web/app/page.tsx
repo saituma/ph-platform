@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Crown, MessageCircle, Users } from "lucide-react";
+import { CalendarDays, Crown, FlaskConical, MessageCircle, Users } from "lucide-react";
 
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
@@ -28,7 +28,7 @@ import {
     KpiStatTile,
     TopAthleteRow,
 } from "@/components/admin/dashboard/dashboard-overview";
-import { useGetAdminTeamsQuery, useGetDashboardQuery, useGetHomeContentQuery } from "../lib/apiSlice";
+import { useGetAdminTeamsQuery, useGetBetaTesterStatsQuery, useGetDashboardQuery, useGetHomeContentQuery } from "../lib/apiSlice";
 
 const KPI_ICONS = [Users, Crown, MessageCircle, CalendarDays] as const;
 
@@ -77,6 +77,7 @@ export default function Home() {
     const { data: dashboardData, isLoading } = useGetDashboardQuery();
     const { data: homeContentData } = useGetHomeContentQuery();
     const { data: teamsData, isLoading: isTeamsLoading } = useGetAdminTeamsQuery();
+    const { data: betaStats } = useGetBetaTesterStatsQuery();
     const router = useRouter();
 
     const todayLabel = useMemo(() => {
@@ -560,6 +561,25 @@ export default function Home() {
                         )}
                     </div>
                 </section>
+
+                {/* Beta Testers */}
+                {(betaStats?.count ?? 0) > 0 && (
+                    <section
+                        className="cursor-pointer group"
+                        onClick={() => router.push("/beta-testers")}
+                    >
+                        <div className="rounded-none border border-border bg-card/40 backdrop-blur-xl p-6 flex items-center gap-4 hover:border-primary/30 transition-colors">
+                            <div className="h-10 w-10 flex items-center justify-center bg-primary/10 text-primary">
+                                <FlaskConical className="h-5 w-5" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Beta Testers</p>
+                                <p className="text-2xl font-black font-mono text-foreground">{betaStats?.count ?? 0}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground group-hover:text-primary transition-colors">View all &rarr;</p>
+                        </div>
+                    </section>
+                )}
 
                 <CalendarPanel
                     visible={showCalendar}

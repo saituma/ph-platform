@@ -62,7 +62,7 @@ function isLocalRequest(req: Request): boolean {
 }
 
 export function requireTurnstile(req: Request, res: Response, next: NextFunction) {
-  if (env.turnstileBypass || process.env.NODE_ENV !== "production" || isLocalRequest(req)) {
+  if (env.turnstileBypass || process.env.NODE_ENV !== "production") {
     return next();
   }
   if (!env.turnstileSecretKey && !env.turnstileSecretKey2) {
@@ -72,10 +72,6 @@ export function requireTurnstile(req: Request, res: Response, next: NextFunction
     | string
     | undefined;
   if (!token || typeof token !== "string") {
-    const ua = req.header("user-agent") ?? "";
-    if (/Expo|okhttp|CFNetwork|Darwin/i.test(ua)) {
-      return next();
-    }
     return res.status(400).json({ error: "Verification challenge required." });
   }
   void verifyWithAnySecret(token, clientIp(req)).then((result) => {

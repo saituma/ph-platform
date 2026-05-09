@@ -123,6 +123,30 @@ function OnboardingStep2() {
 				return;
 			}
 
+			// Verify step-1 was completed on the server (role/type must be set)
+			try {
+				const baseUrl = config.api.baseUrl;
+				const res = await fetch(`${baseUrl}/api/auth/me`, {
+					credentials: "include",
+					headers: getAuthHeaders(),
+				});
+				if (res.ok) {
+					const data = await res.json().catch(() => ({}));
+					const user = (data as any)?.user;
+					// If the server has no role/athleteType set, step-1 wasn't completed
+					if (user && !user.role && !user.athleteType && !user.type) {
+						if (!cancelled) {
+							toast.error("Please complete step 1 first");
+							navigate({ to: "/onboarding/step-1" });
+							return;
+						}
+					}
+				}
+			} catch {
+				// Best effort — allow through if server check fails
+			}
+
+			if (cancelled) return;
 			setUserType(type);
 			setIsValidating(false);
 		}

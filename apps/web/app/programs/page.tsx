@@ -155,6 +155,7 @@ function ProgramsPageInner() {
           }
         }}
         onDelete={async (programId) => {
+          if (!window.confirm("Are you sure you want to delete this program?")) return;
           try {
             await deleteProgram(programId).unwrap();
             setSelectedProgram(null);

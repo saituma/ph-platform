@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, Pressable, Platform, Dimensions } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, Redirect } from 'expo-router';
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
@@ -43,6 +43,7 @@ const MESH_COLORS: string[] = [
 ];
 
 export default function LiquidGlassDemo() {
+  if (!__DEV__) return <Redirect href="/(tabs)" />;
   const scheme = useColorScheme();
   const colorScheme = scheme === "dark" ? "dark" : "light";
   const colors = Colors[colorScheme];

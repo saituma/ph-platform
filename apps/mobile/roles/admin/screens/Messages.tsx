@@ -10,7 +10,9 @@ import { useAdminGroups } from "@/hooks/admin/useAdminGroups";
 import { safeNumber } from "@/lib/admin-messages-utils";
 import { consumeAdminMessagesNavTarget } from "@/lib/admin/adminMessagesNav";
 import { useAdminAnnouncements } from "@/hooks/admin/useAdminAnnouncements";
+import { useAdminStories } from "@/hooks/admin/useAdminStories";
 import { AdminAnnouncementsSection } from "@/components/admin/messages/AdminAnnouncementsSection";
+import { AdminStoriesSection } from "@/components/admin/messages/AdminStoriesSection";
 import { AdminGroupSection } from "@/components/admin/messages/AdminGroupSection";
 import {
   AdminHeader,
@@ -51,6 +53,7 @@ export default function AdminMessagesScreen() {
   const dms = useAdminDms(token, canLoad);
   const groups = useAdminGroups(token, canLoad);
   const announcements = useAdminAnnouncements(token, canLoad);
+  const stories = useAdminStories(token, canLoad);
 
   useEffect(() => {
     if (!token || !canLoad) return;
@@ -107,7 +110,10 @@ export default function AdminMessagesScreen() {
               />
             )}
             {activeTab === "announcement" && (
-              <AdminAnnouncementsSection controller={announcements} canLoad={canLoad} />
+              <View style={{ flex: 1, gap: 20 }}>
+                <AdminStoriesSection controller={stories} canLoad={canLoad} />
+                <AdminAnnouncementsSection controller={announcements} canLoad={canLoad} />
+              </View>
             )}
             {activeTab === "teams" && (
               <AdminGroupSection

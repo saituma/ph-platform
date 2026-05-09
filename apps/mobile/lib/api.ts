@@ -259,7 +259,7 @@ export async function apiRequest<T>(
     const shouldSuppress =
       options.suppressLog ||
       (options.suppressStatusCodes ?? []).includes(res.status);
-    if (!shouldSuppress) {
+    if (!shouldSuppress && __DEV__) {
       console.warn("API error", {
         url: requestUrl,
         status: res.status,

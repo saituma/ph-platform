@@ -49,6 +49,10 @@ export const queryKeys = {
     announcements: () => ["admin", "announcements"] as const,
   },
 
+  stories: {
+    all: () => ["stories"] as const,
+  },
+
   schedule: {
     all: () => ["schedule"] as const,
     events: (from: string, to: string) => ["schedule", "events", from, to] as const,

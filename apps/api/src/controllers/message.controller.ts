@@ -545,6 +545,7 @@ const searchMessagesQuerySchema = z.object({
 export async function searchMessages(req: Request, res: Response) {
   const userId = req.user!.id;
   const { q, threadId } = searchMessagesQuerySchema.parse(req.query ?? {});
+  const escaped = q.replace(/[%_\\]/g, '\\$&');
 
   const participantFilter = or(
     eq(messageTable.senderId, userId),
@@ -570,7 +571,7 @@ export async function searchMessages(req: Request, res: Response) {
     .from(messageTable)
     .where(
       and(
-        ilike(messageTable.content, `%${q}%`),
+        ilike(messageTable.content, `%${escaped}%`),
         participantFilter,
         threadFilter,
       ),

@@ -201,6 +201,7 @@ export async function searchGroupMessages(req: Request, res: Response) {
   const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
   const userId = req.user!.id;
   const { q } = searchGroupMessagesQuerySchema.parse(req.query ?? {});
+  const escaped = q.replace(/[%_\\]/g, '\\$&');
 
   const allowed = await isGroupMember(groupId, userId);
   if (!allowed) {
@@ -220,7 +221,7 @@ export async function searchGroupMessages(req: Request, res: Response) {
     .where(
       and(
         eq(chatGroupMessageTable.groupId, groupId),
-        ilike(chatGroupMessageTable.content, `%${q}%`),
+        ilike(chatGroupMessageTable.content, `%${escaped}%`),
       ),
     )
     .orderBy(desc(chatGroupMessageTable.createdAt))

@@ -1420,14 +1420,14 @@ export async function verifyRevenueCatPurchase(req: any, res: any) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
 
-    // In a real implementation you would either rely on webhooks from RevenueCat,
-    // or call their REST API to verify the receipt using the app_user_id.
-    // For this demonstration, we'll mark the user as pending approval for the tier requested.
-
-    // We can simulate creating a subscription request here:
-    // ... we need to import a service function to do this, but for now we'll just return success.
-
-    return res.json({ success: true, message: "Purchase verified via RevenueCat" });
+    // TODO: Implement RevenueCat purchase verification:
+    // 1. Call RevenueCat REST API (GET /v1/subscribers/{app_user_id}) to verify the receipt
+    // 2. Validate the entitlement matches the requested planId/tier
+    // 3. Create/update subscription request in the database
+    // 4. Return the verified subscription status
+    //
+    // Until this is implemented, reject all requests to prevent unverified access.
+    return res.status(503).json({ error: "Purchase verification is not yet configured. Contact support.", success: false });
   } catch (error) {
     logger.error({ err: error }, "Error verifying RevenueCat purchase");
     return res.status(500).json({ error: "Internal server error" });

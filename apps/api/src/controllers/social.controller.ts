@@ -46,8 +46,8 @@ export async function leaderboard(req: Request, res: Response) {
     if (req.user.role !== "admin") {
       await assertGlobalSocialDeprecated(req.user.id);
     }
-    const windowDays = req.query.windowDays ? Number(req.query.windowDays) : 7;
-    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    const windowDays = Math.max(0, Math.min(Number(req.query.windowDays) || 7, 365));
+    const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
     const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
     const items = await getLeaderboard({
       windowDays,
@@ -64,8 +64,9 @@ export async function adults(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
     await assertGlobalSocialDeprecated(req.user.id);
-    const limit = req.query.limit ? Number(req.query.limit) : 50;
-    const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
+    const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
+    const cursorRaw = Number(req.query.cursor);
+    const cursor = Number.isFinite(cursorRaw) && cursorRaw > 0 ? cursorRaw : undefined;
     const out = await listAdults({ limit, cursor });
     return res.status(200).json(out);
   } catch (err) {
@@ -77,10 +78,11 @@ export async function runs(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
     await assertGlobalSocialDeprecated(req.user.id);
-    const limit = req.query.limit ? Number(req.query.limit) : 20;
-    const cursor = req.query.cursor ? Number(req.query.cursor) : undefined;
+    const limit = Math.max(1, Math.min(Number(req.query.limit) || 20, 100));
+    const cursorRaw = Number(req.query.cursor);
+    const cursor = Number.isFinite(cursorRaw) && cursorRaw > 0 ? cursorRaw : undefined;
     // windowDays <= 0 means "All".
-    const windowDays = req.query.windowDays ? Number(req.query.windowDays) : 0;
+    const windowDays = Math.max(0, Math.min(Number(req.query.windowDays) || 0, 365));
     const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
     const out = await listPublicRuns({
       limit,

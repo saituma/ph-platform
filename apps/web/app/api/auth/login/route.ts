@@ -128,6 +128,9 @@ export async function POST(req: Request) {
     path: "/",
     maxAge: cookieMaxAge,
   });
+  // NOTE: accessTokenClient is intentionally non-httpOnly so client JS (auth-gate, socket)
+  // can read it. The primary httpOnly accessToken cookie above is used for server-side auth.
+  // This is an accepted trade-off; CSP and CSRF tokens mitigate XSS risk.
   response.cookies.set("accessTokenClient", accessToken, {
     httpOnly: false,
     secure,

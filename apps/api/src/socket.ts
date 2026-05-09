@@ -150,7 +150,7 @@ export function initSocket(server: HttpServer) {
         if (!origin) return callback(null, true);
         if (allowedOrigins.has("*")) return callback(null, true);
         if (originAllowed(origin)) return callback(null, true);
-        if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+        if (env.nodeEnv !== "production" && (origin.includes("localhost") || origin.includes("127.0.0.1"))) {
           return callback(null, true);
         }
         return callback(new Error("Origin not allowed"), false);

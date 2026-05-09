@@ -29,6 +29,7 @@ import {
 } from "../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { isTrainingStaff } from "../lib/user-roles";
+import { env } from "../config/env";
 import { cache, cacheKeys } from "../lib/cache";
 import { isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
 import { featuresForTier, getFeaturesForAthlete } from "../services/billing/feature-access.service";
@@ -462,7 +463,7 @@ export async function getMe(req: Request, res: Response) {
     };
   });
 
-  if (String(payload?.email ?? "").trim().toLowerCase() === "dawitanother@gmail.com") {
+  if (env.nodeEnv !== "production" && String(payload?.email ?? "").trim().toLowerCase() === "dawitanother@gmail.com") {
     logger.info(
       {
         marker: "portal-debug",
@@ -525,7 +526,6 @@ export async function updateMe(req: Request, res: Response) {
       role: updated.role,
       email: updated.email,
       name: updated.name,
-      sub: updated.cognitoSub,
       profilePicture: normalizeStoredMediaUrl(updated.profilePicture ?? null),
       coverImage: normalizeStoredMediaUrl(updated.coverImage ?? null),
     },

@@ -5,6 +5,8 @@ import path from "node:path";
 
 import { db } from "../db";
 import { env } from "../config/env";
+import { requireAuth } from "../middlewares/auth";
+import { requireRole } from "../middlewares/roles";
 
 const router = Router();
 
@@ -31,7 +33,7 @@ async function columnExists(tableName: string, columnName: string) {
   return Boolean(result.rows[0]?.exists);
 }
 
-router.get("/version", async (_req, res) => {
+router.get("/version", requireAuth, requireRole(["admin", "superAdmin"]), async (_req, res) => {
   const [hasGroupLastReadAt, hasGroupLastReadAtSnake, hasEligiblePlans, hasSchedulePattern, hasSlotMode] =
     await Promise.all([
       columnExists("chat_group_members", "lastReadAt"),

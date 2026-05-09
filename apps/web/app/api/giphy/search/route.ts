@@ -22,7 +22,7 @@ type GiphySearchResponse = {
 };
 
 function getGiphyApiKey(): string {
-  const key = process.env.GIPHY_API_KEY ?? process.env.NEXT_PUBLIC_GIPHY_API_KEY ?? "";
+  const key = process.env.GIPHY_API_KEY ?? "";
   if (!key) throw new Error("GIPHY_API_KEY is not configured");
   return key;
 }

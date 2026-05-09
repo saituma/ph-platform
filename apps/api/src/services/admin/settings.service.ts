@@ -3,6 +3,7 @@ import { db } from "../../db";
 import {
   adminSettingsTable,
   athleteTable,
+  betaTesterTable,
   bookingTable,
   contentTable,
   messageTable,
@@ -361,6 +362,9 @@ export async function getDashboardMetrics(coachId: number) {
     return date.toLocaleDateString("en-US", { weekday: "short" });
   });
 
+  const [betaTesterRow] = await db.select({ count: sql<number>`count(*)` }).from(betaTesterTable);
+  const betaTesterCount = Number(betaTesterRow?.count ?? 0);
+
   const programOps = [
     {
       title: "Program Templates",
@@ -436,5 +440,6 @@ export async function getDashboardMetrics(coachId: number) {
     highlights,
     programOps,
     priorityMessageCount: unreadMessages,
+    betaTesterCount,
   };
 }
