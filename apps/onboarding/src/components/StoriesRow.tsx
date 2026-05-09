@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { settingsService } from "@/services/settingsService";
+import { usePortalSocketEvent } from "@/portal/PortalSocketContext";
 
 type Story = {
   id: number;
@@ -268,6 +269,10 @@ export function StoriesRow() {
       return res.items ?? [];
     },
     staleTime: 60_000,
+  });
+
+  usePortalSocketEvent("story:changed", () => {
+    queryClient.invalidateQueries({ queryKey: ["stories"] });
   });
 
   const handleViewed = useCallback(

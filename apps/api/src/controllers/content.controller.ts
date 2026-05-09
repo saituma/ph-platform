@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { logger } from "../lib/logger";
+import { getSocketServer } from "../socket-hub";
 
 import {
   createContent,
@@ -326,6 +327,7 @@ export async function viewStoryHandler(req: Request, res: Response) {
 export async function createStoryHandler(req: Request, res: Response) {
   const input = storyInputSchema.parse(req.body);
   const item = await createSingleStory(input, req.user!.id);
+  getSocketServer()?.emit("story:changed", { action: "created", storyId: item.id });
   return res.status(201).json({ item });
 }
 
@@ -336,6 +338,7 @@ export async function deleteStoryHandler(req: Request, res: Response) {
   }
   const deleted = await deleteSingleStory(storyId);
   if (!deleted) return res.status(404).json({ error: "Story not found" });
+  getSocketServer()?.emit("story:changed", { action: "deleted", storyId });
   return res.status(200).json({ ok: true });
 }
 

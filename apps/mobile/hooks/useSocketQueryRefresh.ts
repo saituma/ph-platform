@@ -30,6 +30,11 @@ export function useSocketQueryRefresh() {
       queryClient.invalidateQueries({ queryKey: ["tracking"] });
     };
 
+    const invalidateStories = () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.stories.all() });
+    };
+
+    socket.on("story:changed", invalidateStories);
     socket.on("program:changed", invalidatePrograms);
     socket.on("program:assigned", invalidatePrograms);
     socket.on("program:session:submitted", invalidatePrograms);
@@ -42,6 +47,7 @@ export function useSocketQueryRefresh() {
     socket.on("tracking:goals:changed", invalidateTracking);
 
     return () => {
+      socket.off("story:changed", invalidateStories);
       socket.off("program:changed", invalidatePrograms);
       socket.off("program:assigned", invalidatePrograms);
       socket.off("program:session:submitted", invalidatePrograms);

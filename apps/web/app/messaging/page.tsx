@@ -1,7 +1,7 @@
 "use client";
 
 import { skipToken } from "@reduxjs/toolkit/query";
-import { BarChart3, Camera, Film, MessageCircle, Megaphone, Trash2, Users2 } from "lucide-react";
+import { BarChart3, Camera, Film, Loader2, MessageCircle, Megaphone, Trash2, Upload, Users2 } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Socket } from "socket.io-client";
@@ -299,6 +299,8 @@ function MessagingPageInner() {
   const [storyMediaUrl, setStoryMediaUrl] = useState("");
   const [storyMediaType, setStoryMediaType] = useState<"image" | "video">("image");
   const [storyBadge, setStoryBadge] = useState("");
+  const [isUploadingStoryMedia, setIsUploadingStoryMedia] = useState(false);
+  const storyFileRef = useRef<HTMLInputElement | null>(null);
 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
@@ -989,6 +991,41 @@ function MessagingPageInner() {
     () => storiesData?.items ?? [],
     [storiesData],
   );
+
+  const handleStoryFileUpload = async (file: File) => {
+    const isVideo = file.type.startsWith("video/");
+    const safeName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+    try {
+      setIsUploadingStoryMedia(true);
+      const presign = await createMediaUploadUrl({
+        folder: "stories",
+        fileName: safeName,
+        contentType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+        client: "web",
+      }).unwrap();
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error("Upload failed."));
+        };
+        xhr.onerror = () => reject(new Error("Upload failed."));
+        xhr.open("PUT", presign.uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.send(file);
+      });
+
+      setStoryMediaUrl(presign.publicUrl);
+      setStoryMediaType(isVideo ? "video" : "image");
+    } catch {
+      toast.error("Failed to upload file");
+    } finally {
+      setIsUploadingStoryMedia(false);
+      if (storyFileRef.current) storyFileRef.current.value = "";
+    }
+  };
 
   const handleCreateStory = async () => {
     if (!storyTitle.trim() || !storyMediaUrl.trim()) return;
@@ -1947,11 +1984,38 @@ function MessagingPageInner() {
                     onChange={(e) => setStoryTitle(e.target.value.slice(0, 80))}
                     maxLength={80}
                   />
-                  <Input
-                    placeholder="Media URL (image or video)"
-                    value={storyMediaUrl}
-                    onChange={(e) => setStoryMediaUrl(e.target.value)}
+                  <input
+                    ref={storyFileRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void handleStoryFileUpload(file);
+                    }}
                   />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      disabled={isUploadingStoryMedia}
+                      onClick={() => storyFileRef.current?.click()}
+                    >
+                      {isUploadingStoryMedia ? (
+                        <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Uploading...</>
+                      ) : (
+                        <><Upload className="h-3.5 w-3.5 mr-1" /> Upload File</>
+                      )}
+                    </Button>
+                    <Input
+                      placeholder="or paste media URL"
+                      value={storyMediaUrl}
+                      onChange={(e) => setStoryMediaUrl(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
                   <div className="flex items-center gap-2">
                     <p className="text-xs text-muted-foreground">Type:</p>
                     <div className="flex gap-1">
@@ -1979,16 +2043,25 @@ function MessagingPageInner() {
                   />
                   {storyMediaUrl.trim() && (
                     <div className="rounded-lg overflow-hidden border">
-                      <img
-                        src={storyMediaUrl.trim()}
-                        alt="Preview"
-                        className="w-full h-32 object-cover"
-                      />
+                      {storyMediaType === "video" ? (
+                        <video
+                          src={storyMediaUrl.trim()}
+                          className="w-full h-32 object-cover"
+                          muted
+                          playsInline
+                        />
+                      ) : (
+                        <img
+                          src={storyMediaUrl.trim()}
+                          alt="Preview"
+                          className="w-full h-32 object-cover"
+                        />
+                      )}
                     </div>
                   )}
                   <Button
                     onClick={() => void handleCreateStory()}
-                    disabled={isCreatingStory || !storyTitle.trim() || !storyMediaUrl.trim()}
+                    disabled={isCreatingStory || isUploadingStoryMedia || !storyTitle.trim() || !storyMediaUrl.trim()}
                   >
                     {isCreatingStory ? "Publishing..." : "Publish Story"}
                   </Button>
