@@ -510,57 +510,59 @@ function CommentCard({
   compact?: boolean;
 }) {
   const hasReactions = comment.reactionCounts && Object.keys(comment.reactionCounts).length > 0;
+  const timeAgo = formatTimeAgo(comment.createdAt);
   return (
     <Pressable
       delayLongPress={220}
       onLongPress={onLongPress}
-      className="rounded-2xl border px-4 py-3"
-      style={{
-        borderColor: colors.border,
-        backgroundColor: "transparent",
-      }}
+      style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}
     >
-      <View className="flex-row items-center justify-between">
-        <Text className="text-sm font-outfit font-semibold" style={{ color: colors.text }}>
-          {comment.name}
-        </Text>
-        <Text className="text-[11px] font-outfit" style={{ color: colors.textSecondary }}>
-          {new Date(comment.createdAt).toLocaleDateString()}
+      <View
+        style={{
+          width: compact ? 28 : 34,
+          height: compact ? 28 : 34,
+          borderRadius: compact ? 14 : 17,
+          backgroundColor: colors.accentLight ?? `${colors.accent}22`,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text style={{ color: colors.text, fontSize: compact ? 11 : 13, fontWeight: "700" }}>
+          {comment.name.slice(0, 1).toUpperCase()}
         </Text>
       </View>
-      <Text
-        className="text-sm font-outfit mt-1"
-        style={{ color: colors.textSecondary, lineHeight: compact ? 18 : 20 }}
-      >
-        {comment.content}
-      </Text>
-      {hasReactions ? (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          {Object.entries(comment.reactionCounts).map(([emoji, count]) => (
-            <View
-              key={emoji}
-              style={{
-                paddingHorizontal: 10,
-                height: 26,
-                borderRadius: radius.pill,
-                borderWidth: 1,
-                borderColor: colors.border,
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "row",
-                gap: 6,
-              }}
-            >
-              <Text style={{ fontSize: 14 }}>{emoji}</Text>
-              <Text className="text-xs font-outfit font-semibold" style={{ color: colors.textSecondary }}>
-                {count}
-              </Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>
+          <Text style={{ fontWeight: "700" }}>{comment.name} </Text>
+          {comment.content}
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginTop: 4 }}>
+          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{timeAgo}</Text>
+          {hasReactions ? (
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {Object.entries(comment.reactionCounts).map(([emoji, count]) => (
+                <Text key={emoji} style={{ fontSize: 12, color: colors.textSecondary }}>
+                  {emoji} {count}
+                </Text>
+              ))}
             </View>
-          ))}
+          ) : null}
         </View>
-      ) : null}
+      </View>
     </Pressable>
   );
+}
+
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d`;
+  return `${Math.floor(days / 7)}w`;
 }
 
 function CommentMenu({

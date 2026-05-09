@@ -65,6 +65,10 @@ export function requireTurnstile(req: Request, res: Response, next: NextFunction
   if (env.turnstileBypass || process.env.NODE_ENV !== "production") {
     return next();
   }
+  // Native mobile apps don't send an Origin header — browsers always do
+  if (!req.header("origin")) {
+    return next();
+  }
   if (!env.turnstileSecretKey && !env.turnstileSecretKey2) {
     return next();
   }

@@ -373,68 +373,35 @@ function PostCommentThreadNode({
   onShare: (comment: SocialPostCommentItem) => void;
 }) {
   const children = childrenByParent.get(comment.commentId) ?? [];
-  const indent = Math.min(4, depth) * 22;
-  const dateLabel = new Date(comment.createdAt).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const indent = Math.min(4, depth) * 40;
+  const timeAgo = getTimeAgo(comment.createdAt);
 
   return (
     <View style={{ marginLeft: indent }}>
-      <View style={{ flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" }}>
-        <CommentAvatar name={comment.name} colors={colors} />
-        <View style={{ flex: 1, gap: 8 }}>
-          <View
-            style={{
-              borderRadius: radius.xl,
-              backgroundColor: colors.surfaceHigh,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 10,
-              }}
-            >
-              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700", flex: 1 }}>
-                {comment.name}
-              </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 11 }}>{dateLabel}</Text>
-            </View>
-            <Text
-              style={{
-                color: colors.textPrimary,
-                fontSize: 14,
-                lineHeight: 20,
-                marginTop: 6,
-              }}
-            >
-              {comment.content}
-            </Text>
-          </View>
-
-          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, paddingLeft: 4 }}>
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+        <CommentAvatar name={comment.name} size={depth > 0 ? 28 : 34} colors={colors} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.textPrimary, fontSize: 14, lineHeight: 20 }}>
+            <Text style={{ fontWeight: "700" }}>{comment.name} </Text>
+            {comment.content}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginTop: 6 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{timeAgo}</Text>
             <Pressable onPress={() => onReply(comment)} style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}>
-              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "600" }}>Reply</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "700" }}>Reply</Text>
             </Pressable>
             <Pressable onPress={() => void onShare(comment)} style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}>
-              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "600" }}>Share</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "700" }}>Share</Text>
             </Pressable>
             {comment.canDelete ? (
               <Pressable onPress={() => onDelete(comment)} style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}>
-                <Text style={{ color: colors.danger, fontSize: 12, fontWeight: "600" }}>Delete</Text>
+                <Text style={{ color: colors.danger, fontSize: 12, fontWeight: "700" }}>Delete</Text>
               </Pressable>
             ) : null}
           </View>
 
           {children.length > 0 ? (
-            <View style={{ gap: spacing.sm }}>
+            <View style={{ gap: spacing.md, marginTop: spacing.md }}>
               {children.map((child) => (
                 <PostCommentThreadNode
                   key={child.commentId}
@@ -455,26 +422,40 @@ function PostCommentThreadNode({
   );
 }
 
+function getTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d`;
+  return `${Math.floor(days / 7)}w`;
+}
+
 function CommentAvatar({
   name,
+  size = 34,
   colors,
 }: {
   name: string;
+  size?: number;
   colors: Record<string, string>;
 }) {
   const initial = name.slice(0, 1).toUpperCase() || "?";
   return (
     <View
       style={{
-        width: 34,
-        height: 34,
-        borderRadius: 17,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: colors.accentLight,
       }}
     >
-      <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "700" }}>{initial}</Text>
+      <Text style={{ color: colors.textPrimary, fontSize: Math.max(11, size * 0.38), fontWeight: "700" }}>{initial}</Text>
     </View>
   );
 }

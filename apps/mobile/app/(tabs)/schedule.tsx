@@ -436,9 +436,7 @@ const TeamBanner = memo(function TeamBanner() {
       paddingHorizontal: 14,
       paddingVertical: 10,
       borderRadius: 12,
-      backgroundColor: "transparent",
-      borderWidth: 1.5,
-      borderColor: p.accent,
+      backgroundColor: p.cardWhite,
     }}>
       <Users size={15} color={p.accent} />
       <Text style={{ fontSize: 13, color: p.textSecondary, fontFamily: "Outfit-Regular" }}>
@@ -1174,7 +1172,7 @@ export default memo(function ScheduleScreen() {
           <View style={{ flexDirection: "row", gap: bentoGap }}>
             <Animated.View
               entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
-              style={{ flex: 2, backgroundColor: "transparent", borderWidth: 1.5, borderColor: p.accent, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+              style={{ flex: 2, backgroundColor: p.cardWhite, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
             >
               <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
                 <CalendarCheck size={22} color={p.accent} />
@@ -1191,7 +1189,7 @@ export default memo(function ScheduleScreen() {
 
             <Animated.View
               entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
-              style={{ flex: 1, backgroundColor: "transparent", borderWidth: 1.5, borderColor: p.accent, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
+              style={{ flex: 1, backgroundColor: p.cardWhite, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
             >
               <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.textPrimary, letterSpacing: -1 }}>
                 {requests.length}
@@ -1205,7 +1203,7 @@ export default memo(function ScheduleScreen() {
           {past.length > 0 && (
             <Animated.View
               entering={reduceMotion ? undefined : FadeInDown.delay(120).springify().damping(18)}
-              style={{ backgroundColor: "transparent", borderWidth: 1.5, borderColor: p.accent, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+              style={{ backgroundColor: p.cardWhite, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
             >
               <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
                 <History size={20} color={p.accent} />

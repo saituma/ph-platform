@@ -167,189 +167,125 @@ export function PostComposerSheet({
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <Pressable
-          className="flex-1 justify-end"
-          style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
-          onPress={onClose}
-        >
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            className="rounded-t-[28px] px-5 pt-3"
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <View
             style={{
-              backgroundColor: colors.background,
-              borderTopWidth: 1,
-              borderTopColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, 12),
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: spacing.lg,
+              paddingTop: Math.max(insets.top, spacing.md) + 4,
+              paddingBottom: spacing.md,
+              borderBottomWidth: 0.5,
+              borderBottomColor: colors.border,
             }}
           >
-            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <View
-                style={{
-                  alignSelf: "center",
-                  width: 36,
-                  height: 5,
-                  borderRadius: 999,
-                  backgroundColor: colors.border,
-                  marginBottom: spacing.md,
-                }}
-              />
-
-              <View className="flex-row items-center justify-between mb-3">
-                <Pressable
-                  onPress={onClose}
-                  style={({ pressed }) => ({
-                    minHeight: 36,
-                    justifyContent: "center",
-                    opacity: pressed ? 0.7 : 1,
-                  })}
-                >
-                  <Text style={{ color: colors.textSecondary, fontSize: 16 }}>Cancel</Text>
-                </Pressable>
-
-                <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: "600" }}>
-                  New Post
+            <Pressable
+              onPress={onClose}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, minWidth: 60 })}
+            >
+              <Text style={{ color: colors.textPrimary, fontSize: 16 }}>Cancel</Text>
+            </Pressable>
+            <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: "700" }}>
+              New Post
+            </Text>
+            <Pressable
+              onPress={() => void onSubmit()}
+              disabled={canSubmit}
+              style={({ pressed }) => ({ opacity: pressed || canSubmit ? 0.4 : 1, minWidth: 60, alignItems: "flex-end" })}
+            >
+              {posting ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : (
+                <Text style={{ color: canSubmit ? colors.textDim : colors.accent, fontSize: 16, fontWeight: "700" }}>
+                  Share
                 </Text>
+              )}
+            </Pressable>
+          </View>
 
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xxxl }}
+          >
+            <TextInput
+              autoFocus
+              multiline
+              value={text}
+              onChangeText={setText}
+              placeholder="Write a caption..."
+              placeholderTextColor={colors.textDim}
+              style={{
+                minHeight: 120,
+                color: colors.textPrimary,
+                textAlignVertical: "top",
+                fontSize: 16,
+                lineHeight: 22,
+              }}
+              maxLength={2000}
+            />
+
+            {selectedPhoto ? (
+              <View style={{ marginTop: spacing.md, borderRadius: 4, overflow: "hidden" }}>
+                <Image
+                  source={{ uri: selectedPhoto.uri }}
+                  style={{ width: "100%", aspectRatio: 4 / 5 }}
+                  contentFit="cover"
+                  transition={180}
+                />
                 <Pressable
-                  onPress={() => void onSubmit()}
-                  disabled={canSubmit}
-                  style={({ pressed }) => ({
-                    minHeight: 36,
-                    justifyContent: "center",
-                    opacity: pressed || canSubmit ? 0.5 : 1,
-                  })}
-                >
-                  {posting ? (
-                    <ActivityIndicator color={colors.accent} />
-                  ) : (
-                    <Text style={{ color: canSubmit ? colors.textDim : colors.accent, fontSize: 16, fontWeight: "600" }}>
-                      Post
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
-
-              <LinearGradient
-                colors={["rgba(200,241,53,0.12)", "rgba(123,97,255,0.10)", "rgba(255,255,255,0.02)"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{
-                  borderRadius: radius.xl,
-                  padding: 1,
-                }}
-              >
-                <View
+                  onPress={() => setSelectedPhoto(null)}
                   style={{
-                    borderRadius: radius.xl,
-                    backgroundColor: colors.background,
-                    gap: spacing.md,
-                    paddingHorizontal: spacing.md,
-                    paddingTop: spacing.sm,
-                    paddingBottom: spacing.md,
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: "rgba(0,0,0,0.65)",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  <TextInput
-                    autoFocus
-                    multiline
-                    value={text}
-                    onChangeText={setText}
-                    placeholder="Write something"
-                    placeholderTextColor={colors.textDim}
-                    style={{
-                      minHeight: 160,
-                      color: colors.textPrimary,
-                      textAlignVertical: "top",
-                      fontSize: 17,
-                      lineHeight: 24,
-                      paddingTop: spacing.sm,
-                    }}
-                    maxLength={2000}
-                  />
+                  <Feather name="x" size={14} color="#fff" />
+                </Pressable>
+              </View>
+            ) : null}
+          </ScrollView>
 
-                  {selectedPhoto ? (
-                    <View
-                      style={{
-                        borderRadius: radius.lg,
-                        overflow: "hidden",
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                      }}
-                    >
-                      <Image
-                        source={{ uri: selectedPhoto.uri }}
-                        style={{ width: "100%", height: 260 }}
-                        contentFit="cover"
-                        transition={180}
-                      />
-                      <LinearGradient
-                        colors={["transparent", "rgba(7,7,15,0.45)"]}
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          height: 80,
-                        }}
-                      />
-                      <Pressable
-                        onPress={() => setSelectedPhoto(null)}
-                        style={{
-                          position: "absolute",
-                          top: 10,
-                          right: 10,
-                          width: 30,
-                          height: 30,
-                          borderRadius: 15,
-                          backgroundColor: "rgba(0,0,0,0.6)",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Feather name="x" size={16} color="#fff" />
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <Pressable
-                      onPress={() => void pickPhoto()}
-                      disabled={posting}
-                      style={({ pressed }) => ({
-                        minHeight: 56,
-                        borderRadius: radius.lg,
-                        backgroundColor: colors.surfaceHigh,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        opacity: pressed ? 0.8 : 1,
-                      })}
-                    >
-                      <Feather name="image" size={18} color={colors.accent} />
-                      <Text style={{ color: colors.textSecondary, fontSize: 15 }}>Add photo</Text>
-                    </Pressable>
-                  )}
-
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      paddingTop: spacing.sm,
-                      borderTopWidth: 1,
-                      borderTopColor: colors.border,
-                    }}
-                  >
-                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                      {selectedPhoto ? "1 photo attached" : "Text post"}
-                    </Text>
-                    <Text style={{ color: colors.textDim, fontSize: 12 }}>
-                      {text.length}/2000
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
+          <View
+            style={{
+              borderTopWidth: 0.5,
+              borderTopColor: colors.border,
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.md,
+              paddingBottom: Math.max(insets.bottom, spacing.md),
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Pressable
+              onPress={() => void pickPhoto()}
+              disabled={posting || !!selectedPhoto}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                opacity: pressed || !!selectedPhoto ? 0.5 : 1,
+              })}
+            >
+              <Feather name="image" size={22} color={colors.accent} />
+              <Text style={{ color: colors.textPrimary, fontSize: 14 }}>
+                {selectedPhoto ? "Photo added" : "Add photo"}
+              </Text>
+            </Pressable>
+            <Text style={{ color: colors.textDim, fontSize: 12 }}>
+              {text.length}/2000
+            </Text>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

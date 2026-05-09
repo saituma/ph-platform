@@ -257,7 +257,10 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
       }
     }
 
-    const age = parsed.success ? parsed.data.age : (athlete?.age ?? null);
+    const rawAge = parsed.success ? parsed.data.age : (athlete?.age ?? null);
+    const athleteTeam = athlete?.team ?? null;
+    const hasTeamName = athleteTeam && athleteTeam.trim().toLowerCase() !== "unknown";
+    const age = rawAge || (hasTeamName ? 18 : null);
     if (!age) {
       return res.status(200).json({ age: null, tabs: ["Modules"], modules: [], others: [] });
     }
@@ -265,7 +268,7 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
       age,
       athleteId: athlete?.id ?? null,
       programTier: athlete?.currentProgramTier ?? null,
-      team: athlete?.team ?? null,
+      team: athleteTeam,
     });
     return res.status(200).json(workspace);
   } catch (error) {

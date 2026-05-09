@@ -350,17 +350,17 @@ export default function TrackingHomeScreen() {
   const bentoGap = 10;
   const bentoHalf = (screenWidth - spacing.xl * 2 - bentoGap) / 2;
 
-  const PASTEL_MINT = "transparent";
+  const PASTEL_MINT = p.cardWhite;
   const PASTEL_MINT_TEXT = p.textPrimary;
-  const PASTEL_PEACH = "transparent";
+  const PASTEL_PEACH = p.cardWhite;
   const PASTEL_PEACH_TEXT = p.textPrimary;
-  const PASTEL_LAVENDER = "transparent";
+  const PASTEL_LAVENDER = p.cardWhite;
   const PASTEL_LAVENDER_TEXT = p.textPrimary;
-  const PASTEL_SKY = "transparent";
+  const PASTEL_SKY = p.cardWhite;
   const PASTEL_SKY_TEXT = p.textPrimary;
-  const PASTEL_ROSE = "transparent";
+  const PASTEL_ROSE = p.cardWhite;
   const PASTEL_ROSE_TEXT = p.textPrimary;
-  const BENTO_BORDER = { borderWidth: 1.5, borderColor: p.accent } as const;
+  const BENTO_BORDER = {} as const;
 
   return (
     <>

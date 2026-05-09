@@ -1,10 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, LayoutAnimation, Platform, Pressable, ScrollView, UIManager, View } from "react-native";
+import { ActivityIndicator, LayoutAnimation, Pressable, ScrollView, View } from "react-native";
 import { Bell, Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Flame, MessageSquare, Play, Target, TrendingUp, Utensils } from "lucide-react-native";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
@@ -192,12 +188,9 @@ export function NutritionDashboard() {
         {/* Hero section */}
         <View
           style={{
-            backgroundColor: p.pageBg,
+            backgroundColor: p.cardWhite,
             borderBottomLeftRadius: 32,
             borderBottomRightRadius: 32,
-            borderWidth: 1.5,
-            borderTopWidth: 0,
-            borderColor: p.accent,
             paddingHorizontal: 24,
             paddingTop: 8,
             paddingBottom: 32,

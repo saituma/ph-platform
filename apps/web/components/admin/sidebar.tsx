@@ -25,6 +25,7 @@ import {
   UserPlus,
   Users,
   Video,
+  Baby,
 } from "lucide-react";
 
 import { AdminNavGrouped, type NavGroup } from "./nav";
@@ -129,6 +130,7 @@ export function AdminSidebarContent({
       description: "Users, tiers, onboarding, per-athlete training",
       items: [
         { label: "Users & Tiers", href: "/users", icon: Users },
+        { label: "Parents", href: "/parents", icon: Baby },
         { label: "Add user", href: "/users/add", icon: UserPlus },
         { label: "Add team", href: "/users/add-team", icon: Users },
         { label: "Teams", href: "/teams", icon: Users },

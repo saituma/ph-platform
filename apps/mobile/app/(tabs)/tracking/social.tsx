@@ -44,6 +44,8 @@ import {
   ImageIcon,
   PlusCircle,
   BarChart3,
+  Send,
+  Bookmark,
 } from "lucide-react-native";
 
 import { useRunStore } from "@/store/useRunStore";
@@ -1063,11 +1065,13 @@ function FeedTab({
     ({ item, index }: { item: ListItem; index: number }) => {
       if (item._listType === "composer") {
         return (
-          <PostComposerRow
-            initial={teamInitial}
-            onPress={onPressCompose}
-            p={p}
-          />
+          <View style={{ paddingHorizontal: spacing.xl }}>
+            <PostComposerRow
+              initial={teamInitial}
+              onPress={onPressCompose}
+              p={p}
+            />
+          </View>
         );
       }
       if (item._listType === "team-stats") {
@@ -1076,13 +1080,15 @@ function FeedTab({
         const totalMin = leaderboard.reduce((s, l) => s + l.durationMinutesTotal, 0);
         const activeMembers = leaderboard.filter((l) => l.kmTotal > 0).length;
         return (
-          <TeamStatsBanner
-            totalKm={totalKm}
-            totalMinutes={totalMin}
-            activeRunners={activeMembers}
-            rangeDays={rangeDays}
-            p={p}
-          />
+          <View style={{ paddingHorizontal: spacing.xl }}>
+            <TeamStatsBanner
+              totalKm={totalKm}
+              totalMinutes={totalMin}
+              activeRunners={activeMembers}
+              rangeDays={rangeDays}
+              p={p}
+            />
+          </View>
         );
       }
       if (item._listType === "filters") {
@@ -1093,6 +1099,7 @@ function FeedTab({
               alignItems: "center",
               gap: 8,
               paddingBottom: 4,
+              paddingHorizontal: spacing.xl,
             }}
           >
             <FilterPill
@@ -1188,7 +1195,6 @@ function FeedTab({
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       contentContainerStyle={{
-        paddingHorizontal: spacing.xl,
         paddingTop: spacing.sm,
         paddingBottom: bottomPad,
       }}
@@ -1532,15 +1538,12 @@ const RunCard = memo(function RunCard({
   const commentCount = item.commentCount ?? 0;
   const dateLabel = relativeTime(item.date);
 
-  // Double-tap heart burst animation
   const heartScale = useSharedValue(0);
   const heartOpacity = useSharedValue(0);
 
   const triggerLikeHaptic = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (!item.userLiked) {
-      onToggleLike();
-    }
+    if (!item.userLiked) onToggleLike();
   }, [item.userLiked, onToggleLike]);
 
   const doubleTap = Gesture.Tap()
@@ -1555,12 +1558,7 @@ const RunCard = memo(function RunCard({
       }
     });
 
-  const singleTap = Gesture.Tap()
-    .numberOfTaps(1)
-    .onEnd(() => {
-      // single tap on the card body does nothing — action buttons handle it
-    });
-
+  const singleTap = Gesture.Tap().numberOfTaps(1).onEnd(() => {});
   const composedGesture = Gesture.Exclusive(doubleTap, singleTap);
 
   const heartStyle = useAnimatedStyle(() => ({
@@ -1579,198 +1577,60 @@ const RunCard = memo(function RunCard({
 
   return (
     <GestureDetector gesture={composedGesture}>
-      <View
-        style={{
-          width: "100%",
-          backgroundColor: p.cardWhite,
-          borderRadius: 22,
-          overflow: "hidden",
-        }}
-      >
-        {/* Heart burst overlay */}
+      <View style={{ width: "100%", borderBottomWidth: 0.5, borderBottomColor: p.divider, paddingBottom: 12 }}>
         <Animated.View style={heartStyle} pointerEvents="none">
-          <Heart size={80} color={p.danger} fill={p.danger} />
+          <Heart size={80} color="#FF3040" fill="#FF3040" />
         </Animated.View>
 
-        {/* Header row */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 16,
-            paddingTop: 14,
-            paddingBottom: 10,
-            gap: 10,
-          }}
-        >
-          <InitialAvatar
-            initial={item.name.slice(0, 1).toUpperCase()}
-            url={item.avatarUrl}
-            size={40}
-            p={p}
-          />
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 14,
-                color: p.textPrimary,
-              }}
-            >
-              {item.name}
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Outfit-Regular",
-                fontSize: 12,
-                color: p.textSecondary,
-                marginTop: 1,
-              }}
-            >
-              {dateLabel}
-            </Text>
-          </View>
-          <View
-            style={{
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              borderRadius: 100,
-              backgroundColor: p.accentSoft,
-            }}
-          >
-            <Text
-              style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}
-            >
-              Run
-            </Text>
-          </View>
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}>
+          <InitialAvatar initial={item.name.slice(0, 1).toUpperCase()} url={item.avatarUrl} size={34} p={p} />
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary, flex: 1 }}>{item.name}</Text>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>{dateLabel}</Text>
         </View>
 
-        {/* Route preview */}
         <Pressable onPress={onPressOpen} style={({ pressed }) => ({ opacity: pressed ? 0.95 : 1 })}>
-          <MiniRunPathPreview points={item.pathPreview} height={180} colors={colors} />
+          <MiniRunPathPreview points={item.pathPreview} height={280} colors={colors} />
         </Pressable>
 
-        {/* Stats row */}
-        <View
-          style={{
-            flexDirection: "row",
-            paddingHorizontal: 16,
-            paddingTop: 14,
-            paddingBottom: 2,
-            gap: 0,
-          }}
-        >
-          <StatColumn label="Distance" value={`${km} km`} p={p} />
-          <StatDivider p={p} />
-          <StatColumn label="Time" value={time} p={p} />
-          <StatDivider p={p} />
-          <StatColumn label="Pace" value={pace} p={p} />
-        </View>
-
-        {/* Interaction row */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 12,
-            paddingTop: 12,
-            paddingBottom: 14,
-            gap: 8,
-          }}
-        >
-          {/* Kudos count */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 4,
-              flex: 1,
-            }}
-          >
-            <Heart size={14} color={p.textMuted} />
-            <Text
-              style={{
-                fontFamily: "Outfit-Regular",
-                fontSize: 12,
-                color: p.textSecondary,
-              }}
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 18, flex: 1 }}>
+            <Pressable onPress={onToggleLike} hitSlop={8} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })} accessibilityLabel={item.userLiked ? "Unlike" : "Like"}>
+              <Heart size={26} color={item.userLiked ? "#FF3040" : p.textPrimary} fill={item.userLiked ? "#FF3040" : "none"} />
+            </Pressable>
+            <Pressable onPress={onPressComment} hitSlop={8} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })} accessibilityLabel="Comment">
+              <MessageCircle size={25} color={p.textPrimary} />
+            </Pressable>
+            <Pressable
+              onPress={async () => { await Share.share({ message: `${item.name} ran ${km} km in ${time}` }).catch(() => {}); }}
+              hitSlop={8}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              accessibilityLabel="Share"
             >
-              {likeCount}
-            </Text>
-            <MessageCircle
-              size={13}
-              color={p.textMuted}
-              style={{ marginLeft: 8 }}
-            />
-            <Text
-              style={{
-                fontFamily: "Outfit-Regular",
-                fontSize: 12,
-                color: p.textSecondary,
-              }}
-            >
-              {commentCount}
-            </Text>
+              <Send size={24} color={p.textPrimary} />
+            </Pressable>
           </View>
-
-          {/* Action buttons */}
-          <Pressable
-            onPress={onToggleLike}
-            style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 100,
-              backgroundColor: item.userLiked ? p.accentSoft : p.inputBg,
-              opacity: pressed ? 0.8 : 1,
-            })}
-            accessibilityLabel={item.userLiked ? "Unlike" : "Like"}
-          >
-            <Heart
-              size={16}
-              color={item.userLiked ? p.accent : p.textSecondary}
-              fill={item.userLiked ? p.accent : "none"}
-            />
-            <Text
-              style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 13,
-                color: item.userLiked ? p.accent : p.textSecondary,
-              }}
-            >
-              Kudos
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={onPressComment}
-            style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 100,
-              backgroundColor: p.inputBg,
-              opacity: pressed ? 0.8 : 1,
-            })}
-            accessibilityLabel="Comment"
-          >
-            <MessageCircle size={15} color={p.textSecondary} />
-            <Text
-              style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 13,
-                color: p.textSecondary,
-              }}
-            >
-              Comment
-            </Text>
-          </Pressable>
         </View>
+
+        {likeCount > 0 ? (
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary, paddingHorizontal: 14, paddingTop: 2 }}>
+            {likeCount} {likeCount === 1 ? "like" : "likes"}
+          </Text>
+        ) : null}
+
+        <View style={{ paddingHorizontal: 14, paddingTop: 6 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary, lineHeight: 20 }}>
+            <Text style={{ fontFamily: "Outfit-Bold" }}>{item.name} </Text>
+            ran {km} km in {time} · Pace {pace}
+          </Text>
+        </View>
+
+        {commentCount > 0 ? (
+          <Pressable onPress={onPressComment} hitSlop={6} style={{ paddingHorizontal: 14, paddingTop: 6 }}>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted }}>
+              View all {commentCount} {commentCount === 1 ? "comment" : "comments"}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </GestureDetector>
   );
@@ -1795,15 +1655,12 @@ const PostCard = memo(function PostCard({
   const dateLabel = relativeTime(item.date);
   const isLongText = item.content && item.content.length > 180;
 
-  // Double-tap heart burst animation
   const heartScale = useSharedValue(0);
   const heartOpacity = useSharedValue(0);
 
   const triggerLikeHaptic = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (!item.userLiked) {
-      onToggleLike();
-    }
+    if (!item.userLiked) onToggleLike();
   }, [item.userLiked, onToggleLike]);
 
   const doubleTap = Gesture.Tap()
@@ -1818,12 +1675,7 @@ const PostCard = memo(function PostCard({
       }
     });
 
-  const singleTap = Gesture.Tap()
-    .numberOfTaps(1)
-    .onEnd(() => {
-      // single tap on the card body does nothing — action buttons handle it
-    });
-
+  const singleTap = Gesture.Tap().numberOfTaps(1).onEnd(() => {});
   const composedGesture = Gesture.Exclusive(doubleTap, singleTap);
 
   const heartStyle = useAnimatedStyle(() => ({
@@ -1842,289 +1694,78 @@ const PostCard = memo(function PostCard({
 
   return (
     <GestureDetector gesture={composedGesture}>
-      <View
-        style={{
-          width: "100%",
-          backgroundColor: p.cardWhite,
-          borderRadius: 22,
-          overflow: "hidden",
-        }}
-      >
-        {/* Heart burst overlay */}
+      <View style={{ width: "100%", borderBottomWidth: 0.5, borderBottomColor: p.divider, paddingBottom: 12 }}>
         <Animated.View style={heartStyle} pointerEvents="none">
-          <Heart size={80} color={p.danger} fill={p.danger} />
+          <Heart size={80} color="#FF3040" fill="#FF3040" />
         </Animated.View>
 
-        {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 16,
-            paddingTop: 14,
-            paddingBottom: 10,
-            gap: 10,
-          }}
-        >
-          <InitialAvatar
-            initial={item.name.slice(0, 1).toUpperCase()}
-            url={item.avatarUrl}
-            size={40}
-            p={p}
-          />
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 14,
-                color: p.textPrimary,
-              }}
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}>
+          <InitialAvatar initial={item.name.slice(0, 1).toUpperCase()} url={item.avatarUrl} size={34} p={p} />
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary, flex: 1 }}>{item.name}</Text>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>{dateLabel}</Text>
+        </View>
+
+        {item.mediaUrl ? (
+          item.mediaType === "video" ? (
+            <View style={{ width: "100%", aspectRatio: 1, backgroundColor: p.inputBg, alignItems: "center", justifyContent: "center" }}>
+              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}>
+                <Play size={24} color="#fff" />
+              </View>
+            </View>
+          ) : (
+            <Image source={{ uri: item.mediaUrl }} style={{ width: "100%", aspectRatio: 1 }} contentFit="cover" transition={200} />
+          )
+        ) : null}
+
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 18, flex: 1 }}>
+            <Pressable onPress={onToggleLike} hitSlop={8} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })} accessibilityLabel={item.userLiked ? "Unlike" : "Like"}>
+              <Heart size={26} color={item.userLiked ? "#FF3040" : p.textPrimary} fill={item.userLiked ? "#FF3040" : "none"} />
+            </Pressable>
+            <Pressable onPress={onPressComment} hitSlop={8} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })} accessibilityLabel="Comment">
+              <MessageCircle size={25} color={p.textPrimary} />
+            </Pressable>
+            <Pressable
+              onPress={async () => { await Share.share({ message: item.content ?? "" }).catch(() => {}); }}
+              hitSlop={8}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              accessibilityLabel="Share"
             >
-              {item.name}
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Outfit-Regular",
-                fontSize: 12,
-                color: p.textSecondary,
-                marginTop: 1,
-              }}
-            >
-              {dateLabel}
-            </Text>
-          </View>
-          <View
-            style={{
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              borderRadius: 100,
-              backgroundColor: p.infoSoft,
-            }}
-          >
-            <Text
-              style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.info }}
-            >
-              Post
-            </Text>
+              <Send size={24} color={p.textPrimary} />
+            </Pressable>
           </View>
         </View>
 
-        {/* Text content */}
+        {likeCount > 0 ? (
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary, paddingHorizontal: 14, paddingTop: 2 }}>
+            {likeCount} {likeCount === 1 ? "like" : "likes"}
+          </Text>
+        ) : null}
+
         {item.content ? (
-          <View style={{ paddingHorizontal: 16, paddingBottom: item.mediaUrl ? 10 : 0 }}>
+          <View style={{ paddingHorizontal: 14, paddingTop: 6 }}>
             <Text
-              numberOfLines={expanded ? undefined : isLongText ? 3 : undefined}
-              style={{
-                fontFamily: "Outfit-Regular",
-                fontSize: 15,
-                color: p.textPrimary,
-                lineHeight: 22,
-              }}
+              numberOfLines={expanded ? undefined : isLongText ? 2 : undefined}
+              style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary, lineHeight: 20 }}
             >
+              <Text style={{ fontFamily: "Outfit-Bold" }}>{item.name} </Text>
               {item.content}
             </Text>
             {isLongText && !expanded ? (
               <Pressable onPress={() => setExpanded(true)} hitSlop={8}>
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Bold",
-                    fontSize: 13,
-                    color: p.accent,
-                    marginTop: 4,
-                  }}
-                >
-                  Read more
-                </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted, marginTop: 2 }}>more</Text>
               </Pressable>
             ) : null}
           </View>
         ) : null}
 
-        {/* Media */}
-        {item.mediaUrl ? (
-          <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-            <View
-              style={{
-                borderRadius: 16,
-                overflow: "hidden",
-                backgroundColor: p.inputBg,
-              }}
-            >
-              {item.mediaType === "video" ? (
-                <View
-                  style={{
-                    height: 180,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 23,
-                      backgroundColor: p.accentSoft,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Play size={20} color={p.accent} />
-                  </View>
-                  <Text
-                    style={{
-                      fontFamily: "Outfit-Bold",
-                      fontSize: 13,
-                      color: p.textPrimary,
-                    }}
-                  >
-                    Video post
-                  </Text>
-                </View>
-              ) : (
-                <View>
-                  <Image
-                    source={{ uri: item.mediaUrl }}
-                    style={{ width: "100%", aspectRatio: 16 / 9 }}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                  <LinearGradient
-                    colors={["transparent", "rgba(7,7,15,0.45)"]}
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: 60,
-                    }}
-                  />
-                </View>
-              )}
-            </View>
-          </View>
+        {commentCount > 0 ? (
+          <Pressable onPress={onPressComment} hitSlop={6} style={{ paddingHorizontal: 14, paddingTop: 6 }}>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted }}>
+              View all {commentCount} {commentCount === 1 ? "comment" : "comments"}
+            </Text>
+          </Pressable>
         ) : null}
-
-        {/* Like/comment counts + actions */}
-        <View
-          style={{
-            paddingHorizontal: 16,
-            paddingTop: 4,
-            paddingBottom: 14,
-          }}
-        >
-          {(likeCount > 0 || commentCount > 0) ? (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-                paddingBottom: 10,
-              }}
-            >
-              {likeCount > 0 ? (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Heart size={13} color={p.textMuted} />
-                  <Text
-                    style={{
-                      fontFamily: "Outfit-Regular",
-                      fontSize: 12,
-                      color: p.textSecondary,
-                    }}
-                  >
-                    {likeCount} {likeCount === 1 ? "like" : "likes"}
-                  </Text>
-                </View>
-              ) : null}
-              {commentCount > 0 ? (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <MessageCircle size={12} color={p.textMuted} />
-                  <Text
-                    style={{
-                      fontFamily: "Outfit-Regular",
-                      fontSize: 12,
-                      color: p.textSecondary,
-                    }}
-                  >
-                    {commentCount} {commentCount === 1 ? "comment" : "comments"}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-
-          {/* Divider */}
-          <View
-            style={{
-              height: 1,
-              backgroundColor: p.divider,
-              marginBottom: 10,
-            }}
-          />
-
-          {/* Action buttons */}
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Pressable
-              onPress={onToggleLike}
-              style={({ pressed }) => ({
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                paddingVertical: 9,
-                borderRadius: 100,
-                backgroundColor: item.userLiked
-                  ? p.accentSoft
-                  : p.inputBg,
-                opacity: pressed ? 0.8 : 1,
-              })}
-              accessibilityLabel={item.userLiked ? "Unlike" : "Like"}
-            >
-              <Heart
-                size={16}
-                color={item.userLiked ? p.accent : p.textSecondary}
-                fill={item.userLiked ? p.accent : "none"}
-              />
-              <Text
-                style={{
-                  fontFamily: "Outfit-Bold",
-                  fontSize: 13,
-                  color: item.userLiked ? p.accent : p.textSecondary,
-                }}
-              >
-                Like
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={onPressComment}
-              style={({ pressed }) => ({
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                paddingVertical: 9,
-                borderRadius: 100,
-                backgroundColor: p.inputBg,
-                opacity: pressed ? 0.8 : 1,
-              })}
-              accessibilityLabel="Comment"
-            >
-              <MessageCircle size={15} color={p.textSecondary} />
-              <Text
-                style={{
-                  fontFamily: "Outfit-Bold",
-                  fontSize: 13,
-                  color: p.textSecondary,
-                }}
-              >
-                Comment
-              </Text>
-            </Pressable>
-          </View>
-        </View>
       </View>
     </GestureDetector>
   );
@@ -2344,49 +1985,34 @@ function PostComposerRow({
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        borderRadius: 22,
         opacity: pressed ? 0.92 : 1,
+        borderBottomWidth: 0.5,
+        borderBottomColor: p.divider,
+        paddingVertical: 12,
+        paddingHorizontal: 4,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
       })}
     >
+      <InitialAvatar initial={initial} size={34} p={p} />
       <View
         style={{
-          backgroundColor: p.cardWhite,
-          borderRadius: 22,
-          paddingVertical: 12,
+          flex: 1,
+          height: 38,
+          borderRadius: 19,
+          borderWidth: 1,
+          borderColor: p.divider,
           paddingHorizontal: 14,
           flexDirection: "row",
           alignItems: "center",
-          gap: 10,
+          justifyContent: "space-between",
         }}
       >
-        <InitialAvatar initial={initial} size={38} p={p} />
-        <View
-          style={{
-            flex: 1,
-            minHeight: 40,
-            borderRadius: 100,
-            backgroundColor: p.inputBg,
-            paddingHorizontal: 14,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Text
-            style={{
-              flex: 1,
-              fontFamily: "Outfit-Regular",
-              fontSize: 14,
-              color: p.textMuted,
-            }}
-          >
-            Share with the team...
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <ImageIcon size={17} color={p.textSecondary} />
-            <PlusCircle size={17} color={p.accent} />
-          </View>
-        </View>
+        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted }}>
+          What's on your mind?
+        </Text>
+        <ImageIcon size={18} color={p.textSecondary} />
       </View>
     </Pressable>
   );
@@ -2488,9 +2114,7 @@ function TeamStatsBanner({
     <View
       style={{
         borderRadius: 22,
-        backgroundColor: "transparent",
-        borderWidth: 1.5,
-        borderColor: p.accent,
+        backgroundColor: p.cardWhite,
         padding: 18,
         gap: 14,
       }}
