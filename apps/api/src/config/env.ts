@@ -144,7 +144,6 @@ function validateProductionConfig(config: typeof raw) {
   requireProductionValue("STRIPE_SECRET_KEY", config.STRIPE_SECRET_KEY, failures);
   requireProductionValue("STRIPE_SUCCESS_URL", config.STRIPE_SUCCESS_URL, failures);
   requireProductionValue("STRIPE_CANCEL_URL", config.STRIPE_CANCEL_URL, failures);
-  requireProductionValue("STRIPE_WEBHOOK_SECRET", config.STRIPE_WEBHOOK_SECRET, failures);
   requireProductionValue("UPSTASH_REDIS_REST_URL", config.UPSTASH_REDIS_REST_URL, failures);
   requireProductionValue("UPSTASH_REDIS_REST_TOKEN", config.UPSTASH_REDIS_REST_TOKEN, failures);
 
