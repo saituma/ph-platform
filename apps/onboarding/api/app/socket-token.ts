@@ -14,9 +14,11 @@ export default async function handler(request: Request): Promise<Response> {
     });
   }
 
+  const authHeader = request.headers.get("authorization") ?? "";
+  const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i);
   const cookieHeader = request.headers.get("cookie") ?? "";
-  const match = cookieHeader.match(/(?:^|;\s*)auth_token=([^;]+)/);
-  const authToken = match?.[1] ?? null;
+  const cookieMatch = cookieHeader.match(/(?:^|;\s*)auth_token=([^;]+)/);
+  const authToken = bearerMatch?.[1] ?? cookieMatch?.[1] ?? null;
 
   if (!authToken) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
