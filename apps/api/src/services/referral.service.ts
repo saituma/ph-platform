@@ -1,4 +1,4 @@
-import { count, eq } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 import crypto from "crypto";
 import { db } from "../db";
 import { referralClaimsTable, userReferralCodesTable, userTable } from "../db/schema";
@@ -124,4 +124,83 @@ function obfuscateName(name: string | null | undefined): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0]!.slice(0, 1) + "***";
   return `${parts[0]} ${parts[parts.length - 1]!.slice(0, 1)}.`;
+}
+
+export async function getAdminReferralOverview() {
+  // All users who have a referral code, with their claim counts
+  const rows = await db
+    .select({
+      referrerId: userReferralCodesTable.userId,
+      referrerName: userTable.name,
+      referrerEmail: userTable.email,
+      referrerRole: userTable.role,
+      code: userReferralCodesTable.code,
+      codeCreatedAt: userReferralCodesTable.createdAt,
+      claimId: referralClaimsTable.id,
+      claimedAt: referralClaimsTable.claimedAt,
+      newUserId: referralClaimsTable.newUserId,
+    })
+    .from(userReferralCodesTable)
+    .innerJoin(userTable, eq(userReferralCodesTable.userId, userTable.id))
+    .leftJoin(referralClaimsTable, eq(referralClaimsTable.referralCodeId, userReferralCodesTable.id))
+    .orderBy(userReferralCodesTable.userId, referralClaimsTable.claimedAt);
+
+  // Fetch joinee names in one query
+  const newUserIds = [...new Set(rows.map((r) => r.newUserId).filter((id): id is number => id != null))];
+  const joineeRows = newUserIds.length
+    ? await db
+        .select({ id: userTable.id, name: userTable.name, email: userTable.email })
+        .from(userTable)
+        .where(inArray(userTable.id, newUserIds))
+    : [];
+  const joineeMap = new Map(joineeRows.map((j) => [j.id, j]));
+
+  // Group by referrer
+  const byReferrer = new Map<number, {
+    referrerId: number;
+    referrerName: string | null;
+    referrerEmail: string | null;
+    referrerRole: string | null;
+    code: string;
+    codeCreatedAt: Date;
+    claims: Array<{ id: number; claimedAt: Date; joineeName: string | null; joineeEmail: string | null; joineeId: number }>;
+  }>();
+
+  for (const row of rows) {
+    if (!byReferrer.has(row.referrerId)) {
+      byReferrer.set(row.referrerId, {
+        referrerId: row.referrerId,
+        referrerName: row.referrerName,
+        referrerEmail: row.referrerEmail,
+        referrerRole: row.referrerRole,
+        code: row.code,
+        codeCreatedAt: row.codeCreatedAt,
+        claims: [],
+      });
+    }
+    if (row.claimId != null && row.newUserId != null) {
+      const joinee = joineeMap.get(row.newUserId);
+      byReferrer.get(row.referrerId)!.claims.push({
+        id: row.claimId,
+        claimedAt: row.claimedAt!,
+        joineeName: joinee?.name ?? null,
+        joineeEmail: joinee?.email ?? null,
+        joineeId: row.newUserId,
+      });
+    }
+  }
+
+  const referrers = [...byReferrer.values()]
+    .sort((a, b) => b.claims.length - a.claims.length)
+    .map((r) => ({
+      ...r,
+      codeCreatedAt: r.codeCreatedAt.toISOString(),
+      totalReferred: r.claims.length,
+      claims: r.claims.map((c) => ({ ...c, claimedAt: c.claimedAt.toISOString() })),
+    }));
+
+  const totalCodes = referrers.length;
+  const totalClaims = referrers.reduce((s, r) => s + r.totalReferred, 0);
+
+  return { totalCodes, totalClaims, referrers };
 }

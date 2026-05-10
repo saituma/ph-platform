@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   CreditCard,
+  Gift,
   Images,
   Inbox,
   LayoutDashboard,
@@ -86,9 +87,10 @@ const NAV: NavEntry[] = [
     label: "People",
     icon: Users,
     children: [
-      { label: "Users & Tiers", href: "/users",           icon: Users },
-      { label: "Teams",         href: "/teams",           icon: Users },
-      { label: "Parents",       href: "/parents",         icon: Library },
+      { label: "Users & Tiers",  href: "/users",     icon: Users },
+      { label: "Teams",          href: "/teams",     icon: Users },
+      { label: "Parents",        href: "/parents",   icon: Library },
+      { label: "User Referrals", href: "/referrals", icon: Gift },
     ],
   },
 
