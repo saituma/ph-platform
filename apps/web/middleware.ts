@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isAdminPortalRole } from "@ph/roles";
+
+const ADMIN_PORTAL_ROLES = [
+  "admin",
+  "coach",
+  "superAdmin",
+  "super_admin",
+  "team_coach",
+  "program_coach",
+] as const;
+
+function isAdminPortalRole(role: string | null | undefined): boolean {
+  return typeof role === "string" && (ADMIN_PORTAL_ROLES as readonly string[]).includes(role);
+}
 
 const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/refresh", "/api/auth/clear-session"];
 const csrfCookieName = "csrfToken";
