@@ -30,7 +30,7 @@ async function verifyToken(token: string, secret: string, remoteIp?: string): Pr
 }
 
 async function verifyWithAnySecret(token: string, remoteIp?: string): Promise<VerifyResult> {
-  const secrets = [env.turnstileSecretKey, env.turnstileSecretKey2].filter(Boolean);
+  const secrets = [env.turnstileSecretKey, env.turnstileSecretKey2, env.turnstileSecretKey3].filter(Boolean);
   if (secrets.length === 0) return { success: true };
 
   for (const secret of secrets) {
@@ -69,7 +69,7 @@ export function requireTurnstile(req: Request, res: Response, next: NextFunction
   if (!req.header("origin")) {
     return next();
   }
-  if (!env.turnstileSecretKey && !env.turnstileSecretKey2) {
+  if (!env.turnstileSecretKey && !env.turnstileSecretKey2 && !env.turnstileSecretKey3) {
     return next();
   }
   const token = (req.body && (req.body.turnstileToken || req.body["cf-turnstile-response"])) as

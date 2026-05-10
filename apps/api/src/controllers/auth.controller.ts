@@ -340,7 +340,16 @@ export async function getSessionCompat(req: Request, res: Response) {
 
 export async function startPasswordReset(req: Request, res: Response) {
   const input = forgotSchema.parse(req.body);
-  await startForgotPasswordLocal(input);
+  try {
+    await startForgotPasswordLocal(input);
+  } catch (e: any) {
+    // Always return 200 for 404/403 to prevent email enumeration.
+    // 5xx errors still propagate so the client can show a real failure.
+    if (e?.status === 404 || e?.status === 403) {
+      return res.status(200).json({ ok: true });
+    }
+    throw e;
+  }
   return res.status(200).json({ ok: true });
 }
 

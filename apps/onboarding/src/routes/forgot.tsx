@@ -59,8 +59,11 @@ function ForgotPassword() {
 				body: JSON.stringify({ email: emailValue }),
 			});
 
-			// Always 200 for security — don't leak whether the email exists
-			await response.json().catch(() => ({}));
+			const data = await response.json().catch(() => ({}));
+
+			if (!response.ok) {
+				throw new Error((data as any).error || "Failed to send reset code");
+			}
 
 			setEmail(emailValue);
 			toast.success("Reset code sent!", {
