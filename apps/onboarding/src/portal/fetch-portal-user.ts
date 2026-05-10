@@ -1,3 +1,5 @@
+import { getClientAuthToken } from "@/lib/client-storage";
+import { config } from "@/lib/config";
 import {
 	PORTAL_SERVICE_UNAVAILABLE,
 	PORTAL_UNAUTHORIZED_ERROR,
@@ -26,10 +28,19 @@ async function fetchWithRetry(
 	throw new Error("Failed to reach server");
 }
 
-export async function fetchPortalUser(_token?: string): Promise<PortalUser> {
-	const res = await fetchWithRetry("/api/app/auth/me", {
+export async function fetchPortalUser(token?: string): Promise<PortalUser> {
+	const bearer = token && token !== "" ? token : getClientAuthToken();
+	if (!bearer) {
+		throw new Error(PORTAL_UNAUTHORIZED_ERROR);
+	}
+
+	const baseUrl = config.api.baseUrl.replace(/\/+$/, "");
+	const res = await fetchWithRetry(`${baseUrl}/api/auth/me`, {
 		credentials: "include",
 		cache: "no-store",
+		headers: {
+			Authorization: `Bearer ${bearer}`,
+		},
 	});
 
 	if (res.status === 401) {
